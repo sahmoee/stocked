@@ -1,0 +1,688 @@
+// UserRecipeViews.swift — UserRecipeCard, UserRecipeDetailView, RecipeSubstitutionsSection, RecipeKitchenTipsSection.
+// Split out of ReadyToCookView.swift (Build 189, code-health refactor #1). No logic changes.
+import SwiftUI
+import PhotosUI
+
+// MARK: - User Recipe Card (with internet image)
+struct UserRecipeCard: View {
+    @Environment(AppSession.self) var session
+    let recipe: UserRecipe
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                RecipeHeroImage(imageData: recipe.imageData, imageURL: recipe.imageURL, recipeName: recipe.title)
+                    .frame(height: 130).clipped()
+                // Tip overlay
+                if recipe.imageData == nil {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Image(systemName: "camera.fill").font(.system(size: 10))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.7))
+                                .padding(6)
+                                .background(Color.black.opacity(0.4))
+                                .clipShape(Circle())
+                                .padding(6)
+                        }
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                Text(recipe.title).font(.system(size: 13, weight: .semibold, design: .serif))
+                    .foregroundStyle(session.themeTextColor).lineLimit(1)
+                HStack(spacing: 6) {
+                    if !recipe.cookTime.isEmpty {
+                        Text(recipe.cookTime).font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    }
+                    if !recipe.difficulty.isEmpty {
+                        Text("·").foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Text(recipe.difficulty).font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    }
+                }
+            }
+            .padding(.horizontal, 8).padding(.vertical, 12)
+            .background(Color.stockedBg.opacity(0.5))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).shadow(color: .black.opacity(0.07), radius: 4, y: 2)
+    }
+}
+
+// MARK: - User Recipe Detail View
+struct UserRecipeDetailView: View {
+    @Environment(AppSession.self) var session
+    @Environment(\.dismiss) var dismiss
+    @State var recipe: UserRecipe
+    @State private var showSubstitutions      = false
+    @State private var substitutionScrollTarget: String? = nil
+    @State private var scaledServings: Int
+    @State private var showGroceryPushAlert   = false
+    @State private var groceryPushCount       = 0
+    @State private var showNotesEdit          = false
+    @State private var notesText              = ""
+    @State private var showRenameAlert        = false
+    @State private var renameText             = ""
+    @State private var showDeleteConfirm      = false
+
+    init(recipe: UserRecipe) {
+        self._recipe         = State(initialValue: recipe)
+        self._scaledServings = State(initialValue: recipe.servings)
+        self._notesText      = State(initialValue: recipe.notes)
+    }
+
+    // Scale factor vs original servings
+    private var scaleFactor: Double {
+        guard recipe.servings > 0 else { return 1 }
+        return Double(scaledServings) / Double(recipe.servings)
+    }
+
+    // Cook history line
+    private var cookHistoryLabel: String? {
+        guard recipe.cookCount > 0 else { return nil }
+        let dateStr = recipe.lastCooked.map { StockedFormatters.mediumDate.string(from: $0) } ?? ""
+        return recipe.cookCount == 1
+            ? "Made once\(dateStr.isEmpty ? "" : " · \(dateStr)")"
+            : "Made \(recipe.cookCount)× · Last \(dateStr)"
+    }
+
+    // #5 — ratings this recipe has earned across past cooks. Linked by recipeId, with a
+    // title fallback so meals logged before linking existed still count.
+    private var ratedMeals: [LocalPastMeal] {
+        let key = recipe.title.lowercased().trimmingCharacters(in: .whitespaces)
+        return session.guestStore.pastMeals.filter { m in
+            (m.recipeId == recipe.id || m.title.lowercased().trimmingCharacters(in: .whitespaces) == key) && m.rating > 0
+        }
+    }
+    private var averageRating: Double? {
+        guard !ratedMeals.isEmpty else { return nil }
+        return Double(ratedMeals.map(\.rating).reduce(0, +)) / Double(ratedMeals.count)
+    }
+
+    // Nutrition summary — scale by serving ratio
+    private var nutritionSummary: (cal: Int, protein: Double, carbs: Double, fat: Double)? {
+        let cals    = recipe.ingredients.compactMap { $0.nutrition?.calories }
+        let protein = recipe.ingredients.compactMap { $0.nutrition?.protein }
+        let carbs   = recipe.ingredients.compactMap { $0.nutrition?.totalCarbs }
+        let fat     = recipe.ingredients.compactMap { $0.nutrition?.totalFat }
+        guard !cals.isEmpty else { return nil }
+        let srv = max(1, recipe.servings)
+        return (
+            cal:     Int(Double(cals.reduce(0,+))    / Double(srv) * scaleFactor),
+            protein: (protein.reduce(0,+) / Double(srv) * scaleFactor).rounded(toPlaces: 1),
+            carbs:   (carbs.reduce(0,+)   / Double(srv) * scaleFactor).rounded(toPlaces: 1),
+            fat:     (fat.reduce(0,+)     / Double(srv) * scaleFactor).rounded(toPlaces: 1)
+        )
+    }
+
+    var body: some View {
+        detailContent
+            .onAppear { session.recordRecipeView(recipe.id) }   // #240 — Recently Viewed
+            .navigationTitle(recipe.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { recipeOptionsToolbar }
+            .alert("Rename Recipe", isPresented: $showRenameAlert) {
+                TextField("Recipe name", text: $renameText)
+                Button("Cancel", role: .cancel) { }
+                Button("Save") {
+                    let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    recipe.title = trimmed
+                    session.guestStore.renameUserRecipe(id: recipe.id, name: trimmed)
+                }
+            } message: {
+                Text("This updates the name everywhere in the app.")
+            }
+            .confirmationDialog("Delete this recipe?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("Delete Recipe", role: .destructive) {
+                    session.guestStore.deleteUserRecipe(id: recipe.id)
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("\"\(recipe.title)\" will be removed from your collection. This can't be undone.")
+            }
+    }
+
+    @ToolbarContentBuilder
+    private var recipeOptionsToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Button { renameText = recipe.title; showRenameAlert = true } label: {
+                    Label("Rename", systemImage: "pencil")
+                }
+                Button(role: .destructive) { showDeleteConfirm = true } label: {
+                    Label("Delete Recipe", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle").font(.system(size: 17, weight: .semibold))
+            }
+            .accessibilityLabel("Recipe options")
+        }
+    }
+
+    private var detailContent: some View {
+        ZStack {
+            session.themeBgColor.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+
+                    // Hero
+                    ZStack(alignment: .bottom) {
+                        RecipeHeroImage(imageData: recipe.imageData, imageURL: recipe.imageURL, recipeName: recipe.title)
+                            .frame(maxWidth: .infinity).frame(height: 220).clipped().clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        if recipe.imageData == nil {
+                            HStack {
+                                Spacer()
+                                Label("Tap to add your own photo", systemImage: "camera.fill")
+                                    .font(.system(size: 10)).foregroundStyle(Color.stockedWhite)
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(Color.black.opacity(0.45)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)).padding(10)
+                            }
+                        }
+                    }.padding(.horizontal, 20)
+
+                    // Title + meta
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(recipe.title)
+                            .font(.system(size: 24, weight: .bold, design: .serif))
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .foregroundStyle(session.themeTextColor)
+
+                        // Cook history
+                        if let history = cookHistoryLabel {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+                                Text(history)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            }
+                        }
+
+                        // #5 — average rating earned across past cooks
+                        if let avg = averageRating {
+                            HStack(spacing: 4) {
+                                ForEach(1...5, id: \.self) { i in
+                                    Image(systemName: Double(i) <= avg ? "star.fill"
+                                          : (Double(i) - 0.5 <= avg ? "star.leadinghalf.filled" : "star"))
+                                        .font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+                                }
+                                Text(String(format: "%.1f", avg))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                Text("(\(ratedMeals.count))")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            }
+                        }
+
+                        HStack(spacing: 16) {
+                            // Use estimated cook time from steps if not set
+                            let displayTime: String = {
+                                if !recipe.cookTime.isEmpty { return recipe.cookTime }
+                                return CookTimeEstimator.estimate(from: recipe.instructions) ?? "–"
+                            }()
+                            metaBadge(icon: "clock",  text: displayTime)
+                            metaBadge(icon: "flame",  text: recipe.difficulty)
+                        }
+                        // Servings on its own row so it doesn't crowd the time/difficulty badges
+                        metaBadge(icon: "person.2", text: "\(recipe.servings) servings")
+                    }.padding(.horizontal, 24)
+
+                    // ── Serving scaler ────────────────────────────────────
+                    HStack(spacing: 12) {
+                        Text("Scale servings")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
+                        Spacer()
+                        HStack(spacing: 0) {
+                            Button { if scaledServings > 1 { scaledServings -= 1 } } label: {
+                                Image(systemName: "minus").font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(session.themeTextColor)
+                                    .frame(width: 36, height: 36).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                            Text("\(scaledServings)")
+                                .font(.system(size: 18, weight: .bold, design: .serif))
+                                .foregroundStyle(Color.stockedGold).frame(minWidth: 32)
+                            Button { scaledServings += 1 } label: {
+                                Image(systemName: "plus").font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(session.themeTextColor)
+                                    .frame(width: 36, height: 36).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+
+                        if scaledServings != recipe.servings {
+                            Button {
+                                var updated = recipe
+                                updated.servings = scaledServings
+                                session.guestStore.updateUserRecipe(updated)
+                                recipe = updated
+                            } label: {
+                                Text("Save")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(Color.stockedWhite)
+                                    .padding(.horizontal, 12).padding(.vertical, 6)
+                                    .background(Color.stockedGold).clipShape(Capsule())
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(14)
+                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .padding(.horizontal, 24)
+
+                    // ── Nutrition summary ─────────────────────────────────
+                    if let n = nutritionSummary {
+                        let dri = DRITable.adult
+                        VStack(spacing: 0) {
+                            HStack(spacing: 0) {
+                                nutriStat(label: "Cal",
+                                          value: "\(n.cal)",
+                                          dv: "\(DRITable.percent(Double(n.cal), of: Double(dri.calories)))%")
+                                Divider().frame(height: 40)
+                                nutriStat(label: "Protein",
+                                          value: "\(n.protein)g",
+                                          dv: "\(DRITable.percent(n.protein, of: dri.protein))%")
+                                Divider().frame(height: 40)
+                                nutriStat(label: "Carbs",
+                                          value: "\(n.carbs)g",
+                                          dv: "\(DRITable.percent(n.carbs, of: dri.totalCarbs))%")
+                                Divider().frame(height: 40)
+                                nutriStat(label: "Fat",
+                                          value: "\(n.fat)g",
+                                          dv: "\(DRITable.percent(n.fat, of: dri.totalFat))%")
+                            }
+                            HStack {
+                                Spacer()
+                                Text("% Daily Value per serving · 2000 cal diet")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                    .padding(.horizontal, 12).padding(.bottom, 6)
+                            }
+                        }
+                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(.horizontal, 24)
+                    }
+
+                    // ── Ingredients ───────────────────────────────────────
+                    if !recipe.ingredients.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("Ingredients")
+                                    .font(.system(size: 16, weight: .bold, design: .serif))
+                                    .foregroundStyle(session.themeTextColor)
+                                Spacer()
+                                // Linked grocery push — consolidates duplicates across recipes
+                                Button {
+                                    groceryPushCount = session.guestStore.addRecipeIngredientsToGrocery(
+                                        recipe.ingredients, recipeName: recipe.title)
+                                    showGroceryPushAlert = true
+                                } label: {
+                                    Label("Add Missing to List", systemImage: "cart.badge.plus")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(Color.stockedGold)
+                                }
+                                .buttonStyle(.plain)
+                                .alert("Added to Grocery List", isPresented: $showGroceryPushAlert) {
+                                    Button("OK", role: .cancel) {}
+                                } message: {
+                                    Text(groceryPushCount == 0
+                                         ? "You already have everything for this recipe."
+                                         : "\(groceryPushCount) missing ingredient\(groceryPushCount == 1 ? "" : "s") added under \"\(recipe.title)\".")
+                                }
+                            }
+                            ForEach(recipe.ingredients) { ing in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 10) {
+                                        Circle()
+                                            .fill(ing.isOptional ? Color.stockedGold.opacity(0.4) : Color.stockedGold)
+                                            .frame(width: 6, height: 6)
+                                        // Scale amount if numeric
+                                        Text(scaledAmount(ing.amount) + " " + ing.name)
+                                            .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                                        if ing.isOptional {
+                                            Text("(optional)").font(.system(size: 11))
+                                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                        }
+                                        Spacer()
+                                        if StockedDatabase.shared.hasSubstitution(for: ing.name) {
+                                            Button {
+                                                withAnimation(.spring(response: 0.25)) {
+                                                    substitutionScrollTarget = ing.name
+                                                    showSubstitutions = true
+                                                }
+                                            } label: {
+                                                HStack(spacing: 3) {
+                                                    Text("Sub ↓").font(.system(size: 9, weight: .semibold))
+                                                    Image(systemName: "arrow.down.circle").font(.system(size: 9))
+                                                }
+                                                .foregroundStyle(Color.stockedGold)
+                                                .padding(.horizontal, 6).padding(.vertical, 3)
+                                                .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+                                            }.buttonStyle(.plain)
+                                        }
+                                    }
+                                    if let brand = ing.brand {
+                                        Text(brand).font(.system(size: 11)).foregroundStyle(Color.stockedGold).padding(.leading, 16)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+                    }
+
+                    // ── Instructions ──────────────────────────────────────
+                    if !recipe.instructions.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Instructions")
+                                .font(.system(size: 16, weight: .bold, design: .serif))
+                                .foregroundStyle(session.themeTextColor)
+                            ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
+                                HStack(alignment: .top, spacing: 12) {
+                                    ZStack {
+                                        Circle().fill(Color.stockedGold).frame(width: 24, height: 24)
+                                        Text("\(i+1)").font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                                    }
+                                    Text(step).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+                    }
+
+                    // ── Notes ─────────────────────────────────────────────
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Notes")
+                                .font(.system(size: 16, weight: .bold, design: .serif))
+                                .foregroundStyle(session.themeTextColor)
+                            Spacer()
+                            Button(showNotesEdit ? "Done" : "Edit") {
+                                if showNotesEdit {
+                                    var updated = recipe
+                                    updated.notes = notesText
+                                    session.guestStore.updateUserRecipe(updated)
+                                    recipe = updated
+                                }
+                                showNotesEdit.toggle()
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.stockedGold)
+                            .buttonStyle(.plain)
+                        }
+                        if showNotesEdit {
+                            TextEditor(text: $notesText)
+                                .font(.system(size: 14))
+                                .foregroundStyle(session.themeTextColor)
+                                .frame(minHeight: 80)
+                                .padding(10)
+                                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
+                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                        } else {
+                            Text(recipe.notes.isEmpty ? "Tap Edit to add notes — modifications, tips, what you'd change next time." : recipe.notes)
+                                .font(.system(size: 14))
+                                .foregroundStyle(recipe.notes.isEmpty
+                                    ? session.themeTextColor.opacity(0.35)
+                                    : session.themeTextColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(16)
+                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+
+                    // Substitutions
+                    RecipeSubstitutionsSection(
+                        ingredientNames: recipe.ingredients.map { $0.name },
+                        isExpanded: $showSubstitutions,
+                        scrollTarget: $substitutionScrollTarget
+                    )
+
+                    // Kitchen Tips
+                    RecipeKitchenTipsSection()
+
+                    // Start Cooking
+                    NavigationLink(destination: RecipeOverviewView(
+                        title: recipe.title, servings: scaledServings,
+                        ingredients: recipe.ingredientNames)
+                    ) {
+                        Text("Start Cooking")
+                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                            .foregroundStyle(Color.stockedWhite)
+                            .frame(maxWidth: .infinity).padding(.vertical, 16)
+                            .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                    }
+                    .buttonStyle(.plain).padding(.horizontal, 24).padding(.bottom, 40)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        // Log cook
+                        var updated = recipe
+                        updated.cookCount += 1
+                        updated.lastCooked = Date()
+                        session.guestStore.updateUserRecipe(updated)
+                        recipe = updated
+                        // Log past meal
+                        let df = DateFormatter(); df.dateStyle = .medium; df.timeStyle = .none
+                        let meal = LocalPastMeal(title: recipe.title, date: df.string(from: Date()), recipeId: recipe.id)
+                        session.guestStore.pastMeals.append(meal)
+                    })
+                }
+                .padding(.top, 20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func scaledAmount(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        guard scaleFactor != 1.0 else { return trimmed }
+        // Pure number (e.g. "2", "0.5")
+        if let num = Double(trimmed) {
+            return smartFraction(num * scaleFactor)
+        }
+        // Quantity string with possible unit (e.g. "1 cup", "2 tbsp")
+        let parsed = ParsedQuantity.parse(trimmed)
+        if parsed.amount > 0 {
+            let scaledAmt = parsed.amount * scaleFactor
+            let unitStr   = parsed.canonicalUnit.isEmpty ? "" : " \(parsed.canonicalUnit)"
+            return smartFraction(scaledAmt) + unitStr
+        }
+        return trimmed
+    }
+
+    private func metaBadge(icon: String, text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+            Text(text).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.65))
+        }
+    }
+
+    private func nutriStat(label: String, value: String, dv: String = "") -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .serif))
+                .foregroundStyle(session.themeTextColor)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(session.themeTextColor.opacity(0.45))
+            if !dv.isEmpty {
+                Text(dv)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(session.accentColor.opacity(0.7))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Recipe Substitutions Section (shared, used in all recipe detail views)
+struct RecipeSubstitutionsSection: View {
+    @Environment(AppSession.self) var session
+    let ingredientNames: [String]
+    @Binding var isExpanded: Bool
+    @Binding var scrollTarget: String?
+
+    private var entries: [(name: String, entry: SubstitutionEntry)] {
+        ingredientNames.compactMap { name in
+            StockedDatabase.shared.substitutions(for: name).map { (name, $0) }
+        }
+    }
+
+    var body: some View {
+        if !entries.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                // Section header — tappable to expand/collapse
+                Button {
+                    withAnimation(.spring(response: 0.28)) { isExpanded.toggle() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                        Text("Substitutions")
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .foregroundStyle(session.themeTextColor)
+                        Text("\(entries.count)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.stockedGold)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.stockedGold.opacity(0.14))
+                            .clipShape(Capsule())
+                        Spacer()
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 14)
+                    .contentShape(Rectangle())
+                }.buttonStyle(.plain)
+
+                if isExpanded {
+                    VStack(spacing: 12) {
+                        ForEach(entries, id: \.name) { item in
+                            let isHighlighted = scrollTarget?.lowercased() == item.name.lowercased()
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(isHighlighted ? Color.stockedGold : Color.stockedGold.opacity(0.5))
+                                        .frame(width: 5, height: 5)
+                                    Text(item.entry.displayName)
+                                        .font(.system(size: 13, weight: .bold, design: .serif))
+                                        .foregroundStyle(isHighlighted ? Color.stockedGold : session.themeTextColor)
+                                }
+                                ForEach(item.entry.substitutions) { sub in
+                                    HStack(alignment: .top, spacing: 10) {
+                                        Text("→")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(Color.stockedGold)
+                                            .frame(width: 14)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(sub.substitute)
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundStyle(session.themeTextColor)
+                                            if !sub.notes.isEmpty {
+                                                Text(sub.notes)
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                                    .lineSpacing(2)
+                                            }
+                                        }
+                                    }
+                                    .padding(.leading, 14)
+                                }
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 8)
+                            .background(isHighlighted
+                                ? Color.stockedGold.opacity(0.1)
+                                : Color.stockedGold.opacity(0.04))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .animation(.easeInOut(duration: 0.3), value: isHighlighted)
+
+                            if item.name != entries.last?.name {
+                                Divider().padding(.horizontal, 8)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8).padding(.bottom, 12)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .padding(.horizontal, 24)
+            // When scrollTarget changes, ensure expanded
+            .onChange(of: scrollTarget) { _, newTarget in
+                if newTarget != nil, !isExpanded {
+                    withAnimation(.spring(response: 0.28)) { isExpanded = true }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Kitchen Tips snippet for recipe detail
+struct RecipeKitchenTipsSection: View {
+    @Environment(AppSession.self) var session
+    @State private var tips: [CookingTip] = []
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.28)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                    Text("Kitchen Tips")
+                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .foregroundStyle(session.themeTextColor)
+                    Spacer()
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                }
+                .padding(.horizontal, 16).padding(.vertical, 14)
+                .contentShape(Rectangle())
+            }.buttonStyle(.plain)
+
+            if expanded {
+                VStack(spacing: 10) {
+                    ForEach(tips) { tip in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text(tip.emoji).font(.system(size: 16)).frame(width: 22)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(tip.title)
+                                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                                    .foregroundStyle(session.themeTextColor)
+                                Text(tip.body)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .lineSpacing(2)
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 6)
+                    }
+                }
+                .padding(.horizontal, 8).padding(.bottom, 12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .padding(.horizontal, 24)
+        .onAppear {
+            tips = CookingTipsDatabase.shared.randomTips(3)
+        }
+    }
+}
+

@@ -1,0 +1,16 @@
+# ── Secrets — NEVER commit real keys ──
+Secrets.xcconfig
+
+# ── Xcode ──
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+build/
+DerivedData/
+.DS_Store
+
+# ── Cloudflare Worker local state ──
+**/.wrangler/
+node_modules/
+
+# (Secrets.example.xcconfig IS committed — it's just the template, no real values.)
