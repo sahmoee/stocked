@@ -38,12 +38,27 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 07.22 — Build 281 (June 2026) ─────────────────────────────────────
+        ChangelogVersion(
+            version: "07.22",
+            buildDate: "Build 281 · June 2026",
+            headline: "A cleaner, easier-to-read grocery list",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "cart", color: Color.stockedGold,
+                               title: "Tidier empty grocery list",
+                               detail: "When your list is empty but items are running low, you'll see a compact prompt with your restock suggestions front and center — instead of a big empty screen."),
+                ChangelogEntry(icon: "eye", color: Color.stockedGreen,
+                               title: "Easier-to-read low-stock labels",
+                               detail: "The \"% left\" text on running-low items is now high-contrast and easy to read, with red reserved for items you're completely out of.")
+            ]
+        ),
         // ── 07.21 — Build 280 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.21",
             buildDate: "Build 280 · June 2026",
             headline: "Premium unlock, privacy, and reliability",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "creditcard", color: Color.stockedGold,
                                title: "Real Household Sync purchase",
