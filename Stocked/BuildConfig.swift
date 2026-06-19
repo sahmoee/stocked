@@ -73,6 +73,18 @@ nonisolated enum BuildConfig {
     /// Receipt parsing proxied through a Cloudflare Worker that holds the Anthropic
     /// key server-side (no key in the app). See _worker/stocked-receipt-worker/README.md.
     static let receiptWorkerURL = "https://stocked-receipt-worker.stocked.workers.dev"
+    /// Shared secret sent to the Worker as the `X-Stocked-Key` header so the public endpoint
+    /// rejects drive-by callers. Injected via xcconfig STOCKED_WORKER_KEY → Info.plist
+    /// StockedWorkerKey. Must match the Worker's STOCKED_SHARED_KEY secret. Never hardcode.
+    static var stockedWorkerKey: String {
+        bundleString("StockedWorkerKey") ?? ""
+    }
+    /// Applies the Worker auth header to a request, if a key is configured. Centralizes the
+    /// header name so all Worker callers stay consistent.
+    static func authorizeWorkerRequest(_ request: inout URLRequest) {
+        let key = stockedWorkerKey
+        if !key.isEmpty { request.setValue(key, forHTTPHeaderField: "X-Stocked-Key") }
+    }
     /// Injected via xcconfig SPOONACULAR_API_KEY → Info.plist SpoonacularAPIKey.
     static var spoonacularAPIKey: String {
         bundleString("SpoonacularAPIKey") ?? ""
