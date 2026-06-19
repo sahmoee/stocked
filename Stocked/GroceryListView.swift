@@ -118,6 +118,19 @@ struct GroceryListView: View {
 
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool   { session.isDarkMode }
+
+    /// True if any Low Stock / Running Out / Usuals suggestions are available to show. Drives
+    /// whether the empty list shows the big empty-state or a compact header (so suggestions lead).
+    private var hasSuggestions: Bool {
+        let low = store.inventoryItems.contains { inv in
+            inv.effectiveLevel < 0.25 &&
+            !store.groceryItems.contains { $0.name.lowercased() == inv.name.lowercased() }
+        }
+        if low { return true }
+        let runningOut = store.itemsRunningOutSoon(within: 4).contains { $0.effectiveLevel >= 0.25 }
+        if runningOut { return true }
+        return !GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map { $0.name }, limit: 8).isEmpty
+    }
     private var text: Color  { dark ? Color.stockedWhite : Color.stockedCharcoal }
     private var sub:  Color  { dark ? Color(white: 0.55) : Color.stockedCharcoal.opacity(0.45) }
 
@@ -261,12 +274,37 @@ struct GroceryListView: View {
                     VStack(alignment: .leading, spacing: 0) {
 
                         // Recipe sections
-                        if sections.isEmpty && store.groceryItems.isEmpty {
+                        if sections.isEmpty && store.groceryItems.isEmpty && !hasSuggestions {
+                            // Truly nothing — full empty state.
                             StockedEmptyState(
                                 icon: "🛒",
                                 title: "List is empty",
                                 subtitle: "Add items above, or plan a meal — ingredients will show up here automatically."
                             ).padding(.top, 24)
+                        } else if sections.isEmpty && store.groceryItems.isEmpty && hasSuggestions {
+                            // Empty list but we have suggestions — compact header so the
+                            // suggestions below become the focus instead of a big "empty" block.
+                            HStack(spacing: 12) {
+                                Image(systemName: "cart.badge.plus")
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(Color.stockedGold)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Your list is clear")
+                                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                                        .foregroundStyle(session.themeTextColor)
+                                    Text("Add an item below, or tap a suggestion to restock.")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Spacer()
+                            }
+                            .padding(14)
+                            .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
+                            .padding(.bottom, 4)
                         } else if sections.isEmpty && !searchText.isEmpty {
                             VStack(spacing: 10) {
                                 Text("🔍").font(.system(size: 36))
