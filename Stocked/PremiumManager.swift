@@ -62,7 +62,7 @@ final class PremiumManager {
         // Listen for transactions that arrive outside an explicit purchase (renewals on other
         // devices, Ask-to-Buy approvals, restores). Must be started ASAP per StoreKit 2 docs.
         updatesTask = Task { [weak self] in
-            for await update in Transaction.updates {
+            for await update in StoreKit.Transaction.updates {
                 await self?.handle(verification: update)
             }
         }
@@ -124,7 +124,7 @@ final class PremiumManager {
     /// Recomputes ownerPurchased from the current StoreKit entitlements.
     func refreshEntitlements() async {
         var owns = false
-        for await result in Transaction.currentEntitlements {
+        for await result in StoreKit.Transaction.currentEntitlements {
             if case .verified(let t) = result,
                t.productID == Self.householdSyncProductID,
                t.revocationDate == nil {
@@ -135,7 +135,7 @@ final class PremiumManager {
     }
 
     /// Verifies a transaction result, sets entitlement, and finishes the transaction.
-    private func handle(verification: VerificationResult<Transaction>) async {
+    private func handle(verification: VerificationResult<StoreKit.Transaction>) async {
         guard case .verified(let transaction) = verification else { return }  // drop unverified
         if transaction.productID == Self.householdSyncProductID,
            transaction.revocationDate == nil {
