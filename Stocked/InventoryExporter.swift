@@ -94,28 +94,20 @@ enum InventoryExporter {
     }
 }
 
-// MARK: - Share sheet wrapper (UIKit-backed)
-
-#if canImport(UIKit)
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
-}
-#endif
+// NOTE: The app already provides a `ShareSheet` (UIActivityViewController wrapper) in
+// ShareHelpers.swift, whose initializer takes `items: [Any?]`. We reuse that here rather than
+// redefining it (which caused an "Invalid redeclaration of 'ShareSheet'" error).
 
 // MARK: - Drop-in export button (use anywhere, e.g. Settings)
 // Add `ExportDataButton()` to a settings screen. Self-contained; no changes to existing views.
 
 struct ExportDataButton: View {
     @State private var showShare = false
-    @State private var shareItems: [Any] = []
+    @State private var shareItems: [Any?] = []
 
     var body: some View {
         Button {
-            shareItems = InventoryExporter.exportFiles()
+            shareItems = InventoryExporter.exportFiles().map { $0 as Any? }
             showShare = !shareItems.isEmpty
         } label: {
             Label("Export inventory & grocery list (CSV)", systemImage: "square.and.arrow.up")
