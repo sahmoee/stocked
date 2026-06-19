@@ -1,0 +1,51 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "common.add" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add" } }
+      }
+    },
+    "common.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } }
+      }
+    },
+    "common.done" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Done" } }
+      }
+    },
+    "common.save" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } }
+      }
+    },
+    "grocery.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Grocery List" } }
+      }
+    },
+    "inventory.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Inventory" } }
+      }
+    },
+    "recipes.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recipes" } }
+      }
+    },
+    "cook.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cook" } }
+      }
+    },
+    "home.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Home" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}
