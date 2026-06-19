@@ -156,6 +156,11 @@ struct StockedTabBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // #6 — VoiceOver: the icons (esp. the custom chef hat) have no inherent label.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(tab.rawValue)
+        .accessibilityHint("Opens the \(tab.rawValue) tab")
+        .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 }
 

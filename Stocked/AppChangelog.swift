@@ -38,34 +38,25 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.20 — Build 279 (June 2026) ─────────────────────────────────────
+        // ── 07.21 — Build 280 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
-            version: "07.20",
-            buildDate: "Build 279 · June 2026",
-            headline: "Polished Cook & Grocery tabs",
+            version: "07.21",
+            buildDate: "Build 280 · June 2026",
+            headline: "Premium unlock, privacy, and reliability",
             isLatest: true,
             entries: [
-                ChangelogEntry(icon: "square.grid.2x2", color: Color.stockedGold,
-                               title: "Cook Later grid",
-                               detail: "Cook Later meals now appear as a two-column grid of cards. Tap any card to open the recipe."),
-                ChangelogEntry(icon: "cart", color: Color.stockedInfo,
-                               title: "Tidier Grocery list",
-                               detail: "Low Stock, Running Out, and Usuals suggestions now sit on cards that match the rest of the app."),
-                ChangelogEntry(icon: "fork.knife", color: Color.stockedGold,
-                               title: "Recipes icon",
-                               detail: "The Recipes tab is back to the fork-and-knife icon.")
-            ]
-        ),
-        // ── 07.19 — Build 278 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.19",
-            buildDate: "Build 278 · June 2026",
-            headline: "More secure AI features",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "lock.shield", color: Color.stockedGreen,
-                               title: "Hardened smart features",
-                               detail: "Receipt scanning, barcode lookup, and recipe import now talk to our service over a protected connection with abuse safeguards.")
+                ChangelogEntry(icon: "creditcard", color: Color.stockedGold,
+                               title: "Real Household Sync purchase",
+                               detail: "The Household Sync unlock now uses the App Store with proper purchase and restore — the owner buys once and the household is covered."),
+                ChangelogEntry(icon: "hand.raised", color: Color.stockedGreen,
+                               title: "Privacy & diagnostics",
+                               detail: "Added a privacy manifest and on-device crash/hang diagnostics, so the app is App Store-ready and easier to keep stable."),
+                ChangelogEntry(icon: "mic", color: Color.stockedInfo,
+                               title: "Ask Siri what's expiring",
+                               detail: "A new shortcut answers \"What's expiring in Stocked?\" out loud."),
+                ChangelogEntry(icon: "cart.badge.minus", color: Color.stockedGold,
+                               title: "No more duplicate grocery lines",
+                               detail: "Adding items now ignores accents and capitalization, so \"milk\" and \"Milk\" won't double up.")
             ]
         ),
         // ── 07.18 — Build 277 (June 2026) ─────────────────────────────────────

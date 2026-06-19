@@ -26,56 +26,131 @@
 
 import Foundation
 import Observation
+import StoreKit
 
+@MainActor
 @Observable
 final class PremiumManager {
     static let shared = PremiumManager()
 
-    // Product identifier reserved for the real StoreKit product (not yet live).
+    /// StoreKit product identifier — must match the product created in App Store Connect.
     static let householdSyncProductID = "com.stocked.householdsync"
 
-    // The owner bought the upgrade on THIS Apple ID. (Stub: persisted locally for testing.)
+    /// The owner bought the upgrade on THIS Apple ID (derived from StoreKit entitlements,
+    /// mirrored to UserDefaults so the gate is correct instantly at launch / offline).
     private(set) var ownerPurchased: Bool {
         didSet { UserDefaults.standard.set(ownerPurchased, forKey: "premium_ownerPurchased") }
     }
 
-    // A household I belong to is already covered by its owner's purchase. (Stub: set by the
-    // household layer once the shared-record entitlement flag exists.)
+    /// A household I belong to is already covered by its owner's purchase. Set by the household
+    /// layer from the shared CloudKit record (Apple IAP is per-Apple-ID, so cross-account unlock
+    /// rides our own shared record, not StoreKit).
     var householdCoversMe: Bool {
         didSet { UserDefaults.standard.set(householdCoversMe, forKey: "premium_householdCoversMe") }
     }
 
+    /// The loaded StoreKit product (nil until loadProducts() succeeds). Drives the price label.
+    private(set) var product: Product?
+    /// Human-readable localized price, e.g. "$4.99". Empty until the product loads.
+    var displayPrice: String { product?.displayPrice ?? "" }
+
+    private var updatesTask: Task<Void, Never>?
+
     private init() {
-        ownerPurchased   = UserDefaults.standard.bool(forKey: "premium_ownerPurchased")
+        ownerPurchased    = UserDefaults.standard.bool(forKey: "premium_ownerPurchased")
         householdCoversMe = UserDefaults.standard.bool(forKey: "premium_householdCoversMe")
+        // Listen for transactions that arrive outside an explicit purchase (renewals on other
+        // devices, Ask-to-Buy approvals, restores). Must be started ASAP per StoreKit 2 docs.
+        updatesTask = Task { [weak self] in
+            for await update in Transaction.updates {
+                await self?.handle(verification: update)
+            }
+        }
+        Task { await refreshEntitlements() }
     }
+
+    deinit { updatesTask?.cancel() }
 
     /// Single source of truth the UI checks before allowing Household Sync.
     var isHouseholdSyncUnlocked: Bool { ownerPurchased || householdCoversMe }
 
-    // MARK: - Purchase (STUB — replace with StoreKit 2)
+    // MARK: - Product loading
+
+    /// Loads the product so the paywall can show a real localized price. Safe to call repeatedly.
+    func loadProducts() async {
+        do {
+            let products = try await Product.products(for: [Self.householdSyncProductID])
+            product = products.first
+        } catch {
+            // Non-fatal: the paywall still works, it just shows "—" until a retry succeeds.
+            product = nil
+        }
+    }
+
+    // MARK: - Purchase (StoreKit 2)
+
     enum PurchaseResult { case success, cancelled, pending, failed(String) }
 
-    /// Placeholder purchase. Real implementation will call Product.purchase() and verify the
-    /// transaction. For now this immediately "unlocks" so the gated UI can be exercised in test.
-    @MainActor
     func purchaseHouseholdSync() async -> PurchaseResult {
-        // TODO(StoreKit): real purchase + verification here.
-        ownerPurchased = true
-        return .success
+        // Make sure we have the product (the paywall may call purchase before load finishes).
+        if product == nil { await loadProducts() }
+        guard let product else { return .failed("Product unavailable. Check your connection and try again.") }
+        do {
+            let result = try await product.purchase()
+            switch result {
+            case .success(let verification):
+                await handle(verification: verification)
+                return ownerPurchased ? .success : .failed("Could not verify the purchase.")
+            case .userCancelled:
+                return .cancelled
+            case .pending:
+                return .pending          // Ask-to-Buy / SCA — resolves later via Transaction.updates
+            @unknown default:
+                return .failed("Unknown purchase state.")
+            }
+        } catch {
+            return .failed(error.localizedDescription)
+        }
     }
 
-    /// Placeholder restore. Real implementation will call AppStore.sync() then re-check entitlements.
-    @MainActor
+    /// Restore: re-sync with the App Store, then re-derive entitlements.
     func restorePurchases() async {
-        // TODO(StoreKit): AppStore.sync(); refresh currentEntitlements.
+        try? await AppStore.sync()
+        await refreshEntitlements()
     }
 
-    // MARK: - Test helpers (remove with real StoreKit)
+    // MARK: - Entitlements
+
+    /// Recomputes ownerPurchased from the current StoreKit entitlements.
+    func refreshEntitlements() async {
+        var owns = false
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let t) = result,
+               t.productID == Self.householdSyncProductID,
+               t.revocationDate == nil {
+                owns = true
+            }
+        }
+        ownerPurchased = owns
+    }
+
+    /// Verifies a transaction result, sets entitlement, and finishes the transaction.
+    private func handle(verification: VerificationResult<Transaction>) async {
+        guard case .verified(let transaction) = verification else { return }  // drop unverified
+        if transaction.productID == Self.householdSyncProductID,
+           transaction.revocationDate == nil {
+            ownerPurchased = true
+        }
+        await transaction.finish()
+    }
+
+    // MARK: - Test helpers (debug only)
+    #if DEBUG
     func _devReset() {
         ownerPurchased = false
         householdCoversMe = false
     }
+    #endif
 }
 
 // MARK: - Household Sync paywall (upsell)
@@ -163,14 +238,17 @@ struct HouseholdPaywallView: View {
                     }
                     .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
 
-                    // NOTE: pricing shown here will come from the StoreKit product once live.
-                    Text("Pricing shown at checkout.")
+                    // Real localized price from StoreKit once the product loads.
+                    Text(premium.displayPrice.isEmpty
+                         ? "Pricing shown at checkout."
+                         : "\(premium.displayPrice) · one-time purchase")
                         .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
                         .padding(.bottom, 24)
                 }
                 .padding(20)
             }
             .background(session.themeBgColor.ignoresSafeArea())
+            .task { await premium.loadProducts() }
             .navigationTitle("Premium")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

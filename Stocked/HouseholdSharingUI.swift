@@ -28,6 +28,8 @@ final class HouseholdAppDelegate: NSObject, UIApplicationDelegate {
         UNUserNotificationCenter.current().delegate = self
         // #17 — register expiry-reminder action buttons ("Add to Grocery", "Mark Used").
         Task { @MainActor in NotificationActionRegistrar.registerCategories() }
+        // #4 — subscribe to MetricKit crash/hang diagnostics (on-device, no SDK).
+        DiagnosticsMonitor.shared.start()
         return true
     }
 

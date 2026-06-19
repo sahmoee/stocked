@@ -40,6 +40,58 @@ struct StartCookingIntent: AppIntent {
     }
 }
 
+// MARK: - What's expiring soon (reads inventory, speaks the answer)
+// Parameter-free (SDK-safe). Reads the persisted inventory directly via a minimal DTO so it
+// works without the live session, and returns a spoken/printed result.
+
+@available(iOS 16.0, *)
+struct WhatsExpiringIntent: AppIntent {
+    static var title: LocalizedStringResource = "What's expiring in Stocked"
+    static var description = IntentDescription("Ask Stocked what food is expiring soon.")
+    static var openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let names = StockedInventoryReader.expiringSoon(withinDays: 3)
+        let dialog: IntentDialog
+        if names.isEmpty {
+            dialog = "Nothing in your kitchen is expiring in the next few days."
+        } else if names.count == 1 {
+            dialog = "\(names[0]) is expiring soon."
+        } else {
+            let head = names.prefix(3).joined(separator: ", ")
+            let extra = names.count > 3 ? ", and \(names.count - 3) more" : ""
+            dialog = IntentDialog("Expiring soon: \(head)\(extra).")
+        }
+        return .result(dialog: dialog)
+    }
+}
+
+@available(iOS 16.0, *)
+enum StockedInventoryReader {
+    private static let key = "inventory_items"   // DBKey.inventoryItems.rawValue
+
+    private struct InvDTO: Codable {
+        var name: String
+        var quantity: Int = 1
+        var expirationDate: Date?
+    }
+
+    /// Names of items expiring within `days`, soonest first.
+    static func expiringSoon(withinDays days: Int) -> [String] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let items = try? JSONDecoder().decode([InvDTO].self, from: data) else { return [] }
+        let now = Date()
+        let cal = Calendar.current
+        let soon: [(String, Int)] = items.compactMap { item in
+            guard let exp = item.expirationDate,
+                  let d = cal.dateComponents([.day], from: now, to: exp).day,
+                  d <= days else { return nil }
+            return (item.name, d)
+        }
+        return soon.sorted { $0.1 < $1.1 }.map { $0.0 }
+    }
+}
+
 // MARK: - Shortcut phrases (no parameters — fully SDK-safe)
 
 @available(iOS 16.0, *)
@@ -62,6 +114,15 @@ struct StockedShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Start Cooking",
             systemImageName: "frying.pan.fill"
+        )
+        AppShortcut(
+            intent: WhatsExpiringIntent(),
+            phrases: [
+                "What's expiring in \(.applicationName)",
+                "What's going bad in \(.applicationName)"
+            ],
+            shortTitle: "What's Expiring",
+            systemImageName: "clock.badge.exclamationmark"
         )
     }
 }

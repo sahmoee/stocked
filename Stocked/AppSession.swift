@@ -432,7 +432,8 @@ class GuestDataStore {
     }
 
     func addGroceryItem(name: String) {
-        guard !groceryItems.contains(where: { $0.name.lowercased() == name.lowercased() }) else { return }
+        // #17 — accent/case-insensitive dedup so "milk" / "Milk" / "Crème" don't double up.
+        guard !GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name }) else { return }
         withAnimation { groceryItems.append(LocalGroceryItem(name: name, isChecked: false)) }
     }
     func renameInventoryItem(id: UUID, name: String) {
@@ -824,7 +825,8 @@ class GuestDataStore {
     }
 
     func addToGroceryIfMissing(_ name: String, recommended: Bool) {
-        let exists = groceryItems.contains { $0.name.lowercased() == name.lowercased() }
+        // #17 — accent/case-insensitive dedup.
+        let exists = GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name })
         guard !exists else { return }
         withAnimation {
             groceryItems.append(LocalGroceryItem(name: name, isChecked: false, isRecommended: recommended))

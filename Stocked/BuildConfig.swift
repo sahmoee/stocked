@@ -37,8 +37,8 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 279
-    private static let fallbackVersion     = "07.20"
+    private static let fallbackBuildNumber = 280
+    private static let fallbackVersion     = "07.21"
 
     static let changeCount   = 4
     static let buildName     = "Build 272 — The tab bar now matches the mockup: a flat bar that sits directly on the background instead of a dark floating pill, with the active tab in gold. It still stays visible on every screen."
@@ -73,19 +73,6 @@ nonisolated enum BuildConfig {
     /// Receipt parsing proxied through a Cloudflare Worker that holds the Anthropic
     /// key server-side (no key in the app). See _worker/stocked-receipt-worker/README.md.
     static let receiptWorkerURL = "https://stocked-receipt-worker.stocked.workers.dev"
-    /// Shared secret sent to the Worker as the `X-Stocked-Key` header so the public
-    /// endpoint rejects drive-by callers. Injected via xcconfig STOCKED_WORKER_KEY →
-    /// Info.plist StockedWorkerKey. Must match the Worker's STOCKED_SHARED_KEY secret.
-    /// Never hardcode — leave blank here and set it in Secrets.xcconfig.
-    static var stockedWorkerKey: String {
-        bundleString("StockedWorkerKey") ?? ""
-    }
-    /// Applies the Worker auth header to a request, if a key is configured. Centralizes the
-    /// header name so all the Worker callers stay consistent.
-    static func authorizeWorkerRequest(_ request: inout URLRequest) {
-        let key = stockedWorkerKey
-        if !key.isEmpty { request.setValue(key, forHTTPHeaderField: "X-Stocked-Key") }
-    }
     /// Injected via xcconfig SPOONACULAR_API_KEY → Info.plist SpoonacularAPIKey.
     static var spoonacularAPIKey: String {
         bundleString("SpoonacularAPIKey") ?? ""

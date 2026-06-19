@@ -1,0 +1,18 @@
+name = "stocked-receipt-worker"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+# Rate-limit counters live in this KV namespace. Create it and paste the id below:
+#   wrangler kv namespace create RATE_KV
+# Then replace the placeholder id. (preview_id is optional, for `wrangler dev`.)
+[[kv_namespaces]]
+binding = "RATE_KV"
+id = "e0bde8969aad4e3c88b6281227bc08d1"
+
+# Optional: override the model without editing code.
+[vars]
+ANTHROPIC_MODEL = "claude-sonnet-4-6"
+
+# Secrets are NOT set here — set them with `wrangler secret put` (see README):
+#   ANTHROPIC_API_KEY    (your sk-ant-… key)
+#   STOCKED_SHARED_KEY   (a long random string; must match the app's value)
