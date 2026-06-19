@@ -69,7 +69,9 @@ final class PremiumManager {
         Task { await refreshEntitlements() }
     }
 
-    deinit { updatesTask?.cancel() }
+    // No deinit cancellation needed: PremiumManager is a process-lifetime singleton
+    // (static let shared) and the Transaction.updates listener is meant to run for the whole
+    // session. (A deinit can't touch the @MainActor-isolated updatesTask anyway under Swift 6.)
 
     /// Single source of truth the UI checks before allowing Household Sync.
     var isHouseholdSyncUnlocked: Bool { ownerPurchased || householdCoversMe }
