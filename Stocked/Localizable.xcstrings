@@ -689,6 +689,9 @@
     "Add a Recipe" : {
 
     },
+    "Add an item below, or tap a suggestion to restock." : {
+
+    },
     "Add an item by hand" : {
 
     },
@@ -3083,6 +3086,9 @@
 
     },
     "Your Kitchen," : {
+
+    },
+    "Your list is clear" : {
 
     },
     "Your meal history" : {

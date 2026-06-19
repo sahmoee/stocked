@@ -341,13 +341,13 @@ struct GroceryListView: View {
                                     HStack {
                                         Image(systemName: "exclamationmark.circle")
                                             .font(.system(size: 16))
-                                            .foregroundStyle(inv.effectiveLevel == 0 ? .red : .orange)
+                                            .foregroundStyle(inv.effectiveLevel == 0 ? Color.red : text)
                                             .frame(width: 28)
                                         VStack(alignment: .leading, spacing: 10) {
                                             Text(inv.name).font(.system(size: 14)).foregroundStyle(text)
                                             Text("\(inv.zone) · \(Int(inv.effectiveLevel * 100))% left")
                                                 .font(.system(size: 11))
-                                                .foregroundStyle(inv.effectiveLevel == 0 ? .red : .orange)
+                                                .foregroundStyle(inv.effectiveLevel == 0 ? Color.red : text)
                                             // #7 — where it's been cheapest lately
                                             if let deal = store.bestPrice(for: inv.name) {
                                                 Text("Cheapest at \(deal.store) · $\(String(format: "%.2f", deal.price))")
