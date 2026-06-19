@@ -110,6 +110,19 @@ class GuestDataStore {
     private let ud = UserDefaults.standard
 
     @ObservationIgnored private var isSyncingLowStock = false   // re-entrancy guard (#1) — internal, not observed
+    @ObservationIgnored private var widgetRefreshWork: DispatchWorkItem?   // #19 — debounce widget reloads
+
+    /// #19 — Coalesce rapid mutations into a single widget reload ~0.5s after the last change,
+    /// so a burst of edits (e.g. applying a scanned receipt) reloads widgets once, not N times.
+    private func refreshWidgetsDebounced() {
+        widgetRefreshWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            WidgetBridge.refresh(store: self)
+        }
+        widgetRefreshWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
 
     var inventoryItems: [LocalInventoryItem] = [] {
         didSet {
@@ -126,6 +139,7 @@ class GuestDataStore {
                 isSyncingLowStock = false
             }
             SharedPantrySync.shared.push(store: self)
+            refreshWidgetsDebounced()   // #19 — keep home/lock-screen widgets fresh on any change
         }
     }
 
@@ -171,7 +185,7 @@ class GuestDataStore {
         _inventoryPositions = PositionIndex(inventoryItems.map(\.id))
         return _inventoryPositions?.index(of: id)
     }
-    var groceryItems:          [LocalGroceryItem]   = [] { didSet { saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self) } }
+    var groceryItems:          [LocalGroceryItem]   = [] { didSet { saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); refreshWidgetsDebounced() } }
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
     var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
     var plannedMeals:          [PlannedMeal]        = [] { didSet { saveDebounced(DBKey.plannedMeals.rawValue, plannedMeals) } }
