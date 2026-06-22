@@ -109,7 +109,6 @@ struct CookNowHomeView: View {
                         title: "Build Around Food",
                         subtitle: "Use what you have or what you love.",
                         emoji: "🥩",
-                        assetName: "cook_now_card",
                         tint: Color.stockedCharcoal, textOnDark: true
                     ) { goBuildFood = true }
 
@@ -117,7 +116,6 @@ struct CookNowHomeView: View {
                         title: "Match My Mood",
                         subtitle: "Find recipes that fit how you feel.",
                         emoji: "🙂",
-                        assetName: "match_my_mood",
                         tint: Color.stockedGold, textOnDark: true
                     ) { goMood = true }
 
@@ -125,7 +123,6 @@ struct CookNowHomeView: View {
                         title: "Surprise Me",
                         subtitle: "Let us pick the perfect recipe.",
                         icon: "gift",
-                        assetName: "surprise_me",
                         tint: dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7),
                         textOnDark: false
                     ) { goSurprise = true }

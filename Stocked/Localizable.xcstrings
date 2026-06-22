@@ -4,9 +4,6 @@
     "" : {
 
     },
-    " %@ " : {
-
-    },
     "—" : {
 
     },
@@ -46,6 +43,16 @@
     },
     "(optional)" : {
 
+    },
+    "**%@** %@ **%@**" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "**%1$@** %2$@ **%3$@**"
+          }
+        }
+      }
     },
     "% Daily Value per serving · 2000 cal diet" : {
 
@@ -886,6 +893,9 @@
 
     },
     "Back" : {
+
+    },
+    "Based on what you have" : {
 
     },
     "Both numbers should match once the new store has copied your data. Your existing data is untouched either way." : {
@@ -2264,6 +2274,9 @@
     "Pick %@" : {
 
     },
+    "Pick a category and we'll show you what's in your kitchen." : {
+
+    },
     "Pick a path and we'll do the rest." : {
 
     },
@@ -2271,6 +2284,9 @@
 
     },
     "Plan for later or save for the week" : {
+
+    },
+    "Plan meals ahead and prep with confidence." : {
 
     },
     "Plan meals for the week." : {
@@ -2929,6 +2945,9 @@
     "The Stash ✦" : {
 
     },
+    "The week, handled." : {
+
+    },
     "These items need to be used or added to your shopping list." : {
 
     },
@@ -3044,6 +3063,9 @@
     "Unlock Household Sync" : {
 
     },
+    "Upcoming Plans" : {
+
+    },
     "Updated just now" : {
 
     },
@@ -3129,6 +3151,9 @@
 
     },
     "What are you planning?" : {
+
+    },
+    "What do you want to start with?" : {
 
     },
     "What does “stocked” mean to you?" : {

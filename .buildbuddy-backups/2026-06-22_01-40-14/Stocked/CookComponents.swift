@@ -21,13 +21,6 @@ enum CookStyle {
     static let screenHPad: CGFloat = 22
 }
 
-// Returns a bundled asset image only if it actually exists in the catalog, so cards can show a
-// photo when one has been added and gracefully fall back to color/emoji when it has not.
-func cookAssetImage(_ name: String?) -> Image? {
-    guard let name, !name.isEmpty, UIImage(named: name) != nil else { return nil }
-    return Image(name)
-}
-
 // MARK: - HeroCard — a large tappable card (Cook Now / Cook Later / Plan ahead)
 
 struct CookHeroCard: View {
@@ -82,90 +75,41 @@ struct CookActionCard: View {
     var subtitle: String = ""
     var icon: String = "sparkles"
     var emoji: String? = nil
-    var assetName: String? = nil
     var tint: Color = Color.stockedCharcoal
     var textOnDark: Bool = true
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            if let photo = cookAssetImage(assetName) {
-                photoCard(photo)
-            } else {
-                flatCard
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    // Photo present: tall card, full-bleed image, tint gradient keeps the left readable.
-    private func photoCard(_ photo: Image) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            photo.resizable().scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
-            LinearGradient(colors: [tint, tint.opacity(0.9), tint.opacity(0.0)],
-                           startPoint: .leading, endPoint: .trailing)
-            VStack {
-                HStack {
-                    ZStack {
-                        Circle().fill(Color.stockedWhite).frame(width: 46, height: 46)
-                        if let emoji { Text(emoji).font(.system(size: 22)) }
-                        else { Image(systemName: icon).font(.system(size: 19, weight: .semibold)).foregroundStyle(Color.stockedGold) }
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(textOnDark ? Color.stockedWhite.opacity(0.16) : Color.stockedGold.opacity(0.15))
+                        .frame(width: 46, height: 46)
+                    if let emoji { Text(emoji).font(.system(size: 22)) }
+                    else {
+                        Image(systemName: icon).font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedGold)
                     }
-                    Spacer()
                 }
-                Spacer()
-            }.padding(CookStyle.cardPadding)
-            HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 21, weight: .bold, design: .serif))
+                    Text(title)
+                        .font(.system(size: 19, weight: .bold, design: .serif))
                         .foregroundStyle(textOnDark ? Color.stockedWhite : session.themeTextColor)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 12.5))
-                            .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.8) : session.themeTextColor.opacity(0.65))
+                            .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.75) : session.themeTextColor.opacity(0.6))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer()
-                ZStack {
-                    Circle().fill(Color.stockedWhite).frame(width: 32, height: 32)
-                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedCharcoal)
-                }
-            }.padding(CookStyle.cardPadding)
-        }
-        .frame(height: 150).frame(maxWidth: .infinity)
-        .background(tint).clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
-    }
-
-    // No photo: the original compact solid-color row.
-    private var flatCard: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(textOnDark ? Color.stockedWhite.opacity(0.16) : Color.stockedGold.opacity(0.15))
-                    .frame(width: 46, height: 46)
-                if let emoji { Text(emoji).font(.system(size: 22)) }
-                else {
-                    Image(systemName: icon).font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedGold)
-                }
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.6) : session.themeTextColor.opacity(0.3))
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 19, weight: .bold, design: .serif))
-                    .foregroundStyle(textOnDark ? Color.stockedWhite : session.themeTextColor)
-                if !subtitle.isEmpty {
-                    Text(subtitle).font(.system(size: 12.5))
-                        .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.75) : session.themeTextColor.opacity(0.6))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.6) : session.themeTextColor.opacity(0.3))
+            .padding(CookStyle.cardPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(tint, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
         }
-        .padding(CookStyle.cardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tint, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+        .buttonStyle(.plain)
     }
 }
 
@@ -177,7 +121,6 @@ struct CookCategoryCard: View {
     var subtitle: String = ""
     var icon: String = "fork.knife"
     var emoji: String? = nil
-    var assetName: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -200,14 +143,8 @@ struct CookCategoryCard: View {
                     }
                 }
                 Spacer()
-                if let photo = cookAssetImage(assetName) {
-                    photo.resizable().scaledToFill()
-                        .frame(width: 56, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } else {
-                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
-                }
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(.vertical, 14).padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .leading)

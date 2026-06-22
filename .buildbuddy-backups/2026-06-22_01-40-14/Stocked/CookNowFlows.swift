@@ -20,15 +20,14 @@ struct BuildAroundFoodView: View {
         let emoji: String
         let key: String      // category key passed to FoodsSubOptionView
         let icon: String     // icon passed to FoodsSubOptionView
-        let asset: String    // bundled image name (graceful fallback if absent)
     }
 
     private var categories: [Cat] {
         [
-            Cat(title: "Proteins", subtitle: "Chicken, beef, fish and more", emoji: "🥩", key: "Protein", icon: "🍗", asset: "protein"),
-            Cat(title: "Vegetables", subtitle: "Fresh produce on hand", emoji: "🥦", key: "Vegetables", icon: "🥕", asset: "vegetables"),
-            Cat(title: "Expiring Soon", subtitle: "Use these before they go", emoji: "⏰", key: "Expiring Soon", icon: "📅", asset: "expiring_soon"),
-            Cat(title: "Leftovers", subtitle: "Reinvent or reheat", emoji: "🍱", key: "Leftovers", icon: "🥡", asset: "leftovers"),
+            Cat(title: "Proteins", subtitle: "Chicken, beef, fish and more", emoji: "🥩", key: "Protein", icon: "🍗"),
+            Cat(title: "Vegetables", subtitle: "Fresh produce on hand", emoji: "🥦", key: "Vegetables", icon: "🥕"),
+            Cat(title: "Expiring Soon", subtitle: "Use these before they go", emoji: "⏰", key: "Expiring Soon", icon: "📅"),
+            Cat(title: "Leftovers", subtitle: "Reinvent or reheat", emoji: "🍱", key: "Leftovers", icon: "🥡"),
         ]
     }
 
@@ -51,7 +50,7 @@ struct BuildAroundFoodView: View {
                         NavigationLink {
                             FoodsSubOptionView(category: cat.key, icon: cat.icon, servings: servings)
                         } label: {
-                            CookCategoryCard(title: cat.title, subtitle: cat.subtitle, emoji: cat.emoji, assetName: cat.asset) {}
+                            CookCategoryCard(title: cat.title, subtitle: cat.subtitle, emoji: cat.emoji) {}
                                 .allowsHitTesting(false)
                         }
                         .buttonStyle(.plain)
