@@ -100,57 +100,52 @@ struct CookActionCard: View {
 
     // Photo present: tall card, full-bleed image, tint gradient keeps the left readable.
     private func photoCard(_ photo: Image) -> some View {
-        ZStack(alignment: .topLeading) {
-            // 1) Photo fills the card.
+        ZStack(alignment: .bottomLeading) {
             photo.resizable().scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-
-            // 2) Strong bottom-up scrim so the title is always readable over any photo.
+                .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
+            // Forgiving legibility scrim: a soft darkening from the bottom-left only, so the food
+            // photo stays visible no matter where its subject sits (works with any normal crop).
+            // The text sits over the darkest corner; the rest of the image shows through.
             LinearGradient(
-                colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
-                         Color.black.opacity(0.55), Color.black.opacity(0.78)],
+                colors: textOnDark
+                    ? [Color.black.opacity(0.0), Color.black.opacity(0.30), Color.black.opacity(0.62)]
+                    : [Color.black.opacity(0.0), Color.black.opacity(0.10), Color.black.opacity(0.34)],
                 startPoint: .top, endPoint: .bottom)
-
-            // 3) Emoji badge, top-left.
-            ZStack {
-                Circle().fill(Color.stockedWhite).frame(width: 46, height: 46)
-                if let emoji { Text(emoji).font(.system(size: 22)) }
-                else { Image(systemName: icon).font(.system(size: 19, weight: .semibold)).foregroundStyle(Color.stockedGold) }
-            }
-            .padding(CookStyle.cardPadding)
-
-            // 4) Title + subtitle pinned bottom-left, chevron bottom-right. Always white on the
-            //    dark scrim so it reads on any photo.
+            LinearGradient(
+                colors: textOnDark
+                    ? [Color.black.opacity(0.45), Color.black.opacity(0.0)]
+                    : [Color.black.opacity(0.18), Color.black.opacity(0.0)],
+                startPoint: .leading, endPoint: .trailing)
             VStack {
-                Spacer()
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(title)
-                            .font(.system(size: 22, weight: .bold, design: .serif))
-                            .foregroundStyle(Color.white)
-                            .shadow(color: Color.black.opacity(0.35), radius: 4, y: 1)
-                        if !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color.white.opacity(0.9))
-                                .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                HStack {
+                    ZStack {
+                        Circle().fill(Color.stockedWhite).frame(width: 46, height: 46)
+                        if let emoji { Text(emoji).font(.system(size: 22)) }
+                        else { Image(systemName: icon).font(.system(size: 19, weight: .semibold)).foregroundStyle(Color.stockedGold) }
                     }
                     Spacer()
-                    ZStack {
-                        Circle().fill(Color.stockedWhite).frame(width: 32, height: 32)
-                        Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedCharcoal)
+                }
+                Spacer()
+            }.padding(CookStyle.cardPadding)
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.system(size: 21, weight: .bold, design: .serif))
+                        .foregroundStyle(textOnDark ? Color.stockedWhite : session.themeTextColor)
+                    if !subtitle.isEmpty {
+                        Text(subtitle).font(.system(size: 12.5))
+                            .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.8) : session.themeTextColor.opacity(0.65))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(CookStyle.cardPadding)
-            }
+                Spacer()
+                ZStack {
+                    Circle().fill(Color.stockedWhite).frame(width: 32, height: 32)
+                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedCharcoal)
+                }
+            }.padding(CookStyle.cardPadding)
         }
-        .frame(height: 150)
-        .frame(maxWidth: .infinity)
-        .background(tint)
-        .clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+        .frame(height: 150).frame(maxWidth: .infinity)
+        .background(tint).clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
     }
 
     // No photo: the original compact solid-color row.
@@ -198,76 +193,38 @@ struct CookCategoryCard: View {
 
     var body: some View {
         Button(action: action) {
-            if let photo = cookAssetImage(assetName) {
-                photoCell(photo)
-            } else {
-                flatRow
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    // Photo present: full-bleed image fills the whole cell, dark scrim on the left keeps the
-    // emoji badge and title readable.
-    private func photoCell(_ photo: Image) -> some View {
-        ZStack(alignment: .leading) {
-            photo.resizable().scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-            LinearGradient(
-                colors: [Color.black.opacity(0.72), Color.black.opacity(0.45), Color.black.opacity(0.0)],
-                startPoint: .leading, endPoint: .trailing)
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 ZStack {
-                    Circle().fill(Color.stockedWhite).frame(width: 42, height: 42)
-                    if let emoji { Text(emoji).font(.system(size: 19)) }
-                    else { Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.stockedGold) }
+                    Circle().fill(Color.stockedGold.opacity(0.15)).frame(width: 44, height: 44)
+                    if let emoji { Text(emoji).font(.system(size: 20)) }
+                    else {
+                        Image(systemName: icon).font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Color.stockedGold)
+                    }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 17, weight: .bold, design: .serif))
-                        .foregroundStyle(Color.white)
-                        .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
+                    Text(title).font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 12))
-                            .foregroundStyle(Color.white.opacity(0.88))
-                            .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
+                            .foregroundStyle(session.themeTextColor.opacity(0.55))
                     }
                 }
                 Spacer()
-            }
-            .padding(.horizontal, 16)
-        }
-        .frame(height: 88)
-        .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-    }
-
-    // No photo: the clean icon + text row.
-    private var flatRow: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(Color.stockedGold.opacity(0.15)).frame(width: 44, height: 44)
-                if let emoji { Text(emoji).font(.system(size: 20)) }
-                else {
-                    Image(systemName: icon).font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Color.stockedGold)
+                if let photo = cookAssetImage(assetName) {
+                    photo.resizable().scaledToFill()
+                        .frame(width: 56, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor.opacity(0.3))
                 }
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(session.themeTextColor)
-                if !subtitle.isEmpty {
-                    Text(subtitle).font(.system(size: 12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
-                }
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(session.themeTextColor.opacity(0.3))
+            .padding(.vertical, 14).padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         }
-        .padding(.vertical, 14).padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .buttonStyle(.plain)
     }
 }
 
