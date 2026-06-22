@@ -77,11 +77,6 @@ class KitchenTransferManager {
     var isBacking        = false
     var statusMessage    = ""
     var errorMessage     = ""
-
-    /// True while the first-launch iCloud restore check is running. RootView watches this so a
-    /// returning user briefly sees the splash instead of the onboarding quiz, until we know
-    /// whether their Apple ID has an existing Stocked backup to restore.
-    var isCheckingForExistingAccount = false
     var qrCodeImage:     UIImage?
     var shareURL:        URL?
     var exportedFileURL: URL?
@@ -889,9 +884,7 @@ class KitchenTransferManager {
         let flagKey = "didAutoRestoreFromiCloud_v1"
         guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
         let mgr = session.transferManager   // retained — async task won't be orphaned
-        mgr.isCheckingForExistingAccount = true   // RootView shows splash while this runs
         Task { @MainActor in
-            defer { mgr.isCheckingForExistingAccount = false }
             guard let status = try? await mgr.cloudContainer.accountStatus(),
                   status == .available else {
                 Log.transfer.notice("Auto-restore deferred: iCloud not available yet")
@@ -899,12 +892,9 @@ class KitchenTransferManager {
             }
             switch await mgr.fetchLatestICloudBackupResult() {
             case .success(.some(let data)):
-                let ok = mgr.importFromData(data, into: session.guestStore, merge: true)
+                _ = mgr.importFromData(data, into: session.guestStore, merge: true)
                 Log.transfer.notice("Auto-restored kitchen from iCloud on new device")
                 UserDefaults.standard.set(true, forKey: flagKey)
-                // This Apple ID has used Stocked before — restore their data AND skip onboarding.
-                // Returning users shouldn't have to retake the setup quiz.
-                if ok { session.guestStore.quizCompleted = true }
             case .success(nil):
                 Log.transfer.notice("Auto-restore: no iCloud backup to restore")
                 UserDefaults.standard.set(true, forKey: flagKey)

@@ -131,12 +131,6 @@ struct RootView: View {
                     .environment(\.stockedDevice,
                         UIDevice.current.userInterfaceIdiom == .pad ? .tablet : .regular)
                     .stockedToasts()
-            } else if session.isLoggedIn && session.transferManager.isCheckingForExistingAccount {
-                // A logged-in user's first-launch iCloud restore check is running. Hold on the
-                // splash rather than flashing the onboarding quiz — if they have an existing
-                // Stocked backup, the check will restore it and flip quizCompleted, sending them
-                // straight to the app. Only if there's no backup do we fall through to the quiz.
-                SplashView()
             } else if session.isLoggedIn {
                 OnboardingQuiz()
             } else {
