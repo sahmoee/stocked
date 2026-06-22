@@ -103,19 +103,8 @@ struct CookActionCard: View {
         ZStack(alignment: .bottomLeading) {
             photo.resizable().scaledToFill()
                 .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
-            // Forgiving legibility scrim: a soft darkening from the bottom-left only, so the food
-            // photo stays visible no matter where its subject sits (works with any normal crop).
-            // The text sits over the darkest corner; the rest of the image shows through.
-            LinearGradient(
-                colors: textOnDark
-                    ? [Color.black.opacity(0.0), Color.black.opacity(0.30), Color.black.opacity(0.62)]
-                    : [Color.black.opacity(0.0), Color.black.opacity(0.10), Color.black.opacity(0.34)],
-                startPoint: .top, endPoint: .bottom)
-            LinearGradient(
-                colors: textOnDark
-                    ? [Color.black.opacity(0.45), Color.black.opacity(0.0)]
-                    : [Color.black.opacity(0.18), Color.black.opacity(0.0)],
-                startPoint: .leading, endPoint: .trailing)
+            LinearGradient(colors: [tint, tint.opacity(0.9), tint.opacity(0.0)],
+                           startPoint: .leading, endPoint: .trailing)
             VStack {
                 HStack {
                     ZStack {
