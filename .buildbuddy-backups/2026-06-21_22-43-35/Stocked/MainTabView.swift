@@ -116,7 +116,8 @@ struct MainTabView: View {
             case .scanBarcode: showBarcode   = true
             case .quickUpdate: showQuickUpdateSheet = true
             case .household:
-                showHouseholdSheet = true   // open to everyone for now (no premium gate)
+                if PremiumManager.shared.isHouseholdSyncUnlocked { showHouseholdSheet = true }
+                else { showHouseholdPaywall = true }
             case .activity: showActivityFeedMain = true
             case .addItems:    showAddItems  = true
             case .search:      showSearch    = true
@@ -247,7 +248,7 @@ struct MainTabView: View {
             QuickUpdateSheet().environment(session)   // #239 — drawer Kitchen Tools entry
         }
         .sheet(isPresented: $showHouseholdSheet) {
-            HouseholdHomeView().environment(session)   // new mockup-styled household experience
+            HouseholdSyncSheet().environment(session)   // #240 — drawer Household entry
         }
         .sheet(isPresented: $showHouseholdPaywall) {
             HouseholdPaywallView(onUnlocked: { showHouseholdPaywall = false; showHouseholdSheet = true })

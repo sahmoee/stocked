@@ -4,6 +4,9 @@
     "" : {
 
     },
+    " %@ " : {
+
+    },
     "—" : {
 
     },
@@ -633,6 +636,9 @@
     "Abbreviation appears on receipt exactly as scanned. It will be auto-resolved next time it's seen." : {
 
     },
+    "ABCD2345" : {
+
+    },
     "About %@ this month" : {
 
     },
@@ -711,6 +717,9 @@
 
     },
     "Add Meal — Day %@" : {
+
+    },
+    "Add Member" : {
 
     },
     "Add missing ingredients to list" : {
@@ -801,6 +810,9 @@
 
     },
     "All items well stocked!" : {
+
+    },
+    "All recent activity in your household" : {
 
     },
     "All Sources" : {
@@ -994,6 +1006,9 @@
     "Choose Store" : {
 
     },
+    "Choose what you want to be notified about in this household." : {
+
+    },
     "Claude is reading your receipt" : {
 
     },
@@ -1015,10 +1030,16 @@
     "Close" : {
 
     },
+    "Code expires in 7 days" : {
+
+    },
     "Collections" : {
 
     },
     "Coming Soon — Learn More" : {
+
+    },
+    "Common Questions" : {
 
     },
     "common.add" : {
@@ -1172,6 +1193,18 @@
     "Create Backup File" : {
 
     },
+    "Create Household" : {
+
+    },
+    "Create your household" : {
+
+    },
+    "Create Your Household" : {
+
+    },
+    "Creating…" : {
+
+    },
     "CURRENT AMOUNT" : {
 
     },
@@ -1301,10 +1334,16 @@
     "Enable in Settings → Privacy → Camera" : {
 
     },
+    "Enter 8-character code" : {
+
+    },
     "Enter barcode number" : {
 
     },
     "Enter Kitchen" : {
+
+    },
+    "Enter the invite code shared by your household member." : {
 
     },
     "Enter zip code" : {
@@ -1554,7 +1593,16 @@
     "Hour" : {
 
     },
+    "Household" : {
+
+    },
     "Household Activity" : {
+
+    },
+    "Household created!" : {
+
+    },
+    "Household Settings" : {
 
     },
     "Household Sync" : {
@@ -1582,6 +1630,9 @@
 
     },
     "I couldn't find anything to change from that. Try naming specific items." : {
+
+    },
+    "I have an invite code" : {
 
     },
     "iCloud Kitchen Sync" : {
@@ -1661,7 +1712,25 @@
         }
       }
     },
+    "Invite links and codes expire in 7 days." : {
+
+    },
+    "Invite others to join by sharing this code." : {
+
+    },
     "Invite people with their own Apple ID. They tap your link to join — no shared account needed." : {
+
+    },
+    "Invite someone to your household" : {
+
+    },
+    "Invite with code or link" : {
+
+    },
+    "Invited %@" : {
+
+    },
+    "Invites you've sent" : {
 
     },
     "Item name" : {
@@ -1680,6 +1749,12 @@
 
     },
     "JOIN BY CODE" : {
+
+    },
+    "Join Household" : {
+
+    },
+    "Joining…" : {
 
     },
     "Keep at least" : {
@@ -1727,7 +1802,13 @@
     "Last synced %@" : {
 
     },
+    "Leave" : {
+
+    },
     "Leave Household" : {
+
+    },
+    "Leave this household?" : {
 
     },
     "Leftover name (e.g. %@ Leftovers)" : {
@@ -1930,6 +2011,9 @@
     "No activity yet" : {
 
     },
+    "No activity yet." : {
+
+    },
     "No food items found" : {
 
     },
@@ -1949,6 +2033,9 @@
 
     },
     "No pairing data for this item yet." : {
+
+    },
+    "No pending invites." : {
 
     },
     "No purchases logged this month yet." : {
@@ -2133,6 +2220,12 @@
 
     },
     "Paste the recipe text — title, ingredients, and steps. We'll structure it; you can fix anything before saving." : {
+
+    },
+    "Pending" : {
+
+    },
+    "People in your household" : {
 
     },
     "per %@" : {
@@ -2321,6 +2414,9 @@
     "Refresh Location" : {
 
     },
+    "Regenerate Code" : {
+
+    },
     "Registered Account" : {
 
     },
@@ -2344,6 +2440,9 @@
       }
     },
     "Remove all items in %@" : {
+
+    },
+    "Remove from Household" : {
 
     },
     "Remove from My Collection" : {
@@ -2427,6 +2526,9 @@
 
     },
     "Save Plan" : {
+
+    },
+    "Save Preferences" : {
 
     },
     "Save Substitution" : {
@@ -2558,6 +2660,9 @@
     "SHARE ACROSS ACCOUNTS" : {
 
     },
+    "Share Code" : {
+
+    },
     "Share CSV…" : {
 
     },
@@ -2568,6 +2673,9 @@
 
     },
     "Share your pantry and grocery list with family — each person uses their own Apple ID." : {
+
+    },
+    "Share your pantry and grocery list with the people you trust." : {
 
     },
     "SHOPPING AT" : {
@@ -3020,6 +3128,9 @@
     "Wrapped" : {
 
     },
+    "You" : {
+
+    },
     "You already have everything for this recipe." : {
 
     },
@@ -3045,6 +3156,12 @@
     "YOU SAVED ABOUT" : {
 
     },
+    "You'll get an invite code to share with family. They join, and your pantry and grocery list sync together." : {
+
+    },
+    "You'll stop seeing the shared pantry and grocery list. You can rejoin with a new invite code." : {
+
+    },
     "You're all done!" : {
 
     },
@@ -3068,6 +3185,9 @@
 
     },
     "Your inventory won't be changed. You can restart this recipe any time." : {
+
+    },
+    "Your Invite Code" : {
 
     },
     "Your Kitchen at a Glance" : {

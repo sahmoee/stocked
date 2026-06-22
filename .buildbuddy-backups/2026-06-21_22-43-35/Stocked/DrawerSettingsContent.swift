@@ -193,19 +193,29 @@ struct SettingsContent: View {
                 }
                 .listRowBackground(Color.clear)
 
-                // ── Household Sync (open to everyone for now) ─────────
+                // ── Household Sync (premium) ─────────────────────────
                 Button {
-                    showHouseholdSheet = true
+                    if PremiumManager.shared.isHouseholdSyncUnlocked {
+                        showHouseholdSheet = true
+                    } else {
+                        showHouseholdPaywall = true
+                    }
                 } label: {
                     settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
                                 title: "Household Sync",
-                                detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)",
-                                trailingSystemImage: nil)
+                                detail: PremiumManager.shared.isHouseholdSyncUnlocked
+                                    ? (session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)")
+                                    : "Premium · tap to learn more",
+                                trailingSystemImage: PremiumManager.shared.isHouseholdSyncUnlocked ? nil : "lock.fill")
                 }
                 .listRowBackground(Color.clear)
                 .sheet(isPresented: $showHouseholdSheet) {
                     // New mockup-styled household experience (intro → create/join → members/activity).
                     HouseholdHomeView().environment(session)
+                }
+                .sheet(isPresented: $showHouseholdPaywall) {
+                    HouseholdPaywallView(onUnlocked: { showHouseholdPaywall = false; showHouseholdSheet = true })
+                        .environment(session)
                 }
             } header: { sectionHeader("Kitchen") }
 
