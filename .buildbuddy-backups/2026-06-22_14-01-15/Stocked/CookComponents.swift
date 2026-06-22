@@ -100,40 +100,56 @@ struct CookActionCard: View {
 
     // Photo present: tall card, full-bleed image, tint gradient keeps the left readable.
     private func photoCard(_ photo: Image) -> some View {
-        VStack(spacing: 0) {
-            // TOP ZONE: tint band with emoji badge, serif title, subtitle, chevron — text above.
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(textOnDark ? Color.stockedWhite.opacity(0.18) : Color.stockedGold.opacity(0.15))
-                        .frame(width: 46, height: 46)
-                    if let emoji { Text(emoji).font(.system(size: 22)) }
-                    else { Image(systemName: icon).font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedGold) }
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 21, weight: .bold, design: .serif))
-                        .foregroundStyle(textOnDark ? Color.stockedWhite : session.themeTextColor)
-                    if !subtitle.isEmpty {
-                        Text(subtitle).font(.system(size: 12.5))
-                            .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.78) : session.themeTextColor.opacity(0.6))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.6) : session.themeTextColor.opacity(0.35))
+        ZStack(alignment: .topLeading) {
+            // 1) Photo fills the card.
+            photo.resizable().scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+
+            // 2) Strong bottom-up scrim so the title is always readable over any photo.
+            LinearGradient(
+                colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
+                         Color.black.opacity(0.55), Color.black.opacity(0.78)],
+                startPoint: .top, endPoint: .bottom)
+
+            // 3) Emoji badge, top-left.
+            ZStack {
+                Circle().fill(Color.stockedWhite).frame(width: 46, height: 46)
+                if let emoji { Text(emoji).font(.system(size: 22)) }
+                else { Image(systemName: icon).font(.system(size: 19, weight: .semibold)).foregroundStyle(Color.stockedGold) }
             }
             .padding(CookStyle.cardPadding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(tint)
 
-            // BOTTOM ZONE: the photo fills the width below the text.
-            photo.resizable().scaledToFill()
-                .frame(maxWidth: .infinity)
-                .frame(height: 110)
-                .clipped()
+            // 4) Title + subtitle pinned bottom-left, chevron bottom-right. Always white on the
+            //    dark scrim so it reads on any photo.
+            VStack {
+                Spacer()
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(.system(size: 22, weight: .bold, design: .serif))
+                            .foregroundStyle(Color.white)
+                            .shadow(color: Color.black.opacity(0.35), radius: 4, y: 1)
+                        if !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.white.opacity(0.9))
+                                .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer()
+                    ZStack {
+                        Circle().fill(Color.stockedWhite).frame(width: 32, height: 32)
+                        Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedCharcoal)
+                    }
+                }
+                .padding(CookStyle.cardPadding)
+            }
         }
+        .frame(height: 150)
+        .frame(maxWidth: .infinity)
+        .background(tint)
         .clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
     }
 
@@ -194,36 +210,35 @@ struct CookCategoryCard: View {
     // Photo present: full-bleed image fills the whole cell, dark scrim on the left keeps the
     // emoji badge and title readable.
     private func photoCell(_ photo: Image) -> some View {
-        VStack(spacing: 0) {
-            // TOP: the clean icon + text row on the card surface.
-            HStack(spacing: 14) {
+        ZStack(alignment: .leading) {
+            photo.resizable().scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            LinearGradient(
+                colors: [Color.black.opacity(0.72), Color.black.opacity(0.45), Color.black.opacity(0.0)],
+                startPoint: .leading, endPoint: .trailing)
+            HStack(spacing: 12) {
                 ZStack {
-                    Circle().fill(Color.stockedGold.opacity(0.15)).frame(width: 44, height: 44)
-                    if let emoji { Text(emoji).font(.system(size: 20)) }
-                    else { Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.stockedGold) }
+                    Circle().fill(Color.stockedWhite).frame(width: 42, height: 42)
+                    if let emoji { Text(emoji).font(.system(size: 19)) }
+                    else { Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.stockedGold) }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(session.themeTextColor)
+                    Text(title).font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.white)
+                        .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 12))
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(Color.white.opacity(0.88))
+                            .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
-            .padding(.vertical, 14).padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(session.themeCardColor)
-
-            // BOTTOM: the photo fills the width below.
-            photo.resizable().scaledToFill()
-                .frame(maxWidth: .infinity)
-                .frame(height: 96)
-                .clipped()
+            .padding(.horizontal, 16)
         }
+        .frame(height: 88)
+        .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 
