@@ -142,7 +142,7 @@ struct MainTabView: View {
     @State private var showActivityFeedMain = false   // #245 — drawer Household → Activity
     @State private var showDrawer    = false
     @State private var showBrief     = false
-    @State private var showWelcome   = false
+    @State private var showCoachMark = false
     // iPad auto-hide tab bar: hidden by default, slides up on a tap near the bottom edge,
     // hides again when the content scrolls or after a few idle seconds.
     @State private var iPadTabBarVisible = false
@@ -152,7 +152,9 @@ struct MainTabView: View {
     @State private var iPhoneTabBarVisible = true
     @State private var iPhoneTabBarHideTask: Task<Void, Never>? = nil
 
-    private let welcomeKey = "hasSeenWelcomeFlow_v1"
+    private let coachMarkKey = "hasSeenHeaderCoachMark_v2"
+    @State private var showWalkthrough = false
+    private let walkthroughKey = "hasSeenCoachWalkthrough_v1"
     private var drawerWidth:   CGFloat { SS.drawerW.value(for: device) }
     private var tabBarHeight:  CGFloat { SS.tabBarH.value(for: device) }
 
@@ -416,10 +418,18 @@ struct MainTabView: View {
                         .environment(session)
                         .transition(.opacity)
                     }
-                    if showWelcome {
-                        WelcomeFlow {
-                            withAnimation(.easeOut(duration: 0.25)) { showWelcome = false }
-                            UserDefaults.standard.set(true, forKey: welcomeKey)
+                    if showCoachMark {
+                        HeaderCoachMark {
+                            withAnimation(.easeOut(duration: 0.2)) { showCoachMark = false }
+                            UserDefaults.standard.set(true, forKey: coachMarkKey)
+                        }
+                        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+                    }
+                    if showWalkthrough {
+                        CoachWalkthrough {
+                            showWalkthrough = false
+                            UserDefaults.standard.set(true, forKey: walkthroughKey)
+                            UserDefaults.standard.set(true, forKey: coachMarkKey)  // walkthrough covers it
                         }
                         .environment(session)
                         .zIndex(3000)
@@ -456,10 +466,12 @@ struct MainTabView: View {
                 UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }
                     .forEach { $0.backgroundColor = uiColor }
-                // First run → welcome flow introducing the app. Shows once.
-                if !UserDefaults.standard.bool(forKey: welcomeKey) {
-                    Task { try? await Task.sleep(nanoseconds: 700_000_000)
-                        withAnimation(.easeIn(duration: 0.3)) { showWelcome = true } }
+                // First run → full guided walkthrough (Change 3). Falls back to nothing once seen.
+                if !UserDefaults.standard.bool(forKey: walkthroughKey) {
+                    Task { try? await Task.sleep(nanoseconds: 900_000_000)
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { showWalkthrough = true } }
+                } else if !UserDefaults.standard.bool(forKey: coachMarkKey) {
+                    Task { try? await Task.sleep(nanoseconds: 1_000_000_000); withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { showCoachMark = true } }
                 }
             }
 

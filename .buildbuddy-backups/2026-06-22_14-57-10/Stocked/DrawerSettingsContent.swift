@@ -754,6 +754,81 @@ extension EnvironmentValues {
     }
 }
 
+// MARK: - Header Coach Mark
+// Lives in MainTabView so it sits above the NavigationStack, header, and tab bar.
+// Shown exactly once after first login via UserDefaults flag.
+struct HeaderCoachMark: View {
+    @Environment(AppSession.self) var session
+    let onDismiss: () -> Void
+
+    private var safeTopInset: CGFloat { StockedScreen.safeTopInset }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            // Full-screen dim — covers header, content, AND tab bar
+            Color.black.opacity(0.25)
+                .ignoresSafeArea()
+                .onTapGesture { onDismiss() }
+
+            VStack(spacing: 0) {
+                // Point the arrow at the "Stocked." wordmark. The header sits at the top
+                // safe-area inset + ~8pt top padding; the 26pt serif wordmark's bottom is
+                // roughly +34pt below that. (Previously used safeTopInset*2 which over-shot
+                // after the header padding was reduced, leaving the arrow misaligned.)
+                Color.clear.frame(height: safeTopInset + 42)
+
+                // Arrow pointing up toward "Stocked." text — with a soft gold glow.
+                Image(systemName: "arrowtriangle.up.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.stockedGold)
+                    .shadow(color: Color.stockedGold.opacity(0.8), radius: 8)
+                    .shadow(color: Color.stockedGold.opacity(0.5), radius: 16)
+                    .padding(.bottom, 4)
+
+                // Tooltip card
+                VStack(spacing: 14) {
+                    VStack(spacing: 7) {
+                        Text("Your Kitchen at a Glance")
+                            .font(.stockedSerif(17, weight: .bold))
+                            .foregroundStyle(session.isDarkMode ? Color.stockedGold : Color.white)
+                            .multilineTextAlignment(.center)
+
+                        Text("Tap **Stocked.** anytime to open your Daily Brief — a quick snapshot of your kitchen, scan shortcuts, and settings. Press and hold the home screen to rearrange your widgets.")
+                            .font(.stockedSans(13))
+                            .foregroundStyle(session.isDarkMode ? session.themeTextColor.opacity(0.88) : Color.white.opacity(0.88))
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(2)
+                    }
+                    .padding(.horizontal, 20)
+
+                    Button { onDismiss() } label: {
+                        Text("Got it")
+                            .font(.stockedSans(14, weight: .semibold))
+                            .foregroundStyle(Color.stockedCharcoal)
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 11)
+                            .background(Color.stockedGold)
+                            .clipShape(RoundedRectangle(cornerRadius: StockedRadius.xl))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 2)
+                }
+                .padding(.vertical, 22)
+                .padding(.horizontal, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: StockedRadius.lg, style: .continuous)
+                        .fill(session.isDarkMode ? Color.darkSurface : Color.stockedCharcoal.opacity(0.95))
+                        .shadow(color: .black.opacity(0.3), radius: 20, y: 8)
+                )
+                .padding(.horizontal, 24)
+
+                Spacer()
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
 // MARK: - Build Info Footer
 // Standalone view placed below Settings — not inside any DisclosureGroup.
 // Updates automatically from BuildConfig — no manual sync required.

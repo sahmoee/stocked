@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.25 — Build 284 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.25",
-            buildDate: "Build 284 · June 2026",
-            headline: "A warmer welcome",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "hand.wave.fill", color: Color.stockedGold,
-                               title: "New welcome tour",
-                               detail: "First-time users now get a quick, swipeable intro to the app — including a heads-up about the menu hidden along the left edge, where scanning, adding, and search live."),
-            ]),
         // ── 07.24 — Build 283 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.24",
             buildDate: "Build 283 · June 2026",
             headline: "A new way to Cook",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "fork.knife", color: Color.stockedGold,
                                title: "Reimagined Cook tab",
