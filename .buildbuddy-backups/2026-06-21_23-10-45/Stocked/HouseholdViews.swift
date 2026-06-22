@@ -1,6 +1,6 @@
 // HouseholdViews.swift — the household experience UI (mockup-styled).
 //
-// 12 screens from the mockup, wired to HouseholdSync (Worker-backed; replaces CloudKit CKShare)
+// 12 screens from the mockup, wired to HouseholdCloudKit (create/join/leave/sync already exist)
 // and the new HouseholdModels (activity, members, invites, notification prefs). New screens use
 // the mockup's clean cream/serif styling; where the app already has components/flows
 // (the actual shared grocery list lives in GroceryListView), these screens link to them.
@@ -51,7 +51,7 @@ private struct HHScreen<Content: View>: View {
 
 struct HouseholdHomeView: View {
     @Environment(AppSession.self) private var session
-    @State private var household = HouseholdSync.shared
+    @State private var household = HouseholdCloudKit.shared
 
     var body: some View {
         NavigationStack {
@@ -123,7 +123,7 @@ struct HouseholdHomeView: View {
 struct HouseholdCreateView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
-    @State private var household = HouseholdSync.shared
+    @State private var household = HouseholdCloudKit.shared
     @State private var creating = false
     @State private var shareItems: [Any?] = []
     @State private var showShare = false
@@ -209,7 +209,7 @@ struct HouseholdCreateView: View {
 struct HouseholdJoinView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
-    @State private var household = HouseholdSync.shared
+    @State private var household = HouseholdCloudKit.shared
     @State private var code = ""
     @State private var joining = false
     @State private var message: String?
@@ -266,7 +266,7 @@ struct HouseholdJoinView: View {
 
 struct HouseholdMembersView: View {
     @Environment(AppSession.self) private var session
-    @State private var household = HouseholdSync.shared
+    @State private var household = HouseholdCloudKit.shared
     @State private var members: [HouseholdMember] = []
     @State private var loading = true
 
@@ -366,7 +366,7 @@ struct HouseholdMembersView: View {
 
 struct HouseholdActivityView: View {
     @Environment(AppSession.self) private var session
-    @State private var household = HouseholdSync.shared
+    @State private var household = HouseholdCloudKit.shared
     @State private var events: [HouseholdActivity] = []
     @State private var filter: HouseholdActivity.Category = .all
     @State private var loading = true
@@ -484,7 +484,7 @@ struct HouseholdMemberProfileView: View {
 
 struct HouseholdShareCodeView: View {
     @Environment(AppSession.self) private var session
-    @State private var household = HouseholdSync.shared
+    @State private var household = HouseholdCloudKit.shared
     @State private var shareItems: [Any?] = []
     @State private var showShare = false
 
@@ -545,7 +545,7 @@ struct HouseholdShareCodeView: View {
 
 struct HouseholdSettingsView: View {
     @Environment(AppSession.self) private var session
-    @State private var household = HouseholdSync.shared
+    @State private var household = HouseholdCloudKit.shared
     @State private var confirmLeave = false
 
     var body: some View {
