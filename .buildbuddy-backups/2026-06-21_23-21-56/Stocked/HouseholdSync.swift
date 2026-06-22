@@ -89,25 +89,6 @@ final class HouseholdSync {
         return true
     }
 
-    /// Mint a fresh invite code for the current household (owner action). The old code stops
-    /// working; existing members stay in the household. Returns the new code on success.
-    @discardableResult
-    func regenerateCode() async -> Bool {
-        guard let code = joinCode, state == .owner else {
-            fail("Only the household owner can regenerate the code.")
-            return false
-        }
-        guard let resp = await post("/household/regenerate", ["code": code]),
-              let newCode = resp["code"] as? String else {
-            fail("Couldn't regenerate the code. Check your connection and try again.")
-            return false
-        }
-        joinCode = newCode
-        persist()
-        lastError = nil
-        return true
-    }
-
     /// Join an existing household by code. Pulls its current snapshot into the local store.
     @discardableResult
     func joinByCode(_ rawCode: String, into store: GuestDataStore) async -> Bool {

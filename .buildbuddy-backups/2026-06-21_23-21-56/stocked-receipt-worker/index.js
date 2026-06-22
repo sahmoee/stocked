@@ -326,28 +326,6 @@ async function handleHousehold(pathname, request, env) {
     return json({ code, household });
   }
 
-  // Regenerate the invite code for an EXISTING household: mint a fresh code, move the document
-  // to the new key, and delete the old key so the previous code stops working. Members stay in
-  // the household (it's the same document) — only the code they'd share with new people changes.
-  if (action === "regenerate") {
-    const oldCode = normalizeCode(body.code);
-    const household = await readHousehold(kv, oldCode);
-    if (!household) return json({ error: "share not found", code: "notFound" }, 404);
-    let newCode = "";
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const candidate = makeHouseholdCode();
-      if (candidate === oldCode) continue;
-      const existing = await kv.get(hhKey(candidate));
-      if (!existing) { newCode = candidate; break; }
-    }
-    if (!newCode) return json({ error: "Could not allocate a new code, try again" }, 503);
-    household.code = newCode;
-    household.updatedAt = Date.now();
-    await kv.put(hhKey(newCode), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
-    await kv.delete(hhKey(oldCode));
-    return json({ code: newCode, household });
-  }
-
   if (action === "join") {
     const code = normalizeCode(body.code);
     const memberName = sanitizeName(body.memberName);

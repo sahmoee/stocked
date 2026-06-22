@@ -487,7 +487,6 @@ struct HouseholdShareCodeView: View {
     @State private var household = HouseholdSync.shared
     @State private var shareItems: [Any?] = []
     @State private var showShare = false
-    @State private var regenerating = false
 
     private var code: String { household.joinCode ?? "—" }
 
@@ -518,23 +517,9 @@ struct HouseholdShareCodeView: View {
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             .padding(.bottom, 18)
 
-            Button {
-                Task {
-                    regenerating = true
-                    _ = await household.regenerateCode()
-                    regenerating = false
-                }
-            } label: {
-                Text(regenerating ? "Regenerating…" : "Regenerate Code")
-                    .font(.system(size: 14, weight: .medium)).foregroundStyle(Color.stockedError)
-            }
-            .disabled(regenerating || household.state != .owner)
-            .padding(.bottom, 24)
-            if household.state != .owner {
-                Text("Only the household owner can regenerate the code.")
-                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                    .padding(.bottom, 12)
-            }
+            Button("Regenerate Code") { Task { } }
+                .font(.system(size: 14, weight: .medium)).foregroundStyle(Color.stockedError)
+                .padding(.bottom, 24)
         }
         .sheet(isPresented: $showShare) { ShareSheet(items: shareItems) }
     }
