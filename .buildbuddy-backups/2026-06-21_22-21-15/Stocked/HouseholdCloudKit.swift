@@ -46,13 +46,6 @@ enum HouseholdSchema {
     enum Gro {
         static let name = "name"; static let quantity = "quantity"
         static let isChecked = "isChecked"; static let recipeSource = "recipeSource"
-        static let addedByName = "addedByName"   // household attribution
-    }
-    // Activity feed
-    static let activityType = "HouseholdActivity"
-    enum Act {
-        static let kind = "kind"; static let itemName = "itemName"
-        static let actorName = "actorName"; static let date = "date"
     }
 }
 
@@ -549,7 +542,6 @@ final class HouseholdCloudKit {
         r[HouseholdSchema.Gro.quantity] = item.quantity as CKRecordValue
         r[HouseholdSchema.Gro.isChecked] = (item.isChecked ? 1 : 0) as CKRecordValue
         r[HouseholdSchema.Gro.recipeSource] = item.recipeSource as CKRecordValue
-        r[HouseholdSchema.Gro.addedByName] = item.addedByName as CKRecordValue
         return r
     }
 
@@ -563,7 +555,6 @@ final class HouseholdCloudKit {
         item.id = uuid
         item.quantity = (r[HouseholdSchema.Gro.quantity] as? Int) ?? 1
         item.recipeSource = (r[HouseholdSchema.Gro.recipeSource] as? String) ?? ""
-        item.addedByName = (r[HouseholdSchema.Gro.addedByName] as? String) ?? ""
         return item
     }
 
@@ -725,103 +716,5 @@ final class HouseholdCloudKit {
         for item in remote { byID[item.id] = item }
         let merged = Array(byID.values)
         if merged != store.groceryItems { store.groceryItems = merged }
-    }
-}
-
-// MARK: - Activity feed + attribution (mockup: Household Activity, per-item "added by")
-
-extension HouseholdCloudKit {
-
-    /// The current user's display name, used to attribute grocery adds and activity. Set this
-    /// from the app (e.g. on launch / profile change): HouseholdCloudKit.shared.myDisplayName = session.userName
-    var myDisplayName: String {
-        get { UserDefaults.standard.string(forKey: "household_my_name") ?? "You" }
-        set { UserDefaults.standard.set(newValue.isEmpty ? "You" : newValue, forKey: "household_my_name") }
-    }
-
-    /// Append an activity event to the shared zone so every member sees it in the feed.
-    /// Best-effort: failures are logged, never thrown (activity is non-critical).
-    func logActivity(_ kind: HouseholdActivity.Kind, itemName: String) async {
-        guard state == .owner || state == .member else { return }
-        let zoneID = ownerZoneIDOrShared()
-        let rec = CKRecord(recordType: HouseholdSchema.activityType,
-                           recordID: CKRecord.ID(recordName: "act_\(UUID().uuidString)", zoneID: zoneID))
-        rec[HouseholdSchema.Act.kind] = kind.rawValue as CKRecordValue
-        rec[HouseholdSchema.Act.itemName] = itemName as CKRecordValue
-        rec[HouseholdSchema.Act.actorName] = myDisplayName as CKRecordValue
-        rec[HouseholdSchema.Act.date] = Date() as CKRecordValue
-        do {
-            let db = (state == .owner) ? privateDB : sharedDB
-            _ = try await db.modifyRecords(saving: [rec], deleting: [])
-        } catch {
-            Log.transfer.error("logActivity failed: \(error.localizedDescription, privacy: .public)")
-        }
-    }
-
-    /// Fetch recent activity (newest first) for the feed screen.
-    func fetchActivity(limit: Int = 50) async -> [HouseholdActivity] {
-        guard state == .owner || state == .member else { return [] }
-        let zoneID = ownerZoneIDOrShared()
-        let db = (state == .owner) ? privateDB : sharedDB
-        let q = CKQuery(recordType: HouseholdSchema.activityType, predicate: NSPredicate(value: true))
-        q.sortDescriptors = [NSSortDescriptor(key: HouseholdSchema.Act.date, ascending: false)]
-        do {
-            let (matches, _) = try await db.records(matching: q, inZoneWith: zoneID, resultsLimit: limit)
-            var out: [HouseholdActivity] = []
-            for (_, result) in matches {
-                guard let r = try? result.get(),
-                      let kindRaw = r[HouseholdSchema.Act.kind] as? String,
-                      let kind = HouseholdActivity.Kind(rawValue: kindRaw) else { continue }
-                out.append(HouseholdActivity(
-                    kind: kind,
-                    itemName: (r[HouseholdSchema.Act.itemName] as? String) ?? "",
-                    actorName: (r[HouseholdSchema.Act.actorName] as? String) ?? "Someone",
-                    date: (r[HouseholdSchema.Act.date] as? Date) ?? Date()))
-            }
-            return out
-        } catch {
-            Log.transfer.error("fetchActivity failed: \(error.localizedDescription, privacy: .public)")
-            return []
-        }
-    }
-
-    /// The household members, derived from the CKShare participants.
-    func fetchMembers() async -> [HouseholdMember] {
-        guard state == .owner || state == .member else { return [] }
-        do {
-            let zoneID = ownerZoneIDOrShared()
-            let rootID = CKRecord.ID(recordName: "HouseholdRoot", zoneID: zoneID)
-            let db = (state == .owner) ? privateDB : sharedDB
-            guard let root = try? await db.record(for: rootID),
-                  let shareRef = root.share else { return ownerOnlyMember() }
-            guard let share = try? await db.record(for: shareRef.recordID) as? CKShare else {
-                return ownerOnlyMember()
-            }
-            var members: [HouseholdMember] = []
-            for p in share.participants {
-                let name = p.userIdentity.nameComponents?.formatted() ?? "Member"
-                let isOwner = (p.role == .owner)
-                let isMe = (p.userIdentity.userRecordID == nil) ? false : (p == share.currentUserParticipant)
-                members.append(HouseholdMember(
-                    id: p.userIdentity.userRecordID?.recordName ?? UUID().uuidString,
-                    name: isMe ? myDisplayName : name,
-                    role: isOwner ? .owner : .member,
-                    joinedAt: nil,
-                    isMe: isMe))
-            }
-            return members.isEmpty ? ownerOnlyMember() : members
-        }
-    }
-
-    private func ownerOnlyMember() -> [HouseholdMember] {
-        [HouseholdMember(id: "me", name: myDisplayName, role: state == .owner ? .owner : .member, joinedAt: nil, isMe: true)]
-    }
-
-    private func ownerZoneIDOrShared() -> CKRecordZone.ID {
-        if state == .owner {
-            return CKRecordZone.ID(zoneName: HouseholdSchema.zoneName, ownerName: CKCurrentUserDefaultName)
-        }
-        // Member: the shared zone id is discovered during join; fall back to the default shared zone.
-        return CKRecordZone.ID(zoneName: HouseholdSchema.zoneName, ownerName: CKCurrentUserDefaultName)
     }
 }

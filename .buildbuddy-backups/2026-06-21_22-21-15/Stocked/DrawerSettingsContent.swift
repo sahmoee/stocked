@@ -210,8 +210,7 @@ struct SettingsContent: View {
                 }
                 .listRowBackground(Color.clear)
                 .sheet(isPresented: $showHouseholdSheet) {
-                    // New mockup-styled household experience (intro → create/join → members/activity).
-                    HouseholdHomeView().environment(session)
+                    HouseholdSyncSheet().environment(session)
                 }
                 .sheet(isPresented: $showHouseholdPaywall) {
                     HouseholdPaywallView(onUnlocked: { showHouseholdPaywall = false; showHouseholdSheet = true })

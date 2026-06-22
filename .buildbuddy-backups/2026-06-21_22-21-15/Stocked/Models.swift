@@ -214,7 +214,6 @@ nonisolated struct LocalGroceryItem: Identifiable, Codable, Sendable, Equatable 
     var isRecommended: Bool   = false
     var recipeSource:  String = ""   // Recipe name this ingredient came from ("" = manual)
     var recipeId:      String = ""   // #9 — owning recipe's stable id ("" = manual/legacy); lets a rename relabel the group
-    var addedByName:   String = ""   // Household: display name of the member who added this ("" = me/unknown)
 }
 
 // MARK: - User-added substitution entry

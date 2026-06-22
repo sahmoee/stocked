@@ -38,37 +38,19 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.23 — Build 282 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.23",
-            buildDate: "Build 282 · June 2026",
-            headline: "Household sharing",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "person.2.fill", color: Color.stockedGold,
-                               title: "Share your kitchen",
-                               detail: "Create a household and invite family with a simple code. They can see your pantry and add to a shared grocery list."),
-                ChangelogEntry(icon: "checklist", color: Color.stockedGreen,
-                               title: "Collaborative grocery list",
-                               detail: "Household members can add items and check them off together — and every item shows who added it."),
-                ChangelogEntry(icon: "clock.arrow.circlepath", color: Color.stockedInfo,
-                               title: "Household activity feed",
-                               detail: "See everything happening in your household — who added what, and when.")
-            ]
-        ),
         // ── 07.22 — Build 281 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.22",
             buildDate: "Build 281 · June 2026",
             headline: "A cleaner, easier-to-read grocery list",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "cart", color: Color.stockedGold,
                                title: "Tidier empty grocery list",
-                               detail: "When your list is empty but items are running low, you'll see a compact prompt with your restock suggestions front and center, instead of a big empty screen."),
+                               detail: "When your list is empty but items are running low, you'll see a compact prompt with your restock suggestions front and center — instead of a big empty screen."),
                 ChangelogEntry(icon: "eye", color: Color.stockedGreen,
                                title: "Easier-to-read low-stock labels",
-                               detail: "The percent-left text on running-low items is now high-contrast and easy to read, with red reserved for items you're completely out of.")
+                               detail: "The \"% left\" text on running-low items is now high-contrast and easy to read, with red reserved for items you're completely out of.")
             ]
         ),
         // ── 07.21 — Build 280 (June 2026) ─────────────────────────────────────
