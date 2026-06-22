@@ -38,24 +38,16 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.24 — Build 283 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.24",
-            buildDate: "Build 283 · June 2026",
-            headline: "A new way to Cook",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "fork.knife", color: Color.stockedGold,
-                               title: "Reimagined Cook tab",
-                               detail: "Cook now starts with a simple choice — cook tonight or plan ahead. Cook Now helps you build around what you have, match your mood, or get a surprise pick, with smart insights about what's ready to make."),
-            ]),
         // ── 07.23 — Build 282 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.23",
             buildDate: "Build 282 · June 2026",
             headline: "Household sharing",
-            isLatest: false,
+            isLatest: true,
             entries: [
+                ChangelogEntry(icon: "fork.knife", color: Color.stockedGold,
+                               title: "A brand-new Cook tab",
+                               detail: "Cook Now is redesigned: start by building around a food you have, matching your mood, or letting us surprise you — with your recently cooked meals right there."),
                 ChangelogEntry(icon: "person.2.fill", color: Color.stockedGold,
                                title: "Share your kitchen",
                                detail: "Create a household and invite family with a simple code. They can see your pantry and add to a shared grocery list."),
