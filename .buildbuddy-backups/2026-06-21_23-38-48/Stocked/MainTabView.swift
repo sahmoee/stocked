@@ -652,7 +652,7 @@ struct MainTabView: View {
         case .home:
             HomeView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) })
         case .cook:
-            CookConciergeView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) })
+            CookTabView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) })
         case .inventory:
             InventoryHubView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) })
         case .recipes:

@@ -367,7 +367,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 293;
+				CURRENT_PROJECT_VERSION = 296;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -378,7 +378,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 08.3;
+				MARKETING_VERSION = 08.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -396,7 +396,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 293;
+				CURRENT_PROJECT_VERSION = 296;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -407,7 +407,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 08.3;
+				MARKETING_VERSION = 08.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -426,7 +426,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 293;
+				CURRENT_PROJECT_VERSION = 296;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -456,7 +456,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 293;
+				CURRENT_PROJECT_VERSION = 296;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -609,7 +609,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 293;
+				CURRENT_PROJECT_VERSION = 296;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -625,7 +625,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 08.3;
+				MARKETING_VERSION = 08.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -646,7 +646,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 293;
+				CURRENT_PROJECT_VERSION = 296;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -662,7 +662,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 08.3;
+				MARKETING_VERSION = 08.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

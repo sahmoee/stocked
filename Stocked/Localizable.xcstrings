@@ -1602,6 +1602,9 @@
     "Household created!" : {
 
     },
+    "Household name" : {
+
+    },
     "Household Settings" : {
 
     },
@@ -2546,6 +2549,9 @@
     "Save to Photos" : {
 
     },
+    "Saved ✓" : {
+
+    },
     "Saved to My Collection!" : {
 
     },
@@ -2906,6 +2912,9 @@
 
     },
     "this month" : {
+
+    },
+    "This name is shown to everyone in your household." : {
 
     },
     "This permanently deletes your account and all associated data — pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone." : {
