@@ -437,7 +437,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 08.3;
+				MARKETING_VERSION = 08.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -467,7 +467,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 08.3;
+				MARKETING_VERSION = 08.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

@@ -207,7 +207,7 @@ struct MatchMyMoodView: View {
     }
 
     var body: some View {
-        StockedShell(showBack: true, titleText: "Match My Mood") {
+        StockedShell(titleText: "Match My Mood", showBack: true) {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Let's get a feel for tonight.")
