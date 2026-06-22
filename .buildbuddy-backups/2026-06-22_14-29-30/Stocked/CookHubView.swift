@@ -38,7 +38,6 @@ struct CookHubView: View {
                         title: "Cook Now",
                         subtitle: "Dinner is solved. Build around what you have.",
                         emoji: "🍳",
-                        assetName: "cook_now_hero",
                         tint: Color.stockedCharcoal,
                         textOnDark: true
                     ) { goCookNow = true }
@@ -47,7 +46,6 @@ struct CookHubView: View {
                         title: "Cook Later",
                         subtitle: "The week is handled. Plan meals ahead.",
                         icon: "calendar",
-                        assetName: "cook_later_hero",
                         tint: Color.stockedGold,
                         textOnDark: true
                     ) { goCookLater = true }

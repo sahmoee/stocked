@@ -15,51 +15,8 @@ struct CategoryRow: View {
     let emoji: String
     let label: String
     var accentColor: Color = Color.stockedWhite
-    var assetName: String? = nil
 
     var body: some View {
-        if let name = assetName, let ui = UIImage(named: name) {
-            photoRow(Image(uiImage: ui))
-        } else {
-            plainRow
-        }
-    }
-
-    // Photo present: a full-photo card with the label overlaid, matching the Cook cards.
-    private func photoRow(_ photo: Image) -> some View {
-        ZStack(alignment: .leading) {
-            photo.resizable().scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-            LinearGradient(
-                colors: [Color.black.opacity(0.66), Color.black.opacity(0.32), Color.black.opacity(0.0)],
-                startPoint: .leading, endPoint: .trailing)
-            HStack(spacing: 16) {
-                ZStack {
-                    Circle().fill(Color.black.opacity(0.3)).frame(width: 52, height: 52)
-                    Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1.5).frame(width: 52, height: 52)
-                    if !emoji.isEmpty { Text(emoji).font(.system(size: 24)) }
-                    else { Image(systemName: icon).font(.system(size: 22, weight: .light)).foregroundStyle(Color.white) }
-                }
-                Text(label)
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
-                    .foregroundStyle(Color.white)
-                    .shadow(color: Color.black.opacity(0.55), radius: 3, y: 1)
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.9))
-                    .shadow(color: Color.black.opacity(0.5), radius: 2, y: 1)
-            }
-            .padding(.horizontal, 22)
-        }
-        .frame(height: 96)
-        .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
-        .padding(.horizontal, 20)
-    }
-
-    // No photo: the original row, unchanged.
-    private var plainRow: some View {
         HStack(spacing: 20) {
             ZStack {
                 Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
@@ -97,19 +54,19 @@ struct FoodsCategoryView: View {
                 VStack(spacing: 0) {
                     Spacer()
                     NavigationLink(destination: FoodsSubOptionView(category: "Protein", icon: "🍗", servings: servings)) {
-                        CategoryRow(icon: "fork.knife", emoji: "🍗", label: "Protein", assetName: "protein")
+                        CategoryRow(icon: "fork.knife", emoji: "🍗", label: "Protein")
                     }.buttonStyle(.plain)
                     Spacer()
                     NavigationLink(destination: FoodsSubOptionView(category: "Vegetables", icon: "🥕", servings: servings)) {
-                        CategoryRow(icon: "leaf", emoji: "🥕", label: "Vegetables", assetName: "vegetables")
+                        CategoryRow(icon: "leaf", emoji: "🥕", label: "Vegetables")
                     }.buttonStyle(.plain)
                     Spacer()
                     NavigationLink(destination: FoodsSubOptionView(category: "Expiring Soon", icon: "📅", servings: servings)) {
-                        CategoryRow(icon: "calendar", emoji: "📅", label: "Expiring Soon", assetName: "expiring_soon")
+                        CategoryRow(icon: "calendar", emoji: "📅", label: "Expiring Soon")
                     }.buttonStyle(.plain)
                     Spacer()
                     NavigationLink(destination: FoodsSubOptionView(category: "Leftovers", icon: "🥡", servings: servings)) {
-                        CategoryRow(icon: "takeoutbag.and.cup.and.straw.fill", emoji: "🥡", label: "Leftovers", assetName: "leftovers")
+                        CategoryRow(icon: "takeoutbag.and.cup.and.straw.fill", emoji: "🥡", label: "Leftovers")
                     }.buttonStyle(.plain)
                     Spacer()
                 }
