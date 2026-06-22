@@ -227,18 +227,10 @@ struct HouseholdJoinView: View {
                     .font(.system(size: 22, weight: .semibold, design: .monospaced))
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
-                    .keyboardType(.asciiCapable)
                     .foregroundStyle(session.themeTextColor)
                     .tracking(2)
                     .padding(.vertical, 14).padding(.horizontal, 16)
                     .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
-                    .onChange(of: code) { _, newValue in
-                        // Strip anything that isn't a code character (A to Z, 2 to 9) as the user
-                        // types, so iOS smart quotes / autocorrect can't wrap or alter the code.
-                        let allowed = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                        let cleaned = String(newValue.uppercased().filter { allowed.contains($0) }.prefix(8))
-                        if cleaned != newValue { code = cleaned }
-                    }
             }
             .padding(.bottom, 18)
 

@@ -414,12 +414,7 @@ final class HouseholdCloudKit {
             syncStage = .failed("Not signed into iCloud. Open Settings and sign in, then try again.")
             return false
         }
-        // Normalize hard: uppercase, then keep ONLY the characters used in our code alphabet
-        // (A to Z and 2 to 9). This strips smart quotes, spaces, dashes, and any stray punctuation
-        // the keyboard may have inserted (e.g. iOS smart-quote substitution wrapping the code),
-        // which would otherwise make the lookup fail.
-        let allowed = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-        let code = String(rawCode.uppercased().filter { allowed.contains($0) })
+        let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let id = CKRecord.ID(recordName: "code_\(code)")
         syncStage = .joining
         do {
