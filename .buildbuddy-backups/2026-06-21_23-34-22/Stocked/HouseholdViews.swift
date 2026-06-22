@@ -566,21 +566,11 @@ struct HouseholdSettingsView: View {
     var body: some View {
         HHScreen("Household Settings") {
             VStack(spacing: 0) {
-                NavigationLink { HouseholdNameEditView() } label: {
-                    settingsRow("Household Name", "My Stocked. Kitchen")
-                }.buttonStyle(.plain)
-                Divider()
-                NavigationLink { HouseholdShareCodeView() } label: {
-                    settingsRow("Invite Code", household.joinCode ?? "—", subtitle: "Share or regenerate")
-                }.buttonStyle(.plain)
-                Divider()
-                NavigationLink { HouseholdNotificationsView() } label: {
-                    settingsRow("Notifications", "Customize what you're notified about")
-                }.buttonStyle(.plain)
-                Divider()
-                NavigationLink { HouseholdActivityView() } label: {
-                    settingsRow("Household Activity", "See who did what")
-                }.buttonStyle(.plain)
+                settingsRow("Household Name", "My Stocked. Kitchen")
+                Divider(); settingsRow("Invite Code", household.joinCode ?? "—", subtitle: "Share or regenerate")
+                Divider(); settingsRow("Notifications", "Customize what you're notified about")
+                Divider(); settingsRow("Default View", "Grocery List")
+                Divider(); settingsRow("Measurement Units", "US Standard")
             }
             .padding(.horizontal, 14)
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
@@ -625,9 +615,7 @@ struct HouseholdSettingsView: View {
 
 struct HouseholdNotificationsView: View {
     @Environment(AppSession.self) private var session
-    @Environment(\.dismiss) private var dismiss
     @State private var prefs = HouseholdNotificationPrefs.load()
-    @State private var savedConfirm = false
 
     var body: some View {
         HHScreen("Customize Notifications") {
@@ -650,16 +638,8 @@ struct HouseholdNotificationsView: View {
                 toggle("Reminders created or changed", $prefs.remindersChanged)
             }
 
-            Button {
-                prefs.save()
-                savedConfirm = true
-            } label: { Text(savedConfirm ? "Saved ✓" : "Save Preferences").hhPrimaryButton() }
+            Button { prefs.save() } label: { Text("Save Preferences").hhPrimaryButton() }
                 .padding(.top, 8).padding(.bottom, 24)
-        }
-        // Persist immediately on any change so a toggle "sticks" even without tapping Save.
-        .onChange(of: prefs) { _, newValue in
-            newValue.save()
-            savedConfirm = false
         }
     }
     @ViewBuilder private func group<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
@@ -771,33 +751,6 @@ struct HouseholdHelpView: View {
             .padding(.horizontal, 14)
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             .padding(.bottom, 24)
-        }
-    }
-}
-
-// MARK: - Household Name editor (from Settings)
-
-struct HouseholdNameEditView: View {
-    @Environment(AppSession.self) private var session
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = UserDefaults.standard.string(forKey: "hh_display_name") ?? "My Stocked. Kitchen"
-
-    var body: some View {
-        HHScreen("Household Name") {
-            Text("This name is shown to everyone in your household.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
-                .padding(.top, 12).padding(.bottom, 18)
-            TextField("Household name", text: $name)
-                .font(.system(size: 17))
-                .foregroundStyle(session.themeTextColor)
-                .padding(.vertical, 14).padding(.horizontal, 16)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
-                .padding(.bottom, 18)
-            Button {
-                UserDefaults.standard.set(name, forKey: "hh_display_name")
-                dismiss()
-            } label: { Text("Save").hhPrimaryButton() }
-                .padding(.bottom, 24)
         }
     }
 }

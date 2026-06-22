@@ -2150,6 +2150,9 @@
         }
       }
     },
+    "Only the household owner can regenerate the code." : {
+
+    },
     "Only the household owner needs to buy this. Once you do, everyone you invite gets Household Sync at no extra cost." : {
 
     },
@@ -2415,6 +2418,9 @@
 
     },
     "Regenerate Code" : {
+
+    },
+    "Regenerating…" : {
 
     },
     "Registered Account" : {
