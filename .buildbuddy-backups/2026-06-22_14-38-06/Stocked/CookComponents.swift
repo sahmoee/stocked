@@ -54,29 +54,31 @@ struct CookHeroCard: View {
 
     // Photo present: stacked — tint band with text on top, photo strip below.
     private func photoHero(_ photo: Image) -> some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topLeading) {
             photo.resizable().scaledToFill()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
             LinearGradient(
-                colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
-                         Color.black.opacity(0.55), Color.black.opacity(0.82)],
-                startPoint: .top, endPoint: .bottom)
-            HStack(alignment: .bottom, spacing: 14) {
+                colors: [Color.black.opacity(0.62), Color.black.opacity(0.28), Color.black.opacity(0.0)],
+                startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(
+                colors: [Color.black.opacity(0.45), Color.black.opacity(0.0)],
+                startPoint: .top, endPoint: .center)
+            HStack(alignment: .top, spacing: 14) {
                 ZStack {
-                    Circle().fill(Color.black.opacity(0.30)).frame(width: 50, height: 50)
-                    Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 50, height: 50)
-                    if let emoji { Text(emoji).font(.system(size: 25)) }
-                    else { Image(systemName: icon).font(.system(size: 21, weight: .semibold)).foregroundStyle(Color.white) }
+                    Circle().fill(Color.black.opacity(0.28)).frame(width: 52, height: 52)
+                    Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 52, height: 52)
+                    if let emoji { Text(emoji).font(.system(size: 26)) }
+                    else { Image(systemName: icon).font(.system(size: 22, weight: .semibold)).foregroundStyle(Color.white) }
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.system(size: 23, weight: .bold, design: .serif))
                         .foregroundStyle(Color.white)
-                        .shadow(color: Color.black.opacity(0.6), radius: 4, y: 1)
+                        .shadow(color: Color.black.opacity(0.55), radius: 4, y: 1)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 13))
                             .foregroundStyle(Color.white.opacity(0.92))
-                            .shadow(color: Color.black.opacity(0.6), radius: 3, y: 1)
+                            .shadow(color: Color.black.opacity(0.55), radius: 3, y: 1)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -151,35 +153,38 @@ struct CookActionCard: View {
 
     // Photo present: tall card, full-bleed image, tint gradient keeps the left readable.
     private func photoCard(_ photo: Image) -> some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topLeading) {
             // Photo fills the entire card.
             photo.resizable().scaledToFill()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
 
-            // Bottom-up scrim so the overlaid text reads as part of the photo on any image.
+            // Legibility scrims: a strong top-left darkening where the title sits, plus a soft
+            // overall darken, so the white text reads as part of the photo on any image.
             LinearGradient(
-                colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
-                         Color.black.opacity(0.55), Color.black.opacity(0.82)],
-                startPoint: .top, endPoint: .bottom)
+                colors: [Color.black.opacity(0.62), Color.black.opacity(0.28), Color.black.opacity(0.0)],
+                startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(
+                colors: [Color.black.opacity(0.45), Color.black.opacity(0.0)],
+                startPoint: .top, endPoint: .center)
 
-            // Title + subtitle + emoji badge, anchored to the BOTTOM so nothing clips. Chevron right.
-            HStack(alignment: .bottom, spacing: 14) {
+            // Emoji badge + title + subtitle, overlaid top-left. Chevron top-right.
+            HStack(alignment: .top, spacing: 14) {
                 ZStack {
-                    Circle().fill(Color.black.opacity(0.30)).frame(width: 44, height: 44)
-                    Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 44, height: 44)
-                    if let emoji { Text(emoji).font(.system(size: 21)) }
-                    else { Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.white) }
+                    Circle().fill(Color.black.opacity(0.28)).frame(width: 46, height: 46)
+                    Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 46, height: 46)
+                    if let emoji { Text(emoji).font(.system(size: 22)) }
+                    else { Image(systemName: icon).font(.system(size: 19, weight: .semibold)).foregroundStyle(Color.white) }
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.system(size: 22, weight: .bold, design: .serif))
                         .foregroundStyle(Color.white)
-                        .shadow(color: Color.black.opacity(0.6), radius: 4, y: 1)
+                        .shadow(color: Color.black.opacity(0.55), radius: 4, y: 1)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 13))
                             .foregroundStyle(Color.white.opacity(0.92))
-                            .shadow(color: Color.black.opacity(0.6), radius: 3, y: 1)
+                            .shadow(color: Color.black.opacity(0.55), radius: 3, y: 1)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
