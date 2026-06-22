@@ -1820,6 +1820,12 @@
     "Let your vibe decide the recipe." : {
 
     },
+    "Let's build something delicious." : {
+
+    },
+    "Let's get a feel for tonight." : {
+
+    },
     "Let's stock your kitchen" : {
 
     },
@@ -2373,6 +2379,9 @@
     "Receipt Review" : {
 
     },
+    "Recently Cooked" : {
+
+    },
     "Recently Viewed" : {
 
     },
@@ -2697,6 +2706,9 @@
 
     },
     "Show meals" : {
+
+    },
+    "Show My Recipes" : {
 
     },
     "Show original text" : {
@@ -3128,6 +3140,9 @@
     "What's New" : {
 
     },
+    "What's on the menu tonight?" : {
+
+    },
     "When items are expiring, suggest a recipe that uses them up" : {
 
     },
@@ -3195,6 +3210,9 @@
           }
         }
       }
+    },
+    "Your answers help us find the perfect recipes for you." : {
+
     },
     "Your Home is empty" : {
 

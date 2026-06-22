@@ -212,19 +212,6 @@ enum DBKey: String, CaseIterable {
     case wasGuest              = "wasGuest"
     case newMilestone          = "newMilestone"
 
-    // Centralized previously-stray keys (exact existing string values — do NOT change the strings,
-    // or stored data would be orphaned). Added so call sites can use DBKey instead of raw strings.
-    case activeCookSession     = "activeCookSession"
-    case recentlyViewedRecipes = "recentlyViewedRecipes"
-    case onlineRecipesOpenCount = "onlineRecipesOpenCount"
-    case onlineRecipesCache    = "onlineRecipesCache_v2"
-    case onlineSyncEnabled     = "onlineSyncEnabled"
-    case ratingWeights         = "ratingWeights_v1"
-    case receiptArchive        = "receiptArchive_v1"
-    case lastICloudBackup      = "lastICloudBackup"
-    case invSort               = "stocked.invSort"
-    case homeBriefCollapsed    = "stocked.homeBriefCollapsed"
-
     case priceHistory          = "price_history_v1"
 }
 
