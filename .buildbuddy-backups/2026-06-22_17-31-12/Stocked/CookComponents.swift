@@ -139,7 +139,6 @@ struct CookActionCard: View {
     var assetName: String? = nil
     var tint: Color = Color.stockedCharcoal
     var textOnDark: Bool = true
-    var cardHeight: CGFloat = 150
     let action: () -> Void
 
     var body: some View {
@@ -185,7 +184,7 @@ struct CookActionCard: View {
             }
             .padding(CookStyle.cardPadding)
         }
-        .frame(height: cardHeight)
+        .frame(height: 150)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
