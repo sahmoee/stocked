@@ -54,8 +54,14 @@ struct CookHeroCard: View {
 
     // Photo present: stacked — tint band with text on top, photo strip below.
     private func photoHero(_ photo: Image) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Spacer(minLength: 0)
+        ZStack(alignment: .bottomLeading) {
+            photo.resizable().scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            LinearGradient(
+                colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
+                         Color.black.opacity(0.55), Color.black.opacity(0.82)],
+                startPoint: .top, endPoint: .bottom)
             HStack(alignment: .bottom, spacing: 14) {
                 ZStack {
                     Circle().fill(Color.black.opacity(0.30)).frame(width: 50, height: 50)
@@ -82,16 +88,7 @@ struct CookHeroCard: View {
             .padding(CookStyle.cardPadding)
         }
         .frame(height: 150)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                photo.resizable().scaledToFill()
-                LinearGradient(
-                    colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
-                             Color.black.opacity(0.55), Color.black.opacity(0.82)],
-                    startPoint: .top, endPoint: .bottom)
-            }
-        )
+        .frame(maxWidth: .infinity)
         .background(tint)
         .clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
     }
@@ -154,10 +151,19 @@ struct CookActionCard: View {
 
     // Photo present: tall card, full-bleed image, tint gradient keeps the left readable.
     private func photoCard(_ photo: Image) -> some View {
-        // Text content lives in a fixed-height container; the photo + scrim are a clipped
-        // background so the image can never push the text outside the card.
-        VStack(alignment: .leading, spacing: 0) {
-            Spacer(minLength: 0)
+        ZStack(alignment: .bottomLeading) {
+            // Photo fills the entire card.
+            photo.resizable().scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+
+            // Bottom-up scrim so the overlaid text reads as part of the photo on any image.
+            LinearGradient(
+                colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
+                         Color.black.opacity(0.55), Color.black.opacity(0.82)],
+                startPoint: .top, endPoint: .bottom)
+
+            // Title + subtitle + emoji badge, anchored to the BOTTOM so nothing clips. Chevron right.
             HStack(alignment: .bottom, spacing: 14) {
                 ZStack {
                     Circle().fill(Color.black.opacity(0.30)).frame(width: 44, height: 44)
@@ -185,16 +191,7 @@ struct CookActionCard: View {
             .padding(CookStyle.cardPadding)
         }
         .frame(height: 150)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                photo.resizable().scaledToFill()
-                LinearGradient(
-                    colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
-                             Color.black.opacity(0.55), Color.black.opacity(0.82)],
-                    startPoint: .top, endPoint: .bottom)
-            }
-        )
+        .frame(maxWidth: .infinity)
         .background(tint)
         .clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
     }
@@ -256,39 +253,41 @@ struct CookCategoryCard: View {
     // Photo present: full-bleed image fills the whole cell, dark scrim on the left keeps the
     // emoji badge and title readable.
     private func photoCell(_ photo: Image) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Color.black.opacity(0.28)).frame(width: 42, height: 42)
-                Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 42, height: 42)
-                if let emoji { Text(emoji).font(.system(size: 19)) }
-                else { Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.white) }
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 17, weight: .bold, design: .serif))
-                    .foregroundStyle(Color.white)
-                    .shadow(color: Color.black.opacity(0.55), radius: 3, y: 1)
-                if !subtitle.isEmpty {
-                    Text(subtitle).font(.system(size: 12))
-                        .foregroundStyle(Color.white.opacity(0.9))
-                        .shadow(color: Color.black.opacity(0.55), radius: 2, y: 1)
+        ZStack(alignment: .leading) {
+            // Photo fills the entire cell.
+            photo.resizable().scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            // Left-weighted scrim so the badge + title read over any photo.
+            LinearGradient(
+                colors: [Color.black.opacity(0.66), Color.black.opacity(0.34), Color.black.opacity(0.0)],
+                startPoint: .leading, endPoint: .trailing)
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(Color.black.opacity(0.28)).frame(width: 42, height: 42)
+                    Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 42, height: 42)
+                    if let emoji { Text(emoji).font(.system(size: 19)) }
+                    else { Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.white) }
                 }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.white)
+                        .shadow(color: Color.black.opacity(0.55), radius: 3, y: 1)
+                    if !subtitle.isEmpty {
+                        Text(subtitle).font(.system(size: 12))
+                            .foregroundStyle(Color.white.opacity(0.9))
+                            .shadow(color: Color.black.opacity(0.55), radius: 2, y: 1)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.9))
+                    .shadow(color: Color.black.opacity(0.5), radius: 2, y: 1)
             }
-            Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold))
-                .foregroundStyle(Color.white.opacity(0.9))
-                .shadow(color: Color.black.opacity(0.5), radius: 2, y: 1)
+            .padding(.horizontal, 16)
         }
-        .padding(.horizontal, 16)
         .frame(height: 92)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                photo.resizable().scaledToFill()
-                LinearGradient(
-                    colors: [Color.black.opacity(0.66), Color.black.opacity(0.34), Color.black.opacity(0.0)],
-                    startPoint: .leading, endPoint: .trailing)
-            }
-        )
+        .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 
