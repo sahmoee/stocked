@@ -51,7 +51,7 @@ struct BuildAroundFoodView: View {
                         NavigationLink {
                             FoodsSubOptionView(category: cat.key, icon: cat.icon, servings: servings)
                         } label: {
-                            CookCategoryCard(title: cat.title, subtitle: cat.subtitle, emoji: cat.emoji, assetName: cat.asset, cardHeight: 140) {}
+                            CookCategoryCard(title: cat.title, subtitle: cat.subtitle, emoji: cat.emoji, assetName: cat.asset) {}
                                 .allowsHitTesting(false)
                         }
                         .buttonStyle(.plain)

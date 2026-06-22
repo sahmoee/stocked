@@ -241,7 +241,6 @@ struct CookCategoryCard: View {
     var icon: String = "fork.knife"
     var emoji: String? = nil
     var assetName: String? = nil
-    var cardHeight: CGFloat = 92
     let action: () -> Void
 
     var body: some View {
@@ -281,7 +280,7 @@ struct CookCategoryCard: View {
                 .shadow(color: Color.black.opacity(0.5), radius: 2, y: 1)
         }
         .padding(.horizontal, 16)
-        .frame(height: cardHeight)
+        .frame(height: 92)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
@@ -318,7 +317,7 @@ struct CookCategoryCard: View {
                 .foregroundStyle(session.themeTextColor.opacity(0.3))
         }
         .padding(.vertical, 14).padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, minHeight: cardHeight, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }
