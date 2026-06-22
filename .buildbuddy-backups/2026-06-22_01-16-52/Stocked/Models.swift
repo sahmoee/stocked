@@ -129,7 +129,7 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
 }
 
 // MARK: - Nutrition Facts
-nonisolated struct NutritionFacts: Codable, Equatable, Sendable {
+struct NutritionFacts: Codable, Equatable {
     var servingSize:  String = ""
     var calories:     Int    = 0
     var totalFat:     Double = 0
@@ -267,7 +267,7 @@ enum MeasurementUnit {
 }
 
 // MARK: - Clean decimal formatting
-nonisolated extension Double {
+extension Double {
     var clean: String {
         truncatingRemainder(dividingBy: 1) == 0
             ? String(format: "%.0f", self)

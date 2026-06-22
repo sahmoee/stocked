@@ -1116,6 +1116,9 @@
     "Cook Now" : {
 
     },
+    "Cook now, or plan ahead for the week." : {
+
+    },
     "Cook Right Now" : {
 
     },
@@ -1614,6 +1617,9 @@
     "How do you want to add this recipe?" : {
 
     },
+    "How do you want to find dinner?" : {
+
+    },
     "How many people are we feeding?" : {
 
     },
@@ -1699,6 +1705,9 @@
 
     },
     "Instructions" : {
+
+    },
+    "Inventory Insights" : {
 
     },
     "Inventory Status" : {
@@ -2253,6 +2262,9 @@
 
     },
     "Pick %@" : {
+
+    },
+    "Pick a path and we'll do the rest." : {
 
     },
     "Pick a screenshot of a recipe. We'll read the text on your device and structure it for you to review." : {

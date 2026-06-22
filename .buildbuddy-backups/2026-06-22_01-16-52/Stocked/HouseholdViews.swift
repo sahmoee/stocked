@@ -423,8 +423,9 @@ struct HouseholdActivityView: View {
                 .font(.system(size: 14, weight: .bold)).foregroundStyle(Color.stockedWhite)
                 .frame(width: 36, height: 36).background(Color.stockedGold, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text("**\(e.actorName)** \(e.kind.verb) **\(e.phrase)**")
-                    .font(.system(size: 13))
+                (Text(e.actorName).font(.system(size: 13, weight: .semibold))
+                 + Text(" \(e.kind.verb) ").font(.system(size: 13))
+                 + Text(e.phrase).font(.system(size: 13, weight: .semibold)))
                     .foregroundStyle(session.themeTextColor)
                 Text(e.date, style: .relative).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
             }

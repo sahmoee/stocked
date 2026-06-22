@@ -56,7 +56,7 @@ struct CookHubView: View {
             }
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
-        .navigationDestination(isPresented: $goCookLater) { CookLaterHomeView() }
+        .navigationDestination(isPresented: $goCookLater) { MealPlannerView(servings: 4) }
     }
 
     private var greeting: String {
@@ -160,8 +160,8 @@ struct CookNowHomeView: View {
                 Spacer(minLength: 20)
             }
         }
-        .navigationDestination(isPresented: $goBuildFood) { BuildAroundFoodView(servings: 4) }
-        .navigationDestination(isPresented: $goMood) { MatchMyMoodFlowView() }
+        .navigationDestination(isPresented: $goBuildFood) { FoodsCategoryView(servings: 4) }
+        .navigationDestination(isPresented: $goMood) { MoodsCategoryView(servings: 4) }
         .navigationDestination(isPresented: $goSurprise) { ServingSizeView(isCookNow: true) }
     }
 }

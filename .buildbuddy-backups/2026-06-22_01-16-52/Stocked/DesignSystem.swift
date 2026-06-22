@@ -342,12 +342,11 @@ struct StockedWordmark: View {
 
     var body: some View {
         let base = color ?? session.themeTextColor
-        var word = AttributedString("Stocked")
-        word.foregroundColor = base
-        var dot = AttributedString(".")
-        dot.foregroundColor = goldColor
-        return Text(word + dot)
-            .font(.system(size: size, weight: .bold, design: .serif))
+        return (
+            Text("Stocked").foregroundColor(base)
+            + Text(".").foregroundColor(goldColor)
+        )
+        .font(.system(size: size, weight: .bold, design: .serif))
     }
 }
 

@@ -48,9 +48,6 @@ struct StockedChangelog {
                 ChangelogEntry(icon: "fork.knife", color: Color.stockedGold,
                                title: "Reimagined Cook tab",
                                detail: "Cook now starts with a simple choice — cook tonight or plan ahead. Cook Now helps you build around what you have, match your mood, or get a surprise pick, with smart insights about what's ready to make."),
-                ChangelogEntry(icon: "calendar", color: Color.stockedGold,
-                               title: "Cook Later planning",
-                               detail: "Plan meals across the week and get a prep checklist, with your upcoming plans right on the Cook Later home."),
             ]),
         // ── 07.23 — Build 282 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
