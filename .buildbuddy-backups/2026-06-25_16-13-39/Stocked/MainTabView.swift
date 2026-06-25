@@ -687,72 +687,21 @@ struct DrawerDragLayer: View {
 
     private var drawerWidth: CGFloat { SS.drawerW.value(for: device) }
 
-    // Live finger translation while a drag is in progress (0 when not dragging). Combined with
-    // the resting position below so the drawer tracks the finger 1:1, then springs to a final
-    // open/closed state on release.
-    @State private var dragOffset: CGFloat = 0
-    @State private var isDragging: Bool = false
-
-    // Resting position: open (0) or closed (-drawerWidth).
-    private var restOffsetX: CGFloat { showDrawer ? 0 : -drawerWidth }
-
-    // Resting position plus the in-flight drag, clamped so the panel can't be pulled past
-    // fully-open or pushed past fully-closed.
-    private var drawerOffsetX: CGFloat {
-        min(0, max(-drawerWidth, restOffsetX + dragOffset))
-    }
-
-    // How far open the drawer is right now, 0 (closed) ... 1 (open). Drives the dim overlay
-    // and pull-tab position so they move smoothly with the drag, not just on the final toggle.
-    private var openFraction: CGFloat {
-        guard drawerWidth > 0 else { return showDrawer ? 1 : 0 }
-        return (drawerOffsetX + drawerWidth) / drawerWidth
-    }
-
-    private let openSpring  = Animation.spring(response: 0.35, dampingFraction: 0.85)
-    // Minimum horizontal travel before we treat a drag as a drawer drag (lets vertical
-    // scrolls and taps pass through untouched).
-    private let dragActivate: CGFloat = 12
-
-    // Decide the resting state on release from BOTH position and throw velocity, so a quick
-    // flick opens/closes even if the finger did not travel past the halfway point.
-    private func settle(predictedTranslation: CGFloat) {
-        let projected = drawerOffsetX + (predictedTranslation - dragOffset)
-        let shouldOpen = projected > -drawerWidth / 2
-        let changed = shouldOpen != showDrawer
-        withAnimation(openSpring) {
-            showDrawer = shouldOpen
-            dragOffset = 0
-        }
-        isDragging = false
-        if changed { HapticManager.select() }
-    }
+    // Drawer rests open (0) or closed (-drawerWidth). No drag — opens/closes by tapping the
+    // pull-tab or the dim overlay. (Drag gestures were removed per design.)
+    private var drawerOffsetX: CGFloat { showDrawer ? 0 : -drawerWidth }
 
     var body: some View {
         ZStack(alignment: .leading) {
-            // Dim behind the drawer — its opacity tracks how far open the drawer is, so it
-            // fades in smoothly during the drag. Tapping it (when open) closes the drawer.
-            if openFraction > 0.001 {
-                Color.black.opacity(0.35 * openFraction)
+            // Dim behind the drawer when open. Tapping it closes.
+            if showDrawer {
+                Color.black.opacity(0.35)
                     .ignoresSafeArea()
-                    .allowsHitTesting(showDrawer && !isDragging)
-                    .onTapGesture { withAnimation(openSpring) { showDrawer = false } }
+                    .onTapGesture { withAnimation(.spring(response: 0.3)) { showDrawer = false } }
                     .zIndex(1100)
             }
 
-            // Closed-state left-edge catcher: a slim transparent strip that turns a rightward
-            // swipe from the screen edge into an open drag. Only present (and only hit-testable)
-            // while the drawer is closed, so it never blocks content when the drawer is open.
-            if !showDrawer {
-                Color.clear
-                    .frame(width: 20)
-                    .frame(maxHeight: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .gesture(edgeDragGesture)
-                    .zIndex(1300)
-            }
-
-            // Drawer panel — slides in/out on showDrawer, and tracks the finger while dragging.
+            // Drawer panel — slides in/out on showDrawer.
             DrawerContent(
                 selected:      $selected,
                 showDrawer:    $showDrawer,
@@ -766,9 +715,7 @@ struct DrawerDragLayer: View {
             )
             .frame(width: drawerWidth)
             .offset(x: drawerOffsetX)
-            .animation(isDragging ? nil : openSpring, value: showDrawer)
-            // Open-state drag: a leftward drag on the panel itself closes the drawer.
-            .gesture(panelDragGesture)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showDrawer)
             .zIndex(1200)
 
             // Left-edge pull tab (tap to open).
@@ -776,35 +723,6 @@ struct DrawerDragLayer: View {
                 .zIndex(100)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // Drag that OPENS the drawer from the closed state (starts at the left edge).
-    private var edgeDragGesture: some Gesture {
-        DragGesture(minimumDistance: dragActivate)
-            .onChanged { value in
-                guard value.translation.width > 0 || isDragging else { return }
-                isDragging = true
-                dragOffset = max(0, value.translation.width)
-            }
-            .onEnded { value in
-                guard isDragging else { return }
-                settle(predictedTranslation: value.predictedEndTranslation.width)
-            }
-    }
-
-    // Drag that CLOSES the drawer from the open state (leftward on the panel).
-    private var panelDragGesture: some Gesture {
-        DragGesture(minimumDistance: dragActivate)
-            .onChanged { value in
-                guard showDrawer else { return }
-                guard value.translation.width < 0 || isDragging else { return }
-                isDragging = true
-                dragOffset = min(0, value.translation.width)
-            }
-            .onEnded { value in
-                guard isDragging else { return }
-                settle(predictedTranslation: value.predictedEndTranslation.width)
-            }
     }
 
     private var pullTab: some View {
@@ -834,10 +752,8 @@ struct DrawerDragLayer: View {
             .accessibilityIdentifier("btn_menu_pull_tab")
             Spacer()
         }
-        // Pull tab rides the drawer edge: follows the live drag, then settles with the spring.
-        .offset(x: openFraction * drawerWidth)
-        .animation(isDragging ? nil : .spring(response: 0.35, dampingFraction: 0.82), value: showDrawer)
-        .opacity(showDrawer ? 0 : 1)
+        .offset(x: showDrawer ? drawerWidth : 0)
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: showDrawer)
     }
 }
 

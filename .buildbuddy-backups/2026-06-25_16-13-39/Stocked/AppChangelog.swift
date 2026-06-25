@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.27 — Build 286 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.27",
-            buildDate: "Build 286 · June 2026",
-            headline: "Swipe to open the menu",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "hand.draw.fill", color: Color.stockedGold,
-                               title: "Drag the menu open",
-                               detail: "You can now slide the side menu open with a swipe from the left edge, and push it closed with a swipe back. Tapping the edge handle still works too."),
-            ]),
         // ── 07.26 — Build 285 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.26",
             buildDate: "Build 285 · June 2026",
             headline: "Reminders that actually reach you",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "bell.badge.fill", color: Color.stockedGold,
                                title: "Reminders now arrive outside the app",

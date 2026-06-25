@@ -1383,8 +1383,15 @@
     "Estimates based on ~100g per ingredient · %lld servings" : {
 
     },
-    "Every %@ at 10 AM" : {
-
+    "Every %@ at %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Every %1$@ at %2$@"
+          }
+        }
+      }
     },
     "Every widget is already on your Home screen." : {
 
@@ -2147,6 +2154,12 @@
     "Notifications" : {
 
     },
+    "Notifications allowed — reminders will arrive even when the app is closed." : {
+
+    },
+    "Notifications are turned off" : {
+
+    },
     "Notify at" : {
 
     },
@@ -2182,6 +2195,9 @@
 
     },
     "Only the household owner needs to buy this. Once you do, everyone you invite gets Household Sync at no extra cost." : {
+
+    },
+    "Open" : {
 
     },
     "Open recipe" : {
@@ -2464,6 +2480,9 @@
 
     },
     "Registered Account" : {
+
+    },
+    "Reminders can't be delivered until you allow notifications in Settings." : {
 
     },
     "Remove" : {
