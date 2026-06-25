@@ -171,17 +171,9 @@ final class StepTimerEngine {
     }
 
     func cancelAll() {
-        // Capture the step indices BEFORE clearing so we can remove exactly the timer
-        // notifications this engine scheduled. Previously this called
-        // removeAllPendingNotificationRequests(), which also deleted the kitchen reminders
-        // (expiry / cook / staples / prep / daily brief) whenever a user left a cooking
-        // session — a second cause of reminders never firing outside the app.
-        let timerIDs = timers.keys.map { "step_timer_\($0)" }
         for timer in timers.values { timer.pause() }
         timers.removeAll()
-        if !timerIDs.isEmpty {
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: timerIDs)
-        }
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         LiveActivityManager.shared.end()
     }
 

@@ -38,29 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.26 — Build 285 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.26",
-            buildDate: "Build 285 · June 2026",
-            headline: "Reminders that actually reach you",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "bell.badge.fill", color: Color.stockedGold,
-                               title: "Reminders now arrive outside the app",
-                               detail: "Expiry, cook, low-staple and meal-prep reminders are no longer cleared in the background, so they show up on your Lock Screen even when Stocked is closed."),
-                ChangelogEntry(icon: "clock.fill", color: Color.stockedGold,
-                               title: "Choose when each reminder arrives",
-                               detail: "Every reminder type now has its own time picker in Notification settings, so you decide exactly when each one is delivered."),
-                ChangelogEntry(icon: "checkmark.shield.fill", color: Color.stockedGreen,
-                               title: "See if notifications are allowed",
-                               detail: "Notification settings now show whether the system has notifications turned on, with a quick shortcut to fix it if they are switched off."),
-            ]),
         // ── 07.25 — Build 284 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.25",
             buildDate: "Build 284 · June 2026",
             headline: "A warmer welcome",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "hand.wave.fill", color: Color.stockedGold,
                                title: "New welcome tour",

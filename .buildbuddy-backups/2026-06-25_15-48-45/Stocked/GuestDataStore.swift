@@ -268,11 +268,7 @@ class GuestDataStore {
         let snapshot = inventoryItems   // capture on @MainActor before entering non-isolated closure
         center.getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized else { return }
-            // Only clear THIS scheduler's own request. Using removeAllPendingNotificationRequests()
-            // here wiped every reminder the DailyBriefNotificationManager had scheduled (expiry,
-            // cook suggestion, staples, prep, daily brief) every time inventory changed — so those
-            // reminders never survived to fire outside the app. Scope the removal to "lowStock".
-            center.removePendingNotificationRequests(withIdentifiers: ["lowStock"])
+            center.removeAllPendingNotificationRequests()
             let outOfStock  = snapshot.filter { $0.effectiveLevel == 0 }
             let low         = snapshot.filter { $0.isLow }
             var messages: [String] = []

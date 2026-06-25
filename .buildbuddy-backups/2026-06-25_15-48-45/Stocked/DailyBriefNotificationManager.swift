@@ -13,85 +13,11 @@ final class DailyBriefNotificationManager {
     static let shared = DailyBriefNotificationManager()
     private init() {}
 
-    // MARK: - Authorization
-
-    /// One-shot permission request. Call this the first time the user enables ANY reminder
-    /// so iOS actually shows the system prompt. The completion returns on the main actor with
-    /// whether permission is now granted, so the UI can reflect Allowed / Denied immediately.
-    func requestAuthorization(_ completion: @escaping @MainActor (Bool) -> Void = { _ in }) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-            Task { @MainActor in completion(granted) }
-        }
-    }
-
-    /// Reads the current system authorization status (so Settings can show whether the user
-    /// has actually allowed notifications, and offer a path to the Settings app if denied).
-    func authorizationStatus(_ completion: @escaping @MainActor (UNAuthorizationStatus) -> Void) {
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            Task { @MainActor in completion(settings.authorizationStatus) }
-        }
-    }
-
     private let categoryID  = "DAILY_BRIEF"
     private let requestID   = "stocked_daily_brief"
     private let hourKey     = "dailyBriefHour"
     private let minKey      = "dailyBriefMinute"
     private let enabledKey  = "dailyBriefEnabled"
-
-    // ── Configurable fire times for the other reminder types ──────────────────
-    // These used to be hardcoded (expiry 9 AM, cook 4 PM, staples 5 PM, prep 10 AM).
-    // Each now reads from UserDefaults with the old hardcoded value as its default, so
-    // existing behaviour is unchanged until the user picks a new time in Settings.
-    private let expiryHourKey  = "expiryReminderHour"
-    private let expiryMinKey   = "expiryReminderMinute"
-    private let cookHourKey    = "cookSuggestionHour"
-    private let cookMinKey     = "cookSuggestionMinute"
-    private let stapleHourKey  = "stapleNudgeHour"
-    private let stapleMinKey   = "stapleNudgeMinute"
-    private let prepHourKey    = "prepReminderHour"
-    private let prepMinKey     = "prepReminderMinute"
-
-    // Helper: read an hour key that uses 0 as "unset" (fall back to the supplied default).
-    private func storedHour(_ key: String, default def: Int) -> Int {
-        let v = UserDefaults.standard.object(forKey: key) as? Int
-        return v ?? def
-    }
-    private func storedMinute(_ key: String) -> Int {
-        UserDefaults.standard.integer(forKey: key)
-    }
-
-    var expiryHour: Int {
-        get { storedHour(expiryHourKey, default: 9) }
-        set { UserDefaults.standard.set(newValue, forKey: expiryHourKey) }
-    }
-    var expiryMinute: Int {
-        get { storedMinute(expiryMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: expiryMinKey) }
-    }
-    var cookHour: Int {
-        get { storedHour(cookHourKey, default: 16) }
-        set { UserDefaults.standard.set(newValue, forKey: cookHourKey) }
-    }
-    var cookMinute: Int {
-        get { storedMinute(cookMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: cookMinKey) }
-    }
-    var stapleHour: Int {
-        get { storedHour(stapleHourKey, default: 17) }
-        set { UserDefaults.standard.set(newValue, forKey: stapleHourKey) }
-    }
-    var stapleMinute: Int {
-        get { storedMinute(stapleMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: stapleMinKey) }
-    }
-    var prepHour: Int {
-        get { storedHour(prepHourKey, default: 10) }
-        set { UserDefaults.standard.set(newValue, forKey: prepHourKey) }
-    }
-    var prepMinute: Int {
-        get { storedMinute(prepMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: prepMinKey) }
-    }
 
     // #9 — per-item expiry reminders
     private let expiryEnabledKey = "expiryRemindersEnabled"
@@ -196,11 +122,11 @@ final class DailyBriefNotificationManager {
 
         for item in store.inventoryItems {
             guard let exp = item.expirationDate, exp > now else { continue }
-            // Fire 1 day before expiry at the user's chosen time (default 9 AM).
+            // Fire 1 day before expiry at 9 AM (or, if that's already past, skip).
             guard let dayBefore = cal.date(byAdding: .day, value: -1, to: exp) else { continue }
             var comps = cal.dateComponents([.year, .month, .day], from: dayBefore)
-            comps.hour = expiryHour
-            comps.minute = expiryMinute
+            comps.hour = 9
+            comps.minute = 0
             guard let fireDate = cal.date(from: comps), fireDate > now else { continue }
 
             let content = UNMutableNotificationContent()
@@ -290,7 +216,7 @@ final class DailyBriefNotificationManager {
         let cal = Calendar.current
         guard let tomorrow = cal.date(byAdding: .day, value: 1, to: Date()) else { return }
         var comps = cal.dateComponents([.year, .month, .day], from: tomorrow)
-        comps.hour = cookHour; comps.minute = cookMinute
+        comps.hour = 16; comps.minute = 0
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         let request = UNNotificationRequest(identifier: cookSuggestRequestID, content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)
@@ -328,11 +254,11 @@ final class DailyBriefNotificationManager {
         content.sound = .default
         content.userInfo = ["action": "openGrocery"]
 
-        // Tomorrow at the user's chosen time (default 5 PM) — evening, when a shopping run is plausible.
+        // Tomorrow at 5 PM — evening, when a shopping run is plausible.
         let cal = Calendar.current
         guard let tomorrow = cal.date(byAdding: .day, value: 1, to: Date()) else { return }
         var comps = cal.dateComponents([.year, .month, .day], from: tomorrow)
-        comps.hour = stapleHour; comps.minute = stapleMinute
+        comps.hour = 17; comps.minute = 0
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: stapleRequestID, content: content, trigger: trigger))
@@ -364,7 +290,7 @@ final class DailyBriefNotificationManager {
 
         var comps = DateComponents()
         comps.weekday = weekday
-        comps.hour = prepHour; comps.minute = prepMinute
+        comps.hour = 10; comps.minute = 0
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: prepRequestID, content: content, trigger: trigger))
@@ -380,12 +306,7 @@ final class DailyBriefNotificationManager {
     }
 
     var timeLabel: String {
-        timeLabel(hour: hour, minute: minute)
-    }
-
-    /// Formats any hour (0–23) + minute as a 12-hour label, e.g. "7:30 AM". Used by the
-    /// per-reminder time pickers in Settings.
-    func timeLabel(hour h: Int, minute m: Int) -> String {
+        let h = hour; let m = minute
         let suffix = h < 12 ? "AM" : "PM"
         let h12    = h == 0 ? 12 : h > 12 ? h - 12 : h
         return String(format: "%d:%02d %@", h12, m, suffix)
