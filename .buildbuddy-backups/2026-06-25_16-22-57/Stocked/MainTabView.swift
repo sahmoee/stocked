@@ -741,21 +741,15 @@ struct DrawerDragLayer: View {
             }
 
             // Closed-state left-edge catcher: a slim transparent strip that turns a rightward
-            // swipe from the screen edge into an open drag, AND a tap into an open. Present only
+            // swipe from the screen edge into an open drag. Only present (and only hit-testable)
             // while the drawer is closed, so it never blocks content when the drawer is open.
-            // Sits BELOW the visible pull tab (zIndex 100) so the tab's own button still works;
-            // the tap handler here covers taps that land in the wider edge zone but off the tab.
             if !showDrawer {
                 Color.clear
-                    .frame(width: 28)
+                    .frame(width: 20)
                     .frame(maxHeight: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        HapticManager.select()
-                        withAnimation(openSpring) { showDrawer = true }
-                    }
                     .gesture(edgeDragGesture)
-                    .zIndex(50)
+                    .zIndex(1300)
             }
 
             // Drawer panel — slides in/out on showDrawer, and tracks the finger while dragging.
