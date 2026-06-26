@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.28 — Build 287 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.28",
-            buildDate: "Build 287 · June 2026",
-            headline: "Everything in one place",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "person.crop.circle.fill", color: Color.stockedGold,
-                               title: "A cleaner profile screen",
-                               detail: "Your profile now shows every setting and preference on one screen, neatly grouped into categories like Account, Appearance, Notifications, and Backup, with no more digging through sub-menus."),
-                ChangelogEntry(icon: "checklist", color: .orange,
-                               title: "Adjust onboarding",
-                               detail: "The old Edit Profile option is now called Adjust onboarding, so it is clearer that it re-opens the dietary, skill, and cuisine questions."),
-            ]),
         // ── 07.27 — Build 286 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.27",
             buildDate: "Build 286 · June 2026",
             headline: "Swipe to open the menu",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "hand.draw.fill", color: Color.stockedGold,
                                title: "Drag the menu open",

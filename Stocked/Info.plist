@@ -86,6 +86,8 @@
 	<string>$(MEALDB_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Stocked uses the camera to scan barcodes and receipts so you can quickly add items to your pantry.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Stocked uses your location to determine close by stores. </string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Stocked saves shared kitchen QR codes to your photo library so you can send them to others.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -96,14 +98,14 @@
 	<string>Stocked sends you a daily brief and reminders about expiring items and your grocery list.</string>
 	<key>NetworkTimeout</key>
 	<string>$(NETWORK_TIMEOUT_REQUEST)</string>
-	<key>SpoonacularAPIKey</key>
-	<string>$(SPOONACULAR_API_KEY)</string>
 	<key>RapidAPIKey</key>
 	<string>$(RAPIDAPI_KEY)</string>
-	<key>StockedWorkerKey</key>
-	<string>$(STOCKED_WORKER_KEY)</string>
+	<key>SpoonacularAPIKey</key>
+	<string>$(SPOONACULAR_API_KEY)</string>
 	<key>StockedEnv</key>
 	<string>$(STOCKED_ENV)</string>
+	<key>StockedWorkerKey</key>
+	<string>$(STOCKED_WORKER_KEY)</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

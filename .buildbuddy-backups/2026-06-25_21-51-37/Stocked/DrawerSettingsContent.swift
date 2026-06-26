@@ -25,14 +25,20 @@ struct SettingsContent: View {
     @State private var showSignOutAlert = false
     @State private var showDeleteAccountAlert = false
     @State private var showTransfer     = false
+    @State private var showFontPicker   = false
+    @State private var showQuizConfirm  = false
     @State private var activeAccountSheet: AccountSheet? = nil   // identity-driven: no open/close race
+    @State private var showDataExport   = false
     @State private var showDataStorage  = false   // Checkpoint 1 verification & backup
+    @State private var showLockSetup    = false
 
     private enum AccountSheet: Int, Identifiable {
         case editProfile, notifications
         var id: Int { rawValue }
     }
     @State private var showHouseholdSheet = false
+    @State private var showHouseholdPaywall = false
+    @State private var exportItem:      ShareActivityItem? = nil
 
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
@@ -41,21 +47,6 @@ struct SettingsContent: View {
 
     var body: some View {
         Group {
-            // ── ONBOARDING ──────────────────────────────────────────
-            // The onboarding quiz (dietary style, skill, cuisines). Renamed from
-            // "Edit Profile" to "Adjust onboarding" so it reads as re-running the
-            // onboarding questions rather than editing an account profile.
-            Section {
-                Button {
-                    if let onEditProfile { onEditProfile() }
-                    else { activeAccountSheet = .editProfile }
-                } label: {
-                    settingsRow(icon: "checklist", color: .orange,
-                                title: "Adjust onboarding", detail: "Dietary style, skill, cuisines & more")
-                }
-                .listRowBackground(Color.clear)
-            } header: { sectionHeader("Onboarding") }
-
             // ── ACCOUNT ─────────────────────────────────────────────
             Section {
                 if editingName {
@@ -82,7 +73,25 @@ struct SettingsContent: View {
                     .listRowBackground(Color.clear)
                 }
 
-                // Preferred Store (pop-out picker).
+                Button {
+                    if let onEditProfile { onEditProfile() }
+                    else { activeAccountSheet = .editProfile }
+                } label: {
+                    settingsRow(icon: "person.crop.circle.badge.questionmark", color: .orange,
+                                title: "Edit Profile", detail: "Dietary style, skill, cuisines & more")
+                }
+                .listRowBackground(Color.clear)
+
+                Button {
+                    if let onNotifications { onNotifications() }
+                    else { activeAccountSheet = .notifications }
+                } label: {
+                    settingsRow(icon: "bell.badge.fill", color: Color.stockedGold,
+                                title: "Notifications", detail: "Daily brief, expiry & prep reminders")
+                }
+                .listRowBackground(Color.clear)
+
+                // Preferred Store now lives under Account (pop-out picker).
                 Button { showStorePopout = true } label: {
                     HStack {
                         Label("Preferred Store", systemImage: "storefront")
@@ -128,29 +137,15 @@ struct SettingsContent: View {
                 .listRowBackground(Color.clear)
             } header: { sectionHeader("Appearance") }
 
-            // ── NOTIFICATIONS ───────────────────────────────────────
-            // All notification controls in one place. "Notifications" opens the daily-brief /
-            // expiry / prep scheduling screen; the toggle below is the separate low-stock alert.
-            Section {
-                Button {
-                    if let onNotifications { onNotifications() }
-                    else { activeAccountSheet = .notifications }
-                } label: {
-                    settingsRow(icon: "bell.badge.fill", color: Color.stockedGold,
-                                title: "Reminders & Daily Brief", detail: "Schedule expiry, cook & prep reminders")
-                }
-                .listRowBackground(Color.clear)
-
-                Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.notificationsEnabled = $0 })) {
-                    Label("Low Stock Alerts", systemImage: "exclamationmark.bubble.fill")
-                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                }.tint(Color.stockedGold).listRowBackground(Color.clear)
-            } header: { sectionHeader("Notifications") }
-
             // ── KITCHEN ─────────────────────────────────────────────
             Section {
                 Toggle(isOn: Binding(get: { session.autoAddMissingToGrocery }, set: { session.autoAddMissingToGrocery = $0 })) {
                     Label("Auto-add Missing to Grocery", systemImage: "cart.badge.plus")
+                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                }.tint(Color.stockedGold).listRowBackground(Color.clear)
+
+                Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.notificationsEnabled = $0 })) {
+                    Label("Low Stock Reminders", systemImage: "bell.badge.fill")
                         .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
                 }.tint(Color.stockedGold).listRowBackground(Color.clear)
 
@@ -159,28 +154,7 @@ struct SettingsContent: View {
                                 title: "Transfer Kitchen", detail: "Export or import data")
                 }.listRowBackground(Color.clear)
                 .sheet(isPresented: $showTransfer) { KitchenTransferView().environment(session) }
-            } header: { sectionHeader("Kitchen") }
 
-            // ── SHARING ─────────────────────────────────────────────
-            // Single household entry point (previously duplicated as a drawer "Household"
-            // button and a "Household Sync" settings row).
-            Section {
-                Button {
-                    showHouseholdSheet = true
-                } label: {
-                    settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
-                                title: "Household Sync",
-                                detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)",
-                                trailingSystemImage: nil)
-                }
-                .listRowBackground(Color.clear)
-                .sheet(isPresented: $showHouseholdSheet) {
-                    HouseholdHomeView().environment(session)
-                }
-            } header: { sectionHeader("Sharing") }
-
-            // ── BACKUP & STORAGE ────────────────────────────────────
-            Section {
                 Button {
                     // Use the session-retained manager so its async result + status/error
                     // survive (a throwaway local manager gets deallocated, hiding failures).
@@ -219,15 +193,23 @@ struct SettingsContent: View {
                 }
                 .listRowBackground(Color.clear)
 
-                // Data & Storage — migration check + backup/restore (Checkpoint 1).
-                Button { showDataStorage = true } label: {
-                    Label("Data & Storage", systemImage: "internaldrive")
-                        .font(.system(size: 14, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                }.listRowBackground(Color.clear)
-            } header: { sectionHeader("Backup & Storage") }
+                // ── Household Sync (open to everyone for now) ─────────
+                Button {
+                    showHouseholdSheet = true
+                } label: {
+                    settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
+                                title: "Household Sync",
+                                detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)",
+                                trailingSystemImage: nil)
+                }
+                .listRowBackground(Color.clear)
+                .sheet(isPresented: $showHouseholdSheet) {
+                    // New mockup-styled household experience (intro → create/join → members/activity).
+                    HouseholdHomeView().environment(session)
+                }
+            } header: { sectionHeader("Kitchen") }
 
-            // ── ACCOUNT MANAGEMENT ──────────────────────────────────
+            // ── DATA & ACCOUNT ──────────────────────────────────────
             Section {
                 Button { showClearAlert = true } label: {
                     HStack(spacing: 12) {
@@ -261,6 +243,13 @@ struct SettingsContent: View {
                     Button("Cancel", role: .cancel) {}
                 }
 
+                // Data & Storage — migration check + backup/restore (Checkpoint 1).
+                Button { showDataStorage = true } label: {
+                    Label("Data & Storage", systemImage: "internaldrive")
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundStyle(session.themeTextColor)
+                }.listRowBackground(Color.clear)
+
                 // Delete Account — required by App Store for accounts with identifiable data.
                 // Only shown for signed-in (Apple) accounts; guests have no account to delete.
                 if session.accountType != .guest {
@@ -276,7 +265,7 @@ struct SettingsContent: View {
                         Text("This permanently deletes your account and all associated data — pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
                     }
                 }
-            } header: { sectionHeader("Account Management") }
+            } header: { sectionHeader("Data & Account") }
         }
         .sheet(isPresented: $showDataStorage) {
             DataStorageView().environment(session)
@@ -446,6 +435,7 @@ enum DrawerQuickAction { case scanReceipt, scanBarcode, quickUpdate, addItems, s
 struct DrawerContent: View {
     @State private var showHelpCenter = false      // #245 — mockup Settings rows
     @State private var showUsageInsights = false    // #20 — local usage insights
+    @State private var showPreferences = false     // #246 — Preferences row opens a sheet
     @State private var showProfileHub = false      // chef row → Profile & Preferences hub
     @State private var showLogoutConfirm = false
     @Environment(AppSession.self) var session
@@ -534,6 +524,7 @@ struct DrawerContent: View {
                 } header: { drawerHeader("Insights") }
 
                 Section {
+                    drawerButton("Household",     icon: "person.2")            { runQuick(.household) {} }
                     drawerButton("Help Center",   icon: "questionmark.circle") { showHelpCenter = true }
                     drawerButton(session.accountType == .guest ? "Exit Guest Mode" : "Log Out",
                                  icon: "rectangle.portrait.and.arrow.right") { showLogoutConfirm = true }
@@ -559,10 +550,31 @@ struct DrawerContent: View {
         .sheet(isPresented: $showUsageInsights) {
             NavigationStack { UsageInsightsView().environment(session) }   // #20
         }
-        // Profile & Preferences hub — opened from the chef row. Shows the full, expanded
-        // settings list inline (categorised), so everything lives on one screen instead of
-        // behind a separate "Preferences" sub-sheet. Edit Profile / Notifications are now
-        // sections within SettingsContent (no duplicate rows here).
+        .sheet(isPresented: $showPreferences) {
+            // #246 — mockup drawer: Preferences is a row → full settings sheet,
+            // not an inline DisclosureGroup.
+            NavigationStack {
+                List {
+                    SettingsContent(onEditProfile: nil, onNotifications: nil)
+                        .listRowBackground(Color.clear)
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(session.themeBgColor.ignoresSafeArea())
+                .navigationTitle("Preferences")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showPreferences = false }
+                            .foregroundStyle(Color.stockedGold)
+                    }
+                }
+            }
+            .environment(session)
+        }
+        // Profile & Preferences hub — opened from the chef row. Gathers the items that
+        // used to sit under the drawer's "Settings" header (Preferences, Household,
+        // Notifications) together with Edit Profile.
         .sheet(isPresented: $showProfileHub) {
             NavigationStack {
                 List {
@@ -587,17 +599,25 @@ struct DrawerContent: View {
                         .listRowBackground(Color.clear)
                     }
 
-                    // Full expanded settings — uses SettingsContent's own internal sheets
-                    // (onEditProfile / onNotifications left nil), which present fine from a
-                    // normal sheet's List (the flash issue is specific to the drawer's
-                    // recycling List, not this one).
-                    SettingsContent(onEditProfile: nil, onNotifications: nil)
-                        .listRowBackground(Color.clear)
+                    Section {
+                        profileHubRow("Edit Profile", icon: "person.crop.circle") {
+                            showProfileHub = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { runQuick(.editProfile) {} }
+                        }
+                        profileHubRow("Preferences", icon: "slider.horizontal.3") {
+                            showProfileHub = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showPreferences = true }
+                        }
+                        profileHubRow("Notifications", icon: "bell") {
+                            showProfileHub = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { runQuick(.notifications) {} }
+                        }
+                    } header: { drawerHeader("Profile & Preferences") }
                 }
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .background(session.themeBgColor.ignoresSafeArea())
-                .navigationTitle("Profile & Preferences")
+                .navigationTitle("Profile")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
@@ -684,6 +704,24 @@ struct DrawerContent: View {
     private func drawerHeader(_ t: String) -> some View {
         Text(t).font(.system(size: 10, weight: .bold)).tracking(1)
             .foregroundStyle(session.themeTextColor.opacity(0.35))
+    }
+
+    // Row used inside the Profile & Preferences hub sheet (inset-grouped list style).
+    private func profileHubRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.system(size: 16))
+                    .foregroundStyle(Color.stockedGold).frame(width: 26)
+                Text(title).font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(session.themeTextColor)
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
     }
 }
 
