@@ -2,7 +2,6 @@
 // Order: greeting → Daily Brief card → What's New → Action Center → Use It Soon.
 import SwiftUI
 import UniformTypeIdentifiers
-import os
 
 struct HomeView: View {
     @Environment(AppSession.self) var session

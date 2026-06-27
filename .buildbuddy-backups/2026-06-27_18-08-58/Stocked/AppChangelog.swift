@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.35 — Build 294 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.35",
-            buildDate: "Build 294 · June 2026",
-            headline: "Build fix",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "wrench.and.screwdriver.fill", color: Color.stockedCharcoal,
-                               title: "Compile fix",
-                               detail: "A small internal fix so the app builds cleanly. No visible changes."),
-            ]),
         // ── 07.34 — Build 293 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.34",
             buildDate: "Build 293 · June 2026",
             headline: "Under-the-hood tidy-up",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sparkles", color: Color.stockedInfo,
                                title: "Cleaner, leaner code",

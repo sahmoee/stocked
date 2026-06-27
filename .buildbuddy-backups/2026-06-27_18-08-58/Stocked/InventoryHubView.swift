@@ -1,5 +1,4 @@
 import SwiftUI
-import os
 
 // ─────────────────────────────────────────────────────────────────────
 // Build 246 — Inventory hub (mockup screen 3).
@@ -630,7 +629,7 @@ struct ExpiringSoonListView: View {
 
     private var items: [LocalInventoryItem] {
         session.guestStore.inventoryItems
-            .filter { ($0.daysUntilExpiry ?? 999) <= KitchenThresholds.expiringSoonDays || $0.isExpired }
+            .filter { ($0.daysUntilExpiry ?? 999) <= 7 || $0.isExpired }
             .sorted { ($0.daysUntilExpiry ?? 999) < ($1.daysUntilExpiry ?? 999) }
     }
 
