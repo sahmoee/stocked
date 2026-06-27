@@ -38,29 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.30 — Build 289 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.30",
-            buildDate: "Build 289 · June 2026",
-            headline: "Preferences, all on one page",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedInfo,
-                               title: "One tidy Preferences page",
-                               detail: "Everything now lives on a single Preferences page with four tap-to-expand sections: Edit Profile, Preferences, Notifications, and Data & Storage. No more hunting through separate menus."),
-                ChangelogEntry(icon: "person.crop.circle.fill", color: Color.stockedGold,
-                               title: "Edit Profile in one place",
-                               detail: "Edit your name and retake the setup questions from the Edit Profile section. Retaking the questions updates your suggestions to match."),
-                ChangelogEntry(icon: "rectangle.3.group.fill", color: .orange,
-                               title: "Less clutter",
-                               detail: "Settings that used to appear in more than one spot now appear exactly once, each tucked into the section it belongs to."),
-            ]),
         // ── 07.29 — Build 288 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.29",
             buildDate: "Build 288 · June 2026",
             headline: "Polish: cleaner header, smoother sign-in",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "textformat", color: Color.stockedCharcoal,
                                title: "A cleaner wordmark",

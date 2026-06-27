@@ -34,14 +34,6 @@ struct SettingsContent: View {
     }
     @State private var showHouseholdSheet = false
 
-    // ── Preferences accordion expansion state ───────────────────────
-    // The Profile & Preferences screen is now a single page with four expandable fields.
-    // Only the field the user opens is expanded; everything lives in exactly one place.
-    @State private var expandEditProfile   = false
-    @State private var expandPreferences   = false
-    @State private var expandNotifications = false
-    @State private var expandDataStorage   = false
-
     private var greeting: String {
         let h = Calendar.current.component(.hour, from: Date())
         switch h { case 5..<12: return "Good Morning"; case 12..<17: return "Good Afternoon"; default: return "Good Evening" }
@@ -49,227 +41,211 @@ struct SettingsContent: View {
 
     var body: some View {
         Group {
-            // ── EDIT PROFILE ────────────────────────────────────────
-            // Expandable field: edit name + retake the onboarding quiz (which recalibrates
-            // dietary style, skill, and cuisines used across suggestions).
+            // ── ONBOARDING ──────────────────────────────────────────
+            // The onboarding quiz (dietary style, skill, cuisines). Renamed from
+            // "Edit Profile" to "Adjust onboarding" so it reads as re-running the
+            // onboarding questions rather than editing an account profile.
             Section {
-                DisclosureGroup(isExpanded: $expandEditProfile) {
-                    // Edit name (inline editor — no separate sheet).
-                    if editingName {
-                        HStack {
-                            TextField("Display name", text: $nameInput)
-                                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                                .font(.system(size: 14, design: .serif))
-                            Button("Save") {
-                                session.displayName = nameInput.trimmingCharacters(in: .whitespaces)
-                                editingName = false
-                            }.foregroundStyle(Color.stockedGold).font(.system(size: 13, weight: .bold))
-                            Button("Cancel") { editingName = false }
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
-                                .font(.system(size: 13))
-                        }
-                        .listRowBackground(Color.stockedGold.opacity(0.08))
-                    } else {
-                        Button {
-                            nameInput = session.displayName; editingName = true
-                        } label: {
-                            settingsRow(icon: "person.text.rectangle.fill", color: Color.stockedInfo,
-                                        title: "Edit Name", detail: session.userName)
-                        }
-                        .listRowBackground(Color.clear)
-                    }
+                Button {
+                    if let onEditProfile { onEditProfile() }
+                    else { activeAccountSheet = .editProfile }
+                } label: {
+                    settingsRow(icon: "checklist", color: .orange,
+                                title: "Adjust onboarding", detail: "Dietary style, skill, cuisines & more")
+                }
+                .listRowBackground(Color.clear)
+            } header: { sectionHeader("Onboarding") }
 
-                    // Retake onboarding quiz — presents the existing QuizEditView, which writes
-                    // back the dietary/skill/cuisine answers so suggestions recalibrate.
+            // ── ACCOUNT ─────────────────────────────────────────────
+            Section {
+                if editingName {
+                    HStack {
+                        TextField("Display name", text: $nameInput)
+                            .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+                            .font(.system(size: 14, design: .serif))
+                        Button("Save") {
+                            session.displayName = nameInput.trimmingCharacters(in: .whitespaces)
+                            editingName = false
+                        }.foregroundStyle(Color.stockedGold).font(.system(size: 13, weight: .bold))
+                        Button("Cancel") { editingName = false }
+                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .font(.system(size: 13))
+                    }
+                    .listRowBackground(Color.stockedGold.opacity(0.08))
+                } else {
                     Button {
-                        if let onEditProfile { onEditProfile() }
-                        else { activeAccountSheet = .editProfile }
+                        nameInput = session.displayName; editingName = true
                     } label: {
-                        settingsRow(icon: "checklist", color: .orange,
-                                    title: "Retake Onboarding Quiz",
-                                    detail: "Recalibrates dietary style, skill & cuisines")
+                        settingsRow(icon: "person.text.rectangle.fill", color: Color.stockedInfo,
+                                    title: "Change Name", detail: session.userName)
                     }
                     .listRowBackground(Color.clear)
-                } label: {
-                    fieldLabel(icon: "person.crop.circle.fill", color: Color.stockedGold, title: "Edit Profile")
                 }
-                .listRowBackground(Color.clear)
-            }
 
-            // ── PREFERENCES ─────────────────────────────────────────
-            // Expandable field: Dark Mode, Measurements, Preferred Store, Auto-Add Missing,
-            // Auto Backup, Household Sync. (Auto Backup lives here only; Data & Storage links
-            // to the same screen without duplicating the control.)
+                // Preferred Store (pop-out picker).
+                Button { showStorePopout = true } label: {
+                    HStack {
+                        Label("Preferred Store", systemImage: "storefront")
+                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                        Spacer()
+                        Text(session.preferredStore).font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                    }
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .sheet(isPresented: $showStorePopout) { PreferredStorePopout().environment(session) }
+            } header: { sectionHeader("Account") }
+
+            // ── APPEARANCE ──────────────────────────────────────────
             Section {
-                DisclosureGroup(isExpanded: $expandPreferences) {
-                    // Dark Mode
-                    Toggle(isOn: Binding(get: { session.isDarkMode }, set: { session.isDarkMode = $0 })) {
-                        Label("Dark Mode", systemImage: "moon.fill")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
-
-                    // Measurements (US / Metric)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Measurements", systemImage: "ruler")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                        HStack(spacing: 8) {
-                            ForEach(UnitSystem.allCases, id: \.self) { sys in
-                                themeButton(sys.label, active: session.unitSystem == sys) {
-                                    withAnimation(.spring(response: 0.25)) { session.unitSystem = sys }
-                                }
-                            }
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-
-                    // Preferred Store (pop-out picker).
-                    Button { showStorePopout = true } label: {
-                        HStack {
-                            Label("Preferred Store", systemImage: "storefront")
-                                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                            Spacer()
-                            Text(session.preferredStore).font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedGold)
-                            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.35))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(Color.clear)
-
-                    // Auto-add Missing to Grocery
-                    Toggle(isOn: Binding(get: { session.autoAddMissingToGrocery }, set: { session.autoAddMissingToGrocery = $0 })) {
-                        Label("Auto-Add Missing to Grocery", systemImage: "cart.badge.plus")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
-
-                    // Auto-Backup frequency (single home for this control).
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Auto Backup", systemImage: "clock.arrow.2.circlepath")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                        HStack(spacing: 6) {
-                            ForEach(BackupFrequency.allCases, id: \.self) { freq in
-                                themeButton(freq.rawValue, active: session.backupFrequency == freq) {
-                                    session.backupFrequency = freq
-                                }
-                            }
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-
-                    // Household Sync — opens the existing household management screen.
-                    Button { showHouseholdSheet = true } label: {
-                        settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
-                                    title: "Household Sync",
-                                    detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)")
-                    }
-                    .listRowBackground(Color.clear)
-                } label: {
-                    fieldLabel(icon: "slider.horizontal.3", color: Color.stockedInfo, title: "Preferences")
+                // Dark Mode
+                HStack {
+                    Label("Dark Mode", systemImage: "moon.fill")
+                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { session.isDarkMode },
+                        set: { session.isDarkMode = $0 }
+                    ))
+                    .tint(Color.stockedGold)
+                    .labelsHidden()
                 }
                 .listRowBackground(Color.clear)
-            }
+
+                // Measurement system (US / Metric) — affects recipe scaling display
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Measurements", systemImage: "ruler")
+                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                    HStack(spacing: 8) {
+                        ForEach(UnitSystem.allCases, id: \.self) { sys in
+                            themeButton(sys.label, active: session.unitSystem == sys) {
+                                withAnimation(.spring(response: 0.25)) { session.unitSystem = sys }
+                            }
+                        }
+                    }
+                }
+                .listRowBackground(Color.clear)
+            } header: { sectionHeader("Appearance") }
 
             // ── NOTIFICATIONS ───────────────────────────────────────
-            // Expandable field: low-stock reminders toggle + the scheduling screen
-            // (daily brief / expiry / cook / prep reminders).
+            // All notification controls in one place. "Notifications" opens the daily-brief /
+            // expiry / prep scheduling screen; the toggle below is the separate low-stock alert.
             Section {
-                DisclosureGroup(isExpanded: $expandNotifications) {
-                    // Low Stock reminders.
-                    Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.notificationsEnabled = $0 })) {
-                        Label("Low Stock Reminders", systemImage: "exclamationmark.bubble.fill")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
-
-                    // Reminders & Daily Brief scheduling — opens the existing settings screen.
-                    Button {
-                        if let onNotifications { onNotifications() }
-                        else { activeAccountSheet = .notifications }
-                    } label: {
-                        settingsRow(icon: "bell.badge.fill", color: Color.stockedGold,
-                                    title: "Reminders & Daily Brief",
-                                    detail: "Schedule expiry, cook & prep reminders")
-                    }
-                    .listRowBackground(Color.clear)
+                Button {
+                    if let onNotifications { onNotifications() }
+                    else { activeAccountSheet = .notifications }
                 } label: {
-                    fieldLabel(icon: "bell.fill", color: Color.stockedGold, title: "Notifications")
+                    settingsRow(icon: "bell.badge.fill", color: Color.stockedGold,
+                                title: "Reminders & Daily Brief", detail: "Schedule expiry, cook & prep reminders")
                 }
                 .listRowBackground(Color.clear)
-            }
 
-            // ── DATA & STORAGE ──────────────────────────────────────
-            // Expandable field: Transfer Kitchen, Backup to iCloud, Auto Backup options,
-            // Clear All App Data, and the Data & Storage detail screen.
+                Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.notificationsEnabled = $0 })) {
+                    Label("Low Stock Alerts", systemImage: "exclamationmark.bubble.fill")
+                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                }.tint(Color.stockedGold).listRowBackground(Color.clear)
+            } header: { sectionHeader("Notifications") }
+
+            // ── KITCHEN ─────────────────────────────────────────────
             Section {
-                DisclosureGroup(isExpanded: $expandDataStorage) {
-                    // Transfer Kitchen — existing export/import screen.
-                    Button { showTransfer = true } label: {
-                        settingsRow(icon: "arrow.left.arrow.right.square.fill", color: Color.stockedGold,
-                                    title: "Transfer Kitchen", detail: "Export or import data")
-                    }
-                    .listRowBackground(Color.clear)
+                Toggle(isOn: Binding(get: { session.autoAddMissingToGrocery }, set: { session.autoAddMissingToGrocery = $0 })) {
+                    Label("Auto-add Missing to Grocery", systemImage: "cart.badge.plus")
+                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                }.tint(Color.stockedGold).listRowBackground(Color.clear)
 
-                    // Backup to iCloud (manual).
-                    Button {
-                        session.transferManager.backupToiCloud(store: session.guestStore)
-                    } label: {
-                        settingsRow(icon: "icloud.fill", color: Color.stockedInfo,
-                                    title: "Backup to iCloud",
-                                    detail: "Last backup: \(session.transferManager.lastBackupDate)")
-                    }.listRowBackground(Color.clear)
+                Button { showTransfer = true } label: {
+                    settingsRow(icon: "arrow.left.arrow.right.square.fill", color: Color.stockedGold,
+                                title: "Transfer Kitchen", detail: "Export or import data")
+                }.listRowBackground(Color.clear)
+                .sheet(isPresented: $showTransfer) { KitchenTransferView().environment(session) }
+            } header: { sectionHeader("Kitchen") }
 
-                    // Live backup/restore status (so CloudKit failures are visible).
-                    if !session.transferManager.errorMessage.isEmpty {
-                        Label(session.transferManager.errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 12)).foregroundStyle(.red)
-                            .listRowBackground(Color.clear)
-                    } else if !session.transferManager.statusMessage.isEmpty {
-                        Label(session.transferManager.statusMessage, systemImage: "checkmark.circle.fill")
-                            .font(.system(size: 12)).foregroundStyle(Color.stockedGreen)
-                            .listRowBackground(Color.clear)
-                    }
+            // ── SHARING ─────────────────────────────────────────────
+            // Single household entry point (previously duplicated as a drawer "Household"
+            // button and a "Household Sync" settings row).
+            Section {
+                Button {
+                    showHouseholdSheet = true
+                } label: {
+                    settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
+                                title: "Household Sync",
+                                detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)",
+                                trailingSystemImage: nil)
+                }
+                .listRowBackground(Color.clear)
+                .sheet(isPresented: $showHouseholdSheet) {
+                    HouseholdHomeView().environment(session)
+                }
+            } header: { sectionHeader("Sharing") }
 
-                    // Auto Backup options — jumps to the same frequency control surfaced in
-                    // Preferences (single source of truth), shown here as a labelled summary row
-                    // that opens the Data & Storage detail.
-                    Button { showDataStorage = true } label: {
-                        settingsRow(icon: "clock.arrow.2.circlepath", color: Color.stockedInfo,
-                                    title: "Auto Backup Options",
-                                    detail: "Frequency: \(session.backupFrequency.rawValue)")
-                    }.listRowBackground(Color.clear)
+            // ── BACKUP & STORAGE ────────────────────────────────────
+            Section {
+                Button {
+                    // Use the session-retained manager so its async result + status/error
+                    // survive (a throwaway local manager gets deallocated, hiding failures).
+                    session.transferManager.backupToiCloud(store: session.guestStore)
+                } label: {
+                    settingsRow(icon: "icloud.fill", color: Color.stockedInfo,
+                                title: "Backup to iCloud",
+                                detail: "Last backup: \(session.transferManager.lastBackupDate)")
+                }.listRowBackground(Color.clear)
 
-                    // Data & Storage detail (migration check + backup/restore).
-                    Button { showDataStorage = true } label: {
-                        settingsRow(icon: "internaldrive", color: Color.stockedCharcoal,
-                                    title: "Data & Storage", detail: "Storage usage & migration")
-                    }.listRowBackground(Color.clear)
+                // Live backup/restore status — so a CloudKit failure is visible instead of
+                // looking like a silent success.
+                if !session.transferManager.errorMessage.isEmpty {
+                    Label(session.transferManager.errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                        .listRowBackground(Color.clear)
+                } else if !session.transferManager.statusMessage.isEmpty {
+                    Label(session.transferManager.statusMessage, systemImage: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.stockedGreen)
+                        .listRowBackground(Color.clear)
+                }
 
-                    // Clear All App Data (destructive).
-                    Button { showClearAlert = true } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 7).fill(Color.red).frame(width: 28, height: 28)
-                                Image(systemName: "trash.fill").font(.system(size: 13)).foregroundStyle(.white)
+                // ── Backup Frequency ─────────────────────────────────
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Auto-Backup", systemImage: "clock.arrow.2.circlepath")
+                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                    HStack(spacing: 6) {
+                        ForEach(BackupFrequency.allCases, id: \.self) { freq in
+                            themeButton(freq.rawValue, active: session.backupFrequency == freq) {
+                                session.backupFrequency = freq
                             }
-                            Text("Clear All App Data").font(.system(size: 14, design: .serif)).foregroundStyle(.red)
-                            Spacer()
                         }
-                    }.listRowBackground(Color.clear)
-                    .alert("Erase All Data?", isPresented: $showClearAlert) {
-                        Button("Erase Everything", role: .destructive) { session.signOut(clearData: true) }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("Permanently deletes your pantry, grocery list, meal history, recipes, settings, and iCloud backup. Cannot be undone.")
                     }
-                } label: {
-                    fieldLabel(icon: "internaldrive.fill", color: Color.stockedCharcoal, title: "Data & Storage")
                 }
                 .listRowBackground(Color.clear)
-            }
 
-            // ── FOOTER (always visible) ─────────────────────────────
-            // Account-level actions live in a small always-visible footer below the accordions,
-            // not inside a field. Delete Account is required by the App Store for signed-in
-            // accounts with identifiable data.
+                // Data & Storage — migration check + backup/restore (Checkpoint 1).
+                Button { showDataStorage = true } label: {
+                    Label("Data & Storage", systemImage: "internaldrive")
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundStyle(session.themeTextColor)
+                }.listRowBackground(Color.clear)
+            } header: { sectionHeader("Backup & Storage") }
+
+            // ── ACCOUNT MANAGEMENT ──────────────────────────────────
             Section {
+                Button { showClearAlert = true } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 7).fill(Color.red).frame(width: 28, height: 28)
+                            Image(systemName: "trash.fill").font(.system(size: 13)).foregroundStyle(.white)
+                        }
+                        Text("Clear All App Data").font(.system(size: 14, design: .serif)).foregroundStyle(.red)
+                        Spacer()
+                    }
+                }.listRowBackground(Color.clear)
+                .alert("Erase All Data?", isPresented: $showClearAlert) {
+                    Button("Erase Everything", role: .destructive) { session.signOut(clearData: true) }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Permanently deletes your pantry, grocery list, meal history, recipes, settings, and iCloud backup. Cannot be undone.")
+                }
+
                 Button { showSignOutAlert = true } label: {
                     Text(session.accountType == .guest ? "Exit Guest Mode" : "Sign Out")
                         .font(.system(size: 14, design: .serif))
@@ -285,6 +261,8 @@ struct SettingsContent: View {
                     Button("Cancel", role: .cancel) {}
                 }
 
+                // Delete Account — required by App Store for accounts with identifiable data.
+                // Only shown for signed-in (Apple) accounts; guests have no account to delete.
                 if session.accountType != .guest {
                     Button { showDeleteAccountAlert = true } label: {
                         Text("Delete Account")
@@ -298,19 +276,10 @@ struct SettingsContent: View {
                         Text("This permanently deletes your account and all associated data — pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
                     }
                 }
-            }
+            } header: { sectionHeader("Account Management") }
         }
         .sheet(isPresented: $showDataStorage) {
             DataStorageView().environment(session)
-        }
-        .sheet(isPresented: $showStorePopout) {
-            PreferredStorePopout().environment(session)
-        }
-        .sheet(isPresented: $showHouseholdSheet) {
-            HouseholdHomeView().environment(session)
-        }
-        .sheet(isPresented: $showTransfer) {
-            KitchenTransferView().environment(session)
         }
         .sheet(item: $activeAccountSheet) { sheet in
             switch sheet {
@@ -324,18 +293,9 @@ struct SettingsContent: View {
 
 
     // MARK: - Helpers
-    // Header label for an expandable preferences field (DisclosureGroup). Mirrors the
-    // settingsRow icon-tile styling so the four fields read consistently.
-    private func fieldLabel(icon: String, color: Color, title: String) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 7).fill(color).frame(width: 28, height: 28)
-                Image(systemName: icon).font(.system(size: 13)).foregroundStyle(.white)
-            }
-            Text(title)
-                .font(.system(size: 15, weight: .semibold, design: .serif))
-                .foregroundStyle(session.themeTextColor)
-        }
+    private func sectionHeader(_ t: String) -> some View {
+        Text(t).font(.system(size: 10, weight: .bold)).tracking(1)
+            .foregroundStyle(session.themeTextColor.opacity(0.35))
     }
 
     // Representative background swatch for each preset
@@ -531,7 +491,7 @@ struct DrawerContent: View {
                         Text(session.userName)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(session.themeTextColor)
-                        Text("Preferences")
+                        Text("View profile & preferences")
                             .font(.system(size: 12))
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
@@ -599,10 +559,10 @@ struct DrawerContent: View {
         .sheet(isPresented: $showUsageInsights) {
             NavigationStack { UsageInsightsView().environment(session) }   // #20
         }
-        // Preferences hub — opened from the chef row. A single page: a small profile header
-        // (avatar + name) above the four expandable fields (Edit Profile, Preferences,
-        // Notifications, Data & Storage). Every control lives in exactly one field; full flows
-        // (onboarding quiz, transfer, household, data-storage detail) open their existing screens.
+        // Profile & Preferences hub — opened from the chef row. Shows the full, expanded
+        // settings list inline (categorised), so everything lives on one screen instead of
+        // behind a separate "Preferences" sub-sheet. Edit Profile / Notifications are now
+        // sections within SettingsContent (no duplicate rows here).
         .sheet(isPresented: $showProfileHub) {
             NavigationStack {
                 List {
@@ -637,7 +597,7 @@ struct DrawerContent: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
                 .background(session.themeBgColor.ignoresSafeArea())
-                .navigationTitle("Preferences")
+                .navigationTitle("Profile & Preferences")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
@@ -1152,4 +1112,3 @@ struct HelpCenterSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }
-
