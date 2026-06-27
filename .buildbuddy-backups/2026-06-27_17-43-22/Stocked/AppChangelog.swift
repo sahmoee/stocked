@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.31 — Build 290 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.31",
-            buildDate: "Build 290 · June 2026",
-            headline: "Behind-the-scenes fixes",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "stethoscope", color: Color.stockedInfo,
-                               title: "Chasing down a glitch",
-                               detail: "Added some behind-the-scenes diagnostics to track down a reported issue with the Use It Soon list. No visible changes — this just helps us pinpoint and fix it."),
-            ]),
         // ── 07.30 — Build 289 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.30",
             buildDate: "Build 289 · June 2026",
             headline: "Preferences, all on one page",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedInfo,
                                title: "One tidy Preferences page",

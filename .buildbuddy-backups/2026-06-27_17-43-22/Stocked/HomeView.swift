@@ -939,16 +939,7 @@ struct HomeView: View {
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
-                Button {
-                    // Diagnostic instrumentation (T2): the Use It Soon / View All button has been
-                    // reported to produce an error page. Log the data state and navigation intent
-                    // so a crash leaves a trail bracketing exactly where it fails. Remove once the
-                    // root cause is confirmed.
-                    let urgent = store.urgentItems
-                    let expiring = store.inventoryItems.filter { ($0.daysUntilExpiry ?? 999) <= 7 || $0.isExpired }
-                    Log.app.notice("UseItSoon ViewAll tapped: urgentItems=\(urgent.count, privacy: .public) expiringList=\(expiring.count, privacy: .public) totalInventory=\(store.inventoryItems.count, privacy: .public)")
-                    goExpiringList = true
-                } label: {
+                Button { goExpiringList = true } label: {
                     Text("View All").font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain)

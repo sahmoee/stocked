@@ -662,12 +662,6 @@ struct ExpiringSoonListView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 110)
         }
-        // Diagnostic instrumentation (T2): confirms the view mounted and how many items it
-        // computed, so the log shows whether a crash happens before mount (navigation) or during
-        // row rendering. Remove once the root cause is confirmed.
-        .onAppear {
-            Log.app.notice("ExpiringSoonListView appeared: items=\(items.count, privacy: .public) totalInventory=\(session.guestStore.inventoryItems.count, privacy: .public)")
-        }
     }
 }
 
