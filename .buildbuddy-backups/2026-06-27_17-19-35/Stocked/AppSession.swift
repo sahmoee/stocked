@@ -12,12 +12,6 @@ class AppSession {
     var accountType: AccountType = .guest
     var displayName: String      = ""
 
-    // Session-only routing override. Exiting guest mode / signing out should land the user on
-    // the login screen even when their onboarding (quizCompleted) and data are kept on the
-    // "Keep Data" path. RootView checks this before the quizCompleted gate. Not persisted: a
-    // fresh launch with kept data should still go straight into the app. Reset on enterKitchen.
-    var forceLogin: Bool = false
-
     // Set when a recipe is shared in via the Share Extension (stocked://shareImport). The
     // payload itself lives in the App Group; this flag just tells the UI "there's something
     // pending, go consume it once you're on screen." Using a durable flag (not a transient
@@ -377,7 +371,6 @@ class AppSession {
         displayName = n.isEmpty ? "" : n
         if !n.isEmpty { guestStore.displayName = n }
         isLoggedIn = true
-        forceLogin = false
         UserDefaults.standard.set(true, forKey: "wasGuest")
         guestStore.requestNotificationPermission()
     }
@@ -429,14 +422,10 @@ class AppSession {
             }
         }
 
-        // Always reset login state. forceLogin sends RootView to the login screen even on the
-        // "Keep Data" path, where quizCompleted stays true so the user's onboarding + data are
-        // preserved for when they sign back in. (clearData wipes quizCompleted via clearAll, so
-        // that path would route to login regardless; this makes Keep Data behave the same way.)
+        // Always reset login state
         isLoggedIn   = false
         accountType  = .guest
         displayName  = ""
-        forceLogin   = true
     }
 
     /// Full account deletion (Apple App Store requirement for apps with accounts).

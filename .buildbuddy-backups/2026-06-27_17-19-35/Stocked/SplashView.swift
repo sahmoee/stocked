@@ -15,7 +15,7 @@ struct SplashView: View {
 
             VStack(spacing: 12) {
                 // Splash wordmark uses a period matching the text color (not gold).
-                StockedWordmark(size: 38)
+                StockedWordmark(size: 38, goldColor: session.themeTextColor)
 
                 Text("Kitchen Peace of Mind")
                     .font(.system(size: 13, weight: .light, design: .serif))

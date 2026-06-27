@@ -118,24 +118,9 @@ struct LoginView: View {
         case .success(let auth):
             guard let cred = auth.credential as? ASAuthorizationAppleIDCredential else { return }
             let userID    = cred.user
-            // Apple only includes fullName on the FIRST authorization for a given Apple ID; on
-            // every later sign-in it is nil. So persist the given name the first time we see it
-            // (keyed implicitly to this device's account) and reuse it afterwards — otherwise the
-            // greeting silently falls back to the email prefix or "Chef" on the second sign-in.
-            let ud = UserDefaults.standard
-            let freshFirstName = cred.fullName?.givenName?.trimmingCharacters(in: .whitespaces) ?? ""
-            let storedFirstName = ud.string(forKey: DBKey.appleFirstName.rawValue) ?? ""
-
-            let firstName: String
-            if !freshFirstName.isEmpty {
-                firstName = freshFirstName
-                ud.set(freshFirstName, forKey: DBKey.appleFirstName.rawValue)   // remember for next time
-            } else {
-                firstName = storedFirstName
-            }
-
-            // Greeting shows the FIRST name only (e.g. "Good Morning, Alex"). Fall back to the
-            // email prefix, then Chef, only when we have never captured a first name.
+            let firstName = cred.fullName?.givenName ?? ""
+            // Greeting shows the FIRST name only (e.g. "Good Morning, Alex"), so store
+            // the given name as the display name; fall back to the email prefix, then Chef.
             let displayName = firstName.isEmpty
                 ? (cred.email?.components(separatedBy: "@").first ?? "Chef")
                 : firstName

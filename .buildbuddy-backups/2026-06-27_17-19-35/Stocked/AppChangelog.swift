@@ -38,29 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.29 — Build 288 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.29",
-            buildDate: "Build 288 · June 2026",
-            headline: "Polish: cleaner header, smoother sign-in",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "textformat", color: Color.stockedCharcoal,
-                               title: "A cleaner wordmark",
-                               detail: "The period after the Stocked name now matches the rest of the title instead of standing out in gold, for a calmer, more polished header on every screen."),
-                ChangelogEntry(icon: "rectangle.portrait.and.arrow.right", color: .orange,
-                               title: "Exit guest mode takes you home",
-                               detail: "When you leave guest mode — whether you keep your data or clear it — you are now taken straight back to the sign-in screen, instead of being left inside the app."),
-                ChangelogEntry(icon: "person.crop.circle.badge.checkmark", color: Color.stockedGold,
-                               title: "Your name sticks with Apple sign-in",
-                               detail: "If you sign in with your Apple ID, the app now remembers your first name for your greeting, so it stays personal every time you come back — not just the first time."),
-            ]),
         // ── 07.28 — Build 287 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.28",
             buildDate: "Build 287 · June 2026",
             headline: "Everything in one place",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "person.crop.circle.fill", color: Color.stockedGold,
                                title: "A cleaner profile screen",

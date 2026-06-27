@@ -337,7 +337,7 @@ extension View {
 struct StockedWordmark: View {
     var size: CGFloat = 26
     var color: Color? = nil          // nil → caller's theme text color via environment
-    var dotColor: Color? = nil       // nil → matches the wordmark text color (black in light mode)
+    var goldColor: Color = .stockedGold
     @Environment(AppSession.self) private var session
 
     var body: some View {
@@ -345,7 +345,7 @@ struct StockedWordmark: View {
         var word = AttributedString("Stocked")
         word.foregroundColor = base
         var dot = AttributedString(".")
-        dot.foregroundColor = dotColor ?? base
+        dot.foregroundColor = goldColor
         return Text(word + dot)
             .font(.system(size: size, weight: .bold, design: .serif))
     }

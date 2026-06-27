@@ -86,11 +86,10 @@ struct StockedShell<Content: View>: View {
             // doesn't swallow taps meant for the back button.
             Group {
                 // #246 — mockup headers: each tab pins its OWN wordmark left ("Stocked.",
-                // "Cook.", "Inventory.") with no chevron. The trailing period now matches the
-                // wordmark text color (black in light mode) rather than the gold accent.
+                // "Cook.", "Inventory.") with the signature gold period and no chevron.
                 // Centered mode (sub-screens) keeps "Stocked." + chevron.
                 let wordmark = (Text(titleText).foregroundColor(session.themeTextColor)
-                                + Text(".").foregroundColor(session.themeTextColor))
+                                + Text(".").foregroundColor(Color.stockedGold))
                     .font(.stockedSerif(26, weight: .bold))
 
                 let titleCore = Button { (titleTap ?? onTitleTap)?() } label: {

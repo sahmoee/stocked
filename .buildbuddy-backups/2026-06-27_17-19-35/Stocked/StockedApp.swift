@@ -126,10 +126,6 @@ struct RootView: View {
 
             if !splashDone {
                 SplashView(onFinish: { splashDone = true })
-            } else if session.forceLogin {
-                // User just exited guest mode / signed out. Show login even if their onboarding
-                // and data were kept (quizCompleted still true) — cleared on next enterKitchen.
-                LoginView()
             } else if session.guestStore.quizCompleted {
                 MainTabView()
                     .environment(\.stockedDevice,

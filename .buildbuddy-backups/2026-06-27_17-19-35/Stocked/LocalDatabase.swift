@@ -181,7 +181,6 @@ enum DBKey: String, CaseIterable {
     case fontHorizontalOffset  = "fontHorizontalOffset"
     case appBackground         = "appBackground"
     case appleUserID           = "appleUserID"
-    case appleFirstName        = "appleFirstName"   // persisted given name; Apple only sends fullName on first auth
     case autoAddMissing        = "autoAddMissingToGrocery"
     case notifications         = "notificationsEnabled"
     case homeLayout            = "homeLayout"
