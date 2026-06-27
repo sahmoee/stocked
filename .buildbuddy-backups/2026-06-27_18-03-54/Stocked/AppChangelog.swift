@@ -38,34 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.34 — Build 293 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.34",
-            buildDate: "Build 293 · June 2026",
-            headline: "Under-the-hood tidy-up",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedInfo,
-                               title: "Cleaner, leaner code",
-                               detail: "Removed unused screens and pulled repeated bits of code together behind the scenes. No visible changes — just a tidier app that is easier to keep consistent going forward."),
-            ]),
-        // ── 07.33 — Build 292 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.33",
-            buildDate: "Build 292 · June 2026",
-            headline: "Consistent expiring-soon window",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "calendar.badge.exclamationmark", color: Color.stockedError,
-                               title: "Expiring soon, everywhere the same",
-                               detail: "The Use It Soon widget and the full Expiring Soon list now use the same window — items expiring within four days — so they always agree on what counts as expiring soon."),
-            ]),
         // ── 07.32 — Build 291 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.32",
             buildDate: "Build 291 · June 2026",
             headline: "Fresh meal-prep ideas every time",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGreen,
                                title: "Quick Picks refresh",

@@ -351,29 +351,7 @@ struct StockedWordmark: View {
     }
 }
 
-// MARK: - Section header (shared, redundancy cleanup #6)
-// One styled section header for list/section labels across the app. Previously this same
-// idea was reimplemented as private helpers in six different views (sectionHeader /
-// sectionLabel / drawerHeader / sidebarHeader / drawerHeaderText) with slightly different
-// sizes, tracking, and opacity. Those now route here for a consistent look. Text is rendered
-// as-is (callers that want uppercase pass uppercase), so emoji/mixed-case labels are safe.
-struct SectionHeader: View {
-    let text: String
-    var padded: Bool = true
-    @Environment(AppSession.self) private var session
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 10.5, weight: .bold))
-            .tracking(1)
-            .foregroundStyle(session.themeTextColor.opacity(0.4))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(padded ? EdgeInsets(top: 10, leading: 24, bottom: 4, trailing: 24)
-                             : EdgeInsets())
-    }
-}
-
-
+// MARK: - Row divider (single source of truth)
 
 // MARK: - Global keyboard dismissal
 // Use .dismissKeyboardOnTap() on any container to let tapping outside dismiss the keyboard.

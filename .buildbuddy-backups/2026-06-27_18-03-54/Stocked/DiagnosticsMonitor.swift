@@ -60,7 +60,7 @@ final class DiagnosticsMonitor: NSObject, MXMetricManagerSubscriber {
     }
 
     private func record(_ line: String) {
-        let stamped = "[\(StockedFormatters.iso8601.string(from: Date()))] \(line)\n"
+        let stamped = "[\(ISO8601DateFormatter().string(from: Date()))] \(line)\n"
         log.error("\(line, privacy: .public)")
         var existing = currentLog()
         existing += stamped

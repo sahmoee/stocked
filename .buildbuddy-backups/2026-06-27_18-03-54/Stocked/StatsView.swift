@@ -327,7 +327,9 @@ struct StatsView: View {
     }
 
     private func sectionHeader(_ s: String) -> some View {
-        SectionHeader(text: s)
+        Text(s).stocked(.label).tracking(1).foregroundStyle(text.opacity(0.4))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24).padding(.bottom, 10)
     }
     private func money(_ v: Double) -> String { String(format: "$%.2f", v) }
     private func relativeDate(_ d: Date) -> String {

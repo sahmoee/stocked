@@ -280,7 +280,7 @@ actor RecipeDatabase {
     private func bootstrap() {
         load()
         guard entries.isEmpty else { return }   // already seeded
-        let bootstrapDate = StockedFormatters.iso8601.date(from: "2026-05-31T00:00:00Z") ?? Date()
+        let bootstrapDate = ISO8601DateFormatter().date(from: "2026-05-31T00:00:00Z") ?? Date()
         let seed: [RecipeDatabaseEntry] = Self.seedRecipes(bootstrapDate: bootstrapDate)
         upsertAll(seed)
     }

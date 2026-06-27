@@ -79,7 +79,7 @@ enum DataExport {
     /// Write a backup to a temporary file and return its URL (for the share sheet).
     static func writeBackupFile(from session: GuestDataStore) -> URL? {
         guard let data = exportData(from: session) else { return nil }
-        let stamp = StockedFormatters.iso8601.string(from: .now).replacingOccurrences(of: ":", with: "-")
+        let stamp = ISO8601DateFormatter().string(from: .now).replacingOccurrences(of: ":", with: "-")
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("Stocked-Backup-\(stamp).json")
         do {
             try data.write(to: url, options: .atomic)

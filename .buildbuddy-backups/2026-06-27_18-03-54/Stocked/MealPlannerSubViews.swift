@@ -589,7 +589,10 @@ struct RecipePickerSheet: View {
     }
 
     private func sectionHeader(_ title: String) -> some View {
-        SectionHeader(text: title.uppercased())
+        Text(title.uppercased()).font(.system(size: 10, weight: .bold)).tracking(1)
+            .foregroundStyle(session.themeTextColor.opacity(0.35))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 4)
     }
     @ViewBuilder
     private func pickerRow(_ name: String, ings: [String]) -> some View {

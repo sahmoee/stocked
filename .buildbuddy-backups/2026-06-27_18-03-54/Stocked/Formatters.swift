@@ -34,17 +34,6 @@ enum StockedFormatters {
     /// Shared ISO-8601 formatter for backup/transfer encoding.
     static let iso8601 = ISO8601DateFormatter()
 
-    /// Time-of-day greeting ("Good Morning" / "Good Afternoon" / "Good Evening"), based on the
-    /// current hour. Single source of truth — previously duplicated as a private computed
-    /// property in six different views.
-    static var timeOfDayGreeting: String {
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12:  return "Good Morning"
-        case 12..<17: return "Good Afternoon"
-        default:      return "Good Evening"
-        }
-    }
-
     /// Normalize a duration string for display. Converts an ISO-8601 duration
     /// ("PT20M", "PT1H30M", "PT2H") into friendly text ("20 min", "1 hr 30 min",
     /// "2 hr"). Strings that are already human-readable ("30 min", "15 mins") pass

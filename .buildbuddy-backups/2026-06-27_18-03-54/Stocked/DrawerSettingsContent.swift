@@ -42,7 +42,10 @@ struct SettingsContent: View {
     @State private var expandNotifications = false
     @State private var expandDataStorage   = false
 
-    private var greeting: String { StockedFormatters.timeOfDayGreeting }
+    private var greeting: String {
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h { case 5..<12: return "Good Morning"; case 12..<17: return "Good Afternoon"; default: return "Good Evening" }
+    }
 
     var body: some View {
         Group {
@@ -377,7 +380,7 @@ struct SettingsContent: View {
     private func exportAllData() -> URL? {
         let store = session.guestStore
         let payload: [String: Any] = [
-            "exportDate":  StockedFormatters.iso8601.string(from: Date()),
+            "exportDate":  ISO8601DateFormatter().string(from: Date()),
             "appVersion":  BuildConfig.version,
             "inventory":   ((try? JSONEncoder().encode(store.inventoryItems)).flatMap { String(data: $0, encoding: .utf8) } ?? "") as String,
             "grocery":     ((try? JSONEncoder().encode(store.groceryItems)).flatMap { String(data: $0, encoding: .utf8) } ?? "") as String,
@@ -471,7 +474,8 @@ struct SidebarContent: View {
     }
 
     private func sidebarHeader(_ t: String) -> some View {
-        SectionHeader(text: t, padded: false)
+        Text(t).font(.system(size: 10, weight: .bold)).tracking(1)
+            .foregroundStyle(session.themeTextColor.opacity(0.35))
     }
 }
 
@@ -718,7 +722,8 @@ struct DrawerContent: View {
     }
 
     private func drawerHeader(_ t: String) -> some View {
-        SectionHeader(text: t, padded: false)
+        Text(t).font(.system(size: 10, weight: .bold)).tracking(1)
+            .foregroundStyle(session.themeTextColor.opacity(0.35))
     }
 }
 

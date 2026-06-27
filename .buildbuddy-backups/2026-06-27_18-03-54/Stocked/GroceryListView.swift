@@ -779,7 +779,10 @@ struct GroceryListView: View {
     }
 
     private func sectionLabel(_ t: String) -> some View {
-        SectionHeader(text: t)
+        Text(t).font(.system(size: 11, weight: .bold)).tracking(0.5)
+            .foregroundStyle(sub)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 4)
     }
 
     // MARK: - Quick Store Picker Sheet

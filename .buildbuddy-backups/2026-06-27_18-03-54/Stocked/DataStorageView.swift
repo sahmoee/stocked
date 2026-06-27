@@ -146,7 +146,8 @@ struct DataStorageView: View {
     }
 
     private func drawerHeaderText(_ t: String) -> some View {
-        SectionHeader(text: t, padded: false)
+        Text(t).font(.system(size: 10, weight: .bold)).tracking(1)
+            .foregroundStyle(session.themeTextColor.opacity(0.35))
     }
 
     private func refreshCounts() {

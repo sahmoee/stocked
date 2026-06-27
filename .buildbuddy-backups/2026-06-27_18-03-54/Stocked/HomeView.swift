@@ -23,7 +23,10 @@ struct HomeView: View {
     @State private var layout = HomeWidget.loadLayout()
     @State private var draggingWidget: HomeWidget? = nil   // #11 drag-to-reorder
 
-    private var greeting: String { StockedFormatters.timeOfDayGreeting }
+    private var greeting: String {
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h { case 5..<12: return "Good Morning"; case 12..<17: return "Good Afternoon"; default: return "Good Evening" }
+    }
     private var sub: Color { Color.appSubtextStrong(session.isDarkMode) }
 
     private var expiringCount: Int { store.metrics.expiringSoonCount }
@@ -942,7 +945,7 @@ struct HomeView: View {
                     // so a crash leaves a trail bracketing exactly where it fails. Remove once the
                     // root cause is confirmed.
                     let urgent = store.urgentItems
-                    let expiring = store.inventoryItems.filter { ($0.daysUntilExpiry ?? 999) <= KitchenThresholds.expiringSoonDays || $0.isExpired }
+                    let expiring = store.inventoryItems.filter { ($0.daysUntilExpiry ?? 999) <= 7 || $0.isExpired }
                     Log.app.notice("UseItSoon ViewAll tapped: urgentItems=\(urgent.count, privacy: .public) expiringList=\(expiring.count, privacy: .public) totalInventory=\(store.inventoryItems.count, privacy: .public)")
                     goExpiringList = true
                 } label: {

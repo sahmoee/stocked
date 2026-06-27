@@ -16,7 +16,14 @@ struct MainHubView: View {
         self.servings = servings
     }
 
-    private var greeting: String { StockedFormatters.timeOfDayGreeting }
+    private var greeting: String {
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h {
+        case 5..<12: return "Good Morning"
+        case 12..<17: return "Good Afternoon"
+        default:     return "Good Evening"
+        }
+    }
 
     @Environment(\.stockedDevice) private var device
 

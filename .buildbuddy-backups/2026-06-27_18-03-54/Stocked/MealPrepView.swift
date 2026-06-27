@@ -402,7 +402,9 @@ struct MealPrepView: View {
     }
 
     private func sectionLabel(_ t: String) -> some View {
-        SectionHeader(text: t)
+        Text(t).font(.system(size: 10, weight: .bold)).tracking(1.2)
+            .foregroundStyle(session.themeTextColor.opacity(0.4))
+            .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 6)
     }
 
     private func statPill(_ value: String, _ label: String) -> some View {

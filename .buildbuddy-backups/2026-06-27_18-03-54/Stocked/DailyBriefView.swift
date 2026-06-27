@@ -18,7 +18,14 @@ struct DailyBriefOverlay: View {
 
     var store: GuestDataStore { session.guestStore }
 
-    private var greeting: String { StockedFormatters.timeOfDayGreeting }
+    private var greeting: String {
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h {
+        case 5..<12:  return "Good Morning"
+        case 12..<17: return "Good Afternoon"
+        default:      return "Good Evening"
+        }
+    }
 
     // "Recommended in 2 Days (Sat, May 24)" — exact mockup string for the cream card.
     private var nextRunValue: String {

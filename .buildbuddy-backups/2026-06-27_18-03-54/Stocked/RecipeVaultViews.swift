@@ -103,7 +103,10 @@ struct RecipeVaultView: View {
 
     let tabNames = ["Ready to Cook Now", "My Collection", "Browse", "For You ✦"]
 
-    private var greeting: String { StockedFormatters.timeOfDayGreeting }
+    private var greeting: String {
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h { case 5..<12: return "Good Morning"; case 12..<17: return "Good Afternoon"; default: return "Good Evening" }
+    }
     private var subtitle: String {
         switch selectedTab {
         case 0: return "Based on what's in your kitchen"
