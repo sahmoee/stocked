@@ -30,12 +30,8 @@ struct MealPrepView: View {
 
     private var store: GuestDataStore { session.guestStore }
 
-    // Quick-pick options. Refreshed from the recipe database on each visit (see
-    // refreshQuickPicks); the universal pantry-staple set below is the fallback used only when
-    // the database is empty, mirroring how the meal planner's Quick Options falls back.
-    @State private var quickPicks: [PrepMeal] = MealPrepView.fallbackQuickPicks
-
-    private static let fallbackQuickPicks: [PrepMeal] = [
+    // Quick-pick options (universal pantry staples)
+    private let quickPicks: [PrepMeal] = [
         PrepMeal(title: "Grilled Chicken",    ingredients: ["Chicken breast","Olive oil","Garlic","Lemon","Herbs"],          estimatedPrepMin: 10, estimatedCookMin: 25, source: "Quick Pick"),
         PrepMeal(title: "Roasted Vegetables", ingredients: ["Mixed vegetables","Olive oil","Salt","Pepper","Rosemary"],       estimatedPrepMin: 15, estimatedCookMin: 35, source: "Quick Pick"),
         PrepMeal(title: "Brown Rice",         ingredients: ["Brown rice","Water","Salt","Butter"],                            estimatedPrepMin: 2,  estimatedCookMin: 45, source: "Quick Pick"),
@@ -95,28 +91,6 @@ struct MealPrepView: View {
                     .padding(.bottom, 100)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-        }
-        // Refresh Quick Picks from the recipe database every time the screen appears, so the
-        // suggestions are not a fixed list. Falls back to the static set when the DB is empty.
-        .onAppear { refreshQuickPicks() }
-    }
-
-    // Pull a fresh, shuffled batch of presentable recipes from the database and map them to
-    // prep-pick rows. Mirrors the meal planner's Quick Options refresh. Keeps the static
-    // fallback set when the database has not loaded any recipes yet.
-    private func refreshQuickPicks() {
-        Task { @MainActor in
-            let snap = await RecipeDatabaseManager.shared.loadSnapshot()
-            guard !snap.isEmpty else { return }
-            let picks = snap.shuffled().prefix(8)
-            let mapped: [PrepMeal] = picks.map { entry in
-                PrepMeal(title: entry.title,
-                         ingredients: Array(entry.ingredients.prefix(8)),
-                         estimatedPrepMin: Int(entry.prepTime.filter(\.isNumber)) ?? 15,
-                         estimatedCookMin: Int(entry.cookTime.filter(\.isNumber)) ?? 30,
-                         source: "Quick Pick")
-            }
-            if !mapped.isEmpty { quickPicks = mapped }
         }
     }
 

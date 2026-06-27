@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.32 — Build 291 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.32",
-            buildDate: "Build 291 · June 2026",
-            headline: "Fresh meal-prep ideas every time",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGreen,
-                               title: "Quick Picks refresh",
-                               detail: "The Quick Picks on the Meal Prep screen now pull a fresh, shuffled set of ideas from the recipe library each time you open the screen, instead of always showing the same eight."),
-            ]),
         // ── 07.31 — Build 290 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.31",
             buildDate: "Build 290 · June 2026",
             headline: "Behind-the-scenes fixes",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "stethoscope", color: Color.stockedInfo,
                                title: "Chasing down a glitch",
