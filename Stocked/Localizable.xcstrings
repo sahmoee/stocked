@@ -35,9 +35,6 @@
     "\"%@\" will be removed from your collection. This can't be undone." : {
 
     },
-    "\"Erase & Exit\" permanently deletes all pantry, grocery, and session data including iCloud backups. \"Keep Data\" saves your data for next time." : {
-
-    },
     "(%lld)" : {
 
     },
@@ -73,16 +70,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@  %2$@"
-          }
-        }
-      }
-    },
-    "%@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$@"
           }
         }
       }
@@ -877,16 +864,16 @@
     "At your usual pace, gone by %@" : {
 
     },
-    "Auto-add Missing to Grocery" : {
+    "Auto Backup" : {
+
+    },
+    "Auto-Add Missing to Grocery" : {
 
     },
     "Auto-added" : {
 
     },
     "Auto-added to your list when you drop below %lld." : {
-
-    },
-    "Auto-Backup" : {
 
     },
     "Autofilled from %@" : {
@@ -979,9 +966,6 @@
     "Change" : {
 
     },
-    "Change Name" : {
-
-    },
     "Change Photo" : {
 
     },
@@ -1029,12 +1013,6 @@
 
     },
     "Clear All App Data" : {
-
-    },
-    "Clear All Guest Data" : {
-
-    },
-    "Clear App Cache" : {
 
     },
     "Close" : {
@@ -1173,9 +1151,6 @@
     "Cooking for %lld · What are you feeling?" : {
 
     },
-    "Cooking Profile" : {
-
-    },
     "COOKING PROFILE" : {
 
     },
@@ -1246,9 +1221,6 @@
 
     },
     "Deduct from Pantry" : {
-
-    },
-    "Default Servings" : {
 
     },
     "Delete" : {
@@ -1566,9 +1538,6 @@
     "Guest" : {
 
     },
-    "Guest Account" : {
-
-    },
     "Half" : {
 
     },
@@ -1846,9 +1815,6 @@
     "Let your vibe decide the recipe." : {
 
     },
-    "Let's build something delicious." : {
-
-    },
     "Let's get a feel for tonight." : {
 
     },
@@ -1897,7 +1863,7 @@
     "Low staples nudge" : {
 
     },
-    "Low Stock Alerts" : {
+    "Low Stock Reminders" : {
 
     },
     "Make %@ — uses %@" : {
@@ -2103,9 +2069,6 @@
     "None" : {
 
     },
-    "Not completed" : {
-
-    },
     "Not for me" : {
 
     },
@@ -2149,9 +2112,6 @@
 
     },
     "Nothing's fully stocked yet — add a few items and these will fill in." : {
-
-    },
-    "Notifications" : {
 
     },
     "Notifications allowed — reminders will arrive even when the app is closed." : {
@@ -2374,9 +2334,6 @@
     "Product Name" : {
 
     },
-    "Profile & Preferences" : {
-
-    },
     "QR Code Transfer" : {
 
     },
@@ -2421,9 +2378,6 @@
       }
     },
     "Receipt Review" : {
-
-    },
-    "Recently Cooked" : {
 
     },
     "Recently Viewed" : {
@@ -2477,9 +2431,6 @@
 
     },
     "Regenerating…" : {
-
-    },
-    "Registered Account" : {
 
     },
     "Reminders can't be delivered until you allow notifications in Settings." : {
@@ -2982,9 +2933,6 @@
     "This permanently deletes your account and all associated data — pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone." : {
 
     },
-    "This permanently deletes your entire pantry, grocery list, meal history, recipes, price records, settings, and sign-in session. iCloud backups for this app will also be removed. This cannot be undone." : {
-
-    },
     "This source doesn't include step-by-step instructions here. Tap View source below for the full method." : {
 
     },
@@ -3127,9 +3075,6 @@
     "v%@" : {
 
     },
-    "Version 1.0" : {
-
-    },
     "View All" : {
 
     },
@@ -3152,9 +3097,6 @@
 
     },
     "View on %@" : {
-
-    },
-    "View profile & preferences" : {
 
     },
     "View source" : {
@@ -3301,9 +3243,6 @@
 
     },
     "Your meal plan has been saved. Returning to home." : {
-
-    },
-    "Your name" : {
 
     },
     "Your surplus inventory" : {
