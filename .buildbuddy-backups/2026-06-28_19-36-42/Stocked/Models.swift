@@ -245,10 +245,6 @@ struct UserCookingProfile: Codable {
     var budgetLevel:      String   = "Moderate"
     var cookingEquipment: [String] = []
     var avatarEmoji:      String   = "👨‍🍳"   // chef icon picked during onboarding
-    // Optional user-supplied profile photo (JPEG data). When present it takes precedence over
-    // avatarEmoji wherever the chef avatar is shown. Optional with a nil default so existing
-    // saved profiles (which never encoded this key) decode cleanly.
-    var avatarPhotoData:  Data?    = nil
     var completedSetup:   Bool     = false
 }
 

@@ -19,7 +19,7 @@ import Foundation
 /// main-actor-by-default mode.
 nonisolated enum KitchenThresholds {
     /// Days-until-expiry at or under which an item counts as "expiring soon".
-    static let expiringSoonDays = 4
+    static let expiringSoonDays = 3
     /// Fill level under which a non-par item counts as "running low".
     static let lowFillLevel = 0.25
 }

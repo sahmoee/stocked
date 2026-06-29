@@ -38,37 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.37 — Build 296 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.37",
-            buildDate: "Build 296 · June 2026",
-            headline: "Simpler profile and settings",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "person.crop.circle.fill", color: Color.stockedGold,
-                               title: "A dedicated Edit Profile screen",
-                               detail: "Tap your chef avatar in the menu to open Edit Profile, where you can change your avatar, your name, and all of your setup answers in one place. Updating your answers re-tunes your suggestions right away."),
-                ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedInfo,
-                               title: "Settings, right in the menu",
-                               detail: "Preferences, Notifications, and Data & Storage now live as tap-to-expand sections directly in the side menu under Settings, so you no longer open a separate page to reach them."),
-            ]),
-        // ── 07.36 — Build 295 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.36",
-            buildDate: "Build 295 · June 2026",
-            headline: "Make your chef your own",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "person.crop.circle.badge.plus", color: Color.stockedGold,
-                               title: "Personalize your chef",
-                               detail: "You can now give your chef a different skin tone or use your own photo. Tap your chef avatar to choose."),
-            ]),
         // ── 07.35 — Build 294 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.35",
             buildDate: "Build 294 · June 2026",
             headline: "Build fix",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "wrench.and.screwdriver.fill", color: Color.stockedCharcoal,
                                title: "Compile fix",

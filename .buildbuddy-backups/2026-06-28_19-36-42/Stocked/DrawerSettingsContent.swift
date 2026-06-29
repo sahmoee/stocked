@@ -14,25 +14,30 @@ struct SettingsContent: View {
     // which presents a real .sheet after the drawer closes — avoiding the List-recycle
     // teardown that makes a sheet attached inside the drawer flash closed. When nil
     // (iPad sidebar), the buttons fall back to a local .sheet(item:).
+    var onEditProfile: (() -> Void)? = nil
     var onNotifications: (() -> Void)? = nil
 
+    @State private var editingName      = false
+    @State private var nameInput        = ""
     @State private var showClearAlert   = false
     @State private var showStorePopout    = false
 
+    @State private var showSignOutAlert = false
     @State private var showDeleteAccountAlert = false
     @State private var showTransfer     = false
     @State private var activeAccountSheet: AccountSheet? = nil   // identity-driven: no open/close race
     @State private var showDataStorage  = false   // Checkpoint 1 verification & backup
 
     private enum AccountSheet: Int, Identifiable {
-        case notifications
+        case editProfile, notifications
         var id: Int { rawValue }
     }
     @State private var showHouseholdSheet = false
 
     // ── Preferences accordion expansion state ───────────────────────
-    // These three fields (Preferences, Notifications, Data & Storage) are embedded in the
-    // drawer's Settings list. Edit Profile is now its own screen, not an accordion.
+    // The Profile & Preferences screen is now a single page with four expandable fields.
+    // Only the field the user opens is expanded; everything lives in exactly one place.
+    @State private var expandEditProfile   = false
     @State private var expandPreferences   = false
     @State private var expandNotifications = false
     @State private var expandDataStorage   = false
@@ -41,6 +46,53 @@ struct SettingsContent: View {
 
     var body: some View {
         Group {
+            // ── EDIT PROFILE ────────────────────────────────────────
+            // Expandable field: edit name + retake the onboarding quiz (which recalibrates
+            // dietary style, skill, and cuisines used across suggestions).
+            Section {
+                DisclosureGroup(isExpanded: $expandEditProfile) {
+                    // Edit name (inline editor — no separate sheet).
+                    if editingName {
+                        HStack {
+                            TextField("Display name", text: $nameInput)
+                                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+                                .font(.system(size: 14, design: .serif))
+                            Button("Save") {
+                                session.displayName = nameInput.trimmingCharacters(in: .whitespaces)
+                                editingName = false
+                            }.foregroundStyle(Color.stockedGold).font(.system(size: 13, weight: .bold))
+                            Button("Cancel") { editingName = false }
+                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .font(.system(size: 13))
+                        }
+                        .listRowBackground(Color.stockedGold.opacity(0.08))
+                    } else {
+                        Button {
+                            nameInput = session.displayName; editingName = true
+                        } label: {
+                            settingsRow(icon: "person.text.rectangle.fill", color: Color.stockedInfo,
+                                        title: "Edit Name", detail: session.userName)
+                        }
+                        .listRowBackground(Color.clear)
+                    }
+
+                    // Retake onboarding quiz — presents the existing QuizEditView, which writes
+                    // back the dietary/skill/cuisine answers so suggestions recalibrate.
+                    Button {
+                        if let onEditProfile { onEditProfile() }
+                        else { activeAccountSheet = .editProfile }
+                    } label: {
+                        settingsRow(icon: "checklist", color: .orange,
+                                    title: "Retake Onboarding Quiz",
+                                    detail: "Recalibrates dietary style, skill & cuisines")
+                    }
+                    .listRowBackground(Color.clear)
+                } label: {
+                    fieldLabel(icon: "person.crop.circle.fill", color: Color.stockedGold, title: "Edit Profile")
+                }
+                .listRowBackground(Color.clear)
+            }
+
             // ── PREFERENCES ─────────────────────────────────────────
             // Expandable field: Dark Mode, Measurements, Preferred Store, Auto-Add Missing,
             // Auto Backup, Household Sync. (Auto Backup lives here only; Data & Storage links
@@ -210,21 +262,37 @@ struct SettingsContent: View {
                 .listRowBackground(Color.clear)
             }
 
-            // ── DELETE ACCOUNT (signed-in only) ─────────────────────
-            // Sign Out / Exit Guest lives in the drawer's own Settings list. Delete Account is
-            // required by the App Store for signed-in accounts and is surfaced here.
-            if session.accountType != .guest {
-                Section {
-                    Button { showDeleteAccountAlert = true } label: {
-                        settingsRow(icon: "person.crop.circle.badge.xmark", color: .red,
-                                    title: "Delete Account", detail: "Permanently delete your account")
+            // ── FOOTER (always visible) ─────────────────────────────
+            // Account-level actions live in a small always-visible footer below the accordions,
+            // not inside a field. Delete Account is required by the App Store for signed-in
+            // accounts with identifiable data.
+            Section {
+                Button { showSignOutAlert = true } label: {
+                    Text(session.accountType == .guest ? "Exit Guest Mode" : "Sign Out")
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                }.listRowBackground(Color.clear)
+                .alert(session.accountType == .guest ? "Exit Guest Mode?" : "Sign Out?", isPresented: $showSignOutAlert) {
+                    if session.accountType == .guest {
+                        Button("Keep Data") { session.signOut(clearData: false) }
+                        Button("Erase & Exit", role: .destructive) { session.signOut(clearData: true) }
+                    } else {
+                        Button("Sign Out", role: .destructive) { session.signOut() }
                     }
-                    .listRowBackground(Color.clear)
+                    Button("Cancel", role: .cancel) {}
+                }
+
+                if session.accountType != .guest {
+                    Button { showDeleteAccountAlert = true } label: {
+                        Text("Delete Account")
+                            .font(.system(size: 14, design: .serif))
+                            .foregroundStyle(.red)
+                    }.listRowBackground(Color.clear)
                     .alert("Delete Account?", isPresented: $showDeleteAccountAlert) {
                         Button("Delete Account", role: .destructive) { session.deleteAccount() }
                         Button("Cancel", role: .cancel) {}
                     } message: {
-                        Text("This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
+                        Text("This permanently deletes your account and all associated data — pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
                     }
                 }
             }
@@ -243,6 +311,8 @@ struct SettingsContent: View {
         }
         .sheet(item: $activeAccountSheet) { sheet in
             switch sheet {
+            case .editProfile:
+                QuizEditView().environment(session)
             case .notifications:
                 NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
             }
@@ -440,19 +510,24 @@ struct DrawerContent: View {
             }
             .padding(.horizontal, 22).padding(.top, 56).padding(.bottom, 16)
 
-            // Profile — the chef avatar, sitting directly under the Stocked wordmark. Tapping it
-            // opens the Edit Profile screen (avatar, name, and the onboarding answers inline).
-            // The preferences themselves now live in the drawer's Settings list below.
+            // Profile — the chef icon chosen during onboarding, sitting directly under
+            // the Stocked wordmark. Opens a Profile & Preferences hub (edit profile,
+            // preferences, household, notifications) — these moved here from the
+            // drawer's Settings list.
             Button {
                 showProfileHub = true
             } label: {
                 HStack(spacing: 12) {
-                    ProfileAvatarView(size: 46)
+                    Text(session.guestStore.cookingProfile.avatarEmoji)
+                        .font(.system(size: 30))
+                        .frame(width: 46, height: 46)
+                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+                        .clipShape(Circle())
                     VStack(alignment: .leading, spacing: 1) {
                         Text(session.userName)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(session.themeTextColor)
-                        Text("Edit Profile")
+                        Text("Preferences")
                             .font(.system(size: 12))
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
@@ -500,11 +575,6 @@ struct DrawerContent: View {
                                  icon: "rectangle.portrait.and.arrow.right") { showLogoutConfirm = true }
                 } header: { drawerHeader("Settings") }
 
-                // Preferences / Notifications / Data & Storage accordions (and Delete Account)
-                // now live here in the drawer's Settings list, below the Help Center / Log Out
-                // rows. Edit Profile is reached from the chef row above, not here.
-                SettingsContent()
-
                 // ── Build Info — standalone, below Settings ──────────────
                 Section {
                     BuildInfoFooter()
@@ -525,11 +595,54 @@ struct DrawerContent: View {
         .sheet(isPresented: $showUsageInsights) {
             NavigationStack { UsageInsightsView().environment(session) }   // #20
         }
-        // Edit Profile — opened from the chef row. Avatar (tap to change skin tone or add a
-        // photo), name, and the onboarding answers inline. Preferences moved to the drawer's
-        // Settings list, so this sheet is profile-only now.
+        // Preferences hub — opened from the chef row. A single page: a small profile header
+        // (avatar + name) above the four expandable fields (Edit Profile, Preferences,
+        // Notifications, Data & Storage). Every control lives in exactly one field; full flows
+        // (onboarding quiz, transfer, household, data-storage detail) open their existing screens.
         .sheet(isPresented: $showProfileHub) {
-            EditProfileView().environment(session)
+            NavigationStack {
+                List {
+                    Section {
+                        HStack(spacing: 12) {
+                            Text(session.guestStore.cookingProfile.avatarEmoji)
+                                .font(.system(size: 34))
+                                .frame(width: 54, height: 54)
+                                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+                                .clipShape(Circle())
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(session.userName)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(session.themeTextColor)
+                                Text(session.accountType == .guest ? "Guest" : "Signed in")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+                        .listRowBackground(Color.clear)
+                    }
+
+                    // Full expanded settings — uses SettingsContent's own internal sheets
+                    // (onEditProfile / onNotifications left nil), which present fine from a
+                    // normal sheet's List (the flash issue is specific to the drawer's
+                    // recycling List, not this one).
+                    SettingsContent(onEditProfile: nil, onNotifications: nil)
+                        .listRowBackground(Color.clear)
+                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(session.themeBgColor.ignoresSafeArea())
+                .navigationTitle("Preferences")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showProfileHub = false }
+                            .foregroundStyle(Color.stockedGold)
+                    }
+                }
+            }
+            .environment(session)
         }
         .alert(session.accountType == .guest ? "Exit Guest Mode?" : "Log Out?", isPresented: $showLogoutConfirm) {
             if session.accountType == .guest {
@@ -1034,5 +1147,4 @@ struct HelpCenterSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }
-
 
