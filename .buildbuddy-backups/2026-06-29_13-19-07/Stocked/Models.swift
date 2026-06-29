@@ -95,25 +95,12 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
         guard let exp = expirationDate else { return nil }
         return LocalInventoryItem.cal.dateComponents([.day], from: Date(), to: exp).day
     }
-    /// Canonical "expiring soon" test. Routes through the single shared threshold
-    /// (KitchenThresholds.expiringSoonDays) so Home, Inventory, Cook, and the Daily Brief
-    /// all agree. Expired items are NOT "expiring soon" (they are already expired); callers
-    /// that want both should use `isExpiringSoonOrExpired`.
-    func isExpiringSoon(within days: Int = KitchenThresholds.expiringSoonDays) -> Bool {
-        guard let d = daysUntilExpiry else { return false }
-        return d >= 0 && d <= days
-    }
-    /// Back-compat computed accessor (many call sites use the property form).
-    var isExpiringSoon: Bool { isExpiringSoon() }
-    /// "Needs attention" = expiring within the window OR already expired. This is the
-    /// definition the Home and Inventory "expiring" lists use, centralized here so the
-    /// `<= N days || isExpired` pattern is not re-spelled at each call site.
-    var isExpiringSoonOrExpired: Bool { isExpired || isExpiringSoon() }
+    var isExpiringSoon: Bool { (daysUntilExpiry ?? 999) <= 3 }
     /// #3 — low relative to this item's own threshold (default 25%).
     /// #14 — below the user's par level ("keep at least N in stock"). Drives auto-reorder
     /// through the same low-stock → grocery pipeline as fill-level lows.
     var isBelowPar: Bool { parQuantity.map { quantity < $0 } ?? false }
-    var isLow: Bool { (effectiveLevel > 0 && effectiveLevel < KitchenThresholds.lowFillLevel) || isBelowPar }
+    var isLow: Bool { (effectiveLevel > 0 && effectiveLevel < 0.25) || isBelowPar }
     var isExpired:      Bool { (daysUntilExpiry ?? 1) < 0 }
     var effectiveLevel: Double {
         // #13 perf: compute the day delta once instead of going through isExpired +
@@ -121,7 +108,7 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
         guard let exp = expirationDate else { return level }
         let days = LocalInventoryItem.cal.dateComponents([.day], from: Date(), to: exp).day ?? 999
         if days < 0  { return 0 }
-        if days <= KitchenThresholds.expiringSoonDays { return level * 0.5 }
+        if days <= 3 { return level * 0.5 }
         return level
     }
     // Shared calendar — `Calendar.current` rebuilds on each access, costly in row bodies.

@@ -371,7 +371,8 @@ extension MealPlannerView {
         if session.autoAddMissingToGrocery {
             // Toggle ON — send directly without asking
             for ing in missing {
-                session.guestStore.addToGroceryIfMissing(ing, recommended: true, recipeSource: meal.title)
+                session.guestStore.groceryItems.append(
+                    LocalGroceryItem(name: ing, isChecked: false, isRecommended: true, recipeSource: meal.title))
             }
         } else {
             // Toggle OFF — show popup so user can review/deselect
@@ -389,7 +390,8 @@ extension MealPlannerView {
             let lower = ing.lowercased()
             let inList = session.guestStore.groceryItems.contains { $0.name.lowercased() == lower }
             if !inList {
-                session.guestStore.addToGroceryIfMissing(ing, recommended: true, recipeSource: meal.title)
+                session.guestStore.groceryItems.append(
+                    LocalGroceryItem(name: ing, isChecked: false, isRecommended: true, recipeSource: meal.title))
             }
         }
         pendingMeal       = nil

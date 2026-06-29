@@ -335,7 +335,8 @@ struct GroceryListView: View {
                             ForEach(lowNotInList) { inv in
                                 Button {
                                     withAnimation {
-                                        store.addToGroceryIfMissing(inv.name, recommended: true)
+                                        store.groceryItems.append(
+                                            LocalGroceryItem(name: inv.name, isChecked: false, isRecommended: true))
                                     }
                                 } label: {
                                     HStack {
@@ -380,7 +381,8 @@ struct GroceryListView: View {
                             ForEach(runningOut) { inv in
                                 Button {
                                     withAnimation {
-                                        store.addToGroceryIfMissing(inv.name, recommended: true)
+                                        store.groceryItems.append(
+                                            LocalGroceryItem(name: inv.name, isChecked: false, isRecommended: true))
                                     }
                                     HapticManager.light()
                                 } label: {
@@ -424,7 +426,8 @@ struct GroceryListView: View {
                             ForEach(usuals, id: \.self) { name in
                                 Button {
                                     withAnimation {
-                                        store.addGroceryItem(name: name)
+                                        store.groceryItems.append(
+                                            LocalGroceryItem(name: name, isChecked: false))
                                     }
                                     GroceryUsuals.shared.record(name)
                                     HapticManager.light()
@@ -524,7 +527,7 @@ struct GroceryListView: View {
             Button("Add") {
                 let name = quickAddName.trimmingCharacters(in: .whitespaces)
                 if !name.isEmpty {
-                    store.addGroceryItem(name: name)
+                    store.groceryItems.append(LocalGroceryItem(name: name, isChecked: false))
                     HapticManager.success()
                 }
                 quickAddName = ""
@@ -829,7 +832,7 @@ struct GroceryListView: View {
 
     private func addItem() {
         let n = newItem.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }
-        withAnimation { store.addGroceryItem(name: n) }
+        withAnimation { store.groceryItems.append(LocalGroceryItem(name: n, isChecked: false)) }
         GroceryUsuals.shared.record(n)   // learn frequently-added items for one-tap re-add
         newItem = ""
         searchText = ""

@@ -1147,7 +1147,10 @@ struct OnlineRecipeDetailView: View {
                 let alreadyInGrocery = session.guestStore.groceryItems.contains { $0.name.lowercased().contains(key) }
                 if !alreadyInGrocery {
                     let label = pair.measure.isEmpty ? ing : "\(pair.measure) \(ing)"
-                    session.guestStore.addToGroceryIfMissing(label, recommended: true, recipeSource: recipe.title)
+                    session.guestStore.groceryItems.append(
+                        LocalGroceryItem(name: label.trimmingCharacters(in: .whitespaces),
+                                         isChecked: false, isRecommended: true, recipeSource: recipe.title)
+                    )
                 }
             }
         }

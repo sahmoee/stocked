@@ -387,7 +387,9 @@ struct MealPrepView: View {
             let inList  = store.groceryItems.contains { $0.name.lowercased() == lower }
             guard !inStock && !inList else { continue }
             let source = ing.meals.first ?? ""
-            store.addToGroceryIfMissing(ing.name, recommended: true, recipeSource: source)
+            store.groceryItems.append(
+                LocalGroceryItem(name: ing.name, isChecked: false,
+                                  isRecommended: true, recipeSource: source))
             added += 1
         }
         UINotificationFeedbackGenerator().notificationOccurred(.success)

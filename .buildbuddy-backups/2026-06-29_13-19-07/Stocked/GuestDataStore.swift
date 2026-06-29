@@ -752,18 +752,6 @@ class GuestDataStore {
             groceryItems.append(LocalGroceryItem(name: name, isChecked: false, isRecommended: recommended))
         }
     }
-    /// Same as above but records which recipe the item came from. Used by the recipe and
-    /// meal-plan screens so the "added from <recipe>" provenance is preserved while the dedup
-    /// rule stays centralized here instead of being re-spelled at each call site.
-    func addToGroceryIfMissing(_ name: String, recommended: Bool, recipeSource: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        guard !GroceryDedup.isDuplicate(trimmed, in: groceryItems.map { $0.name }) else { return }
-        withAnimation {
-            groceryItems.append(LocalGroceryItem(name: trimmed, isChecked: false,
-                                                 isRecommended: recommended, recipeSource: recipeSource))
-        }
-    }
 
     /// #3 — build the grocery list from the week's planned meals: gather every planned
     /// ingredient, skip anything already in stock, add the rest (tagged by recipe).
@@ -1072,7 +1060,7 @@ class GuestDataStore {
     }
     var urgentItems: [LocalInventoryItem] {
         inventoryItems.filter {
-            ($0.effectiveLevel < KitchenThresholds.lowFillLevel && ($0.zone == "Fridge" || $0.zone == "Freezer")) || $0.isExpiringSoon
+            ($0.effectiveLevel < 0.25 && ($0.zone == "Fridge" || $0.zone == "Freezer")) || $0.isExpiringSoon
         }
         .sorted { $0.effectiveLevel < $1.effectiveLevel }.prefix(5).map { $0 }
     }
@@ -1082,7 +1070,7 @@ class GuestDataStore {
     /// Canonical "expiring soon" list — every screen's expiring count/preview comes from here.
     var expiringSoonItems: [LocalInventoryItem] {
         inventoryItems
-            .filter { $0.isExpiringSoon() }
+            .filter { !$0.isExpired && ($0.daysUntilExpiry ?? 999) <= KitchenThresholds.expiringSoonDays }
             .sorted { ($0.daysUntilExpiry ?? 999) < ($1.daysUntilExpiry ?? 999) }
     }
     /// Canonical "running low" list (fill-level lows + below-par), deduped.

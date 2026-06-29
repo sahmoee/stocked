@@ -699,7 +699,10 @@ struct WebRecipeDetailView: View {
                 $0.name.lowercased().contains(key)
             }
             if !inStock && !inGrocery {
-                session.guestStore.addToGroceryIfMissing(ing, recommended: true, recipeSource: recipe.title)
+                session.guestStore.groceryItems.append(
+                    LocalGroceryItem(name: ing.trimmingCharacters(in: .whitespaces),
+                                     isChecked: false, isRecommended: true, recipeSource: recipe.title)
+                )
             }
         }
     }

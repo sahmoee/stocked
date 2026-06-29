@@ -251,7 +251,9 @@ struct FoodsSubOptionView: View {
                         },
                         onAddToList: {
                             let name = item.name
-                            session.guestStore.addGroceryItem(name: name)
+                            session.guestStore.groceryItems.append(
+                                LocalGroceryItem(name: name, isChecked: false)
+                            )
                             pendingUnstocked = nil
                             withAnimation { addedToList = name }
                             Task {

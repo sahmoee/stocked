@@ -295,7 +295,8 @@ private struct ReadyToCoookRecipeRow: View {
                         guard !n.isEmpty,
                               !session.guestStore.groceryItems.contains(where: { $0.name.lowercased() == n.lowercased() })
                         else { continue }
-                        session.guestStore.addToGroceryIfMissing(n, recommended: true, recipeSource: recipe.title)
+                        session.guestStore.groceryItems.append(
+                            LocalGroceryItem(name: n, isChecked: false, isRecommended: true, recipeSource: recipe.title))
                         added += 1
                     }
                     addedToList = added

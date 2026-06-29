@@ -437,7 +437,8 @@ struct InventoryView: View {
                     Button {
                         for id in selectedIDs {
                             if let item = session.guestStore.inventoryItems.first(where: { $0.id == id }) {
-                                session.guestStore.addToGroceryIfMissing(item.name, recommended: true)
+                                session.guestStore.groceryItems.append(
+                                    LocalGroceryItem(name: item.name, isChecked: false, isRecommended: true))
                             }
                         }
                         exitEditMode()
