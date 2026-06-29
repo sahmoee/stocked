@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.6 (build 3) — usage insights wiring ─────────────────────────────
+        // ── 1.5 (build 3) — reliability foundations ───────────────────────────
         ChangelogVersion(
-            version: "1.6",
-            buildDate: "Build 3 · June 29, 2026 at 6:30 PM",
-            headline: "Better usage insights",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "chart.bar.fill", color: Color.stockedGold,
-                               title: "The app understands your habits",
-                               detail: "Stocked now privately tracks key actions on your device, like adding items, saving recipes, and finishing a cook, so your insights and streaks stay accurate. Nothing leaves your phone."),
-            ]),
-        // ── 1.5.1 (build 3) — reliability foundations ─────────────────────────
-        ChangelogVersion(
-            version: "1.5.1",
-            buildDate: "Build 3 · June 29, 2026 at 5:45 PM",
+            version: "1.5",
+            buildDate: "Build 3 · June 29, 2026 at 5:15 PM",
             headline: "Under-the-hood reliability work",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "checkmark.shield.fill", color: Color.stockedGold,
                                title: "Your data is safer across updates",

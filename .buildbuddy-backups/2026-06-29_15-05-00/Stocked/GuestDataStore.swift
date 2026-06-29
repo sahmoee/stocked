@@ -354,7 +354,6 @@ class GuestDataStore {
     func addGroceryItem(name: String) {
         // #17 — accent/case-insensitive dedup so "milk" / "Milk" / "Crème" don't double up.
         guard !GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name }) else { return }
-        AppAnalytics.shared.log(.groceryItemAdded)
         withAnimation { groceryItems.append(LocalGroceryItem(name: name, isChecked: false)) }
     }
     func renameInventoryItem(id: UUID, name: String) {
@@ -380,7 +379,6 @@ class GuestDataStore {
     func toggleGrocery(id: UUID) {
         if let i = groceryItems.firstIndex(where: { $0.id == id }) {
             withAnimation { groceryItems[i].isChecked.toggle() }
-            if groceryItems[i].isChecked { AppAnalytics.shared.log(.groceryItemChecked) }
         }
     }
     func removeGrocery(id: UUID) {
@@ -490,7 +488,6 @@ class GuestDataStore {
     }
 
     func addInventoryItem(_ item: LocalInventoryItem) {
-        AppAnalytics.shared.log(.itemAdded)
         Task { @MainActor in
             DatabaseSyncBus.shared.publish(.inventoryItemAdded(name: item.name))
             StockedKnowledgeBase.shared.learnFromInventoryItem(name: item.name)
@@ -918,7 +915,6 @@ class GuestDataStore {
     }
     func saveRecipe(_ r: GeneratedRecipe) {
         guard !savedGeneratedRecipes.contains(where: { $0.id == r.id }) else { return }
-        AppAnalytics.shared.log(.recipeSaved)
         savedGeneratedRecipes.append(r)
         addMissingIngredientsToGrocery(from: r)
     }
@@ -974,7 +970,6 @@ class GuestDataStore {
         didSet { saveDebounced("userSubstitutions_v1", userSubstitutions) }
     }
     func addUserRecipe(_ r: UserRecipe) {
-        AppAnalytics.shared.log(.recipeSaved)
         var l = userRecipes; l.append(r); userRecipes = l
         Task { @MainActor in
             StockedKnowledgeBase.shared.learnFromRecipe(r)

@@ -275,7 +275,6 @@ class AppSession {
         }
         lastCookDate   = Date()
         longestStreak  = max(longestStreak, cookStreak)
-        AppAnalytics.shared.log(.cookCompleted)
 
         // Check milestones
         let milestones = [3, 7, 14, 30, 50, 100]
