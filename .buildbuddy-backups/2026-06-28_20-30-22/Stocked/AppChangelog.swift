@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.40 — Build 299 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.40",
-            buildDate: "Build 299 · June 2026",
-            headline: "A nicer guided tour",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Polished the tour glow",
-                               detail: "The guided tour now has a softer, brighter glow around each feature, and the tip cards no longer cover the thing they are pointing at."),
-            ]),
         // ── 07.39 — Build 298 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.39",
             buildDate: "Build 298 · June 2026",
             headline: "A guided tour of your kitchen",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
                                title: "Find your way around",

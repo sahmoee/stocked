@@ -39,9 +39,9 @@ struct CoachmarkStep: Identifiable {
     let title: String
     let body: String
     /// Extra padding around the spotlit element's frame (visual breathing room for the glow).
-    var pad: CGFloat = 14
+    var pad: CGFloat = 10
 
-    static func spotlight(_ anchorID: String, title: String, body: String, pad: CGFloat = 14) -> CoachmarkStep {
+    static func spotlight(_ anchorID: String, title: String, body: String, pad: CGFloat = 10) -> CoachmarkStep {
         CoachmarkStep(kind: .spotlight(anchorID: anchorID), title: title, body: body, pad: pad)
     }
     static func card(title: String, body: String) -> CoachmarkStep {
@@ -167,7 +167,7 @@ private struct CoachmarkOverlay: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack {
             dimWithHole
             if let rect = spotlightRect {
                 glowRing(around: rect)
@@ -181,16 +181,15 @@ private struct CoachmarkOverlay: View {
         .onTapGesture { onNext() }   // tap anywhere to advance
     }
 
-    // Dimmed background with a rounded hole punched around the spotlight, with a soft gold
-    // inner tint at the hole edge so the cutout itself reads as lit.
+    // Dimmed background with a rounded rectangular hole punched around the spotlight.
     private var dimWithHole: some View {
-        let dim = Color.black.opacity(isDark ? 0.78 : 0.66)
+        let dim = Color.black.opacity(isDark ? 0.72 : 0.6)
         return Group {
             if let rect = spotlightRect {
                 Rectangle()
                     .fill(dim)
                     .reverseMask {
-                        RoundedRectangle(cornerRadius: spotCorner)
+                        RoundedRectangle(cornerRadius: 16)
                             .frame(width: rect.width, height: rect.height)
                             .position(x: rect.midX, y: rect.midY)
                     }
@@ -200,41 +199,28 @@ private struct CoachmarkOverlay: View {
         }
     }
 
-    private let spotCorner: CGFloat = 18
-
-    // Multi-layer luminous gold halo radiating out from the element's edge. Several blurred
-    // strokes of increasing width and decreasing opacity build a soft glow rather than a hard
-    // outline, and the whole thing breathes.
+    // Pulsing gold glow ring around the spotlit element.
     private func glowRing(around rect: CGRect) -> some View {
-        PulsingGlow(width: rect.width, height: rect.height, corner: spotCorner)
+        PulsingGlow()
             .frame(width: rect.width, height: rect.height)
             .position(x: rect.midX, y: rect.midY)
             .allowsHitTesting(false)
     }
 
-    // Card placed clear of the spotlit element: below it if there is room beneath, otherwise
-    // above it. The card's edge is offset from the element by a real gap, and the whole card is
-    // clamped to stay on screen.
+    // Callout positioned just below (or above) the spotlight.
     private func calloutCard(near rect: CGRect) -> some View {
-        let gap: CGFloat = 22
-        let estCardHeight: CGFloat = 190     // generous estimate for clamping
-        let spaceBelow = proxy.size.height - rect.maxY
-        let placeBelow = spaceBelow > estCardHeight + gap + 40
-
-        // Top Y of the card.
-        let rawTop = placeBelow ? rect.maxY + gap : rect.minY - gap - estCardHeight
-        let topY = min(max(rawTop, 70), proxy.size.height - estCardHeight - 40)
-
+        let placeBelow = rect.maxY < proxy.size.height * 0.6
+        let y = placeBelow ? rect.maxY + 16 : rect.minY - 16
         return cardBody
-            .frame(maxWidth: 330)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .offset(y: topY)
+            .frame(maxWidth: 320)
+            .position(x: proxy.size.width / 2, y: 0)
+            .offset(y: placeBelow ? y : max(y - 140, 80))
     }
 
     private var centeredCard: some View {
         cardBody
             .frame(maxWidth: 340)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
     }
 
     private var cardBody: some View {
@@ -274,42 +260,26 @@ private struct CoachmarkOverlay: View {
     }
 }
 
-// MARK: - Pulsing glow halo
+// MARK: - Pulsing glow ring
 
 private struct PulsingGlow: View {
-    let width: CGFloat
-    let height: CGFloat
-    let corner: CGFloat
     @State private var pulse = false
-
     var body: some View {
-        ZStack {
-            // Outer soft bloom — wide, very blurred, low opacity. This is the "light spilling out".
-            RoundedRectangle(cornerRadius: corner)
-                .stroke(Color.stockedGold, lineWidth: 14)
-                .blur(radius: 22)
-                .opacity(pulse ? 0.75 : 0.4)
-
-            // Mid halo — medium width and blur.
-            RoundedRectangle(cornerRadius: corner)
-                .stroke(Color.stockedGold, lineWidth: 7)
-                .blur(radius: 9)
-                .opacity(pulse ? 0.95 : 0.6)
-
-            // Crisp inner edge — defines the lit boundary of the element.
-            RoundedRectangle(cornerRadius: corner)
-                .stroke(Color.stockedGold, lineWidth: 2)
-                .opacity(0.95)
-        }
-        // The bloom needs to extend beyond the element frame, so draw into an oversized canvas.
-        .frame(width: width, height: height)
-        .scaleEffect(pulse ? 1.03 : 1.0)
-        .shadow(color: Color.stockedGold.opacity(pulse ? 0.7 : 0.35), radius: pulse ? 24 : 14)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true)) {
-                pulse = true
+        RoundedRectangle(cornerRadius: 16)
+            .stroke(Color.stockedGold, lineWidth: 2.5)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.stockedGold, lineWidth: 6)
+                    .blur(radius: 8)
+                    .opacity(pulse ? 0.9 : 0.4)
+            )
+            .shadow(color: Color.stockedGold.opacity(pulse ? 0.8 : 0.3), radius: pulse ? 16 : 8)
+            .scaleEffect(pulse ? 1.02 : 1.0)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
             }
-        }
     }
 }
 

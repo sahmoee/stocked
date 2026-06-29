@@ -13,8 +13,7 @@ enum HomeCoachmarks {
     static let steps: [CoachmarkStep] = [
         .spotlight("home.greeting",
                    title: "Welcome to your kitchen",
-                   body: "This is your Home dashboard. At a glance it shows what is happening across your pantry, meals, and shopping.",
-                   pad: 18),
+                   body: "This is your Home dashboard. At a glance it shows what is happening across your pantry, meals, and shopping."),
         .spotlight("home.widget.actionCenter",
                    title: "Action Center",
                    body: "Jump straight into the things you do most: scan a receipt, scan a barcode, add an item by hand, or tell the app what changed."),
