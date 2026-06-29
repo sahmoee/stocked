@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.5 (build 3) — reliability foundations ───────────────────────────
-        ChangelogVersion(
-            version: "1.5",
-            buildDate: "Build 3 · June 29, 2026 at 5:15 PM",
-            headline: "Under-the-hood reliability work",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "checkmark.shield.fill", color: Color.stockedGold,
-                               title: "Your data is safer across updates",
-                               detail: "Added tests that make sure your saved kitchen keeps loading correctly when the app updates, so nothing gets lost."),
-                ChangelogEntry(icon: "wand.and.stars", color: Color.stockedInfo,
-                               title: "Groundwork for smarter suggestions",
-                               detail: "New behind-the-scenes tools let the app rate recipe quality and remember your corrections, so suggestions keep improving over time."),
-            ]),
         // ── 1.4 (build 2) — source quality + matching foundation ──────────────
         ChangelogVersion(
             version: "1.4",
             buildDate: "Build 2 · June 29, 2026 at 4:00 PM",
             headline: "Smarter about your groceries",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "arrow.triangle.merge", color: Color.stockedGold,
                                title: "Fewer duplicate ingredients",
