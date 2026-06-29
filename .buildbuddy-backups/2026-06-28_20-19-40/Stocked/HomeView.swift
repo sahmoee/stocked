@@ -64,7 +64,6 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24).padding(.top, 2)
-                .coachmarkAnchor("home.greeting")
 
                 // ── First-run activation (#18) ────────────────────────
                 // When the kitchen is empty, show a guided card instead of a dead "0/0/0"
@@ -79,7 +78,6 @@ struct HomeView: View {
                     widgetView(widget)
                         .disabled(editMode)          // iOS-style: taps don't fire while editing
                         .padding(.horizontal, 24)
-                        .coachmarkAnchor("home.widget.\(widget.rawValue)")
                         .overlay(alignment: .topLeading) {
                             if editMode { removeBadge(widget).offset(x: 14, y: -6) }
                         }
@@ -143,7 +141,6 @@ struct HomeView: View {
                 widgetGallerySheet
             }
         }
-        .coachmarks(page: .home, steps: HomeCoachmarks.steps)
     }
 
     // ── Action Center (extracted so every widget is a uniform view) ──

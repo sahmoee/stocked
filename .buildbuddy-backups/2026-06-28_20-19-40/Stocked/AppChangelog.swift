@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.39 — Build 298 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.39",
-            buildDate: "Build 298 · June 2026",
-            headline: "A guided tour of your kitchen",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Find your way around",
-                               detail: "The first time you visit a page, a short guided tour now highlights the main features with a gentle glow, so nothing important gets missed. It starts with the Home screen."),
-            ]),
         // ── 07.38 — Build 297 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.38",
             buildDate: "Build 297 · June 2026",
             headline: "Better support for larger text",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "textformat.size", color: Color.stockedInfo,
                                title: "Larger text sizes",
