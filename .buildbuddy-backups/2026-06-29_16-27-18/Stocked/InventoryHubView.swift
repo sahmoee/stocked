@@ -244,7 +244,7 @@ struct InventoryHubView: View {
         .padding(.horizontal, 14).padding(.vertical, 11)
         .background(
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
-                .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+                .fill(Color.stockedWhite.opacity(0.6))
         )
     }
 
@@ -321,7 +321,7 @@ struct InventoryHubView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+                .fill(Color.stockedWhite.opacity(0.6))
         )
     }
 
@@ -380,7 +380,7 @@ struct InventoryHubView: View {
             .padding(.horizontal, 14).padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                    .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+                    .fill(Color.stockedWhite.opacity(0.6))
             )
         }
         .buttonStyle(.plain)
@@ -403,7 +403,7 @@ struct InventoryHubView: View {
             .padding(.horizontal, 18).padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                    .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+                    .fill(Color.stockedWhite.opacity(0.6))
             )
         }
         .buttonStyle(.plain)
@@ -445,7 +445,7 @@ struct InventoryHubView: View {
                 }
                 .background(
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                        .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+                        .fill(Color.stockedWhite.opacity(0.6))
                 )
             }
         }

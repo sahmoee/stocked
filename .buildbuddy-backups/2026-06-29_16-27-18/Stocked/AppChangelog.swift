@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.9 (build 3) — inventory dark mode fix ───────────────────────────
-        ChangelogVersion(
-            version: "1.9",
-            buildDate: "Build 3 · June 29, 2026 at 8:45 PM",
-            headline: "Dark mode fix on Inventory",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "moon.fill", color: Color.stockedGold,
-                               title: "Inventory cards match dark mode",
-                               detail: "The status card and category tiles on the Inventory tab were showing a light background in dark mode. They now use the correct dark surface."),
-            ]),
         // ── 1.8 (build 3) — recipe quality flag ───────────────────────────────
         ChangelogVersion(
             version: "1.8",
             buildDate: "Build 3 · June 29, 2026 at 8:00 PM",
             headline: "Spot incomplete recipes",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "exclamationmark.triangle.fill", color: Color.stockedGold,
                                title: "A heads-up on thin recipes",
