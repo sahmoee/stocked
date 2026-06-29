@@ -215,7 +215,7 @@ struct RecipeVaultView: View {
                 // ── #245 — mockup title ──
                 Text("My Recipes")
                     .font(.system(size: 24, weight: .bold, design: .serif))
-                    .foregroundStyle(session.isDarkMode ? session.accentColor : Color.stockedCharcoal)
+                    .foregroundStyle(session.isDarkMode ? Color.stockedGold : Color.stockedCharcoal)
                     .padding(.horizontal, 24).padding(.bottom, 14)
 
                 // ── #238 — My Recipes hub (mockup 2×2) ──────────────────

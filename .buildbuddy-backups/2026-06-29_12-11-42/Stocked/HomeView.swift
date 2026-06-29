@@ -45,7 +45,7 @@ struct HomeView: View {
                         Text("\(greeting), \(session.userName)")
                             .font(.system(size: 26, weight: .bold, design: .serif))
                             .dynamicTypeSize(.xSmall ... .accessibility2)
-                            .foregroundStyle(session.isDarkMode ? session.accentColor : Color.stockedWhite)
+                            .foregroundStyle(session.isDarkMode ? Color.stockedGold : Color.stockedWhite)
                         Text(editMode ? "Tap − to remove, + to add widgets." : "Here's what's happening in your kitchen.")
                             .font(.system(size: 14.5))
                             .foregroundStyle(sub)

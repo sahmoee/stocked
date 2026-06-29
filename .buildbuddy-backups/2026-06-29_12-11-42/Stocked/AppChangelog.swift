@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.1 — dark mode contrast ──────────────────────────────────────────
-        ChangelogVersion(
-            version: "1.1",
-            buildDate: "Build 1 · June 29, 2026 at 9:00 AM",
-            headline: "Easier on the eyes in dark mode",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "moon.stars.fill", color: Color.stockedGold,
-                               title: "Better dark mode contrast",
-                               detail: "Gold accents are brighter and easier to read on dark backgrounds, and secondary text is clearer in both light and dark mode."),
-            ]),
         // ── 07.42 — Build 301 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.42",
             buildDate: "Build 301 · June 2026",
             headline: "Guided tours everywhere",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
                                title: "Tours for every tab",
