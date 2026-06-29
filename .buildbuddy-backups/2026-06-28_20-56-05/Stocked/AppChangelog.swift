@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.42 — Build 301 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.42",
-            buildDate: "Build 301 · June 2026",
-            headline: "Guided tours everywhere",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Tours for every tab",
-                               detail: "The guided tour now covers Inventory, Recipes, and Grocery too, so the first time you open each tab its main features are highlighted for you."),
-                ChangelogEntry(icon: "doc.text.image", color: Color.stockedInfo,
-                               title: "Find your Daily Brief",
-                               detail: "The Home tour now shows you that tapping the Stocked title opens your full Daily Brief any time."),
-            ]),
         // ── 07.41 — Build 300 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.41",
             buildDate: "Build 300 · June 2026",
             headline: "Cook tour, cleaner first run",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "frying.pan", color: Color.stockedGold,
                                title: "A tour for the Cook tab",

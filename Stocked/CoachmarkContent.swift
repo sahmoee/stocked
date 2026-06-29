@@ -9,6 +9,48 @@
 
 import SwiftUI
 
+enum InventoryCoachmarks {
+    static let steps: [CoachmarkStep] = [
+        .spotlight("inv.status",
+                   title: "Your kitchen at a glance",
+                   body: "This card shows how well stocked you are overall, with a percentage and a quick read on which zones are running low."),
+        .spotlight("inv.categories",
+                   title: "Browse by category",
+                   body: "Tap any category to jump straight to those items. It is the fastest way to find what you are looking for."),
+        .spotlight("inv.expiring",
+                   title: "Expiring soon",
+                   body: "A preview of items that need using up soon. Tap View All to see the full list and cook them before they go to waste."),
+        .card(title: "Search and sort",
+              body: "Use the Search and Sort buttons at the top right to find a specific item fast or reorder the whole list by name, quantity, or what to use first."),
+    ]
+}
+
+enum RecipeCoachmarks {
+    static let steps: [CoachmarkStep] = [
+        .spotlight("recipes.hub",
+                   title: "Your recipe collection",
+                   body: "Your saved recipes live here: favorites, ones you have cooked, everything you have saved, and your collections by cuisine."),
+        .spotlight("recipes.categories",
+                   title: "Browse by cuisine",
+                   body: "Explore new recipes online, organized by cuisine, to find something fresh to add to your collection."),
+        .card(title: "Find a recipe fast",
+              body: "Tap the search icon at the top right to search recipes directly. Scroll down to Discover for ideas based on what is in your kitchen right now."),
+    ]
+}
+
+enum GroceryCoachmarks {
+    static let steps: [CoachmarkStep] = [
+        .spotlight("grocery.segments",
+                   title: "To Buy and Bought",
+                   body: "Switch between what you still need to buy and what you have already picked up. Items move to Bought as you check them off."),
+        .spotlight("grocery.add",
+                   title: "Add to your list",
+                   body: "Tap Add Item to put anything on your list by hand. Ingredients from meals you plan also show up here automatically."),
+        .card(title: "Store, share, and scan",
+              body: "Tap the menu at the top right to set your store, share the list with someone, scan a paper list, or move checked items into your pantry."),
+    ]
+}
+
 enum CookCoachmarks {
     static let steps: [CoachmarkStep] = [
         .spotlight("cook.header",
@@ -39,7 +81,10 @@ enum HomeCoachmarks {
                    body: "Items that are close to expiring show up here so you can cook them before they go to waste."),
         .spotlight("home.widget.dailyBrief",
                    title: "Daily Brief",
-                   body: "A quick daily summary of your kitchen: what is expiring, what is low, and what is worth cooking today."),
+                   body: "This card is a quick preview of your kitchen today: what is expiring, what is low, and what is worth cooking."),
+        .spotlight("shell.title",
+                   title: "Open your Daily Brief",
+                   body: "Tap the Stocked title at the top of the screen any time to open your full Daily Brief, with the complete rundown for the day."),
         .card(title: "Make it yours",
               body: "Press and hold anywhere on Home to customize. You can drag widgets to reorder them, remove ones you do not use, and add new ones from the gallery."),
         .card(title: "Find everything in the menu",

@@ -225,7 +225,6 @@ struct GroceryListView: View {
                 .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
                 .clipShape(Capsule())
                 .padding(.horizontal, 24).padding(.bottom, 12)
-                .coachmarkAnchor("grocery.segments")
 
                 // ── #245 — stacked title + Sort pill (mockup) ───────────
                 HStack(alignment: .bottom) {
@@ -519,7 +518,6 @@ struct GroceryListView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, 14)
-                .coachmarkAnchor("grocery.add")
             }
         }
         .alert("Add Item", isPresented: $showQuickAdd) {
@@ -536,7 +534,6 @@ struct GroceryListView: View {
         } message: {
             Text("Add something to your grocery list.")
         }
-        .coachmarks(page: .grocery, steps: GroceryCoachmarks.steps)
     }
 
     // MARK: - Receipt Reconciliation

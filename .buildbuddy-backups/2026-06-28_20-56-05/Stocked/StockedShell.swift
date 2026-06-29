@@ -107,7 +107,6 @@ struct StockedShell<Content: View>: View {
                 .buttonStyle(.plain)
                 .disabled(titleTap == nil && onTitleTap == nil)
                 .fixedSize()
-                .coachmarkAnchor("shell.title")
 
                 if leadingTitle {
                     // #4 — headers are centered app-wide (tab roots included). The

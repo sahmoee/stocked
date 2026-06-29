@@ -234,7 +234,6 @@ struct RecipeVaultView: View {
                             unit: "cuisines", label: "Collections") { navTarget = .collections }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 10)
-                .coachmarkAnchor("recipes.hub")
 
                 // Categories — browse online recipes by cuisine. Full-width card so it
                 // reads as a peer of the four hub cards above (and is fully separate
@@ -243,7 +242,6 @@ struct RecipeVaultView: View {
                               label: "Categories",
                               subtitle: "Browse by cuisine") { navTarget = .cuisineBrowse }
                     .padding(.horizontal, 20).padding(.bottom, 14)
-                    .coachmarkAnchor("recipes.categories")
 
                 // ── #240 — Recently Viewed (mockup rail) ────────────────
                 let recents = session.recentlyViewedRecipeIDs.compactMap { id in
@@ -429,7 +427,6 @@ struct RecipeVaultView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             navTarget = nil; navigateToDBRecipe = false   // iPad-safe pop-to-root
         }
-        .coachmarks(page: .recipes, steps: RecipeCoachmarks.steps)
     }
 
     /// Drawer "Import Recipe" → open the URL import sheet exactly once. Clearing the

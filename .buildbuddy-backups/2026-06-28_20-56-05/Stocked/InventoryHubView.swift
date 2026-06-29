@@ -87,12 +87,9 @@ struct InventoryHubView: View {
                         }
                     )
                     statusCard
-                        .coachmarkAnchor("inv.status")
                     categoriesSection
-                        .coachmarkAnchor("inv.categories")
                     viewAllRow
                     expiringSoonSection
-                        .coachmarkAnchor("inv.expiring")
                 }
             }
             .padding(.horizontal, 20)
@@ -143,7 +140,6 @@ struct InventoryHubView: View {
             selectedCategory = nil
             showSearchField = false; searchText = ""
         }
-        .coachmarks(page: .inventory, steps: InventoryCoachmarks.steps)
     }
 
     // ── #251 Empty-kitchen seed (App #3) ─────────────────────────────
