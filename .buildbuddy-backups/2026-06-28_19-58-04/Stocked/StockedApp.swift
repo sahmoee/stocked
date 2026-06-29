@@ -157,11 +157,10 @@ struct RootView: View {
         // when splashDone + quizCompleted + isLoggedIn all change together.
         .preferredColorScheme(session.isDarkMode ? .dark : .light)
         // Dynamic Type support (Change 16): honor the user's system text-size setting, but clamp
-        // the extreme accessibility sizes so the app's fixed-size layouts don't break. Raised to
-        // accessibility3 to support larger accessibility text sizes while still capping the two
-        // largest steps (accessibility4/5), which most often break dense fixed layouts. This makes
-        // the app usable across the accessibility text-size range and Display Zoom (Default/Zoomed).
-        .dynamicTypeSize(.xSmall ... .accessibility3)
+        // the extreme accessibility sizes so the app's fixed-size layouts don't break. This makes
+        // the app usable at larger text sizes and across Display Zoom (Default/Zoomed) without a
+        // full per-view font rewrite.
+        .dynamicTypeSize(.xSmall ... .accessibility1)
         .onAppear {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
             // Restored in Build 140 (these run identically on iPhone, which doesn't crash,

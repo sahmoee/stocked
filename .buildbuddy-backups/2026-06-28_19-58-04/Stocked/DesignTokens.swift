@@ -1,7 +1,6 @@
 // DesignTokens.swift — Single source of truth for the Stocked. design system.
 // ColorTheme.swift is DELETED. All views use these hex-defined tokens only.
 import SwiftUI
-import UIKit
 
 // MARK: - Brand Colors
 extension Color {
@@ -64,37 +63,11 @@ enum StockedSpacing {
 
 // MARK: - Typography helpers
 extension Font {
-    // These now scale with the user's Dynamic Type setting. Each raw point size is scaled by
-    // UIFontMetrics anchored to the nearest text style, so existing call sites get Dynamic Type
-    // support with no change. The app's root clamp keeps the result within a safe ceiling.
     static func stockedSerif(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: StockedType.scaled(size), weight: weight, design: .serif)
+        .system(size: size, weight: weight, design: .serif)
     }
     static func stockedSans(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: StockedType.scaled(size), weight: weight, design: .default)
-    }
-}
-
-// Scales a fixed point size with the current Dynamic Type setting, anchored to the nearest
-// text style so larger raw sizes scale at the appropriate rate. Used by the stockedSerif and
-// stockedSans helpers. UIFontMetrics is used (rather than ScaledMetric) so this works inside a
-// plain function that returns a Font value.
-enum StockedType {
-    static func scaled(_ size: CGFloat) -> CGFloat {
-        let style: UIFont.TextStyle
-        switch size {
-        case ..<11.5: style = .caption2
-        case ..<12.5: style = .caption1
-        case ..<14.5: style = .footnote
-        case ..<16.5: style = .subheadline
-        case ..<18:   style = .body
-        case ..<20:   style = .callout
-        case ..<23:   style = .title3
-        case ..<28:   style = .title2
-        case ..<34:   style = .title1
-        default:      style = .largeTitle
-        }
-        return UIFontMetrics(forTextStyle: style).scaledValue(for: size)
+        .system(size: size, weight: weight, design: .default)
     }
 }
 

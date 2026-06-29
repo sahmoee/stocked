@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.38 — Build 297 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.38",
-            buildDate: "Build 297 · June 2026",
-            headline: "Better support for larger text",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "textformat.size", color: Color.stockedInfo,
-                               title: "Larger text sizes",
-                               detail: "The app now supports larger system text sizes for better readability. Set your preferred size in iOS Settings under Display and Text Size."),
-            ]),
         // ── 07.37 — Build 296 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.37",
             buildDate: "Build 296 · June 2026",
             headline: "Simpler profile and settings",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "person.crop.circle.fill", color: Color.stockedGold,
                                title: "A dedicated Edit Profile screen",

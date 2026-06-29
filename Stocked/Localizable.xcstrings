@@ -1265,9 +1265,6 @@
     "Discover Recipes" : {
 
     },
-    "Display name" : {
-
-    },
     "Done" : {
 
     },
@@ -1366,9 +1363,6 @@
       }
     },
     "Every widget is already on your Home screen." : {
-
-    },
-    "Exit Guest Mode" : {
 
     },
     "Exit Guest Mode?" : {
@@ -1534,9 +1528,6 @@
           }
         }
       }
-    },
-    "Guest" : {
-
     },
     "Half" : {
 
@@ -2712,15 +2703,6 @@
     "Show original text" : {
 
     },
-    "Sign Out" : {
-
-    },
-    "Sign Out?" : {
-
-    },
-    "Signed in" : {
-
-    },
     "Single Item" : {
 
     },
@@ -2930,7 +2912,7 @@
     "This name is shown to everyone in your household." : {
 
     },
-    "This permanently deletes your account and all associated data — pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone." : {
+    "This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone." : {
 
     },
     "This source doesn't include step-by-step instructions here. Tap View source below for the full method." : {
@@ -3243,6 +3225,9 @@
 
     },
     "Your meal plan has been saved. Returning to home." : {
+
+    },
+    "Your name" : {
 
     },
     "Your surplus inventory" : {

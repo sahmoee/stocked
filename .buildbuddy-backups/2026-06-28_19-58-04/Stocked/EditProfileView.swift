@@ -95,13 +95,13 @@ struct EditProfileView: View {
             if editingName {
                 HStack {
                     TextField("Your name", text: $nameInput)
-                        .scaledFont(17, weight: .semibold, design: .serif)
+                        .font(.system(size: 17, weight: .semibold, design: .serif))
                         .foregroundStyle(session.themeTextColor)
                         .multilineTextAlignment(.center)
                     Button("Save") {
                         session.displayName = nameInput.trimmingCharacters(in: .whitespaces)
                         editingName = false
-                    }.foregroundStyle(Color.stockedGold).scaledFont(14, weight: .bold)
+                    }.foregroundStyle(Color.stockedGold).font(.system(size: 14, weight: .bold))
                 }
                 .padding(.horizontal, 24)
             } else {
@@ -110,10 +110,10 @@ struct EditProfileView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text(session.userName)
-                            .scaledFont(20, weight: .bold, design: .serif)
+                            .font(.system(size: 20, weight: .bold, design: .serif))
                             .foregroundStyle(session.themeTextColor)
                         Image(systemName: "pencil")
-                            .scaledFont(13)
+                            .font(.system(size: 13))
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                 }.buttonStyle(.plain)
@@ -125,7 +125,7 @@ struct EditProfileView: View {
 
     private func fieldHeader(_ title: String, _ systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
-            .scaledFont(13, weight: .bold)
+            .font(.system(size: 13, weight: .bold))
             .foregroundStyle(session.themeTextColor.opacity(0.5))
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -135,7 +135,7 @@ struct EditProfileView: View {
             fieldHeader(title, systemImage)
             HStack {
                 Text("\(value.wrappedValue)")
-                    .scaledFont(18, weight: .bold, design: .serif)
+                    .font(.system(size: 18, weight: .bold, design: .serif))
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 Stepper("", value: value, in: range).labelsHidden().tint(Color.stockedGold)
@@ -184,7 +184,7 @@ private struct FlowChips: View {
         FlexibleWrap(options) { opt in
             Button { onTap(opt) } label: {
                 Text(opt)
-                    .scaledFont(13, weight: .medium)
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(isSelected(opt) ? Color.stockedCharcoal : session.themeTextColor.opacity(0.7))
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(isSelected(opt) ? Color.stockedGold : (session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5)))
