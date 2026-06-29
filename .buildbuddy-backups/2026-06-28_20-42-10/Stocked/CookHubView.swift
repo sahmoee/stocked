@@ -32,7 +32,6 @@ struct CookHubView: View {
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
-                .coachmarkAnchor("cook.header")
 
                 VStack(spacing: CookStyle.sectionSpacing) {
                     CookHeroCard(
@@ -43,7 +42,6 @@ struct CookHubView: View {
                         tint: Color.stockedCharcoal,
                         textOnDark: true
                     ) { goCookNow = true }
-                    .coachmarkAnchor("cook.now")
 
                     CookHeroCard(
                         title: "Cook Later",
@@ -53,7 +51,6 @@ struct CookHubView: View {
                         tint: Color.stockedGold,
                         textOnDark: true
                     ) { goCookLater = true }
-                    .coachmarkAnchor("cook.later")
                 }
                 .padding(.horizontal, CookStyle.screenHPad)
 
@@ -62,7 +59,6 @@ struct CookHubView: View {
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
         .navigationDestination(isPresented: $goCookLater) { CookLaterHomeView() }
-        .coachmarks(page: .cook, steps: CookCoachmarks.steps)
     }
 
     private var greeting: String {

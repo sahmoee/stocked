@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 07.41 — Build 300 (June 2026) ─────────────────────────────────────
-        ChangelogVersion(
-            version: "07.41",
-            buildDate: "Build 300 · June 2026",
-            headline: "Cook tour, cleaner first run",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "frying.pan", color: Color.stockedGold,
-                               title: "A tour for the Cook tab",
-                               detail: "The first time you open Cook, a short tour highlights Cook Now and Cook Later so you know where to start."),
-                ChangelogEntry(icon: "hand.wave", color: Color.stockedInfo,
-                               title: "Smoother first launch",
-                               detail: "Removed the old full-screen welcome carousel. New users are now introduced page by page, in place, as they explore."),
-            ]),
         // ── 07.40 — Build 299 (June 2026) ─────────────────────────────────────
         ChangelogVersion(
             version: "07.40",
             buildDate: "Build 299 · June 2026",
             headline: "A nicer guided tour",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
                                title: "Polished the tour glow",

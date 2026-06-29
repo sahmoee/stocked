@@ -142,6 +142,7 @@ struct MainTabView: View {
     @State private var showActivityFeedMain = false   // #245 — drawer Household → Activity
     @State private var showDrawer    = false
     @State private var showBrief     = false
+    @State private var showWelcome   = false
     // iPad auto-hide tab bar: hidden by default, slides up on a tap near the bottom edge,
     // hides again when the content scrolls or after a few idle seconds.
     @State private var iPadTabBarVisible = false
@@ -151,6 +152,7 @@ struct MainTabView: View {
     @State private var iPhoneTabBarVisible = true
     @State private var iPhoneTabBarHideTask: Task<Void, Never>? = nil
 
+    private let welcomeKey = "hasSeenWelcomeFlow_v1"
     private var drawerWidth:   CGFloat { SS.drawerW.value(for: device) }
     private var tabBarHeight:  CGFloat { SS.tabBarH.value(for: device) }
 
@@ -414,6 +416,14 @@ struct MainTabView: View {
                         .environment(session)
                         .transition(.opacity)
                     }
+                    if showWelcome {
+                        WelcomeFlow {
+                            withAnimation(.easeOut(duration: 0.25)) { showWelcome = false }
+                            UserDefaults.standard.set(true, forKey: welcomeKey)
+                        }
+                        .environment(session)
+                        .zIndex(3000)
+                    }
 
                     // Sheet overlays — fill content area, global nav stays visible below
                     if showReceipt   { overlaySheet($showReceipt)   { ReceiptScannerView() } }
@@ -446,9 +456,11 @@ struct MainTabView: View {
                 UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }
                     .forEach { $0.backgroundColor = uiColor }
-                // The old full-screen welcome carousel was removed. New users are now introduced
-                // by the per-page coachmark tour (see Coachmark.swift), which highlights features
-                // in place on each page's first visit.
+                // First run → welcome flow introducing the app. Shows once.
+                if !UserDefaults.standard.bool(forKey: welcomeKey) {
+                    Task { try? await Task.sleep(nanoseconds: 700_000_000)
+                        withAnimation(.easeIn(duration: 0.3)) { showWelcome = true } }
+                }
             }
 
             // ── Pull-tab + drawer in one self-contained drag layer (smooth gestures) ──
