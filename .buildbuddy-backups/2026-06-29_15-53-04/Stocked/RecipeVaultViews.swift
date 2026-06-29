@@ -1270,16 +1270,6 @@ struct RecipePreviewCard: View {
                     .foregroundStyle(session.themeTextColor)
                     .lineLimit(2)
 
-                // Flag a recipe that is missing important parts (few/no steps or ingredients, no
-                // image) so the user knows it may need a look. Only shown when low-quality.
-                if RecipeQuality.badge(for: RecipeQuality.score(
-                        title: recipe.title,
-                        ingredients: recipe.ingredients.map { $0.name },
-                        steps: recipe.instructions,
-                        imageURL: recipe.imageURL ?? "")) == .needsReview {
-                    SourceBadgeView(badge: .needsReview)
-                }
-
                 if !recipe.cookTime.isEmpty {
                     HStack(spacing: 5) {
                         Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(Color.stockedGold)

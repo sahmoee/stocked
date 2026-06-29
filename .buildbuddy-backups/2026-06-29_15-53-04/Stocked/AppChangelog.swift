@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.8 (build 3) — recipe quality flag ───────────────────────────────
-        ChangelogVersion(
-            version: "1.8",
-            buildDate: "Build 3 · June 29, 2026 at 8:00 PM",
-            headline: "Spot incomplete recipes",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "exclamationmark.triangle.fill", color: Color.stockedGold,
-                               title: "A heads-up on thin recipes",
-                               detail: "Recipes that are missing key details, like steps or an image, now show a small Needs review tag so you know to double-check them before cooking."),
-            ]),
         // ── 1.7 (build 3) — remember name corrections ─────────────────────────
         ChangelogVersion(
             version: "1.7",
             buildDate: "Build 3 · June 29, 2026 at 7:15 PM",
             headline: "Stocked learns your corrections",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "pencil.and.outline", color: Color.stockedGold,
                                title: "Fix a scanned name once",
