@@ -349,8 +349,6 @@ struct BarcodeScannerView: View {
             let product = await withTimeout(5) { await OpenFoodFactsClient.shared.lookup(barcode: code) }
             if let p = product, !p.name.isEmpty {
                 resolvedName    = formatProductTitle(p.name, brand: p.brand)
-                // If this household previously corrected this product's name, honor that.
-                resolvedName    = UserCorrections.shared.apply(.productName, to: resolvedName)
                 resolvedProduct = p
                 zone = ReceiptDatabase.shared.guessZone(for: resolvedName)  // smart default
                 BarcodeCache.shared.save(code, name: resolvedName)         // #9 cache
@@ -557,13 +555,6 @@ struct BarcodeConfirmSheet: View {
 
                 Button {
                     let n = productName.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }
-                    // If the user edited the name the source suggested, remember the correction so
-                    // the same product resolves to their name next time.
-                    if let original = product?.name, !original.isEmpty,
-                       n.caseInsensitiveCompare(original) != .orderedSame {
-                        UserCorrections.shared.record(.productName, original: original, corrected: n)
-                        AppAnalytics.shared.log(.dataCorrected)
-                    }
                     // #11 — carry the OFF pack size (e.g. "500 g") through as the size string.
                     onAdd(n, zone, level, product?.quantity, scannedExpiry)
                 } label: {

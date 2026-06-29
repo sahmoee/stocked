@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.7 (build 3) — remember name corrections ─────────────────────────
-        ChangelogVersion(
-            version: "1.7",
-            buildDate: "Build 3 · June 29, 2026 at 7:15 PM",
-            headline: "Stocked learns your corrections",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "pencil.and.outline", color: Color.stockedGold,
-                               title: "Fix a scanned name once",
-                               detail: "When you correct a product name after scanning a barcode, Stocked remembers it, so the same product comes up with your name next time."),
-            ]),
         // ── 1.6 (build 3) — usage insights wiring ─────────────────────────────
         ChangelogVersion(
             version: "1.6",
             buildDate: "Build 3 · June 29, 2026 at 6:30 PM",
             headline: "Better usage insights",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "chart.bar.fill", color: Color.stockedGold,
                                title: "The app understands your habits",
