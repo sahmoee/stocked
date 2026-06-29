@@ -11,7 +11,7 @@
 import SwiftUI
 
 /// Where a piece of data came from and how much it should be trusted, in plain user-facing terms.
-nonisolated enum SourceBadge: String, Codable, CaseIterable {
+enum SourceBadge: String, Codable, CaseIterable {
     /// Confirmed against an authoritative source (e.g. USDA nutrition, a barcode-matched product).
     case verified   = "Verified"
     /// A reasonable approximation (e.g. nutrition estimated from a similar item).
@@ -60,7 +60,7 @@ nonisolated enum SourceBadge: String, Codable, CaseIterable {
 
 /// A value paired with its provenance. Use for data the app may want to reconcile or badge later,
 /// e.g. a nutrition number that might come from USDA (verified) or an estimate.
-nonisolated struct Sourced<Value: Codable & Equatable>: Codable, Equatable {
+struct Sourced<Value: Codable & Equatable>: Codable, Equatable {
     var value: Value
     var badge: SourceBadge
 

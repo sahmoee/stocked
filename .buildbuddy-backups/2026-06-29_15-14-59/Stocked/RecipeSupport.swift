@@ -55,17 +55,6 @@ nonisolated enum RecipeQuality {
         if title.count >= 4 && !title.lowercased().contains("untitled") { s += 0.05 }
         return min(1.0, s)
     }
-
-    /// Map a 0...1 quality score to a user-facing source badge, so thin recipes can be flagged.
-    /// Pairs with SourceConfidence (the badge type). Verified when complete, Estimated when
-    /// usable but thin, Needs review when too much is missing.
-    nonisolated static func badge(for score: Double) -> SourceBadge {
-        switch score {
-        case 0.8...:    return .verified
-        case 0.5..<0.8: return .estimated
-        default:        return .needsReview
-        }
-    }
 }
 
 // MARK: - Fuzzy de-duplication (#5, #12)
