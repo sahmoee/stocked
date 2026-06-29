@@ -440,60 +440,31 @@ struct DrawerContent: View {
             }
             .padding(.horizontal, 22).padding(.top, 56).padding(.bottom, 16)
 
-            // Profile card — the chef avatar, name, account status, and cook streak, wrapped in
-            // a rounded surface so it reads as a distinct profile element rather than a bare row.
-            // Tapping it opens Edit Profile. Secondary text uses the themeSecondaryText token for
-            // legible contrast in both light and dark mode.
+            // Profile — the chef avatar, sitting directly under the Stocked wordmark. Tapping it
+            // opens the Edit Profile screen (avatar, name, and the onboarding answers inline).
+            // The preferences themselves now live in the drawer's Settings list below.
             Button {
                 showProfileHub = true
             } label: {
-                HStack(spacing: 13) {
-                    ProfileAvatarView(size: 50)
-                    VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 12) {
+                    ProfileAvatarView(size: 46)
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(session.userName)
-                            .font(.system(size: 17, weight: .bold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(session.themeTextColor)
-                        HStack(spacing: 6) {
-                            // Account status pill
-                            Text(session.accountType == .guest ? "Guest" : "Member")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(session.accentColor)
-                                .padding(.horizontal, 7).padding(.vertical, 2)
-                                .background(
-                                    Capsule().fill(session.accentColor.opacity(session.isDarkMode ? 0.18 : 0.14))
-                                )
-                            // Cook streak, only when there is one to celebrate
-                            if session.cookStreak > 0 {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "flame.fill").font(.system(size: 10))
-                                    Text("\(session.cookStreak) day\(session.cookStreak == 1 ? "" : "s")")
-                                        .font(.system(size: 11, weight: .medium))
-                                }
-                                .foregroundStyle(session.themeSecondaryText)
-                            }
-                        }
                         Text("Edit Profile")
                             .font(.system(size: 12))
-                            .foregroundStyle(session.themeSecondaryText)
+                            .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(session.themeSecondaryText.opacity(0.7))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor.opacity(0.3))
                 }
-                .padding(.horizontal, 16).padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(session.themeCardColor)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(session.accentColor.opacity(session.isDarkMode ? 0.14 : 0.10), lineWidth: 1)
-                        )
-                )
+                .padding(.horizontal, 22).padding(.vertical, 10)
                 .contentShape(Rectangle())
             }.buttonStyle(.plain)
-            .padding(.horizontal, 18)
-            .padding(.bottom, 12)
+            .padding(.bottom, 8)
 
             Divider()
 

@@ -38,37 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.3 — premium profile card ────────────────────────────────────────
-        ChangelogVersion(
-            version: "1.3",
-            buildDate: "Build 1 · June 29, 2026 at 2:45 PM",
-            headline: "A nicer profile in the menu",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "person.crop.circle.fill", color: Color.stockedGold,
-                               title: "Refreshed profile card",
-                               detail: "The side menu now shows your profile in a clean card with your account status and cook streak at a glance."),
-            ]),
-        // ── 1.2 — consistency + reliability ───────────────────────────────────
-        ChangelogVersion(
-            version: "1.2",
-            buildDate: "Build 1 · June 29, 2026 at 1:30 PM",
-            headline: "More consistent counts, fewer duplicates",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "calendar.badge.clock", color: Color.stockedGold,
-                               title: "Expiring dates agree everywhere",
-                               detail: "Home, Inventory, and Cook now use the exact same rule for what counts as expiring soon, so the numbers match across the app."),
-                ChangelogEntry(icon: "cart.badge.plus", color: Color.stockedInfo,
-                               title: "Fewer duplicate grocery items",
-                               detail: "Adding something already on your list no longer creates a duplicate, no matter which screen you add it from."),
-            ]),
         // ── 1.1 — dark mode contrast ──────────────────────────────────────────
         ChangelogVersion(
             version: "1.1",
             buildDate: "Build 1 · June 29, 2026 at 9:00 AM",
             headline: "Easier on the eyes in dark mode",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "moon.stars.fill", color: Color.stockedGold,
                                title: "Better dark mode contrast",
