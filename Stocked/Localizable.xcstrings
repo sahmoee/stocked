@@ -178,6 +178,16 @@
         }
       }
     },
+    "%lld day%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld day%2$@"
+          }
+        }
+      }
+    },
     "%lld duplicate%@" : {
       "localizations" : {
         "en" : {
@@ -1536,6 +1546,9 @@
         }
       }
     },
+    "Guest" : {
+
+    },
     "Half" : {
 
     },
@@ -1920,6 +1933,9 @@
 
     },
     "Measurements" : {
+
+    },
+    "Member" : {
 
     },
     "Minute" : {

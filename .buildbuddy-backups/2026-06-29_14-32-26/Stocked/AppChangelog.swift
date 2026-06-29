@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.4 (build 2) — source quality + matching foundation ──────────────
-        ChangelogVersion(
-            version: "1.4",
-            buildDate: "Build 2 · June 29, 2026 at 4:00 PM",
-            headline: "Smarter about your groceries",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "arrow.triangle.merge", color: Color.stockedGold,
-                               title: "Fewer duplicate ingredients",
-                               detail: "The app now knows that ground beef, beef mince, and 80/20 beef are the same thing, so they no longer show up as separate grocery lines."),
-                ChangelogEntry(icon: "wifi.slash", color: Color.stockedInfo,
-                               title: "Works better offline",
-                               detail: "Common grocery items are now recognized on device, so adding everyday items is faster and uses less data."),
-            ]),
         // ── 1.3 — premium profile card ────────────────────────────────────────
         ChangelogVersion(
             version: "1.3",
             buildDate: "Build 1 · June 29, 2026 at 2:45 PM",
             headline: "A nicer profile in the menu",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "person.crop.circle.fill", color: Color.stockedGold,
                                title: "Refreshed profile card",
