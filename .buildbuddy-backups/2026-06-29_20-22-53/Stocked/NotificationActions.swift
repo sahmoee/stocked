@@ -11,7 +11,7 @@
 // MainTabView can switch to Inventory and open the item.
 
 import Foundation
-@preconcurrency import UserNotifications
+import UserNotifications
 
 // MARK: - Identifiers
 

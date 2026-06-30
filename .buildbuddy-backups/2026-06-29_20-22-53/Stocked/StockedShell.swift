@@ -89,7 +89,8 @@ struct StockedShell<Content: View>: View {
                 // "Cook.", "Inventory.") with no chevron. The trailing period now matches the
                 // wordmark text color (black in light mode) rather than the gold accent.
                 // Centered mode (sub-screens) keeps "Stocked." + chevron.
-                let wordmark = Text("\(titleText).").foregroundColor(session.themeTextColor)
+                let wordmark = (Text(titleText).foregroundColor(session.themeTextColor)
+                                + Text(".").foregroundColor(session.themeTextColor))
                     .font(.stockedSerif(26, weight: .bold))
 
                 let titleCore = Button { (titleTap ?? onTitleTap)?() } label: {

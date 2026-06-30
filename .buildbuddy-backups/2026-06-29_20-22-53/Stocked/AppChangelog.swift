@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.12 (build 3) — more concurrency warnings ────────────────────────
-        ChangelogVersion(
-            version: "1.12",
-            buildDate: "Build 3 · June 29, 2026 at 10:45 PM",
-            headline: "Build hygiene, continued",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "wrench.and.screwdriver.fill", color: Color.stockedGold,
-                               title: "Fewer build warnings",
-                               detail: "Cleared more concurrency warnings and a deprecation, with no change to how the app looks or works."),
-            ]),
         // ── 1.11 (build 3) — concurrency warnings cleanup ─────────────────────
         ChangelogVersion(
             version: "1.11",
             buildDate: "Build 3 · June 29, 2026 at 10:15 PM",
             headline: "Build hygiene",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "wrench.and.screwdriver.fill", color: Color.stockedGold,
                                title: "Cleared concurrency warnings",

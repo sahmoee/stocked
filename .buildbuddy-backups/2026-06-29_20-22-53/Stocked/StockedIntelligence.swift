@@ -423,7 +423,7 @@ nonisolated struct ParsedQuantity {
 
 // MARK: - Smart Fraction Display
 // Converts a decimal like 0.75 → "¾", 1.5 → "1½", 2.333 → "2⅓"
-nonisolated func smartFraction(_ value: Double) -> String {
+func smartFraction(_ value: Double) -> String {
     if value == 0 { return "" }
     let whole = Int(value)
     let frac  = value - Double(whole)

@@ -219,7 +219,7 @@ enum IngredientSynonyms {
 // MARK: - #12 Dietary tag inference
 // Derive vegan / vegetarian / gluten-free / dairy-free flags locally from the ingredient
 // list. Heuristic (errs toward NOT claiming a restrictive label if uncertain).
-nonisolated struct DietaryFlags: Sendable, Equatable {
+struct DietaryFlags: Sendable, Equatable {
     var vegetarian = false
     var vegan      = false
     var glutenFree = false
