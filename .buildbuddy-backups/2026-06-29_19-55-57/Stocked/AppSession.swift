@@ -9,12 +9,7 @@ import os
 @Observable @MainActor
 class AppSession {
     var isLoggedIn:  Bool        = false
-    var accountType: AccountType = .guest {
-        didSet {
-            // Guests never use iCloud shared-pantry sync; only registered accounts do.
-            SharedPantrySync.shared.accountAllowsSync = (accountType == .registered)
-        }
-    }
+    var accountType: AccountType = .guest
     var displayName: String      = ""
 
     // Session-only routing override. Exiting guest mode / signing out should land the user on
@@ -375,10 +370,6 @@ class AppSession {
             displayName = guestStore.displayName
             if hasExistingSession { isLoggedIn = true }
         }
-
-        // didSet does not fire during init, so set the sync gate explicitly to match the
-        // account type we just resolved. Guests never use iCloud shared-pantry sync.
-        SharedPantrySync.shared.accountAllowsSync = (accountType == .registered)
     }
 
     func enterKitchen(name: String = "") {

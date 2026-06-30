@@ -50,12 +50,6 @@ final class SharedPantrySync {
         set { kv.set(newValue, forKey: enabledKey); kv.synchronize() }
     }
 
-    /// Whether the CURRENT account is allowed to use shared-pantry sync. Guests are not, so
-    /// their data never goes to or comes from iCloud. AppSession sets this from accountType on
-    /// launch and on any login/logout. Defaults to false so a guest can never sync before it is
-    /// explicitly enabled for a registered account.
-    @ObservationIgnored var accountAllowsSync = false
-
     /// Current household code (empty = not in a household). Data is keyed by this so two
     /// different households on the same iCloud account don't clobber each other.
     var householdCode: String { kv.string(forKey: codeKey) ?? "" }
@@ -113,7 +107,7 @@ final class SharedPantrySync {
         // Don't echo a pull-driven mutation back out to the KV store (breaks the loop).
         guard !isApplyingRemote else { return }
         let code = householdCode
-        guard accountAllowsSync, isEnabled, !code.isEmpty else { return }
+        guard isEnabled, !code.isEmpty else { return }
         if let data = try? JSONEncoder().encode(store.inventoryItems) {
             kv.set(data, forKey: inventoryKey(code))
         }
@@ -127,7 +121,7 @@ final class SharedPantrySync {
 
     func pull(into store: GuestDataStore) {
         let code = householdCode
-        guard accountAllowsSync, isEnabled, !code.isEmpty else { return }
+        guard isEnabled, !code.isEmpty else { return }
         // Suppress push() for the duration of the merge so applying remote data can't
         // echo back out to the KV store and re-trigger this pull (the 7GB loop).
         isApplyingRemote = true
@@ -146,8 +140,6 @@ final class SharedPantrySync {
     // MARK: - Observe iCloud changes (call once on app launch)
 
     func startObserving(store: GuestDataStore) {
-        // Guests never sync: don't observe iCloud changes or adopt remote data.
-        guard accountAllowsSync else { return }
         NotificationCenter.default.addObserver(
             forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
             object: kv, queue: .main

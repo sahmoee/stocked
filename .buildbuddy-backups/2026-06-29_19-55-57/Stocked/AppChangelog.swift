@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.10 (build 3) — guest data wipe fix ──────────────────────────────
-        ChangelogVersion(
-            version: "1.10",
-            buildDate: "Build 3 · June 29, 2026 at 9:30 PM",
-            headline: "Clearing data now really clears it",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "trash.fill", color: Color.stockedGold,
-                               title: "Guest data clears completely",
-                               detail: "In guest mode, clearing app data was leaving your inventory behind because of iCloud sync. Guests no longer use iCloud sync, so clearing now wipes everything as expected."),
-            ]),
         // ── 1.9 (build 3) — inventory dark mode fix ───────────────────────────
         ChangelogVersion(
             version: "1.9",
             buildDate: "Build 3 · June 29, 2026 at 8:45 PM",
             headline: "Dark mode fix on Inventory",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "moon.fill", color: Color.stockedGold,
                                title: "Inventory cards match dark mode",
