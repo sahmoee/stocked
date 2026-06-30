@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.13 (build 3) — daily brief dark mode + greeting ─────────────────
-        ChangelogVersion(
-            version: "1.13",
-            buildDate: "Build 3 · June 29, 2026 at 11:15 PM",
-            headline: "Daily Brief fixes",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sun.max.fill", color: Color.stockedGold,
-                               title: "Daily Brief looks right in dark mode",
-                               detail: "The brief's stats card was showing a bright white panel in dark mode. It now uses a dark card with readable text. The brief also no longer repeats the greeting that's already on your home screen."),
-            ]),
         // ── 1.12 (build 3) — more concurrency warnings ────────────────────────
         ChangelogVersion(
             version: "1.12",
             buildDate: "Build 3 · June 29, 2026 at 10:45 PM",
             headline: "Build hygiene, continued",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "wrench.and.screwdriver.fill", color: Color.stockedGold,
                                title: "Fewer build warnings",

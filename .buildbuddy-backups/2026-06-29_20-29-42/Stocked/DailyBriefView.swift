@@ -18,6 +18,7 @@ struct DailyBriefOverlay: View {
 
     var store: GuestDataStore { session.guestStore }
 
+    private var greeting: String { StockedFormatters.timeOfDayGreeting }
 
     // "Recommended in 2 Days (Sat, May 24)" — exact mockup string for the cream card.
     private var nextRunValue: String {
@@ -52,9 +53,7 @@ struct DailyBriefOverlay: View {
             // ── Greeting header + close ───────────────────────────────
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    // The Home screen behind this already greets the user, so the brief leads with
-                    // its own title instead of repeating "Good Evening, Chef".
-                    Text("Today's Brief")
+                    Text("\(greeting), \(session.userName)")
                         .font(.system(size: 23, weight: .bold, design: .serif))
                         .foregroundStyle(Color.stockedGoldDark)
                         .lineLimit(1).minimumScaleFactor(0.7)
@@ -114,7 +113,7 @@ struct DailyBriefOverlay: View {
             statRow(icon: "cart", label: "Next Grocery Run",
                     value: nextRunValue)
 
-            Divider().background((session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.12)).padding(.top, 4)
+            Divider().background(Color.stockedCharcoal.opacity(0.10)).padding(.top, 4)
 
             Button {
                 close()
@@ -127,7 +126,7 @@ struct DailyBriefOverlay: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundStyle(session.accentColor)
+                .foregroundStyle(Color.stockedGreen)
                 .padding(.top, 12)
                 .contentShape(Rectangle())
             }
@@ -135,27 +134,24 @@ struct DailyBriefOverlay: View {
             .a11yButton("View full kitchen report")
         }
         .padding(16)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite)
+        .background(Color.stockedWhite)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg - 4))
     }
 
     private func statRow(icon: String, label: String, value: String) -> some View {
-        // Text/icon sit on the brief card, which is white in light mode and dark in dark mode,
-        // so the ink color flips with it to stay legible.
-        let ink = session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal
-        return HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 14))
-                .foregroundStyle(ink.opacity(0.6))
+                .foregroundStyle(Color.stockedCharcoal.opacity(0.6))
                 .frame(width: 20)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.system(size: 12))
-                    .foregroundStyle(ink.opacity(0.55))
+                    .foregroundStyle(Color.stockedCharcoal.opacity(0.55))
                 Text(value)
                     .font(.system(size: 15.5, weight: .bold))
-                    .foregroundStyle(ink)
+                    .foregroundStyle(Color.stockedCharcoal)
                     .lineLimit(1).minimumScaleFactor(0.75)
             }
             Spacer(minLength: 0)
