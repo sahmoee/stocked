@@ -432,37 +432,6 @@ class GuestDataStore {
     /// Import an online recipe into My Collection with STRUCTURED ingredient fields (#5):
     /// each free-text measure ("1 cup, chopped") is parsed into amount/unit/name so scaling
     /// and grocery consolidation work on imported recipes just like hand-entered ones.
-    /// Save an AI-generated recipe into the user's collection (the same list that powers Saved,
-    /// Favorites, Cooked, and Collections). Converts the GeneratedRecipe into a UserRecipe so it
-    /// shows up everywhere user recipes do, rather than living in a separate generated-only list.
-    /// Returns the new recipe's id, or the existing one if a recipe with the same title is saved.
-    @discardableResult
-    func saveGeneratedRecipe(_ r: GeneratedRecipe) -> UUID {
-        if let existing = userRecipes.first(where: {
-            OnlineRecipeFacts.normalizedTitle($0.title) == OnlineRecipeFacts.normalizedTitle(r.title)
-        }) { return existing.id }
-
-        var saved = UserRecipe(title: r.title)
-        saved.cookTime   = r.cookTime
-        saved.servings   = r.servings
-        saved.difficulty = r.difficulty
-        saved.notes      = r.tips
-        saved.ingredients = r.ingredients.map { line in
-            let full = "\(line.amount) \(line.name)".trimmingCharacters(in: .whitespaces)
-            let pq = ParsedQuantity.parse(full)
-            let name = pq.baseName.isEmpty ? line.name.trimmingCharacters(in: .whitespaces) : pq.baseName
-            return RecipeIngredient(
-                name: name,
-                amount: line.amount.trimmingCharacters(in: .whitespaces),
-                quantity: pq.amount > 0 ? pq.amount : nil,
-                unit: pq.canonicalUnit.isEmpty ? nil : pq.canonicalUnit
-            )
-        }
-        saved.instructions = r.steps
-        addUserRecipe(saved)
-        return saved.id
-    }
-
     /// Returns the new recipe's id (or the existing one if already saved by title).
     @discardableResult
     func importOnlineRecipe(_ recipe: OnlineRecipe) -> UUID {

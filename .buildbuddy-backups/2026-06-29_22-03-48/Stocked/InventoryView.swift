@@ -1121,17 +1121,6 @@ struct InventoryItemRow: View {
             Button { showPairings = true } label: {
                 Label("Ingredient Pairings", systemImage: "link.circle")
             }
-            Button {
-                // Move out of inventory and onto the grocery list (e.g. used it up, need to rebuy).
-                let removed = item
-                session.guestStore.addToGroceryIfMissing(item.name, recommended: true)
-                session.guestStore.removeInventoryItem(id: item.id)
-                ToastCenter.shared.undo("Moved \(item.name.displayNormalized) to Grocery List") {
-                    session.guestStore.restoreInventoryItems([removed])
-                }
-            } label: {
-                Label("Move to Grocery List", systemImage: "cart.badge.plus")
-            }
             Divider()
             Button(role: .destructive) {
                 // #251 — undoable delete (mirrors the batch-delete + grocery clear pattern).

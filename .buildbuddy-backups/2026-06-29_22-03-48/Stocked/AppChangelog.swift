@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 2.4 (build 4) — saved AI recipes + move to grocery ────────────────
-        ChangelogVersion(
-            version: "2.4",
-            buildDate: "Build 4 · June 30, 2026 at 2:30 AM",
-            headline: "Saved recipes and quick grocery moves",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "tray.full.fill", color: Color.stockedGold,
-                               title: "AI recipes now show up in Saved",
-                               detail: "Saving an AI-generated recipe now adds it to your recipe collection, so it appears in Saved and counts toward Favorites, Cooked, and Collections like any other recipe."),
-                ChangelogEntry(icon: "cart.badge.plus", color: Color.stockedGold,
-                               title: "Move an item straight to your grocery list",
-                               detail: "Press and hold an inventory item to move it to the grocery list. It leaves your inventory and lands on your shopping list, with an undo if you change your mind."),
-            ]),
         // ── 2.3 (build 4) — Create with AI in the hub grid ────────────────────
         ChangelogVersion(
             version: "2.3",
             buildDate: "Build 4 · June 30, 2026 at 2:00 AM",
             headline: "Create with AI, front and center",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
                                title: "Create with AI is now in the Recipes grid",

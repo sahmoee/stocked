@@ -228,7 +228,7 @@ struct AIRecipeGeneratorView: View {
                 }.buttonStyle(.plain)
 
                 Button {
-                    session.guestStore.saveGeneratedRecipe(r)
+                    session.guestStore.saveRecipe(r)
                     didSave = true
                 } label: {
                     HStack(spacing: 6) {
