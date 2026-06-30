@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.14 (build 3) — global search fixes ──────────────────────────────
-        ChangelogVersion(
-            version: "1.14",
-            buildDate: "Build 3 · June 29, 2026 at 11:45 PM",
-            headline: "Search bar fixes",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "magnifyingglass", color: Color.stockedGold,
-                               title: "Search works the way it should",
-                               detail: "The search bar no longer hides under the status bar, the Cancel button now closes search, and the search field matches dark mode."),
-            ]),
         // ── 1.13 (build 3) — daily brief dark mode + greeting ─────────────────
         ChangelogVersion(
             version: "1.13",
             buildDate: "Build 3 · June 29, 2026 at 11:15 PM",
             headline: "Daily Brief fixes",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sun.max.fill", color: Color.stockedGold,
                                title: "Daily Brief looks right in dark mode",

@@ -11,10 +11,6 @@ struct GlobalSearchView: View {
     private let offlineCacheKey = "globalSearchOfflineCache_v1"
     @FocusState private var focused: Bool
     @Environment(\.dismiss) var dismiss
-    // This view is shown via overlaySheet, where the native dismiss is a no-op; overlaySheet
-    // injects stockedDismiss instead. Prefer it, fall back to native dismiss for any sheet use.
-    @Environment(\.stockedDismiss) var stockedDismiss
-    private func close() { if let stockedDismiss { stockedDismiss() } else { dismiss() } }
     @State private var selectedOnline: OnlineRecipe?
     @State private var selectedUserRecipe: UserRecipe?
     @State private var selectedFood: IngredientEntry?
@@ -222,16 +218,15 @@ struct GlobalSearchView: View {
                                 .foregroundStyle(.orange)
                         }
                     }
-                    .padding(12).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.45)).clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(12).background(Color.stockedWhite.opacity(0.45)).clipShape(RoundedRectangle(cornerRadius: 14))
                     Button("Cancel") {
                         focused = false                       // dismiss the keyboard first
                         query = ""
                         onlineResults = []
-                        close()
+                        dismiss()
                     }
                         .font(.system(size: 15)).foregroundStyle(Color.stockedGold)
-                }.padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 14)
-                    .padding(.top, StockedScreen.safeTopInset)
+                }.padding(.horizontal, 20).padding(.vertical, 14)
 
                 // Section label
                 if !query.isEmpty {
@@ -418,11 +413,11 @@ struct GlobalSearchView: View {
                 case .foodItem(let food):
                     selectedFood = food          // "learn more" about an ingredient
                 case .inventoryItem:
-                    close(); navigate(to: .inventory)
+                    dismiss(); navigate(to: .inventory)
                 case .groceryItem:
-                    close(); navigate(to: .grocery)
+                    dismiss(); navigate(to: .grocery)
                 case .pastMeal:
-                    close(); navigate(to: .recipes)
+                    dismiss(); navigate(to: .recipes)
                 }
             }
             Divider().padding(.leading, 76)

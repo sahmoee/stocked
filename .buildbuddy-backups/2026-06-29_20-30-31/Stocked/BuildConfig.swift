@@ -38,7 +38,7 @@ nonisolated enum BuildConfig {
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
     private static let fallbackBuildNumber = 3
-    private static let fallbackVersion     = "1.14"
+    private static let fallbackVersion     = "1.13"
 
     static let changeCount   = 4
     static let buildName     = "Build 272 — The tab bar now matches the mockup: a flat bar that sits directly on the background instead of a dark floating pill, with the active tab in gold. It still stays visible on every screen."
