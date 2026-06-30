@@ -542,6 +542,9 @@
     "%lldm prep" : {
 
     },
+    "•" : {
+
+    },
     "• %@" : {
 
     },
@@ -811,6 +814,9 @@
     "Added!" : {
 
     },
+    "AI recipes need an internet connection and the recipe service set up." : {
+
+    },
     "All cook times" : {
 
     },
@@ -1047,6 +1053,9 @@
     "Coming Soon — Learn More" : {
 
     },
+    "comma separated — chicken, rice, garlic…" : {
+
+    },
     "Common Questions" : {
 
     },
@@ -1204,6 +1213,9 @@
     "Create Household" : {
 
     },
+    "Create with AI" : {
+
+    },
     "Create your household" : {
 
     },
@@ -1261,6 +1273,9 @@
     "Delete this recipe?" : {
 
     },
+    "Describe it and we'll build the recipe." : {
+
+    },
     "Deselect All" : {
 
     },
@@ -1307,6 +1322,9 @@
 
     },
     "e.g. 24" : {
+
+    },
+    "e.g. peanut butter cookies, a cozy soup for a rainy day…" : {
 
     },
     "e.g. Snacks, Baking, Drinks" : {
@@ -1506,6 +1524,9 @@
 
     },
     "Full" : {
+
+    },
+    "Generate Recipe" : {
 
     },
     "Generating…" : {
@@ -2533,6 +2554,9 @@
     "Review changes" : {
 
     },
+    "Review, then save it to your vault." : {
+
+    },
     "Running low" : {
 
     },
@@ -2561,6 +2585,9 @@
     "Save Preferences" : {
 
     },
+    "Save Recipe" : {
+
+    },
     "Save Substitution" : {
 
     },
@@ -2568,6 +2595,9 @@
 
     },
     "Save to Photos" : {
+
+    },
+    "Saved" : {
 
     },
     "Saved ✓" : {
@@ -3251,6 +3281,9 @@
 
     },
     "Your name" : {
+
+    },
+    "Your Recipe" : {
 
     },
     "Your surplus inventory" : {
