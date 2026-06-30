@@ -10,6 +10,7 @@ Deployed URL (matches `BuildConfig.receiptWorkerURL` in the app):
 - Receipt OCR parse → `{ "receipt": "...", "storeName"?: "...", "corrections"?: {...} }`
 - Barcode lookup    → `{ "barcode": "0123456789012" }`
 - Recipe import     → `{ "recipeText": "..." }`
+- Recipe generate   → `{ "recipeIdea": "...", "haveItems"?: [...], "dietary"?: "...", "maxTime"?: "..." }`
 - Inventory intent  → `{ "intent": "...", "inventory": [...] }`
 
 All return Anthropic's response envelope unchanged; the app reads `content[0].text`.

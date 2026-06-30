@@ -18,6 +18,7 @@
  *   { receipt, storeName?, corrections? }   (receipt OCR parse)
  *   { barcode }                              (barcode → product name)
  *   { recipeText }                           (recipe import)
+ *   { recipeIdea, haveItems?, dietary?, maxTime? }  (recipe generation)
  *   { intent, inventory }                    (inventory change proposal)
  * …and the response is Anthropic's JSON passthrough ({ content: [{ text }], … }).
  *
@@ -226,6 +227,36 @@ function buildPrompt(p) {
         '{"changes": [{"name": string, "action": "add"|"remove"|"setLevel", "level": number|null, ' +
         '"quantity": number|null}]}. Match against the provided current inventory where possible.',
       user: `Current inventory: ${inv}\n\nUser request: ${p.intent}`,
+    };
+  }
+
+  // Recipe generation from a description → structured recipe JSON (SAME shape as recipeText,
+  // so the app parses it with the existing recipe parser). The user describes what they want and
+  // may list ingredients they have and dietary/time constraints. Generate a complete, realistic
+  // recipe — do not just echo the request.
+  if (typeof p.recipeIdea === "string" && p.recipeIdea.trim()) {
+    const have = Array.isArray(p.haveItems) && p.haveItems.length
+      ? `\nIngredients the user already has (prefer these, but add common staples as needed): ${p.haveItems.join(", ")}.`
+      : "";
+    const diet = typeof p.dietary === "string" && p.dietary.trim()
+      ? `\nDietary requirement: ${p.dietary}. The recipe MUST comply.`
+      : "";
+    const time = typeof p.maxTime === "string" && p.maxTime.trim()
+      ? `\nThe recipe should fit roughly within ${p.maxTime} of total time.`
+      : "";
+    return {
+      system:
+        "You are a recipe developer. Create ONE complete, realistic, cookable recipe from the " +
+        "user's description. Invent a sensible recipe with real quantities and clear steps; do " +
+        "not refuse and do not ask questions. Respond with ONLY a single JSON object, no prose, " +
+        "no markdown fences: " +
+        '{"title": string, "description": string, "cookTime": string, "prepTime": string, ' +
+        '"servings": number, "difficulty": "Easy"|"Medium"|"Hard", "cuisine": string, ' +
+        '"tags": string[], "ingredients": [{"name": string, "amount": string}], ' +
+        '"steps": string[]}. Each step is one clear instruction. Include any cooking or ' +
+        "resting time inside the relevant step text (e.g. \"Bake for 12 minutes\") so timers can " +
+        "be derived. Keep cookTime and prepTime as short human strings like \"20 minutes\".",
+      user: `Recipe request: ${p.recipeIdea}${have}${diet}${time}`,
     };
   }
 
