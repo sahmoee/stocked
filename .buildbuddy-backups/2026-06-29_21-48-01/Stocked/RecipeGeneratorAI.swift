@@ -13,8 +13,9 @@
 // importer's lenient approach so a stray code fence or trailing comma doesn't break a good recipe.
 
 import Foundation
+import os
 
-enum RecipeGeneratorAI {
+nonisolated enum RecipeGeneratorAI {
 
     /// Whether the Worker endpoint is configured. (Does not guarantee the recipeIdea branch is
     /// deployed; a missing branch simply yields nil at call time.)
