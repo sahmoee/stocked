@@ -38,32 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 2.6 (build 5) — feature round-up + guided tour ────────────────────
-        ChangelogVersion(
-            version: "2.6",
-            buildDate: "Build 5 · June 30, 2026 at 3:30 AM",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Create recipes with AI",
-                               detail: "From the Recipes screen, tap Create with AI, describe what you want, and Stocked builds a full recipe. List ingredients you have and pick a dietary preference or time limit to tailor it. Saved AI recipes appear in Saved alongside everything else."),
-                ChangelogEntry(icon: "wand.and.stars", color: Color.stockedGold,
-                               title: "Inventory Assistant",
-                               detail: "On the Inventory screen, tap Inventory Assistant and say what changed in plain words: use up an item, set a level, add something you bought, or clear everything. You confirm every change before it applies."),
-                ChangelogEntry(icon: "cart.badge.plus", color: Color.stockedGold,
-                               title: "Move items to your grocery list",
-                               detail: "Press and hold an inventory item to move it to the grocery list, with an undo if you change your mind."),
-                ChangelogEntry(icon: "questionmark.circle", color: Color.stockedGold,
-                               title: "Updated guided tour",
-                               detail: "The in-app tour now points out the new AI features so they are easy to find."),
-            ]),
         // ── 2.5 (build 4) — AI inventory assistant ────────────────────────────
         ChangelogVersion(
             version: "2.5",
             buildDate: "Build 4 · June 30, 2026 at 3:00 AM",
             headline: "Change inventory by asking",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
                                title: "Inventory Assistant",

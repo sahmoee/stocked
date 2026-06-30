@@ -239,7 +239,6 @@ struct RecipeVaultView: View {
                     hubActionCard(icon: "sparkles", tint: Color.stockedGold,
                                   label: "Create with AI",
                                   subtitle: "Describe a recipe") { createRoute = .ai }
-                        .coachmarkAnchor("recipes.createAI")
                 }
                 .padding(.horizontal, 20).padding(.bottom, 10)
                 .coachmarkAnchor("recipes.hub")
