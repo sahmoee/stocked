@@ -303,7 +303,7 @@ enum ImportFormat {
 
 // MARK: - Quantity Parser
 // Extracts (amount, unit, baseName) from ingredient strings like "2 cups flour"
-nonisolated struct ParsedQuantity {
+struct ParsedQuantity {
     var amount:   Double   // numeric amount (0 = unspecified)
     var unit:     String   // "cup", "tbsp", "g", "oz", "" = count/unspecified
     var baseName: String   // normalized ingredient name without amount/unit

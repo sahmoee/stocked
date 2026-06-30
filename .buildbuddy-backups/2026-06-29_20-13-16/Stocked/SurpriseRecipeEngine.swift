@@ -12,7 +12,7 @@ import NaturalLanguage
 @Observable
 @MainActor
 final class SurpriseRecipeEngine {
-    nonisolated init() {}
+    init() {}
     var isGenerating = false
     var lastRecipe:   GeneratedRecipe?
     var error:        String?

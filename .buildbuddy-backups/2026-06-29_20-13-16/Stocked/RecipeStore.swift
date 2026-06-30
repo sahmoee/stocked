@@ -33,7 +33,7 @@ import SQLite3   // system libsqlite3 (FTS5 enabled on iOS) — no third-party d
 import os
 
 // SQLite wants this when binding Swift strings that must outlive the bind call.
-private nonisolated(unsafe) let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 actor RecipeStore {
     static let shared = RecipeStore()

@@ -234,7 +234,7 @@ struct DietaryFlags: Sendable, Equatable {
     }
 }
 
-nonisolated enum DietaryClassifier {
+enum DietaryClassifier {
     // Expanded so that meat dishes are reliably detected. The previous short list let many
     // cuts/terms slip through (e.g. "chops", "mutton", "ribeye", "brisket", deli meats), which
     // caused meat recipes to be mislabeled vegan/vegetarian by absence.

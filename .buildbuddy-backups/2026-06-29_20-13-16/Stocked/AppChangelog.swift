@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 1.11 (build 3) — concurrency warnings cleanup ─────────────────────
-        ChangelogVersion(
-            version: "1.11",
-            buildDate: "Build 3 · June 29, 2026 at 10:15 PM",
-            headline: "Build hygiene",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "wrench.and.screwdriver.fill", color: Color.stockedGold,
-                               title: "Cleared concurrency warnings",
-                               detail: "Resolved a batch of Swift 6 actor-isolation warnings and one build error in the Siri shortcut, with no change to how the app behaves."),
-            ]),
         // ── 1.10 (build 3) — guest data wipe fix ──────────────────────────────
         ChangelogVersion(
             version: "1.10",
             buildDate: "Build 3 · June 29, 2026 at 9:30 PM",
             headline: "Clearing data now really clears it",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "trash.fill", color: Color.stockedGold,
                                title: "Guest data clears completely",

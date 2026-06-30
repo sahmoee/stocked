@@ -5,7 +5,7 @@
 
 import Foundation
 
-nonisolated enum StockedFormatters {
+enum StockedFormatters {
     /// Weekday name, e.g. "Monday".
     static let weekday: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "EEEE"; return f

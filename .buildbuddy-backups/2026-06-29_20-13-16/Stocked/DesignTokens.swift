@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 
 // MARK: - Brand Colors
-nonisolated extension Color {
+extension Color {
     // Core backgrounds
     static let stockedBg        = Color(red: 0.780, green: 0.671, blue: 0.506) // #C7AB81 warm tan
     static let stockedDarkBg    = Color(red: 0.086, green: 0.078, blue: 0.063) // #161410 OLED dark
@@ -105,7 +105,7 @@ enum StockedType {
 }
 
 // MARK: - Page background helper
-nonisolated extension Color {
+extension Color {
     static func pageBg(_ dark: Bool) -> Color {
         dark ? Color.stockedDarkBg : Color.stockedBg
     }

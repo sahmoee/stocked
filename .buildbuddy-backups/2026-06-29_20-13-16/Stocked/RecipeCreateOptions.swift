@@ -14,7 +14,7 @@
 
 import SwiftUI
 import PhotosUI
-@preconcurrency import Vision
+import Vision
 import UIKit
 
 // MARK: - Which create flow is active
@@ -475,7 +475,7 @@ enum RecipeTextParser {
         for p in ["•","-","*","–"] where s.hasPrefix(p) { s = String(s.dropFirst()).trimmingCharacters(in: .whitespaces) }
         return s
     }
-    private nonisolated static func stripStepNumber(_ line: String) -> String {
+    private static func stripStepNumber(_ line: String) -> String {
         line.replacingOccurrences(of: #"^\d+[.)]\s*"#, with: "", options: .regularExpression)
     }
 }

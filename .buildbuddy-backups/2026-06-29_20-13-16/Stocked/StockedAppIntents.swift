@@ -67,7 +67,7 @@ struct WhatsExpiringIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-nonisolated enum StockedInventoryReader {
+enum StockedInventoryReader {
     private static let key = "inventory_items"   // DBKey.inventoryItems.rawValue
 
     private struct InvDTO: Codable {
