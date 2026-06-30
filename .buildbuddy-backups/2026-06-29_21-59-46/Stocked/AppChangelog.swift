@@ -38,34 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 2.3 (build 4) — Create with AI in the hub grid ────────────────────
-        ChangelogVersion(
-            version: "2.3",
-            buildDate: "Build 4 · June 30, 2026 at 2:00 AM",
-            headline: "Create with AI, front and center",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Create with AI is now in the Recipes grid",
-                               detail: "Categories is now the same size as the other cards, and Create with AI sits right below Collections as the sixth card. Tapping it goes straight to the recipe generator."),
-            ]),
-        // ── 2.2 (build 4) — reach AI from the Recipes screen ──────────────────
-        ChangelogVersion(
-            version: "2.2",
-            buildDate: "Build 4 · June 30, 2026 at 1:30 AM",
-            headline: "Create a recipe right from Recipes",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "plus.circle.fill", color: Color.stockedGold,
-                               title: "Create Recipe is now on the Recipes screen",
-                               detail: "Added a Create Recipe button to the Recipes screen that opens the create menu, including Create with AI. Before, the create options were only reachable from a sub-screen."),
-            ]),
         // ── 2.0.1 (build 4) — AI recipe generation ────────────────────────────
         ChangelogVersion(
             version: "2.0.1",
             buildDate: "Build 4 · June 30, 2026 at 1:00 AM",
             headline: "Create recipes with AI",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
                                title: "Describe it, and Stocked builds it",

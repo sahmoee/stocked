@@ -232,16 +232,18 @@ struct RecipeVaultView: View {
                     hubCard(icon: "folder.fill", tint: Color.stockedGold,
                             count: Set(session.guestStore.userRecipes.map(\.cuisine).filter { !$0.isEmpty }).count,
                             unit: "cuisines", label: "Collections") { navTarget = .collections }
-                    hubActionCard(icon: "square.grid.2x2.fill", tint: Color.stockedGold,
-                                  label: "Categories",
-                                  subtitle: "Browse by cuisine") { navTarget = .cuisineBrowse }
-                        .coachmarkAnchor("recipes.categories")
-                    hubActionCard(icon: "sparkles", tint: Color.stockedGold,
-                                  label: "Create with AI",
-                                  subtitle: "Describe a recipe") { createRoute = .ai }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 10)
                 .coachmarkAnchor("recipes.hub")
+
+                // Categories — browse online recipes by cuisine. Full-width card so it
+                // reads as a peer of the four hub cards above (and is fully separate
+                // from the Discover hero, so taps can't fall through to a recipe).
+                hubActionCard(icon: "square.grid.2x2.fill", tint: Color.stockedGold,
+                              label: "Categories",
+                              subtitle: "Browse by cuisine") { navTarget = .cuisineBrowse }
+                    .padding(.horizontal, 20).padding(.bottom, 14)
+                    .coachmarkAnchor("recipes.categories")
 
                 // ── #240 — Recently Viewed (mockup rail) ────────────────
                 let recents = session.recentlyViewedRecipeIDs.compactMap { id in
