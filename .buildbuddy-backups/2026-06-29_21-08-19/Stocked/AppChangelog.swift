@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 2.0 (build 4) — AI recipe generation ──────────────────────────────
-        ChangelogVersion(
-            version: "2.0",
-            buildDate: "Build 4 · June 30, 2026 at 12:30 AM",
-            headline: "Create recipes with AI",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Describe it, and Stocked builds it",
-                               detail: "New in the recipe create menu: describe what you want, list ingredients you have, pick a dietary preference and a time limit, and Stocked generates a full recipe you can review and save."),
-            ]),
         // ── 1.14 (build 3) — global search fixes ──────────────────────────────
         ChangelogVersion(
             version: "1.14",
             buildDate: "Build 3 · June 29, 2026 at 11:45 PM",
             headline: "Search bar fixes",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "magnifyingglass", color: Color.stockedGold,
                                title: "Search works the way it should",

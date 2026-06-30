@@ -21,14 +21,13 @@ import UIKit
 
 enum RecipeCreateRoute: Identifiable, Equatable {
     case scratch
-    case ai
     case url
     case screenshot
     case manual
     case form(AddRecipeForm, String)   // prefilled form + source label
     var id: String {
         switch self {
-        case .scratch: return "scratch"; case .ai: return "ai"; case .url: return "url"
+        case .scratch: return "scratch"; case .url: return "url"
         case .screenshot: return "screenshot"; case .manual: return "manual"
         case .form: return "form"
         }
@@ -55,10 +54,6 @@ struct RecipeCreateOptionsSheet: View {
                     optionCard(icon: "square.and.pencil", tint: Color.stockedGold,
                                title: "Create Recipe",
                                subtitle: "Start from a blank form") { choose(.scratch) }
-
-                    optionCard(icon: "sparkles", tint: Color.stockedGold,
-                               title: "Create with AI",
-                               subtitle: "Describe it and we'll build the recipe") { choose(.ai) }
 
                     optionCard(icon: "link", tint: Color.stockedInfo,
                                title: "Import from URL",

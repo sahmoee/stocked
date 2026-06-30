@@ -717,8 +717,6 @@ struct RecipeVaultView: View {
         switch route {
         case .scratch:
             CreateRecipeView().environment(session)
-        case .ai:
-            AIRecipeGeneratorView().environment(session)
         case .url:
             RecipeURLImportSheet { form, source in
                 createRoute = nil
