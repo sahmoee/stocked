@@ -19,7 +19,6 @@ enum InventoryChangeAction: Equatable {
     case remove                 // set to empty / remove the row
     case setLevel(Double)       // reduce (or set) the fill level 0.0–1.0
     case add(name: String, quantity: Int)   // new item the user says they bought
-    case clearAll               // remove every inventory item (destructive; always needs confirm)
 }
 
 struct ProposedChange: Identifiable, Equatable {
@@ -36,7 +35,6 @@ struct ProposedChange: Identifiable, Equatable {
         case .remove:             return "Remove \(displayName)"
         case .setLevel(let l):    return "\(displayName) → \(Int((l * 100).rounded()))% left"
         case .add(_, let q):      return "Add \(displayName)\(q > 1 ? " ×\(q)" : "")"
-        case .clearAll:           return "Clear ALL inventory items"
         }
     }
     var iconName: String {
@@ -44,7 +42,6 @@ struct ProposedChange: Identifiable, Equatable {
         case .remove:   return "trash"
         case .setLevel: return "arrow.down.circle"
         case .add:      return "plus.circle"
-        case .clearAll: return "trash.fill"
         }
     }
 }
@@ -68,13 +65,6 @@ extension GuestDataStore {
                 var item = LocalInventoryItem(name: name, level: 1.0, quantity: max(1, qty))
                 item.purchaseDate = Date()
                 addInventoryItem(item); applied += 1
-            case .clearAll:
-                let count = inventoryItems.count
-                // IMPORTANT: only empty the inventory list. Do NOT call the store's clearAll(),
-                // which is the nuclear reset (wipes recipes, grocery, profile, and UserDefaults).
-                // Restorable via the undo toast the caller shows.
-                inventoryItems = []
-                applied += count
             }
         }
         return applied
@@ -87,9 +77,6 @@ extension GuestDataStore {
 final class InventoryIntentParser {
     var isParsing = false
     var lastError: String?
-
-    /// Whether the Worker endpoint is configured (shared with the recipe features).
-    static var isAvailable: Bool { StockedWorkerClient.isConfigured }
 
     /// Sends the utterance + current inventory (name+id) to the Worker, returns proposed changes.
     /// Falls back to nil (caller shows an error) if offline or the Worker isn't configured.
@@ -168,9 +155,6 @@ final class InventoryIntentParser {
                 return ProposedChange(itemID: nil, displayName: name,
                                       action: .add(name: name, quantity: max(1, qty)),
                                       reason: "You said you bought it")
-            case "clearall", "clear":
-                return ProposedChange(itemID: nil, displayName: "Everything",
-                                      action: .clearAll, reason: "You asked to clear all items")
             default:
                 return nil
             }

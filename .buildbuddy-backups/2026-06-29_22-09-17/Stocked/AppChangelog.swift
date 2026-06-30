@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 2.5 (build 4) — AI inventory assistant ────────────────────────────
-        ChangelogVersion(
-            version: "2.5",
-            buildDate: "Build 4 · June 30, 2026 at 3:00 AM",
-            headline: "Change inventory by asking",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Inventory Assistant",
-                               detail: "On the Inventory screen, tap Inventory Assistant and say what changed in plain words: use up an item, set a level, add something you bought, or clear everything. You review and confirm every change before it is applied, and clearing all can be undone."),
-            ]),
         // ── 2.4 (build 4) — saved AI recipes + move to grocery ────────────────
         ChangelogVersion(
             version: "2.4",
             buildDate: "Build 4 · June 30, 2026 at 2:30 AM",
             headline: "Saved recipes and quick grocery moves",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "tray.full.fill", color: Color.stockedGold,
                                title: "AI recipes now show up in Saved",

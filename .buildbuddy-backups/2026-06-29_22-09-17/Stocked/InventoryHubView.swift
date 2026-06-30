@@ -23,7 +23,6 @@ struct InventoryHubView: View {
     // #251 — empty-state seed flow
     @State private var seeding = false
     @State private var showAddItem = false
-    @State private var showAIAssistant = false
     // Weekly plan strip (mirrors the full Inventory list) — tap opens the day's planner.
     @State private var plannerDayIndex: Int? = nil
     @State private var planToast: String? = nil
@@ -89,26 +88,6 @@ struct InventoryHubView: View {
                     )
                     statusCard
                         .coachmarkAnchor("inv.status")
-                    // AI assistant: change inventory in plain language (use/remove/clear items).
-                    Button { showAIAssistant = true } label: {
-                        HStack(spacing: 10) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.15)).frame(width: 34, height: 34)
-                                Image(systemName: "sparkles").font(.system(size: 14)).foregroundStyle(Color.stockedGold)
-                            }
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Inventory Assistant").font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
-                                Text("Update, remove, or clear items by asking").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.35))
-                        }
-                        .padding(10)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                    }
-                    .buttonStyle(.plain)
-                    .coachmarkAnchor("inv.assistant")
                     categoriesSection
                         .coachmarkAnchor("inv.categories")
                     viewAllRow
@@ -127,9 +106,6 @@ struct InventoryHubView: View {
         }
         .sheet(isPresented: $showAddItem) {
             AddItemSheet(defaultZone: "Fridge").environment(session)
-        }
-        .sheet(isPresented: $showAIAssistant) {
-            AIInventoryAssistantView().environment(session)
         }
         .sheet(item: Binding(get: { plannerDayIndex.map { PlannerDay(id: $0) } },
                              set: { plannerDayIndex = $0?.id })) { day in
