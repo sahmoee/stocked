@@ -424,20 +424,10 @@ async function handleHousehold(pathname, request, env) {
     const code = normalizeCode(body.code);
     const household = await readHousehold(kv, code);
     if (!household) return json({ error: "share not found", code: "notFound" }, 404);
-    // Merge the collaborative parts by id rather than replacing. The previous code did a full
-    // replace: household.inventory = body.inventory. With two devices, whoever pushed last wiped
-    // the other's items, so an item added on one device vanished when the other synced — the
-    // "only one inventory increases" bug. Merging by id lets each device contribute and keeps
-    // everyone's items. A device that legitimately removed an item is handled by it simply not
-    // being present on that device's next full push once both sides have converged; to keep this
-    // simple and non-destructive we bias toward keeping items (adds win), which is the safe
-    // default for a shared pantry.
-    if (Array.isArray(body.inventory)) {
-      household.inventory = mergeById(household.inventory, body.inventory).slice(0, HH_MAX_ITEMS);
-    }
-    if (Array.isArray(body.grocery)) {
-      household.grocery = mergeById(household.grocery, body.grocery).slice(0, HH_MAX_ITEMS);
-    }
+    // Replace the collaborative parts. The owner's inventory is the source of truth, but we
+    // accept whatever the caller sends for inventory/grocery/activity and cap sizes.
+    if (Array.isArray(body.inventory)) household.inventory = body.inventory.slice(0, HH_MAX_ITEMS);
+    if (Array.isArray(body.grocery)) household.grocery = body.grocery.slice(0, HH_MAX_ITEMS);
     if (Array.isArray(body.activity)) {
       // Merge incoming activity, keep newest, cap.
       const merged = household.activity.concat(body.activity);
@@ -474,24 +464,6 @@ async function handleHousehold(pathname, request, env) {
 }
 
 function hhKey(code) { return "hh:" + code; }
-
-// Merge two arrays of {id, ...} records by id: start from existing, overlay incoming so an
-// updated item (same id) wins, and keep items only one side has. Records without a usable id
-// fall back to appending, so nothing is silently dropped. This is what makes /household/push
-// non-destructive across multiple devices instead of last-write-wins replacing the whole list.
-function mergeById(existing, incoming) {
-  const byId = new Map();
-  let anon = 0;
-  for (const item of Array.isArray(existing) ? existing : []) {
-    const key = item && item.id != null ? String(item.id) : "anon_" + anon++;
-    byId.set(key, item);
-  }
-  for (const item of Array.isArray(incoming) ? incoming : []) {
-    const key = item && item.id != null ? String(item.id) : "anon_" + anon++;
-    byId.set(key, item);
-  }
-  return Array.from(byId.values());
-}
 
 async function readHousehold(kv, code) {
   if (!code) return null;
