@@ -706,19 +706,10 @@ struct AddItemSheet: View {
 
             continueButton(enabled: !itemName.trimmingCharacters(in: .whitespaces).isEmpty) {
                 let name = itemName.trimmingCharacters(in: .whitespaces).lowercased()
-                // Duplicate check. The old logic used naive substring containment in BOTH
-                // directions, so "milk" matched "Eggo Buttermilk Waffles" (buttermilk contains
-                // milk) — a false positive. Now we match on canonical equality, or a whole-word
-                // match, so a short name only collides with an item that actually shares that
-                // word as a word, not as an incidental substring of a longer product name.
-                let canonName = IngredientMatcher.canonical(name)
-                let newWords = Set(name.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init))
+                // Fuzzy duplicate check — match if existing name contains or is contained by new name
                 if let match = session.guestStore.inventoryItems.first(where: {
                     let existing = $0.name.lowercased()
-                    if existing == name { return true }
-                    if IngredientMatcher.canonical(existing) == canonName { return true }
-                    let existingWords = Set(existing.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init))
-                    return !newWords.isEmpty && newWords == existingWords
+                    return existing == name || existing.contains(name) || name.contains(existing)
                 }) {
                     duplicateItem = match
                     showDuplicateAlert = true

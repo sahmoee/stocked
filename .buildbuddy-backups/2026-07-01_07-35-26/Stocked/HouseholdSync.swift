@@ -166,14 +166,14 @@ final class HouseholdSync {
         guard let code = joinCode, state == .owner || state == .member else { return }
         state = .syncing
         syncStage = .uploading(store.groceryItems.count)
-        // Push grocery + inventory. Previously only the owner pushed inventory, so a member who
-        // added an item could never share it — the item stayed on their device. Now every member
-        // contributes inventory too; the server and applyHousehold merge by id so nothing is lost.
-        let body: [String: Any] = [
+        // Push grocery + activity (and inventory if owner — owner is the source of truth).
+        var body: [String: Any] = [
             "code": code,
             "grocery": store.groceryItems.map { groceryDict($0) },
-            "inventory": store.inventoryItems.map { inventoryDict($0) },
         ]
+        if state == .owner {
+            body["inventory"] = store.inventoryItems.map { inventoryDict($0) }
+        }
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             fail("Sync didn't finish. Check your connection and try again.")
@@ -293,16 +293,6 @@ final class HouseholdSync {
         item.addedByName = (d["addedByName"] as? String) ?? ""
         return item
     }
-    private func parseInventory(_ d: [String: Any]) -> LocalInventoryItem? {
-        guard let name = d["name"] as? String, !name.isEmpty else { return nil }
-        let zone = (d["zone"] as? String) ?? "Pantry"
-        var item = LocalInventoryItem(name: name, level: (d["level"] as? Double) ?? 1.0,
-                                      zone: zone, quantity: (d["quantity"] as? Int) ?? 1)
-        if let idStr = d["id"] as? String, let uuid = UUID(uuidString: idStr) { item.id = uuid }
-        if let brand = d["brand"] as? String, !brand.isEmpty { item.brand = brand }
-        item.storageCategory = StorageCategory(rawValue: zone) ?? .pantry
-        return item
-    }
     private func parseActivity(_ d: [String: Any]) -> HouseholdActivity? {
         guard let kindRaw = d["kind"] as? String,
               let kind = HouseholdActivity.Kind(rawValue: kindRaw) else { return nil }
@@ -319,10 +309,6 @@ final class HouseholdSync {
     @discardableResult
     private func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) -> (inv: Int, gro: Int) {
         guard let store else { return (0, 0) }
-        // Suppress the store's own household push while we write remote data in, so applying a
-        // pulled snapshot doesn't immediately echo back out as another push (sync loop).
-        store.isApplyingHouseholdRemote = true
-        defer { store.isApplyingHouseholdRemote = false }
         var groAdded = 0
         if let groRaw = hh["grocery"] as? [[String: Any]] {
             let remote = groRaw.compactMap { parseGrocery($0) }
@@ -332,18 +318,12 @@ final class HouseholdSync {
             let merged = Array(byID.values)
             if merged != store.groceryItems { store.groceryItems = merged }
         }
-        // Inventory: merge the household's inventory into the local store by id, for everyone.
-        // This was previously a no-op that only counted rows for members and never wrote them —
-        // the reason a synced item never appeared on the other device. Merge by id so each
-        // member's additions converge without clobbering local-only edits.
+        // Inventory: members view the owner's inventory (replace local view with remote).
         var invAdded = 0
-        if let invRaw = hh["inventory"] as? [[String: Any]] {
-            let remote = invRaw.compactMap { parseInventory($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0) })
-            for item in remote where byID[item.id] == nil { invAdded += 1 }
-            for item in remote { byID[item.id] = item }
-            let merged = Array(byID.values)
-            if merged != store.inventoryItems { store.inventoryItems = merged }
+        if state == .member, let invRaw = hh["inventory"] as? [[String: Any]] {
+            invAdded = invRaw.count
+            // Note: a full inventory replacement for the member view is intentional — the owner
+            // is the source of truth. Kept simple here; refinement can dedupe by id later.
         }
         return (invAdded, groAdded)
     }

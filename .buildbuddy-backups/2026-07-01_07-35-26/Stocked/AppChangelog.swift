@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.2 (build 11) — household sync + duplicate-check fix ──────────────
-        ChangelogVersion(
-            version: "3.2",
-            buildDate: "Build 11 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGold,
-                               title: "Household items actually sync now",
-                               detail: "Items you add to your inventory now show up for everyone in your household, and changes push automatically instead of only when you manually sync. Before, an item you added stayed on your own device and the other person never saw it."),
-                ChangelogEntry(icon: "checkmark.circle", color: Color.stockedGold,
-                               title: "No more false duplicate warnings",
-                               detail: "Adding an item no longer warns that it is already in your kitchen just because its name appears inside an unrelated product. For example, adding Milk no longer matches Eggo Buttermilk Waffles."),
-            ]),
         // ── 3.1 (build 10) — household invite fix ─────────────────────────────
         ChangelogVersion(
             version: "3.1",
             buildDate: "Build 10 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "person.2.badge.plus", color: Color.stockedGold,
                                title: "Inviting people to your household works",

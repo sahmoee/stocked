@@ -26,27 +26,6 @@ class GuestDataStore {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
     }
 
-    // Debounced push to the shared HOUSEHOLD (worker-backed, cross-user). Separate from
-    // SharedPantrySync (iCloud KV, same Apple ID only, gated off for guests). Without this, a
-    // member adding an item never propagated to the household — it just sat locally. Debounced so
-    // a burst of edits results in one push after it settles; only pushes when in a household.
-    private var householdPushWork: DispatchWorkItem? = nil
-    // Set true while HouseholdSync.applyHousehold writes remote data into the store, so the
-    // resulting didSets don't echo back out as another push (an infinite sync loop).
-    var isApplyingHouseholdRemote = false
-    private func pushHouseholdDebounced() {
-        guard !isApplyingHouseholdRemote else { return }
-        householdPushWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            let hh = HouseholdSync.shared
-            guard hh.state == .owner || hh.state == .member else { return }
-            Task { await hh.syncNow(store: self) }
-        }
-        householdPushWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
-    }
-
     var inventoryItems: [LocalInventoryItem] = [] {
         didSet {
             saveDebounced(DBKey.inventoryItems.rawValue, inventoryItems)
@@ -62,7 +41,6 @@ class GuestDataStore {
                 isSyncingLowStock = false
             }
             SharedPantrySync.shared.push(store: self)
-            pushHouseholdDebounced()    // propagate to shared household (worker-backed)
             refreshWidgetsDebounced()   // #19 — keep home/lock-screen widgets fresh on any change
         }
     }
@@ -109,7 +87,7 @@ class GuestDataStore {
         _inventoryPositions = PositionIndex(inventoryItems.map(\.id))
         return _inventoryPositions?.index(of: id)
     }
-    var groceryItems:          [LocalGroceryItem]   = [] { didSet { saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); pushHouseholdDebounced(); refreshWidgetsDebounced() } }
+    var groceryItems:          [LocalGroceryItem]   = [] { didSet { saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); refreshWidgetsDebounced() } }
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
     var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
     var plannedMeals:          [PlannedMeal]        = [] { didSet { saveDebounced(DBKey.plannedMeals.rawValue, plannedMeals) } }
