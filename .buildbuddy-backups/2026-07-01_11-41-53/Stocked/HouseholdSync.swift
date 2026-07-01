@@ -117,10 +117,6 @@ final class HouseholdSync {
         if let hh = resp["household"] as? [String: Any] { applyHousehold(hh, into: nil) }
         syncStage = .done(invAdded: 0, groAdded: 0)
         lastError = nil
-        // Begin automatic incoming sync for the owner too. pollStore was cached at app launch;
-        // if present, start the poller now so the owner receives members' changes this session
-        // without waiting for a relaunch.
-        if let store = pollStore { startAutoSync(store: store) }
         return true
     }
 
@@ -212,12 +208,10 @@ final class HouseholdSync {
     /// Manual two-way sync for an existing owner/member: push local collaborative data, pull merged.
     func syncNow(store: GuestDataStore) async {
         guard let code = joinCode, state == .owner || state == .member else { return }
-        // Do NOT overwrite `state` here. `state` carries the device ROLE (owner/member); the old
-        // code set it to .syncing, which made every role guard (the poller, pushHouseholdDebounced,
-        // pullNow) fail while a sync was in flight, and the restore line read the already-clobbered
-        // state and demoted the owner to member. A failed sync left state stuck at .syncing, which
-        // permanently blocked all future syncs and pulls. Progress is tracked via syncStage only.
+        state = .syncing
         syncStage = .uploading(store.groceryItems.count)
+        // Push grocery + inventory + any pending deletions. Deletions are sent as tombstone id
+        // lists so a remove on this device propagates to the household and the other members.
         let body: [String: Any] = [
             "code": code,
             "grocery": store.groceryItems.map { groceryDict($0) },
@@ -235,6 +229,7 @@ final class HouseholdSync {
         store.pendingGroTombstones.removeAll()
         let counts = applyHousehold(hh, into: store)
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
+        state = (state == .owner) ? .owner : .member
         lastError = nil
     }
 

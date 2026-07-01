@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.6 (build 15) — household sync reliability fix ───────────────────
-        ChangelogVersion(
-            version: "3.6",
-            buildDate: "Build 15 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGold,
-                               title: "Household sync now updates reliably both ways",
-                               detail: "Fixed an issue where a sync in progress could block the next one and leave your shared pantry from updating. Changes you and other members make now flow in both directions on their own."),
-            ]),
         // ── 3.5 (build 14) — full household sharing ───────────────────────────
         ChangelogVersion(
             version: "3.5",
             buildDate: "Build 14 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "house.and.flag", color: Color.stockedGold,
                                title: "Households sync automatically, both ways",

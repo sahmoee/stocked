@@ -679,6 +679,9 @@
     "About %@ this month" : {
 
     },
+    "Access Level" : {
+
+    },
     "Action Center" : {
 
     },
@@ -1248,6 +1251,9 @@
     "Custom" : {
 
     },
+    "Custom label (optional)" : {
+
+    },
     "Daily Brief" : {
 
     },
@@ -1342,6 +1348,9 @@
 
     },
     "e.g. I finished the eggs and used half the butter" : {
+
+    },
+    "e.g. Mom, Big Sis" : {
 
     },
     "e.g. peanut butter cookies, a cozy soup for a rainy day…" : {
@@ -1889,6 +1898,9 @@
 
     },
     "Let's Stock your kitchen" : {
+
+    },
+    "Level" : {
 
     },
     "Likely out" : {
@@ -2617,6 +2629,9 @@
         }
       }
     },
+    "Save Access Level" : {
+
+    },
     "Save Changes" : {
 
     },
@@ -2645,6 +2660,9 @@
 
     },
     "Saved to My Collection!" : {
+
+    },
+    "Saving…" : {
 
     },
     "Scale servings" : {
@@ -3184,6 +3202,9 @@
     "View on %@" : {
 
     },
+    "View only" : {
+
+    },
     "View source" : {
 
     },
@@ -3304,6 +3325,9 @@
 
     },
     "Your Home is empty" : {
+
+    },
+    "Your household access level doesn't allow adding items. Ask the household owner if you need to add things." : {
 
     },
     "Your inventory won't be changed. You can restart this recipe any time." : {
