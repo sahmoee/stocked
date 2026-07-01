@@ -398,22 +398,12 @@ class AppSession {
 
     func enterKitchen(name: String = "") {
         let n = name.trimmingCharacters(in: .whitespaces)
-        // Never downgrade a registered (signed-in) account back to guest. enterKitchen is the
-        // guest-entry path and is also reached from onboarding completion; if a signed-in user
-        // ever lands here we keep them registered and only apply the name + login side effects.
-        // Without this guard, completing onboarding after Sign in with Apple forced the account
-        // back to .guest with the name "Chef".
-        let alreadyRegistered = (accountType == .registered)
-        if !alreadyRegistered {
-            accountType = .guest
-            UserDefaults.standard.set(true, forKey: "wasGuest")
-        }
-        if !alreadyRegistered || !n.isEmpty {
-            displayName = n.isEmpty ? (alreadyRegistered ? displayName : "") : n
-        }
+        accountType = .guest
+        displayName = n.isEmpty ? "" : n
         if !n.isEmpty { guestStore.displayName = n }
         isLoggedIn = true
         forceLogin = false
+        UserDefaults.standard.set(true, forKey: "wasGuest")
         guestStore.requestNotificationPermission()
     }
     func continueAsGuest() { enterKitchen() }
@@ -439,13 +429,6 @@ class AppSession {
         // No longer a guest session. Clearing this marker is what stops the app from
         // resolving back to guest on the next cold launch (init reads wasGuest).
         UserDefaults.standard.set(false, forKey: "wasGuest")
-
-        // Signing in with Apple IS the entry — a registered user must not be sent back through
-        // the onboarding quiz. If "Clear All Data" wiped quizCompleted, the app's gate would
-        // otherwise fall through to OnboardingQuiz(), whose completion calls enterKitchen() and
-        // forces the account back to .guest with the name "Chef" — exactly the "still shows Chef
-        // / Guest, quiz reappears" bug. Marking onboarding complete here skips that path.
-        guestStore.quizCompleted = true
 
         // Belt-and-suspenders: didSet already ran, but set the gate explicitly too.
         SharedPantrySync.shared.accountAllowsSync = true

@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 13
-    private static let fallbackVersion     = "3.4"
+    private static let fallbackBuildNumber = 12
+    private static let fallbackVersion     = "3.3"
 
     static let changeCount   = 4
-    static let buildName     = "Build 280 — Signing in with Apple after clearing data now signs you in properly instead of showing you as Chef in guest mode and making you redo the onboarding quiz."
+    static let buildName     = "Build 279 — Clear All Data and Erase and Exit now fully remove everything, including larger inventories stored on disk that could previously reappear after clearing."
     static let buildDate     = "June 2026"
 
     // MARK: - Environment detection

@@ -38,41 +38,16 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.4 (build 13) — Sign in with Apple after clearing data ───────────
-        ChangelogVersion(
-            version: "3.4",
-            buildDate: "Build 13 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "person.crop.circle.badge.checkmark", color: Color.stockedGold,
-                               title: "Signing in with Apple works after clearing data",
-                               detail: "If you cleared your data and then signed in with your Apple ID, the app could leave you shown as Chef in guest mode and send you back through the onboarding quiz. Signing in now completes properly, keeps you as your account, and skips the quiz."),
-            ]),
         // ── 3.3 (build 12) — Clear All Data fully erases ──────────────────────
         ChangelogVersion(
             version: "3.3",
             buildDate: "Build 12 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "trash", color: Color.stockedGold,
                                title: "Clear All Data now fully clears",
                                detail: "Erasing your data now removes everything, including larger inventories that were stored on disk and could previously reappear after clearing. When it says cleared, it stays cleared, including when you choose Erase and Exit on logout."),
-            ]),
-        // ── 3.2 (build 11) — household sync + duplicate-check fix ──────────────
-        ChangelogVersion(
-            version: "3.2",
-            buildDate: "Build 11 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGold,
-                               title: "Household items actually sync now",
-                               detail: "Items you add to your inventory now show up for everyone in your household, and changes push automatically instead of only when you manually sync. Before, an item you added stayed on your own device and the other person never saw it."),
-                ChangelogEntry(icon: "checkmark.circle", color: Color.stockedGold,
-                               title: "No more false duplicate warnings",
-                               detail: "Adding an item no longer warns that it is already in your kitchen just because its name appears inside an unrelated product. For example, adding Milk no longer matches Eggo Buttermilk Waffles."),
             ]),
         // ── 3.1 (build 10) — household invite fix ─────────────────────────────
         ChangelogVersion(
