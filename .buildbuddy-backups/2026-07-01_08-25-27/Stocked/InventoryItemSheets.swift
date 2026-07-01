@@ -441,26 +441,6 @@ struct AddItemSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
-            if !HouseholdSync.shared.myAccessRole.canAdd {
-                // Household permission gate: this member's access level can't add items. The owner
-                // sets levels in the member profile. Owner and solo users always pass this.
-                VStack(spacing: 14) {
-                    Capsule().fill(Color.stockedCharcoal.opacity(0.2))
-                        .frame(width: 40, height: 4).padding(.top, 12)
-                    Spacer(minLength: 40)
-                    Image(systemName: "lock.fill").font(.system(size: 34)).foregroundStyle(session.themeTextColor.opacity(0.4))
-                    Text("View only").font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-                    Text("Your household access level doesn't allow adding items. Ask the household owner if you need to add things.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                        .multilineTextAlignment(.center).padding(.horizontal, 40)
-                    Button { dismiss() } label: {
-                        Text("Close").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
-                            .frame(maxWidth: .infinity).padding(.vertical, 12)
-                            .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
-                    }.padding(.horizontal, 40).padding(.top, 8)
-                    Spacer()
-                }
-            } else {
             VStack(spacing: 0) {
 
                 // ── Handle ──────────────────────────────────────────────
@@ -529,7 +509,6 @@ struct AddItemSheet: View {
                     }
                     .padding(.top, 20).padding(.bottom, 40)
                 }
-            }
             }
         }
         .presentationDetents([.large])

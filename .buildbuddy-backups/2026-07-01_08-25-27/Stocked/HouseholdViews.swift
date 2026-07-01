@@ -334,7 +334,7 @@ struct HouseholdMembersView: View {
             avatar(m.name)
             VStack(alignment: .leading, spacing: 1) {
                 Text(m.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                Text(m.displayLabel).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(m.role.label).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
             }
             Spacer()
             if m.isMe {
@@ -440,14 +440,6 @@ struct HouseholdActivityView: View {
 struct HouseholdMemberProfileView: View {
     @Environment(AppSession.self) private var session
     let member: HouseholdMember
-    @State private var household = HouseholdSync.shared
-    @State private var selectedRole: HouseholdMember.Role = .adult
-    @State private var customLabel: String = ""
-    @State private var saving = false
-    @State private var saveMessage: String? = nil
-
-    private var iAmOwner: Bool { household.state == .owner }
-
     var body: some View {
         HHScreen("Member Profile") {
             VStack(spacing: 8) {
@@ -456,55 +448,8 @@ struct HouseholdMemberProfileView: View {
                     .frame(width: 84, height: 84).background(Color.stockedGold, in: Circle())
                     .padding(.top, 16)
                 Text(member.name).font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-                Text(member.displayLabel).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(member.role.label).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
             }.padding(.bottom, 22)
-
-            // ── Owner-only: Access level + custom label ──────────────
-            if iAmOwner && !member.isMe {
-                HStack { Text("Access Level").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
-                    .padding(.bottom, 10)
-                VStack(alignment: .leading, spacing: 14) {
-                    // Role picker (kid/teen/adult/manager). Owner isn't assignable here.
-                    Picker("Level", selection: $selectedRole) {
-                        ForEach([HouseholdMember.Role.kid, .teen, .adult, .manager], id: \.self) { r in
-                            Text(r.label).tag(r)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    // What this level can do — plain-language summary so the owner knows.
-                    Text(permissionSummary(selectedRole))
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Custom label (optional)").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                        TextField("e.g. Mom, Big Sis", text: $customLabel)
-                            .font(.system(size: 15)).foregroundStyle(session.themeTextColor)
-                            .padding(10)
-                            .background(session.themeBgColor, in: RoundedRectangle(cornerRadius: 8))
-                    }
-
-                    Button {
-                        Task { await saveRole() }
-                    } label: {
-                        HStack {
-                            if saving { ProgressView().tint(Color.stockedWhite) }
-                            Text(saving ? "Saving…" : "Save Access Level")
-                                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
-                        }
-                        .frame(maxWidth: .infinity).padding(.vertical, 12)
-                        .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
-                    }
-                    .disabled(saving)
-
-                    if let saveMessage {
-                        Text(saveMessage).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                    }
-                }
-                .padding(14)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
-                .padding(.bottom, 22)
-            }
 
             HStack { Text("Preferences").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
                 .padding(.bottom, 10)
@@ -523,29 +468,6 @@ struct HouseholdMemberProfileView: View {
                 }.padding(.top, 20)
             }
         }
-        .onAppear {
-            selectedRole = (member.role == .owner || member.role == .member) ? .adult : member.role
-            customLabel = member.customLabel ?? ""
-        }
-    }
-
-    private func permissionSummary(_ r: HouseholdMember.Role) -> String {
-        switch r {
-        case .kid:     return "Can view the pantry and lists. Cannot add, edit, or remove items."
-        case .teen:    return "Can add and edit items. Cannot remove items or manage members."
-        case .adult:   return "Can add, edit, and remove items. Cannot manage members."
-        case .manager: return "Can add, edit, remove items, and manage members."
-        default:       return ""
-        }
-    }
-
-    private func saveRole() async {
-        saving = true; saveMessage = nil
-        let label = customLabel.trimmingCharacters(in: .whitespaces)
-        let ok = await household.setMemberRole(memberId: member.id, role: selectedRole,
-                                               label: label.isEmpty ? "" : label)
-        saving = false
-        saveMessage = ok ? "Saved. Changes apply on their next sync." : (household.lastError ?? "Couldn't save.")
     }
     private func prefRow(_ title: String, _ value: String) -> some View {
         HStack {

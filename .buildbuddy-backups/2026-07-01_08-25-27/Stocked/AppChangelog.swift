@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.5 (build 14) — full household sharing ───────────────────────────
-        ChangelogVersion(
-            version: "3.5",
-            buildDate: "Build 14 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "house.and.flag", color: Color.stockedGold,
-                               title: "Households sync automatically, both ways",
-                               detail: "Once people are in a household, your shared pantry and lists stay in sync on their own. Adding, removing, changing an item, its quantity, or its name now shows up for everyone, with no manual sync button. Changes made while you were away appear when you open the app."),
-                ChangelogEntry(icon: "person.2.badge.gearshape", color: Color.stockedGold,
-                               title: "Owner controls for members",
-                               detail: "The household owner can set each member's access level (Kid, Teen, Adult, or Manager), give them a custom label like Mom or Big Sis, and control what they're allowed to change. Kids can view, teens and up can add and edit, adults can remove, and managers can help run the household."),
-            ]),
         // ── 3.4 (build 13) — Sign in with Apple after clearing data ───────────
         ChangelogVersion(
             version: "3.4",
             buildDate: "Build 13 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "person.crop.circle.badge.checkmark", color: Color.stockedGold,
                                title: "Signing in with Apple works after clearing data",

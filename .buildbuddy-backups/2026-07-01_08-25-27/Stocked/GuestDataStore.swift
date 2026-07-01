@@ -34,9 +34,6 @@ class GuestDataStore {
     // Set true while HouseholdSync.applyHousehold writes remote data into the store, so the
     // resulting didSets don't echo back out as another push (an infinite sync loop).
     var isApplyingHouseholdRemote = false
-    // True only during the in-place updatedAt stamping below, so the re-entrant didSet it causes
-    // returns immediately instead of doing all the save/push work a second time.
-    private var isStamping = false
     private func pushHouseholdDebounced() {
         guard !isApplyingHouseholdRemote else { return }
         householdPushWork?.cancel()
@@ -50,27 +47,15 @@ class GuestDataStore {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
     }
 
-    // Deletion tombstones for household sync: ids removed locally, sent on the next push so the
-    // delete propagates to other devices. Kept small; cleared as the server confirms. Not synced
-    // via UserDefaults on purpose — they only need to survive until the next push.
-    var pendingInvTombstones: Set<String> = []
-    var pendingGroTombstones: Set<String> = []
-
     var inventoryItems: [LocalInventoryItem] = [] {
         didSet {
-            if isStamping { return }   // re-entrant pass from stampChanged: nothing more to do
-            // Stamp updatedAt on locally-changed items (skip while applying remote data, which
-            // already carries authoritative timestamps). Record tombstones for removed ids.
-            if !isApplyingHouseholdRemote {
-                isStamping = true
-                stampChanged(&inventoryItems, against: oldValue)
-                isStamping = false
-                let goneIDs = Set(oldValue.map(\.id)).subtracting(inventoryItems.map(\.id))
-                for id in goneIDs { pendingInvTombstones.insert(id.uuidString) }
-            }
             saveDebounced(DBKey.inventoryItems.rawValue, inventoryItems)
             _pantrySet = nil
             _inventoryPositions = nil
+            // Only re-run the low-stock → grocery sync when something that affects it
+            // actually changed (count or any effective level), not on every mutation
+            // such as a rename or reorder. Guarded against re-entrancy because the sync
+            // mutates groceryItems, whose didSet pushes back through SharedPantrySync.
             if !isSyncingLowStock && lowStockSignature(inventoryItems) != lowStockSignature(oldValue) {
                 isSyncingLowStock = true
                 syncLowStockToGrocery()
@@ -79,37 +64,6 @@ class GuestDataStore {
             SharedPantrySync.shared.push(store: self)
             pushHouseholdDebounced()    // propagate to shared household (worker-backed)
             refreshWidgetsDebounced()   // #19 — keep home/lock-screen widgets fresh on any change
-        }
-    }
-
-    // Bump updatedAt (ms) on any item whose content changed vs the previous value, so
-    // household last-write-wins can tell whose edit is newer. Compares by id; a brand-new item
-    // (no prior) is stamped too. Mutates in place; called only for local edits.
-    private func stampChanged(_ items: inout [LocalInventoryItem], against old: [LocalInventoryItem]) {
-        let now = Date().timeIntervalSince1970 * 1000
-        let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
-        for i in items.indices {
-            if let prev = oldByID[items[i].id] {
-                // Compare ignoring updatedAt itself so a re-stamp doesn't loop.
-                var a = items[i]; a.updatedAt = 0
-                var b = prev;      b.updatedAt = 0
-                if a != b { items[i].updatedAt = now }
-            } else {
-                items[i].updatedAt = now   // new item
-            }
-        }
-    }
-    private func stampChanged(_ items: inout [LocalGroceryItem], against old: [LocalGroceryItem]) {
-        let now = Date().timeIntervalSince1970 * 1000
-        let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
-        for i in items.indices {
-            if let prev = oldByID[items[i].id] {
-                var a = items[i]; a.updatedAt = 0
-                var b = prev;      b.updatedAt = 0
-                if a != b { items[i].updatedAt = now }
-            } else {
-                items[i].updatedAt = now
-            }
         }
     }
 
@@ -155,16 +109,7 @@ class GuestDataStore {
         _inventoryPositions = PositionIndex(inventoryItems.map(\.id))
         return _inventoryPositions?.index(of: id)
     }
-    var groceryItems:          [LocalGroceryItem]   = [] { didSet {
-        if isStamping { return }
-        if !isApplyingHouseholdRemote {
-            isStamping = true
-            stampChanged(&groceryItems, against: oldValue)
-            isStamping = false
-            let goneIDs = Set(oldValue.map(\.id)).subtracting(groceryItems.map(\.id))
-            for id in goneIDs { pendingGroTombstones.insert(id.uuidString) }
-        }
-        saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); pushHouseholdDebounced(); refreshWidgetsDebounced() } }
+    var groceryItems:          [LocalGroceryItem]   = [] { didSet { saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); pushHouseholdDebounced(); refreshWidgetsDebounced() } }
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
     var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
     var plannedMeals:          [PlannedMeal]        = [] { didSet { saveDebounced(DBKey.plannedMeals.rawValue, plannedMeals) } }

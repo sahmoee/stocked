@@ -50,12 +50,6 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
     var id              = UUID()
     var name:           String = ""   // defaulted so a missing/null name can't fail decode (#5)
 
-    // ── Sync ──────────────────────────────────────────────────────
-    // Last-modified timestamp (ms since epoch) for household last-write-wins merging. Defaulted
-    // to 0 so legacy items decode; any real edit stamps it via touch(). Older data with 0 always
-    // loses to a real edit, which is the safe direction.
-    var updatedAt:      Double = 0
-
     // ── Structured quantity ───────────────────────────────────────
     var quantity:       Int    = 1           // how many containers
     var containerType:  String = "item"      // package, bag, box, can, bottle, jar, carton, case, item
@@ -241,7 +235,6 @@ nonisolated struct LocalGroceryItem: Identifiable, Codable, Sendable, Equatable 
     var recipeSource:  String = ""   // Recipe name this ingredient came from ("" = manual)
     var recipeId:      String = ""   // #9 — owning recipe's stable id ("" = manual/legacy); lets a rename relabel the group
     var addedByName:   String = ""   // Household: display name of the member who added this ("" = me/unknown)
-    var updatedAt:     Double = 0    // last-modified ms since epoch, for household last-write-wins
 }
 
 // MARK: - User-added substitution entry

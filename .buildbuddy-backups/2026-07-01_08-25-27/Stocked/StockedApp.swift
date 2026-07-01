@@ -85,9 +85,6 @@ struct StockedApp: App {
             }
             // #19 — handle Siri-shortcut launch intents when we come to the foreground.
             if phase == .active {
-                // Pull the latest household state right away so returning to the app shows
-                // changes other members made while we were backgrounded.
-                HouseholdSync.shared.syncOnForeground()
                 let ud = UserDefaults.standard
                 if ud.bool(forKey: "pendingOpenGrocery") {
                     ud.set(false, forKey: "pendingOpenGrocery")
@@ -173,9 +170,6 @@ struct RootView: View {
             RecipeImageResolver.backfillMissingImagesIfNeeded()
             NutritionBackfill.runIfNeeded()
             SharedPantrySync.shared.startObserving(store: session.guestStore)
-            // Start automatic household sync so changes from other members appear on their own,
-            // with no manual sync. No-op if this device isn't in a household.
-            HouseholdSync.shared.startAutoSync(store: session.guestStore)
             HouseholdShareBridge.shared.store = session.guestStore
             Task { await HouseholdCloudKit.shared.ensureSubscriptionsForCurrentRole() }
             // Checkpoint 1: copy existing data into the SwiftData store (non-destructive,

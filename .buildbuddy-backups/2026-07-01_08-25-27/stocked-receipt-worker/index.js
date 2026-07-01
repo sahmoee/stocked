@@ -424,51 +424,25 @@ async function handleHousehold(pathname, request, env) {
     const code = normalizeCode(body.code);
     const household = await readHousehold(kv, code);
     if (!household) return json({ error: "share not found", code: "notFound" }, 404);
-
-    // Accumulate deletion tombstones so a remove on one device sticks and propagates. Stored on
-    // the household doc and echoed back on pull; capped so they can't grow without bound.
-    household.invDeleted = dedupeCap((household.invDeleted || []).concat(Array.isArray(body.invDeleted) ? body.invDeleted : []), HH_MAX_ITEMS);
-    household.groDeleted = dedupeCap((household.groDeleted || []).concat(Array.isArray(body.groDeleted) ? body.groDeleted : []), HH_MAX_ITEMS);
-    const invDel = new Set(household.invDeleted);
-    const groDel = new Set(household.groDeleted);
-
-    // Merge inventory/grocery by id with last-write-wins on updatedAt, dropping tombstoned ids.
-    // Previously push REPLACED the whole list, so with two devices whoever pushed last wiped the
-    // other's items (the "only one inventory increases" bug). LWW merge makes adds, edits
-    // (quantity, title, zone), and removals all converge across devices.
+    // Merge the collaborative parts by id rather than replacing. The previous code did a full
+    // replace: household.inventory = body.inventory. With two devices, whoever pushed last wiped
+    // the other's items, so an item added on one device vanished when the other synced — the
+    // "only one inventory increases" bug. Merging by id lets each device contribute and keeps
+    // everyone's items. A device that legitimately removed an item is handled by it simply not
+    // being present on that device's next full push once both sides have converged; to keep this
+    // simple and non-destructive we bias toward keeping items (adds win), which is the safe
+    // default for a shared pantry.
     if (Array.isArray(body.inventory)) {
-      household.inventory = mergeLWW(household.inventory, body.inventory, invDel).slice(0, HH_MAX_ITEMS);
+      household.inventory = mergeById(household.inventory, body.inventory).slice(0, HH_MAX_ITEMS);
     }
     if (Array.isArray(body.grocery)) {
-      household.grocery = mergeLWW(household.grocery, body.grocery, groDel).slice(0, HH_MAX_ITEMS);
+      household.grocery = mergeById(household.grocery, body.grocery).slice(0, HH_MAX_ITEMS);
     }
     if (Array.isArray(body.activity)) {
       // Merge incoming activity, keep newest, cap.
       const merged = household.activity.concat(body.activity);
       household.activity = appendActivity(merged, null);
     }
-    household.updatedAt = Date.now();
-    await writeHousehold(kv, code, household);
-    return json({ ok: true, household });
-  }
-
-  // Owner-only: set a member's access level and optional custom label.
-  if (action === "setrole") {
-    const code = normalizeCode(body.code);
-    const household = await readHousehold(kv, code);
-    if (!household) return json({ error: "share not found", code: "notFound" }, 404);
-    const actorId = sanitizeId(body.actorId);
-    if (!actorId || actorId !== household.ownerId) {
-      return json({ error: "Only the household owner can change member levels", code: "forbidden" }, 403);
-    }
-    const targetId = sanitizeId(body.memberId);
-    const role = typeof body.role === "string" ? body.role.slice(0, 20) : "";
-    const label = typeof body.label === "string" ? body.label.slice(0, 40) : undefined;
-    const idx = household.members.findIndex((m) => m.memberId === targetId);
-    if (idx === -1) return json({ error: "member not found", code: "notFound" }, 404);
-    // The owner's own level cannot be changed away from owner.
-    if (targetId !== household.ownerId && role) household.members[idx].role = role;
-    if (label !== undefined) household.members[idx].label = label;
     household.updatedAt = Date.now();
     await writeHousehold(kv, code, household);
     return json({ ok: true, household });
@@ -501,34 +475,22 @@ async function handleHousehold(pathname, request, env) {
 
 function hhKey(code) { return "hh:" + code; }
 
-// Last-write-wins merge of two {id, updatedAt, ...} arrays, dropping any id in `deleted`.
-// Newer updatedAt wins for a shared id; items only one side has are kept (unless tombstoned).
-function mergeLWW(existing, incoming, deleted) {
+// Merge two arrays of {id, ...} records by id: start from existing, overlay incoming so an
+// updated item (same id) wins, and keep items only one side has. Records without a usable id
+// fall back to appending, so nothing is silently dropped. This is what makes /household/push
+// non-destructive across multiple devices instead of last-write-wins replacing the whole list.
+function mergeById(existing, incoming) {
   const byId = new Map();
   let anon = 0;
-  const put = (item) => {
-    if (!item) return;
-    const key = item.id != null ? String(item.id) : "anon_" + anon++;
-    if (deleted && deleted.has(key)) return;   // tombstoned: never keep
-    const prev = byId.get(key);
-    if (!prev) { byId.set(key, item); return; }
-    const a = Number(item.updatedAt || 0), b = Number(prev.updatedAt || 0);
-    if (a >= b) byId.set(key, item);            // newer (or equal) wins
-  };
-  for (const it of Array.isArray(existing) ? existing : []) put(it);
-  for (const it of Array.isArray(incoming) ? incoming : []) put(it);
-  return Array.from(byId.values());
-}
-
-// Dedupe a string array and cap its length, keeping the most recent entries.
-function dedupeCap(arr, cap) {
-  const seen = new Set();
-  const out = [];
-  for (const v of Array.isArray(arr) ? arr : []) {
-    const s = String(v);
-    if (!seen.has(s)) { seen.add(s); out.push(s); }
+  for (const item of Array.isArray(existing) ? existing : []) {
+    const key = item && item.id != null ? String(item.id) : "anon_" + anon++;
+    byId.set(key, item);
   }
-  return out.slice(-cap);
+  for (const item of Array.isArray(incoming) ? incoming : []) {
+    const key = item && item.id != null ? String(item.id) : "anon_" + anon++;
+    byId.set(key, item);
+  }
+  return Array.from(byId.values());
 }
 
 async function readHousehold(kv, code) {

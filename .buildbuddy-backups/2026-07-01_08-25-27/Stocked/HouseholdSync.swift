@@ -32,12 +32,6 @@ final class HouseholdSync {
 
     enum State: Equatable { case idle, creating, owner, member, syncing }
     private(set) var state: State = .idle
-
-    /// The current device's access level in the household, for gating UI actions. Refreshed
-    /// whenever members are fetched. Owner is always .owner; a plain member defaults to .adult
-    /// until the owner assigns a level. Views can read HouseholdSync.shared.myAccessRole and its
-    /// permission flags (canAdd/canEdit/canRemove) to show or disable controls.
-    var myAccessRole: HouseholdMember.Role = .owner
     private(set) var lastError: String?
     private(set) var joinCode: String?
 
@@ -164,45 +158,7 @@ final class HouseholdSync {
         let counts = applyHousehold(hh, into: store)
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
         lastError = nil
-        startAutoSync(store: store)   // begin automatic incoming sync
         return true
-    }
-
-    // MARK: - Automatic incoming sync (polling)
-
-    @ObservationIgnored private var pollTask: Task<Void, Never>? = nil
-    @ObservationIgnored private weak var pollStore: GuestDataStore? = nil
-
-    /// Pull the latest household snapshot and merge it in, without pushing. Cheap; used by the
-    /// auto-sync poller and on foreground so changes made elsewhere appear on their own.
-    func pullNow(into store: GuestDataStore) async {
-        guard let code = joinCode, state == .owner || state == .member else { return }
-        guard let resp = await post("/household/pull", ["code": code]),
-              let hh = resp["household"] as? [String: Any] else { return }
-        _ = applyHousehold(hh, into: store)
-    }
-
-    /// Start a background poll so household changes from other members appear automatically,
-    /// no manual sync needed. Safe to call repeatedly (it restarts a single task). Call on app
-    /// launch / foreground once a household exists.
-    func startAutoSync(store: GuestDataStore, everySeconds: UInt64 = 20) {
-        pollStore = store
-        pollTask?.cancel()
-        guard state == .owner || state == .member else { return }
-        pollTask = Task { @MainActor [weak self, weak store] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: everySeconds * 1_000_000_000)
-                guard let self, let store else { return }
-                guard self.state == .owner || self.state == .member else { continue }
-                await self.pullNow(into: store)
-            }
-        }
-    }
-    func stopAutoSync() { pollTask?.cancel(); pollTask = nil }
-    /// Pull immediately (e.g. on foreground), then let the poller continue.
-    func syncOnForeground() {
-        guard let store = pollStore, state == .owner || state == .member else { return }
-        Task { await pullNow(into: store) }
     }
 
     /// Manual two-way sync for an existing owner/member: push local collaborative data, pull merged.
@@ -210,23 +166,19 @@ final class HouseholdSync {
         guard let code = joinCode, state == .owner || state == .member else { return }
         state = .syncing
         syncStage = .uploading(store.groceryItems.count)
-        // Push grocery + inventory + any pending deletions. Deletions are sent as tombstone id
-        // lists so a remove on this device propagates to the household and the other members.
+        // Push grocery + inventory. Previously only the owner pushed inventory, so a member who
+        // added an item could never share it — the item stayed on their device. Now every member
+        // contributes inventory too; the server and applyHousehold merge by id so nothing is lost.
         let body: [String: Any] = [
             "code": code,
             "grocery": store.groceryItems.map { groceryDict($0) },
             "inventory": store.inventoryItems.map { inventoryDict($0) },
-            "invDeleted": Array(store.pendingInvTombstones),
-            "groDeleted": Array(store.pendingGroTombstones),
         ]
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             fail("Sync didn't finish. Check your connection and try again.")
             return
         }
-        // Server accepted our deletions; clear the local pending set.
-        store.pendingInvTombstones.removeAll()
-        store.pendingGroTombstones.removeAll()
         let counts = applyHousehold(hh, into: store)
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
         state = (state == .owner) ? .owner : .member
@@ -274,65 +226,23 @@ final class HouseholdSync {
         guard let resp = await post("/household/pull", ["code": code]),
               let hh = resp["household"] as? [String: Any],
               let raw = hh["members"] as? [[String: Any]] else {
-            let solo = [HouseholdMember(id: "me", name: myDisplayName, role: state == .owner ? .owner : .member, joinedAt: nil, isMe: true)]
-            refreshMyAccessRole(from: solo)
-            return solo
+            return [HouseholdMember(id: "me", name: myDisplayName, role: state == .owner ? .owner : .member, joinedAt: nil, isMe: true)]
         }
         let ownerName = hh["ownerName"] as? String
         let ownerId = hh["ownerId"] as? String
         let myId = memberId
-        let mapped: [HouseholdMember] = raw.map { m in
+        return raw.map { m in
             let name = (m["name"] as? String) ?? "Member"
             let mid = (m["memberId"] as? String) ?? name
             let joined = (m["joinedAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
             let isOwner = (ownerId != nil) ? (mid == ownerId) : (name == ownerName)
-            let storedRole = (m["role"] as? String).flatMap { HouseholdMember.Role(rawValue: $0) }
-            let role: HouseholdMember.Role = isOwner ? .owner : (storedRole ?? .adult)
-            let customLabel = (m["label"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             return HouseholdMember(
                 id: mid,
                 name: name,
-                role: role,
-                customLabel: customLabel,
+                role: isOwner ? .owner : .member,
                 joinedAt: joined,
                 isMe: mid == myId)
         }
-        refreshMyAccessRole(from: mapped)
-        return mapped
-    }
-
-    /// Owner action: set a member's access level and optional custom label. Persists to the
-    /// household document so every device sees it. No-op if the current device isn't the owner.
-    @discardableResult
-    func setMemberRole(memberId targetId: String, role: HouseholdMember.Role, label: String?) async -> Bool {
-        guard let code = joinCode, state == .owner else {
-            fail("Only the household owner can change member levels.")
-            return false
-        }
-        var body: [String: Any] = ["code": code, "memberId": targetId, "role": role.rawValue,
-                                   "actorId": memberId]
-        if let label { body["label"] = label }
-        guard let resp = await post("/household/setrole", body),
-              (resp["ok"] as? Bool) == true else {
-            fail("Couldn't update that member. Check your connection and try again.")
-            return false
-        }
-        lastError = nil
-        return true
-    }
-
-    /// The current device's own role in the household, derived from the member list. Used to gate
-    /// what actions the UI offers. Owner is always .owner; otherwise read the stored role.
-    func myRole(from members: [HouseholdMember]) -> HouseholdMember.Role {
-        if state == .owner { return .owner }
-        return members.first(where: { $0.isMe })?.role ?? .adult
-    }
-
-    /// Refresh the cached myAccessRole from a member list (called after fetchMembers).
-    private func refreshMyAccessRole(from members: [HouseholdMember]) {
-        // Not in a household → treat as owner (full access) so solo use is never restricted.
-        guard state == .owner || state == .member else { myAccessRole = .owner; return }
-        myAccessRole = myRole(from: members)
     }
 
     // MARK: - Networking
@@ -365,14 +275,13 @@ final class HouseholdSync {
         [
             "id": item.id.uuidString, "name": item.name, "quantity": item.quantity,
             "zone": item.zone, "level": item.effectiveLevel, "brand": item.brand ?? "",
-            "updatedAt": item.updatedAt,
         ]
     }
     private func groceryDict(_ item: LocalGroceryItem) -> [String: Any] {
         [
             "id": item.id.uuidString, "name": item.name, "quantity": item.quantity,
             "isChecked": item.isChecked, "recipeSource": item.recipeSource,
-            "addedByName": item.addedByName, "updatedAt": item.updatedAt,
+            "addedByName": item.addedByName,
         ]
     }
     private func parseGrocery(_ d: [String: Any]) -> LocalGroceryItem? {
@@ -382,7 +291,6 @@ final class HouseholdSync {
         item.quantity = (d["quantity"] as? Int) ?? 1
         item.recipeSource = (d["recipeSource"] as? String) ?? ""
         item.addedByName = (d["addedByName"] as? String) ?? ""
-        item.updatedAt = (d["updatedAt"] as? Double) ?? 0
         return item
     }
     private func parseInventory(_ d: [String: Any]) -> LocalInventoryItem? {
@@ -393,7 +301,6 @@ final class HouseholdSync {
         if let idStr = d["id"] as? String, let uuid = UUID(uuidString: idStr) { item.id = uuid }
         if let brand = d["brand"] as? String, !brand.isEmpty { item.brand = brand }
         item.storageCategory = StorageCategory(rawValue: zone) ?? .pantry
-        item.updatedAt = (d["updatedAt"] as? Double) ?? 0
         return item
     }
     private func parseActivity(_ d: [String: Any]) -> HouseholdActivity? {
@@ -416,43 +323,25 @@ final class HouseholdSync {
         // pulled snapshot doesn't immediately echo back out as another push (sync loop).
         store.isApplyingHouseholdRemote = true
         defer { store.isApplyingHouseholdRemote = false }
-
-        // Server-side tombstones: ids that were deleted somewhere in the household. Drop them
-        // locally too so a delete on one device propagates to the others.
-        let invTombstones = Set((hh["invDeleted"] as? [String]) ?? [])
-        let groTombstones = Set((hh["groDeleted"] as? [String]) ?? [])
-
         var groAdded = 0
         if let groRaw = hh["grocery"] as? [[String: Any]] {
             let remote = groRaw.compactMap { parseGrocery($0) }
             var byID = Dictionary(uniqueKeysWithValues: store.groceryItems.map { ($0.id, $0) })
-            for r in remote {
-                if let local = byID[r.id] {
-                    if r.updatedAt >= local.updatedAt { byID[r.id] = r }   // newer wins
-                } else if !groTombstones.contains(r.id.uuidString) {
-                    byID[r.id] = r; groAdded += 1
-                }
-            }
-            // Apply deletions.
-            for id in byID.keys where groTombstones.contains(id.uuidString) { byID[id] = nil }
+            for item in remote where byID[item.id] == nil { groAdded += 1 }
+            for item in remote { byID[item.id] = item }
             let merged = Array(byID.values)
             if merged != store.groceryItems { store.groceryItems = merged }
         }
-
-        // Inventory: last-write-wins by updatedAt, honoring tombstones. Adds, edits (quantity,
-        // title, zone), and removals all converge this way.
+        // Inventory: merge the household's inventory into the local store by id, for everyone.
+        // This was previously a no-op that only counted rows for members and never wrote them —
+        // the reason a synced item never appeared on the other device. Merge by id so each
+        // member's additions converge without clobbering local-only edits.
         var invAdded = 0
         if let invRaw = hh["inventory"] as? [[String: Any]] {
             let remote = invRaw.compactMap { parseInventory($0) }
             var byID = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0) })
-            for r in remote {
-                if let local = byID[r.id] {
-                    if r.updatedAt >= local.updatedAt { byID[r.id] = r }
-                } else if !invTombstones.contains(r.id.uuidString) {
-                    byID[r.id] = r; invAdded += 1
-                }
-            }
-            for id in byID.keys where invTombstones.contains(id.uuidString) { byID[id] = nil }
+            for item in remote where byID[item.id] == nil { invAdded += 1 }
+            for item in remote { byID[item.id] = item }
             let merged = Array(byID.values)
             if merged != store.inventoryItems { store.inventoryItems = merged }
         }

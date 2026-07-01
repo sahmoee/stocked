@@ -79,45 +79,16 @@ struct HouseholdActivity: Identifiable, Codable, Hashable {
 
 // MARK: - Member
 
-/// A person in the household.
+/// A person in the household (derived from CKShare participants).
 struct HouseholdMember: Identifiable, Hashable {
-    /// Access level. The owner assigns these to control what each person can do. Ordered from
-    /// most to least privileged; the raw values are what the server stores.
-    enum Role: String, CaseIterable {
-        case owner, manager, adult, teen, kid, member
-
-        /// Default display label for the level (the owner can override with a custom label).
-        var label: String {
-            switch self {
-            case .owner:   return "Owner"
-            case .manager: return "Manager"
-            case .adult:   return "Adult"
-            case .teen:    return "Teen"
-            case .kid:     return "Kid"
-            case .member:  return "Member"
-            }
-        }
-
-        /// What this level is allowed to do to the shared pantry. Sensible defaults the owner
-        /// can rely on: kids view only, teens add/edit, adults also remove, managers/owner also
-        /// manage members. Enforced in the UI and on the server.
-        var canAdd: Bool    { self != .kid }
-        var canEdit: Bool   { self != .kid }
-        var canRemove: Bool { self == .owner || self == .manager || self == .adult }
-        var canManageMembers: Bool { self == .owner || self == .manager }
-        var isOwnerLevel: Bool { self == .owner }
+    enum Role: String { case owner, member
+        var label: String { self == .owner ? "Organizer" : "Member" }
     }
-
-    var id: String               // stable member id (matches memberId on the server)
+    var id: String               // stable participant id (or userRecordID)
     var name: String
     var role: Role
-    /// Owner-assigned custom label shown instead of the role's default (e.g. "Mom", "Big Sis").
-    var customLabel: String? = nil
     var joinedAt: Date?
     var isMe: Bool = false
-
-    /// The label to show: the owner's custom label if set, else the role's default.
-    var displayLabel: String { (customLabel?.isEmpty == false ? customLabel! : role.label) }
 
     // Optional profile fields (mockup's Member Profile screen). Populated when available.
     var dietaryPreference: String?
