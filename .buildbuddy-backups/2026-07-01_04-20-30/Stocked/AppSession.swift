@@ -38,13 +38,6 @@ class AppSession {
     // sheet endlessly).
     var pendingRecipeImport: Bool = false
 
-    // Set by handleAppleSignIn when a user signs in with an Apple ID while local guest data
-    // exists. RootView / the login surface reads this to prompt the user: migrate the guest
-    // data into the account, or discard it and start clean. Nil = no decision pending. The
-    // sign-in itself has already registered the account by the time this is set; only the
-    // fate of the pre-existing guest data is undecided.
-    var pendingSignInMigration: Bool = false
-
     // Retained transfer manager. iCloud restore/backup spawn async tasks; a session-owned
     // instance (vs a transient local one) guarantees in-flight CloudKit work isn't orphaned
     // before completion — the root cause of restores silently not applying.
@@ -381,14 +374,6 @@ class AppSession {
             accountType = .guest
             displayName = guestStore.displayName
             if hasExistingSession { isLoggedIn = true }
-        } else if !self.appleUserID.isEmpty {
-            // A stored Apple credential with no guest marker means a previously signed-in
-            // registered user. Restore them as registered so relaunch doesn't silently drop
-            // them back to guest (which would re-gate iCloud sync off).
-            accountType = .registered
-            let stored = ud.string(forKey: DBKey.appleFirstName.rawValue) ?? ""
-            displayName = stored.isEmpty ? guestStore.displayName : stored
-            isLoggedIn  = true
         }
 
         // didSet does not fire during init, so set the sync gate explicitly to match the
@@ -407,48 +392,6 @@ class AppSession {
         guestStore.requestNotificationPermission()
     }
     func continueAsGuest() { enterKitchen() }
-
-    /// Sign in with an Apple ID. THIS is what actually registers the account — the previous
-    /// path routed Apple sign-in through enterKitchen(), which hard-set accountType to .guest
-    /// and wasGuest=true, so a signed-in user stayed a guest forever (guest greeting, sync
-    /// gated off). Here we set accountType to .registered, clear the guest marker, persist the
-    /// Apple credential, and let the accountType didSet enable iCloud sync.
-    ///
-    /// hadGuestData: whether local guest data existed at sign-in time. When true we flag
-    /// pendingSignInMigration so the UI can ask the user whether to migrate or discard it —
-    /// we do NOT auto-wipe or auto-merge here, per the "ask at sign-in" decision.
-    func signIn(appleUserID userID: String, name: String, hadGuestData: Bool) {
-        let n = name.trimmingCharacters(in: .whitespaces)
-        appleUserID = userID
-        accountType = .registered            // didSet enables accountAllowsSync
-        displayName = n
-        if !n.isEmpty { guestStore.displayName = n }
-        isLoggedIn  = true
-        forceLogin  = false
-
-        // No longer a guest session. Clearing this marker is what stops the app from
-        // resolving back to guest on the next cold launch (init reads wasGuest).
-        UserDefaults.standard.set(false, forKey: "wasGuest")
-
-        // Belt-and-suspenders: didSet already ran, but set the gate explicitly too.
-        SharedPantrySync.shared.accountAllowsSync = true
-
-        pendingSignInMigration = hadGuestData
-        guestStore.requestNotificationPermission()
-    }
-
-    /// User chose to KEEP their guest data on sign-in: nothing to move (the data already lives
-    /// in guestStore and now belongs to the registered account). Just clear the prompt.
-    func resolveSignInMigration(keepGuestData: Bool) {
-        if !keepGuestData {
-            // Discard: wipe the pre-sign-in guest data so the account starts clean. This does
-            // not sign the user out — they remain registered.
-            guestStore.clearAll()
-            displayName = ""
-        }
-        pendingSignInMigration = false
-    }
-
     // Convenience helpers used by DailyBriefView
     var effectiveName: String {
         let n = displayName.trimmingCharacters(in: .whitespaces)

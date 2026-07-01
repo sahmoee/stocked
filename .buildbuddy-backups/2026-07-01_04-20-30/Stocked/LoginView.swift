@@ -110,24 +110,7 @@ struct LoginView: View {
         .onAppear {
             withAnimation(.easeOut(duration: 0.6).delay(0.1)) { animateIn = true }
         }
-        .alert("Keep your existing data?", isPresented: migrationBinding) {
-            Button("Keep It") { session.resolveSignInMigration(keepGuestData: true) }
-            Button("Start Fresh", role: .destructive) {
-                session.resolveSignInMigration(keepGuestData: false)
-            }
-        } message: {
-            Text("You had items saved before signing in. Keep them in your account, or start fresh with a clean kitchen?")
-        }
 
-    }
-
-    // Two-way binding so the alert can dismiss itself; writing false clears the pending flag
-    // without taking a migration action (used only if the alert is dismissed by other means).
-    private var migrationBinding: Binding<Bool> {
-        Binding(
-            get: { session.pendingSignInMigration },
-            set: { if !$0 { session.pendingSignInMigration = false } }
-        )
     }
 
     private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
@@ -157,15 +140,8 @@ struct LoginView: View {
                 ? (cred.email?.components(separatedBy: "@").first ?? "Chef")
                 : firstName
 
-            // Detect whether the user already has local guest data BEFORE we register the
-            // account, so signIn() can flag the migrate-vs-discard prompt.
-            let hadGuestData = !session.guestStore.inventoryItems.isEmpty
-                            || !session.guestStore.groceryItems.isEmpty
-                            || !session.guestStore.userRecipes.isEmpty
-
-            // Register the account (accountType -> .registered, sync enabled, wasGuest cleared).
-            // The old code called enterKitchen(), which forced accountType back to .guest.
-            session.signIn(appleUserID: userID, name: displayName, hadGuestData: hadGuestData)
+            session.appleUserID = userID
+            session.enterKitchen(name: displayName)
 
             // Returning user: pull their latest iCloud backup so inventory + preferences
             // come back automatically. Merge-style so it never wipes anything local.
