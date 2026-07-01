@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 8
-    private static let fallbackVersion     = "2.9"
+    private static let fallbackBuildNumber = 7
+    private static let fallbackVersion     = "2.8"
 
     static let changeCount   = 4
-    static let buildName     = "Build 275 — Recipes now show a match ring and a plain-language line telling you how much of each you can make, and receipt review is grouped into Confident, Needs review, and Ignored with clear source labels."
+    static let buildName     = "Build 274 — Foundation for a unified Stocked Intelligence: a shared way to label where data came from and how much to trust it, and one confirm-before-saving model across receipt scans and AI edits. Groundwork, mostly invisible this build."
     static let buildDate     = "June 2026"
 
     // MARK: - Environment detection

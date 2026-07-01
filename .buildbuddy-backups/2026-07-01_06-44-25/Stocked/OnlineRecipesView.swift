@@ -869,15 +869,9 @@ struct OnlineRecipeCard: View {
     }
 
     @ViewBuilder private var cardStatusBadge: some View {
-        let coverage = RecipeCoverageBuilder.make(for: recipe, store: session.guestStore)
         switch OnlineRecipeMatch.status(recipe, inStock: session.guestStore.inStockNameSet) {
         case .ready:       badge(text: "Ready", system: "checkmark.circle.fill", bg: Color.stockedGreen)
-        case .missing(let n):
-            // Ring makes coverage scannable at a glance; keep the text badge for the exact count.
-            HStack(spacing: 5) {
-                MatchRing(coverage: coverage, size: 26)
-                badge(text: n == 1 ? "1 missing" : "\(n) missing", system: nil, bg: Color.stockedError.opacity(0.92))
-            }
+        case .missing(let n): badge(text: n == 1 ? "1 missing" : "\(n) missing", system: nil, bg: Color.stockedError.opacity(0.92))
         case .unknown:     EmptyView()
         }
     }
@@ -905,39 +899,25 @@ struct OnlineRecipeDetailView: View {
 
     // #251 — live "can I make this?" badge for the detail header.
     @ViewBuilder private var detailStockBadge: some View {
-        let coverage = RecipeCoverageBuilder.make(for: recipe, store: session.guestStore)
-        HStack(spacing: 10) {
-            if coverage.total > 0 {
-                MatchRing(coverage: coverage, size: 44)
+        switch OnlineRecipeMatch.status(recipe, inStock: session.guestStore.inStockNameSet) {
+        case .ready:
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .bold))
+                Text("You can make this now").font(.system(size: 12, weight: .bold))
             }
-            VStack(alignment: .leading, spacing: 3) {
-                switch OnlineRecipeMatch.status(recipe, inStock: session.guestStore.inStockNameSet) {
-                case .ready:
-                    HStack(spacing: 5) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .bold))
-                        Text("You can make this now").font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Color.stockedGreen).clipShape(Capsule())
-                case .missing(let n):
-                    HStack(spacing: 5) {
-                        Image(systemName: "cart.badge.plus").font(.system(size: 11, weight: .bold))
-                        Text(n == 1 ? "1 ingredient missing" : "\(n) ingredients missing").font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Color.stockedError.opacity(0.92)).clipShape(Capsule())
-                case .unknown:
-                    EmptyView()
-                }
-                // Plain-language explanation ("Missing only sour cream", "Uses chicken expiring soon").
-                if let line = MatchExplanation.line(for: coverage) {
-                    Text(line)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
-                }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Color.stockedGreen).clipShape(Capsule())
+        case .missing(let n):
+            HStack(spacing: 5) {
+                Image(systemName: "cart.badge.plus").font(.system(size: 11, weight: .bold))
+                Text(n == 1 ? "1 ingredient missing" : "\(n) ingredients missing").font(.system(size: 12, weight: .bold))
             }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Color.stockedError.opacity(0.92)).clipShape(Capsule())
+        case .unknown:
+            EmptyView()
         }
     }
 

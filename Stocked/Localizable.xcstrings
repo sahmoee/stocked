@@ -1811,6 +1811,12 @@
     "Keep Data" : {
 
     },
+    "Keep It" : {
+
+    },
+    "Keep your existing data?" : {
+
+    },
     "Key Ingredients" : {
 
     },
@@ -2822,6 +2828,9 @@
     "Start Cooking with Stocked" : {
 
     },
+    "Start Fresh" : {
+
+    },
     "Start Over" : {
 
     },
@@ -3231,6 +3240,9 @@
 
     },
     "You can still find a recipe and shop for it,\nor add it to your grocery list now." : {
+
+    },
+    "You had items saved before signing in. Keep them in your account, or start fresh with a clean kitchen?" : {
 
     },
     "You have %lld of %lld" : {

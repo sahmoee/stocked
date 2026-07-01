@@ -416,18 +416,9 @@ struct ReceiptScannerView: View {
                         .padding(.horizontal, 24).padding(.bottom, 10)
 
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 14) {
-                            // Grouped review: Confident / Needs review / Ignored, so the user's
-                            // eye goes to what actually needs checking. Groups line-item indices
-                            // by their ReviewGroup (shared vocabulary used across every AI-review
-                            // screen), then renders each section.
-                            ForEach(reviewSections, id: \.group) { section in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    reviewSectionHeader(section.group, count: section.indices.count)
-                                    ForEach(section.indices, id: \.self) { i in
-                                        reviewRow(index: i)
-                                    }
-                                }
+                        VStack(spacing: 8) {
+                            ForEach(reviewOrder, id: \.self) { i in
+                                reviewRow(index: i)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -503,36 +494,9 @@ struct ReceiptScannerView: View {
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 
-    /// Line-item indices grouped into the three ReviewGroup buckets (Confident / Needs review /
-    /// Ignored), each internally sorted lowest-confidence-first, and only non-empty groups, in
-    /// display order. Drives the grouped review list.
-    private var reviewSections: [(group: ReviewGroup, indices: [Int])] {
-        let byGroup = Dictionary(grouping: lineItems.indices) { lineItems[$0].reviewGroup }
-        return byGroup
-            .sorted { $0.key < $1.key }
-            .map { (group: $0.key,
-                    indices: $0.value.sorted { lineItems[$0].confidence < lineItems[$1].confidence }) }
-    }
-
-    /// Header for a grouped-review section (Confident / Needs review / Ignored).
-    @ViewBuilder func reviewSectionHeader(_ group: ReviewGroup, count: Int) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: group.symbol)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(group == .needsReview ? Color.stockedGold
-                                 : group == .confident ? Color.stockedGreen
-                                 : session.themeTextColor.opacity(0.4))
-            VStack(alignment: .leading, spacing: 1) {
-                Text("\(group.title) · \(count)")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(session.themeTextColor)
-                Text(group.subtitle)
-                    .font(.system(size: 10))
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
-            }
-            Spacer()
-        }
-        .padding(.top, 4)
+    // #3 — order so low-confidence items surface first for review.
+    private var reviewOrder: [Int] {
+        lineItems.indices.sorted { lineItems[$0].confidence < lineItems[$1].confidence }
     }
 
     func reviewRow(index: Int) -> some View {
@@ -605,9 +569,12 @@ private struct ReviewRowView: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(session.themeTextColor)
                                 .strikethrough(!item.isChecked)
-                            // Shared provenance badge (AI parsed / Needs review) — same
-                            // vocabulary the rest of the app uses, replacing the ad-hoc dot.
-                            SourceBadgeView(badge: item.badge)
+                            // Confidence indicator — amber dot for uncertain reads
+                            if item.confidence < 60 {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 6, height: 6)
+                            }
                         }
                         if item.rawText.uppercased() != item.resolved.uppercased() {
                             Text("Was: \(item.rawText)")

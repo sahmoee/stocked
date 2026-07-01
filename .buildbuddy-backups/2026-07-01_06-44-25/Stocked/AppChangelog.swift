@@ -38,19 +38,19 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 2.9 (build 8) — match rings + grouped receipt review ──────────────
+        // ── 2.8 (build 7) — Stocked Intelligence foundation ───────────────────
         ChangelogVersion(
-            version: "2.9",
-            buildDate: "Build 8 · July 1, 2026",
+            version: "2.8",
+            buildDate: "Build 7 · July 1, 2026",
             headline: "What's new in Stocked",
             isLatest: true,
             entries: [
-                ChangelogEntry(icon: "circle.lefthalf.filled", color: Color.stockedGold,
-                               title: "See how much of a recipe you can make",
-                               detail: "Recipes now show a small match ring and a plain line like You have 8 of 10 ingredients or Missing only sour cream, so you can tell at a glance what is worth cooking. If a recipe uses something expiring soon, Stocked points that out too."),
+                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGold,
+                               title: "Knowing where your data came from",
+                               detail: "Stocked now keeps track of how each item got in — scanned from a receipt, added by the assistant, or entered by you — so it can show clear labels and trust the best information. You will start seeing these labels on more screens soon."),
                 ChangelogEntry(icon: "checklist", color: Color.stockedGold,
-                               title: "Cleaner receipt review",
-                               detail: "After scanning a receipt, items are now grouped into Confident, Needs review, and Ignored, so your attention goes straight to the few reads worth double-checking. Each item shows where it came from and how sure Stocked is."),
+                               title: "One consistent review before saving",
+                               detail: "Receipt scanning and the Inventory Assistant now share the same confirm-before-saving foundation, so reviewing what Stocked found works the same way everywhere. More AI features will use it next."),
             ]),
         // ── 2.6 (build 5) — feature round-up + guided tour ────────────────────
         ChangelogVersion(
