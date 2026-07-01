@@ -56,62 +56,6 @@ nonisolated enum SourceBadge: String, Codable, CaseIterable {
         case .needsReview: return dark ? Color(red: 0.90, green: 0.62, blue: 0.40) : Color(red: 0.78, green: 0.45, blue: 0.20)
         }
     }
-
-    /// Map a 0–100 numeric confidence (as the receipt scanner and OCR paths produce) into a
-    /// badge, so every surface labels certainty the same way instead of each inventing its own
-    /// threshold. Tune points: 90+ reads as verified-quality, 60–89 as AI-parsed-but-usable,
-    /// below 60 as needs-review. Callers that KNOW the origin (user typed it, USDA record)
-    /// should set the badge directly rather than route through this.
-    static func from(confidence: Int) -> SourceBadge {
-        switch confidence {
-        case 90...:  return .verified
-        case 60..<90: return .aiParsed
-        default:      return .needsReview
-        }
-    }
-
-    /// Which review group a badge falls into for the shared grouped-review UI
-    /// ("Confident" / "Needs review" / "Ignored"). Ignored is set explicitly by callers for
-    /// items filtered out (e.g. non-food receipt lines), not derived from confidence.
-    var reviewGroup: ReviewGroup {
-        switch self {
-        case .verified, .userAdded, .estimated: return .confident
-        case .aiParsed, .needsReview:            return .needsReview
-        }
-    }
-}
-
-/// Sections for any confirm-before-apply review screen (receipt scan, AI inventory edits,
-/// recipe import, grocery reconciliation). Giving every AI-touches-data flow the same three
-/// buckets is what makes them feel like one system. Ordered for display.
-nonisolated enum ReviewGroup: Int, CaseIterable, Comparable {
-    case confident = 0     // high-confidence, pre-checked, safe to apply
-    case needsReview = 1   // low-confidence, surfaced for a second look
-    case ignored = 2       // filtered out (non-food, duplicates); shown so nothing feels lost
-
-    static func < (l: ReviewGroup, r: ReviewGroup) -> Bool { l.rawValue < r.rawValue }
-
-    var title: String {
-        switch self {
-        case .confident:   return "Confident"
-        case .needsReview: return "Needs review"
-        case .ignored:     return "Ignored"
-        }
-    }
-    var subtitle: String {
-        switch self {
-        case .confident:   return "Looks right — will be added"
-        case .needsReview: return "Double-check these before saving"
-        case .ignored:     return "Skipped (not food or already listed)"
-        }
-    }
-    var symbol: String {
-        switch self {
-        case .confident:   return "checkmark.circle.fill"
-        case .needsReview: return "exclamationmark.triangle.fill"
-        case .ignored:     return "minus.circle"
-        }
-    }
 }
 
 /// A value paired with its provenance. Use for data the app may want to reconcile or badge later,

@@ -34,14 +34,6 @@ final class SourceHealth {
         Log.net.debug("Source failure recorded: \(domain, privacy: .public)")
     }
 
-    /// Uniform entry point so every source path can log its outcome with one call rather than
-    /// branching at each site. Pass whether the fetch succeeded; this routes to the existing
-    /// success/failure counters. Adopt this in RecipeAPIClient, SpoonacularClient, barcode, and
-    /// the receipt Worker so SourceHealth actually reflects real API behavior.
-    func record(_ domain: String, success: Bool) {
-        success ? recordSuccess(domain) : recordFailure(domain)
-    }
-
     /// 0…1 reliability score. Unknown sources start optimistic (0.7) so new sources
     /// get a fair chance before being demoted.
     func score(_ domain: String) -> Double {

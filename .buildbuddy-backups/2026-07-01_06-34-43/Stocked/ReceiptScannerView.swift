@@ -20,14 +20,6 @@ struct ReceiptLineItem: Identifiable {
     var brand:    String? = nil      // store brand kept separate from the food name
     var unitPrice: Double? = nil     // #1 price per unit, from the receipt
     var totalPrice: Double? = nil    // #1 line total, from the receipt
-
-    /// Provenance badge derived from the numeric confidence, via the shared mapping so the
-    /// receipt review screen labels certainty the same way the rest of the app does.
-    var badge: SourceBadge { SourceBadge.from(confidence: confidence) }
-
-    /// Which grouped-review section this line belongs in. Non-food lines the parser kept for
-    /// transparency are .ignored; everything else follows its badge (Confident / Needs review).
-    var reviewGroup: ReviewGroup { isFood ? badge.reviewGroup : .ignored }
 }
 
 // MARK: - Receipt Archive Entry
@@ -808,7 +800,6 @@ extension ReceiptScannerView {
             inv.purchaseDate     = detectedDate ?? Date()           // #5 date
             inv.storePurchasedAt = detectedStore.isEmpty ? nil : detectedStore // #5 store
             inv.addedBy          = who                              // #20
-            inv.sourceBadge      = item.badge                       // provenance from OCR confidence
             session.guestStore.addInventoryItem(inv)
             added += 1
         }

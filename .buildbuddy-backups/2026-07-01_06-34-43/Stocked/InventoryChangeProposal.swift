@@ -29,10 +29,6 @@ struct ProposedChange: Identifiable, Equatable {
     var action: InventoryChangeAction
     var reason: String          // short why ("Used while cooking", "You said you finished it")
     var isConfirmed: Bool = true  // pre-checked; user can toggle off
-    /// Provenance of this proposed change, so the shared review UI can badge it and so an
-    /// applied .add carries its badge into inventory. nil for changes to existing items where
-    /// provenance is unchanged (remove / setLevel).
-    var sourceBadge: SourceBadge? = nil
 
     /// One-line human summary of the effect.
     var effectText: String {
@@ -51,29 +47,6 @@ struct ProposedChange: Identifiable, Equatable {
         case .clearAll: return "trash.fill"
         }
     }
-
-    /// Which grouped-review section this change belongs in. clearAll is always surfaced for a
-    /// second look; otherwise it follows the badge (defaulting to Confident when unbadged, since
-    /// remove/setLevel act on items the user already has).
-    var reviewGroup: ReviewGroup {
-        if case .clearAll = action { return .needsReview }
-        return sourceBadge?.reviewGroup ?? .confident
-    }
-}
-
-// MARK: - Shared grouped-review helper
-
-/// Groups any badge-carrying, identifiable review items into the three ReviewGroup buckets in
-/// display order. Used by receipt review, AI inventory review, recipe-import review, and grocery
-/// reconciliation so they all render the same "Confident / Needs review / Ignored" sections
-/// instead of each hand-rolling its own grouping. Returns only non-empty groups, ordered.
-nonisolated func groupedForReview<Item: Identifiable>(
-    _ items: [Item],
-    by group: (Item) -> ReviewGroup
-) -> [(group: ReviewGroup, items: [Item])] {
-    Dictionary(grouping: items, by: group)
-        .sorted { $0.key < $1.key }
-        .map { (group: $0.key, items: $0.value) }
 }
 
 // MARK: - Apply (single code path to mutate inventory)
@@ -94,7 +67,6 @@ extension GuestDataStore {
             case .add(let name, let qty):
                 var item = LocalInventoryItem(name: name, level: 1.0, quantity: max(1, qty))
                 item.purchaseDate = Date()
-                item.sourceBadge  = change.sourceBadge ?? .aiParsed  // assistant-added → AI parsed
                 addInventoryItem(item); applied += 1
             case .clearAll:
                 let count = inventoryItems.count

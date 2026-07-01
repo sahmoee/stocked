@@ -38,19 +38,22 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 2.8 (build 7) — Stocked Intelligence foundation ───────────────────
+        // ── 2.7 (build 6) — sign-out / clear data / Apple sign-in fixes ───────
         ChangelogVersion(
-            version: "2.8",
-            buildDate: "Build 7 · July 1, 2026",
+            version: "2.7",
+            buildDate: "Build 6 · July 1, 2026",
             headline: "What's new in Stocked",
             isLatest: true,
             entries: [
-                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGold,
-                               title: "Knowing where your data came from",
-                               detail: "Stocked now keeps track of how each item got in — scanned from a receipt, added by the assistant, or entered by you — so it can show clear labels and trust the best information. You will start seeing these labels on more screens soon."),
-                ChangelogEntry(icon: "checklist", color: Color.stockedGold,
-                               title: "One consistent review before saving",
-                               detail: "Receipt scanning and the Inventory Assistant now share the same confirm-before-saving foundation, so reviewing what Stocked found works the same way everywhere. More AI features will use it next."),
+                ChangelogEntry(icon: "trash", color: Color.stockedGold,
+                               title: "Clear All Data now fully clears",
+                               detail: "Erasing your data now removes everything, including larger inventories that could previously reappear. When it says cleared, it stays cleared."),
+                ChangelogEntry(icon: "rectangle.portrait.and.arrow.right", color: Color.stockedGold,
+                               title: "Logging out erases your data",
+                               detail: "Choosing Erase and Exit when you log out now wipes your saved items completely instead of leaving some behind."),
+                ChangelogEntry(icon: "person.crop.circle.badge.checkmark", color: Color.stockedGold,
+                               title: "Signing in with Apple works correctly",
+                               detail: "After using guest mode, signing in with your Apple ID now signs you in as that account instead of keeping you in guest mode. If you already had items saved, Stocked asks whether to keep them or start fresh."),
             ]),
         // ── 2.6 (build 5) — feature round-up + guided tour ────────────────────
         ChangelogVersion(

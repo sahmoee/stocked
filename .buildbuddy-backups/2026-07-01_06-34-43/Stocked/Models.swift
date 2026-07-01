@@ -82,13 +82,6 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
     var imageData:        Data?          // photo of the actual product
     var parQuantity:       Int?          // #14 par level — keep at least N in stock; below → auto-reorder
 
-    // ── Provenance ────────────────────────────────────────────────
-    // How this item got into inventory and how much to trust it (nil = legacy/unknown, treated
-    // as user-added). Set by the receipt scanner (AI parsed / needs review), the AI Inventory
-    // Assistant, and manual add (user added). Lets any surface show a SourceBadge without
-    // re-deriving provenance. Optional + defaulted so existing saved items decode cleanly.
-    var sourceBadge:      SourceBadge?
-
     // ── Display ───────────────────────────────────────────────────
     var displayText: String {
         if let amt = sizeAmount, let unit = sizeUnit {
