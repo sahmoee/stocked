@@ -322,15 +322,6 @@ class GuestDataStore {
 
     // MARK: - Nuclear clear — wipes every byte of stored data
     func clearAll() {
-        // ── 0. Stop any in-flight debounced save FIRST ───────────────
-        // A save queued moments before this call (e.g. from a recent edit) would otherwise
-        // fire its flush AFTER we wipe disk below and write the old data straight back — a
-        // silent resurrection. Cancel the pending flush and drop the dirty queue so nothing we
-        // are about to clear gets persisted again.
-        saveFlushTask?.cancel()
-        saveFlushTask = nil
-        dirtyKeys.removeAll()
-
         // ── 1. In-memory state ───────────────────────────────────────
         inventoryItems        = []
         groceryItems          = []
@@ -359,14 +350,6 @@ class GuestDataStore {
 
         // ── 4. Rating/preference weights (SurpriseRecipeEngine) ──────
         UserDefaults.standard.removeObject(forKey: "ratingWeights_v1")
-
-        // ── 4b. On-disk JSON store (THE missing wipe) ────────────────
-        // Large collections (inventory past the UserDefaults mirror cap) live ONLY as JSON
-        // files in the app's Documents directory via LocalDatabase — the UserDefaults domain
-        // wipe above never touches them. Without this, clearing empties the arrays in memory
-        // but the next load() re-reads the on-disk blobs and everything comes back. Wiping the
-        // file store here is what makes "Clear All Data" and "Erase and Exit" actually stick.
-        LocalDatabase.shared.deleteAll()
 
         // ── 5. iCloud Key-Value Store ─────────────────────────────────
         let kvStore = NSUbiquitousKeyValueStore.default
