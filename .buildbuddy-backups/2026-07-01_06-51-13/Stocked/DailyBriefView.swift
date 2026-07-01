@@ -269,7 +269,6 @@ struct ExpiringItemsView: View {
         switch mode {
         case .expiring:
             return store.inventoryItems.filter { item in
-                guard !store.isSnoozed(item.id) else { return false }   // hide snoozed items
                 guard let exp = item.expirationDate else { return false }
                 return exp.timeIntervalSinceNow < 86400 * 5
             }.sorted { ($0.expirationDate ?? .distantFuture) < ($1.expirationDate ?? .distantFuture) }
@@ -474,21 +473,6 @@ struct ExpiringItemsView: View {
         loadingUseUp = false
     }
 
-    /// Compact action chip used by the Daily Brief item rows. One consistent style for all five
-    /// direct actions so the row reads as a tidy cluster rather than a stack of mismatched buttons.
-    private func briefAction(_ title: String, _ icon: String, _ color: Color, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: icon)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(color)
-                .padding(.horizontal, 9).padding(.vertical, 5)
-                .background(color.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-        }
-        .buttonStyle(.plain)
-        .a11yButton(title)
-    }
-
     private func itemRow(_ item: LocalInventoryItem) -> some View {
         HStack(spacing: 14) {
             // Level indicator
@@ -520,42 +504,49 @@ struct ExpiringItemsView: View {
 
             Spacer()
 
-            // Action buttons — the five Daily Brief direct actions. Cook this / Add to grocery
-            // are always available; Mark used / Freeze / Snooze apply to expiring items with stock.
-            VStack(alignment: .trailing, spacing: 6) {
-                HStack(spacing: 6) {
-                    briefAction("Cook this", "fork.knife", Color.stockedGold) {
-                        selectedItem = item
+            // Action buttons
+            VStack(spacing: 6) {
+                // #23 — one tap: logs consumption, zeroes the item, and (with the
+                // auto-add setting on) drops it straight onto the grocery list.
+                if mode == .expiring && item.level > 0 {
+                    Button {
+                        store.updateInventoryLevel(id: item.id, level: 0)
+                        HapticManager.light()
+                    } label: {
+                        Label("Used It Up", systemImage: "checkmark.circle")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.stockedGreen)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(Color.stockedGreen.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     }
-                    briefAction(addedToList.contains(item.id) ? "Added ✓" : "Add to grocery",
-                                addedToList.contains(item.id) ? "checkmark" : "cart.badge.plus",
-                                addedToList.contains(item.id) ? Color.stockedGold : session.themeTextColor) {
-                        store.addGroceryItem(name: item.name)
-                        withAnimation { _ = addedToList.insert(item.id) }
-                    }
+                    .buttonStyle(.plain)
                 }
-                if mode == .expiring {
-                    HStack(spacing: 6) {
-                        if item.level > 0 {
-                            // Mark used: logs consumption, zeroes the item, and (with auto-add on)
-                            // restocks the grocery list via the store's depletion handling.
-                            briefAction("Mark used", "checkmark.circle", Color.stockedGreen) {
-                                store.updateInventoryLevel(id: item.id, level: 0)
-                                HapticManager.light()
-                            }
-                        }
-                        // Freeze: moves it to the freezer and extends the date so it stops nagging.
-                        briefAction("Freeze", "snowflake", Color(red: 0.30, green: 0.55, blue: 0.80)) {
-                            store.freezeItem(id: item.id)
-                            HapticManager.light()
-                        }
-                        // Snooze: quiets this item in the brief for a few days.
-                        briefAction("Snooze", "moon.zzz", session.themeTextColor.opacity(0.6)) {
-                            withAnimation { store.snoozeExpiring(id: item.id) }
-                            HapticManager.light()
-                        }
-                    }
+                Button {
+                    store.addGroceryItem(name: item.name)
+                    withAnimation { _ = addedToList.insert(item.id) }
+                } label: {
+                    Label(addedToList.contains(item.id) ? "Added ✓" : "Add to List",
+                          systemImage: addedToList.contains(item.id) ? "checkmark" : "cart.badge.plus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(addedToList.contains(item.id) ? Color.stockedGold : session.themeTextColor)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Color.stockedWhite.opacity(0.35))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                 }
+                .buttonStyle(.plain)
+
+                Button {
+                    selectedItem = item
+                } label: {
+                    Label("Build Meal", systemImage: "fork.knife")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(Color.stockedWhite.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 12)

@@ -38,19 +38,19 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.0 (build 9) — Daily Brief direct actions ────────────────────────
+        // ── 2.9 (build 8) — match rings + grouped receipt review ──────────────
         ChangelogVersion(
-            version: "3.0",
-            buildDate: "Build 9 · July 1, 2026",
+            version: "2.9",
+            buildDate: "Build 8 · July 1, 2026",
             headline: "What's new in Stocked",
             isLatest: true,
             entries: [
-                ChangelogEntry(icon: "bolt.fill", color: Color.stockedGold,
-                               title: "Act on your Daily Brief in one tap",
-                               detail: "Every expiring item now has quick actions right in the brief: Cook this to build a meal around it, Add to grocery, Mark used, Freeze to move it to the freezer and buy it more time, or Snooze to quiet it for a few days. No more digging through the app to handle what needs attention."),
-                ChangelogEntry(icon: "snowflake", color: Color.stockedGold,
-                               title: "Freeze to save it",
-                               detail: "Freezing an item moves it to your freezer and pushes its date out, so something you cannot use right now stops showing as expiring."),
+                ChangelogEntry(icon: "circle.lefthalf.filled", color: Color.stockedGold,
+                               title: "See how much of a recipe you can make",
+                               detail: "Recipes now show a small match ring and a plain line like You have 8 of 10 ingredients or Missing only sour cream, so you can tell at a glance what is worth cooking. If a recipe uses something expiring soon, Stocked points that out too."),
+                ChangelogEntry(icon: "checklist", color: Color.stockedGold,
+                               title: "Cleaner receipt review",
+                               detail: "After scanning a receipt, items are now grouped into Confident, Needs review, and Ignored, so your attention goes straight to the few reads worth double-checking. Each item shows where it came from and how sure Stocked is."),
             ]),
         // ── 2.6 (build 5) — feature round-up + guided tour ────────────────────
         ChangelogVersion(

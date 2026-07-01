@@ -71,6 +71,16 @@
         }
       }
     },
+    "%@ · %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld"
+          }
+        }
+      }
+    },
     "%@ · %lld%% left" : {
       "localizations" : {
         "en" : {
@@ -361,6 +371,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "%lld of %lld ingredients on hand" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld ingredients on hand"
           }
         }
       }
@@ -1714,6 +1734,9 @@
 
     },
     "Ingredient" : {
+
+    },
+    "Ingredient match unknown" : {
 
     },
     "Ingredient Pairings" : {

@@ -300,6 +300,15 @@ class GuestDataStore {
 
     // MARK: - Nuclear clear — wipes every byte of stored data
     func clearAll() {
+        // ── 0. Stop any in-flight debounced save FIRST ───────────────
+        // A save queued moments before this call (e.g. from a recent edit) would otherwise
+        // fire its 250ms flush AFTER we wipe disk below and re-write the old data straight
+        // back — a silent resurrection. Cancel the pending flush and drop the dirty queue so
+        // nothing we're about to clear gets persisted again.
+        saveFlushTask?.cancel()
+        saveFlushTask = nil
+        dirtyKeys.removeAll()
+
         // ── 1. In-memory state ───────────────────────────────────────
         inventoryItems        = []
         groceryItems          = []
@@ -328,6 +337,14 @@ class GuestDataStore {
 
         // ── 4. Rating/preference weights (SurpriseRecipeEngine) ──────
         UserDefaults.standard.removeObject(forKey: "ratingWeights_v1")
+
+        // ── 4b. On-disk JSON store (THE missing wipe) ────────────────
+        // Large collections (inventory past the UserDefaults mirror cap) live ONLY as JSON
+        // files in the app's Documents directory via LocalDatabase — the UserDefaults domain
+        // wipe above never touches them. Without this, clearing empties the arrays in memory
+        // but the next load() re-reads the on-disk blobs and everything comes back. Wiping the
+        // file store here is what makes "Clear All Data" and "Erase & Exit" actually stick.
+        LocalDatabase.shared.deleteAll()
 
         // ── 5. iCloud Key-Value Store ─────────────────────────────────
         let kvStore = NSUbiquitousKeyValueStore.default
@@ -572,46 +589,8 @@ class GuestDataStore {
             if was > 0 && level <= 0 { handleDepleted(inventoryItems[i]) }
         }
     }
-
-    /// Freeze an item from the Daily Brief: move it to the Freezer zone and push its expiry out,
-    /// since freezing genuinely extends shelf life. Default +60 days; if the item has no expiry
-    /// we set one 60 days out so it stops nagging as "expiring". This is a real inventory change,
-    /// not a UI-only dismissal.
-    func freezeItem(id: UUID, extendDays: Int = 60) {
-        guard let i = inventoryIndex(of: id) else { return }
-        withAnimation {
-            inventoryItems[i].storageCategory = .freezer
-            let base = inventoryItems[i].expirationDate ?? Date()
-            inventoryItems[i].expirationDate = base.addingTimeInterval(Double(extendDays) * 86400)
-        }
-    }
-
-    // MARK: - Daily Brief snooze
-    // Lets the user quiet an expiring-soon item for a while without changing the item itself.
-    // Stored as id → snooze-until timestamps in UserDefaults so it survives relaunch, and is
-    // pruned lazily. The Brief filters items whose snooze is still in the future.
-    private var snoozeKey: String { "expiringSnooze_v1" }
-    private func snoozeMap() -> [String: Double] {
-        (ud.dictionary(forKey: snoozeKey) as? [String: Double]) ?? [:]
-    }
-    /// Snooze an item from the expiring list for `days` (default 3).
-    func snoozeExpiring(id: UUID, days: Int = 3) {
-        var map = snoozeMap()
-        map[id.uuidString] = Date().addingTimeInterval(Double(days) * 86400).timeIntervalSince1970
-        ud.set(map, forKey: snoozeKey)
-    }
-    /// True while an item is still within its snooze window.
-    func isSnoozed(_ id: UUID) -> Bool {
-        guard let until = snoozeMap()[id.uuidString] else { return false }
-        if until <= Date().timeIntervalSince1970 {
-            // Expired snooze — clean it up so the map doesn't grow unbounded.
-            var map = snoozeMap(); map[id.uuidString] = nil; ud.set(map, forKey: snoozeKey)
-            return false
-        }
-        return true
-    }
-
     func removeInventoryItem(id: UUID) {
+        // #19 — if we're removing something that still had stock and is past its expiry, it was
         // thrown out, not used up. Log it as waste (with its known price) for the Stats view.
         if let item = inventoryItems.first(where: { $0.id == id }),
            item.level > 0, let exp = item.expirationDate, exp < Date() {
