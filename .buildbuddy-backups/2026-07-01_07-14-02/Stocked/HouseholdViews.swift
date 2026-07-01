@@ -322,8 +322,7 @@ struct HouseholdMembersView: View {
             .padding(.bottom, 24)
         }
         .task {
-            household.myDisplayName = session.isNamedUser ? session.userName
-                : UIDevice.current.name   // guests: use the device name, not "Chef"
+            household.myDisplayName = session.userName
             members = await household.fetchMembers()
             loading = false
         }
@@ -412,8 +411,7 @@ struct HouseholdActivityView: View {
             }
         }
         .task {
-            household.myDisplayName = session.isNamedUser ? session.userName
-                : UIDevice.current.name   // guests: use the device name, not "Chef"
+            household.myDisplayName = session.userName
             events = await household.fetchActivity()
             loading = false
         }

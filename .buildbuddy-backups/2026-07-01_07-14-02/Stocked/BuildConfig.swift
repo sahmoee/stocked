@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 10
-    private static let fallbackVersion     = "3.1"
+    private static let fallbackBuildNumber = 9
+    private static let fallbackVersion     = "3.0"
 
     static let changeCount   = 4
-    static let buildName     = "Build 277 — Fixes inviting people to a household: joining with a code now correctly adds the person as a separate member instead of silently doing nothing, and each device keeps its own identity so two people are never treated as the same member."
+    static let buildName     = "Build 276 — Every expiring item in your Daily Brief now has one-tap actions right there: Cook this, Add to grocery, Mark used, Freeze, and Snooze, so you can act on the brief without digging through the app."
     static let buildDate     = "June 2026"
 
     // MARK: - Environment detection

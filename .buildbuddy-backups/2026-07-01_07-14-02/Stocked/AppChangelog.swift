@@ -38,16 +38,19 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.1 (build 10) — household invite fix ─────────────────────────────
+        // ── 3.0 (build 9) — Daily Brief direct actions ────────────────────────
         ChangelogVersion(
-            version: "3.1",
-            buildDate: "Build 10 · July 1, 2026",
+            version: "3.0",
+            buildDate: "Build 9 · July 1, 2026",
             headline: "What's new in Stocked",
             isLatest: true,
             entries: [
-                ChangelogEntry(icon: "person.2.badge.plus", color: Color.stockedGold,
-                               title: "Inviting people to your household works",
-                               detail: "Joining a household with an invite code now correctly adds that person as a separate member. Before, if both devices had the same default name they were treated as one person and the new member silently never appeared. Each device now keeps its own identity."),
+                ChangelogEntry(icon: "bolt.fill", color: Color.stockedGold,
+                               title: "Act on your Daily Brief in one tap",
+                               detail: "Every expiring item now has quick actions right in the brief: Cook this to build a meal around it, Add to grocery, Mark used, Freeze to move it to the freezer and buy it more time, or Snooze to quiet it for a few days. No more digging through the app to handle what needs attention."),
+                ChangelogEntry(icon: "snowflake", color: Color.stockedGold,
+                               title: "Freeze to save it",
+                               detail: "Freezing an item moves it to your freezer and pushes its date out, so something you cannot use right now stops showing as expiring."),
             ]),
         // ── 2.6 (build 5) — feature round-up + guided tour ────────────────────
         ChangelogVersion(

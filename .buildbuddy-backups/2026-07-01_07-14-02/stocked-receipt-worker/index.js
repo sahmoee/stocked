@@ -336,7 +336,6 @@ async function handleHousehold(pathname, request, env) {
 
   if (action === "create") {
     const ownerName = sanitizeName(body.ownerName);
-    const ownerId = sanitizeId(body.memberId);
     // Generate a code that isn't already taken (a few tries is plenty at this scale).
     let code = "";
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -348,8 +347,7 @@ async function handleHousehold(pathname, request, env) {
     const household = {
       code,
       ownerName,
-      ownerId,
-      members: [{ name: ownerName, memberId: ownerId, joinedAt: Date.now() }],
+      members: [{ name: ownerName, joinedAt: Date.now() }],
       inventory: [],
       grocery: [],
       activity: [{ kind: "householdCreated", itemName: "", actorName: ownerName, date: Date.now() }],
@@ -384,29 +382,13 @@ async function handleHousehold(pathname, request, env) {
   if (action === "join") {
     const code = normalizeCode(body.code);
     const memberName = sanitizeName(body.memberName);
-    const memberId = sanitizeId(body.memberId);
     const household = await readHousehold(kv, code);
     if (!household) return json({ error: "share not found", code: "notFound" }, 404);
-
-    // Identify an existing member by stable memberId when we have one; fall back to name only
-    // for legacy clients that predate memberId. This is the core fix: two devices that are both
-    // called "You" (or two real people both named Jess) are now distinct members, and the join
-    // is no longer silently deduped away.
-    const idx = household.members.findIndex((m) =>
-      memberId ? m.memberId === memberId : (m.name === memberName && !m.memberId)
-    );
-
-    if (idx === -1) {
-      household.members.push({ name: memberName, memberId, joinedAt: Date.now() });
+    if (!household.members.some((m) => m.name === memberName)) {
+      household.members.push({ name: memberName, joinedAt: Date.now() });
       household.activity = appendActivity(household.activity, {
         kind: "memberJoined", itemName: "", actorName: memberName, date: Date.now(),
       });
-      household.updatedAt = Date.now();
-      await writeHousehold(kv, code, household);
-    } else if (household.members[idx].name !== memberName || !household.members[idx].memberId) {
-      // Same device re-joining: refresh its stored name and backfill its id, no duplicate row.
-      household.members[idx].name = memberName;
-      household.members[idx].memberId = memberId || household.members[idx].memberId;
       household.updatedAt = Date.now();
       await writeHousehold(kv, code, household);
     }
@@ -441,12 +423,9 @@ async function handleHousehold(pathname, request, env) {
   if (action === "leave") {
     const code = normalizeCode(body.code);
     const memberName = sanitizeName(body.memberName);
-    const memberId = sanitizeId(body.memberId);
     const household = await readHousehold(kv, code);
     if (!household) return json({ ok: true });   // already gone
-    household.members = household.members.filter((m) =>
-      memberId ? m.memberId !== memberId : m.name !== memberName
-    );
+    household.members = household.members.filter((m) => m.name !== memberName);
     household.activity = appendActivity(household.activity, {
       kind: "memberLeft", itemName: "", actorName: memberName, date: Date.now(),
     });
@@ -493,13 +472,6 @@ function normalizeCode(raw) {
 function sanitizeName(raw) {
   if (typeof raw !== "string" || !raw.trim()) return "Member";
   return raw.trim().slice(0, 40);
-}
-
-// A member id is an opaque client-generated string (a UUID). Keep it bounded and stringy; empty
-// when absent so legacy callers (no memberId) fall back to name-based matching.
-function sanitizeId(raw) {
-  if (typeof raw !== "string") return "";
-  return raw.trim().slice(0, 64);
 }
 
 // Sort activity newest-first and cap. Pass a new event to prepend, or null to just normalize.

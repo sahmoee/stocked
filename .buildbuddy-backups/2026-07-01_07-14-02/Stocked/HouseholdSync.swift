@@ -13,7 +13,6 @@
 import Foundation
 import Observation
 import os
-import UIKit
 
 @MainActor
 @Observable
@@ -55,29 +54,6 @@ final class HouseholdSync {
         set { UserDefaults.standard.set(newValue.isEmpty ? "You" : newValue, forKey: "hh_my_name") }
     }
 
-    /// Stable per-install identity. Two devices (or two guests) could share the same display
-    /// name — "You", "Chef", or two people both called Jess — so the server must dedupe members
-    /// by THIS id, not the name. Generated once per install and persisted; never changes.
-    var memberId: String {
-        if let existing = UserDefaults.standard.string(forKey: "hh_member_id"), !existing.isEmpty {
-            return existing
-        }
-        let fresh = UUID().uuidString
-        UserDefaults.standard.set(fresh, forKey: "hh_member_id")
-        return fresh
-    }
-
-    /// Resolve a usable, non-generic display name to send to the server. Prefers an explicitly
-    /// set name, then the device name (e.g. "Jess's iPad"), and only falls back to "Member" if
-    /// somehow both are empty. This is what stops every unnamed device from showing up as "You".
-    private func resolvedName() -> String {
-        let saved = (UserDefaults.standard.string(forKey: "hh_my_name") ?? "").trimmingCharacters(in: .whitespaces)
-        if !saved.isEmpty && saved != "You" { return saved }
-        let device = UIDevice.current.name.trimmingCharacters(in: .whitespaces)
-        if !device.isEmpty { return device }
-        return "Member"
-    }
-
     private func persist() {
         switch state {
         case .owner:  UserDefaults.standard.set("owner", forKey: "hh_role")
@@ -95,8 +71,7 @@ final class HouseholdSync {
     func createHousehold() async -> Bool {
         syncStage = .creating
         state = .creating
-        myDisplayName = resolvedName()   // never create as "You"
-        let body: [String: Any] = ["ownerName": myDisplayName, "memberId": memberId]
+        let body: [String: Any] = ["ownerName": myDisplayName]
         guard let resp = await post("/household/create", body) else {
             fail("Couldn't create a household. Check your connection and try again.")
             return false
@@ -142,8 +117,7 @@ final class HouseholdSync {
             return false
         }
         syncStage = .joining
-        myDisplayName = resolvedName()   // never join as "You"
-        let body: [String: Any] = ["code": code, "memberName": myDisplayName, "memberId": memberId]
+        let body: [String: Any] = ["code": code, "memberName": myDisplayName]
         guard let resp = await post("/household/join", body) else {
             fail("Couldn't find a household with that code.")
             return false
@@ -189,8 +163,7 @@ final class HouseholdSync {
     func leaveHousehold() {
         guard let code = joinCode else { resetLocal(); return }
         let name = myDisplayName
-        let mid = memberId
-        Task { _ = await post("/household/leave", ["code": code, "memberName": name, "memberId": mid]) }
+        Task { _ = await post("/household/leave", ["code": code, "memberName": name]) }
         resetLocal()
     }
 
@@ -229,19 +202,15 @@ final class HouseholdSync {
             return [HouseholdMember(id: "me", name: myDisplayName, role: state == .owner ? .owner : .member, joinedAt: nil, isMe: true)]
         }
         let ownerName = hh["ownerName"] as? String
-        let ownerId = hh["ownerId"] as? String
-        let myId = memberId
         return raw.map { m in
             let name = (m["name"] as? String) ?? "Member"
-            let mid = (m["memberId"] as? String) ?? name
             let joined = (m["joinedAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
-            let isOwner = (ownerId != nil) ? (mid == ownerId) : (name == ownerName)
             return HouseholdMember(
-                id: mid,
+                id: name,
                 name: name,
-                role: isOwner ? .owner : .member,
+                role: (name == ownerName) ? .owner : .member,
                 joinedAt: joined,
-                isMe: mid == myId)
+                isMe: name == myDisplayName)
         }
     }
 
