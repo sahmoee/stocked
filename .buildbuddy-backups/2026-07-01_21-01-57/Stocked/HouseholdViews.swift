@@ -748,11 +748,6 @@ struct HouseholdSettingsView: View {
                 }.buttonStyle(.plain).padding(.bottom, 18)
             }
 
-            VStack(spacing: 0) {
-                Button { confirmLeave = true } label: {
-                    destructiveRow("Leave Household", "You will need a new invite to rejoin")
-                }.buttonStyle(.plain)
-            }
             .padding(.horizontal, 14)
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             .padding(.bottom, 24)
