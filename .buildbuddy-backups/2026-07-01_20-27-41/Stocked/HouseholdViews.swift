@@ -729,25 +729,11 @@ struct HouseholdSettingsView: View {
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             .padding(.bottom, 18)
 
-            // ── Conflict review entry (sync plan Drop 5) — shown only when conflicts exist ──
-            if !household.pendingConflicts.isEmpty {
-                NavigationLink { HouseholdConflictReviewView() } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedError)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Review Household Changes").font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                            Text("\(household.pendingConflicts.count) change\(household.pendingConflicts.count == 1 ? "" : "s") need your review")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.3))
-                    }
-                    .padding(14)
-                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
-                }.buttonStyle(.plain).padding(.bottom, 18)
+            VStack(spacing: 0) {
+                Button { confirmLeave = true } label: {
+                    destructiveRow("Leave Household", "You will need a new invite to rejoin")
+                }.buttonStyle(.plain)
             }
-
             .padding(.horizontal, 14)
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             .padding(.bottom, 24)
@@ -775,78 +761,6 @@ struct HouseholdSettingsView: View {
             }
             Spacer()
         }.padding(.vertical, 12)
-    }
-}
-
-// MARK: - Conflict Review (sync plan Drop 5)
-
-struct HouseholdConflictReviewView: View {
-    @Environment(AppSession.self) private var session
-    @Environment(\.dismiss) private var dismiss
-    @State private var household = HouseholdSync.shared
-
-    private func typeLabel(_ t: HouseholdEntityType) -> String {
-        switch t {
-        case .inventoryItem: return "Inventory"
-        case .groceryItem:   return "Grocery"
-        case .userRecipe, .generatedRecipe: return "Recipe"
-        default: return "Item"
-        }
-    }
-
-    var body: some View {
-        HHScreen("Review Changes") {
-            if household.pendingConflicts.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 34)).foregroundStyle(Color.stockedGold)
-                    Text("All caught up").font(.system(size: 18, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-                    Text("There are no changes to review.").font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                }.padding(.top, 60)
-            } else {
-                Text("Two people changed the same thing while offline. Choose which version to keep for each one.")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                    .padding(.bottom, 14)
-                ForEach(household.pendingConflicts) { c in
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 6) {
-                            Text(typeLabel(c.entityType).uppercased())
-                                .font(.system(size: 11, weight: .bold)).foregroundStyle(session.themeTextColor.opacity(0.4))
-                            Spacer()
-                        }
-                        versionRow(title: "Your version", name: c.mineTitle, detail: c.mineDetail) {
-                            household.resolveConflict(c, keepMine: true, store: session.guestStore)
-                        }
-                        versionRow(title: "Household version", name: c.theirsTitle, detail: c.theirsDetail) {
-                            household.resolveConflict(c, keepMine: false, store: session.guestStore)
-                        }
-                        Button { household.dismissConflict(c) } label: {
-                            Text("Skip for now").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                        }
-                    }
-                    .padding(14)
-                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
-                    .padding(.bottom, 12)
-                }
-            }
-        }
-    }
-
-    private func versionRow(title: String, name: String, detail: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                    Text(name).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                    Text(detail).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                }
-                Spacer()
-                Text("Keep").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedWhite)
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                    .background(Color.stockedGold, in: Capsule())
-            }
-            .padding(12)
-            .background(session.themeBgColor, in: RoundedRectangle(cornerRadius: 10))
-        }.buttonStyle(.plain)
     }
 }
 

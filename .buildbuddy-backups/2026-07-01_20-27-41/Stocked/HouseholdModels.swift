@@ -219,20 +219,3 @@ struct HouseholdSyncStatus: Codable, Sendable {
     var lastError: String? = nil
     var activeRoute: HouseholdSyncRoute? = nil
 }
-
-// MARK: - Conflict Review (sync plan Drop 5, Option B: safety net over LWW)
-// When a pull is about to overwrite a local item or recipe that still has an unsynced local
-// edit queued, and the incoming remote version differs, we do NOT silently apply last-write-
-// wins. Instead we capture both sides here and let the user choose in a review sheet. This
-// catches the painful case (your just-made edit clobbered) without a full revision system.
-
-struct HouseholdConflict: Identifiable, Sendable {
-    var id: UUID                          // the entity id in conflict
-    var entityType: HouseholdEntityType
-    var mineTitle: String                 // human label for the local version
-    var theirsTitle: String               // human label for the remote version
-    var mineDetail: String                // short summary of the local version
-    var theirsDetail: String              // short summary of the remote version
-    var mineJSON: Data                     // encoded local version (for restore-on-keep-mine)
-    var theirsJSON: Data                   // encoded remote version (for use-theirs)
-}

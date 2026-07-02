@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.0 (build 19) — conflict review ──────────────────────────────────
-        ChangelogVersion(
-            version: "4.0",
-            buildDate: "Build 19 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "exclamationmark.triangle", color: Color.stockedGold,
-                               title: "You choose when changes collide",
-                               detail: "If two people change the same item or recipe while offline, Stocked no longer silently picks one. Household Settings shows a Review Changes card where you pick which version to keep, so an edit you made is never quietly lost."),
-            ]),
         // ── 3.9 (build 18) — household recipe sync ────────────────────────────
         ChangelogVersion(
             version: "3.9",
             buildDate: "Build 18 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "book.closed", color: Color.stockedGold,
                                title: "Your household shares a recipe collection",

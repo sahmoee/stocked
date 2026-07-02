@@ -51,14 +51,6 @@ final class HouseholdSync {
     private(set) var pendingOps: [PendingHouseholdOperation] = []
     private(set) var syncStatus = HouseholdSyncStatus()
 
-    // Conflicts detected during a pull, awaiting user review. Observable so the settings badge
-    // and review sheet update live. Populated only on the pull path (see applyHousehold), because
-    // the push path has already reconciled through the server.
-    private(set) var pendingConflicts: [HouseholdConflict] = []
-    // Set true only while applying a PULL (not a push response), so applyHousehold knows to
-    // divert clobbering overwrites of locally-edited entities into pendingConflicts.
-    private var detectConflictsOnApply = false
-
     private func loadQueue() {
         pendingOps = LocalDatabase.shared.loadArray(PendingHouseholdOperation.self,
                                                     key: DBKey.householdOpQueue.rawValue) ?? []
@@ -256,9 +248,7 @@ final class HouseholdSync {
         guard let code = joinCode, state == .owner || state == .member else { return }
         guard let resp = await post("/household/pull", ["code": code]),
               let hh = resp["household"] as? [String: Any] else { return }
-        detectConflictsOnApply = true          // pull path: guard local unsynced edits
         _ = applyHousehold(hh, into: store)
-        detectConflictsOnApply = false
         markPullSucceeded(route: .workerPull)
     }
 
@@ -556,22 +546,13 @@ final class HouseholdSync {
         let invTombstones = Set((hh["invDeleted"] as? [String]) ?? [])
         let groTombstones = Set((hh["groDeleted"] as? [String]) ?? [])
 
-        // Ids with an unsynced local edit queued. On a pull, an incoming DIFFERENT version of one
-        // of these is a conflict (your edit vs someone else's), diverted for review rather than
-        // silently overwritten. Empty on the push path, so pushes always apply straight through.
-        let lockedIDs: Set<UUID> = detectConflictsOnApply ? Set(pendingOps.map { $0.entityID }) : []
-
         var groAdded = 0
         if let groRaw = hh["grocery"] as? [[String: Any]] {
             let remote = groRaw.compactMap { parseGrocery($0) }
             var byID = Dictionary(uniqueKeysWithValues: store.groceryItems.map { ($0.id, $0) })
             for r in remote {
                 if let local = byID[r.id] {
-                    if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
-                        recordGroceryConflict(mine: local, theirs: r)   // divert, keep local for now
-                    } else if r.updatedAt >= local.updatedAt {
-                        byID[r.id] = r   // newer wins
-                    }
+                    if r.updatedAt >= local.updatedAt { byID[r.id] = r }   // newer wins
                 } else if !groTombstones.contains(r.id.uuidString) {
                     byID[r.id] = r; groAdded += 1
                 }
@@ -590,11 +571,7 @@ final class HouseholdSync {
             var byID = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0) })
             for r in remote {
                 if let local = byID[r.id] {
-                    if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
-                        recordInventoryConflict(mine: local, theirs: r)
-                    } else if r.updatedAt >= local.updatedAt {
-                        byID[r.id] = r
-                    }
+                    if r.updatedAt >= local.updatedAt { byID[r.id] = r }
                 } else if !invTombstones.contains(r.id.uuidString) {
                     byID[r.id] = r; invAdded += 1
                 }
@@ -615,11 +592,7 @@ final class HouseholdSync {
             var touched = false
             for r in remote {
                 if let local = byID[r.id] {
-                    if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
-                        recordUserRecipeConflict(mine: local, theirs: r)
-                    } else if r.updatedAt >= local.updatedAt {
-                        byID[r.id] = r; touched = true
-                    }
+                    if r.updatedAt >= local.updatedAt { byID[r.id] = r; touched = true }
                 } else if !userRecipeTombstones.contains(r.id.uuidString) {
                     byID[r.id] = r; touched = true
                 }
@@ -634,11 +607,7 @@ final class HouseholdSync {
             var touched = false
             for r in remote {
                 if let local = byID[r.id] {
-                    if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
-                        recordGenRecipeConflict(mine: local, theirs: r)
-                    } else if r.updatedAt >= local.updatedAt {
-                        byID[r.id] = r; touched = true
-                    }
+                    if r.updatedAt >= local.updatedAt { byID[r.id] = r; touched = true }
                 } else if !genRecipeTombstones.contains(r.id.uuidString) {
                     byID[r.id] = r; touched = true
                 }
@@ -647,100 +616,6 @@ final class HouseholdSync {
             if touched { store.savedGeneratedRecipes = Array(byID.values) }
         }
         return (invAdded, groAdded)
-    }
-
-    // MARK: - Conflict recording + resolution (Drop 5, Option B)
-
-    private func addConflict(_ c: HouseholdConflict) {
-        // De-dupe by entity id: a newer pull replaces an unresolved conflict for the same item.
-        pendingConflicts.removeAll { $0.id == c.id }
-        pendingConflicts.append(c)
-    }
-    private func recordInventoryConflict(mine: LocalInventoryItem, theirs: LocalInventoryItem) {
-        let enc = JSONEncoder()
-        guard let m = try? enc.encode(mine), let t = try? enc.encode(theirs) else { return }
-        addConflict(HouseholdConflict(
-            id: mine.id, entityType: .inventoryItem,
-            mineTitle: mine.name, theirsTitle: theirs.name,
-            mineDetail: "Qty \(mine.quantity) in \(mine.zone)",
-            theirsDetail: "Qty \(theirs.quantity) in \(theirs.zone)",
-            mineJSON: m, theirsJSON: t))
-    }
-    private func recordGroceryConflict(mine: LocalGroceryItem, theirs: LocalGroceryItem) {
-        let enc = JSONEncoder()
-        guard let m = try? enc.encode(mine), let t = try? enc.encode(theirs) else { return }
-        addConflict(HouseholdConflict(
-            id: mine.id, entityType: .groceryItem,
-            mineTitle: mine.name, theirsTitle: theirs.name,
-            mineDetail: "Qty \(mine.quantity)\(mine.isChecked ? ", checked" : "")",
-            theirsDetail: "Qty \(theirs.quantity)\(theirs.isChecked ? ", checked" : "")",
-            mineJSON: m, theirsJSON: t))
-    }
-    private func recordUserRecipeConflict(mine: UserRecipe, theirs: UserRecipe) {
-        let enc = JSONEncoder()
-        guard let m = try? enc.encode(mine), let t = try? enc.encode(theirs) else { return }
-        addConflict(HouseholdConflict(
-            id: mine.id, entityType: .userRecipe,
-            mineTitle: mine.title, theirsTitle: theirs.title,
-            mineDetail: "\(mine.ingredients.count) ingredients, \(mine.instructions.count) steps",
-            theirsDetail: "\(theirs.ingredients.count) ingredients, \(theirs.instructions.count) steps",
-            mineJSON: m, theirsJSON: t))
-    }
-    private func recordGenRecipeConflict(mine: GeneratedRecipe, theirs: GeneratedRecipe) {
-        let enc = JSONEncoder()
-        guard let m = try? enc.encode(mine), let t = try? enc.encode(theirs) else { return }
-        addConflict(HouseholdConflict(
-            id: mine.id, entityType: .generatedRecipe,
-            mineTitle: mine.title, theirsTitle: theirs.title,
-            mineDetail: "\(mine.ingredients.count) ingredients, \(mine.steps.count) steps",
-            theirsDetail: "\(theirs.ingredients.count) ingredients, \(theirs.steps.count) steps",
-            mineJSON: m, theirsJSON: t))
-    }
-
-    /// Resolve one conflict. keepMine=true re-stamps the local version so it wins on the next
-    /// push; keepMine=false applies the remote version locally. Either way the conflict clears.
-    func resolveConflict(_ conflict: HouseholdConflict, keepMine: Bool, store: GuestDataStore) {
-        let dec = JSONDecoder()
-        let now = Date().timeIntervalSince1970 * 1000
-        store.isApplyingHouseholdRemote = true
-        defer { store.isApplyingHouseholdRemote = false }
-        switch conflict.entityType {
-        case .inventoryItem:
-            if keepMine, var mine = try? dec.decode(LocalInventoryItem.self, from: conflict.mineJSON) {
-                mine.updatedAt = now
-                if let i = store.inventoryItems.firstIndex(where: { $0.id == mine.id }) { store.inventoryItems[i] = mine }
-            } else if let theirs = try? dec.decode(LocalInventoryItem.self, from: conflict.theirsJSON) {
-                if let i = store.inventoryItems.firstIndex(where: { $0.id == theirs.id }) { store.inventoryItems[i] = theirs }
-            }
-        case .groceryItem:
-            if keepMine, var mine = try? dec.decode(LocalGroceryItem.self, from: conflict.mineJSON) {
-                mine.updatedAt = now
-                if let i = store.groceryItems.firstIndex(where: { $0.id == mine.id }) { store.groceryItems[i] = mine }
-            } else if let theirs = try? dec.decode(LocalGroceryItem.self, from: conflict.theirsJSON) {
-                if let i = store.groceryItems.firstIndex(where: { $0.id == theirs.id }) { store.groceryItems[i] = theirs }
-            }
-        case .userRecipe:
-            if keepMine, var mine = try? dec.decode(UserRecipe.self, from: conflict.mineJSON) {
-                mine.updatedAt = now
-                if let i = store.userRecipes.firstIndex(where: { $0.id == mine.id }) { store.userRecipes[i] = mine }
-            } else if let theirs = try? dec.decode(UserRecipe.self, from: conflict.theirsJSON) {
-                if let i = store.userRecipes.firstIndex(where: { $0.id == theirs.id }) { store.userRecipes[i] = theirs }
-            }
-        case .generatedRecipe:
-            if keepMine, var mine = try? dec.decode(GeneratedRecipe.self, from: conflict.mineJSON) {
-                mine.updatedAt = now
-                if let i = store.savedGeneratedRecipes.firstIndex(where: { $0.id == mine.id }) { store.savedGeneratedRecipes[i] = mine }
-            } else if let theirs = try? dec.decode(GeneratedRecipe.self, from: conflict.theirsJSON) {
-                if let i = store.savedGeneratedRecipes.firstIndex(where: { $0.id == theirs.id }) { store.savedGeneratedRecipes[i] = theirs }
-            }
-        default: break
-        }
-        pendingConflicts.removeAll { $0.id == conflict.id }
-        // If keeping mine, re-queue so the next push carries the local version to the household.
-        if keepMine { enqueue(entityID: conflict.id, entityType: conflict.entityType, operation: .update) }
-    }
-    func dismissConflict(_ conflict: HouseholdConflict) {
-        pendingConflicts.removeAll { $0.id == conflict.id }
     }
 
     // MARK: - Code normalization (shared with the join field)

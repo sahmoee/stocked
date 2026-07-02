@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 19
-    private static let fallbackVersion     = "4.0"
+    private static let fallbackBuildNumber = 18
+    private static let fallbackVersion     = "3.9"
 
     static let changeCount   = 4
-    static let buildName     = "Build 286 — When two people change the same item or recipe while offline, Stocked now asks you which version to keep instead of silently picking one, so an edit you made is never quietly lost."
+    static let buildName     = "Build 285 — Recipes you create and AI recipes you save now sync across your household, so everyone sees the same recipe collection. Edits and removals sync too."
     static let buildDate     = "June 2026"
 
     // MARK: - Environment detection
