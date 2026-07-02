@@ -211,7 +211,6 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable {
     var dateCreated:  Date     = Date()
     var cookCount:    Int      = 0          // how many times this recipe has been cooked
     var lastCooked:   Date?                 // date of most recent cook
-    var updatedAt:    Double   = 0          // last-modified ms since epoch, for household last-write-wins
 
     var ingredientNames: [String] { ingredients.map(\.name) }
     var estimatedCalories: Int? {
@@ -337,7 +336,6 @@ struct GeneratedRecipe: Identifiable, Codable, Sendable {
     var imageURL:           String?
     var imageData:          Data?
     var source:             RecipeSource = .generated
-    var updatedAt:          Double = 0    // last-modified ms since epoch, for household last-write-wins
 
     enum RecipeSource: String, Codable { case generated, manual, surprise }
 }

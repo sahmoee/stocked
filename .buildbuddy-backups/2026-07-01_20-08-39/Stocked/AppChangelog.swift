@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.9 (build 18) — household recipe sync ────────────────────────────
-        ChangelogVersion(
-            version: "3.9",
-            buildDate: "Build 18 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "book.closed", color: Color.stockedGold,
-                               title: "Your household shares a recipe collection",
-                               detail: "Recipes you create and AI recipes you save now sync to everyone in your household, so you all see the same collection. Edits and deletions sync too. Recipe photos stay on the device that added them for now."),
-            ]),
         // ── 3.8 (build 17) — visible sync status + Sync Now ───────────────────
         ChangelogVersion(
             version: "3.8",
             buildDate: "Build 17 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "checkmark.circle", color: Color.stockedGold,
                                title: "See your household sync status",

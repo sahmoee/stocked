@@ -55,8 +55,6 @@ class GuestDataStore {
     // via UserDefaults on purpose — they only need to survive until the next push.
     var pendingInvTombstones: Set<String> = []
     var pendingGroTombstones: Set<String> = []
-    var pendingUserRecipeTombstones: Set<String> = []
-    var pendingGenRecipeTombstones: Set<String> = []
 
     var inventoryItems: [LocalInventoryItem] = [] {
         didSet {
@@ -130,42 +128,7 @@ class GuestDataStore {
         return changed
     }
 
-    // Recipe stamping. UserRecipe/GeneratedRecipe aren't Equatable, so we detect a real change
-    // by encoding each (with updatedAt zeroed) and comparing the bytes. imageData is part of the
-    // struct but is NOT sent to the household (see HouseholdSync recipe dicts); a local-only
-    // image change still stamps, which is harmless.
-    private func stampChanged(_ items: inout [UserRecipe], against old: [UserRecipe]) -> [UUID] {
-        let now = Date().timeIntervalSince1970 * 1000
-        let enc = JSONEncoder()
-        let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
-        func bytes(_ r: UserRecipe) -> Data? { var x = r; x.updatedAt = 0; return try? enc.encode(x) }
-        var changed: [UUID] = []
-        for i in items.indices {
-            if let prev = oldByID[items[i].id] {
-                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; changed.append(items[i].id) }
-            } else {
-                items[i].updatedAt = now
-                changed.append(items[i].id)
-            }
-        }
-        return changed
-    }
-    private func stampChanged(_ items: inout [GeneratedRecipe], against old: [GeneratedRecipe]) -> [UUID] {
-        let now = Date().timeIntervalSince1970 * 1000
-        let enc = JSONEncoder()
-        let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
-        func bytes(_ r: GeneratedRecipe) -> Data? { var x = r; x.updatedAt = 0; return try? enc.encode(x) }
-        var changed: [UUID] = []
-        for i in items.indices {
-            if let prev = oldByID[items[i].id] {
-                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; changed.append(items[i].id) }
-            } else {
-                items[i].updatedAt = now
-                changed.append(items[i].id)
-            }
-        }
-        return changed
-    }
+    // Cheap signature of what the low-stock sync depends on: name + whether each item
     // is in the low band. Changes only when stock state meaningfully changes.
     private func lowStockSignature(_ items: [LocalInventoryItem]) -> [String] {
         items.compactMap { item in
@@ -225,25 +188,7 @@ class GuestDataStore {
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
     var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
     var plannedMeals:          [PlannedMeal]        = [] { didSet { saveDebounced(DBKey.plannedMeals.rawValue, plannedMeals) } }
-    var savedGeneratedRecipes: [GeneratedRecipe] = [] {
-        didSet {
-            if isStamping { return }
-            if !isApplyingHouseholdRemote {
-                isStamping = true
-                let changedIDs = stampChanged(&savedGeneratedRecipes, against: oldValue)
-                isStamping = false
-                let oldIDs = Set(oldValue.map(\.id))
-                let goneIDs = oldIDs.subtracting(savedGeneratedRecipes.map(\.id))
-                for id in goneIDs { pendingGenRecipeTombstones.insert(id.uuidString) }
-                var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
-                for id in changedIDs { ops.append((id, .generatedRecipe, oldIDs.contains(id) ? .update : .create)) }
-                for id in goneIDs { ops.append((id, .generatedRecipe, .delete)) }
-                HouseholdSync.shared.enqueueBatch(ops)
-            }
-            saveDebounced(DBKey.savedGeneratedRecipes.rawValue, savedGeneratedRecipes)
-            pushHouseholdDebounced()
-        }
-    }
+    var savedGeneratedRecipes: [GeneratedRecipe]    = [] { didSet { saveDebounced(DBKey.savedGeneratedRecipes.rawValue, savedGeneratedRecipes) } }
     var priceHistory:          [PriceRecord]        = [] { didSet { saveDebounced(DBKey.priceHistory.rawValue, priceHistory) } }
     var itemStoreHistory:      [String: String]     = [:] { didSet { saveDebounced("itemStoreHistory_v1", itemStoreHistory) } }
     var consumptionLog:        [ConsumptionRecord]  = [] { didSet { saveDebounced(DBKey.consumptionLog.rawValue, consumptionLog) } }   // close-the-loop #1
@@ -1206,23 +1151,7 @@ class GuestDataStore {
 
     // UserRecipes stored in UserDefaults
     var userRecipes: [UserRecipe] = [] {
-        didSet {
-            if isStamping { return }
-            if !isApplyingHouseholdRemote {
-                isStamping = true
-                let changedIDs = stampChanged(&userRecipes, against: oldValue)
-                isStamping = false
-                let oldIDs = Set(oldValue.map(\.id))
-                let goneIDs = oldIDs.subtracting(userRecipes.map(\.id))
-                for id in goneIDs { pendingUserRecipeTombstones.insert(id.uuidString) }
-                var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
-                for id in changedIDs { ops.append((id, .userRecipe, oldIDs.contains(id) ? .update : .create)) }
-                for id in goneIDs { ops.append((id, .userRecipe, .delete)) }
-                HouseholdSync.shared.enqueueBatch(ops)
-            }
-            saveDebounced(DBKey.userRecipes.rawValue, userRecipes)
-            pushHouseholdDebounced()
-        }
+        didSet { saveDebounced(DBKey.userRecipes.rawValue, userRecipes) }
     }
     var userSubstitutions: [UserSubstitutionEntry] = [] {
         didSet { saveDebounced("userSubstitutions_v1", userSubstitutions) }

@@ -1876,6 +1876,9 @@
     "Last synced %@" : {
 
     },
+    "Last synced: %@" : {
+
+    },
     "Leave" : {
 
     },
@@ -2315,6 +2318,9 @@
 
     },
     "Pending" : {
+
+    },
+    "Pending changes: %lld" : {
 
     },
     "People in your household" : {
@@ -2949,7 +2955,13 @@
     "SURPRISE\nME" : {
 
     },
+    "Sync" : {
+
+    },
     "Sync now" : {
+
+    },
+    "Sync Now" : {
 
     },
     "Syncing…" : {

@@ -352,8 +352,6 @@ async function handleHousehold(pathname, request, env) {
       members: [{ name: ownerName, memberId: ownerId, joinedAt: Date.now() }],
       inventory: [],
       grocery: [],
-      userRecipes: [],
-      genRecipes: [],
       activity: [{ kind: "householdCreated", itemName: "", actorName: ownerName, date: Date.now() }],
       updatedAt: Date.now(),
     };
@@ -431,12 +429,8 @@ async function handleHousehold(pathname, request, env) {
     // the household doc and echoed back on pull; capped so they can't grow without bound.
     household.invDeleted = dedupeCap((household.invDeleted || []).concat(Array.isArray(body.invDeleted) ? body.invDeleted : []), HH_MAX_ITEMS);
     household.groDeleted = dedupeCap((household.groDeleted || []).concat(Array.isArray(body.groDeleted) ? body.groDeleted : []), HH_MAX_ITEMS);
-    household.userRecipeDeleted = dedupeCap((household.userRecipeDeleted || []).concat(Array.isArray(body.userRecipeDeleted) ? body.userRecipeDeleted : []), HH_MAX_ITEMS);
-    household.genRecipeDeleted = dedupeCap((household.genRecipeDeleted || []).concat(Array.isArray(body.genRecipeDeleted) ? body.genRecipeDeleted : []), HH_MAX_ITEMS);
     const invDel = new Set(household.invDeleted);
     const groDel = new Set(household.groDeleted);
-    const userRecipeDel = new Set(household.userRecipeDeleted);
-    const genRecipeDel = new Set(household.genRecipeDeleted);
 
     // Merge inventory/grocery by id with last-write-wins on updatedAt, dropping tombstoned ids.
     // Previously push REPLACED the whole list, so with two devices whoever pushed last wiped the
@@ -447,14 +441,6 @@ async function handleHousehold(pathname, request, env) {
     }
     if (Array.isArray(body.grocery)) {
       household.grocery = mergeLWW(household.grocery, body.grocery, groDel).slice(0, HH_MAX_ITEMS);
-    }
-    // Recipes (user-created and AI-generated) merge the same LWW way. Images are not sent, so
-    // these payloads stay small.
-    if (Array.isArray(body.userRecipes)) {
-      household.userRecipes = mergeLWW(household.userRecipes || [], body.userRecipes, userRecipeDel).slice(0, HH_MAX_ITEMS);
-    }
-    if (Array.isArray(body.genRecipes)) {
-      household.genRecipes = mergeLWW(household.genRecipes || [], body.genRecipes, genRecipeDel).slice(0, HH_MAX_ITEMS);
     }
     if (Array.isArray(body.activity)) {
       // Merge incoming activity, keep newest, cap.

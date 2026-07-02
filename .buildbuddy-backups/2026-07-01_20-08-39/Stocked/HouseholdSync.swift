@@ -298,12 +298,8 @@ final class HouseholdSync {
             "code": code,
             "grocery": store.groceryItems.map { groceryDict($0) },
             "inventory": store.inventoryItems.map { inventoryDict($0) },
-            "userRecipes": store.userRecipes.map { userRecipeDict($0) },
-            "genRecipes": store.savedGeneratedRecipes.map { genRecipeDict($0) },
             "invDeleted": Array(store.pendingInvTombstones),
             "groDeleted": Array(store.pendingGroTombstones),
-            "userRecipeDeleted": Array(store.pendingUserRecipeTombstones),
-            "genRecipeDeleted": Array(store.pendingGenRecipeTombstones),
         ]
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
@@ -314,8 +310,6 @@ final class HouseholdSync {
         // Server accepted our deletions; clear the local pending set.
         store.pendingInvTombstones.removeAll()
         store.pendingGroTombstones.removeAll()
-        store.pendingUserRecipeTombstones.removeAll()
-        store.pendingGenRecipeTombstones.removeAll()
         markQueueCompleted(route: .workerPush)   // full-state push satisfies every pending op
         let counts = applyHousehold(hh, into: store)
         markPullSucceeded(route: .workerPush)    // push response carries the merged state back
@@ -486,40 +480,6 @@ final class HouseholdSync {
         item.updatedAt = (d["updatedAt"] as? Double) ?? 0
         return item
     }
-
-    // Recipes are complex Codable structs, so we transport them as their JSON object with the
-    // heavy imageData stripped out (images stay local; the household document stays lean). Encode
-    // to a dictionary for the push; decode from the dictionary on pull.
-    private func userRecipeDict(_ r: UserRecipe) -> [String: Any] {
-        var x = r; x.imageData = nil
-        guard let data = try? JSONEncoder().encode(x),
-              var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt]
-        }
-        obj["updatedAt"] = r.updatedAt
-        return obj
-    }
-    private func parseUserRecipe(_ d: [String: Any]) -> UserRecipe? {
-        guard let data = try? JSONSerialization.data(withJSONObject: d),
-              var r = try? JSONDecoder().decode(UserRecipe.self, from: data) else { return nil }
-        r.updatedAt = (d["updatedAt"] as? Double) ?? 0
-        return r
-    }
-    private func genRecipeDict(_ r: GeneratedRecipe) -> [String: Any] {
-        var x = r; x.imageData = nil
-        guard let data = try? JSONEncoder().encode(x),
-              var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt]
-        }
-        obj["updatedAt"] = r.updatedAt
-        return obj
-    }
-    private func parseGenRecipe(_ d: [String: Any]) -> GeneratedRecipe? {
-        guard let data = try? JSONSerialization.data(withJSONObject: d),
-              var r = try? JSONDecoder().decode(GeneratedRecipe.self, from: data) else { return nil }
-        r.updatedAt = (d["updatedAt"] as? Double) ?? 0
-        return r
-    }
     private func parseActivity(_ d: [String: Any]) -> HouseholdActivity? {
         guard let kindRaw = d["kind"] as? String,
               let kind = HouseholdActivity.Kind(rawValue: kindRaw) else { return nil }
@@ -579,41 +539,6 @@ final class HouseholdSync {
             for id in byID.keys where invTombstones.contains(id.uuidString) { byID[id] = nil }
             let merged = Array(byID.values)
             if merged != store.inventoryItems { store.inventoryItems = merged }
-        }
-
-        // Recipes: last-write-wins by updatedAt, honoring tombstones. UserRecipe/GeneratedRecipe
-        // aren't Equatable, so we track whether anything actually changed and only assign then
-        // (assigning always would still be safe because the remote-apply guard blocks a push loop,
-        // but this avoids needless local saves).
-        let userRecipeTombstones = Set((hh["userRecipeDeleted"] as? [String]) ?? [])
-        if let raw = hh["userRecipes"] as? [[String: Any]] {
-            let remote = raw.compactMap { parseUserRecipe($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.userRecipes.map { ($0.id, $0) })
-            var touched = false
-            for r in remote {
-                if let local = byID[r.id] {
-                    if r.updatedAt >= local.updatedAt { byID[r.id] = r; touched = true }
-                } else if !userRecipeTombstones.contains(r.id.uuidString) {
-                    byID[r.id] = r; touched = true
-                }
-            }
-            for id in byID.keys where userRecipeTombstones.contains(id.uuidString) { byID[id] = nil; touched = true }
-            if touched { store.userRecipes = Array(byID.values) }
-        }
-        let genRecipeTombstones = Set((hh["genRecipeDeleted"] as? [String]) ?? [])
-        if let raw = hh["genRecipes"] as? [[String: Any]] {
-            let remote = raw.compactMap { parseGenRecipe($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.savedGeneratedRecipes.map { ($0.id, $0) })
-            var touched = false
-            for r in remote {
-                if let local = byID[r.id] {
-                    if r.updatedAt >= local.updatedAt { byID[r.id] = r; touched = true }
-                } else if !genRecipeTombstones.contains(r.id.uuidString) {
-                    byID[r.id] = r; touched = true
-                }
-            }
-            for id in byID.keys where genRecipeTombstones.contains(id.uuidString) { byID[id] = nil; touched = true }
-            if touched { store.savedGeneratedRecipes = Array(byID.values) }
         }
         return (invAdded, groAdded)
     }
