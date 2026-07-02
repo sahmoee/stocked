@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.7 (build 16) — durable offline sync queue ───────────────────────
-        ChangelogVersion(
-            version: "3.7",
-            buildDate: "Build 16 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "tray.and.arrow.up", color: Color.stockedGold,
-                               title: "Offline household changes never get lost",
-                               detail: "Changes you make while offline are now saved to a durable queue and sync automatically the next time you're connected, even if you quit the app in between. Adds, edits, and removals all catch up on their own."),
-            ]),
         // ── 3.6 (build 15) — household sync reliability fix ───────────────────
         ChangelogVersion(
             version: "3.6",
             buildDate: "Build 15 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGold,
                                title: "Household sync now updates reliably both ways",

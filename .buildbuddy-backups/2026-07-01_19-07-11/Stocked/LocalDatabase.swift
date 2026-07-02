@@ -157,8 +157,6 @@ final class LocalDatabase {
 enum DBKey: String, CaseIterable {
     case inventoryItems        = "inventory_items"
     case groceryItems          = "grocery_items"
-    case householdOpQueue      = "household_op_queue_v1"    // durable pending household operations
-    case householdSyncStatus   = "household_sync_status_v1" // last push/pull, pending count, last error
     case pastMeals             = "past_meals"
     case plannedMeals          = "planned_meals"
     case savedRecipes          = "saved_recipes"

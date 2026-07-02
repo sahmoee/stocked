@@ -26,7 +26,6 @@ final class HouseholdSync {
         default:       state = .idle
         }
         joinCode = UserDefaults.standard.string(forKey: "hh_code")
-        loadQueue()
     }
 
     // MARK: - Observable state (matches the old manager so views compile)
@@ -41,70 +40,6 @@ final class HouseholdSync {
     var myAccessRole: HouseholdMember.Role = .owner
     private(set) var lastError: String?
     private(set) var joinCode: String?
-
-    // MARK: - Durable operation queue (sync plan Drop 1)
-    // Every household-bound local mutation enqueues an operation, persisted through
-    // LocalDatabase immediately so offline edits survive relaunch. The Worker push sends full
-    // state, so ONE successful push satisfies the entire queue; the queue exists for
-    // durability, retry, and diagnostics — not payload transport.
-
-    private(set) var pendingOps: [PendingHouseholdOperation] = []
-    private(set) var syncStatus = HouseholdSyncStatus()
-
-    private func loadQueue() {
-        pendingOps = LocalDatabase.shared.loadArray(PendingHouseholdOperation.self,
-                                                    key: DBKey.householdOpQueue.rawValue) ?? []
-        syncStatus = LocalDatabase.shared.load(HouseholdSyncStatus.self,
-                                               key: DBKey.householdSyncStatus.rawValue) ?? HouseholdSyncStatus()
-        syncStatus.pendingOperationCount = pendingOps.count
-    }
-    private func persistQueue() {
-        LocalDatabase.shared.save(pendingOps, key: DBKey.householdOpQueue.rawValue)
-        syncStatus.pendingOperationCount = pendingOps.count
-        LocalDatabase.shared.save(syncStatus, key: DBKey.householdSyncStatus.rawValue)
-    }
-
-    /// Record a household-bound mutation. Dedupes per entity: a newer operation on the same
-    /// entity replaces the older one (an update superseded by a delete keeps the delete; a
-    /// re-create after delete keeps the create). No-op when not in a household.
-    func enqueue(entityID: UUID, entityType: HouseholdEntityType, operation: HouseholdOperationType) {
-        guard state == .owner || state == .member else { return }
-        pendingOps.removeAll { $0.entityID == entityID && $0.entityType == entityType }
-        pendingOps.append(PendingHouseholdOperation(entityID: entityID,
-                                                    entityType: entityType,
-                                                    operationType: operation))
-        persistQueue()
-    }
-
-    /// Batch variant: one persist for a bulk mutation (receipt import, AI assistant apply).
-    func enqueueBatch(_ ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)]) {
-        guard state == .owner || state == .member, !ops.isEmpty else { return }
-        for o in ops {
-            pendingOps.removeAll { $0.entityID == o.id && $0.entityType == o.type }
-            pendingOps.append(PendingHouseholdOperation(entityID: o.id, entityType: o.type,
-                                                        operationType: o.op))
-        }
-        persistQueue()
-    }
-
-    /// A push confirmed by the server satisfies everything queued at that moment.
-    private func markQueueCompleted(route: HouseholdSyncRoute) {
-        pendingOps.removeAll()
-        syncStatus.lastSuccessfulPush = Date()
-        syncStatus.lastError = nil
-        syncStatus.activeRoute = route
-        persistQueue()
-    }
-    private func markQueueFailed(_ message: String) {
-        for i in pendingOps.indices { pendingOps[i].retryCount += 1; pendingOps[i].lastError = message }
-        syncStatus.lastError = message
-        persistQueue()
-    }
-    private func markPullSucceeded(route: HouseholdSyncRoute) {
-        syncStatus.lastSuccessfulPull = Date()
-        syncStatus.activeRoute = route
-        LocalDatabase.shared.save(syncStatus, key: DBKey.householdSyncStatus.rawValue)
-    }
 
     enum SyncStage: Equatable {
         case checkingAccount, creating, joining, findingZone
@@ -249,7 +184,6 @@ final class HouseholdSync {
         guard let resp = await post("/household/pull", ["code": code]),
               let hh = resp["household"] as? [String: Any] else { return }
         _ = applyHousehold(hh, into: store)
-        markPullSucceeded(route: .workerPull)
     }
 
     /// Start a background poll so household changes from other members appear automatically,
@@ -259,22 +193,12 @@ final class HouseholdSync {
         pollStore = store
         pollTask?.cancel()
         guard state == .owner || state == .member else { return }
-        // Anything queued before the last quit (offline edits) gets pushed right away.
-        if !pendingOps.isEmpty {
-            Task { await syncNow(store: store) }
-        }
         pollTask = Task { @MainActor [weak self, weak store] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: everySeconds * 1_000_000_000)
                 guard let self, let store else { return }
                 guard self.state == .owner || self.state == .member else { continue }
-                // Pending local ops → push (which also pulls the merged state back).
-                // Clean queue → lightweight pull only.
-                if self.pendingOps.isEmpty {
-                    await self.pullNow(into: store)
-                } else {
-                    await self.syncNow(store: store)
-                }
+                await self.pullNow(into: store)
             }
         }
     }
@@ -304,15 +228,12 @@ final class HouseholdSync {
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             fail("Sync didn't finish. Check your connection and try again.")
-            markQueueFailed("Push failed; will retry.")   // ops persist for the next attempt
             return
         }
         // Server accepted our deletions; clear the local pending set.
         store.pendingInvTombstones.removeAll()
         store.pendingGroTombstones.removeAll()
-        markQueueCompleted(route: .workerPush)   // full-state push satisfies every pending op
         let counts = applyHousehold(hh, into: store)
-        markPullSucceeded(route: .workerPush)    // push response carries the merged state back
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
         lastError = nil
     }
