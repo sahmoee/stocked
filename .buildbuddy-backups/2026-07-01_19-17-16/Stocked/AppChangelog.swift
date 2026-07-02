@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 3.8 (build 17) — visible sync status + Sync Now ───────────────────
-        ChangelogVersion(
-            version: "3.8",
-            buildDate: "Build 17 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "checkmark.circle", color: Color.stockedGold,
-                               title: "See your household sync status",
-                               detail: "Household Settings now shows whether you're up to date, when you last synced, and how many changes are waiting. A Sync Now button lets you sync on demand instead of waiting for the automatic cycle."),
-            ]),
         // ── 3.7 (build 16) — durable offline sync queue ───────────────────────
         ChangelogVersion(
             version: "3.7",
             buildDate: "Build 16 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "tray.and.arrow.up", color: Color.stockedGold,
                                title: "Offline household changes never get lost",

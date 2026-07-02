@@ -641,22 +641,6 @@ struct HouseholdSettingsView: View {
     @Environment(AppSession.self) private var session
     @State private var household = HouseholdSync.shared
     @State private var confirmLeave = false
-    @State private var isSyncing = false
-
-    private var statusIsHealthy: Bool { household.syncStatus.lastError == nil }
-    private var statusLine: String {
-        if !statusIsHealthy { return "Offline. Changes will sync later." }
-        return household.pendingOps.isEmpty ? "Up to date" : "\(household.pendingOps.count) change\(household.pendingOps.count == 1 ? "" : "s") waiting to sync"
-    }
-    private var statusIcon: String {
-        statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
-    }
-    private var lastSyncedText: String {
-        let dates = [household.syncStatus.lastSuccessfulPush, household.syncStatus.lastSuccessfulPull].compactMap { $0 }
-        guard let latest = dates.max() else { return "Never" }
-        let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
-        return f.localizedString(for: latest, relativeTo: Date())
-    }
 
     var body: some View {
         HHScreen("Household Settings") {
@@ -680,54 +664,6 @@ struct HouseholdSettingsView: View {
             .padding(.horizontal, 14)
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             .padding(.top, 10).padding(.bottom, 18)
-
-            // ── Sync status + manual Sync Now (sync plan Drop 3, worker-adapted) ──
-            HStack { Text("Sync").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
-                .padding(.bottom, 8)
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    Image(systemName: statusIcon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(statusIsHealthy ? Color.stockedGold : Color.stockedError)
-                    Text(statusLine)
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                    Spacer()
-                }
-                Text("Last synced: \(lastSyncedText)")
-                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                if household.pendingOps.count > 0 {
-                    Text("Pending changes: \(household.pendingOps.count)")
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                }
-                if let err = household.syncStatus.lastError, !err.isEmpty {
-                    Text(err).font(.system(size: 12)).foregroundStyle(Color.stockedError.opacity(0.8))
-                }
-                Button {
-                    guard !isSyncing else { return }
-                    isSyncing = true
-                    Task {
-                        await household.syncNow(store: session.guestStore)
-                        isSyncing = false
-                        if household.syncStatus.lastError == nil {
-                            ToastCenter.shared.success("Synced with household")
-                        } else {
-                            ToastCenter.shared.info("Couldn't sync. Will retry automatically.")
-                        }
-                    }
-                } label: {
-                    HStack {
-                        if isSyncing { ProgressView().tint(Color.stockedWhite) }
-                        Text(isSyncing ? "Syncing…" : "Sync Now")
-                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
-                    }
-                    .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
-                }
-                .disabled(isSyncing)
-            }
-            .padding(14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
-            .padding(.bottom, 18)
 
             VStack(spacing: 0) {
                 Button { confirmLeave = true } label: {
