@@ -111,10 +111,7 @@ struct ServingSizeView: View {
         .navigationDestination(isPresented: $advance) {
             if isCookNow {
                 MainHubView(servings: Int(servings.rounded()))
-            } else {
-                MealPlannerView(servings: Int(servings.rounded()))
-            }
-        }
+            }}
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             advance = false   // collapse cook flow on iPad
         }

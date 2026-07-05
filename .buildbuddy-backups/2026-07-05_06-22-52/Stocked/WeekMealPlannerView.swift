@@ -5,7 +5,6 @@ import SwiftUI
 // day, mark it cooked, or remove it. Reads/writes session.guestStore.plannedMeals.
 
 struct WeekMealPlannerView: View {
-    private static let cardCorner: CGFloat = 20   // matches app card radius (StockedUI.cornerRadiusLg)
     @Environment(AppSession.self) private var session
     @State private var addingDay: Int? = nil
     @State private var newTitle = ""
@@ -97,7 +96,7 @@ struct WeekMealPlannerView: View {
             }
         }
         .padding(14)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: Self.cardCorner))
+        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
     }
 
     private func addMeal(_ day: Int) {

@@ -93,7 +93,7 @@ struct CookLaterHomeView: View {
                 Spacer(minLength: 20)
             }
         }
-        .navigationDestination(isPresented: $goPlanner) { MealPlannerView(servings: 4) }
+        
         .navigationDestination(isPresented: $goPrep) { MealPrepView() }
     }
 }
