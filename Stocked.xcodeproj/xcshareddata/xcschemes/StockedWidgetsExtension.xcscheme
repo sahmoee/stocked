@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "7B5266442FDB475200ABE8B1"
-               BuildableName = "StockedWidgetsExtension.appex"
-               BlueprintName = "StockedWidgetsExtension"
+               BuildableName = "StockedWidgets.appex"
+               BlueprintName = "StockedWidgets"
                ReferencedContainer = "container:Stocked.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>

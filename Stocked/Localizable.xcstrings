@@ -563,6 +563,9 @@
         }
       }
     },
+    "%lld×" : {
+
+    },
     "%lldd" : {
 
     },
@@ -912,6 +915,9 @@
       }
     },
     "Are you scanning one item, or multiple items in a row?\nBulk mode keeps the scanner open after each scan." : {
+
+    },
+    "As you use up and remove items, your stats will build here." : {
 
     },
     "Ask Stocked what food is expiring soon." : {
@@ -1568,6 +1574,9 @@
     "For: %@" : {
 
     },
+    "Force Sync Now" : {
+
+    },
     "Found Item" : {
 
     },
@@ -2059,6 +2068,9 @@
 
     },
     "More online" : {
+
+    },
+    "Most cooked" : {
 
     },
     "Most used" : {
@@ -3062,6 +3074,9 @@
 
     },
     "There are no changes to review." : {
+
+    },
+    "These details help diagnose household sync. Nothing here is shared." : {
 
     },
     "These items need to be used or added to your shopping list." : {

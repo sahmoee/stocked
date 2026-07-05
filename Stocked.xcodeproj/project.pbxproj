@@ -10,7 +10,7 @@
 		7B5264682FD8B1A800ABE8B1 /* StockedShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7B52645E2FD8B1A700ABE8B1 /* StockedShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7B5266482FDB475300ABE8B1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B5266472FDB475200ABE8B1 /* WidgetKit.framework */; };
 		7B52664A2FDB475300ABE8B1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B5266492FDB475300ABE8B1 /* SwiftUI.framework */; };
-		7B5266572FDB475700ABE8B1 /* StockedWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7B5266452FDB475200ABE8B1 /* StockedWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7B5266572FDB475700ABE8B1 /* StockedWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7BA5021E3BD8B1A700ABE8B1 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BA5021F3BD8B1A700ABE8B1 /* libsqlite3.tbd */; };
 /* End PBXBuildFile section */
 
@@ -38,7 +38,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7B5266572FDB475700ABE8B1 /* StockedWidgetsExtension.appex in Embed Foundation Extensions */,
+				7B5266572FDB475700ABE8B1 /* StockedWidgets.appex in Embed Foundation Extensions */,
 				7B5264682FD8B1A800ABE8B1 /* StockedShareExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -50,7 +50,7 @@
 		7B52645E2FD8B1A700ABE8B1 /* StockedShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StockedShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B52646F2FD8FFDF00ABE8B1 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
 		7B5264702FD8FFDF00ABE8B1 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
-		7B5266452FDB475200ABE8B1 /* StockedWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StockedWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StockedWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B5266472FDB475200ABE8B1 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		7B5266492FDB475300ABE8B1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		7BA5021F3BD8B1A700ABE8B1 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
@@ -65,20 +65,20 @@
 			);
 			target = 7B52645D2FD8B1A700ABE8B1 /* StockedShareExtension */;
 		};
-		7B52665B2FDB475700ABE8B1 /* Exceptions for "StockedWidgets" folder in "StockedWidgetsExtension" target */ = {
+		7B52665B2FDB475700ABE8B1 /* Exceptions for "StockedWidgets" folder in "StockedWidgets" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 7B5266442FDB475200ABE8B1 /* StockedWidgetsExtension */;
+			target = 7B5266442FDB475200ABE8B1 /* StockedWidgets */;
 		};
-		7B52665F2FDB47C200ABE8B1 /* Exceptions for "Stocked" folder in "StockedWidgetsExtension" target */ = {
+		7B52665F2FDB47C200ABE8B1 /* Exceptions for "Stocked" folder in "StockedWidgets" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				CookTimerActivity.swift,
 				WidgetShared.swift,
 			);
-			target = 7B5266442FDB475200ABE8B1 /* StockedWidgetsExtension */;
+			target = 7B5266442FDB475200ABE8B1 /* StockedWidgets */;
 		};
 		7BF491562FD3C48B00F32BED /* Exceptions for "Stocked" folder in "Stocked" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -101,7 +101,7 @@
 		7B52664B2FDB475300ABE8B1 /* StockedWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7B52665B2FDB475700ABE8B1 /* Exceptions for "StockedWidgets" folder in "StockedWidgetsExtension" target */,
+				7B52665B2FDB475700ABE8B1 /* Exceptions for "StockedWidgets" folder in "StockedWidgets" target */,
 			);
 			path = StockedWidgets;
 			sourceTree = "<group>";
@@ -110,7 +110,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				7BF491562FD3C48B00F32BED /* Exceptions for "Stocked" folder in "Stocked" target */,
-				7B52665F2FDB47C200ABE8B1 /* Exceptions for "Stocked" folder in "StockedWidgetsExtension" target */,
+				7B52665F2FDB47C200ABE8B1 /* Exceptions for "Stocked" folder in "StockedWidgets" target */,
 			);
 			path = Stocked;
 			sourceTree = "<group>";
@@ -181,7 +181,7 @@
 			children = (
 				7BF4905A2FD3BD1A00F32BED /* Stocked.app */,
 				7B52645E2FD8B1A700ABE8B1 /* StockedShareExtension.appex */,
-				7B5266452FDB475200ABE8B1 /* StockedWidgetsExtension.appex */,
+				7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -211,9 +211,9 @@
 			productReference = 7B52645E2FD8B1A700ABE8B1 /* StockedShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		7B5266442FDB475200ABE8B1 /* StockedWidgetsExtension */ = {
+		7B5266442FDB475200ABE8B1 /* StockedWidgets */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7B5266582FDB475700ABE8B1 /* Build configuration list for PBXNativeTarget "StockedWidgetsExtension" */;
+			buildConfigurationList = 7B5266582FDB475700ABE8B1 /* Build configuration list for PBXNativeTarget "StockedWidgets" */;
 			buildPhases = (
 				7B5266412FDB475200ABE8B1 /* Sources */,
 				7B5266422FDB475200ABE8B1 /* Frameworks */,
@@ -226,11 +226,11 @@
 			fileSystemSynchronizedGroups = (
 				7B52664B2FDB475300ABE8B1 /* StockedWidgets */,
 			);
-			name = StockedWidgetsExtension;
+			name = StockedWidgets;
 			packageProductDependencies = (
 			);
 			productName = StockedWidgetsExtension;
-			productReference = 7B5266452FDB475200ABE8B1 /* StockedWidgetsExtension.appex */;
+			productReference = 7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		7BF490592FD3BD1A00F32BED /* Stocked */ = {
@@ -295,7 +295,7 @@
 			targets = (
 				7BF490592FD3BD1A00F32BED /* Stocked */,
 				7B52645D2FD8B1A700ABE8B1 /* StockedShareExtension */,
-				7B5266442FDB475200ABE8B1 /* StockedWidgetsExtension */,
+				7B5266442FDB475200ABE8B1 /* StockedWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -356,7 +356,7 @@
 		};
 		7B5266562FDB475700ABE8B1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 7B5266442FDB475200ABE8B1 /* StockedWidgetsExtension */;
+			target = 7B5266442FDB475200ABE8B1 /* StockedWidgets */;
 			targetProxy = 7B5266552FDB475700ABE8B1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -367,7 +367,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -379,7 +379,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -397,7 +397,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -409,7 +409,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -428,7 +428,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -440,7 +440,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -459,7 +459,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -471,7 +471,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -613,7 +613,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -629,7 +629,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -650,7 +650,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -666,7 +666,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -691,7 +691,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7B5266582FDB475700ABE8B1 /* Build configuration list for PBXNativeTarget "StockedWidgetsExtension" */ = {
+		7B5266582FDB475700ABE8B1 /* Build configuration list for PBXNativeTarget "StockedWidgets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7B5266592FDB475700ABE8B1 /* Debug */,
