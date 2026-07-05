@@ -57,6 +57,7 @@ class GuestDataStore {
     var pendingGroTombstones: Set<String> = []
     var pendingUserRecipeTombstones: Set<String> = []
     var pendingGenRecipeTombstones: Set<String> = []
+    var pendingMealTombstones: Set<String> = []
 
     var inventoryItems: [LocalInventoryItem] = [] {
         didSet {
@@ -175,6 +176,22 @@ class GuestDataStore {
         }
         return changed
     }
+    private func stampChanged(_ items: inout [PlannedMeal], against old: [PlannedMeal]) -> [UUID] {
+        let now = Date().timeIntervalSince1970 * 1000
+        let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
+        var changed: [UUID] = []
+        for i in items.indices {
+            if let prev = oldByID[items[i].id] {
+                var a = items[i]; a.updatedAt = 0
+                var b = prev;      b.updatedAt = 0
+                if a != b { items[i].updatedAt = now; changed.append(items[i].id) }
+            } else {
+                items[i].updatedAt = now
+                changed.append(items[i].id)
+            }
+        }
+        return changed
+    }
     // is in the low band. Changes only when stock state meaningfully changes.
     private func lowStockSignature(_ items: [LocalInventoryItem]) -> [String] {
         items.compactMap { item in
@@ -237,7 +254,25 @@ class GuestDataStore {
         saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); pushHouseholdDebounced(); refreshWidgetsDebounced() } }
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
     var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
-    var plannedMeals:          [PlannedMeal]        = [] { didSet { saveDebounced(DBKey.plannedMeals.rawValue, plannedMeals) } }
+    var plannedMeals: [PlannedMeal] = [] {
+        didSet {
+            if isStamping { return }
+            if !isApplyingHouseholdRemote {
+                isStamping = true
+                let changedIDs = stampChanged(&plannedMeals, against: oldValue)
+                isStamping = false
+                let oldIDs = Set(oldValue.map(\.id))
+                let goneIDs = oldIDs.subtracting(plannedMeals.map(\.id))
+                for id in goneIDs { pendingMealTombstones.insert(id.uuidString) }
+                var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
+                for id in changedIDs { ops.append((id, .plannedMeal, oldIDs.contains(id) ? .update : .create)) }
+                for id in goneIDs { ops.append((id, .plannedMeal, .delete)) }
+                HouseholdSync.shared.enqueueBatch(ops)
+            }
+            saveDebounced(DBKey.plannedMeals.rawValue, plannedMeals)
+            pushHouseholdDebounced()
+        }
+    }
     var savedGeneratedRecipes: [GeneratedRecipe] = [] {
         didSet {
             if isStamping { return }
@@ -845,6 +880,41 @@ class GuestDataStore {
     /// name, estimate the average days between depletions; if it's been longer than that since the
     /// last depletion and it isn't currently stocked, it's a candidate to pre-add to grocery.
     /// Returns item names sorted by how overdue they are. Read-only; callers decide what to add.
+    /// #9 Estimate a use-by date for an item that was added without one, from a shelf-life table
+    /// keyed by name keyword then storage zone. Returns nil for shelf-stable staples so we don't
+    /// invent expiry where none applies. Callers apply it only when the user left the field empty.
+    func estimatedUseBy(forName name: String, zone: String, from date: Date = Date()) -> Date? {
+        let n = name.lowercased()
+        // Keyword table (days). Most specific wins.
+        let keywordDays: [(String, Int)] = [
+            ("milk", 7), ("cream", 7), ("yogurt", 14), ("cheese", 21), ("eggs", 28),
+            ("chicken", 2), ("beef", 3), ("pork", 3), ("fish", 2), ("seafood", 2),
+            ("lettuce", 5), ("spinach", 5), ("berries", 4), ("strawberr", 4), ("banana", 5),
+            ("bread", 5), ("tortilla", 10), ("leftover", 4),
+        ]
+        for (kw, days) in keywordDays where n.contains(kw) {
+            return Calendar.current.date(byAdding: .day, value: days, to: date)
+        }
+        // Zone fallback for anything perishable.
+        let zoneDays: [String: Int] = ["Fridge": 10, "Freezer": 120]
+        if let days = zoneDays[zone] {
+            return Calendar.current.date(byAdding: .day, value: days, to: date)
+        }
+        return nil   // Pantry/Staples: shelf-stable, no invented expiry
+    }
+
+    /// #14 Turn a cooked recipe's output into a tracked leftover in the Fridge, with a short
+    /// use-by so it shows up in expiring-soon. Call after cooking to close the Cook→Inventory loop.
+    func addLeftover(named title: String, servings: Int = 1) {
+        var item = LocalInventoryItem(name: "Leftover: \(title)", level: 1.0, zone: "Fridge",
+                                      quantity: max(1, servings))
+        item.storageCategory = .fridge
+        item.expirationDate = Calendar.current.date(byAdding: .day, value: 4, to: Date())
+        item.purchaseDate = Date()
+        addInventoryItem(item)
+        ToastCenter.shared.success("Saved leftovers to your Fridge")
+    }
+
     func predictedRunningLow(limit: Int = 10) -> [String] {
         // Group depletion dates by item.
         var byItem: [String: [Date]] = [:]
@@ -871,8 +941,7 @@ class GuestDataStore {
         return scored.sorted { $0.overdueDays > $1.overdueDays }.prefix(limit).map { $0.name }
     }
 
-    func deductIngredients(_ ingredients: [String]) {
-        for ingredient in ingredients {
+    func deductIngredients(_ ingredients: [String]) {        for ingredient in ingredients {
             let lower = ingredient.lowercased()
             if let i = inventoryItems.firstIndex(where: {
                 lower.contains($0.name.lowercased()) || $0.name.lowercased().contains(lower)

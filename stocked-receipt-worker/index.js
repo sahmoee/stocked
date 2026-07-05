@@ -286,6 +286,20 @@ async function isRateLimited(kv, ip) {
   return false;
 }
 
+/** #20 Per-household push limiter: caps writes per household per minute so one runaway client
+ *  can't hammer the KV store, independent of the per-IP limit. Returns true when over the cap. */
+async function isHouseholdWriteLimited(kv, code) {
+  if (!kv || !code) return false;
+  const now = Date.now();
+  const key = `hw:${code}:${Math.floor(now / 60000)}`;
+  const raw = await kv.get(key);
+  const count = parseInt(raw || "0", 10);
+  if (count >= HH_WRITE_PER_MINUTE) return true;
+  await kv.put(key, String(count + 1), { expirationTtl: 120 });
+  return false;
+}
+const HH_WRITE_PER_MINUTE = 60;   // generous for real use, blocks a stuck client loop
+
 /** Constant-time string comparison to avoid leaking the secret via timing. */
 function timingSafeEqual(a, b) {
   if (a.length !== b.length) return false;
@@ -354,6 +368,7 @@ async function handleHousehold(pathname, request, env) {
       grocery: [],
       userRecipes: [],
       genRecipes: [],
+      plannedMeals: [],
       activity: [{ kind: "householdCreated", itemName: "", actorName: ownerName, date: Date.now() }],
       updatedAt: Date.now(),
     };
@@ -433,6 +448,43 @@ async function handleHousehold(pathname, request, env) {
     const code = normalizeCode(body.code);
     const household = await readHousehold(kv, code);
     if (!household) return json({ error: "share not found", code: "notFound" }, 404);
+    // #20 per-household write cap (separate from per-IP). Protects the KV store from a stuck client.
+    if (await isHouseholdWriteLimited(kv, code)) {
+      return json({ error: "Too many changes at once; please wait a moment", code: "rateLimited" }, 429);
+    }
+
+    // #5 Server-side permission enforcement. Look up the pushing member and their effective
+    // permissions (role default, overridden per-member). The owner is always allowed. A member
+    // with no add/edit rights (e.g. a kid / view-only) is rejected outright; a member who can
+    // add/edit but not remove has their deletion tombstones ignored rather than the push failing.
+    const actorId = sanitizeId(body.actorId);
+    const isOwner = actorId && actorId === household.ownerId;
+    let canWrite = true, canRemove = true;
+    if (!isOwner) {
+      const me = (household.members || []).find((m) => m.memberId === actorId);
+      if (me) {
+        const roleDefaults = {
+          owner:   { add: true,  edit: true,  remove: true },
+          manager: { add: true,  edit: true,  remove: true },
+          adult:   { add: true,  edit: true,  remove: true },
+          teen:    { add: true,  edit: true,  remove: false },
+          kid:     { add: false, edit: false, remove: false },
+          member:  { add: true,  edit: true,  remove: true },
+        };
+        const def = roleDefaults[me.role] || roleDefaults.adult;
+        const add    = (typeof me.overrideCanAdd    === "boolean") ? me.overrideCanAdd    : def.add;
+        const edit   = (typeof me.overrideCanEdit   === "boolean") ? me.overrideCanEdit   : def.edit;
+        canRemove    = (typeof me.overrideCanRemove === "boolean") ? me.overrideCanRemove : def.remove;
+        canWrite = add || edit;
+      }
+    }
+    if (!canWrite) {
+      return json({ error: "Your access level can't change the household pantry", code: "forbidden" }, 403);
+    }
+    // If this member can't remove, drop their deletion tombstones before they're accumulated.
+    if (!canRemove) {
+      body.invDeleted = []; body.groDeleted = []; body.userRecipeDeleted = []; body.genRecipeDeleted = [];
+    }
 
     // Accumulate deletion tombstones so a remove on one device sticks and propagates. Stored on
     // the household doc and echoed back on pull; capped so they can't grow without bound.
@@ -440,6 +492,7 @@ async function handleHousehold(pathname, request, env) {
     household.groDeleted = dedupeCap((household.groDeleted || []).concat(Array.isArray(body.groDeleted) ? body.groDeleted : []), HH_MAX_ITEMS);
     household.userRecipeDeleted = dedupeCap((household.userRecipeDeleted || []).concat(Array.isArray(body.userRecipeDeleted) ? body.userRecipeDeleted : []), HH_MAX_ITEMS);
     household.genRecipeDeleted = dedupeCap((household.genRecipeDeleted || []).concat(Array.isArray(body.genRecipeDeleted) ? body.genRecipeDeleted : []), HH_MAX_ITEMS);
+    household.mealDeleted = dedupeCap((household.mealDeleted || []).concat(Array.isArray(body.mealDeleted) ? body.mealDeleted : []), HH_MAX_ITEMS);
     const invDel = new Set(household.invDeleted);
     const groDel = new Set(household.groDeleted);
     const userRecipeDel = new Set(household.userRecipeDeleted);
@@ -462,6 +515,10 @@ async function handleHousehold(pathname, request, env) {
     }
     if (Array.isArray(body.genRecipes)) {
       household.genRecipes = mergeLWW(household.genRecipes || [], body.genRecipes, genRecipeDel).slice(0, HH_MAX_ITEMS);
+    }
+    if (Array.isArray(body.plannedMeals)) {
+      const mealDel = new Set(household.mealDeleted);
+      household.plannedMeals = mergeLWW(household.plannedMeals || [], body.plannedMeals, mealDel).slice(0, HH_MAX_ITEMS);
     }
     if (Array.isArray(body.activity)) {
       // Merge incoming activity, keep newest, cap.
@@ -490,6 +547,13 @@ async function handleHousehold(pathname, request, env) {
     // The owner's own level cannot be changed away from owner.
     if (targetId !== household.ownerId && role) household.members[idx].role = role;
     if (label !== undefined) household.members[idx].label = label;
+    // #4 per-permission overrides. Explicit true/false sets an override; null clears it.
+    for (const key of ["overrideCanAdd", "overrideCanEdit", "overrideCanRemove"]) {
+      if (key in body) {
+        if (body[key] === null) delete household.members[idx][key];
+        else if (typeof body[key] === "boolean") household.members[idx][key] = body[key];
+      }
+    }
     household.updatedAt = Date.now();
     await writeHousehold(kv, code, household);
     return json({ ok: true, household });

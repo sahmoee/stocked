@@ -443,6 +443,9 @@ struct HouseholdMemberProfileView: View {
     @State private var household = HouseholdSync.shared
     @State private var selectedRole: HouseholdMember.Role = .adult
     @State private var customLabel: String = ""
+    @State private var ovrAdd = true
+    @State private var ovrEdit = true
+    @State private var ovrRemove = false
     @State private var saving = false
     @State private var saveMessage: String? = nil
 
@@ -483,6 +486,16 @@ struct HouseholdMemberProfileView: View {
                             .padding(10)
                             .background(session.themeBgColor, in: RoundedRectangle(cornerRadius: 8))
                     }
+
+                    // #4 Per-permission fine-tuning. Each toggle overrides the role default for
+                    // this one member; leave them matching the role for standard behavior.
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Fine-tune permissions").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        Toggle("Can add items", isOn: $ovrAdd).font(.system(size: 14)).tint(Color.stockedGold)
+                        Toggle("Can edit items", isOn: $ovrEdit).font(.system(size: 14)).tint(Color.stockedGold)
+                        Toggle("Can remove items", isOn: $ovrRemove).font(.system(size: 14)).tint(Color.stockedGold)
+                    }
+                    .padding(.top, 4)
 
                     Button {
                         Task { await saveRole() }
@@ -526,6 +539,13 @@ struct HouseholdMemberProfileView: View {
         .onAppear {
             selectedRole = (member.role == .owner || member.role == .member) ? .adult : member.role
             customLabel = member.customLabel ?? ""
+            ovrAdd = member.effectiveCanAdd
+            ovrEdit = member.effectiveCanEdit
+            ovrRemove = member.effectiveCanRemove
+        }
+        .onChange(of: selectedRole) { _, r in
+            // Default the toggles to the newly picked role's permissions (owner can then tweak).
+            ovrAdd = r.canAdd; ovrEdit = r.canEdit; ovrRemove = r.canRemove
         }
     }
 
@@ -542,8 +562,14 @@ struct HouseholdMemberProfileView: View {
     private func saveRole() async {
         saving = true; saveMessage = nil
         let label = customLabel.trimmingCharacters(in: .whitespaces)
+        // Only send an override when it differs from the role's default; otherwise nil (use default).
+        let oAdd: Bool?    = ovrAdd    == selectedRole.canAdd    ? nil : ovrAdd
+        let oEdit: Bool?   = ovrEdit   == selectedRole.canEdit   ? nil : ovrEdit
+        let oRemove: Bool? = ovrRemove == selectedRole.canRemove ? nil : ovrRemove
         let ok = await household.setMemberRole(memberId: member.id, role: selectedRole,
-                                               label: label.isEmpty ? "" : label)
+                                               label: label.isEmpty ? "" : label,
+                                               overrideCanAdd: oAdd, overrideCanEdit: oEdit,
+                                               overrideCanRemove: oRemove)
         saving = false
         saveMessage = ok ? "Saved. Changes apply on their next sync." : (household.lastError ?? "Couldn't save.")
     }

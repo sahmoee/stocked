@@ -383,4 +383,5 @@ struct PlannedMeal: Identifiable, Codable, Sendable, Equatable {
     var mealType: String       // "Breakfast" | "Lunch" | "Dinner"
     var isCooked: Bool = false
     var isBuilding: Bool = false   // true while accumulating dragged inventory items
+    var updatedAt: Double = 0      // #13 last-modified ms, for household last-write-wins
 }

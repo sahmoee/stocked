@@ -113,7 +113,17 @@ struct HouseholdMember: Identifiable, Hashable {
     var role: Role
     /// Owner-assigned custom label shown instead of the role's default (e.g. "Mom", "Big Sis").
     var customLabel: String? = nil
-    var joinedAt: Date?
+    // #4 Per-permission overrides. When set, these win over the role's defaults, so the owner can
+    // fine-tune one member (e.g. a teen who's allowed to remove). nil = use the role default.
+    var overrideCanAdd: Bool? = nil
+    var overrideCanEdit: Bool? = nil
+    var overrideCanRemove: Bool? = nil
+
+    // Effective permissions = override if present, else the role default.
+    var effectiveCanAdd: Bool    { overrideCanAdd    ?? role.canAdd }
+    var effectiveCanEdit: Bool   { overrideCanEdit   ?? role.canEdit }
+    var effectiveCanRemove: Bool { overrideCanRemove ?? role.canRemove }
+    var joinedAt: Date? = nil
     var isMe: Bool = false
 
     /// The label to show: the owner's custom label if set, else the role's default.

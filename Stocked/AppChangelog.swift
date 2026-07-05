@@ -38,12 +38,32 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.2 (build 21) — planner, permissions, recipe photos, leftovers ───
+        ChangelogVersion(
+            version: "4.2",
+            buildDate: "Build 21 · July 1, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "calendar", color: Color.stockedGold,
+                               title: "Shared weekly meal planner",
+                               detail: "Plan meals for the week and mark them cooked. Your plan syncs with everyone in the household, just like your pantry and recipes."),
+                ChangelogEntry(icon: "photo", color: Color.stockedGold,
+                               title: "Recipe photos sync",
+                               detail: "Photos on the recipes you create and save now sync to the whole household, so everyone sees the same picture."),
+                ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedGold,
+                               title: "Fine-grained member permissions",
+                               detail: "Owners can now toggle add, edit, and remove for each member individually, and those limits are enforced everywhere, not just hidden in the app."),
+                ChangelogEntry(icon: "takeoutbag.and.cup.and.straw", color: Color.stockedGold,
+                               title: "Leftovers and smart use-by dates",
+                               detail: "Cooked meals can be saved as leftovers in your fridge, and items added without a date now get a smart use-by estimate so nothing slips past expiry unnoticed."),
+            ]),
         // ── 4.1 (build 20) — sync speed, activity feed, smarter staples ───────
         ChangelogVersion(
             version: "4.1",
             buildDate: "Build 20 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "bolt.horizontal", color: Color.stockedGold,
                                title: "Household changes sync in seconds",

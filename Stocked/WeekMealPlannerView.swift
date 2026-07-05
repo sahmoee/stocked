@@ -4,7 +4,7 @@ import SwiftUI
 // (planned meals flow through the same worker document as inventory/recipes). Add a meal to any
 // day, mark it cooked, or remove it. Reads/writes session.guestStore.plannedMeals.
 
-struct MealPlannerView: View {
+struct WeekMealPlannerView: View {
     @Environment(AppSession.self) private var session
     @State private var addingDay: Int? = nil
     @State private var newTitle = ""

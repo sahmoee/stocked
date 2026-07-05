@@ -39,6 +39,11 @@ final class HouseholdSync {
     /// until the owner assigns a level. Views can read HouseholdSync.shared.myAccessRole and its
     /// permission flags (canAdd/canEdit/canRemove) to show or disable controls.
     var myAccessRole: HouseholdMember.Role = .owner
+    // #4 My effective permissions (role default, overridden per-member by the owner). The Add
+    // Item gate and any edit/remove gating read these so overrides are honored, not just the role.
+    var myCanAdd: Bool = true
+    var myCanEdit: Bool = true
+    var myCanRemove: Bool = true
     private(set) var lastError: String?
     private(set) var joinCode: String?
 
@@ -308,11 +313,22 @@ final class HouseholdSync {
             }
         }
     }
-    func stopAutoSync() { pollTask?.cancel(); pollTask = nil }
+    func stopAutoSync() { pollTask?.cancel(); pollTask = nil; fgTask?.cancel(); fgTask = nil }
+    @ObservationIgnored private var fgTask: Task<Void, Never>? = nil
     /// Pull immediately (e.g. on foreground), then let the poller continue.
     func syncOnForeground() {
         guard let store = pollStore, state == .owner || state == .member else { return }
-        Task { await pullNow(into: store) }
+        fgTask?.cancel()
+        fgTask = Task { [weak self, weak store] in
+            guard let self, let store else { return }
+            await self.pullNow(into: store)
+        }
+    }
+    /// #18 Pause polling when the app backgrounds (no orphaned network loop); resume on foreground.
+    func pauseAutoSync() { pollTask?.cancel(); pollTask = nil }
+    func resumeAutoSync() {
+        guard let store = pollStore, pollTask == nil, state == .owner || state == .member else { return }
+        startAutoSync(store: store)
     }
 
     /// Manual two-way sync for an existing owner/member: push local collaborative data, pull merged.
@@ -326,14 +342,17 @@ final class HouseholdSync {
         syncStage = .uploading(store.groceryItems.count)
         let body: [String: Any] = [
             "code": code,
+            "actorId": memberId,          // #5 server validates this member's permissions
             "grocery": store.groceryItems.map { groceryDict($0) },
             "inventory": store.inventoryItems.map { inventoryDict($0) },
             "userRecipes": store.userRecipes.map { userRecipeDict($0) },
             "genRecipes": store.savedGeneratedRecipes.map { genRecipeDict($0) },
+            "plannedMeals": store.plannedMeals.map { plannedMealDict($0) },
             "invDeleted": Array(store.pendingInvTombstones),
             "groDeleted": Array(store.pendingGroTombstones),
             "userRecipeDeleted": Array(store.pendingUserRecipeTombstones),
             "genRecipeDeleted": Array(store.pendingGenRecipeTombstones),
+            "mealDeleted": Array(store.pendingMealTombstones),
         ]
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
@@ -346,6 +365,7 @@ final class HouseholdSync {
         store.pendingGroTombstones.removeAll()
         store.pendingUserRecipeTombstones.removeAll()
         store.pendingGenRecipeTombstones.removeAll()
+        store.pendingMealTombstones.removeAll()
         markQueueCompleted(route: .workerPush)   // full-state push satisfies every pending op
         let counts = applyHousehold(hh, into: store)
         markPullSucceeded(route: .workerPush)    // push response carries the merged state back
@@ -363,6 +383,7 @@ final class HouseholdSync {
     }
 
     private func resetLocal() {
+        stopAutoSync()          // #18 cancel the polling task so it can't run after leaving
         state = .idle
         joinCode = nil
         UserDefaults.standard.removeObject(forKey: "hh_role")
@@ -421,6 +442,9 @@ final class HouseholdSync {
                 name: name,
                 role: role,
                 customLabel: customLabel,
+                overrideCanAdd: m["overrideCanAdd"] as? Bool,
+                overrideCanEdit: m["overrideCanEdit"] as? Bool,
+                overrideCanRemove: m["overrideCanRemove"] as? Bool,
                 joinedAt: joined,
                 isMe: mid == myId)
         }
@@ -431,7 +455,9 @@ final class HouseholdSync {
     /// Owner action: set a member's access level and optional custom label. Persists to the
     /// household document so every device sees it. No-op if the current device isn't the owner.
     @discardableResult
-    func setMemberRole(memberId targetId: String, role: HouseholdMember.Role, label: String?) async -> Bool {
+    func setMemberRole(memberId targetId: String, role: HouseholdMember.Role, label: String?,
+                       overrideCanAdd: Bool? = nil, overrideCanEdit: Bool? = nil,
+                       overrideCanRemove: Bool? = nil) async -> Bool {
         guard let code = joinCode, state == .owner else {
             fail("Only the household owner can change member levels.")
             return false
@@ -439,6 +465,10 @@ final class HouseholdSync {
         var body: [String: Any] = ["code": code, "memberId": targetId, "role": role.rawValue,
                                    "actorId": memberId]
         if let label { body["label"] = label }
+        // #4 send explicit overrides; a JSON null clears an override back to the role default.
+        body["overrideCanAdd"]    = overrideCanAdd    as Any? ?? NSNull()
+        body["overrideCanEdit"]   = overrideCanEdit   as Any? ?? NSNull()
+        body["overrideCanRemove"] = overrideCanRemove as Any? ?? NSNull()
         guard let resp = await post("/household/setrole", body),
               (resp["ok"] as? Bool) == true else {
             fail("Couldn't update that member. Check your connection and try again.")
@@ -458,8 +488,15 @@ final class HouseholdSync {
     /// Refresh the cached myAccessRole from a member list (called after fetchMembers).
     private func refreshMyAccessRole(from members: [HouseholdMember]) {
         // Not in a household → treat as owner (full access) so solo use is never restricted.
-        guard state == .owner || state == .member else { myAccessRole = .owner; return }
+        guard state == .owner || state == .member else {
+            myAccessRole = .owner; myCanAdd = true; myCanEdit = true; myCanRemove = true; return
+        }
         myAccessRole = myRole(from: members)
+        if let me = members.first(where: { $0.isMe }) {
+            myCanAdd = me.effectiveCanAdd; myCanEdit = me.effectiveCanEdit; myCanRemove = me.effectiveCanRemove
+        } else {
+            myCanAdd = myAccessRole.canAdd; myCanEdit = myAccessRole.canEdit; myCanRemove = myAccessRole.canRemove
+        }
     }
 
     // MARK: - Networking
@@ -524,11 +561,13 @@ final class HouseholdSync {
         return item
     }
 
-    // Recipes are complex Codable structs, so we transport them as their JSON object with the
-    // heavy imageData stripped out (images stay local; the household document stays lean). Encode
-    // to a dictionary for the push; decode from the dictionary on pull.
+    // Recipes are complex Codable structs transported as their JSON object. #2: recipe images are
+    // now included so the whole household sees the photo, but capped so one huge image can't bloat
+    // the shared document — anything over the cap is dropped from the synced copy (stays local).
+    private static let maxSyncedImageBytes = 200_000   // ~200 KB per recipe image
     private func userRecipeDict(_ r: UserRecipe) -> [String: Any] {
-        var x = r; x.imageData = nil
+        var x = r
+        if let d = x.imageData, d.count > Self.maxSyncedImageBytes { x.imageData = nil }
         guard let data = try? JSONEncoder().encode(x),
               var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt]
@@ -543,7 +582,8 @@ final class HouseholdSync {
         return r
     }
     private func genRecipeDict(_ r: GeneratedRecipe) -> [String: Any] {
-        var x = r; x.imageData = nil
+        var x = r
+        if let d = x.imageData, d.count > Self.maxSyncedImageBytes { x.imageData = nil }
         guard let data = try? JSONEncoder().encode(x),
               var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt]
@@ -556,6 +596,20 @@ final class HouseholdSync {
               var r = try? JSONDecoder().decode(GeneratedRecipe.self, from: data) else { return nil }
         r.updatedAt = (d["updatedAt"] as? Double) ?? 0
         return r
+    }
+    private func plannedMealDict(_ m: PlannedMeal) -> [String: Any] {
+        guard let data = try? JSONEncoder().encode(m),
+              var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return ["id": m.id.uuidString, "title": m.title, "updatedAt": m.updatedAt]
+        }
+        obj["updatedAt"] = m.updatedAt
+        return obj
+    }
+    private func parsePlannedMeal(_ d: [String: Any]) -> PlannedMeal? {
+        guard let data = try? JSONSerialization.data(withJSONObject: d),
+              var m = try? JSONDecoder().decode(PlannedMeal.self, from: data) else { return nil }
+        m.updatedAt = (d["updatedAt"] as? Double) ?? 0
+        return m
     }
     private func parseActivity(_ d: [String: Any]) -> HouseholdActivity? {
         guard let kindRaw = d["kind"] as? String,
@@ -680,6 +734,22 @@ final class HouseholdSync {
             }
             for id in byID.keys where genRecipeTombstones.contains(id.uuidString) { byID[id] = nil; touched = true }
             if touched { store.savedGeneratedRecipes = Array(byID.values) }
+        }
+        // #13 Planned meals: LWW merge honoring tombstones, same pattern as recipes.
+        let mealTombstones = Set((hh["mealDeleted"] as? [String]) ?? [])
+        if let raw = hh["plannedMeals"] as? [[String: Any]] {
+            let remote = raw.compactMap { parsePlannedMeal($0) }
+            var byID = Dictionary(uniqueKeysWithValues: store.plannedMeals.map { ($0.id, $0) })
+            var touched = false
+            for r in remote {
+                if let local = byID[r.id] {
+                    if r.updatedAt >= local.updatedAt { byID[r.id] = r; touched = true }
+                } else if !mealTombstones.contains(r.id.uuidString) {
+                    byID[r.id] = r; touched = true
+                }
+            }
+            for id in byID.keys where mealTombstones.contains(id.uuidString) { byID[id] = nil; touched = true }
+            if touched { store.plannedMeals = Array(byID.values) }
         }
         return (invAdded, groAdded)
     }

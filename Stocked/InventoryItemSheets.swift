@@ -441,7 +441,7 @@ struct AddItemSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
-            if !HouseholdSync.shared.myAccessRole.canAdd {
+            if !HouseholdSync.shared.myCanAdd {
                 // Household permission gate: this member's access level can't add items. The owner
                 // sets levels in the member profile. Owner and solo users always pass this.
                 VStack(spacing: 14) {
