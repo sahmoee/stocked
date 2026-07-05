@@ -348,40 +348,6 @@ struct RecipeIngredientLine: Identifiable, Codable, Sendable {
     var name:    String
     var inStock: Bool = true
 
-    /// #12 Cook-from-what-I-have ranking helper lives on the store; this scales a recipe's
-    /// ingredient amount string by a factor for the #10 serving-size scaler. Parses a leading
-    /// number (incl. simple fractions like 1/2) and multiplies it, leaving the unit text intact.
-    static func scaledAmount(_ amount: String, by factor: Double) -> String {
-        let trimmed = amount.trimmingCharacters(in: .whitespaces)
-        guard factor > 0, !trimmed.isEmpty else { return amount }
-        // Grab the leading numeric token (supports "1", "1.5", "1/2", "3 1/2").
-        let parts = trimmed.split(separator: " ", maxSplits: 1).map(String.init)
-        func parseNumber(_ s: String) -> Double? {
-            if s.contains("/") {
-                let f = s.split(separator: "/")
-                if f.count == 2, let n = Double(f[0]), let d = Double(f[1]), d != 0 { return n / d }
-                return nil
-            }
-            return Double(s)
-        }
-        // Mixed number "3 1/2"
-        if parts.count == 2, let whole = Double(parts[0]), let frac = parseNumber(parts[1]) {
-            let scaled = (whole + frac) * factor
-            let rest = "" // consumed both tokens
-            return trimNumber(scaled) + rest
-        }
-        if let first = parts.first, let n = parseNumber(first) {
-            let scaled = n * factor
-            let rest = parts.count > 1 ? " " + parts[1] : ""
-            return trimNumber(scaled) + rest
-        }
-        return amount   // no leading number → leave as-is
-    }
-    private static func trimNumber(_ v: Double) -> String {
-        if v == v.rounded() { return String(Int(v)) }
-        return String(format: "%.2g", v)
-    }
-
     nonisolated init(amount: String, name: String, inStock: Bool = true) {
         self.id      = UUID()
         self.amount  = amount

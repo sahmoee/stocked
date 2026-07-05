@@ -38,29 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.3 (build 22) — Build Around Food fix, receipt restock, stats ────
-        ChangelogVersion(
-            version: "4.3",
-            buildDate: "Build 22 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "hand.tap", color: Color.stockedGold,
-                               title: "Build Around Food cards work again",
-                               detail: "Tapping Proteins, Vegetables, Expiring Soon, or Leftovers now opens the category as expected. They had stopped responding to taps."),
-                ChangelogEntry(icon: "checklist", color: Color.stockedGold,
-                               title: "Receipts tidy your grocery list",
-                               detail: "After you scan a receipt, anything you bought that was on your grocery list gets checked off automatically."),
-                ChangelogEntry(icon: "chart.bar", color: Color.stockedGold,
-                               title: "Kitchen Stats and Sync Diagnostics",
-                               detail: "A new Kitchen Stats view shows what you use, waste, and cook most, and a Sync Diagnostics screen shows your household sync status at a glance."),
-            ]),
         // ── 4.2 (build 21) — planner, permissions, recipe photos, leftovers ───
         ChangelogVersion(
             version: "4.2",
             buildDate: "Build 21 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "calendar", color: Color.stockedGold,
                                title: "Shared weekly meal planner",

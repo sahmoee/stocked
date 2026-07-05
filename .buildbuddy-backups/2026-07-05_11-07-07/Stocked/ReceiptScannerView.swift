@@ -846,20 +846,6 @@ extension ReceiptScannerView {
             added += 1
         }
 
-        // #5 Receipt → auto-restock: check off any grocery-list items that match what was just
-        // purchased, so the list reflects the shopping trip without manual ticking.
-        let purchasedCanon = Set(toAdd.map { IngredientMatcher.canonical($0.resolved) })
-        if !purchasedCanon.isEmpty {
-            var list = session.guestStore.groceryItems
-            var changed = false
-            for i in list.indices where !list[i].isChecked {
-                if purchasedCanon.contains(IngredientMatcher.canonical(list[i].name)) {
-                    list[i].isChecked = true; changed = true
-                }
-            }
-            if changed { session.guestStore.groceryItems = list }
-        }
-
         // Teach ReceiptDatabase
         let learned = toAdd.map {
             LearnedReceiptItem(rawName: $0.rawText, resolvedName: $0.resolved,

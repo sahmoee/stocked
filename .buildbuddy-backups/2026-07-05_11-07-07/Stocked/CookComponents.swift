@@ -242,26 +242,17 @@ struct CookCategoryCard: View {
     var emoji: String? = nil
     var assetName: String? = nil
     var cardHeight: CGFloat = 92
-    var action: (() -> Void)? = nil
-
-    @ViewBuilder private var cardVisual: some View {
-        if let photo = cookAssetImage(assetName) {
-            photoCell(photo)
-        } else {
-            flatRow
-        }
-    }
+    let action: () -> Void
 
     var body: some View {
-        // When an action is provided, behave as a tappable button. When nil, render the visual
-        // only, so this can serve as a NavigationLink label without an inner Button swallowing
-        // the tap (that inner Button, plus allowsHitTesting(false), previously killed the tap).
-        if let action {
-            Button(action: action) { cardVisual }
-                .buttonStyle(.plain)
-        } else {
-            cardVisual
+        Button(action: action) {
+            if let photo = cookAssetImage(assetName) {
+                photoCell(photo)
+            } else {
+                flatRow
+            }
         }
+        .buttonStyle(.plain)
     }
 
     // Photo present: full-bleed image fills the whole cell, dark scrim on the left keeps the

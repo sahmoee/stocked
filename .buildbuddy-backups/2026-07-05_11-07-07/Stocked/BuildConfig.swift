@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 22
-    private static let fallbackVersion     = "4.3"
+    private static let fallbackBuildNumber = 21
+    private static let fallbackVersion     = "4.2"
 
     static let changeCount   = 4
-    static let buildName     = "Build 289 — Fixes the Build Around Food category cards so they open again, auto-checks purchased items off your grocery list after a receipt scan, adds recipe scaling, and adds Kitchen Stats and Sync Diagnostics screens."
+    static let buildName     = "Build 288 — Recipe photos now sync, owners get fine-grained member permissions enforced on the server, a shared weekly meal planner arrives, cooked meals can be saved as leftovers, and items get smart use-by estimates."
     static let buildDate     = "June 2026"
 
     // MARK: - Environment detection
