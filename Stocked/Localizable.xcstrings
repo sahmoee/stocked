@@ -1004,6 +1004,15 @@
     "Camera unavailable" : {
 
     },
+    "Can add items" : {
+
+    },
+    "Can edit items" : {
+
+    },
+    "Can remove items" : {
+
+    },
     "Cancel" : {
 
     },
@@ -1535,6 +1544,9 @@
     "Finding your %@ recipe…" : {
 
     },
+    "Fine-tune permissions" : {
+
+    },
     "Finish & Save Meal" : {
 
     },
@@ -1984,6 +1996,9 @@
 
     },
     "Matching Recipes" : {
+
+    },
+    "Meal name" : {
 
     },
     "Meal Photo" : {
@@ -3150,6 +3165,9 @@
 
     },
     "Two people changed the same thing while offline. Choose which version to keep for each one." : {
+
+    },
+    "Type" : {
 
     },
     "Uncertain — tap to correct" : {
