@@ -178,6 +178,16 @@
     "%lld available" : {
 
     },
+    "%lld change%@ need your review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld change%2$@ need your review"
+          }
+        }
+      }
+    },
     "%lld collection%@" : {
       "localizations" : {
         "en" : {
@@ -835,6 +845,9 @@
 
     },
     "AI recipes need an internet connection and the recipe service set up." : {
+
+    },
+    "All caught up" : {
 
     },
     "All cook times" : {
@@ -1825,6 +1838,9 @@
     "Joining…" : {
 
     },
+    "Keep" : {
+
+    },
     "Keep at least" : {
 
     },
@@ -2613,6 +2629,9 @@
     "Review Changes" : {
 
     },
+    "Review Household Changes" : {
+
+    },
     "Review, then save it to your vault." : {
 
     },
@@ -3027,6 +3046,9 @@
     "The week, handled." : {
 
     },
+    "There are no changes to review." : {
+
+    },
     "These items need to be used or added to your shopping list." : {
 
     },
@@ -3125,6 +3147,9 @@
 
     },
     "Try: \"quick chicken\", \"no dairy pasta\", \"Indian breakfast\"" : {
+
+    },
+    "Two people changed the same thing while offline. Choose which version to keep for each one." : {
 
     },
     "Uncertain — tap to correct" : {
