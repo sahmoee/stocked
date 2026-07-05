@@ -38,32 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.1 (build 20) — sync speed, activity feed, smarter staples ───────
-        ChangelogVersion(
-            version: "4.1",
-            buildDate: "Build 20 · July 1, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "bolt.horizontal", color: Color.stockedGold,
-                               title: "Household changes sync in seconds",
-                               detail: "Shared pantries now update within a few seconds instead of waiting for a slower cycle, and it stays light on data by only fetching what actually changed."),
-                ChangelogEntry(icon: "list.bullet.rectangle", color: Color.stockedGold,
-                               title: "See who changed what",
-                               detail: "The Household Activity feed now shows items and recipes as they're added, edited, and removed by each member."),
-                ChangelogEntry(icon: "exclamationmark.triangle", color: Color.stockedGold,
-                               title: "Fewer surprises when changes collide",
-                               detail: "If someone deletes an item while you're editing it, Stocked now asks you what to do instead of silently dropping your change. Sync also backs off and retries calmly when the connection is flaky."),
-                ChangelogEntry(icon: "cart.badge.plus", color: Color.stockedGold,
-                               title: "Smarter staple suggestions",
-                               detail: "Stocked can now spot staples you tend to run out of on a regular cycle and suggest re-adding them before you're out."),
-            ]),
         // ── 4.0 (build 19) — conflict review ──────────────────────────────────
         ChangelogVersion(
             version: "4.0",
             buildDate: "Build 19 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "exclamationmark.triangle", color: Color.stockedGold,
                                title: "You choose when changes collide",

@@ -419,13 +419,6 @@ async function handleHousehold(pathname, request, env) {
     const code = normalizeCode(body.code);
     const household = await readHousehold(kv, code);
     if (!household) return json({ error: "share not found", code: "notFound" }, 404);
-    // #1 changed-since: if the caller passes the updatedAt it last saw and nothing changed,
-    // return a tiny "unchanged" response instead of the full document. Lets the client poll
-    // frequently and cheaply for near-instant sync without shipping the whole pantry each time.
-    const since = Number(body.since || 0);
-    if (since > 0 && Number(household.updatedAt || 0) <= since) {
-      return json({ unchanged: true, updatedAt: household.updatedAt || 0 });
-    }
     return json({ household });
   }
 

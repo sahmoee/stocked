@@ -218,7 +218,6 @@ struct HouseholdSyncStatus: Codable, Sendable {
     var pendingOperationCount: Int = 0
     var lastError: String? = nil
     var activeRoute: HouseholdSyncRoute? = nil
-    var hasStuckOperations: Bool = false          // #6 an op has failed 8+ times; surface to user
 }
 
 // MARK: - Conflict Review (sync plan Drop 5, Option B: safety net over LWW)
@@ -236,5 +235,4 @@ struct HouseholdConflict: Identifiable, Sendable {
     var theirsDetail: String              // short summary of the remote version
     var mineJSON: Data                     // encoded local version (for restore-on-keep-mine)
     var theirsJSON: Data                   // encoded remote version (for use-theirs)
-    var isRemoteDeletion: Bool = false     // #8 the other side DELETED this while I edited it
 }

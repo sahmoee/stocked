@@ -58,9 +58,6 @@ final class HouseholdSync {
     // Set true only while applying a PULL (not a push response), so applyHousehold knows to
     // divert clobbering overwrites of locally-edited entities into pendingConflicts.
     private var detectConflictsOnApply = false
-    // #1 changed-since: the newest household updatedAt we've applied, sent on each pull so the
-    // server can answer "unchanged" cheaply. Lets us poll fast for near-instant sync.
-    private var lastAppliedUpdatedAt: Double = 0
 
     private func loadQueue() {
         pendingOps = LocalDatabase.shared.loadArray(PendingHouseholdOperation.self,
@@ -104,24 +101,13 @@ final class HouseholdSync {
         syncStatus.lastSuccessfulPush = Date()
         syncStatus.lastError = nil
         syncStatus.activeRoute = route
-        nextRetryAllowedAt = .distantPast          // #6 clear backoff on success
-        syncStatus.hasStuckOperations = false
         persistQueue()
     }
     private func markQueueFailed(_ message: String) {
         for i in pendingOps.indices { pendingOps[i].retryCount += 1; pendingOps[i].lastError = message }
         syncStatus.lastError = message
-        // #6 exponential backoff: wait longer after each failure (2,4,8,16… capped at 5 min) so a
-        // persistently failing push doesn't hammer the server. Also flag ops stuck past 8 tries.
-        let maxRetry = pendingOps.map(\.retryCount).max() ?? 0
-        let delay = min(pow(2.0, Double(maxRetry)), 300)
-        nextRetryAllowedAt = Date().addingTimeInterval(delay)
-        syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
     }
-    // #6 backoff gate: the poller checks this before attempting a push.
-    private var nextRetryAllowedAt: Date = .distantPast
-    var retryIsAllowed: Bool { Date() >= nextRetryAllowedAt }
     private func markPullSucceeded(route: HouseholdSyncRoute) {
         syncStatus.lastSuccessfulPull = Date()
         syncStatus.activeRoute = route
@@ -268,22 +254,18 @@ final class HouseholdSync {
     /// auto-sync poller and on foreground so changes made elsewhere appear on their own.
     func pullNow(into store: GuestDataStore) async {
         guard let code = joinCode, state == .owner || state == .member else { return }
-        // #1 changed-since: send the last updatedAt we applied; the server returns a tiny
-        // "unchanged" reply when nothing is new, so frequent polling stays cheap.
-        guard let resp = await post("/household/pull", ["code": code, "since": lastAppliedUpdatedAt]) else { return }
-        if (resp["unchanged"] as? Bool) == true { markPullSucceeded(route: .workerPull); return }
-        guard let hh = resp["household"] as? [String: Any] else { return }
+        guard let resp = await post("/household/pull", ["code": code]),
+              let hh = resp["household"] as? [String: Any] else { return }
         detectConflictsOnApply = true          // pull path: guard local unsynced edits
         _ = applyHousehold(hh, into: store)
         detectConflictsOnApply = false
-        if let u = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = u }
         markPullSucceeded(route: .workerPull)
     }
 
     /// Start a background poll so household changes from other members appear automatically,
     /// no manual sync needed. Safe to call repeatedly (it restarts a single task). Call on app
     /// launch / foreground once a household exists.
-    func startAutoSync(store: GuestDataStore, everySeconds: UInt64 = 6) {
+    func startAutoSync(store: GuestDataStore, everySeconds: UInt64 = 20) {
         pollStore = store
         pollTask?.cancel()
         guard state == .owner || state == .member else { return }
@@ -300,10 +282,8 @@ final class HouseholdSync {
                 // Clean queue → lightweight pull only.
                 if self.pendingOps.isEmpty {
                     await self.pullNow(into: store)
-                } else if self.retryIsAllowed {
-                    await self.syncNow(store: store)
                 } else {
-                    await self.pullNow(into: store)   // still receive others' changes while backing off
+                    await self.syncNow(store: store)
                 }
             }
         }
@@ -379,13 +359,6 @@ final class HouseholdSync {
         ]
         // Push a single activity event (server merges + caps).
         _ = await post("/household/push", ["code": code, "activity": [event]])
-    }
-
-    /// #3 Fire-and-forget activity emit for use from store didSets. No-op outside a household.
-    /// Coalesced lightly: only emits when in a household and not applying a remote snapshot.
-    func emitActivity(_ kind: HouseholdActivity.Kind, itemName: String) {
-        guard state == .owner || state == .member else { return }
-        Task { await logActivity(kind, itemName: itemName) }
     }
 
     func fetchActivity(limit: Int = 50) async -> [HouseholdActivity] {
@@ -604,11 +577,7 @@ final class HouseholdSync {
                 }
             }
             // Apply deletions.
-            for id in byID.keys where groTombstones.contains(id.uuidString) {
-                if lockedIDs.contains(id), let mine = byID[id] {
-                    recordGroceryDeleteConflict(mine: mine)   // #8 their delete vs my edit
-                } else { byID[id] = nil }
-            }
+            for id in byID.keys where groTombstones.contains(id.uuidString) { byID[id] = nil }
             let merged = Array(byID.values)
             if merged != store.groceryItems { store.groceryItems = merged }
         }
@@ -630,11 +599,7 @@ final class HouseholdSync {
                     byID[r.id] = r; invAdded += 1
                 }
             }
-            for id in byID.keys where invTombstones.contains(id.uuidString) {
-                if lockedIDs.contains(id), let mine = byID[id] {
-                    recordInventoryDeleteConflict(mine: mine)
-                } else { byID[id] = nil }
-            }
+            for id in byID.keys where invTombstones.contains(id.uuidString) { byID[id] = nil }
             let merged = Array(byID.values)
             if merged != store.inventoryItems { store.inventoryItems = merged }
         }
@@ -691,21 +656,6 @@ final class HouseholdSync {
         pendingConflicts.removeAll { $0.id == c.id }
         pendingConflicts.append(c)
     }
-    // #8 delete-vs-edit recorders. "Theirs" is a deletion, so theirsJSON is empty and the flag is set.
-    private func recordInventoryDeleteConflict(mine: LocalInventoryItem) {
-        guard let m = try? JSONEncoder().encode(mine) else { return }
-        addConflict(HouseholdConflict(id: mine.id, entityType: .inventoryItem,
-            mineTitle: mine.name, theirsTitle: "Removed by someone",
-            mineDetail: "Qty \(mine.quantity) in \(mine.zone)", theirsDetail: "Deleted from the household",
-            mineJSON: m, theirsJSON: Data(), isRemoteDeletion: true))
-    }
-    private func recordGroceryDeleteConflict(mine: LocalGroceryItem) {
-        guard let m = try? JSONEncoder().encode(mine) else { return }
-        addConflict(HouseholdConflict(id: mine.id, entityType: .groceryItem,
-            mineTitle: mine.name, theirsTitle: "Removed by someone",
-            mineDetail: "Qty \(mine.quantity)", theirsDetail: "Deleted from the household",
-            mineJSON: m, theirsJSON: Data(), isRemoteDeletion: true))
-    }
     private func recordInventoryConflict(mine: LocalInventoryItem, theirs: LocalInventoryItem) {
         let enc = JSONEncoder()
         guard let m = try? enc.encode(mine), let t = try? enc.encode(theirs) else { return }
@@ -754,22 +704,6 @@ final class HouseholdSync {
         let now = Date().timeIntervalSince1970 * 1000
         store.isApplyingHouseholdRemote = true
         defer { store.isApplyingHouseholdRemote = false }
-        // #8 deletion conflict: "use theirs" applies the delete; "keep mine" restores + re-queues.
-        if conflict.isRemoteDeletion {
-            if keepMine {
-                enqueue(entityID: conflict.id, entityType: conflict.entityType, operation: .update)
-            } else {
-                switch conflict.entityType {
-                case .inventoryItem: store.inventoryItems.removeAll { $0.id == conflict.id }
-                case .groceryItem:   store.groceryItems.removeAll { $0.id == conflict.id }
-                case .userRecipe:    store.userRecipes.removeAll { $0.id == conflict.id }
-                case .generatedRecipe: store.savedGeneratedRecipes.removeAll { $0.id == conflict.id }
-                default: break
-                }
-            }
-            pendingConflicts.removeAll { $0.id == conflict.id }
-            return
-        }
         switch conflict.entityType {
         case .inventoryItem:
             if keepMine, var mine = try? dec.decode(LocalInventoryItem.self, from: conflict.mineJSON) {

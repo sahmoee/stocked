@@ -76,15 +76,6 @@ class GuestDataStore {
                 for id in changedIDs { ops.append((id, .inventoryItem, oldIDs.contains(id) ? .update : .create)) }
                 for id in goneIDs { ops.append((id, .inventoryItem, .delete)) }
                 HouseholdSync.shared.enqueueBatch(ops)
-                // #3 Household activity feed: announce item changes to the household.
-                let newByID = Dictionary(uniqueKeysWithValues: inventoryItems.map { ($0.id, $0) })
-                let oldByID = Dictionary(uniqueKeysWithValues: oldValue.map { ($0.id, $0) })
-                for id in changedIDs {
-                    if let it = newByID[id] {
-                        HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .inventoryUpdated : .inventoryAdded, itemName: it.name)
-                    }
-                }
-                for id in goneIDs { if let it = oldByID[id] { HouseholdSync.shared.emitActivity(.inventoryRemoved, itemName: it.name) } }
             }
             saveDebounced(DBKey.inventoryItems.rawValue, inventoryItems)
             _pantrySet = nil
@@ -229,10 +220,6 @@ class GuestDataStore {
             for id in changedIDs { ops.append((id, .groceryItem, oldIDs.contains(id) ? .update : .create)) }
             for id in goneIDs { ops.append((id, .groceryItem, .delete)) }
             HouseholdSync.shared.enqueueBatch(ops)
-            let gNew = Dictionary(uniqueKeysWithValues: groceryItems.map { ($0.id, $0) })
-            let gOld = Dictionary(uniqueKeysWithValues: oldValue.map { ($0.id, $0) })
-            for id in changedIDs { if let it = gNew[id] { HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .groceryChecked : .groceryAdded, itemName: it.name) } }
-            for id in goneIDs { if let it = gOld[id] { HouseholdSync.shared.emitActivity(.groceryRemoved, itemName: it.name) } }
         }
         saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); pushHouseholdDebounced(); refreshWidgetsDebounced() } }
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
@@ -252,8 +239,6 @@ class GuestDataStore {
                 for id in changedIDs { ops.append((id, .generatedRecipe, oldIDs.contains(id) ? .update : .create)) }
                 for id in goneIDs { ops.append((id, .generatedRecipe, .delete)) }
                 HouseholdSync.shared.enqueueBatch(ops)
-                let rNew = Dictionary(uniqueKeysWithValues: savedGeneratedRecipes.map { ($0.id, $0) })
-                for id in changedIDs { if let it = rNew[id] { HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .recipeUpdated : .recipeAdded, itemName: it.title) } }
             }
             saveDebounced(DBKey.savedGeneratedRecipes.rawValue, savedGeneratedRecipes)
             pushHouseholdDebounced()
@@ -807,70 +792,6 @@ class GuestDataStore {
         }
         withAnimation { inventoryItems.removeAll { $0.id == id } }
     }
-    /// #16 Remove several inventory items with an Undo toast. Captures the removed items and
-    /// restores them (with their original ids) if the user taps Undo before the toast expires.
-    func removeInventoryItems(ids: [UUID], label: String? = nil) {
-        let removed = inventoryItems.filter { ids.contains($0.id) }
-        guard !removed.isEmpty else { return }
-        withAnimation { inventoryItems.removeAll { ids.contains($0.id) } }
-        let msg = label ?? "Removed \(removed.count) item\(removed.count == 1 ? "" : "s")"
-        ToastCenter.shared.undo(msg) { [weak self] in
-            guard let self else { return }
-            withAnimation { self.inventoryItems.append(contentsOf: removed) }
-        }
-    }
-    /// #12 Score a set of recipe ingredient names by how many are currently in inventory (0…1).
-    /// Uses canonical matching so "roma tomatoes" counts against "tomato". Returns the fraction of
-    /// the recipe's ingredients you already have, so callers can rank "cook from what I have".
-    func inventoryMatchScore(ingredientNames: [String]) -> Double {
-        guard !ingredientNames.isEmpty else { return 0 }
-        let have = Set(inventoryItems.filter { $0.level > 0 }.map { IngredientMatcher.canonical($0.name) })
-        let haveWords = Set(inventoryItems.filter { $0.level > 0 }
-            .flatMap { $0.name.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init) })
-        var matched = 0
-        for raw in ingredientNames {
-            let canon = IngredientMatcher.canonical(raw)
-            let words = Set(raw.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
-            if have.contains(canon) || !words.isDisjoint(with: haveWords) { matched += 1 }
-        }
-        return Double(matched) / Double(ingredientNames.count)
-    }
-    /// Convenience: user recipes ranked best-match first, with their score.
-    func userRecipesByAvailability() -> [(recipe: UserRecipe, score: Double)] {
-        userRecipes.map { ($0, inventoryMatchScore(ingredientNames: $0.ingredients.map(\.name))) }
-            .sorted { $0.1 > $1.1 }
-    }
-
-    /// #10 Predict which staples are due to run out soon, from consumption history. For each item
-    /// name, estimate the average days between depletions; if it's been longer than that since the
-    /// last depletion and it isn't currently stocked, it's a candidate to pre-add to grocery.
-    /// Returns item names sorted by how overdue they are. Read-only; callers decide what to add.
-    func predictedRunningLow(limit: Int = 10) -> [String] {
-        // Group depletion dates by item.
-        var byItem: [String: [Date]] = [:]
-        for rec in consumptionLog where !rec.wasted {
-            byItem[rec.itemName, default: []].append(rec.depletedAt)
-        }
-        let stockedNames = Set(inventoryItems.filter { $0.level > 0 }.map { IngredientMatcher.canonical($0.name) })
-        let now = Date()
-        var scored: [(name: String, overdueDays: Double)] = []
-        for (name, datesRaw) in byItem {
-            let dates = datesRaw.sorted()
-            guard dates.count >= 2 else { continue }              // need a couple of cycles
-            if stockedNames.contains(IngredientMatcher.canonical(name)) { continue }  // already have it
-            // Average interval between depletions.
-            var gaps: [Double] = []
-            for i in 1..<dates.count { gaps.append(dates[i].timeIntervalSince(dates[i-1]) / 86400) }
-            let avg = gaps.reduce(0, +) / Double(gaps.count)
-            guard avg > 0, let last = dates.last else { continue }
-            let sinceLast = now.timeIntervalSince(last) / 86400
-            if sinceLast >= avg * 0.9 {                           // due (within 10%) or overdue
-                scored.append((name, sinceLast - avg))
-            }
-        }
-        return scored.sorted { $0.overdueDays > $1.overdueDays }.prefix(limit).map { $0.name }
-    }
-
     func deductIngredients(_ ingredients: [String]) {
         for ingredient in ingredients {
             let lower = ingredient.lowercased()
@@ -1298,8 +1219,6 @@ class GuestDataStore {
                 for id in changedIDs { ops.append((id, .userRecipe, oldIDs.contains(id) ? .update : .create)) }
                 for id in goneIDs { ops.append((id, .userRecipe, .delete)) }
                 HouseholdSync.shared.enqueueBatch(ops)
-                let urNew = Dictionary(uniqueKeysWithValues: userRecipes.map { ($0.id, $0) })
-                for id in changedIDs { if let it = urNew[id] { HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .recipeUpdated : .recipeAdded, itemName: it.title) } }
             }
             saveDebounced(DBKey.userRecipes.rawValue, userRecipes)
             pushHouseholdDebounced()

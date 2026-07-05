@@ -30,21 +30,6 @@ enum DBSchema {
     private static func versionKey(_ collection: String) -> String { "schemaVersion_\(collection)" }
     private static func storeKey(_ collection: String) -> String { "schemaVersion_\(collection)" }
 
-    // #7 Pre-migration backup: before a destructive migration runs, snapshot the current data to
-    // its own on-disk key so a bad migration can be undone. Keeps the single most recent snapshot
-    // per collection (migrations are rare and one-way). restore* reads it back.
-    static func snapshotBeforeMigration<T: Codable>(_ collection: String, _ data: [T]) {
-        LocalDatabase.shared.save(data, key: "premigration_backup_\(collection)")
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "premigration_backup_at_\(collection)")
-    }
-    static func migrationBackupDate(_ collection: String) -> Date? {
-        let t = UserDefaults.standard.double(forKey: "premigration_backup_at_\(collection)")
-        return t > 0 ? Date(timeIntervalSince1970: t) : nil
-    }
-    static func restoreMigrationBackup<T: Codable>(_ collection: String, as type: T.Type) -> [T]? {
-        LocalDatabase.shared.loadArray(T.self, key: "premigration_backup_\(collection)")
-    }
-
     /// Reads the stored version, preferring the durable on-disk value (survives restore),
     /// then falling back to the UserDefaults mirror. Whichever is HIGHER wins, so a restore
     /// of already-migrated data files is never re-migrated even if the UD mirror is stale/empty.
@@ -70,7 +55,6 @@ enum DBMigrations {
     static func migrateInventory(_ items: [LocalInventoryItem]) -> [LocalInventoryItem] {
         let from = DBSchema.storedVersion("inventory")
         guard from < DBSchema.inventoryVersion else { return items }   // already current → no work
-        DBSchema.snapshotBeforeMigration("inventory", items)          // #7 one-tap-restore backup
 
         var result = items
         // Step → v1
