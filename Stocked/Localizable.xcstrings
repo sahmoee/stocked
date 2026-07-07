@@ -1101,6 +1101,9 @@
     "Anything we missed?" : {
 
     },
+    "Apple Health" : {
+
+    },
     "Apply %lld %@" : {
       "localizations" : {
         "en" : {
@@ -1273,6 +1276,9 @@
 
     },
     "Check your Inventory tab to see them." : {
+
+    },
+    "Checking the web, your database, and AI for the perfect match" : {
 
     },
     "CHOOSE A STORE" : {
@@ -2270,6 +2276,9 @@
     "Location denied in Settings. Use a zip code instead." : {
 
     },
+    "Log cooked-meal nutrition to Health" : {
+
+    },
     "Log Out" : {
 
     },
@@ -3156,9 +3165,6 @@
 
     },
     "Search your recipes by name or cuisine." : {
-
-    },
-    "Searching the internet for the perfect match" : {
 
     },
     "Season in layers as you cook, not just at the end. Taste frequently and adjust salt, acid (lemon/vinegar), and heat to balance the dish." : {

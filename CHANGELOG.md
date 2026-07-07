@@ -1,3 +1,18 @@
+07:07:26 07:33 — v2.20 (build 9) — Build
+Big change
+
+07:07:26 07:32 — v2.20 (build 8) — Version
+Small change or fix
+
+07:07:26 07:32 — v2.19 (build 8) — Version
+Small change or fix
+
+07:07:26 07:32 — v2.18 (build 8) — Version
+Small change or fix
+
+07:07:26 07:32 — v2.17 (build 8) — Version
+Small change or fix
+
 07:07:26 07:02 — v2.16 (build 8) — Version
 Small change or fix
 
