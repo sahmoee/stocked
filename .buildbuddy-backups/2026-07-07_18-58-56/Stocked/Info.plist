@@ -50,7 +50,7 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.14</string>
+	<string>2.21</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -65,13 +65,11 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>7</string>
+	<string>12</string>
 	<key>ClaudeAPIKey</key>
 	<string>$(CLAUDE_API_KEY)</string>
 	<key>ClaudeAPIURL</key>
 	<string>$(CLAUDE_API_URL)</string>
-	<key>APINinjasKey</key>
-	<string>$(APININJAS_KEY)</string>
 	<key>ClaudeModel</key>
 	<string>$(CLAUDE_MODEL)</string>
 	<key>EdamamAppID</key>
@@ -88,6 +86,10 @@
 	<string>$(MEALDB_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Stocked uses the camera to scan barcodes and receipts so you can quickly add items to your pantry.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Stocked reads nothing from Health; access is requested only to enable nutrition logging.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Stocked logs the estimated nutrition of meals you cook to Apple Health, when you turn this on in Preferences.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Stocked uses your location to determine close by stores. </string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

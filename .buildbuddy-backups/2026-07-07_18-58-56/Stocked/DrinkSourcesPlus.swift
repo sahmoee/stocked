@@ -19,11 +19,17 @@ import os
 
 enum DrinkSourcesPlus {
 
+    // copyWithUA in RecipeSourcesPlus.swift is fileprivate to that file, so build the
+    // browser-like session locally here with the same headers.
     private static let session: URLSession = {
         let cfg = URLSessionConfiguration.default
         cfg.timeoutIntervalForRequest = 12
         cfg.timeoutIntervalForResource = 18
-        return cfg.copyWithUA()
+        cfg.httpAdditionalHeaders = [
+            "User-Agent": "Stocked/1.0 (iOS; recipe app) URLSession",
+            "Accept": "application/json"
+        ]
+        return URLSession(configuration: cfg)
     }()
 
     // MARK: - #1 IBA Official (static JSON, cached)
@@ -194,61 +200,6 @@ enum DrinkSourcesPlus {
                 imageURL: "",
                 ingredients: ings,
                 measures: Array(repeating: "", count: ings.count),
-                source: "API Ninjas"
-            )
-        }
-    }
-
-    // MARK: - API Ninjas v3 recipes (general, keyed)
-
-    /// General recipes from the API Ninjas v3 recipe endpoint, by title fragment. Requires
-    /// APINinjasKey (via Secrets.xcconfig); absent or unauthorized -> returns nothing. Used to
-    /// fill the recipe tabs, not just drinks.
-    static func apiNinjasRecipes(title query: String, limit: Int = 8) async -> [OnlineRecipe] {
-        let key = BuildConfig.apiNinjasKey
-        guard !key.isEmpty,
-              let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://api.api-ninjas.com/v3/recipe?title=\(q)") else { return [] }
-        var request = URLRequest(url: url)
-        request.setValue(key, forHTTPHeaderField: "X-Api-Key")
-        guard let (data, resp) = try? await session.data(for: request),
-              let http = resp as? HTTPURLResponse else { return [] }
-        if http.statusCode == 401 || http.statusCode == 403 {
-            Log.net.notice("API Ninjas recipe auth failed — check APINinjasKey")
-            return []
-        }
-        guard (200..<300).contains(http.statusCode) else { return [] }
-
-        // v3 may return either an array of recipe objects or a single object; handle both.
-        let objects: [[String: Any]] = {
-            if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] { return arr }
-            if let one = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { return [one] }
-            return []
-        }()
-
-        return objects.prefix(limit).compactMap { r -> OnlineRecipe? in
-            guard let title = r["title"] as? String, !title.isEmpty else { return nil }
-            let instructions = (r["instructions"] as? String) ?? ""
-            guard !instructions.isEmpty else { return nil }
-            // Ingredients arrive as a single pipe- or newline-delimited string on v3.
-            let ingredientsRaw = (r["ingredients"] as? String) ?? ""
-            let ingredients = ingredientsRaw
-                .components(separatedBy: CharacterSet(charactersIn: "|\n"))
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-            let steps = instructions
-                .components(separatedBy: CharacterSet(charactersIn: ".\n"))
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { $0.count > 3 }
-            return OnlineRecipe(
-                id: "apininjas-recipe-\(title.lowercased().replacingOccurrences(of: " ", with: "-"))",
-                title: title,
-                category: "",
-                area: "",
-                instructions: steps.isEmpty ? instructions : steps.joined(separator: "\n"),
-                imageURL: "",
-                ingredients: ingredients,
-                measures: Array(repeating: "", count: ingredients.count),
                 source: "API Ninjas"
             )
         }

@@ -247,13 +247,6 @@ class OnlineRecipesLoader {
                         group.addTask { await RecipeSourcesPlus.tasty(query: term, limit: 8) }
                     }
                 }
-                // API Ninjas v3 recipes — general recipes by title, seeded by cuisine terms and
-                // top pantry items. No-ops until APINinjasKey is set in Secrets.xcconfig.
-                if !BuildConfig.apiNinjasKey.isEmpty {
-                    for term in (seedTerms + pantrySeeds).prefix(4) {
-                        group.addTask { await DrinkSourcesPlus.apiNinjasRecipes(title: term, limit: 8) }
-                    }
-                }
                 for await results in group { fetched += results }
             }
 

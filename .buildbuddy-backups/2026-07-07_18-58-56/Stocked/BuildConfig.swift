@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 32
-    private static let fallbackVersion     = "4.13"
+    private static let fallbackBuildNumber = 31
+    private static let fallbackVersion     = "4.12"
 
-    static let changeCount   = 1
-    static let buildName     = "Build 298 — Wires the API Ninjas v3 recipe endpoint in as a general recipe source seeded by cuisine and pantry, adds the APINinjasKey Info.plist mapping so the key is read from Secrets.xcconfig, and the source appears once configured."
+    static let changeCount   = 2
+    static let buildName     = "Build 298 — Hardens login to exactly two paths, Apple or guest with a required name, gates the main app behind an active login with a persisted signed-out marker so relaunch cannot skip the login screen, and condenses duplicate rows in Data and Storage into one clean list."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection
@@ -87,12 +87,12 @@ nonisolated enum BuildConfig {
     }
     /// Injected via xcconfig SPOONACULAR_API_KEY → Info.plist SpoonacularAPIKey.
     static var spoonacularAPIKey: String {
-        bundleString("SpoonacularAPIKey") ?? "550bcb34b0b54d9aadc59ced1f9e4f53"
+        bundleString("SpoonacularAPIKey") ?? ""
     }
     /// USDA FoodData Central key (Info.plist USDAAPIKey). Falls back to the rate-limited
     /// DEMO_KEY for development; ship a real free key for production.
     static var usdaAPIKey: String {
-        let k = bundleString("USDAAPIKey") ?? "r7oepibxxl2dFn6bFTxUijRcLWwEfTvLnW8qwO4Z"
+        let k = bundleString("USDAAPIKey") ?? ""
         return k.isEmpty ? "DEMO_KEY" : k
     }
     /// Edamam Recipe Search free tier (no card). Add EdamamAppID + EdamamAppKey to
@@ -100,10 +100,10 @@ nonisolated enum BuildConfig {
     static var edamamAppID: String  { bundleString("EdamamAppID")  ?? "" }
     static var edamamAppKey: String { bundleString("EdamamAppKey") ?? "" }
     // Tasty (BuzzFeed) via RapidAPI — free tier. Add to xcconfig: RAPIDAPI_KEY = your_key
-    static var rapidAPIKey: String { bundleString("RapidAPIKey") ?? "b9fd04f161msha92809b7e166489p1e48b6jsn5fd89a63749" }
+    static var rapidAPIKey: String { bundleString("RapidAPIKey") ?? "" }
     /// API Ninjas Cocktail API (free tier, 10k/month). Add APINinjasKey to Info.plist via
     /// Secrets.xcconfig to enable; absent -> the source simply no-ops.
-    static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "vW0az1EDsqyUDn6Uwk9aoHq075u6BK7YkKnsnWOx" }
+    static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "" }
     static var networkTimeout: Double {
         Double(bundleString("NetworkTimeout") ?? "8") ?? 8
     }

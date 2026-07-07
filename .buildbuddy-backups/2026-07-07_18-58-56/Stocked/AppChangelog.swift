@@ -38,23 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.13 (build 32) — API Ninjas recipes wired in ──
-        ChangelogVersion(
-            version: "4.13",
-            buildDate: "Build 32 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "fork.knife.circle", color: Color.stockedGold,
-                               title: "More recipes from API Ninjas",
-                               detail: "When an API Ninjas key is configured, Stocked now pulls general recipes from it to help fill the recipe tabs, seeded by your cuisine preferences and what is in your kitchen, in addition to its cocktails."),
-            ]),
         // ── 4.12 (build 31) — Login hardening, tidy Data & Storage ──
         ChangelogVersion(
             version: "4.12",
             buildDate: "Build 31 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "lock.shield", color: Color.stockedGold,
                                title: "Two clear ways in",

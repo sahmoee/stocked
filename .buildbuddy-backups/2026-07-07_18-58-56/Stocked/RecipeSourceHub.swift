@@ -96,7 +96,7 @@ enum RecipeSourceHub {
             ("Spoonacular",        "🥄", "Full recipes with nutrition",   SpoonacularClient.shared.isConfigured),
             ("Edamam",             "🔎", "Recipe search aggregator",      !BuildConfig.edamamAppID.isEmpty),
             ("Tasty",              "🎬", "Video-first favorites",         !BuildConfig.rapidAPIKey.isEmpty),
-            ("API Ninjas",         "🥷", "Cocktails and recipes",         !BuildConfig.apiNinjasKey.isEmpty),
+            ("API Ninjas",         "🥷", "Structured cocktail data",      !BuildConfig.apiNinjasKey.isEmpty),
         ]
         let metaByName = Dictionary(uniqueKeysWithValues: feedMeta.map { ($0.name, $0) })
 
