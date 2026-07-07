@@ -34,17 +34,11 @@ class OnlineRecipesLoader {
     private let countKey = "appOpenCount"
     private var loadTask: Task<Void, Never>?
 
-    /// Top pantry ingredient names to seed ingredient-based fetches with, so Discover fills
-    /// with recipes the user can actually make. Set by callers that have store access; empty
-    /// is fine (the phase simply skips).
-    private var pantrySeedNames: [String] = []
-
     // MealDB categories to pull a broad mix
     private let dbCategories = ["Beef","Chicken","Seafood","Vegetarian","Pasta",
                                 "Dessert","Breakfast","Side","Lamb","Pork","Vegan"]
 
-    func loadIfNeeded(profile: UserCookingProfile? = nil, pantry: [String] = []) {
-        if !pantry.isEmpty { pantrySeedNames = pantry }
+    func loadIfNeeded(profile: UserCookingProfile? = nil) {
         // Show cached results instantly while fresh ones load
         if let cached = loadCacheSync() { recipes = filterByProfile(cached, profile: profile) }
         // #251 — if we have nothing cached yet, seed from the synced local RecipeDatabase
@@ -99,10 +93,7 @@ class OnlineRecipesLoader {
         )
     }
 
-    func forceRefresh(profile: UserCookingProfile? = nil, pantry: [String] = []) {
-        if !pantry.isEmpty { pantrySeedNames = pantry }
-        fetchInBackground(profile: profile)
-    }
+    func forceRefresh(profile: UserCookingProfile? = nil) { fetchInBackground(profile: profile) }
     func cancel() { loadTask?.cancel(); loadTask = nil }
 
     private func filterByProfile(_ all: [OnlineRecipe], profile: UserCookingProfile?) -> [OnlineRecipe] {
@@ -132,41 +123,34 @@ class OnlineRecipesLoader {
 
             var fetched: [OnlineRecipe] = []
 
-            // All MealDB phases share ONE bounded runner. Firing every phase's requests at
-            // once was what triggered the 429 rate-limiting seen in logs. This caps how many
-            // MealDB calls are in flight simultaneously while still pulling a large volume.
-            func boundedGather(_ tasks: [() async -> [OnlineRecipe]], maxConcurrent: Int = 4) async -> [OnlineRecipe] {
-                var results: [OnlineRecipe] = []
-                var index = 0
-                while index < tasks.count {
-                    let slice = tasks[index..<min(index + maxConcurrent, tasks.count)]
-                    await withTaskGroup(of: [OnlineRecipe].self) { group in
-                        for t in slice { group.addTask { await t() } }
-                        for await r in group { results += r }
+            // Phase 1: Fetch 16 recipes from specific DB categories (database-first)
+            await withTaskGroup(of: [OnlineRecipe].self) { group in
+                let cats = self.dbCategories.shuffled().prefix(11)
+                for cat in cats {
+                    group.addTask {
+                        guard !Task.isCancelled else { return [] }
+                        return await self.fetchByCategory(cat, session: session)
                     }
-                    index += maxConcurrent
                 }
-                return results
+                for await results in group { fetched += results }
             }
 
-            // Phase 1: pull from ALL DB categories (was 11 of 11 — now the full list every
-            // refresh for maximum fill), bounded so we don't hammer MealDB.
-            let catTasks: [() async -> [OnlineRecipe]] = self.dbCategories.map { cat in
-                { await self.fetchByCategory(cat, session: session) }
+            // Phase 2: random MealDB recipes for freshness (pulled harder for variety)
+            await withTaskGroup(of: OnlineRecipe?.self) { group in
+                for _ in 0..<14 {
+                    group.addTask {
+                        guard !Task.isCancelled else { return nil }
+                        return await self.fetchOne(session: session)
+                    }
+                }
+                for await r in group { if let r { fetched.append(r) } }
             }
-            fetched += await boundedGather(catTasks)
-
-            // Phase 2: random MealDB recipes for freshness (24, up from 14), bounded.
-            let randomTasks: [() async -> [OnlineRecipe]] = (0..<24).map { _ in
-                { if let r = await self.fetchOne(session: session) { return [r] } else { return [] } }
-            }
-            fetched += await boundedGather(randomTasks)
 
             // Phase 3: Pull from local RecipeDatabase (Spoonacular/CocktailDB already synced there)
             let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
             let dbRecipes = dbEntries
                 .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
-                .shuffled().prefix(60)
+                .shuffled().prefix(30)
                 .map { entry -> OnlineRecipe in
                     OnlineRecipe(
                         id: entry.id.uuidString,
@@ -184,19 +168,25 @@ class OnlineRecipesLoader {
 
             // Phase 4: DummyJSON removed — fake placeholder data, not real recipes
 
-            // Phase 5: MealDB by first letter — 6 letters per refresh (was 3), bounded.
+            // Phase 5: MealDB by first letter — pulls several letters per refresh for variety
             let letters = ["a","b","c","d","e","f","g","h","l","m","p","r","s","t"]
-            let letterTasks: [() async -> [OnlineRecipe]] = Array(letters.shuffled().prefix(6)).map { l in
-                { await self.fetchByLetter(l, session: session) }
+            let pickedLetters = Array(letters.shuffled().prefix(3))
+            await withTaskGroup(of: [OnlineRecipe].self) { group in
+                for l in pickedLetters {
+                    group.addTask { await self.fetchByLetter(l, session: session) }
+                }
+                for await r in group { fetched.append(contentsOf: r) }
             }
-            fetched += await boundedGather(letterTasks)
 
-            // Phase 6: Area-based MealDB — 7 cuisines per refresh (was 4), bounded.
+            // Phase 6: Area-based MealDB — pulls several cuisines per refresh for variety
             let areas = ["Italian","French","Japanese","Indian","Mexican","Thai","Greek","Moroccan","Chinese","Spanish","Vietnamese","Turkish","British","American"]
-            let areaTasks: [() async -> [OnlineRecipe]] = Array(areas.shuffled().prefix(7)).map { a in
-                { await self.fetchByArea(a, session: session) }
+            let pickedAreas = Array(areas.shuffled().prefix(4))
+            await withTaskGroup(of: [OnlineRecipe].self) { group in
+                for a in pickedAreas {
+                    group.addTask { await self.fetchByArea(a, session: session) }
+                }
+                for await r in group { fetched.append(contentsOf: r) }
             }
-            fetched += await boundedGather(areaTasks)
 
             // Phase 7: Forkify removed — Heroku free tier endpoint, frequently down, no ingredients
 
@@ -207,8 +197,6 @@ class OnlineRecipesLoader {
                 if let p = profile, !p.cuisinePrefs.isEmpty { return Array(p.cuisinePrefs.prefix(2)) }
                 return ["dinner", "chicken"]
             }()
-            // Up to 4 pantry ingredients drive "cook from what I have" pulls.
-            let pantrySeeds = Array(self.pantrySeedNames.prefix(4))
             await withTaskGroup(of: [OnlineRecipe].self) { group in
                 for term in seedTerms {
                     // Free sources — fire per seed term for broad coverage.
@@ -218,22 +206,16 @@ class OnlineRecipesLoader {
                 }
                 // TheCocktailDB — free, no key. Cocktails carry real instructions, so
                 // they surface as proper recipes and add variety beyond food dishes.
-                group.addTask { await CocktailDBClient.shared.discoverRecipes(limit: 8) }
+                group.addTask { await CocktailDBClient.shared.discoverRecipes(limit: 6) }
                 // DummyJSON — free, no key, curated recipes with real step-by-step
                 // instructions. A batch per refresh, plus per-seed searches for relevance.
-                group.addTask { await RecipeSourcesPlus.dummyJSONRecipes(limit: 20) }
+                group.addTask { await RecipeSourcesPlus.dummyJSONRecipes(limit: 12) }
                 for term in seedTerms {
                     group.addTask { await RecipeSourcesPlus.dummyJSONSearch(term, limit: 6) }
                 }
-                // Pantry-seeded MealDB: pull recipes built around what the user actually has,
-                // so the "cook from what I have" surfaces and Discover stay full even for
-                // users with narrow cuisine prefs. Bounded to the top few pantry ingredients.
-                for ingredient in pantrySeeds {
-                    group.addTask { await RecipeSourcesPlus.mealDBByIngredient(ingredient, limit: 5) }
-                }
-                // Spoonacular: use the BULK random call (one request returns ~20 full recipes
-                // with steps), plus a cuisine-seeded bulk call — far more variety per quota
-                // point than the old detail-per-recipe path.
+                // Metered sources. Spoonacular: use the BULK random call (one request
+                // returns ~20 full recipes with steps), plus a cuisine-seeded bulk call —
+                // far more variety per quota point than the old detail-per-recipe path.
                 if SpoonacularClient.shared.isConfigured {
                     group.addTask { await SpoonacularClient.shared.discoverRecipesBulk(number: 20) }
                     if let firstTerm = seedTerms.first {
@@ -298,7 +280,7 @@ class OnlineRecipesLoader {
                     let existingIds = Set(self.recipes.map(\.id))
                     let newOnes = unique.filter { !existingIds.contains($0.id) }
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        let combined = Array((newOnes + self.recipes).prefix(400))
+                        let combined = Array((newOnes + self.recipes).prefix(250))
                         self.recipes = self.filterByProfile(combined, profile: profile)
                     }
                     self.saveCacheAsync(self.recipes)

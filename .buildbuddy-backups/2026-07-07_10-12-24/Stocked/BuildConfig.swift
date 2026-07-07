@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 28
-    private static let fallbackVersion     = "4.9"
+    private static let fallbackBuildNumber = 27
+    private static let fallbackVersion     = "4.8"
 
-    static let changeCount   = 4
-    static let buildName     = "Build 295 — Fixes the on-device recipe store failing to load by removing CloudKit-incompatible unique constraints and pinning the store to local only, and fills the recipe tabs by pulling from more categories and sources per refresh with paced requests to avoid rate limits, including recipes built around what is in your kitchen."
+    static let changeCount   = 3
+    static let buildName     = "Build 294 — Adds three more drink sources to the Drinks section: the IBA official cocktail list cached on device, the Open Drinks community database, and the keyed API Ninjas cocktail feed, all merged and synced into the shared recipe pool."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection

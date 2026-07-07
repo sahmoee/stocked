@@ -38,32 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.9 (build 28) — Storage reliability fix and fuller recipe tabs ──
-        ChangelogVersion(
-            version: "4.9",
-            buildDate: "Build 28 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "internaldrive", color: Color.stockedGold,
-                               title: "Storage reliability fix",
-                               detail: "Fixed an issue that could stop the new on-device recipe store from loading on some devices, which meant it quietly fell back to temporary storage. It now loads reliably and keeps your data between launches."),
-                ChangelogEntry(icon: "square.grid.3x3.fill", color: Color.stockedGold,
-                               title: "Fuller recipe tabs",
-                               detail: "Every recipe area now pulls from more sources and more categories each refresh, so Discover, Browse, and the Sources and Drinks sections fill up with far more recipes."),
-                ChangelogEntry(icon: "carrot", color: Color.stockedGold,
-                               title: "Recipes for what you have",
-                               detail: "Discover now also pulls recipes built around ingredients already in your kitchen, so there is always something you can actually make."),
-                ChangelogEntry(icon: "gauge.with.dots.needle.67percent", color: Color.stockedGold,
-                               title: "Smoother loading",
-                               detail: "Recipe fetching is paced so it stops hitting rate limits, which means fewer stalls and more recipes loaded on each refresh."),
-            ]),
         // ── 4.8 (build 27) — Three more drink sources for the Drinks section ──
         ChangelogVersion(
             version: "4.8",
             buildDate: "Build 27 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "wineglass.fill", color: Color.stockedGold,
                                title: "Three new drink sources",

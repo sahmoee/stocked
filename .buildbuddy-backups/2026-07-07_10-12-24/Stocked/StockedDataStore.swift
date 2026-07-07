@@ -67,10 +67,7 @@ enum StockedCoders {
 
 @Model
 final class SDInventoryItem {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var name: String = ""
     var zoneRaw: String = ""
     var expirationDate: Date?
@@ -91,10 +88,7 @@ final class SDInventoryItem {
 
 @Model
 final class SDGroceryItem {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var name: String = ""
     var isPurchased: Bool = false
     var updatedAt: Date = Date.now
@@ -113,10 +107,7 @@ final class SDGroceryItem {
 
 @Model
 final class SDUserRecipe {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var title: String = ""
     var normalizedTitle: String = ""   // dedup key (DB #9)
     var updatedAt: Date = Date.now
@@ -135,10 +126,7 @@ final class SDUserRecipe {
 
 @Model
 final class SDGeneratedRecipe {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var title: String = ""
     var isFavorited: Bool = false
     var updatedAt: Date = Date.now
@@ -157,10 +145,7 @@ final class SDGeneratedRecipe {
 
 @Model
 final class SDPastMeal {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var title: String = ""
     var date: Date = Date.now
     var schemaVersion: Int = StockedSchema.version
@@ -177,10 +162,7 @@ final class SDPastMeal {
 
 @Model
 final class SDPlannedMeal {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var title: String = ""
     var date: Date = Date.now
     var schemaVersion: Int = StockedSchema.version
@@ -199,10 +181,7 @@ final class SDPlannedMeal {
 /// "price over time" queries are indexed by item/store/date.
 @Model
 final class SDPriceRecord {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var itemName: String = ""
     var store: String = ""
     var date: Date = Date.now
@@ -223,10 +202,7 @@ final class SDPriceRecord {
 
 @Model
 final class SDConsumptionRecord {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var itemName: String = ""
     var date: Date = Date.now
     var schemaVersion: Int = StockedSchema.version
@@ -243,10 +219,7 @@ final class SDConsumptionRecord {
 
 @Model
 final class SDSubstitution {
-    // recordID is the dedup key. It is NOT declared @Attribute(.unique): CloudKit
-    // mirroring rejects unique constraints (error 134060), which prevented the store from
-    // loading at all. Uniqueness is enforced in code by the upsert-by-recordID helper.
-    var recordID: String = ""
+    @Attribute(.unique) var recordID: String = ""
     var fromIngredient: String = ""
     var schemaVersion: Int = StockedSchema.version
     var payload: Data = Data()
@@ -281,14 +254,7 @@ final class StockedDataStore {
             SDPriceRecord.self, SDConsumptionRecord.self, SDSubstitution.self
         ])
         // Try on-disk, then in-memory, then give up gracefully — never crash.
-        // CloudKit mirroring is explicitly DISABLED for this store. Stocked's cloud sync runs
-        // through its own CloudKit + Worker path (household sync, iCloud backups), not through
-        // SwiftData. Leaving mirroring on the default (automatic) made SwiftData try to mirror
-        // this store, and CloudKit rejects the recordID unique constraints (error 134060) — so
-        // the store failed to load entirely. Pinning cloudKitDatabase to .none keeps this a
-        // purely local store and immune to that class of failure.
-        let diskConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false,
-                                            cloudKitDatabase: .none)
+        let diskConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         if let disk = try? ModelContainer(for: schema, configurations: [diskConfig]) {
             container = disk
             isPersistent = true
@@ -299,8 +265,7 @@ final class StockedDataStore {
             isPersistent = true
             dataStoreLog.info("SwiftData store reset after a load failure, reopened on disk.")
         } else if let mem = try? ModelContainer(for: schema,
-                                                configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true,
-                                                                                     cloudKitDatabase: .none)]) {
+                                                configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]) {
             container = mem
             isPersistent = false
             dataStoreLog.error("SwiftData disk store failed; using in-memory fallback (data won't persist).")

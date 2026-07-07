@@ -431,7 +431,7 @@ struct RecipeVaultView: View {
         }
         .onAppear {
             selectedTab = session.preferredRecipeTab
-            onlineLoader.loadIfNeeded(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })  // #248
+            onlineLoader.loadIfNeeded(profile: session.guestStore.cookingProfile)  // #248
             consumePendingImportIfNeeded()
         }
         .onChange(of: session.pendingRecipeImport) { _, pending in
@@ -551,7 +551,7 @@ struct RecipeVaultView: View {
                             .font(.system(size: 13))
                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                         Button {
-                            onlineLoader.forceRefresh(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })
+                            onlineLoader.forceRefresh(profile: session.guestStore.cookingProfile)
                         } label: {
                             HStack(spacing: 7) {
                                 Image(systemName: "arrow.clockwise").font(.system(size: 12, weight: .bold))
