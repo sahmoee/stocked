@@ -19,17 +19,11 @@ import os
 
 enum DrinkSourcesPlus {
 
-    // copyWithUA in RecipeSourcesPlus.swift is fileprivate to that file, so build the
-    // browser-like session locally here with the same headers.
     private static let session: URLSession = {
         let cfg = URLSessionConfiguration.default
         cfg.timeoutIntervalForRequest = 12
         cfg.timeoutIntervalForResource = 18
-        cfg.httpAdditionalHeaders = [
-            "User-Agent": "Stocked/1.0 (iOS; recipe app) URLSession",
-            "Accept": "application/json"
-        ]
-        return URLSession(configuration: cfg)
+        return cfg.copyWithUA()
     }()
 
     // MARK: - #1 IBA Official (static JSON, cached)
