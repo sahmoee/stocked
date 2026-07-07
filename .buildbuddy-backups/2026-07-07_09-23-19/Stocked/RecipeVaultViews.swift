@@ -79,9 +79,6 @@ struct RecipeVaultView: View {
         case browseAll
         case cuisineBrowse               // online recipes by cuisine (the Categories card)
         case online(OnlineRecipe)        // a tapped online/Discover recipe
-        case sources                     // browse every recipe source
-        case sourceRecipes(String)       // recipes from one source
-        case drinks                      // the Drinks section
         var id: String {
             switch self {
             case .recent(let r):       return "recent-\(r.id)"
@@ -94,9 +91,6 @@ struct RecipeVaultView: View {
             case .browseAll:           return "browseAll"
             case .cuisineBrowse:       return "cuisineBrowse"
             case .online(let r):       return "online-\(r.id)"
-            case .sources:             return "sources"
-            case .sourceRecipes(let s): return "sourceRecipes-\(s)"
-            case .drinks:              return "drinks"
             }
         }
         // Implemented via `id` so associated values (UserRecipe / RecipeDatabaseEntry)
@@ -246,14 +240,6 @@ struct RecipeVaultView: View {
                                   label: "Create with AI",
                                   subtitle: "Describe a recipe") { createRoute = .ai }
                         .coachmarkAnchor("recipes.createAI")
-                    hubActionCard(icon: "globe", tint: Color.stockedInfo,
-                                  label: "Sources",
-                                  subtitle: "Browse by source") { navTarget = .sources }
-                        .coachmarkAnchor("recipes.sources")
-                    hubActionCard(icon: "wineglass", tint: Color.stockedGold,
-                                  label: "Drinks",
-                                  subtitle: "Cocktails, coffee & more") { navTarget = .drinks }
-                        .coachmarkAnchor("recipes.drinks")
                 }
                 .padding(.horizontal, 20).padding(.bottom, 10)
                 .coachmarkAnchor("recipes.hub")
@@ -414,19 +400,6 @@ struct RecipeVaultView: View {
                 CuisineBrowseView().environment(session)
             case .online(let recipe):
                 OnlineRecipeDetailView(recipe: recipe).environment(session)   // #248
-            case .sources:
-                SourcesBrowserView(pool: discoverPool,
-                                   onOpenRecipe: { navTarget = .online($0) },
-                                   onOpenSource: { navTarget = .sourceRecipes($0) })
-                    .environment(session)
-            case .sourceRecipes(let name):
-                SourceRecipesView(sourceName: name, pool: onlineLoader.recipes,
-                                  onOpenRecipe: { navTarget = .online($0) })
-                    .environment(session)
-            case .drinks:
-                DrinksBrowseView(pool: onlineLoader.recipes,
-                                 onOpenRecipe: { navTarget = .online($0) })
-                    .environment(session)
             }
         }
         .onAppear {

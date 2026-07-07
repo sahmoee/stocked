@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 26
-    private static let fallbackVersion     = "4.7"
+    private static let fallbackBuildNumber = 25
+    private static let fallbackVersion     = "4.6"
 
     static let changeCount   = 5
-    static let buildName     = "Build 293 — Adds a browse-by-source view with per-source recipe lists, a dedicated Drinks section, thirty additional recipe sources, cross-source syncing into one shared on-device recipe pool, and refreshed coach marks on every tab."
+    static let buildName     = "Build 292 — Adds app-wide pull to refresh, a guaranteed Match My Mood result via web plus database plus AI fallbacks, the Plan a Meal fix in Cook Later, first-tap-reliable review sheets, full profile cleanup on sign-out with Apple identity restore on sign-in, and opt-in Apple Health nutrition logging for cooked meals."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection

@@ -284,11 +284,6 @@ class OnlineRecipesLoader {
                         self.recipes = self.filterByProfile(combined, profile: profile)
                     }
                     self.saveCacheAsync(self.recipes)
-                    // Cross-source sync: everything freshly fetched — from ANY feed — joins
-                    // the on-device RecipeDatabase, the one pool behind Discover's offline
-                    // seed, recipe search, the mood finder's database layer, and cook
-                    // ranking. Sources stop being silos; each fetch enriches the whole app.
-                    RecipeSourceHub.ingestIntoDatabase(newOnes)
                 } else if self.recipes.isEmpty {
                     self.error = "Couldn't load recipes. Check your connection."
                 }

@@ -176,25 +176,17 @@ enum RecipeSourceRegistry {
         .init(id: UUID(), domain: "mexicanplease.com",      displayName: "Mexican Please",           category: .international, specialty: "Authentic Mexican cooking", iconEmoji: "🇲🇽"),
     ]
 
-    /// Alias for the bundled catalogue (built-in + optional JSON override + the extended
-    /// thirty-site pack), excluding the user's custom sources. Deduplicated by domain.
-    nonisolated static var bundled: [RecipeSource] {
-        var seen = Set(all.map { $0.domain })
-        var merged = all
-        for e in extended where !seen.contains(e.domain) {
-            merged.append(e); seen.insert(e.domain)
-        }
-        return merged
-    }
+    /// Alias for the bundled catalogue (built-in + optional JSON override), excluding the
+    /// user's custom sources. Used where a stable, non-user-editable list is wanted.
+    nonisolated static var bundled: [RecipeSource] { all }
 
     /// Bundled sources plus any the user added, deduplicated by domain. MainActor because it
     /// reads the custom-source store; call from views and other main-actor code. Non-main-actor
     /// callers (host lookups) use `source(for:)`, which also consults custom domains.
     @MainActor static var everything: [RecipeSource] {
-        let base = bundled
         let custom = CustomRecipeSourceStore.shared.sources
-        var seen = Set(base.map { $0.domain })
-        var merged = base
+        var seen = Set(all.map { $0.domain })
+        var merged = all
         for c in custom where !seen.contains(c.domain) {
             merged.append(c); seen.insert(c.domain)
         }
@@ -206,7 +198,7 @@ enum RecipeSourceRegistry {
     nonisolated(unsafe) static var customSnapshot: [RecipeSource] = []
 
     nonisolated static func source(for domain: String) -> RecipeSource? {
-        if let hit = bundled.first(where: { domain.contains($0.domain) || $0.domain.contains(domain) }) {
+        if let hit = all.first(where: { domain.contains($0.domain) || $0.domain.contains(domain) }) {
             return hit
         }
         return customSnapshot.first { domain.contains($0.domain) || $0.domain.contains(domain) }

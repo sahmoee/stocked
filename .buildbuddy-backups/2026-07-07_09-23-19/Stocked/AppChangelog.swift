@@ -38,35 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.7 (build 26) — Sources browser, Drinks, 30 sources, coach marks ──
-        ChangelogVersion(
-            version: "4.7",
-            buildDate: "Build 26 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "globe", color: Color.stockedGold,
-                               title: "Browse recipes by source",
-                               detail: "A new Sources card on the Recipes tab lists every place recipes come from — live feeds and dozens of websites, including ones you add — with live counts. Tap any source to see its recipes."),
-                ChangelogEntry(icon: "wineglass", color: Color.stockedGold,
-                               title: "The Drinks section",
-                               detail: "Cocktails, mocktails, coffees, shakes, and party drinks now have their own home on the Recipes tab, grouped by type. Pull down to fetch a fresh round."),
-                ChangelogEntry(icon: "plus.rectangle.on.rectangle", color: Color.stockedGold,
-                               title: "30 more recipe sources",
-                               detail: "Thirty new sites join the catalogue — BBC Good Food, Serious Eats, Bon Appétit, Budget Bytes, The Woks of Life, Smitten Kitchen, and many more — everywhere sources appear."),
-                ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGold,
-                               title: "Sources now work together",
-                               detail: "Every recipe fetched from any source now joins one shared on-device pool, so search, Match My Mood, Discover, and cook suggestions all draw from the same growing library — even offline."),
-                ChangelogEntry(icon: "lightbulb", color: Color.stockedGold,
-                               title: "Updated tips",
-                               detail: "The guided tips on every tab now cover the newest features: pull to refresh, swipe to delete, the Kitchen Toolbox, Sources, and Drinks."),
-            ]),
         // ── 4.6 (build 25) — Pull to refresh, polish, mood fix, Health sync ──
         ChangelogVersion(
             version: "4.6",
             buildDate: "Build 25 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "arrow.clockwise", color: Color.stockedGold,
                                title: "Pull to refresh, everywhere",

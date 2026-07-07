@@ -23,10 +23,8 @@ enum InventoryCoachmarks {
         .spotlight("inv.expiring",
                    title: "Expiring soon",
                    body: "A preview of items that need using up soon. Tap View All to see the full list and cook them before they go to waste."),
-        .card(title: "Swipe, search, and sort",
-              body: "Swipe left on any item to delete it, with a quick undo if you change your mind. Use Search and Sort at the top right to find an item fast or reorder the list."),
-        .card(title: "Pull down to refresh",
-              body: "Pull down on this screen, or almost any screen, to refresh. If you share a household, it also pulls everyone's latest changes right away."),
+        .card(title: "Search and sort",
+              body: "Use the Search and Sort buttons at the top right to find a specific item fast or reorder the whole list by name, quantity, or what to use first."),
     ]
 }
 
@@ -41,12 +39,6 @@ enum RecipeCoachmarks {
         .spotlight("recipes.createAI",
                    title: "Create with AI",
                    body: "Describe what you want to cook and Stocked builds a full recipe you can save. List ingredients you have and pick a dietary preference or time limit to tailor it."),
-        .spotlight("recipes.sources",
-                   title: "Browse by source",
-                   body: "See every place recipes come from, live feeds and dozens of recipe websites including any you add yourself, then dive into recipes from any single source."),
-        .spotlight("recipes.drinks",
-                   title: "The Drinks section",
-                   body: "Cocktails, mocktails, coffees, shakes, and party drinks now have a home of their own, grouped by type and refreshed with a pull."),
         .card(title: "Find a recipe fast",
               body: "Tap the search icon at the top right to search recipes directly. Scroll down to Discover for ideas based on what is in your kitchen right now."),
     ]
@@ -60,8 +52,6 @@ enum GroceryCoachmarks {
         .spotlight("grocery.add",
                    title: "Add to your list",
                    body: "Tap Add Item to put anything on your list by hand. Ingredients from meals you plan also show up here automatically."),
-        .card(title: "Swipe to remove",
-              body: "Swipe left on any list item to delete it, with undo. Swiping a low-stock suggestion removes that item from your kitchen, so it asks first."),
         .card(title: "Store, share, and scan",
               body: "Tap the menu at the top right to set your store, share the list with someone, scan a paper list, or move checked items into your pantry."),
     ]
@@ -77,9 +67,9 @@ enum CookCoachmarks {
                    body: "Solve dinner tonight. The app builds suggestions around what you already have, so you can cook without a grocery run."),
         .spotlight("cook.later",
                    title: "Cook Later",
-                   body: "Plan meals for the week ahead with the weekly planner, build a prep list, and turn your plan into a grocery list in a couple of taps."),
+                   body: "Plan meals for the week ahead, build a prep list, and turn your plan into a grocery list in a couple of taps."),
         .card(title: "Three ways to find a meal",
-              body: "Inside Cook Now you can Build Around Food you choose, Match My Mood with a few quick questions, or hit Surprise Me to let the app pick for you. Match My Mood always lands on a recipe, checking the web, your database, and AI in turn."),
+              body: "Inside Cook Now you can Build Around Food you choose, Match My Mood with a few quick questions, or hit Surprise Me to let the app pick for you."),
     ]
 }
 
@@ -104,8 +94,6 @@ enum HomeCoachmarks {
         .card(title: "Make it yours",
               body: "Press and hold anywhere on Home to customize. You can drag widgets to reorder them, remove ones you do not use, and add new ones from the gallery."),
         .card(title: "Find everything in the menu",
-              body: "Swipe from the left edge, or tap the menu icon, to open the side menu. Your profile, settings, tools, and help all live there — plus the Kitchen Toolbox, twenty extra tools in one place."),
-        .card(title: "Make the menu yours",
-              body: "In the side menu, press and hold any row under Kitchen Tools or Insights and drag to reorder. Pull down on any screen to refresh it."),
+              body: "Swipe from the left edge, or tap the menu icon, to open the side menu. Your profile, settings, tools, and help all live there."),
     ]
 }
