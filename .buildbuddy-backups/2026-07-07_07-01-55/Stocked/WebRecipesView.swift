@@ -10,13 +10,11 @@ enum WebSheet: Identifiable {
     case detail(recipe: WebRecipe)
     case sourcePicker
     case importURL
-    case manageSources
     var id: String {
         switch self {
         case .detail(let r): return "detail-\(r.id)"
         case .sourcePicker:  return "source"
         case .importURL:     return "import"
-        case .manageSources: return "manage"
         }
     }
 }
@@ -74,7 +72,7 @@ struct WebRecipesView: View {
                     Text("Recipe Websites")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(session.themeTextColor)
-                    Text("\(manager.recipes.count) recipes · \(RecipeSourceRegistry.everything.count) sources")
+                    Text("\(manager.recipes.count) recipes · \(RecipeSourceRegistry.all.count) sources")
                         .font(.system(size: 10))
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
@@ -205,11 +203,8 @@ struct WebRecipesView: View {
             case let .detail(recipe):
                 WebRecipeDetailView(recipe: recipe).environment(session)
             case .sourcePicker:
-                SourcePickerSheet(selected: $selectedSource,
-                                  onManageSources: { activeSheet = .manageSources })
+                SourcePickerSheet(selected: $selectedSource)
                     .environment(session)
-            case .manageSources:
-                RecipeSourcesManagerView().environment(session)
             case .importURL:
                 URLImportSheet { url in
                     Task {
@@ -231,7 +226,7 @@ struct WebRecipesView: View {
             Text("No recipes yet")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
-            Text("Tap Refresh to pull recipes from\n\(RecipeSourceRegistry.everything.count) top cooking websites")
+            Text("Tap Refresh to pull recipes from\n\(RecipeSourceRegistry.all.count) top cooking websites")
                 .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
                 .multilineTextAlignment(.center)
             Button { manager.forceRefreshAll() } label: {
@@ -811,7 +806,6 @@ struct SourcePickerSheet: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
     @Binding var selected: RecipeSource?
-    var onManageSources: () -> Void = {}
 
     var body: some View {
         NavigationStack {
@@ -823,36 +817,25 @@ struct SourcePickerSheet: View {
                     }
                     .foregroundStyle(selected == nil ? Color.stockedGold : session.themeTextColor)
 
-                    Button {
-                        onManageSources()
-                    } label: {
-                        Label("Add or Manage Sources", systemImage: "plus.circle")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.stockedGold)
-                    }
-
                     ForEach(RecipeSource.SourceCategory.allCases, id: \.self) { cat in
-                        let sources = RecipeSourceRegistry.everything.filter { $0.category == cat }
-                        if !sources.isEmpty {
-                            Section(cat.rawValue) {
-                                ForEach(sources) { src in
-                                    Button {
-                                        selected = src; dismiss()
-                                    } label: {
-                                        HStack {
-                                            Text(src.iconEmoji)
-                                            VStack(alignment: .leading, spacing: 10) {
-                                                Text(src.displayName).font(.system(size: 14, weight: .medium))
-                                                Text(src.specialty).font(.system(size: 11)).foregroundStyle(.secondary)
-                                            }
-                                            Spacer()
-                                            if selected?.domain == src.domain {
-                                                Image(systemName: "checkmark").foregroundStyle(Color.stockedGold)
-                                            }
+                        Section(cat.rawValue) {
+                            ForEach(RecipeSourceRegistry.all.filter { $0.category == cat }) { src in
+                                Button {
+                                    selected = src; dismiss()
+                                } label: {
+                                    HStack {
+                                        Text(src.iconEmoji)
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            Text(src.displayName).font(.system(size: 14, weight: .medium))
+                                            Text(src.specialty).font(.system(size: 11)).foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        if selected?.domain == src.domain {
+                                            Image(systemName: "checkmark").foregroundStyle(Color.stockedGold)
                                         }
                                     }
-                                    .foregroundStyle(session.themeTextColor)
                                 }
+                                .foregroundStyle(session.themeTextColor)
                             }
                         }
                     }
@@ -880,9 +863,7 @@ struct URLImportSheet: View {
     @State private var errorMsg: String?
     let onImport: (String) -> Void
 
-    // Computed (not stored) so it reads the MainActor-isolated merged source list, which
-    // now includes user-added sources.
-    private var supportedDomains: [String] { RecipeSourceRegistry.everything.map { $0.domain } }
+    let supportedDomains = RecipeSourceRegistry.all.map { $0.domain }
 
     var body: some View {
         NavigationStack {
@@ -923,7 +904,7 @@ struct URLImportSheet: View {
                     }
                     .disabled(url.isEmpty || isLoading)
 
-                    Text("Supported: " + RecipeSourceRegistry.everything.map { $0.displayName }.joined(separator: ", "))
+                    Text("Supported: " + RecipeSourceRegistry.all.map { $0.displayName }.joined(separator: ", "))
                         .font(.system(size: 10))
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
 

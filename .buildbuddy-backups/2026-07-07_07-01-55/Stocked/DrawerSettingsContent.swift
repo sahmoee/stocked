@@ -17,9 +17,7 @@ struct SettingsContent: View {
     var onNotifications: (() -> Void)? = nil
 
     @State private var showClearAlert   = false
-    @State private var showWipeICloudAlert = false     // delete iCloud backups only
     @State private var showStorePopout    = false
-    @State private var showRecipeSources  = false      // add / manage recipe sources
 
     @State private var showDeleteAccountAlert = false
     @State private var showTransfer     = false
@@ -109,14 +107,6 @@ struct SettingsContent: View {
                                     detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)")
                     }
                     .listRowBackground(Color.clear)
-
-                    // Recipe Sources — add your own websites or manage the built-in list.
-                    Button { showRecipeSources = true } label: {
-                        settingsRow(icon: "globe", color: Color.stockedGold,
-                                    title: "Recipe Sources",
-                                    detail: "Add websites or manage sources")
-                    }
-                    .listRowBackground(Color.clear)
                 } label: {
                     fieldLabel(icon: "slider.horizontal.3", color: Color.stockedInfo, title: "Preferences")
                 }
@@ -197,23 +187,6 @@ struct SettingsContent: View {
                                     title: "Data & Storage", detail: "Storage usage & migration")
                     }.listRowBackground(Color.clear)
 
-                    // Delete iCloud Data (destructive, cloud-only). Removes every Stocked
-                    // backup from iCloud without touching local data or signing out.
-                    Button { showWipeICloudAlert = true } label: {
-                        settingsRow(icon: "icloud.slash.fill", color: Color.stockedInfo,
-                                    title: "Delete iCloud Data",
-                                    detail: "Remove all backups stored in iCloud")
-                    }
-                    .listRowBackground(Color.clear)
-                    .alert("Delete iCloud Data?", isPresented: $showWipeICloudAlert) {
-                        Button("Delete from iCloud", role: .destructive) {
-                            session.transferManager.wipeAllICloudData()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("Permanently deletes every Stocked backup from your iCloud account. Your data on this device is not affected. This cannot be undone.")
-                    }
-
                     // Clear All App Data (destructive).
                     Button { showClearAlert = true } label: {
                         HStack(spacing: 12) {
@@ -264,9 +237,6 @@ struct SettingsContent: View {
         }
         .sheet(isPresented: $showHouseholdSheet) {
             HouseholdHomeView().environment(session)
-        }
-        .sheet(isPresented: $showRecipeSources) {
-            RecipeSourcesManagerView().environment(session)
         }
         .sheet(isPresented: $showTransfer) {
             KitchenTransferView().environment(session)
@@ -445,7 +415,6 @@ struct DrawerContent: View {
     @State private var showToolbox = false          // Kitchen Toolbox hub (20 tools)
     @State private var showProfileHub = false      // chef row → Profile & Preferences hub
     @State private var showLogoutConfirm = false
-    @State private var orderStore = DrawerOrderStore.shared   // rearrangeable drawer rows
     @Environment(AppSession.self) var session
     @Binding var selected:       StockedTab
     @Binding var showDrawer:     Bool
@@ -532,25 +501,28 @@ struct DrawerContent: View {
             // Full scrollable list — mockup drawer: Kitchen Tools / Insights / Settings.
             // Tab navigation lives in the tab bar; the drawer is tools + settings only.
             List {
-                // Kitchen Tools — rearrangeable. Long-press any row and drag to reorder;
-                // the order is remembered. Kitchen Toolbox lives here by default now.
                 Section {
-                    ForEach(orderStore.rows(in: .kitchenTools), id: \.self) { row in
-                        drawerRow(for: row)
+                    drawerButton("Scan Receipt",  icon: "camera.viewfinder")     { runQuick(.scanReceipt) { showReceipt = true } }
+                    drawerButton("Add Items",     icon: "plus.circle")           { runQuick(.addItems)    { showAddItems = true } }
+                    drawerButton("Quick Update",  icon: "list.clipboard")        { runQuick(.quickUpdate) {} }
+                    drawerButton("Import Recipe", icon: "square.and.arrow.down") {
+                        closeAndRun {
+                            // Switch to the Recipes tab, then flag the URL import for it
+                            // to consume once on appear. (A NotificationCenter trigger
+                            // looped — the handler re-fired on re-render and re-presented
+                            // the sheet endlessly. The flag is consumed exactly once.)
+                            session.pendingRecipeImport = true
+                            NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
+                        }
                     }
-                    .onMove { source, destination in
-                        orderStore.move(in: .kitchenTools, from: source, to: destination)
-                    }
+                    drawerButton("Global Search", icon: "magnifyingglass")       { runQuick(.search)      { showSearch = true } }
                 } header: { drawerHeader("Kitchen Tools") }
 
-                // Insights — also rearrangeable.
                 Section {
-                    ForEach(orderStore.rows(in: .insights), id: \.self) { row in
-                        drawerRow(for: row)
-                    }
-                    .onMove { source, destination in
-                        orderStore.move(in: .insights, from: source, to: destination)
-                    }
+                    drawerButton("Stats",     icon: "chart.bar")          { runQuick(.stats)     { showStats = true } }
+                    drawerButton("Databases", icon: "cylinder.split.1x2") { runQuick(.databases) { showDatabases = true } }
+                    drawerButton("Usage Insights", icon: "chart.pie")     { showUsageInsights = true }
+                    drawerButton("Kitchen Toolbox", icon: "wrench.and.screwdriver") { showToolbox = true }
                 } header: { drawerHeader("Insights") }
 
                 Section {
@@ -650,40 +622,6 @@ struct DrawerContent: View {
         .buttonStyle(.plain)
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 2, leading: 4, bottom: 2, trailing: 4))
-    }
-
-    // Maps a stable row identifier to its labelled button + action. Used by the reorderable
-    // Kitchen Tools and Insights sections so a saved order can drive which row appears where.
-    @ViewBuilder
-    private func drawerRow(for row: DrawerRowID) -> some View {
-        switch row {
-        case .scanReceipt:
-            drawerButton("Scan Receipt", icon: "camera.viewfinder") { runQuick(.scanReceipt) { showReceipt = true } }
-        case .addItems:
-            drawerButton("Add Items", icon: "plus.circle") { runQuick(.addItems) { showAddItems = true } }
-        case .quickUpdate:
-            drawerButton("Quick Update", icon: "list.clipboard") { runQuick(.quickUpdate) {} }
-        case .importRecipe:
-            drawerButton("Import Recipe", icon: "square.and.arrow.down") {
-                closeAndRun {
-                    // Switch to the Recipes tab, then flag the URL import for it to consume
-                    // once on appear. (A NotificationCenter trigger looped previously — the
-                    // flag is consumed exactly once.)
-                    session.pendingRecipeImport = true
-                    NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
-                }
-            }
-        case .globalSearch:
-            drawerButton("Global Search", icon: "magnifyingglass") { runQuick(.search) { showSearch = true } }
-        case .kitchenToolbox:
-            drawerButton("Kitchen Toolbox", icon: "wrench.and.screwdriver") { showToolbox = true }
-        case .stats:
-            drawerButton("Stats", icon: "chart.bar") { runQuick(.stats) { showStats = true } }
-        case .databases:
-            drawerButton("Databases", icon: "cylinder.split.1x2") { runQuick(.databases) { showDatabases = true } }
-        case .usageInsights:
-            drawerButton("Usage Insights", icon: "chart.pie") { showUsageInsights = true }
-        }
     }
 
     private func drawerButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {

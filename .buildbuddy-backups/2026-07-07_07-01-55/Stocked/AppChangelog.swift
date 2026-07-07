@@ -38,32 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.5 (build 24) — Drawer customization, swipe delete, recipe sources ──
-        ChangelogVersion(
-            version: "4.5",
-            buildDate: "Build 24 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "hand.draw", color: Color.stockedGold,
-                               title: "Rearrange your menu",
-                               detail: "Press and hold any item under Kitchen Tools or Insights in the side menu, then drag it into the order you like. Kitchen Toolbox now lives under Kitchen Tools by default."),
-                ChangelogEntry(icon: "trash.slash", color: Color.stockedGold,
-                               title: "Swipe to delete",
-                               detail: "Swipe left on any item in your inventory, your grocery list, or the low-stock suggestions to remove it. Deletes from your lists can be undone right away."),
-                ChangelogEntry(icon: "globe", color: Color.stockedGold,
-                               title: "Add your own recipe sites",
-                               detail: "Open Recipe Sources from the side menu to add any recipe website, or add a suggested one with a single tap. Your sites join the built-in list everywhere recipes are pulled."),
-                ChangelogEntry(icon: "icloud.slash", color: Color.stockedGold,
-                               title: "Delete iCloud data",
-                               detail: "A new option under Data and Storage removes every backup stored in your iCloud account, without touching the data on your device."),
-            ]),
         // ── 4.4 (build 23) — Kitchen Toolbox: 20 new tools ────────────────────
         ChangelogVersion(
             version: "4.4",
             buildDate: "Build 23 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "wrench.and.screwdriver", color: Color.stockedGold,
                                title: "Meet the Kitchen Toolbox",

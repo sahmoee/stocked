@@ -107,10 +107,36 @@
         }
       }
     },
+    "%@ %@ =" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ ="
+          }
+        }
+      }
+    },
     "%@ all-time" : {
 
     },
+    "%@ at %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "%@ done" : {
+
+    },
     "%@ is expiring soon." : {
+
+    },
+    "%@ of that is expired" : {
 
     },
     "%@ timer" : {
@@ -126,12 +152,62 @@
         }
       }
     },
+    "%@, %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@. %3$@"
+          }
+        }
+      }
+    },
+    "%@, %lld item%@ expiring" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld item%3$@ expiring"
+          }
+        }
+      }
+    },
     "%@, %lld items" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@, %2$lld items"
+          }
+        }
+      }
+    },
+    "%@, %lld minutes %lld seconds left" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld minutes %3$lld seconds left"
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@: pantry %@, fridge %@, freezer %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: pantry %2$@, fridge %3$@, freezer %4$@"
           }
         }
       }
@@ -230,6 +306,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld ingredient%2$@"
+          }
+        }
+      }
+    },
+    "%lld ingredient%@ no recorded price, so the real cost is a bit higher. Prices come from your receipts and item prices." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld ingredient%2$@ no recorded price, so the real cost is a bit higher. Prices come from your receipts and item prices."
           }
         }
       }
@@ -362,6 +448,9 @@
         }
       }
     },
+    "%lld min" : {
+
+    },
     "%lld missing" : {
 
     },
@@ -415,6 +504,22 @@
         }
       }
     },
+    "%lld percent of budget used" : {
+
+    },
+    "%lld percent used" : {
+
+    },
+    "%lld possible duplicate group%@. Merging combines quantities and keeps the most complete item. Every merge can be undone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld possible duplicate group%2$@. Merging combines quantities and keeps the most complete item. Every merge can be undone."
+          }
+        }
+      }
+    },
     "%lld ready now · %lld total" : {
       "localizations" : {
         "en" : {
@@ -435,12 +540,32 @@
         }
       }
     },
+    "%lld recipe%@ in the pool" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld recipe%2$@ in the pool"
+          }
+        }
+      }
+    },
     "%lld recipes · %lld sources" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld recipes · %2$lld sources"
+          }
+        }
+      }
+    },
+    "%lld record%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld record%2$@"
           }
         }
       }
@@ -547,6 +672,12 @@
     "%lld%%" : {
 
     },
+    "%lld%% of budget used" : {
+
+    },
+    "%lld%% of tracked items were used, not wasted" : {
+
+    },
     "%lld%% stocked" : {
 
     },
@@ -602,8 +733,28 @@
     "×%lld" : {
 
     },
+    "×%lld  ·  %lld servings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "×%1$lld  ·  %2$lld servings"
+          }
+        }
+      }
+    },
     "~%@" : {
 
+    },
+    "≈ %@ g of %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "≈ %1$@ g of %2$@"
+          }
+        }
+      }
     },
     "⏰" : {
 
@@ -635,10 +786,19 @@
     "🥫" : {
 
     },
+    "🥬 %@" : {
+
+    },
     "🧑‍🍳" : {
 
     },
     "🛒  %@ isn't in your pantry" : {
+
+    },
+    "$" : {
+
+    },
+    "0" : {
 
     },
     "0 items to buy — you're all set!" : {
@@ -695,6 +855,9 @@
     "Access Level" : {
 
     },
+    "Achievements" : {
+
+    },
     "Action Center" : {
 
     },
@@ -702,6 +865,9 @@
 
     },
     "Add \"%@\" to list" : {
+
+    },
+    "Add %@ to grocery list" : {
 
     },
     "Add %@ to Grocery List" : {
@@ -748,6 +914,9 @@
     "Add a Recipe" : {
 
     },
+    "Add all %lld to grocery list" : {
+
+    },
     "Add an item below, or tap a suggestion to restock." : {
 
     },
@@ -755,6 +924,9 @@
 
     },
     "Add Anyway" : {
+
+    },
+    "Add batch to grocery list" : {
 
     },
     "Add Ingredient" : {
@@ -806,6 +978,9 @@
 
     },
     "Add to Cook Later Calendar" : {
+
+    },
+    "Add to list" : {
 
     },
     "Add to my kitchen" : {
@@ -886,6 +1061,9 @@
     "Already in Pantry" : {
 
     },
+    "Amount" : {
+
+    },
     "Amount per %@" : {
 
     },
@@ -950,6 +1128,22 @@
     "Based on what you have" : {
 
     },
+    "Batch Cook Planner" : {
+
+    },
+    "Batches" : {
+
+    },
+    "Below par (%lld/%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Below par (%1$lld/%2$lld)"
+          }
+        }
+      }
+    },
     "Both numbers should match once the new store has copied your data. Your existing data is untouched either way." : {
 
     },
@@ -992,6 +1186,9 @@
     "Bulk Scan Complete" : {
 
     },
+    "Buying smaller amounts of your most-wasted items is the fastest way to cut food waste." : {
+
+    },
     "by" : {
 
     },
@@ -1020,6 +1217,9 @@
 
     },
     "Cancel" : {
+
+    },
+    "Cancel timer" : {
 
     },
     "Capture Date" : {
@@ -1166,6 +1366,9 @@
     "Continue without a name" : {
 
     },
+    "Convert to" : {
+
+    },
     "Cook" : {
 
     },
@@ -1234,6 +1437,9 @@
     "Copy CSV to clipboard" : {
 
     },
+    "Copy to clipboard" : {
+
+    },
     "Correct name…" : {
 
     },
@@ -1273,6 +1479,15 @@
     "Creating…" : {
 
     },
+    "Cuisine" : {
+
+    },
+    "Cup-to-gram conversions use each ingredient's density — a cup of flour and a cup of honey weigh very different amounts." : {
+
+    },
+    "Cups → grams (needs an ingredient)" : {
+
+    },
     "CURRENT AMOUNT" : {
 
     },
@@ -1301,6 +1516,9 @@
 
     },
     "Date scanning needs iOS 16+" : {
+
+    },
+    "Days with a dot have items expiring. Tap a day to see them." : {
 
     },
     "Deduct from Pantry" : {
@@ -1351,6 +1569,9 @@
     "Discover Recipes" : {
 
     },
+    "Dismiss timer" : {
+
+    },
     "Done" : {
 
     },
@@ -1364,6 +1585,9 @@
 
     },
     "Drag to plan  ·  dots = expiring" : {
+
+    },
+    "Duplicate Finder" : {
 
     },
     "e.g. \"I finished the milk and used half the rice\"" : {
@@ -1385,6 +1609,9 @@
 
     },
     "e.g. Snacks, Baking, Drinks" : {
+
+    },
+    "e.g. Weekly staples" : {
 
     },
     "Edit" : {
@@ -1482,6 +1709,9 @@
     "Expires %@" : {
 
     },
+    "Expires in %@" : {
+
+    },
     "Expires in %lld day%@" : {
       "localizations" : {
         "en" : {
@@ -1517,6 +1747,9 @@
         }
       }
     },
+    "Expiry Calendar" : {
+
+    },
     "EXPIRY DATE" : {
 
     },
@@ -1524,6 +1757,12 @@
 
     },
     "Export inventory & grocery list (CSV)" : {
+
+    },
+    "F" : {
+
+    },
+    "Favorites only" : {
 
     },
     "FAVOURITE CUISINES" : {
@@ -1611,6 +1850,9 @@
 
     },
     "Got It" : {
+
+    },
+    "Grocery Budget" : {
 
     },
     "Grocery day" : {
@@ -1767,10 +2009,19 @@
     "In stock" : {
 
     },
+    "In your kitchen" : {
+
+    },
     "In your pantry" : {
 
     },
+    "In-season produce is usually cheaper, fresher, and lasts longer at home." : {
+
+    },
     "Ingredient" : {
+
+    },
+    "Ingredient (e.g. flour, sugar, butter)" : {
 
     },
     "Ingredient match unknown" : {
@@ -1895,13 +2146,22 @@
     "Kitchen Report" : {
 
     },
+    "Kitchen Timers" : {
+
+    },
     "Kitchen Tip" : {
 
     },
     "Kitchen Tips" : {
 
     },
+    "Kitchen Toolbox" : {
+
+    },
     "Kitchen Transfer" : {
+
+    },
+    "Label (e.g. Pasta)" : {
 
     },
     "last 30 days" : {
@@ -1916,6 +2176,9 @@
     "Last synced: %@" : {
 
     },
+    "Latest: %@" : {
+
+    },
     "Leave" : {
 
     },
@@ -1923,6 +2186,9 @@
 
     },
     "Leave this household?" : {
+
+    },
+    "Leftover Ideas" : {
 
     },
     "Leftover name (e.g. %@ Leftovers)" : {
@@ -1950,6 +2216,9 @@
 
     },
     "List scanning needs iOS 16+" : {
+
+    },
+    "List Templates" : {
 
     },
     "Load Demo Receipt (Simulator)" : {
@@ -1985,6 +2254,12 @@
     "Low Stock Reminders" : {
 
     },
+    "Low Stock Report" : {
+
+    },
+    "M" : {
+
+    },
     "Make %@ — uses %@" : {
       "localizations" : {
         "en" : {
@@ -2005,6 +2280,9 @@
 
     },
     "Matching Recipes" : {
+
+    },
+    "Meal Cost" : {
 
     },
     "Meal name" : {
@@ -2049,6 +2327,9 @@
     "Member" : {
 
     },
+    "Merge %lld items" : {
+
+    },
     "Minute" : {
 
     },
@@ -2059,6 +2340,12 @@
 
     },
     "Missing Ingredients" : {
+
+    },
+    "Month" : {
+
+    },
+    "Monthly budget" : {
 
     },
     "Moods" : {
@@ -2109,6 +2396,9 @@
     "Name (A–Z)" : {
 
     },
+    "Name this template" : {
+
+    },
     "NEARBY STORES" : {
 
     },
@@ -2138,6 +2428,9 @@
 
     },
     "Next Grocery Run · %@" : {
+
+    },
+    "Next month" : {
 
     },
     "No activity yet" : {
@@ -2216,6 +2509,9 @@
 
     },
     "Notes (optional)" : {
+
+    },
+    "Nothing expires this day." : {
 
     },
     "Nothing expiring in the next few days. Your kitchen's in good shape." : {
@@ -2336,7 +2632,16 @@
     "Original Text" : {
 
     },
+    "Over budget by %@" : {
+
+    },
     "Pairs well with %@" : {
+
+    },
+    "Pantry Snapshot" : {
+
+    },
+    "Pantry Value" : {
 
     },
     "Past Meals" : {
@@ -2385,6 +2690,9 @@
 
     },
     "Pick a category and we'll show you what's in your kitchen." : {
+
+    },
+    "Pick a different recipe" : {
 
     },
     "Pick a path and we'll do the rest." : {
@@ -2459,6 +2767,12 @@
     "PREVIEW" : {
 
     },
+    "Previous month" : {
+
+    },
+    "Price Lookup" : {
+
+    },
     "Pricing shown at checkout." : {
 
     },
@@ -2524,6 +2838,9 @@
 
     },
     "Recipe options" : {
+
+    },
+    "Recipe Roulette" : {
 
     },
     "Recipe Sources" : {
@@ -2668,6 +2985,9 @@
     "Runs out ~%@" : {
 
     },
+    "S" : {
+
+    },
     "Save" : {
 
     },
@@ -2685,6 +3005,9 @@
 
     },
     "Save Changes" : {
+
+    },
+    "Save current grocery list as template" : {
 
     },
     "Save Plan" : {
@@ -2712,6 +3035,9 @@
 
     },
     "Saved to My Collection!" : {
+
+    },
+    "Saves the unchecked items on your current grocery list." : {
 
     },
     "Saving…" : {
@@ -2759,6 +3085,12 @@
     "Search" : {
 
     },
+    "Search a food" : {
+
+    },
+    "Search an item" : {
+
+    },
     "Search ingredients…" : {
 
     },
@@ -2777,6 +3109,9 @@
     "Search recipes, cuisines, ingredients…" : {
 
     },
+    "Search tools" : {
+
+    },
     "Search your recipes by name or cuisine." : {
 
     },
@@ -2784,6 +3119,9 @@
 
     },
     "Season in layers as you cook, not just at the end. Taste frequently and adjust salt, acid (lemon/vinegar), and heat to balance the dish." : {
+
+    },
+    "Seasonal Produce" : {
 
     },
     "See All" : {
@@ -2813,10 +3151,16 @@
     "Select Photo" : {
 
     },
+    "Serves %lld per batch" : {
+
+    },
     "servings" : {
 
     },
     "Servings" : {
+
+    },
+    "Set" : {
 
     },
     "Set a minimum to auto-reorder this item." : {
@@ -2846,10 +3190,19 @@
     "Share one kitchen across your whole family — each person uses their own Apple ID, and everyone sees the same pantry and grocery list in real time." : {
 
     },
+    "Share snapshot" : {
+
+    },
+    "Share weekly review" : {
+
+    },
     "Share your pantry and grocery list with family — each person uses their own Apple ID." : {
 
     },
     "Share your pantry and grocery list with the people you trust." : {
+
+    },
+    "Shelf Life" : {
 
     },
     "SHOPPING AT" : {
@@ -2900,6 +3253,18 @@
     "Source: Food Network Ingredient Substitution Guide + common cooking knowledge." : {
 
     },
+    "Spending comes from your recorded prices — receipt scans and item prices dated this month." : {
+
+    },
+    "Spin" : {
+
+    },
+    "Spin again" : {
+
+    },
+    "Spin to pick dinner" : {
+
+    },
     "Split layout: %@" : {
 
     },
@@ -2919,6 +3284,9 @@
 
     },
     "Start Over" : {
+
+    },
+    "Start timer" : {
 
     },
     "Start Timer" : {
@@ -2968,6 +3336,9 @@
     "Stop Cooking?" : {
 
     },
+    "Storage Tips" : {
+
+    },
     "Storage Zone" : {
 
     },
@@ -3011,6 +3382,12 @@
 
     },
     "Syncing…" : {
+
+    },
+    "System" : {
+
+    },
+    "T" : {
 
     },
     "Tags" : {
@@ -3122,6 +3499,16 @@
     "Time to Plate" : {
 
     },
+    "Tip: add prices to items (or scan receipts) to make this more accurate. %lld item%@ no price yet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tip: add prices to items (or scan receipts) to make this more accurate. %1$lld item%2$@ no price yet."
+          }
+        }
+      }
+    },
     "Tip: the clearer the screenshot, the better the result. You can fix anything on the next screen." : {
 
     },
@@ -3144,6 +3531,9 @@
 
     },
     "Toggle off any items you don't want. Edit names if the scanner misread them." : {
+
+    },
+    "Tonight, make" : {
 
     },
     "Top Categories" : {
@@ -3185,6 +3575,9 @@
     "Type" : {
 
     },
+    "Typical times for quality and safety — always trust your eyes and nose first." : {
+
+    },
     "Uncertain — tap to correct" : {
 
     },
@@ -3198,6 +3591,9 @@
 
     },
     "Unit" : {
+
+    },
+    "Unit Converter" : {
 
     },
     "Unlock Household Sync" : {
@@ -3278,13 +3674,22 @@
     "View source" : {
 
     },
+    "W" : {
+
+    },
     "Was: %@" : {
+
+    },
+    "Waste Insights" : {
 
     },
     "Waste Tracker" : {
 
     },
     "We've set everything up based on your preferences. Update them anytime in Settings." : {
+
+    },
+    "Weekly Review" : {
 
     },
     "What are you planning?" : {
@@ -3373,6 +3778,9 @@
 
     },
     "You're all done!" : {
+
+    },
+    "You're on a %lld-day cooking streak" : {
 
     },
     "You've joined a shared household." : {

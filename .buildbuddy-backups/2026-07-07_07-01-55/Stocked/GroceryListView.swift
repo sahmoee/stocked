@@ -366,13 +366,6 @@ struct GroceryListView: View {
                                     .padding(.bottom, 8)
                                     .contentShape(Rectangle())
                                 }.buttonStyle(.plain)
-                                .swipeToDelete(confirmTitle: "Remove \(inv.name) from your kitchen?") {
-                                    let removed = inv
-                                    store.removeInventoryItem(id: inv.id)
-                                    ToastCenter.shared.undo("Deleted \(inv.name.displayNormalized)") {
-                                        store.restoreInventoryItems([removed])
-                                    }
-                                }
                             }
                         }
 
@@ -420,13 +413,6 @@ struct GroceryListView: View {
                                     .padding(.bottom, 8)
                                     .contentShape(Rectangle())
                                 }.buttonStyle(.plain)
-                                .swipeToDelete(confirmTitle: "Remove \(inv.name) from your kitchen?") {
-                                    let removed = inv
-                                    store.removeInventoryItem(id: inv.id)
-                                    ToastCenter.shared.undo("Deleted \(inv.name.displayNormalized)") {
-                                        store.restoreInventoryItems([removed])
-                                    }
-                                }
                             }
                         }
 
@@ -766,12 +752,6 @@ struct GroceryListView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .swipeToDelete {
-            undoItem = item
-            withAnimation { store.groceryItems.removeAll { $0.id == item.id } }
-            withAnimation(.spring(response: 0.3)) { showUndo = true }
-            HapticManager.warning()
-        }
     }
 
     // MARK: - Store URL handoff engine

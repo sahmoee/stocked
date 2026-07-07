@@ -1153,14 +1153,5 @@ struct InventoryItemRow: View {
         }
         // Drag to meal calendar — transfers item name as plain text
         .draggable(item.name)
-        // Swipe left to delete (undoable), mirroring the context-menu Remove action.
-        .swipeToDelete {
-            let removed = item
-            session.guestStore.removeInventoryItem(id: item.id)
-            UsageMetrics.shared.record(.itemDeleted)
-            ToastCenter.shared.undo("Deleted \(item.name.displayNormalized)") {
-                session.guestStore.restoreInventoryItems([removed])
-            }
-        }
     }
 }

@@ -176,32 +176,8 @@ enum RecipeSourceRegistry {
         .init(id: UUID(), domain: "mexicanplease.com",      displayName: "Mexican Please",           category: .international, specialty: "Authentic Mexican cooking", iconEmoji: "🇲🇽"),
     ]
 
-    /// Alias for the bundled catalogue (built-in + optional JSON override), excluding the
-    /// user's custom sources. Used where a stable, non-user-editable list is wanted.
-    nonisolated static var bundled: [RecipeSource] { all }
-
-    /// Bundled sources plus any the user added, deduplicated by domain. MainActor because it
-    /// reads the custom-source store; call from views and other main-actor code. Non-main-actor
-    /// callers (host lookups) use `source(for:)`, which also consults custom domains.
-    @MainActor static var everything: [RecipeSource] {
-        let custom = CustomRecipeSourceStore.shared.sources
-        var seen = Set(all.map { $0.domain })
-        var merged = all
-        for c in custom where !seen.contains(c.domain) {
-            merged.append(c); seen.insert(c.domain)
-        }
-        return merged
-    }
-
-    /// Nonisolated snapshot of user domains so `source(for:)` (used off the main actor in the
-    /// import pipeline) can still resolve custom sources. Refreshed whenever the store changes.
-    nonisolated(unsafe) static var customSnapshot: [RecipeSource] = []
-
     nonisolated static func source(for domain: String) -> RecipeSource? {
-        if let hit = all.first(where: { domain.contains($0.domain) || $0.domain.contains(domain) }) {
-            return hit
-        }
-        return customSnapshot.first { domain.contains($0.domain) || $0.domain.contains(domain) }
+        all.first { domain.contains($0.domain) || $0.domain.contains(domain) }
     }
 }
 
