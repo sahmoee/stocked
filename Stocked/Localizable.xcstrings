@@ -192,6 +192,16 @@
         }
       }
     },
+    "%@, %lld recipes available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld recipes available"
+          }
+        }
+      }
+    },
     "%@: %@" : {
       "localizations" : {
         "en" : {
@@ -785,6 +795,9 @@
 
     },
     "➕  Your additions" : {
+
+    },
+    "🍹" : {
 
     },
     "🎉" : {
@@ -1622,6 +1635,9 @@
 
     },
     "Drag to plan  ·  dots = expiring" : {
+
+    },
+    "Drinks" : {
 
     },
     "Duplicate Finder" : {
@@ -2485,6 +2501,9 @@
     "No activity yet." : {
 
     },
+    "No drinks yet" : {
+
+    },
     "No food items found" : {
 
     },
@@ -2567,6 +2586,9 @@
 
     },
     "Nothing expiring soon!" : {
+
+    },
+    "Nothing from %@ yet" : {
 
     },
     "Nothing in your kitchen is expiring in the next few days." : {
@@ -2783,6 +2805,9 @@
     "Possible Duplicate" : {
 
     },
+    "Pouring the drinks list…" : {
+
+    },
     "Preferences" : {
 
     },
@@ -2832,6 +2857,9 @@
 
     },
     "Product Name" : {
+
+    },
+    "Pull down to fetch cocktails, coffees, shakes, and more from TheCocktailDB." : {
 
     },
     "QR Code Transfer" : {
@@ -2905,6 +2933,9 @@
 
     },
     "Recipes" : {
+
+    },
+    "Recipes from this source appear here as they're pulled into Discover or imported. Pull down on the Recipes tab to refresh, or import any recipe by URL." : {
 
     },
     "Recipes you've saved or created" : {
@@ -3159,6 +3190,9 @@
 
     },
     "Search recipes, cuisines, ingredients…" : {
+
+    },
+    "Search sources" : {
 
     },
     "Search tools" : {
@@ -3906,6 +3940,9 @@
 
     },
     "Your surplus inventory" : {
+
+    },
+    "Yours" : {
 
     },
     "Zone" : {

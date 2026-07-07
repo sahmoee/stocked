@@ -90,9 +90,6 @@ enum RecipeSourceHub {
             ("Taste of Home",      "🏡", "Test-kitchen classics"),
             ("Edamam",             "🔎", "Recipe search aggregator"),
             ("Tasty",              "🎬", "Video-first favorites"),
-            ("IBA Official",       "🍸", "The 77 official IBA cocktails"),
-            ("Open Drinks",        "🧉", "Open-source community drinks"),
-            ("API Ninjas",         "🥷", "Structured cocktail data"),
             ("My Database",        "💾", "Recipes synced on this device"),
         ]
         var listings: [SourceListing] = feedMeta.map {

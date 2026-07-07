@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 27
-    private static let fallbackVersion     = "4.8"
+    private static let fallbackBuildNumber = 26
+    private static let fallbackVersion     = "4.7"
 
-    static let changeCount   = 3
-    static let buildName     = "Build 294 — Adds three more drink sources to the Drinks section: the IBA official cocktail list cached on device, the Open Drinks community database, and the keyed API Ninjas cocktail feed, all merged and synced into the shared recipe pool."
+    static let changeCount   = 5
+    static let buildName     = "Build 293 — Adds a browse-by-source view with per-source recipe lists, a dedicated Drinks section, thirty additional recipe sources, cross-source syncing into one shared on-device recipe pool, and refreshed coach marks on every tab."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection
@@ -101,9 +101,6 @@ nonisolated enum BuildConfig {
     static var edamamAppKey: String { bundleString("EdamamAppKey") ?? "" }
     // Tasty (BuzzFeed) via RapidAPI — free tier. Add to xcconfig: RAPIDAPI_KEY = your_key
     static var rapidAPIKey: String { bundleString("RapidAPIKey") ?? "" }
-    /// API Ninjas Cocktail API (free tier, 10k/month). Add APINinjasKey to Info.plist via
-    /// Secrets.xcconfig to enable; absent -> the source simply no-ops.
-    static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "" }
     static var networkTimeout: Double {
         Double(bundleString("NetworkTimeout") ?? "8") ?? 8
     }

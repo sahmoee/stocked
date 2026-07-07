@@ -232,7 +232,7 @@ struct DrinksBrowseView: View {
                         Text("No drinks yet")
                             .font(.system(size: 15, weight: .semibold, design: .serif))
                             .foregroundStyle(session.themeTextColor)
-                        Text("Pull down to fetch cocktails, mocktails, shots, and more from TheCocktailDB, the IBA official list, Open Drinks, and API Ninjas.")
+                        Text("Pull down to fetch cocktails, coffees, shakes, and more from TheCocktailDB.")
                             .font(.system(size: 12.5))
                             .foregroundStyle(session.themeSecondaryText)
                             .multilineTextAlignment(.center)
@@ -285,9 +285,7 @@ struct DrinksBrowseView: View {
 
     private func loadMoreDrinks() async {
         isLoading = true
-        // Fan out to every drink source in parallel: TheCocktailDB, IBA Official,
-        // Open Drinks, and API Ninjas (when keyed).
-        let fresh = await DrinkSourcesPlus.fetchAllDrinks()
+        let fresh = await CocktailDBClient.shared.discoverRecipes(limit: 14)
         // Cross-source sync: freshly fetched drinks join the shared on-device database
         // so search, the mood finder, and Discover's offline seed see them too.
         RecipeSourceHub.ingestIntoDatabase(fresh)

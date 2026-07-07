@@ -38,29 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.8 (build 27) — Three more drink sources for the Drinks section ──
-        ChangelogVersion(
-            version: "4.8",
-            buildDate: "Build 27 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "wineglass.fill", color: Color.stockedGold,
-                               title: "Three new drink sources",
-                               detail: "The Drinks section now pours from four places at once: TheCocktailDB, the IBA's 77 official cocktails, the Open Drinks community database, and API Ninjas. Pull down and every source refreshes together."),
-                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGold,
-                               title: "The official classics, offline",
-                               detail: "The full IBA official cocktail list is fetched once and kept on your device, so the classics — Negroni, Vesper, Old Fashioned and all — are always available, even with no connection."),
-                ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGold,
-                               title: "Drinks join the shared library",
-                               detail: "Every drink fetched from any source syncs into your on-device recipe pool, so search, Discover, and the Sources browser all see them too."),
-            ]),
         // ── 4.7 (build 26) — Sources browser, Drinks, 30 sources, coach marks ──
         ChangelogVersion(
             version: "4.7",
             buildDate: "Build 26 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "globe", color: Color.stockedGold,
                                title: "Browse recipes by source",
