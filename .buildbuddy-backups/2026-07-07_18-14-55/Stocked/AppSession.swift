@@ -391,21 +391,10 @@ class AppSession {
             isLoggedIn  = true
         }
 
-        // LOGIN GATE: a persisted signed-out marker survives force-quit. Without it, a user
-        // who signed out (Keep Data) and relaunched was silently restored as logged in by the
-        // session-restore logic above. The marker is cleared only by enterKitchen or signIn.
-        if ud.bool(forKey: Self.signedOutMarkerKey) {
-            isLoggedIn = false
-            forceLogin = true
-        }
-
         // didSet does not fire during init, so set the sync gate explicitly to match the
         // account type we just resolved. Guests never use iCloud shared-pantry sync.
         SharedPantrySync.shared.accountAllowsSync = (accountType == .registered)
     }
-
-    /// Persisted "user signed out" marker — keeps the login screen up across relaunches.
-    nonisolated static let signedOutMarkerKey = "stocked_signedOut_v1"
 
     func enterKitchen(name: String = "") {
         let n = name.trimmingCharacters(in: .whitespaces)
@@ -425,7 +414,6 @@ class AppSession {
         if !n.isEmpty { guestStore.displayName = n }
         isLoggedIn = true
         forceLogin = false
-        UserDefaults.standard.removeObject(forKey: Self.signedOutMarkerKey)
         guestStore.requestNotificationPermission()
     }
     func continueAsGuest() { enterKitchen() }
@@ -447,7 +435,6 @@ class AppSession {
         if !n.isEmpty { guestStore.displayName = n }
         isLoggedIn  = true
         forceLogin  = false
-        UserDefaults.standard.removeObject(forKey: Self.signedOutMarkerKey)
 
         // No longer a guest session. Clearing this marker is what stops the app from
         // resolving back to guest on the next cold launch (init reads wasGuest).
@@ -534,8 +521,6 @@ class AppSession {
         accountType  = .guest
         displayName  = ""
         forceLogin   = true
-        // Persisted so a force-quit + relaunch still lands on the login screen.
-        UserDefaults.standard.set(true, forKey: Self.signedOutMarkerKey)
 
         // Profile memory removal — on EVERY sign-out (both Keep Data and Erase), the previous
         // profile's identity is cleared from active state so the login screen never shows or

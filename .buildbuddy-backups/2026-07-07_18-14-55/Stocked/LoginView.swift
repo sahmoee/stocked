@@ -9,8 +9,6 @@ struct LoginView: View {
     @State private var animateIn = false
     @State private var appleError: String? = nil
 
-    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
-
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
@@ -79,29 +77,25 @@ struct LoginView: View {
                 .opacity(animateIn ? 1 : 0)
                 .padding(.bottom, 28)
 
-                // Guest path — requires a name. This and Sign in with Apple are the ONLY two
-                // ways past this screen; the old "Continue without a name" bypass is removed.
-                Button {
-                    session.enterKitchen(name: name)
-                } label: {
-                    Text("Continue as Guest")
+                // Enter Kitchen
+                Button { session.enterKitchen(name: name) } label: {
+                    Text("Enter Kitchen")
                         .font(.system(size: 20, weight: .regular, design: .serif))
-                        .foregroundStyle(session.themeTextColor.opacity(trimmedName.isEmpty ? 0.45 : 1))
+                        .foregroundStyle(session.themeTextColor)
                         .frame(maxWidth: .infinity).padding(.vertical, 20)
-                        .background(Color.stockedGold.opacity(trimmedName.isEmpty ? 0.45 : 1))
-                        .clipShape(Capsule())
+                        .background(Color.stockedGold).clipShape(Capsule())
                 }
-                .disabled(trimmedName.isEmpty)
                 .padding(.horizontal, 32)
                 .opacity(animateIn ? 1 : 0)
-                .padding(.bottom, 10)
+                .padding(.bottom, 14)
 
-                Text("Sign in with Apple, or continue as a guest with your name.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-                    .opacity(animateIn ? 1 : 0)
+                // Skip name
+                Button { session.enterKitchen() } label: {
+                    Text("Continue without a name")
+                        .font(.system(size: 14))
+                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                }
+                .opacity(animateIn ? 1 : 0)
 
                 if let err = appleError {
                     Text(err).font(.system(size: 12)).foregroundStyle(.red)

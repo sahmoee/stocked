@@ -38,26 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.12 (build 31) — Login hardening, tidy Data & Storage ──
-        ChangelogVersion(
-            version: "4.12",
-            buildDate: "Build 31 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "lock.shield", color: Color.stockedGold,
-                               title: "Two clear ways in",
-                               detail: "The login screen now has exactly two paths: Sign in with Apple, or continue as a guest with your name. Guest entry asks for a name, and signing out always brings you back to this screen — even after closing the app."),
-                ChangelogEntry(icon: "internaldrive", color: Color.stockedGold,
-                               title: "Tidier Data & Storage",
-                               detail: "Duplicate rows in Data and Storage were combined. One clean list now covers transferring your kitchen, backing up to iCloud, storage and auto backup, deleting iCloud data, and clearing the app."),
-            ]),
         // ── 4.11 (build 30) — Quick Update understands brands and clear-all ──
         ChangelogVersion(
             version: "4.11",
             buildDate: "Build 30 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "text.bubble", color: Color.stockedGold,
                                title: "Quick Update understands brands and amounts",

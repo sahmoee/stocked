@@ -133,10 +133,7 @@ struct RootView: View {
                 // User just exited guest mode / signed out. Show login even if their onboarding
                 // and data were kept (quizCompleted still true) — cleared on next enterKitchen.
                 LoginView()
-            } else if session.isLoggedIn && session.guestStore.quizCompleted {
-                // LOGIN GATE: the main app requires BOTH a completed onboarding AND an active
-                // login (Apple or guest-with-name). quizCompleted alone used to be enough,
-                // which let stale onboarding state bypass the login screen entirely.
+            } else if session.guestStore.quizCompleted {
                 MainTabView()
                     .environment(\.stockedDevice,
                         UIDevice.current.userInterfaceIdiom == .pad ? .tablet : .regular)

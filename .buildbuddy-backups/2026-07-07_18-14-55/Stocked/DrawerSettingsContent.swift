@@ -198,13 +198,19 @@ struct SettingsContent: View {
                             .listRowBackground(Color.clear)
                     }
 
-                    // Storage, usage, migration, and auto-backup frequency — ONE row. This
-                    // used to be two rows ("Auto Backup Options" and "Data & Storage") that
-                    // both opened the exact same detail screen; condensed to a single entry.
+                    // Auto Backup options — jumps to the same frequency control surfaced in
+                    // Preferences (single source of truth), shown here as a labelled summary row
+                    // that opens the Data & Storage detail.
+                    Button { showDataStorage = true } label: {
+                        settingsRow(icon: "clock.arrow.2.circlepath", color: Color.stockedInfo,
+                                    title: "Auto Backup Options",
+                                    detail: "Frequency: \(session.backupFrequency.rawValue)")
+                    }.listRowBackground(Color.clear)
+
+                    // Data & Storage detail (migration check + backup/restore).
                     Button { showDataStorage = true } label: {
                         settingsRow(icon: "internaldrive", color: Color.stockedCharcoal,
-                                    title: "Storage & Auto Backup",
-                                    detail: "Usage, migration · Backs up \(session.backupFrequency.rawValue.lowercased())")
+                                    title: "Data & Storage", detail: "Storage usage & migration")
                     }.listRowBackground(Color.clear)
 
                     // Delete iCloud Data (destructive, cloud-only). Removes every Stocked
