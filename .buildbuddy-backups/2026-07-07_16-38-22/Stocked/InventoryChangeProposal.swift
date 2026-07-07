@@ -222,12 +222,12 @@ final class InventoryIntentParser {
             if !localChanges.isEmpty {
                 let coveredIDs = Set(changes.compactMap { $0.itemID })
                 let coveredAddNames = Set(changes.compactMap { change -> String? in
-                    if case .add(let name, _, _, _, _) = change.action { return Self.normalize(name) }
+                    if case .add(let name, _, _, _, _) = change.action { return normalize(name) }
                     return nil
                 })
                 let extra = localChanges.filter { c in
                     if let id = c.itemID { return !coveredIDs.contains(id) }
-                    if case .add(let name, _, _, _, _) = c.action { return !coveredAddNames.contains(Self.normalize(name)) }
+                    if case .add(let name, _, _, _, _) = c.action { return !coveredAddNames.contains(normalize(name)) }
                     return false
                 }
                 return changes + extra
