@@ -135,34 +135,26 @@ struct LoginView: View {
         case .success(let auth):
             guard let cred = auth.credential as? ASAuthorizationAppleIDCredential else { return }
             let userID    = cred.user
-            // Apple only includes fullName/email on the FIRST authorization for a given Apple
-            // ID; on every later sign-in they're nil. Capture everything Apple sends into the
-            // per-Apple-ID vault, then read the merged profile back. Because the vault is keyed
-            // to the Apple ID, sign-out can wipe the active profile completely while a returning
-            // user still gets their real name and email restored here.
-            let freshFirst = cred.fullName?.givenName?.trimmingCharacters(in: .whitespaces) ?? ""
-            let freshFull: String = {
-                guard let n = cred.fullName else { return "" }
-                return [n.givenName, n.familyName]
-                    .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
-                    .filter { !$0.isEmpty }.joined(separator: " ")
-            }()
-            let freshEmail = cred.email?.trimmingCharacters(in: .whitespaces) ?? ""
-            AppleProfileVault.remember(userID: userID, firstName: freshFirst,
-                                       fullName: freshFull, email: freshEmail)
-            let stored = AppleProfileVault.profile(for: userID)
+            // Apple only includes fullName on the FIRST authorization for a given Apple ID; on
+            // every later sign-in it is nil. So persist the given name the first time we see it
+            // (keyed implicitly to this device's account) and reuse it afterwards — otherwise the
+            // greeting silently falls back to the email prefix or "Chef" on the second sign-in.
+            let ud = UserDefaults.standard
+            let freshFirstName = cred.fullName?.givenName?.trimmingCharacters(in: .whitespaces) ?? ""
+            let storedFirstName = ud.string(forKey: DBKey.appleFirstName.rawValue) ?? ""
 
-            let firstName = freshFirst.isEmpty ? (stored?.firstName ?? "") : freshFirst
-            // Keep the legacy single-name cache in step for anything still reading it.
-            if !firstName.isEmpty {
-                UserDefaults.standard.set(firstName, forKey: DBKey.appleFirstName.rawValue)
+            let firstName: String
+            if !freshFirstName.isEmpty {
+                firstName = freshFirstName
+                ud.set(freshFirstName, forKey: DBKey.appleFirstName.rawValue)   // remember for next time
+            } else {
+                firstName = storedFirstName
             }
 
             // Greeting shows the FIRST name only (e.g. "Good Morning, Alex"). Fall back to the
-            // remembered email prefix, then Chef, only when we have never captured a first name.
-            let emailForFallback = freshEmail.isEmpty ? (stored?.email ?? "") : freshEmail
+            // email prefix, then Chef, only when we have never captured a first name.
             let displayName = firstName.isEmpty
-                ? (emailForFallback.components(separatedBy: "@").first ?? "Chef")
+                ? (cred.email?.components(separatedBy: "@").first ?? "Chef")
                 : firstName
 
             // Detect whether the user already has local guest data BEFORE we register the

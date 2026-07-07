@@ -16,10 +16,8 @@ struct AIInventoryAssistantView: View {
 
     @State private var request: String = ""
     @State private var parser = InventoryIntentParser()
-    // Identity-driven sheet payload — .sheet(item:) can't race the way a separate Bool +
-    // optional can (the classic "first tap opens a blank sheet" bug).
-    private struct ReviewPayload: Identifiable { let id = UUID(); let changes: [ProposedChange] }
-    @State private var reviewPayload: ReviewPayload? = nil
+    @State private var proposed: [ProposedChange]? = nil
+    @State private var showReconcile = false
     @State private var noChanges = false
     @FocusState private var focused: Bool
 
@@ -60,13 +58,15 @@ struct AIInventoryAssistantView: View {
             }
         }
         .onAppear { focused = true }
-        .sheet(item: $reviewPayload) { payload in
-            ReconcileSheet(
-                title: "Review Changes",
-                subtitle: "Confirm what should change in your inventory. Nothing is applied until you tap Apply.",
-                changes: payload.changes,
-                onApply: { _ in close() }
-            ).environment(session)
+        .sheet(isPresented: $showReconcile) {
+            if let proposed {
+                ReconcileSheet(
+                    title: "Review Changes",
+                    subtitle: "Confirm what should change in your inventory. Nothing is applied until you tap Apply.",
+                    changes: proposed,
+                    onApply: { _ in close() }
+                ).environment(session)
+            }
         }
     }
 
@@ -160,6 +160,7 @@ struct AIInventoryAssistantView: View {
             noChanges = true
             return
         }
-        reviewPayload = ReviewPayload(changes: changes)
+        proposed = changes
+        showReconcile = true
     }
 }

@@ -1417,18 +1417,6 @@ struct RatingView: View {
         session.guestStore.pastMeals.append(meal)
         session.recordCookToday()   // Streak tracking
 
-        // Apple Health — when the user opted in, log this meal's estimated per-serving
-        // nutrition (energy, protein, carbs, fat). Silently skipped when disabled,
-        // unauthorized, or the recipe carries no nutrition facts.
-        if let recipeId = meal.recipeId,
-           let cooked = session.guestStore.userRecipes.first(where: { $0.id == recipeId }) {
-            HealthKitManager.shared.logCookedMeal(
-                title: cooked.title,
-                nutrition: HealthKitManager.totals(for: cooked),
-                servings: cooked.servings
-            )
-        }
-
         if hasLeftover == true {
             let name = leftoverName.trimmingCharacters(in: .whitespaces).isEmpty ? "\(recipeTitle) Leftovers" : leftoverName
             let zone = leftoverZone.isEmpty ? "Fridge" : leftoverZone

@@ -885,9 +885,8 @@ private struct RecipeMyCollectionView: View {
     @Environment(AppSession.self) var session
     @Binding var showCreate: Bool
     @Binding var showBrowse: Bool
-    // Identity-driven merge payload — .sheet(item:) presents reliably on the first tap.
-    private struct MergePayload: Identifiable { let id = UUID(); let a: UserRecipe; let b: UserRecipe }
-    @State private var mergePayload: MergePayload? = nil
+    @State private var mergeCandidate: (UserRecipe, UserRecipe)? = nil
+    @State private var showMergeSheet = false
     @State private var showPastMeals  = true    // collapsible past meals section
     @State private var cookableSort   = false   // #2 — rank by what's in stock right now
 
@@ -928,9 +927,8 @@ private struct RecipeMyCollectionView: View {
                 let dups = duplicatePairs(recipes)
                 if !dups.isEmpty {
                     Button {
-                        if let pair = dups.first {
-                            mergePayload = MergePayload(a: pair.0, b: pair.1)
-                        }
+                        mergeCandidate = dups.first
+                        showMergeSheet = true
                     } label: {
                         Label("\(dups.count) duplicate\(dups.count == 1 ? "" : "s")", systemImage: "arrow.triangle.merge")
                             .font(.system(size: 11, weight: .semibold))
@@ -1065,9 +1063,11 @@ private struct RecipeMyCollectionView: View {
                 }
             }
         }
-        .sheet(item: $mergePayload) { payload in
-            RecipeMergeSheet(recipeA: payload.a, recipeB: payload.b)
-                .environment(session)
+        .sheet(isPresented: $showMergeSheet) {
+            if let (a, b) = mergeCandidate {
+                RecipeMergeSheet(recipeA: a, recipeB: b)
+                    .environment(session)
+            }
         }
     }
 }

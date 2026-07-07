@@ -23,8 +23,4 @@ enum DefaultsKey {
     static let groceryTemplates = "toolbox_grocery_templates_v1"
     /// Monthly grocery budget in dollars (Kitchen Toolbox → Grocery Budget).
     static let monthlyGroceryBudget = "toolbox_monthly_budget_v1"
-
-    // ── Apple Health ─────────────────────────────────────────────────────────
-    /// User opt-in for logging cooked-meal nutrition to Apple Health.
-    static let healthSyncEnabled = "health_sync_enabled_v1"
 }

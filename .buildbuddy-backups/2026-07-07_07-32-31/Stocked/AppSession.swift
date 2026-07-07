@@ -521,21 +521,6 @@ class AppSession {
         accountType  = .guest
         displayName  = ""
         forceLogin   = true
-
-        // Profile memory removal — on EVERY sign-out (both Keep Data and Erase), the previous
-        // profile's identity is cleared from active state so the login screen never shows or
-        // inherits it: the Apple user ID, the cached Apple first name, the kitchen display name,
-        // and the avatar photo. Kitchen data itself is only wiped on the clearData path above.
-        // Identity is not lost forever: AppleProfileVault keeps it keyed to the Apple ID and
-        // restores it after that same account re-authorizes.
-        appleUserID = ""
-        UserDefaults.standard.removeObject(forKey: DBKey.appleFirstName.rawValue)
-        guestStore.displayName = ""
-        if guestStore.cookingProfile.avatarPhotoData != nil {
-            var p = guestStore.cookingProfile
-            p.avatarPhotoData = nil
-            guestStore.cookingProfile = p
-        }
     }
 
     /// Full account deletion (Apple App Store requirement for apps with accounts).
@@ -545,9 +530,6 @@ class AppSession {
     func deleteAccount() {
         // Leave any shared household so this device stops syncing and is removed as a participant.
         HouseholdCloudKit.shared.leaveHousehold()
-        // Full deletion also forgets the remembered Apple identity — unlike sign-out, there is
-        // no "come back later" here.
-        if !appleUserID.isEmpty { AppleProfileVault.forget(userID: appleUserID) }
         // Reuse the thorough local wipe (data, caches, prefs, UserDefaults domain, Apple ID).
         signOut(clearData: true)
         Log.transfer.notice("Account deleted: local data and credentials cleared")

@@ -517,16 +517,11 @@ struct MoodRecipeFinderView: View {
     let subcategory: String
     let emoji:       String
     let servings:    Int
-    // Optional Match My Mood answers — used to steer the AI fallback and time filtering.
-    var energy: String? = nil
-    var timeBudget: String? = nil
 
     @State private var recipe:     FetchedMoodRecipe? = nil
     @State private var isLoading   = true
     @State private var failed      = false
     @State private var goToOverview = false
-    @State private var sourceNote  = ""      // where the recipe came from (web / your database / AI)
-    @State private var fetchTask: Task<Void, Never>? = nil
 
     var body: some View {
         StockedShell(showBack: true) {
@@ -556,7 +551,6 @@ struct MoodRecipeFinderView: View {
             goToOverview = false
         }
         .onAppear { fetchRecipe() }
-        .onDisappear { fetchTask?.cancel() }
     }
 
     // MARK: Loading
@@ -571,10 +565,9 @@ struct MoodRecipeFinderView: View {
                     .font(.system(size: 20, weight: .semibold, design: .serif))
                     .foregroundStyle(session.themeTextColor)
                     .multilineTextAlignment(.center)
-                Text("Checking the web, your database, and AI for the perfect match")
+                Text("Searching the internet for the perfect match")
                     .font(.system(size: 13))
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
-                    .multilineTextAlignment(.center)
             }
             ProgressView().tint(Color.stockedGold).scaleEffect(1.4)
             Spacer()
@@ -612,11 +605,6 @@ struct MoodRecipeFinderView: View {
                     Label("\(servings) servings", systemImage: "person.2").font(.system(size: 12))
                 }
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
-                if !sourceNote.isEmpty {
-                    Label(sourceNote, systemImage: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.stockedGold)
-                }
             }
             .padding(.horizontal, 24).padding(.bottom, 16)
 
@@ -678,139 +666,71 @@ struct MoodRecipeFinderView: View {
         }.frame(maxWidth: .infinity)
     }
 
-    // MARK: Fetch logic — layered so the flow ALWAYS lands on a recipe.
-    //   1. TheMealDB web search (existing behavior).
-    //   2. The bundled 98k-recipe database (RecipeStore) — offline-safe.
-    //   3. AI generation via the Stocked Worker, steered by mood, energy, and time.
-    //   4. The starter/saved catalogue — guaranteed local content.
-    // The failed state remains only as a truly-last-resort retry screen.
+    // MARK: Fetch logic — picks a random keyword, hits TheMealDB, returns first result
     private func fetchRecipe() {
         isLoading = true
         failed    = false
         recipe    = nil
-        sourceNote = ""
 
         let keywords = moodKeywords[subcategory] ?? [subcategory.lowercased()]
+        // Pick a random keyword so every load can return something different
         let keyword  = keywords.randomElement() ?? subcategory.lowercased()
+        let encoded  = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword
+        let urlStr   = "https://www.themealdb.com/api/json/v1/1/search.php?s=\(encoded)"
 
-        fetchTask?.cancel()
-        fetchTask = Task { @MainActor in
-            // 1 — Web (TheMealDB), as before.
-            if let web = await fetchFromMealDB(keyword: keyword) {
-                recipe = web; sourceNote = ""; isLoading = false; return
-            }
-            if Task.isCancelled { return }
+        guard let url = URL(string: urlStr) else { isLoading = false; failed = true; return }
 
-            // 2 — Bundled recipe database: try each mood keyword until something hits.
-            if let local = await fetchFromLocalDatabase(keywords: keywords) {
-                recipe = local; sourceNote = "From your recipe database"; isLoading = false; return
-            }
-            if Task.isCancelled { return }
-
-            // 3 — AI: generate a recipe matched to the mood answers.
-            if let ai = await fetchFromAI(keyword: keyword) {
-                recipe = ai; sourceNote = "Created by AI for your mood"; isLoading = false; return
-            }
-            if Task.isCancelled { return }
-
-            // 4 — Starter/saved catalogue: always available.
-            if let starter = fetchFromStarterCatalog(keywords: keywords) {
-                recipe = starter; sourceNote = "From your saved recipes"; isLoading = false; return
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            guard let data,
+                  let json  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let meals  = json["meals"] as? [[String: Any]],
+                  !meals.isEmpty
+            else {
+                Task { @MainActor in isLoading = false; failed = true }
+                return
             }
 
-            isLoading = false
-            failed = true
-        }
-    }
-
-    // Layer 1 — TheMealDB (async wrapper around the original request).
-    private func fetchFromMealDB(keyword: String) async -> FetchedMoodRecipe? {
-        let encoded = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword
-        guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(encoded)") else { return nil }
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let json  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let meals = json["meals"] as? [[String: Any]],
-              let m = meals.randomElement() else { return nil }
-
-        let title    = m["strMeal"]      as? String ?? keyword.capitalized
-        let imageURL = m["strMealThumb"] as? String ?? ""
-        let raw = m["strInstructions"] as? String ?? ""
-        let steps = raw
-            .components(separatedBy: CharacterSet.newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { $0.count > 15 }
-            .prefix(8).map { $0 }
-        var ings: [String] = []
-        for i in 1...20 {
-            let ing  = (m["strIngredient\(i)"] as? String ?? "").trimmingCharacters(in: .whitespaces)
-            let meas = (m["strMeasure\(i)"]    as? String ?? "").trimmingCharacters(in: .whitespaces)
-            if !ing.isEmpty { ings.append(meas.isEmpty ? ing : "\(meas) \(ing)") }
-        }
-        guard !ings.isEmpty || !steps.isEmpty else { return nil }
-        return FetchedMoodRecipe(title: title, imageURL: imageURL, ingredients: ings,
-                                 steps: Array(steps), cookTime: "30 min", prepTime: "15 min")
-    }
-
-    // Layer 2 — bundled 98k-recipe sqlite. Tries keywords in random order; prefers entries
-    // that actually have steps so the overview screen isn't empty.
-    private func fetchFromLocalDatabase(keywords: [String]) async -> FetchedMoodRecipe? {
-        guard await RecipeStore.shared.isAvailable() else { return nil }
-        for keyword in keywords.shuffled() {
-            let hits = await RecipeStore.shared.search(keyword, limit: 6)
-            if let pick = hits.filter({ !$0.steps.isEmpty && !$0.ingredients.isEmpty }).randomElement()
-                        ?? hits.randomElement() {
-                return FetchedMoodRecipe(
-                    title: pick.title,
-                    imageURL: pick.imageURL,
-                    ingredients: pick.ingredients,
-                    steps: pick.steps,
-                    cookTime: pick.cookTime.isEmpty ? "30 min" : pick.cookTime,
-                    prepTime: pick.prepTime.isEmpty ? "15 min" : pick.prepTime
-                )
+            // Pick a random meal from the results so it varies each load
+            guard let m = meals.randomElement() else {
+                Task { @MainActor in isLoading = false; failed = true }
+                return
             }
-        }
-        return nil
-    }
 
-    // Layer 3 — AI generation via the Worker, steered by every mood answer plus what's on hand.
-    private func fetchFromAI(keyword: String) async -> FetchedMoodRecipe? {
-        guard RecipeGeneratorAI.isAvailable else { return nil }
-        var idea = "A \(subcategory.lowercased()) \(keyword) style meal"
-        if let energy { idea += ", for a \(energy.lowercased()) energy evening" }
-        let onHand = session.guestStore.inventoryItems
-            .filter { $0.effectiveLevel > 0 }
-            .prefix(12).map { $0.name }
-        var options = RecipeGeneratorAI.Options(haveItems: Array(onHand))
-        if let timeBudget { options.maxTime = timeBudget }
-        guard let g = await RecipeGeneratorAI.generate(idea: idea, options: options) else { return nil }
-        let ings = g.ingredients.map { $0.amount.isEmpty ? $0.name : "\($0.amount) \($0.name)" }
-        guard !ings.isEmpty || !g.steps.isEmpty else { return nil }
-        return FetchedMoodRecipe(
-            title: g.title,
-            imageURL: "",
-            ingredients: ings,
-            steps: g.steps,
-            cookTime: g.cookTime.isEmpty ? "30 min" : g.cookTime,
-            prepTime: "15 min"
-        )
-    }
+            let title    = m["strMeal"]      as? String ?? keyword.capitalized
+            let imageURL = m["strMealThumb"] as? String ?? ""
 
-    // Layer 4 — starter + saved recipes: keyword match first, otherwise any starter.
-    private func fetchFromStarterCatalog(keywords: [String]) -> FetchedMoodRecipe? {
-        let catalog = session.guestStore.cookCatalog
-        guard !catalog.isEmpty else { return nil }
-        let pick = catalog.first(where: { r in
-            keywords.contains { FuzzyMatch.matches($0, r.title) }
-        }) ?? catalog.randomElement()
-        guard let r = pick else { return nil }
-        return FetchedMoodRecipe(
-            title: r.title,
-            imageURL: r.imageURL ?? "",
-            ingredients: r.ingredients.map { $0.amount.isEmpty ? $0.name : "\($0.amount) \($0.name)" },
-            steps: r.instructions,
-            cookTime: r.cookTime.isEmpty ? "30 min" : r.cookTime,
-            prepTime: r.prepTime.isEmpty ? "15 min" : r.prepTime
-        )
+            // Parse instructions
+            let raw = m["strInstructions"] as? String ?? ""
+            let steps = raw
+                .components(separatedBy: CharacterSet.newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.count > 15 }
+                .prefix(8).map { $0 }
+
+            // Parse ingredients + measures
+            var ings: [String] = []
+            for i in 1...20 {
+                let ing  = (m["strIngredient\(i)"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+                let meas = (m["strMeasure\(i)"]    as? String ?? "").trimmingCharacters(in: .whitespaces)
+                if !ing.isEmpty {
+                    ings.append(meas.isEmpty ? ing : "\(meas) \(ing)")
+                }
+            }
+
+            let fetched = FetchedMoodRecipe(
+                title:       title,
+                imageURL:    imageURL,
+                ingredients: ings,
+                steps:       Array(steps),
+                cookTime:    "30 min",
+                prepTime:    "15 min"
+            )
+
+            Task { @MainActor in
+                recipe    = fetched
+                isLoading = false
+            }
+        }.resume()
     }
 }
 

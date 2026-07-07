@@ -117,22 +117,6 @@ struct SettingsContent: View {
                                     detail: "Add websites or manage sources")
                     }
                     .listRowBackground(Color.clear)
-
-                    // Apple Health — opt-in nutrition logging for cooked meals. Hidden on
-                    // devices without Health data (e.g. some iPads).
-                    if HealthKitManager.shared.isAvailable {
-                        Toggle(isOn: Binding(
-                            get: { HealthKitManager.shared.isEnabled },
-                            set: { HealthKitManager.shared.isEnabled = $0 }
-                        )) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Label("Apple Health", systemImage: "heart.fill")
-                                    .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                                Text("Log cooked-meal nutrition to Health")
-                                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                            }
-                        }.tint(Color.stockedGold).listRowBackground(Color.clear)
-                    }
                 } label: {
                     fieldLabel(icon: "slider.horizontal.3", color: Color.stockedInfo, title: "Preferences")
                 }
@@ -803,10 +787,8 @@ struct HouseholdSyncSheet: View {
     @State private var codeInput = ""
     @State private var showCopied = false
     // CloudKit cross-account sharing (Session 2).
-    // Identity-driven share payload — .sheet(item:) presents reliably on the first tap,
-    // unlike a Bool + optional pair that can race.
-    private struct SharePayload: Identifiable { let id = UUID(); let share: CKShare }
-    @State private var sharePayload: SharePayload? = nil
+    @State private var ckShare: CKShare? = nil
+    @State private var showShareSheet = false
     @State private var ckBusy = false
     @State private var ckJoinCode = ""
     @State private var ckJoining = false
@@ -846,7 +828,8 @@ struct HouseholdSyncSheet: View {
                                 if let share = await HouseholdCloudKit.shared.createHousehold() {
                                     // Push our current pantry into the shared zone first.
                                     await HouseholdCloudKit.shared.push(store: session.guestStore)
-                                    sharePayload = SharePayload(share: share)
+                                    ckShare = share
+                                    showShareSheet = true
                                 }
                                 ckBusy = false
                             }
@@ -994,9 +977,11 @@ struct HouseholdSyncSheet: View {
         .presentationDetents([.large])
         .onAppear { codeInput = session.householdCode }
         .dismissKeyboardOnTap()
-        .sheet(item: $sharePayload) { payload in
-            CloudSharingView(share: payload.share,
-                             container: CKContainer(identifier: "iCloud.Stocked"))
+        .sheet(isPresented: $showShareSheet) {
+            if let share = ckShare {
+                CloudSharingView(share: share,
+                                 container: CKContainer(identifier: "iCloud.Stocked"))
+            }
         }
     }
 }

@@ -254,6 +254,16 @@
     "%lld available" : {
 
     },
+    "%lld built-in sources plus %lld of your own." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld built-in sources plus %2$lld of your own."
+          }
+        }
+      }
+    },
     "%lld change%@ need your review" : {
       "localizations" : {
         "en" : {
@@ -914,6 +924,9 @@
     "Add a Recipe" : {
 
     },
+    "Add a Website" : {
+
+    },
     "Add all %lld to grocery list" : {
 
     },
@@ -959,6 +972,9 @@
     "Add Missing to List" : {
 
     },
+    "Add or Manage Sources" : {
+
+    },
     "Add Photo" : {
 
     },
@@ -966,6 +982,9 @@
 
     },
     "Add something to your grocery list." : {
+
+    },
+    "Add Source" : {
 
     },
     "Add Step" : {
@@ -1443,6 +1462,9 @@
     "Correct name…" : {
 
     },
+    "Couldn't add that source" : {
+
+    },
     "Couldn't find a recipe right now." : {
 
     },
@@ -1536,6 +1558,12 @@
     "Delete Account?" : {
 
     },
+    "Delete from iCloud" : {
+
+    },
+    "Delete iCloud Data?" : {
+
+    },
     "Delete Recipe" : {
 
     },
@@ -1570,6 +1598,9 @@
 
     },
     "Dismiss timer" : {
+
+    },
+    "Display name (optional)" : {
 
     },
     "Done" : {
@@ -1629,6 +1660,9 @@
     "Edit Profile" : {
 
     },
+    "Emoji" : {
+
+    },
     "Empty — sample items shown" : {
 
     },
@@ -1639,6 +1673,9 @@
 
     },
     "Enter 8-character code" : {
+
+    },
+    "Enter a valid website domain that isn't already in your list." : {
 
     },
     "Enter barcode number" : {
@@ -2656,6 +2693,9 @@
     "Paste a recipe URL…" : {
 
     },
+    "Paste any recipe site's domain. Stocked can pull recipes from most sites that publish standard recipe data." : {
+
+    },
     "Paste any recipe URL — we'll extract the title, ingredients and steps automatically." : {
 
     },
@@ -2675,6 +2715,9 @@
 
     },
     "per %@" : {
+
+    },
+    "Permanently deletes every Stocked backup from your iCloud account. Your data on this device is not affected. This cannot be undone." : {
 
     },
     "Permanently deletes your pantry, grocery list, meal history, recipes, settings, and iCloud backup. Cannot be undone." : {
@@ -3369,6 +3412,9 @@
     "Substitutions" : {
 
     },
+    "Suggested Sources" : {
+
+    },
     "SURPRISE\nME" : {
 
     },
@@ -3689,6 +3735,9 @@
     "We've set everything up based on your preferences. Update them anytime in Settings." : {
 
     },
+    "Website domain (e.g. mykitchen.com)" : {
+
+    },
     "Weekly Review" : {
 
     },
@@ -3702,6 +3751,9 @@
 
     },
     "What does “stocked” mean to you?" : {
+
+    },
+    "What it's known for (optional)" : {
 
     },
     "What should we call you?" : {
@@ -3842,6 +3894,9 @@
 
     },
     "Your Recipe" : {
+
+    },
+    "Your Sources" : {
 
     },
     "Your surplus inventory" : {

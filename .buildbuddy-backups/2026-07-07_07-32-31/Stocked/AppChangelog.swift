@@ -38,35 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.6 (build 25) — Pull to refresh, polish, mood fix, Health sync ──
-        ChangelogVersion(
-            version: "4.6",
-            buildDate: "Build 25 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "arrow.clockwise", color: Color.stockedGold,
-                               title: "Pull to refresh, everywhere",
-                               detail: "Pull down on any screen to refresh. If you share a household, it also pulls the latest changes from everyone right away."),
-                ChangelogEntry(icon: "theatermasks", color: Color.stockedGold,
-                               title: "Match My Mood always delivers",
-                               detail: "Your mood match now checks the web, your built-in recipe database, and AI in turn — so you always land on a recipe, even offline. Your energy and time answers now shape the pick too."),
-                ChangelogEntry(icon: "calendar.badge.plus", color: Color.stockedGold,
-                               title: "Plan a Meal fixed",
-                               detail: "The Plan a Meal button in Cook Later now opens the weekly planner as intended, along with the empty-state shortcut."),
-                ChangelogEntry(icon: "heart.fill", color: Color.stockedGold,
-                               title: "Apple Health sync",
-                               detail: "Turn on Apple Health in Preferences and every meal you finish cooking logs its estimated nutrition — calories, protein, carbs, and fat — to Health automatically."),
-                ChangelogEntry(icon: "person.crop.circle.badge.checkmark", color: Color.stockedGold,
-                               title: "Cleaner sign-in and sign-out",
-                               detail: "Signing out now fully clears the previous profile from the app. Signing back in with Apple restores your name and details automatically, and review sheets across the app now open reliably on the first tap."),
-            ]),
         // ── 4.5 (build 24) — Drawer customization, swipe delete, recipe sources ──
         ChangelogVersion(
             version: "4.5",
             buildDate: "Build 24 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "hand.draw", color: Color.stockedGold,
                                title: "Rearrange your menu",

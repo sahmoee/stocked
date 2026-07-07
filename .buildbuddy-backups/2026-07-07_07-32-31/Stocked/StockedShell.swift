@@ -14,7 +14,6 @@ struct StockedShell<Content: View>: View {
     var trailingIcon2:  String?              // #245 — optional second top-right action
     var trailingLabel2: String
     var onTrailing2:    (() -> Void)?
-    var onRefresh:      (() async -> Void)?  // custom pull-to-refresh; nil = standard app refresh
     var content:        Content
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -33,7 +32,6 @@ struct StockedShell<Content: View>: View {
         trailingIcon2:  String? = nil,
         trailingLabel2: String = "",
         onTrailing2:    (() -> Void)? = nil,
-        onRefresh:      (() async -> Void)? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.showBack       = showBack
@@ -47,7 +45,6 @@ struct StockedShell<Content: View>: View {
         self.trailingIcon2  = trailingIcon2
         self.trailingLabel2 = trailingLabel2
         self.onTrailing2    = onTrailing2
-        self.onRefresh      = onRefresh
         self.content        = content()
     }
 
@@ -74,16 +71,6 @@ struct StockedShell<Content: View>: View {
                             .padding(.bottom, StockedUI.scrollBottomPad)
                     }
                     .scrollDismissesKeyboard(.interactively)
-                    // App-wide pull-to-refresh. Screens with their own refresh needs pass
-                    // onRefresh; everything else gets the standard refresh (household pull +
-                    // cache rebuild + haptic) for free.
-                    .refreshable {
-                        if let onRefresh {
-                            await onRefresh()
-                        } else {
-                            await StockedRefresh.standard(session: session)
-                        }
-                    }
                 }
             }
         }

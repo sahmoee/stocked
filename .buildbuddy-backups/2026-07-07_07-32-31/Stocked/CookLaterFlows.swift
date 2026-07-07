@@ -93,9 +93,7 @@ struct CookLaterHomeView: View {
                 Spacer(minLength: 20)
             }
         }
-        // BUG FIX: "Plan a Meal" set goPlanner but no destination existed for it, so the hero
-        // card and the empty-state CTA did nothing. Both now route into the Weekly Planner.
-        .navigationDestination(isPresented: $goPlanner) { WeekMealPlannerView() }
+        
         .navigationDestination(isPresented: $goPrep) { MealPrepView() }
     }
 }

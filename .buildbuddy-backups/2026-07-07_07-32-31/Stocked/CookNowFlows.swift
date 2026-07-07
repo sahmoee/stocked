@@ -137,8 +137,7 @@ struct MatchMyMoodFlowView: View {
         }
         .navigationDestination(isPresented: $goResults) {
             let m = mapping(for: moodPick ?? "Comforting")
-            MoodRecipeFinderView(category: m.category, subcategory: m.sub, emoji: m.emoji,
-                                 servings: 4, energy: energy, timeBudget: time)
+            MoodRecipeFinderView(category: m.category, subcategory: m.sub, emoji: m.emoji, servings: 4)
         }
     }
 }
@@ -151,7 +150,6 @@ struct RecipeResultsView: View {
 
     @State private var openRecipe: UserRecipe? = nil
     @State private var goRecipe = false
-    @State private var showAIGenerator = false
 
     // Recipes ranked by inventory coverage (have/total), best first.
     private var ranked: [(recipe: UserRecipe, have: Int, total: Int)] {
@@ -179,9 +177,9 @@ struct RecipeResultsView: View {
                     CookEmptyState(
                         icon: "fork.knife",
                         title: "No recipes yet",
-                        message: "Save some recipes and add ingredients, and your best matches will show up here. Or let AI create one from what you have.",
-                        ctaTitle: "Generate with AI"
-                    ) { showAIGenerator = true }
+                        message: "Save some recipes and add ingredients, and your best matches will show up here.",
+                        ctaTitle: nil, ctaAction: nil
+                    )
                 } else {
                     VStack(spacing: 10) {
                         ForEach(ranked.prefix(15), id: \.recipe.id) { entry in
@@ -202,9 +200,6 @@ struct RecipeResultsView: View {
         }
         .navigationDestination(isPresented: $goRecipe) {
             if let r = openRecipe { UserRecipeDetailView(recipe: r) }
-        }
-        .sheet(isPresented: $showAIGenerator) {
-            NavigationStack { AIRecipeGeneratorView().environment(session) }
         }
     }
 }
