@@ -46,14 +46,14 @@ struct StockedChangelog {
             isLatest: true,
             entries: [
                 ChangelogEntry(icon: "text.bubble", color: Color.stockedGold,
-                               title: "Quick Update understands brands and amounts",
-                               detail: "Say you used the lemon pepper and Quick Update matches it to your Hill Country Fare Lemon Pepper. It also reads quantities and units now, so bought three cans of black beans or a 24 oz bag of rice records the count and size, and used two cans lowers the count instead of removing everything."),
+                               title: "Quick Update understands brands",
+                               detail: "Say you used the lemon pepper and Quick Update now matches it to your Hill Country Fare Lemon Pepper, even when the brand name is different from what you said. It resolves items right on your device."),
                 ChangelogEntry(icon: "trash", color: Color.stockedGold,
                                title: "Clear everything by asking",
                                detail: "Tell Quick Update to clear all your inventory, wipe everything, or start over, and it will offer to empty your inventory for review. This works instantly, even offline."),
                 ChangelogEntry(icon: "wifi.slash", color: Color.stockedGold,
-                               title: "Works first time, and offline",
-                               detail: "Quick Update now opens the review sheet on the first send instead of needing a second try, and common updates like adding items, finishing an item, or running low work right on your device even when you are offline."),
+                               title: "Works without a connection",
+                               detail: "Common updates like finishing an item or running low now work on device, so Quick Update keeps helping even when you are offline or the assistant is unavailable."),
             ]),
         // ── 4.10 (build 29) — Sources browser shows only sources with results ──
         ChangelogVersion(

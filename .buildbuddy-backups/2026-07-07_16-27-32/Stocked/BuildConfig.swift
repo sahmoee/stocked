@@ -41,7 +41,7 @@ nonisolated enum BuildConfig {
     private static let fallbackVersion     = "4.11"
 
     static let changeCount   = 3
-    static let buildName     = "Build 297 — Quick Update resolves branded item names on device, understands quantities and units for both adding and removing so bought three cans and used two cans behave correctly, clears all inventory on request, opens the review sheet on the first send, and falls back to on-device parsing offline."
+    static let buildName     = "Build 297 — Quick Update now resolves branded item names on device so used the lemon pepper matches the stored branded row, understands clear all and wipe everything to empty the inventory for review, and falls back to on-device parsing so it works offline and when the assistant misses."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection

@@ -65,7 +65,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>11</string>
+	<string>12</string>
 	<key>ClaudeAPIKey</key>
 	<string>$(CLAUDE_API_KEY)</string>
 	<key>ClaudeAPIURL</key>
