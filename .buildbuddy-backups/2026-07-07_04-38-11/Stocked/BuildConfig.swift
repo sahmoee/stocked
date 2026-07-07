@@ -37,12 +37,12 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 23
-    private static let fallbackVersion     = "4.4"
+    private static let fallbackBuildNumber = 22
+    private static let fallbackVersion     = "4.3"
 
     static let changeCount   = 4
-    static let buildName     = "Build 290 — Adds the Kitchen Toolbox: 20 new tools including Pantry Value, Expiry Calendar, Waste Insights, Recipe Roulette, Kitchen Timers, Batch Cook Planner, grocery list templates, a monthly budget, Duplicate Finder with undo, and kitchen achievement badges."
-    static let buildDate     = "July 2026"
+    static let buildName     = "Build 289 — Fixes the Build Around Food category cards so they open again, auto-checks purchased items off your grocery list after a receipt scan, adds recipe scaling, and adds Kitchen Stats and Sync Diagnostics screens."
+    static let buildDate     = "June 2026"
 
     // MARK: - Environment detection
     enum Environment { case debug, staging, release }

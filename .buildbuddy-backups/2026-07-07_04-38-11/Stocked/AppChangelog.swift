@@ -38,32 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.4 (build 23) — Kitchen Toolbox: 20 new tools ────────────────────
-        ChangelogVersion(
-            version: "4.4",
-            buildDate: "Build 23 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "wrench.and.screwdriver", color: Color.stockedGold,
-                               title: "Meet the Kitchen Toolbox",
-                               detail: "A new hub in the side menu with 20 tools: Pantry Value, Expiry Calendar, Waste Insights, Weekly Review, Low Stock Report, Price Lookup, and more. Search finds any tool by name."),
-                ChangelogEntry(icon: "square.stack.3d.up", color: Color.stockedGold,
-                               title: "Plan and shop smarter",
-                               detail: "Scale a recipe for batch cooking and shop for the whole batch, save your grocery list as a reusable template, set a monthly grocery budget, and see roughly what a recipe costs to make."),
-                ChangelogEntry(icon: "dice", color: Color.stockedGold,
-                               title: "Cook with less friction",
-                               detail: "Spin the Recipe Roulette when you can't decide, run up to four kitchen timers at once, convert cups to grams for any ingredient, and get ideas for tonight's leftovers."),
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Keep things tidy",
-                               detail: "Find and merge duplicate inventory items (with undo), look up how long foods last, browse storage tips and seasonal produce, share a snapshot of your pantry, and earn kitchen badges."),
-            ]),
         // ── 4.3 (build 22) — Build Around Food fix, receipt restock, stats ────
         ChangelogVersion(
             version: "4.3",
             buildDate: "Build 22 · July 1, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "hand.tap", color: Color.stockedGold,
                                title: "Build Around Food cards work again",

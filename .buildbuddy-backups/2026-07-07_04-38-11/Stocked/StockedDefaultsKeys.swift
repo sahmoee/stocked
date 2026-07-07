@@ -17,10 +17,4 @@ enum DefaultsKey {
     static let recipeImportCacheTextPrefix = "recipeImportAICache.t."
     /// Prefix for source-URL-keyed cached imports.
     static let recipeImportCacheURLPrefix = "recipeImportAICache.u."
-
-    // ── Kitchen Toolbox ──────────────────────────────────────────────────────
-    /// Saved grocery list templates (Kitchen Toolbox → List Templates).
-    static let groceryTemplates = "toolbox_grocery_templates_v1"
-    /// Monthly grocery budget in dollars (Kitchen Toolbox → Grocery Budget).
-    static let monthlyGroceryBudget = "toolbox_monthly_budget_v1"
 }

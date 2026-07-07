@@ -412,7 +412,6 @@ enum DrawerQuickAction { case scanReceipt, scanBarcode, quickUpdate, addItems, s
 struct DrawerContent: View {
     @State private var showHelpCenter = false      // #245 — mockup Settings rows
     @State private var showUsageInsights = false    // #20 — local usage insights
-    @State private var showToolbox = false          // Kitchen Toolbox hub (20 tools)
     @State private var showProfileHub = false      // chef row → Profile & Preferences hub
     @State private var showLogoutConfirm = false
     @Environment(AppSession.self) var session
@@ -522,7 +521,6 @@ struct DrawerContent: View {
                     drawerButton("Stats",     icon: "chart.bar")          { runQuick(.stats)     { showStats = true } }
                     drawerButton("Databases", icon: "cylinder.split.1x2") { runQuick(.databases) { showDatabases = true } }
                     drawerButton("Usage Insights", icon: "chart.pie")     { showUsageInsights = true }
-                    drawerButton("Kitchen Toolbox", icon: "wrench.and.screwdriver") { showToolbox = true }
                 } header: { drawerHeader("Insights") }
 
                 Section {
@@ -555,9 +553,6 @@ struct DrawerContent: View {
         }
         .sheet(isPresented: $showUsageInsights) {
             NavigationStack { UsageInsightsView().environment(session) }   // #20
-        }
-        .sheet(isPresented: $showToolbox) {
-            NavigationStack { KitchenToolboxView().environment(session) }   // Kitchen Toolbox hub
         }
         // Edit Profile — opened from the chef row. Avatar (tap to change skin tone or add a
         // photo), name, and the onboarding answers inline. Preferences moved to the drawer's
