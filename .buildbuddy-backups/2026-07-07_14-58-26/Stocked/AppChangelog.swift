@@ -38,29 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.11 (build 30) — Quick Update understands brands and clear-all ──
-        ChangelogVersion(
-            version: "4.11",
-            buildDate: "Build 30 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "text.bubble", color: Color.stockedGold,
-                               title: "Quick Update understands brands",
-                               detail: "Say you used the lemon pepper and Quick Update now matches it to your Hill Country Fare Lemon Pepper, even when the brand name is different from what you said. It resolves items right on your device."),
-                ChangelogEntry(icon: "trash", color: Color.stockedGold,
-                               title: "Clear everything by asking",
-                               detail: "Tell Quick Update to clear all your inventory, wipe everything, or start over, and it will offer to empty your inventory for review. This works instantly, even offline."),
-                ChangelogEntry(icon: "wifi.slash", color: Color.stockedGold,
-                               title: "Works without a connection",
-                               detail: "Common updates like finishing an item or running low now work on device, so Quick Update keeps helping even when you are offline or the assistant is unavailable."),
-            ]),
         // ── 4.10 (build 29) — Sources browser shows only sources with results ──
         ChangelogVersion(
             version: "4.10",
             buildDate: "Build 29 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "line.3.horizontal.decrease.circle", color: Color.stockedGold,
                                title: "Sources that deliver, only",

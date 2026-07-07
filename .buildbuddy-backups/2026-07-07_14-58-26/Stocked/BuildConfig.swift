@@ -37,11 +37,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 30
-    private static let fallbackVersion     = "4.11"
+    private static let fallbackBuildNumber = 29
+    private static let fallbackVersion     = "4.10"
 
     static let changeCount   = 3
-    static let buildName     = "Build 297 — Quick Update now resolves branded item names on device so used the lemon pepper matches the stored branded row, understands clear all and wipe everything to empty the inventory for review, and falls back to on-device parsing so it works offline and when the assistant misses."
+    static let buildName     = "Build 296 — The Sources browser now lists only sources that actually deliver recipes, with live counts drawn from the loader pool plus the on-device database, keyed feeds hidden until configured, and per-source lists deduplicated."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection

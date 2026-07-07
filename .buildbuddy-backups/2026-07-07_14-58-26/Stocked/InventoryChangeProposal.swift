@@ -111,22 +111,6 @@ extension GuestDataStore {
 
 // MARK: - Conversational intent → proposals (via the receipt Worker's intent path)
 
-// Dependency-free "all ranges of a substring" — avoids relying on the regex-backed
-// String.ranges(of:) overload, so behavior is identical across OS versions.
-private extension String {
-    func allRanges(of needle: String) -> [Range<String.Index>] {
-        guard !needle.isEmpty else { return [] }
-        var result: [Range<String.Index>] = []
-        var searchStart = startIndex
-        while searchStart < endIndex,
-              let r = range(of: needle, options: [], range: searchStart..<endIndex) {
-            result.append(r)
-            searchStart = r.upperBound
-        }
-        return result
-    }
-}
-
 @Observable
 final class InventoryIntentParser {
     var isParsing = false
@@ -142,33 +126,16 @@ final class InventoryIntentParser {
         lastError = nil
         let trimmed = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-
-        // Local-first: clear-all and other common phrasings are handled entirely on-device, so
-        // they work instantly, offline, and even if the Worker is unconfigured. If the local
-        // pass already fully covers the request (e.g. "clear all inventory"), skip the network.
-        let localChanges = Self.localFallback(trimmed, store: store)
-        if localChanges.contains(where: { if case .clearAll = $0.action { return true } else { return false } }) {
-            return localChanges
-        }
-
-        guard ConnectivityMonitor.isOnlineFlag else {
-            // Offline: return whatever the local pass found rather than a hard error.
-            if !localChanges.isEmpty { return localChanges }
-            lastError = "You're offline — try again with a connection."; return nil
-        }
+        guard ConnectivityMonitor.isOnlineFlag else { lastError = "You're offline — try again with a connection."; return nil }
 
         let urlString = BuildConfig.receiptWorkerURL
         guard !urlString.contains("REPLACE-WITH-YOUR-WORKER"), let url = URL(string: urlString) else {
-            if !localChanges.isEmpty { return localChanges }
             lastError = "Natural-language updates need the receipt Worker configured."; return nil
         }
 
         let inv = store.inventoryItems.map { ["id": $0.id.uuidString, "name": $0.name] }
         let payload: [String: Any] = ["intent": trimmed, "inventory": inv]
-        guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
-            if !localChanges.isEmpty { return localChanges }
-            lastError = "Couldn't build request."; return nil
-        }
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { lastError = "Couldn't build request."; return nil }
 
         var req = URLRequest(url: url); req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -179,26 +146,9 @@ final class InventoryIntentParser {
         defer { isParsing = false }
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
-                if !localChanges.isEmpty { return localChanges }
-                lastError = "The assistant couldn't process that. Try rephrasing."; return nil
-            }
-            let changes = Self.decodeChanges(from: data, store: store)
-            // If the Worker found nothing, fall back to the local pass (branded-name matching
-            // catches things the Worker missed, like "lemon pepper" → the branded row).
-            if changes.isEmpty && !localChanges.isEmpty { return localChanges }
-            // Merge: keep Worker results, add any local removals it didn't already cover.
-            if !localChanges.isEmpty {
-                let coveredIDs = Set(changes.compactMap { $0.itemID })
-                let extra = localChanges.filter { c in
-                    guard let id = c.itemID else { return false }
-                    return !coveredIDs.contains(id)
-                }
-                return changes + extra
-            }
-            return changes
+            guard (resp as? HTTPURLResponse)?.statusCode == 200 else { lastError = "The assistant couldn't process that. Try rephrasing."; return nil }
+            return Self.decodeChanges(from: data, store: store)
         } catch {
-            if !localChanges.isEmpty { return localChanges }
             lastError = "Something went wrong. Try again."; return nil
         }
     }
@@ -221,14 +171,7 @@ final class InventoryIntentParser {
             let action = (obj["action"] as? String ?? "").lowercased()
             let idStr  = obj["id"] as? String ?? ""
             let name   = (obj["name"] as? String ?? "").trimmingCharacters(in: .whitespaces)
-            var itemID = UUID(uuidString: idStr)
-            // If the Worker named an item but couldn't resolve its id (very common with
-            // branded names — "lemon pepper" vs the stored "Hill Country Fare Lemon Pepper"),
-            // resolve it locally against the real inventory before giving up.
-            if itemID == nil, !name.isEmpty, action != "add",
-               let match = Self.bestInventoryMatch(for: name, in: store.inventoryItems) {
-                itemID = match.id
-            }
+            let itemID = UUID(uuidString: idStr)
             // Resolve a display name from the store if we matched an id.
             let resolvedName: String = {
                 if let itemID, let it = store.inventoryItems.first(where: { $0.id == itemID }) { return it.name }
@@ -260,111 +203,6 @@ final class InventoryIntentParser {
                 return nil
             }
         }
-    }
-
-    // MARK: - Local matching + fallback (works even when the Worker misses)
-
-    /// Resolve a spoken item name to a real inventory row, tolerant of brand prefixes and
-    /// extra words. "lemon pepper" → "Hill Country Fare Lemon Pepper"; "minced onion" →
-    /// "Great Value Kosher Minced Onion". Returns nil if nothing is a confident match.
-    static func bestInventoryMatch(for spoken: String, in items: [LocalInventoryItem]) -> LocalInventoryItem? {
-        let q = normalize(spoken)
-        guard !q.isEmpty else { return nil }
-        let qWords = Set(q.split(separator: " ").map(String.init))
-
-        var best: (item: LocalInventoryItem, score: Double)?
-        for item in items {
-            let cand = normalize(item.name)
-            guard !cand.isEmpty else { continue }
-            let candWords = Set(cand.split(separator: " ").map(String.init))
-
-            var score = 0.0
-            // Whole spoken phrase appears in the item name (strongest signal).
-            if cand.contains(q) { score = 0.95 }
-            // Or every spoken word appears somewhere in the item name (brand words extra).
-            else if !qWords.isEmpty && qWords.isSubset(of: candWords) { score = 0.9 }
-            else {
-                // Word overlap ratio, with fuzzy word matching for typos/plurals.
-                let overlap = qWords.filter { qw in
-                    candWords.contains(where: { FuzzyMatch.matches(qw, $0) || $0.contains(qw) || qw.contains($0) })
-                }.count
-                if !qWords.isEmpty { score = Double(overlap) / Double(qWords.count) * 0.85 }
-            }
-            if score > (best?.score ?? 0) { best = (item, score) }
-        }
-        // Require a reasonably confident match so we never remove the wrong thing.
-        if let best, best.score >= 0.6 { return best.item }
-        return nil
-    }
-
-    /// Lowercased, punctuation-stripped, whitespace-collapsed.
-    static func normalize(_ s: String) -> String {
-        s.lowercased()
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-
-    /// A best-effort LOCAL parse used when the Worker is unavailable or returns nothing.
-    /// Handles the common phrasings entirely on-device so the assistant is never dead:
-    ///   • "clear all / wipe everything / empty my inventory" → clearAll
-    ///   • "used the rest of X / finished X / out of X / ran out of X" → remove X
-    ///   • "used some X / half the X / running low on X" → setLevel
-    ///   • "bought X / picked up X / got X" → add X
-    static func localFallback(_ utterance: String, store: GuestDataStore) -> [ProposedChange] {
-        let lower = " " + utterance.lowercased() + " "
-
-        // Clear-all intent.
-        let clearPhrases = ["clear all", "clear everything", "clear my inventory", "clear the inventory",
-                            "wipe everything", "wipe all", "wipe my inventory", "empty my inventory",
-                            "empty the inventory", "empty everything", "remove everything",
-                            "delete everything", "delete all", "start over", "reset my inventory",
-                            "reset inventory", "clear out everything", "get rid of everything"]
-        if clearPhrases.contains(where: { lower.contains($0) }) {
-            return [ProposedChange(itemID: nil, displayName: "Everything",
-                                   action: .clearAll, reason: "You asked to clear all items")]
-        }
-
-        var out: [ProposedChange] = []
-        var usedIDs = Set<UUID>()
-
-        // Removal phrasings: capture the noun after the phrase and match it to inventory.
-        let removePhrases = ["used the rest of", "used up the", "used up", "finished the", "finished off the",
-                             "finished", "ran out of", "run out of", "out of the", "out of",
-                             "used all the", "used all", "no more", "gone", "empty on"]
-        for phrase in removePhrases {
-            for range in lower.allRanges(of: phrase) {
-                let tail = String(lower[range.upperBound...])
-                    .trimmingCharacters(in: .whitespaces)
-                if tail.isEmpty { continue }
-                // Take up to the next few words as the candidate noun.
-                let candidate = tail.split(separator: " ").prefix(4).joined(separator: " ")
-                if let m = bestInventoryMatch(for: candidate, in: store.inventoryItems), !usedIDs.contains(m.id) {
-                    usedIDs.insert(m.id)
-                    out.append(ProposedChange(itemID: m.id, displayName: m.name,
-                                              action: .remove, reason: "You said you finished it"))
-                }
-            }
-        }
-
-        // Low / partial phrasings → set to a low level.
-        let lowPhrases = ["running low on", "low on", "almost out of", "half the", "halfway through the",
-                          "getting low on", "used some", "used some of the"]
-        for phrase in lowPhrases {
-            for range in lower.allRanges(of: phrase) {
-                let tail = String(lower[range.upperBound...]).trimmingCharacters(in: .whitespaces)
-                let candidate = tail.split(separator: " ").prefix(4).joined(separator: " ")
-                if candidate.isEmpty { continue }
-                if let m = bestInventoryMatch(for: candidate, in: store.inventoryItems), !usedIDs.contains(m.id) {
-                    usedIDs.insert(m.id)
-                    let level = phrase.contains("half") ? 0.5 : 0.25
-                    out.append(ProposedChange(itemID: m.id, displayName: m.name,
-                                              action: .setLevel(level), reason: "You said you used some"))
-                }
-            }
-        }
-
-        return out
     }
 }
 
@@ -486,11 +324,10 @@ struct QuickUpdateSheet: View {
     @FocusState private var focused: Bool
 
     private let examples = [
-        "I used the rest of the lemon pepper",
+        "I used the rest of the broccoli",
         "Finished the milk and eggs",
         "Bought tofu, rice, and oat milk",
-        "Down to about half the rice",
-        "Clear all my inventory"
+        "Down to about half the rice"
     ]
 
     var body: some View {
