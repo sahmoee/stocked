@@ -38,29 +38,12 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.10 (build 29) — Sources browser shows only sources with results ──
-        ChangelogVersion(
-            version: "4.10",
-            buildDate: "Build 29 · July 7, 2026",
-            headline: "What's new in Stocked",
-            isLatest: true,
-            entries: [
-                ChangelogEntry(icon: "line.3.horizontal.decrease.circle", color: Color.stockedGold,
-                               title: "Sources that deliver, only",
-                               detail: "The Sources browser now lists only sources that actually have recipes on your device, with live counts. No more tapping into empty screens — websites appear the moment their first recipe arrives."),
-                ChangelogEntry(icon: "key.slash", color: Color.stockedGold,
-                               title: "Keyed feeds hide until configured",
-                               detail: "Feeds that need credentials, like Edamam, Tasty, and API Ninjas, stay hidden until their keys are set up, so the list never promises what it can't show."),
-                ChangelogEntry(icon: "internaldrive.badge.checkmark", color: Color.stockedGold,
-                               title: "Counts include your device library",
-                               detail: "Source counts and per-source lists now include everything in your on-device recipe database — ingested, synced, or imported — with duplicates folded together."),
-            ]),
         // ── 4.9 (build 28) — Storage reliability fix and fuller recipe tabs ──
         ChangelogVersion(
             version: "4.9",
             buildDate: "Build 28 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: false,
+            isLatest: true,
             entries: [
                 ChangelogEntry(icon: "internaldrive", color: Color.stockedGold,
                                title: "Storage reliability fix",

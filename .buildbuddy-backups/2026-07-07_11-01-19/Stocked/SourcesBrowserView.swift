@@ -14,14 +14,9 @@ struct SourcesBrowserView: View {
 
     @State private var query = ""
     @State private var showManage = false
-    // The on-device database joins the loader pool so every ingested or imported recipe
-    // counts toward its source. Loaded once per appearance.
-    @State private var dbPool: [OnlineRecipe] = []
-
-    private var mergedPool: [OnlineRecipe] { pool + dbPool }
 
     private var listings: [RecipeSourceHub.SourceListing] {
-        let all = RecipeSourceHub.allSources(pool: mergedPool)
+        let all = RecipeSourceHub.allSources(pool: pool)
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return all }
         return all.filter { FuzzyMatch.matches(query, $0.name) || FuzzyMatch.matches(query, $0.specialty) }
     }
@@ -32,17 +27,12 @@ struct SourcesBrowserView: View {
                 let feeds = listings.filter { $0.isLiveFeed }
                 let sites = listings.filter { !$0.isLiveFeed }
 
-                Text("Only sources with recipes on your device are shown. Counts are live.")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(session.themeSecondaryText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
                 if !feeds.isEmpty {
                     sectionLabel("Live Feeds")
                     ForEach(feeds) { row(for: $0) }
                 }
                 if !sites.isEmpty {
-                    sectionLabel("Websites With Recipes")
+                    sectionLabel("Recipe Websites")
                     ForEach(sites) { row(for: $0) }
                 }
 
@@ -64,14 +54,6 @@ struct SourcesBrowserView: View {
         .navigationTitle("Recipe Sources")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "Search sources")
-        .task {
-            let entries = await RecipeDatabaseManager.shared.loadSnapshot()
-            dbPool = RecipeSourceHub.poolEntries(from: entries)
-        }
-        .refreshable {
-            let entries = await RecipeDatabaseManager.shared.loadSnapshot()
-            dbPool = RecipeSourceHub.poolEntries(from: entries)
-        }
         .sheet(isPresented: $showManage) {
             RecipeSourcesManagerView().environment(session)
         }
@@ -143,18 +125,8 @@ struct SourceRecipesView: View {
     let pool: [OnlineRecipe]
     let onOpenRecipe: (OnlineRecipe) -> Void
 
-    @State private var dbPool: [OnlineRecipe] = []
-
     private var recipes: [OnlineRecipe] {
-        // Loader pool + database, deduplicated by normalized title so the same dish
-        // ingested earlier doesn't show twice.
-        var seen = Set<String>()
-        var out: [OnlineRecipe] = []
-        for r in RecipeSourceHub.recipes(from: sourceName, pool: pool + dbPool) {
-            let key = OnlineRecipeFacts.normalizedTitle(r.title)
-            if seen.insert(key).inserted { out.append(r) }
-        }
-        return out
+        RecipeSourceHub.recipes(from: sourceName, pool: pool)
     }
 
     var body: some View {
@@ -210,10 +182,6 @@ struct SourceRecipesView: View {
         .background(session.themeBgColor.ignoresSafeArea())
         .navigationTitle(sourceName)
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            let entries = await RecipeDatabaseManager.shared.loadSnapshot()
-            dbPool = RecipeSourceHub.poolEntries(from: entries)
-        }
     }
 }
 

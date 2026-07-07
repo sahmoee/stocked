@@ -68,11 +68,9 @@ enum RecipeSourceHub {
         let isCustom: Bool       // user-added
     }
 
-    /// Only sources that ACTUALLY DELIVER. A source earns a row by having at least one
-    /// recipe in the merged pool (Discover loader + the on-device database). Catalogue
-    /// websites with nothing pulled, and keyed feeds without keys configured, are hidden —
-    /// no more tapping into empty screens. The full catalogue still powers URL import and
-    /// the add-source screen behind the scenes.
+    /// Every source the app knows, with live counts from the shared pool. Live feeds first
+    /// (they have content now), then catalogue sites — bundled, extended, and custom — sorted
+    /// by whether they currently have recipes, then by name.
     static func allSources(pool: [OnlineRecipe]) -> [SourceListing] {
         // Count recipes per normalized source name across the shared pool.
         var counts: [String: Int] = [:]
@@ -82,73 +80,51 @@ enum RecipeSourceHub {
             counts[key, default: 0] += 1
         }
 
-        // Known feed metadata (emoji + specialty) for nicer rows; keyed feeds are only
-        // eligible when their credentials are configured.
-        let feedMeta: [(name: String, emoji: String, specialty: String, eligible: Bool)] = [
-            ("TheMealDB",          "🍽️", "Free worldwide recipe feed",    true),
-            ("TheCocktailDB",      "🍹", "Drinks, cocktails, and mixers", true),
-            ("IBA Official",       "🍸", "The official IBA cocktails",    true),
-            ("Open Drinks",        "🧉", "Open-source community drinks",  true),
-            ("DummyJSON",          "📦", "Curated everyday recipes",      true),
-            ("Wikibooks Cookbook", "📖", "Open-licensed cookbook",        true),
-            ("Taste of Home",      "🏡", "Test-kitchen classics",         true),
-            ("My Database",        "💾", "Recipes synced on this device", true),
-            ("Spoonacular",        "🥄", "Full recipes with nutrition",   SpoonacularClient.shared.isConfigured),
-            ("Edamam",             "🔎", "Recipe search aggregator",      !BuildConfig.edamamAppID.isEmpty),
-            ("Tasty",              "🎬", "Video-first favorites",         !BuildConfig.rapidAPIKey.isEmpty),
-            ("API Ninjas",         "🥷", "Structured cocktail data",      !BuildConfig.apiNinjasKey.isEmpty),
+        // Live feeds — always listed, even at zero (they fill in as fetches land).
+        let feedMeta: [(name: String, emoji: String, specialty: String)] = [
+            ("TheMealDB",          "🍽️", "Free worldwide recipe feed"),
+            ("TheCocktailDB",      "🍹", "Drinks, cocktails, and mixers"),
+            ("Spoonacular",        "🥄", "Full recipes with nutrition"),
+            ("DummyJSON",          "📦", "Curated everyday recipes"),
+            ("Wikibooks Cookbook", "📖", "Open-licensed cookbook"),
+            ("Taste of Home",      "🏡", "Test-kitchen classics"),
+            ("Edamam",             "🔎", "Recipe search aggregator"),
+            ("Tasty",              "🎬", "Video-first favorites"),
+            ("IBA Official",       "🍸", "The 77 official IBA cocktails"),
+            ("Open Drinks",        "🧉", "Open-source community drinks"),
+            ("API Ninjas",         "🥷", "Structured cocktail data"),
+            ("My Database",        "💾", "Recipes synced on this device"),
         ]
-        let metaByName = Dictionary(uniqueKeysWithValues: feedMeta.map { ($0.name, $0) })
+        var listings: [SourceListing] = feedMeta.map {
+            SourceListing(name: $0.name, emoji: $0.emoji, specialty: $0.specialty,
+                          recipeCount: counts[$0.name] ?? 0, isLiveFeed: true, isCustom: false)
+        }
+        let feedNames = Set(feedMeta.map { $0.name })
 
-        var listings: [SourceListing] = []
-        var seen = Set<String>()
+        // Catalogue websites — bundled + extended + custom, deduplicated by display name.
+        var seen = feedNames
+        for src in RecipeSourceRegistry.everything {
+            guard !seen.contains(src.displayName) else { continue }
+            seen.insert(src.displayName)
+            let isCustom = CustomRecipeSourceStore.shared.sources.contains { $0.domain == src.domain }
+            listings.append(SourceListing(
+                name: src.displayName, emoji: src.iconEmoji, specialty: src.specialty,
+                recipeCount: counts[src.displayName] ?? 0, isLiveFeed: false, isCustom: isCustom))
+        }
 
-        // Sources present in the pool — the only ones that get a row. Feed metadata and
-        // catalogue metadata (bundled + extended + custom) dress up known names; unknown
-        // names (e.g. sites captured by URL import) still appear with a globe.
-        let catalogue = RecipeSourceRegistry.everything
-        let customDomains = Set(CustomRecipeSourceStore.shared.sources.map { $0.domain })
-        for (name, count) in counts where count > 0 {
-            guard seen.insert(name).inserted else { continue }
-            if let meta = metaByName[name] {
-                guard meta.eligible else { continue }
-                listings.append(SourceListing(name: name, emoji: meta.emoji, specialty: meta.specialty,
-                                              recipeCount: count, isLiveFeed: true, isCustom: false))
-            } else if let site = catalogue.first(where: { $0.displayName == name }) {
-                listings.append(SourceListing(name: name, emoji: site.iconEmoji, specialty: site.specialty,
-                                              recipeCount: count, isLiveFeed: false,
-                                              isCustom: customDomains.contains(site.domain)))
-            } else {
-                listings.append(SourceListing(name: name, emoji: "🌐", specialty: "Imported recipes",
-                                              recipeCount: count, isLiveFeed: false, isCustom: false))
-            }
+        // Any source present in the pool that nothing above claimed (e.g. a site captured
+        // during URL import) still gets a row — nothing in the pool is orphaned.
+        for (name, count) in counts where !seen.contains(name) {
+            seen.insert(name)
+            listings.append(SourceListing(name: name, emoji: "🌐", specialty: "Imported recipes",
+                                          recipeCount: count, isLiveFeed: false, isCustom: false))
         }
 
         return listings.sorted {
             if $0.isLiveFeed != $1.isLiveFeed { return $0.isLiveFeed }
-            if $0.recipeCount != $1.recipeCount { return $0.recipeCount > $1.recipeCount }
+            if ($0.recipeCount > 0) != ($1.recipeCount > 0) { return $0.recipeCount > 0 }
             return $0.name < $1.name
         }
-    }
-
-    /// Map on-device database entries into the shared pool model, so database-only recipes
-    /// (ingested from any feed, or imported) count toward and appear under their source.
-    static func poolEntries(from entries: [RecipeDatabaseEntry]) -> [OnlineRecipe] {
-        entries
-            .filter { !$0.steps.isEmpty }
-            .map { e in
-                OnlineRecipe(
-                    id: "db-\(e.id.uuidString)",
-                    title: e.title,
-                    category: e.category,
-                    area: e.cuisine,
-                    instructions: e.steps.joined(separator: "\n"),
-                    imageURL: e.imageURL,
-                    ingredients: e.ingredients,
-                    measures: Array(repeating: "", count: e.ingredients.count),
-                    source: e.sourceName.isEmpty ? "My Database" : e.sourceName
-                )
-            }
     }
 
     /// Recipes from one source, out of the shared pool.
