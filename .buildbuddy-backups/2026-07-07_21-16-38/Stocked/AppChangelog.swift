@@ -41,7 +41,7 @@ struct StockedChangelog {
         // ── 4.13 (build 32) — API Ninjas recipes wired in ──
         ChangelogVersion(
             version: "4.13",
-            buildDate: "Build 33 · July 7, 2026",
+            buildDate: "Build 32 · July 7, 2026",
             headline: "What's new in Stocked",
             isLatest: true,
             entries: [

@@ -37,7 +37,7 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 33
+    private static let fallbackBuildNumber = 32
     private static let fallbackVersion     = "4.13"
 
     static let changeCount   = 1
@@ -87,12 +87,12 @@ nonisolated enum BuildConfig {
     }
     /// Injected via xcconfig SPOONACULAR_API_KEY → Info.plist SpoonacularAPIKey.
     static var spoonacularAPIKey: String {
-        bundleString("SpoonacularAPIKey") ?? ""
+        bundleString("SpoonacularAPIKey") ?? "550bcb34b0b54d9aadc59ced1f9e4f53"
     }
     /// USDA FoodData Central key (Info.plist USDAAPIKey). Falls back to the rate-limited
     /// DEMO_KEY for development; ship a real free key for production.
     static var usdaAPIKey: String {
-        let k = bundleString("USDAAPIKey") ?? ""
+        let k = bundleString("USDAAPIKey") ?? "r7oepibxxl2dFn6bFTxUijRcLWwEfTvLnW8qwO4Z"
         return k.isEmpty ? "DEMO_KEY" : k
     }
     /// Edamam Recipe Search free tier (no card). Add EdamamAppID + EdamamAppKey to
@@ -100,10 +100,10 @@ nonisolated enum BuildConfig {
     static var edamamAppID: String  { bundleString("EdamamAppID")  ?? "" }
     static var edamamAppKey: String { bundleString("EdamamAppKey") ?? "" }
     // Tasty (BuzzFeed) via RapidAPI — free tier. Add to xcconfig: RAPIDAPI_KEY = your_key
-    static var rapidAPIKey: String { bundleString("RapidAPIKey") ?? "" }
+    static var rapidAPIKey: String { bundleString("RapidAPIKey") ?? "b9fd04f161msha92809b7e166489p1e48b6jsn5fd89a63749" }
     /// API Ninjas Cocktail API (free tier, 10k/month). Add APINinjasKey to Info.plist via
     /// Secrets.xcconfig to enable; absent -> the source simply no-ops.
-    static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "" }
+    static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "vW0az1EDsqyUDn6Uwk9aoHq075u6BK7YkKnsnWOx" }
     static var networkTimeout: Double {
         Double(bundleString("NetworkTimeout") ?? "8") ?? 8
     }
