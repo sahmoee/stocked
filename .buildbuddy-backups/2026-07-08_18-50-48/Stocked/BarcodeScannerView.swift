@@ -346,6 +346,17 @@ struct BarcodeScannerView: View {
                 isLooking = false; activeSheet = .confirm; return
             }
             // Waterfall — each source capped at 5 seconds
+            // Chomp — branded food DB with diet labels + nutrition.
+            if let food = await withTimeout(5, work: { try await ChompFoodClient.shared.food(barcode: code) }),
+               !food.name.isEmpty {
+                resolvedName    = formatProductTitle(food.name, brand: food.brand ?? "")
+                // If this household previously corrected this product's name, honor that.
+                resolvedName    = UserCorrections.shared.apply(.productName, to: resolvedName)
+                resolvedProduct = nil
+                zone = ReceiptDatabase.shared.guessZone(for: resolvedName)  // smart default
+                BarcodeCache.shared.save(code, name: resolvedName)         // #9 cache
+                isLooking = false; activeSheet = .confirm; return
+            }
             let product = await withTimeout(5) { await OpenFoodFactsClient.shared.lookup(barcode: code) }
             if let p = product, !p.name.isEmpty {
                 resolvedName    = formatProductTitle(p.name, brand: p.brand)
