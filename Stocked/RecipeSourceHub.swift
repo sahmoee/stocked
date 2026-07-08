@@ -92,11 +92,13 @@ enum RecipeSourceHub {
             ("DummyJSON",          "📦", "Curated everyday recipes",      true),
             ("Wikibooks Cookbook", "📖", "Open-licensed cookbook",        true),
             ("Taste of Home",      "🏡", "Test-kitchen classics",         true),
+            
             ("My Database",        "💾", "Recipes synced on this device", true),
             ("Spoonacular",        "🥄", "Full recipes with nutrition",   SpoonacularClient.shared.isConfigured),
             ("Edamam",             "🔎", "Recipe search aggregator",      !BuildConfig.edamamAppID.isEmpty),
             ("Tasty",              "🎬", "Video-first favorites",         !BuildConfig.rapidAPIKey.isEmpty),
             ("API Ninjas",         "🥷", "Cocktails and recipes",         !BuildConfig.apiNinjasKey.isEmpty),
+            ("Suggestic", "🍅", "Recipes with vegan and vegetarian filters", !BuildConfig.suggesticToken.isEmpty),
         ]
         let metaByName = Dictionary(uniqueKeysWithValues: feedMeta.map { ($0.name, $0) })
 

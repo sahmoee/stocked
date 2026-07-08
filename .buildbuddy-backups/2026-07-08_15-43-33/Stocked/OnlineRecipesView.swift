@@ -254,15 +254,14 @@ class OnlineRecipesLoader {
                         group.addTask { await DrinkSourcesPlus.apiNinjasRecipes(title: term, limit: 8) }
                     }
                 }
+                for await results in group { fetched += results }
                 // Suggestic — keyed recipe feed with vegan/vegetarian support. No-ops until
                 // SuggesticAPIToken is set in Secrets.xcconfig.
                 if !BuildConfig.suggesticToken.isEmpty {
                     for term in seedTerms {
                         group.addTask { await SuggesticSource.recipes(query: term, limit: 12) }
                     }
-                }
-                for await results in group { fetched += results }
-            }
+                 }
 
             guard !Task.isCancelled else { return }
 
