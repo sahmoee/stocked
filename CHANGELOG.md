@@ -1,3 +1,9 @@
+07:07:26 21:36 — v1.0 (build 1) — Reset
+Reset to baseline 1.0 / build 1
+
+07:07:26 21:36 — v1.0 (build 1) — Standardize
+Standardized to the shared version and build scheme
+
 07:07:26 14:58 — v2.21 (build 12) — Build
 Big change
 
