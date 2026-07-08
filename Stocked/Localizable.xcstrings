@@ -1401,7 +1401,7 @@
     "Continue" : {
 
     },
-    "Continue without a name" : {
+    "Continue as Guest" : {
 
     },
     "Convert to" : {
@@ -1701,9 +1701,6 @@
 
     },
     "Enter barcode number" : {
-
-    },
-    "Enter Kitchen" : {
 
     },
     "Enter the invite code shared by your household member." : {
@@ -3304,6 +3301,9 @@
 
     },
     "Show original text" : {
+
+    },
+    "Sign in with Apple, or continue as a guest with your name." : {
 
     },
     "Single Item" : {
