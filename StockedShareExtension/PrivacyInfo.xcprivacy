@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PrivacyInfo.xcprivacy — privacy manifest for the Share Extension target.
+
+  Apple requires a privacy manifest in EVERY target that calls a "required reason" API
+  directly. ShareViewController.swift reads and writes UserDefaults(suiteName: the App Group
+  group.com.sowens.Stocked) to hand shared content to the main app, so this target needs its
+  own manifest declaring the UserDefaults access with reason CA92.1 (access info from the app
+  itself, its app group, or the developer).
+
+  Add this file to the StockedShareExtension target only (Target Membership:
+  StockedShareExtension). It declares no data collection of its own — the extension only
+  stashes shared text/URLs into the shared App Group for the main app to process.
+-->
+<plist version="1.0">
+<dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <!-- UserDefaults on the shared App Group — first-party handoff to the main app. -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
