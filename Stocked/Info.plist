@@ -106,6 +106,8 @@
 	<string>$(SPOONACULAR_API_KEY)</string>
 	<key>StockedEnv</key>
 	<string>$(STOCKED_ENV)</string>
+	<key>LogMealAPIToken</key>
+	<string>$(LOGMEAL_API_TOKEN)</string>
 	<key>StockedWorkerKey</key>
 	<string>$(STOCKED_WORKER_KEY)</string>
 	<key>UIApplicationSceneManifest</key>
@@ -122,6 +124,8 @@
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<key>ChompAPIKey</key>
+	<string>$(CHOMP_API_KEY)</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
@@ -130,6 +134,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>SuggesticAPIToken</key>
+	<string>$(SUGGESTIC_API_TOKEN)</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
