@@ -15,16 +15,8 @@
 //                    we map title→category first to avoid the worst mismatches.
 //   4. (caller falls back to the emoji placeholder if this returns nil)
 //
-// CACHING + RATE-LIMIT SAFETY (this revision):
-//   • Every source call goes through NetworkRetry, which backs off on HTTP 429 and honors
-//     Retry-After — so a burst of Discover cards no longer hammers a rate-limited endpoint.
-//   • Per-title in-flight COALESCING: if the same title is already being resolved, later
-//     callers await that one resolution instead of firing the whole waterfall again.
-//   • Results are cached by normalized title (memory + disk) so we never re-hit the network
-//     for the same recipe. Crucially, a MISS is only remembered when the sources genuinely
-//     returned no image; a TRANSIENT failure (429, timeout, network error) is NOT cached, so
-//     a temporary rate limit can't permanently blank a recipe's photo. Bytes themselves are
-//     cached separately by ImageCache (memory + disk).
+// Results are cached by normalized title (in memory + on disk) so we never re-hit the
+// network for the same recipe, which also protects the Spoonacular daily quota.
 
 import Foundation
 import os
@@ -33,27 +25,10 @@ import UIKit
 actor RecipeImageResolver {
     static let shared = RecipeImageResolver()
 
-    /// Outcome of a single image source lookup.
-    private enum SourceResult {
-        case found(String)   // a usable image URL
-        case miss            // source responded, but had no image for this title
-        case transient       // 429 / timeout / network error — do NOT cache as a miss
-    }
-
-    /// Outcome of the reachability probe.
-    private enum Reach {
-        case reachable, unreachable, transient
-    }
-
-    // normalized title → resolved URL string ("" = looked up, genuinely found nothing)
+    // normalized title → resolved URL string ("" = looked up, found nothing)
     private var cache: [String: String] = [:]
-    // v5: misses from transient rate-limit errors are no longer cached; bump clears the old
-    // cache so any recipes previously blanked by a 429 storm get a fresh chance.
-    private let cacheKey = "recipeImageResolverCache_v5"
+    private let cacheKey = "recipeImageResolverCache_v4"   // v4: category-accurate MealDB fallback + no random Foodish; clears old mismatched entries
     private var loaded = false
-
-    // Per-title in-flight resolutions, so concurrent cards for the same dish share one lookup.
-    private var inFlight: [String: Task<URL?, Never>] = [:]
 
     private let session: URLSession = {
         let cfg = URLSessionConfiguration.default
@@ -93,111 +68,78 @@ actor RecipeImageResolver {
         let key = normalize(title)
         guard !key.isEmpty else { return nil }
 
-        // Cache hit (including a remembered genuine "nothing found" → "").
+        // Cache hit (including a remembered "nothing found" → "").
         if let hit = cache[key] {
             return hit.isEmpty ? nil : URL(string: hit)
         }
 
-        // Coalesce: if this title is already resolving, await that instead of duplicating work.
-        if let existing = inFlight[key] {
-            return await existing.value
-        }
-
-        let task = Task<URL?, Never> { [self] in
-            await resolveUncached(title: title, key: key, category: category)
-        }
-        inFlight[key] = task
-        let result = await task.value
-        inFlight[key] = nil
-        return result
-    }
-
-    /// The actual waterfall, run once per title (guarded by `inFlight`).
-    private func resolveUncached(title: String, key: String, category: String?) async -> URL? {
-        var sawTransient = false
-
-        func take(_ r: SourceResult) -> String? {
-            switch r {
-            case .found(let url): return url
-            case .miss:          return nil
-            case .transient:     sawTransient = true; return nil
-            }
-        }
-
-        // Sources 1–2 return a photo OF THE ACTUAL DISH (MealDB, then MealDB-by-category, then
-        // Spoonacular). First valid wins.
-        var found = take(await mealDBThumb(title))
-        if found == nil { found = take(await mealDBByCategory(title)) }
-        if found == nil { found = take(await spoonacularImage(title)) }
+        // Try sources in order; first valid wins. Sources 1–2 return an image OF THE ACTUAL
+        // DISH (MealDB, Spoonacular). Source 3 (Foodish) is a real food photo chosen by the
+        // closest category we can infer from the title — used only as a last resort so a
+        // recipe never shows a sterile placeholder. We map the title to a category first to
+        // avoid the worst mismatches (random only when nothing maps).
+        var found: String? = await mealDBThumb(title)
+        // If the exact name misses, get a REAL dish photo of the right protein/category
+        // (e.g. a beef dish for "Pan-Seared Steak") instead of an unrelated random photo.
+        if found == nil { found = await mealDBByCategory(title) }
+        if found == nil { found = await spoonacularImage(title) }
 
         // Validate the dish-accurate URL actually returns an image before caching it.
-        if let candidate = found {
-            switch await isReachableImage(candidate) {
-            case .reachable:   break
-            case .unreachable: found = nil
-            case .transient:   sawTransient = true; found = nil   // don't trust; retry later
-            }
+        if let candidate = found, !(await isReachableImage(candidate)) {
+            found = nil
         }
 
         // Last resort: a category-matched food photo — ONLY when the title clearly maps to a
-        // Foodish category. If nothing maps, leave nil so the caller shows the dish emoji.
+        // Foodish category. If nothing maps, leave nil so the caller shows the dish emoji rather
+        // than a random, unrelated photo (the apple-pastry-on-a-steak problem).
         if found == nil, let hint = category ?? Self.foodishCategoryHint(from: title) {
-            found = take(await foodishImage(category: hint))
+            found = await foodishImage(category: hint)
         }
 
-        if let f = found {
-            // #17 — store the canonical URL (tracking params/fragment stripped) so the same
-            // image from differing query-string variants resolves to one cache entry.
-            let canonical = URLCanonicalizer.canonicalString(f)
-            cache[key] = canonical
-            persist()
-            return URL(string: canonical)
-        }
-
-        // Nothing found. Only remember the miss when it was GENUINE (every source responded
-        // and simply had no image). If any source failed transiently (429/timeout), leave the
-        // title uncached so the next render can try again once the rate limit clears.
-        if !sawTransient {
-            cache[key] = ""
-            persist()
-        }
-        return nil
+        // #17 — store the canonical URL (tracking params/fragment stripped) so the same
+        // image from differing query-string variants resolves to one cache entry.
+        let canonical = found.map { URLCanonicalizer.canonicalString($0) }
+        cache[key] = canonical ?? ""   // remember misses too, so we don't retry every render
+        persist()
+        return canonical.flatMap { URL(string: $0) }
     }
 
     // MARK: - Source 1: TheMealDB (free, no key)
-    private func mealDBThumb(_ title: String) async -> SourceResult {
+    private func mealDBThumb(_ title: String) async -> String? {
         guard let q = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(q)") else { return .miss }
-        guard let (data, http) = await NetworkRetry.data(from: url, session: session) else {
-            Log.net.debug("MealDB image lookup transient failure for \(title, privacy: .public)")
-            return .transient
+              let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(q)") else { return nil }
+        do {
+            let (data, _) = try await session.data(from: url)
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let meals = json["meals"] as? [[String: Any]],
+                  let thumb = meals.first?["strMealThumb"] as? String,
+                  !thumb.isEmpty else { return nil }
+            return thumb
+        } catch {
+            Log.net.debug("MealDB image lookup failed for \(title, privacy: .public)")
+            return nil
         }
-        guard (200..<300).contains(http.statusCode) else { return .miss }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let meals = json["meals"] as? [[String: Any]],
-              let thumb = meals.first?["strMealThumb"] as? String,
-              !thumb.isEmpty else { return .miss }
-        return .found(thumb)
     }
 
     // MARK: - Source 1b: TheMealDB filter-by-category (free, no key)
     // When the exact dish name isn't in TheMealDB, map the title to the closest real food
     // category (Beef, Chicken, Seafood, …) and pull a genuine dish photo from it. A beef dish
     // for a steak is dramatically better than a random unrelated photo.
-    private func mealDBByCategory(_ title: String) async -> SourceResult {
+    private func mealDBByCategory(_ title: String) async -> String? {
         guard let cat = Self.mealDBCategory(from: title),
               let q = cat.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?c=\(q)") else { return .miss }
-        guard let (data, http) = await NetworkRetry.data(from: url, session: session) else {
-            Log.net.debug("MealDB category lookup transient failure for \(title, privacy: .public)")
-            return .transient
+              let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?c=\(q)") else { return nil }
+        do {
+            let (data, _) = try await session.data(from: url)
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let meals = json["meals"] as? [[String: Any]],
+                  let thumb = meals.randomElement()?["strMealThumb"] as? String,
+                  !thumb.isEmpty else { return nil }
+            return thumb
+        } catch {
+            Log.net.debug("MealDB category lookup failed for \(title, privacy: .public)")
+            return nil
         }
-        guard (200..<300).contains(http.statusCode) else { return .miss }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let meals = json["meals"] as? [[String: Any]],
-              let thumb = meals.randomElement()?["strMealThumb"] as? String,
-              !thumb.isEmpty else { return .miss }
-        return .found(thumb)
     }
 
     // Map a recipe title to a real TheMealDB category. Conservative — returns nil when nothing
@@ -238,33 +180,35 @@ actor RecipeImageResolver {
     }
 
     // MARK: - Source 2: Spoonacular complexSearch (uses key; quota-limited)
-    private func spoonacularImage(_ title: String) async -> SourceResult {
+    private func spoonacularImage(_ title: String) async -> String? {
         let apiKey = BuildConfig.spoonacularAPIKey
         guard !apiKey.isEmpty, !apiKey.hasPrefix("YOUR_"),
               let q = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://api.spoonacular.com/recipes/complexSearch?query=\(q)&number=1&apiKey=\(apiKey)")
-        else { return .miss }
-        guard let (data, http) = await NetworkRetry.data(from: url, session: session) else {
-            Log.net.debug("Spoonacular image lookup transient failure for \(title, privacy: .public)")
-            return .transient
+        else { return nil }
+        do {
+            let (data, response) = try await session.data(from: url)
+            if let http = response as? HTTPURLResponse, http.statusCode == 402 {
+                Log.net.notice("Spoonacular daily quota reached; skipping image source")
+                return nil
+            }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let results = json["results"] as? [[String: Any]],
+                  let image = results.first?["image"] as? String,
+                  !image.isEmpty else { return nil }
+            return image
+        } catch {
+            Log.net.debug("Spoonacular image lookup failed for \(title, privacy: .public)")
+            return nil
         }
-        if http.statusCode == 402 {
-            // Daily quota reached — treat as transient so we retry another day rather than
-            // permanently caching this title as having no image.
-            Log.net.notice("Spoonacular daily quota reached; skipping image source")
-            return .transient
-        }
-        guard (200..<300).contains(http.statusCode) else { return .miss }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let results = json["results"] as? [[String: Any]],
-              let image = results.first?["image"] as? String,
-              !image.isEmpty else { return .miss }
-        return .found(image)
     }
 
     // MARK: - Source 3: Foodish generic food photo (free, no key)
+    // Foodish returns JSON {"image":"https://…jpg"} with an appetizing real food photo.
+    // It's not the exact dish, but it's far better than an emoji on a recipe card and
+    // never comes back empty. We bias the category endpoint when we can.
     // Infer a Foodish category from the recipe TITLE (since suggested recipes pass a title,
-    // not a category). Returns a hint string foodishImage() understands, or nil → skip.
+    // not a category). Returns a hint string foodishImage() understands, or nil → random.
     // Conservative: only map when a keyword clearly fits, so we mostly avoid bad mismatches.
     static func foodishCategoryHint(from title: String) -> String? {
         let t = title.lowercased()
@@ -288,11 +232,11 @@ actor RecipeImageResolver {
         case t.contains("samosa"), t.contains("pakora"), t.contains("fritter"):
             return "samosa"
         default:
-            return nil   // nothing clearly maps → skip Foodish (show dish emoji instead)
+            return nil   // nothing clearly maps → foodishImage falls to a random food photo
         }
     }
 
-    private func foodishImage(category: String?) async -> SourceResult {
+    private func foodishImage(category: String?) async -> String? {
         // Foodish categories: biryani, burger, butter-chicken, dessert, dosa, idly,
         // pasta, pizza, rice, samosa. Map our hint onto the closest one.
         let cat = (category ?? "").lowercased()
@@ -308,32 +252,31 @@ actor RecipeImageResolver {
         // Defense in depth: never call the random Foodish endpoint. An unmapped category means
         // we'd rather return nil (→ dish emoji) than a random, unrelated food photo.
         guard let m = mapped,
-              let url = URL(string: "https://foodish-api.com/api/images/\(m)") else { return .miss }
-        guard let (data, http) = await NetworkRetry.data(from: url, session: session) else {
-            Log.net.debug("Foodish image lookup transient failure")
-            return .transient
+              let url = URL(string: "https://foodish-api.com/api/images/\(m)") else { return nil }
+        do {
+            let (data, _) = try await session.data(from: url)
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let image = json["image"] as? String, !image.isEmpty else { return nil }
+            return image
+        } catch {
+            Log.net.debug("Foodish image lookup failed")
+            return nil
         }
-        guard (200..<300).contains(http.statusCode) else { return .miss }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let image = json["image"] as? String, !image.isEmpty else { return .miss }
-        return .found(image)
     }
 
     // MARK: - Reachability (confirm the URL is actually an image)
-    private func isReachableImage(_ urlString: String) async -> Reach {
-        guard let url = URL(string: urlString) else { return .unreachable }
+    private func isReachableImage(_ urlString: String) async -> Bool {
+        guard let url = URL(string: urlString) else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         req.setValue("bytes=0-2048", forHTTPHeaderField: "Range")   // pull just the header bytes
         do {
             let (data, response) = try await session.data(for: req)
-            guard let http = response as? HTTPURLResponse else { return .unreachable }
-            if http.statusCode == 429 || (500..<600).contains(http.statusCode) { return .transient }
-            guard (200..<400).contains(http.statusCode) else { return .unreachable }
-            if let ct = http.value(forHTTPHeaderField: "Content-Type"), ct.hasPrefix("image/") { return .reachable }
-            return UIImage(data: data) != nil ? .reachable : .unreachable
+            guard let http = response as? HTTPURLResponse, (200..<400).contains(http.statusCode) else { return false }
+            if let ct = http.value(forHTTPHeaderField: "Content-Type"), ct.hasPrefix("image/") { return true }
+            return UIImage(data: data) != nil
         } catch {
-            return .transient
+            return false
         }
     }
 
