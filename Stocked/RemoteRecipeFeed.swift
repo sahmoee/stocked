@@ -4,31 +4,17 @@
 // merges those recipes into the shared database on each Discover refresh. Add recipes any
 // time by editing that one file — the app picks them up within the cache window.
 //
-// The JSON is simply an array of the app's own OnlineRecipe shape, so it decodes directly:
-// [
-//   {
-//     "id": "feed-margherita-pizza",
-//     "title": "Classic Margherita Pizza",
-//     "category": "Dinner",
-//     "area": "Italian",
-//     "instructions": "Step one\nStep two\nStep three",
-//     "imageURL": "https://.../pizza.jpg",
-//     "ingredients": ["Pizza dough", "Tomato sauce", "Mozzarella"],
-//     "measures": ["1 ball", "1/2 cup", "8 oz"],
-//     "source": "Community Recipes"
-//   }
-// ]
+// The JSON is simply an array of the app's own OnlineRecipe shape, so it decodes directly.
 // Use the included build_recipes.py to generate a large recipes.json from free sources.
 
 import Foundation
 
 enum RemoteRecipeFeed {
 
-    // ── SET THIS ────────────────────────────────────────────────────────────────
-    // Paste the RAW GitHub url of your recipes.json, e.g.
-    //   https://raw.githubusercontent.com/sahmoee/stocked-recipes/main/recipes.json
-    // Leave empty to disable the feed (it simply no-ops).
-    static let feedURLString = ""
+    // ── LIVE ────────────────────────────────────────────────────────────────────
+    // Your hosted recipe feed. Edit recipes.json in this repo and push to add recipes;
+    // the app pulls the update automatically (no app update needed). Set to "" to disable.
+    static let feedURLString = "https://raw.githubusercontent.com/sahmoee/stocked-recipes/refs/heads/main/recipes.json"
     // ────────────────────────────────────────────────────────────────────────────
 
     private static let cacheKey = "remoteRecipeFeed_v1"

@@ -1,13 +1,11 @@
 Stocked — What to Test (latest build)
 
-REMOTE RECIPE FEED (new)
-- With RemoteRecipeFeed.feedURLString set to a valid recipes.json url, pull to refresh
-  Discover. Confirm the feed's recipes appear (grouped under their source, e.g. Community
-  Recipes) and are searchable and openable.
-- Edit the hosted recipes.json (add a recipe), wait past the cache window (or reinstall),
-  refresh, and confirm the new recipe shows up WITHOUT an app update.
-- With feedURLString empty, confirm Discover behaves exactly as before (feed no-ops).
+REMOTE RECIPE FEED (now live)
+- Pull to refresh Discover. Confirm feed recipes appear (grouped under Community Recipes)
+  and are searchable and openable. There are 781 recipes in the feed.
+- Add or edit a recipe in the stocked-recipes repo (push to GitHub), then after the cache
+  window (or a reinstall) refresh Discover and confirm the change shows up with NO app update.
 - Offline: confirm previously fetched feed recipes still appear from cache.
 
 REGRESSION
-- Other Discover sources still load and de-duplicate correctly.
+- Other Discover sources still load and de-duplicate; no duplicate cards for the same dish.
