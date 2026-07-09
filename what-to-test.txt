@@ -1,17 +1,13 @@
 Stocked — What to Test (latest build)
 
-BRAND & PRICE (new)
-- With RAPIDAPI_KEY set in Secrets.xcconfig, open an inventory item (tap a row to edit it).
-  Under the item name, confirm a brand and a price appear once loaded (from Walmart/Amazon
-  catalog), with the source label.
-- Open the same item again and confirm it appears instantly (cached, no re-fetch, no flicker).
-- With NO key set, confirm the item screen looks exactly as before (the badge simply hides,
-  no blank space, no error).
-- Try items with clear matches (milk, eggs, coffee) and odd/rare names (should just hide).
+REMOTE RECIPE FEED (new)
+- With RemoteRecipeFeed.feedURLString set to a valid recipes.json url, pull to refresh
+  Discover. Confirm the feed's recipes appear (grouped under their source, e.g. Community
+  Recipes) and are searchable and openable.
+- Edit the hosted recipes.json (add a recipe), wait past the cache window (or reinstall),
+  refresh, and confirm the new recipe shows up WITHOUT an app update.
+- With feedURLString empty, confirm Discover behaves exactly as before (feed no-ops).
+- Offline: confirm previously fetched feed recipes still appear from cache.
 
 REGRESSION
-- Editing an item (name, zone, quantity, expiry, photo) still saves correctly.
-- Inventory rows, Add Item, and Scan Barcode still open first-tap.
-
-Note: brand/price is currently shown on the item detail screen. Other screens (grocery rows,
-add item, barcode result) can show the same badge with a one-line drop-in.
+- Other Discover sources still load and de-duplicate correctly.

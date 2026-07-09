@@ -261,6 +261,10 @@ class OnlineRecipesLoader {
                         group.addTask { await SuggesticSource.recipes(query: term, limit: 12) }
                     }
                 }
+                // Community recipe feed — pulled from a GitHub-hosted JSON you control, so
+                // recipes can be added without shipping an app update. No-ops until
+                // RemoteRecipeFeed.feedURLString is set.
+                group.addTask { await RemoteRecipeFeed.fetch() }
                 for await results in group { fetched += results }
             }
 
