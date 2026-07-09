@@ -1034,8 +1034,12 @@ struct InventoryItemRow: View {
     var onSelect: ((UUID) -> Void)? = nil   // iPad: route tap to detail pane instead of sheet
     @State private var showUndo = false
     @State private var undoItem: LocalInventoryItem? = nil
-    @State private var showEdit = false
-    @State private var showPairings = false
+    // Single .sheet(item:) — stacked .sheet(isPresented:) made these need a second tap.
+    private enum RowSheet: Int, Identifiable {
+        case edit, pairings
+        var id: Int { rawValue }
+    }
+    @State private var activeRowSheet: RowSheet? = nil
 
     private var batteryColor: Color {
         if item.isExpired { return .red }
@@ -1055,7 +1059,7 @@ struct InventoryItemRow: View {
 
     var body: some View {
         Button {
-            if let onSelect { onSelect(item.id) } else { showEdit = true }
+            if let onSelect { onSelect(item.id) } else { activeRowSheet = .edit }
         } label: {
             // #237 — full mockup row: emoji/photo tile · name + qty line · right-aligned
             // expiry in orange · chevron. The level bar moved into a thin strip under the
@@ -1118,7 +1122,7 @@ struct InventoryItemRow: View {
             Button { session.guestStore.updateInventoryLevel(id: item.id, level: max(0.1, item.level - 0.25)) } label: {
                 Label("Use Some (-25%)", systemImage: "minus.circle")
             }
-            Button { showPairings = true } label: {
+            Button { activeRowSheet = .pairings } label: {
                 Label("Ingredient Pairings", systemImage: "link.circle")
             }
             Button {
@@ -1145,11 +1149,11 @@ struct InventoryItemRow: View {
                 Label("Remove", systemImage: "trash")
             }
         }
-        .sheet(isPresented: $showEdit) {
-            EditItemSheet(item: item).environment(session)
-        }
-        .sheet(isPresented: $showPairings) {
-            IngredientPairingsSheet(itemName: item.name).environment(session)
+        .sheet(item: $activeRowSheet) { sheet in
+            switch sheet {
+            case .edit:     EditItemSheet(item: item).environment(session)
+            case .pairings: IngredientPairingsSheet(itemName: item.name).environment(session)
+            }
         }
         // Drag to meal calendar — transfers item name as plain text
         .draggable(item.name)

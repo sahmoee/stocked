@@ -22,8 +22,12 @@ struct InventoryHubView: View {
     @State private var selectedCategory: MockCategory? = nil
     // #251 — empty-state seed flow
     @State private var seeding = false
-    @State private var showAddItem = false
-    @State private var showAIAssistant = false
+    // Single .sheet(item:) — stacked .sheet(isPresented:) made these need a second tap.
+    private enum HubSheet: Int, Identifiable {
+        case addItem, aiAssistant
+        var id: Int { rawValue }
+    }
+    @State private var activeHubSheet: HubSheet? = nil
     // Weekly plan strip (mirrors the full Inventory list) — tap opens the day's planner.
     @State private var plannerDayIndex: Int? = nil
     @State private var planToast: String? = nil
@@ -90,7 +94,7 @@ struct InventoryHubView: View {
                     statusCard
                         .coachmarkAnchor("inv.status")
                     // AI assistant: change inventory in plain language (use/remove/clear items).
-                    Button { showAIAssistant = true } label: {
+                    Button { activeHubSheet = .aiAssistant } label: {
                         HStack(spacing: 10) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.15)).frame(width: 34, height: 34)
@@ -125,11 +129,11 @@ struct InventoryHubView: View {
         .navigationDestination(item: $selectedCategory) { cat in
             CategoryItemsView(category: cat)
         }
-        .sheet(isPresented: $showAddItem) {
-            AddItemSheet(defaultZone: "Fridge").environment(session)
-        }
-        .sheet(isPresented: $showAIAssistant) {
-            AIInventoryAssistantView().environment(session)
+        .sheet(item: $activeHubSheet) { sheet in
+            switch sheet {
+            case .addItem:     AddItemSheet(defaultZone: "Fridge").environment(session)
+            case .aiAssistant: AIInventoryAssistantView().environment(session)
+            }
         }
         .sheet(item: Binding(get: { plannerDayIndex.map { PlannerDay(id: $0) } },
                              set: { plannerDayIndex = $0?.id })) { day in
@@ -228,7 +232,7 @@ struct InventoryHubView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 18)
 
-                Button { showAddItem = true } label: {
+                Button { activeHubSheet = .addItem } label: {
                     Text("Add an item by hand")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.stockedGold)

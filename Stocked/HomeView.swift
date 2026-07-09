@@ -10,8 +10,12 @@ struct HomeView: View {
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
-    @State private var showQuickUpdate  = false
-    @State private var showActivityFeed = false
+    // Single .sheet(item:) — stacked .sheet(isPresented:) made these need a second tap.
+    private enum HomeScreenSheet: Int, Identifiable {
+        case quickUpdate, activityFeed, widgetGallery
+        var id: Int { rawValue }
+    }
+    @State private var activeHomeSheet: HomeScreenSheet? = nil
     @State private var goExpiringList   = false
     // #250 — Daily Brief collapse state, remembered across launches.
     private let briefCollapsedKey = "stocked.homeBriefCollapsed"
@@ -20,7 +24,6 @@ struct HomeView: View {
     @State private var editMode = false
     // #18 — guards the one-tap staple seed on the getting-started card.
     @State private var seeding = false
-    @State private var showWidgetGallery = false
     @State private var layout = HomeWidget.loadLayout()
     @State private var draggingWidget: HomeWidget? = nil   // #11 drag-to-reorder
 
@@ -133,14 +136,12 @@ struct HomeView: View {
                 goExpiringList = false
                 if editMode { exitEditMode() }
             }
-            .sheet(isPresented: $showQuickUpdate) {
-                QuickUpdateSheet().environment(session)
-            }
-            .sheet(isPresented: $showActivityFeed) {
-                ActivityFeedSheet().environment(session)
-            }
-            .sheet(isPresented: $showWidgetGallery) {
-                widgetGallerySheet
+            .sheet(item: $activeHomeSheet) { sheet in
+                switch sheet {
+                case .quickUpdate:   QuickUpdateSheet().environment(session)
+                case .activityFeed:  ActivityFeedSheet().environment(session)
+                case .widgetGallery: widgetGallerySheet
+                }
             }
         }
         .coachmarks(page: .home, steps: HomeCoachmarks.steps)
@@ -163,7 +164,7 @@ struct HomeView: View {
                     NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
                 }
                 quickAction(icon: "scribble.variable", title: "Quick Update", caption: "Tell me what changed") {
-                    showQuickUpdate = true
+                    activeHomeSheet = .quickUpdate
                 }
             }
         }
@@ -238,7 +239,7 @@ struct HomeView: View {
                 NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
             }
         case .quickUpdateW:
-            actionWidget(.quickUpdateW, tint: .stockedGreen) { showQuickUpdate = true }
+            actionWidget(.quickUpdateW, tint: .stockedGreen) { activeHomeSheet = .quickUpdate }
         case .shoppingList:
             actionWidget(.shoppingList, tint: .stockedGold) {
                 NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.grocery)
@@ -292,7 +293,7 @@ struct HomeView: View {
                 // Nothing to add — gentle nudge instead of an empty sheet.
                 HapticManager.light()
             } else {
-                showWidgetGallery = true
+                activeHomeSheet = .widgetGallery
             }
         } label: {
             HStack(spacing: 10) {
@@ -406,7 +407,7 @@ struct HomeView: View {
             Button {
                 HapticManager.medium()
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { editMode = true }
-                showWidgetGallery = true
+                activeHomeSheet = .widgetGallery
             } label: {
                 Text("Add widgets")
                     .font(.system(size: 14, weight: .semibold))
@@ -439,7 +440,7 @@ struct HomeView: View {
                                 }
                                 HomeWidget.saveLayout(layout)
                                 UsageMetrics.shared.record(.widgetAdded, detail: widget.rawValue)
-                                if removedWidgets.isEmpty { showWidgetGallery = false }
+                                if removedWidgets.isEmpty { activeHomeSheet = nil }
                             } label: {
                                 HStack(spacing: 14) {
                                     ZStack {
@@ -479,7 +480,7 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showWidgetGallery = false }
+                    Button("Done") { activeHomeSheet = nil }
                         .foregroundStyle(Color.stockedGold)
                 }
             }
@@ -912,7 +913,7 @@ struct HomeView: View {
                 }
             }
 
-            Button { showActivityFeed = true } label: {
+            Button { activeHomeSheet = .activityFeed } label: {
                 HStack {
                     Text("See all activity")
                         .font(.system(size: 13.5, weight: .semibold))

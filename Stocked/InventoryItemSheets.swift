@@ -422,8 +422,12 @@ struct AddItemSheet: View {
     @State private var expiryDate: Date = Date().addingTimeInterval(7 * 86400)
 
     // Browse
-    @State private var showBrowse = false
-    @State private var showScanBarcode = false   // #250 — Scan Barcode from Add Item
+    // Single .sheet(item:) — stacked .sheet(isPresented:) made these need a second tap.
+    private enum AddItemSheet: Int, Identifiable {
+        case browse, scanBarcode
+        var id: Int { rawValue }
+    }
+    @State private var activeAddSheet: AddItemSheet? = nil
     // Duplicate detection
     @State private var duplicateItem: LocalInventoryItem? = nil
     @State private var showDuplicateAlert = false
@@ -473,7 +477,7 @@ struct AddItemSheet: View {
                         .font(.system(size: 22, weight: .bold, design: .serif)).dynamicTypeSize(.xSmall ... .accessibility2)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
-                    Button { showScanBarcode = true } label: {
+                    Button { activeAddSheet = .scanBarcode } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "barcode.viewfinder").font(.system(size: 12, weight: .semibold))
                             Text("Scan")
@@ -484,7 +488,7 @@ struct AddItemSheet: View {
                         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
                         .clipShape(Capsule())
                     }.buttonStyle(.plain)
-                    Button { showBrowse = true } label: {
+                    Button { activeAddSheet = .browse } label: {
                         Text("Browse")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Color.stockedWhite)
@@ -536,18 +540,20 @@ struct AddItemSheet: View {
         .presentationDragIndicator(.hidden)
         .dismissKeyboardOnTap()
         .keyboardDoneToolbar()
-        .sheet(isPresented: $showBrowse) {
-            IngredientBrowserSheet(defaultZone: zone).environment(session)
-        }
-        .sheet(isPresented: $showScanBarcode) {
-            // #250 — BarcodeScannerView adds the scanned item to inventory itself, then
-            // calls onResult and dismisses. Once it returns having added something, close
-            // the Add Item sheet too so the user lands back on their pantry.
-            BarcodeScannerView { name, _ in
-                showScanBarcode = false
-                if !name.isEmpty { dismiss() }
+        .sheet(item: $activeAddSheet) { sheet in
+            switch sheet {
+            case .browse:
+                IngredientBrowserSheet(defaultZone: zone).environment(session)
+            case .scanBarcode:
+                // #250 — BarcodeScannerView adds the scanned item to inventory itself, then
+                // calls onResult and dismisses. Once it returns having added something, close
+                // the Add Item sheet too so the user lands back on their pantry.
+                BarcodeScannerView { name, _ in
+                    activeAddSheet = nil
+                    if !name.isEmpty { dismiss() }
+                }
+                .environment(session)
             }
-            .environment(session)
         }
         .animation(.easeInOut(duration: 0.2), value: step)
     }

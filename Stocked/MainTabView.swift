@@ -114,16 +114,16 @@ struct MainTabView: View {
             switch action {
             case .scanReceipt: showReceipt   = true
             case .scanBarcode: showBarcode   = true
-            case .quickUpdate: showQuickUpdateSheet = true
+            case .quickUpdate: activeDrawerSheet = .quickUpdate
             case .household:
-                showHouseholdSheet = true   // open to everyone for now (no premium gate)
-            case .activity: showActivityFeedMain = true
+                activeDrawerSheet = .household   // open to everyone for now (no premium gate)
+            case .activity: activeDrawerSheet = .activity
             case .addItems:    showAddItems  = true
             case .search:      showSearch    = true
             case .stats:       showStats     = true
             case .databases:   showDatabases = true
-            case .editProfile:   showEditProfile  = true
-            case .notifications: showNotifSettings = true
+            case .editProfile:   activeDrawerSheet = .editProfile
+            case .notifications: activeDrawerSheet = .notifications
             }
         }
     }
@@ -134,12 +134,14 @@ struct MainTabView: View {
     @State private var showSearch    = false
     @State private var showStats     = false
     @State private var showDatabases = false
-    @State private var showEditProfile  = false   // Account sheets: presented from stable body
-    @State private var showNotifSettings = false
-    @State private var showQuickUpdateSheet = false   // #239 — drawer Quick Update
-    @State private var showHouseholdSheet   = false   // #240 — drawer Household section
-    @State private var showHouseholdPaywall = false
-    @State private var showActivityFeedMain = false   // #245 — drawer Household → Activity
+    // One enum drives a SINGLE .sheet(item:) for the drawer account sheets. Stacking six
+    // .sheet(isPresented:) on one view made SwiftUI present one then dismiss it (needed a
+    // second tap); a single item-driven sheet presents reliably on the first tap.
+    private enum DrawerActionSheet: Int, Identifiable {
+        case editProfile, notifications, quickUpdate, household, householdPaywall, activity
+        var id: Int { rawValue }
+    }
+    @State private var activeDrawerSheet: DrawerActionSheet? = nil
     @State private var showDrawer    = false
     @State private var showBrief     = false
     // iPad auto-hide tab bar: hidden by default, slides up on a tap near the bottom edge,
@@ -233,24 +235,15 @@ struct MainTabView: View {
         }
         // Account sheets — presented from the stable root (not from inside the drawer's
         // List), so they open first-tap and the system dismiss() works.
-        .sheet(isPresented: $showEditProfile) {
-            QuizEditView().environment(session)
-        }
-        .sheet(isPresented: $showNotifSettings) {
-            NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
-        }
-        .sheet(isPresented: $showQuickUpdateSheet) {
-            QuickUpdateSheet().environment(session)   // #239 — drawer Kitchen Tools entry
-        }
-        .sheet(isPresented: $showHouseholdSheet) {
-            HouseholdHomeView().environment(session)   // new mockup-styled household experience
-        }
-        .sheet(isPresented: $showHouseholdPaywall) {
-            HouseholdPaywallView(onUnlocked: { showHouseholdPaywall = false; showHouseholdSheet = true })
-                .environment(session)
-        }
-        .sheet(isPresented: $showActivityFeedMain) {
-            ActivityFeedSheet().environment(session)   // #245 — drawer Activity row
+        .sheet(item: $activeDrawerSheet) { sheet in
+            switch sheet {
+            case .editProfile:      QuizEditView().environment(session)
+            case .notifications:    NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
+            case .quickUpdate:      QuickUpdateSheet().environment(session)
+            case .household:        HouseholdHomeView().environment(session)
+            case .householdPaywall: HouseholdPaywallView(onUnlocked: { activeDrawerSheet = .household }).environment(session)
+            case .activity:         ActivityFeedSheet().environment(session)
+            }
         }
         // #228/#229 — floating "In Progress" pill, isolated in its own view. Crucially,
         // MainTabView's body must NOT read session.activeCook directly: if it did,

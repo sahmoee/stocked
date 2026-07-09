@@ -18,19 +18,15 @@ struct SettingsContent: View {
 
     @State private var showClearAlert   = false
     @State private var showWipeICloudAlert = false     // delete iCloud backups only
-    @State private var showStorePopout    = false
-    @State private var showRecipeSources  = false      // add / manage recipe sources
-
     @State private var showDeleteAccountAlert = false
-    @State private var showTransfer     = false
-    @State private var activeAccountSheet: AccountSheet? = nil   // identity-driven: no open/close race
-    @State private var showDataStorage  = false   // Checkpoint 1 verification & backup
 
-    private enum AccountSheet: Int, Identifiable {
-        case notifications
+    // One enum drives a SINGLE .sheet(item:). Stacking several .sheet(isPresented:) on the same
+    // view makes SwiftUI present one then immediately dismiss it, so a sheet needed a second tap.
+    private enum DrawerSheet: Int, Identifiable {
+        case dataStorage, storePopout, household, recipeSources, transfer, notifications
         var id: Int { rawValue }
     }
-    @State private var showHouseholdSheet = false
+    @State private var activeSheet: DrawerSheet? = nil
 
     // ── Preferences accordion expansion state ───────────────────────
     // These three fields (Preferences, Notifications, Data & Storage) are embedded in the
@@ -70,7 +66,7 @@ struct SettingsContent: View {
                     .listRowBackground(Color.clear)
 
                     // Preferred Store (pop-out picker).
-                    Button { showStorePopout = true } label: {
+                    Button { activeSheet = .storePopout } label: {
                         HStack {
                             Label("Preferred Store", systemImage: "storefront")
                                 .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
@@ -103,7 +99,7 @@ struct SettingsContent: View {
                     .listRowBackground(Color.clear)
 
                     // Household Sync — opens the existing household management screen.
-                    Button { showHouseholdSheet = true } label: {
+                    Button { activeSheet = .household } label: {
                         settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
                                     title: "Household Sync",
                                     detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)")
@@ -111,7 +107,7 @@ struct SettingsContent: View {
                     .listRowBackground(Color.clear)
 
                     // Recipe Sources — add your own websites or manage the built-in list.
-                    Button { showRecipeSources = true } label: {
+                    Button { activeSheet = .recipeSources } label: {
                         settingsRow(icon: "globe", color: Color.stockedGold,
                                     title: "Recipe Sources",
                                     detail: "Add websites or manage sources")
@@ -153,7 +149,7 @@ struct SettingsContent: View {
                     // Reminders & Daily Brief scheduling — opens the existing settings screen.
                     Button {
                         if let onNotifications { onNotifications() }
-                        else { activeAccountSheet = .notifications }
+                        else { activeSheet = .notifications }
                     } label: {
                         settingsRow(icon: "bell.badge.fill", color: Color.stockedGold,
                                     title: "Reminders & Daily Brief",
@@ -172,7 +168,7 @@ struct SettingsContent: View {
             Section {
                 DisclosureGroup(isExpanded: $expandDataStorage) {
                     // Transfer Kitchen — existing export/import screen.
-                    Button { showTransfer = true } label: {
+                    Button { activeSheet = .transfer } label: {
                         settingsRow(icon: "arrow.left.arrow.right.square.fill", color: Color.stockedGold,
                                     title: "Transfer Kitchen", detail: "Export or import data")
                     }
@@ -201,7 +197,7 @@ struct SettingsContent: View {
                     // Storage, usage, migration, and auto-backup frequency — ONE row. This
                     // used to be two rows ("Auto Backup Options" and "Data & Storage") that
                     // both opened the exact same detail screen; condensed to a single entry.
-                    Button { showDataStorage = true } label: {
+                    Button { activeSheet = .dataStorage } label: {
                         settingsRow(icon: "internaldrive", color: Color.stockedCharcoal,
                                     title: "Storage & Auto Backup",
                                     detail: "Usage, migration · Backs up \(session.backupFrequency.rawValue.lowercased())")
@@ -266,25 +262,14 @@ struct SettingsContent: View {
                 }
             }
         }
-        .sheet(isPresented: $showDataStorage) {
-            DataStorageView().environment(session)
-        }
-        .sheet(isPresented: $showStorePopout) {
-            PreferredStorePopout().environment(session)
-        }
-        .sheet(isPresented: $showHouseholdSheet) {
-            HouseholdHomeView().environment(session)
-        }
-        .sheet(isPresented: $showRecipeSources) {
-            RecipeSourcesManagerView().environment(session)
-        }
-        .sheet(isPresented: $showTransfer) {
-            KitchenTransferView().environment(session)
-        }
-        .sheet(item: $activeAccountSheet) { sheet in
+        .sheet(item: $activeSheet) { sheet in
             switch sheet {
-            case .notifications:
-                NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
+            case .dataStorage:   DataStorageView().environment(session)
+            case .storePopout:   PreferredStorePopout().environment(session)
+            case .household:     HouseholdHomeView().environment(session)
+            case .recipeSources: RecipeSourcesManagerView().environment(session)
+            case .transfer:      KitchenTransferView().environment(session)
+            case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
             }
         }
     }
@@ -450,10 +435,13 @@ struct SidebarContent: View {
 enum DrawerQuickAction { case scanReceipt, scanBarcode, quickUpdate, addItems, search, stats, databases, editProfile, notifications, household, activity }
 
 struct DrawerContent: View {
-    @State private var showHelpCenter = false      // #245 — mockup Settings rows
-    @State private var showUsageInsights = false    // #20 — local usage insights
-    @State private var showToolbox = false          // Kitchen Toolbox hub (20 tools)
-    @State private var showProfileHub = false      // chef row → Profile & Preferences hub
+    // One enum drives a SINGLE .sheet(item:) (see DrawerSheet note above) so these present
+    // reliably on the first tap instead of flashing open then closed.
+    private enum HomeSheet: Int, Identifiable {
+        case helpCenter, usageInsights, toolbox, profileHub
+        var id: Int { rawValue }
+    }
+    @State private var activeHomeSheet: HomeSheet? = nil
     @State private var showLogoutConfirm = false
     @State private var orderStore = DrawerOrderStore.shared   // rearrangeable drawer rows
     @Environment(AppSession.self) var session
@@ -487,7 +475,7 @@ struct DrawerContent: View {
             // Tapping it opens Edit Profile. Secondary text uses the themeSecondaryText token for
             // legible contrast in both light and dark mode.
             Button {
-                showProfileHub = true
+                activeHomeSheet = .profileHub
             } label: {
                 HStack(spacing: 13) {
                     ProfileAvatarView(size: 50)
@@ -564,7 +552,7 @@ struct DrawerContent: View {
                 } header: { drawerHeader("Insights") }
 
                 Section {
-                    drawerButton("Help Center",   icon: "questionmark.circle") { showHelpCenter = true }
+                    drawerButton("Help Center",   icon: "questionmark.circle") { activeHomeSheet = .helpCenter }
                     drawerButton(session.accountType == .guest ? "Exit Guest Mode" : "Log Out",
                                  icon: "rectangle.portrait.and.arrow.right") { showLogoutConfirm = true }
                 } header: { drawerHeader("Settings") }
@@ -588,20 +576,14 @@ struct DrawerContent: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(session.themeBgColor.ignoresSafeArea())
         .shadow(color: .black.opacity(0.2), radius: 20, x: 8, y: 0)
-        .sheet(isPresented: $showHelpCenter) {
-            HelpCenterSheet().environment(session)   // #245
-        }
-        .sheet(isPresented: $showUsageInsights) {
-            NavigationStack { UsageInsightsView().environment(session) }   // #20
-        }
-        .sheet(isPresented: $showToolbox) {
-            NavigationStack { KitchenToolboxView().environment(session) }   // Kitchen Toolbox hub
-        }
-        // Edit Profile — opened from the chef row. Avatar (tap to change skin tone or add a
-        // photo), name, and the onboarding answers inline. Preferences moved to the drawer's
-        // Settings list, so this sheet is profile-only now.
-        .sheet(isPresented: $showProfileHub) {
-            EditProfileView().environment(session)
+        // Edit Profile opens from the chef row. All four present via one .sheet(item:).
+        .sheet(item: $activeHomeSheet) { sheet in
+            switch sheet {
+            case .helpCenter:    HelpCenterSheet().environment(session)
+            case .usageInsights: NavigationStack { UsageInsightsView().environment(session) }
+            case .toolbox:       NavigationStack { KitchenToolboxView().environment(session) }
+            case .profileHub:    EditProfileView().environment(session)
+            }
         }
         .alert(session.accountType == .guest ? "Exit Guest Mode?" : "Log Out?", isPresented: $showLogoutConfirm) {
             if session.accountType == .guest {
@@ -686,13 +668,13 @@ struct DrawerContent: View {
         case .globalSearch:
             drawerButton("Global Search", icon: "magnifyingglass") { runQuick(.search) { showSearch = true } }
         case .kitchenToolbox:
-            drawerButton("Kitchen Toolbox", icon: "wrench.and.screwdriver") { showToolbox = true }
+            drawerButton("Kitchen Toolbox", icon: "wrench.and.screwdriver") { activeHomeSheet = .toolbox }
         case .stats:
             drawerButton("Stats", icon: "chart.bar") { runQuick(.stats) { showStats = true } }
         case .databases:
             drawerButton("Databases", icon: "cylinder.split.1x2") { runQuick(.databases) { showDatabases = true } }
         case .usageInsights:
-            drawerButton("Usage Insights", icon: "chart.pie") { showUsageInsights = true }
+            drawerButton("Usage Insights", icon: "chart.pie") { activeHomeSheet = .usageInsights }
         }
     }
 
