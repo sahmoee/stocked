@@ -14,3 +14,6 @@ DerivedData/
 node_modules/
 
 # (Secrets.example.xcconfig IS committed — it's just the template, no real values.)
+
+# BuildBuddy local undo points — never commit
+.buildbuddy-backups/
