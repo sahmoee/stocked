@@ -15,6 +15,10 @@ struct SettingsContent: View {
     // teardown that makes a sheet attached inside the drawer flash closed. When nil
     // (iPad sidebar), the buttons fall back to a local .sheet(item:).
     var onNotifications: (() -> Void)? = nil
+    // When set (drawer path), settings sheets route UP to MainTabView's stable body and
+    // present after the drawer closes — the only reliable way; a sheet attached inside the
+    // sliding drawer flashes shut. When nil (iPad sidebar) the local .sheet(item:) is used.
+    var onQuickAction: ((DrawerQuickAction) -> Void)? = nil
 
     @State private var showClearAlert   = false
     @State private var showWipeICloudAlert = false     // delete iCloud backups only
@@ -66,7 +70,7 @@ struct SettingsContent: View {
                     .listRowBackground(Color.clear)
 
                     // Preferred Store (pop-out picker).
-                    Button { activeSheet = .storePopout } label: {
+                    Button { if let onQuickAction { onQuickAction(.storePopout) } else { activeSheet = .storePopout } } label: {
                         HStack {
                             Label("Preferred Store", systemImage: "storefront")
                                 .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
@@ -99,7 +103,7 @@ struct SettingsContent: View {
                     .listRowBackground(Color.clear)
 
                     // Household Sync — opens the existing household management screen.
-                    Button { activeSheet = .household } label: {
+                    Button { if let onQuickAction { onQuickAction(.household) } else { activeSheet = .household } } label: {
                         settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
                                     title: "Household Sync",
                                     detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)")
@@ -107,7 +111,7 @@ struct SettingsContent: View {
                     .listRowBackground(Color.clear)
 
                     // Recipe Sources — add your own websites or manage the built-in list.
-                    Button { activeSheet = .recipeSources } label: {
+                    Button { if let onQuickAction { onQuickAction(.recipeSources) } else { activeSheet = .recipeSources } } label: {
                         settingsRow(icon: "globe", color: Color.stockedGold,
                                     title: "Recipe Sources",
                                     detail: "Add websites or manage sources")
@@ -148,7 +152,7 @@ struct SettingsContent: View {
 
                     // Reminders & Daily Brief scheduling — opens the existing settings screen.
                     Button {
-                        if let onNotifications { onNotifications() }
+                        if let onQuickAction { onQuickAction(.notifications) }
                         else { activeSheet = .notifications }
                     } label: {
                         settingsRow(icon: "bell.badge.fill", color: Color.stockedGold,
@@ -168,7 +172,7 @@ struct SettingsContent: View {
             Section {
                 DisclosureGroup(isExpanded: $expandDataStorage) {
                     // Transfer Kitchen — existing export/import screen.
-                    Button { activeSheet = .transfer } label: {
+                    Button { if let onQuickAction { onQuickAction(.transferKitchen) } else { activeSheet = .transfer } } label: {
                         settingsRow(icon: "arrow.left.arrow.right.square.fill", color: Color.stockedGold,
                                     title: "Transfer Kitchen", detail: "Export or import data")
                     }
@@ -197,7 +201,7 @@ struct SettingsContent: View {
                     // Storage, usage, migration, and auto-backup frequency — ONE row. This
                     // used to be two rows ("Auto Backup Options" and "Data & Storage") that
                     // both opened the exact same detail screen; condensed to a single entry.
-                    Button { activeSheet = .dataStorage } label: {
+                    Button { if let onQuickAction { onQuickAction(.dataStorage) } else { activeSheet = .dataStorage } } label: {
                         settingsRow(icon: "internaldrive", color: Color.stockedCharcoal,
                                     title: "Storage & Auto Backup",
                                     detail: "Usage, migration · Backs up \(session.backupFrequency.rawValue.lowercased())")
@@ -432,7 +436,7 @@ struct SidebarContent: View {
 
 // MARK: - Drawer Content (iPhone)
 // Quick actions the drawer can request; MainTabView performs them after closing the drawer.
-enum DrawerQuickAction { case scanReceipt, scanBarcode, quickUpdate, addItems, search, stats, databases, editProfile, notifications, household, activity }
+enum DrawerQuickAction { case scanReceipt, scanBarcode, quickUpdate, addItems, search, stats, databases, editProfile, notifications, household, activity, dataStorage, transferKitchen, recipeSources, storePopout }
 
 struct DrawerContent: View {
     // One enum drives a SINGLE .sheet(item:) (see DrawerSheet note above) so these present
@@ -560,7 +564,7 @@ struct DrawerContent: View {
                 // Preferences / Notifications / Data & Storage accordions (and Delete Account)
                 // now live here in the drawer's Settings list, below the Help Center / Log Out
                 // rows. Edit Profile is reached from the chef row above, not here.
-                SettingsContent()
+                SettingsContent(onQuickAction: onQuickAction)
 
                 // ── Build Info — standalone, below Settings ──────────────
                 Section {
@@ -1075,21 +1079,67 @@ struct HelpCenterSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    helpRow(icon: "viewfinder", title: "Scanning receipts",
-                            detail: "Open Scan Receipt from Home or the drawer, photograph your receipt, and confirm the detected items — they're added with store context automatically.")
+                VStack(alignment: .leading, spacing: 14) {
+                    helpSection("Adding items")
+                    helpRow(icon: "viewfinder", title: "Scan receipts",
+                            detail: "Open Scan Receipt from Home or the drawer, photograph your receipt, and confirm the detected items — they're added with store context automatically. Store-brand abbreviations (like HEB and Walmart) are expanded for you.")
+                    helpRow(icon: "barcode.viewfinder", title: "Scan barcodes",
+                            detail: "Point the camera at any product barcode to look it up and add it. No camera? Type the barcode number in manually.")
                     helpRow(icon: "scribble.variable", title: "Quick Update",
-                            detail: "Tell Stocked what changed in plain words — \"used the milk, bought eggs\" — and review the proposed changes before they apply.")
+                            detail: "Tell Stocked what changed in plain words — \"used the milk, bought eggs\" — and review the proposed changes before they apply. Works offline with a built-in parser.")
+                    helpRow(icon: "plus.circle", title: "Add by hand",
+                            detail: "Add an item directly from Inventory, set its quantity, unit, zone, and use-by date, or browse the ingredient list to add common staples fast.")
+
+                    helpSection("Your kitchen")
                     helpRow(icon: "refrigerator", title: "Zones & expiry",
-                            detail: "Items live in Fridge, Pantry, Freezer, or Staples. Expiring items surface on Home, in the Daily Brief, and in the Kitchen Report.")
+                            detail: "Items live in Fridge, Pantry, Freezer, or Staples. Expiring items surface on Home, in the Daily Brief, and in the Kitchen Report. Swipe any row to delete it.")
+                    helpRow(icon: "exclamationmark.triangle", title: "Low-stock alerts",
+                            detail: "Running low on a staple? Stocked flags it and can add it to your grocery list so you never run out mid-recipe.")
                     helpRow(icon: "cart", title: "Grocery list",
                             detail: "The list groups by store section. Check items off as you shop, then move everything checked into your pantry from the ··· menu.")
+                    helpRow(icon: "chart.pie", title: "Reports & insights",
+                            detail: "The Kitchen Report and Usage Insights show what you have, what's expiring, and how you cook over time — all computed on your device.")
+
+                    helpSection("Cooking & recipes")
+                    helpRow(icon: "sparkles", title: "Discover recipes",
+                            detail: "Browse recipes pulled from many free and keyed sources. Everything you fetch is saved to your on-device library, so search and suggestions work offline too.")
+                    helpRow(icon: "globe", title: "Recipe & drink sources",
+                            detail: "Turn sources on or off in Recipe Sources, add your own websites, and explore the Drinks section. Keyed sources (like Spoonacular or Suggestic) appear once configured.")
+                    helpRow(icon: "flame", title: "Cook tab",
+                            detail: "Cook Now, Cook Later, Build Around Food, and Match My Mood help you decide what to make from what you already have. Finishing a cook updates your inventory.")
+                    helpRow(icon: "wrench.and.screwdriver", title: "Kitchen Toolbox",
+                            detail: "A hub of tools for planning, conversions, cooking, and reference — reachable from the drawer under Kitchen Tools.")
+                    helpRow(icon: "heart", title: "Apple Health",
+                            detail: "Opt in from Preferences to log a cooked meal's nutrition to Apple Health. It's off until you enable it, and never shared with anyone else.")
+
+                    helpSection("Sharing & backup")
                     helpRow(icon: "person.2", title: "Household Sync",
-                            detail: "Share your kitchen with the people you live with — inventory and lists stay in step across devices.")
+                            detail: "Share your kitchen with the people you live with — inventory, the weekly meal planner, and leftovers stay in step across everyone's devices, even after going offline. Set per-member permissions.")
+                    helpRow(icon: "icloud", title: "iCloud & Auto Backup",
+                            detail: "Your kitchen syncs through your own private iCloud. Storage & Auto Backup lets you back up on demand and choose how often auto-backup runs.")
+                    helpRow(icon: "arrow.left.arrow.right.square", title: "Transfer Kitchen",
+                            detail: "Export your data to move to a new device, or import a previously exported kitchen.")
+
+                    helpSection("Reminders")
+                    helpRow(icon: "sun.max", title: "Daily Brief",
+                            detail: "A once-a-day summary of what's expiring, what to cook, and what to restock. Tap it on Home to expand.")
+                    helpRow(icon: "bell.badge", title: "Reminders",
+                            detail: "Schedule expiry, cook, and prep reminders — and low-stock nudges — from Notifications in Settings.")
+
+                    helpSection("Reference")
+                    helpRow(icon: "books.vertical", title: "Databases",
+                            detail: "Look up ingredient substitutions, receipt abbreviations, ingredient info, and kitchen tips from the Databases hub in the drawer.")
+
+                    helpSection("Account & privacy")
+                    helpRow(icon: "person.crop.circle", title: "Sign in or guest",
+                            detail: "Use Sign in with Apple to sync and share, or continue as a guest on just this device. Your Apple name and email stay on your device.")
+                    helpRow(icon: "lock.shield", title: "Your data is yours",
+                            detail: "No ads and no tracking. Data lives on your device and in your own iCloud. Delete iCloud Data, Clear All App Data, or Delete Account are all available in Settings.")
+
                     Text("Need more help? Reach out from your App Store review or the support link on the product page.")
                         .font(.system(size: 12))
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
-                        .padding(.top, 4)
+                        .padding(.top, 6)
                 }
                 .padding(20)
             }
@@ -1098,6 +1148,15 @@ struct HelpCenterSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
+    }
+
+    private func helpSection(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 11, weight: .bold, design: .serif))
+            .foregroundStyle(session.themeTextColor.opacity(0.45))
+            .tracking(0.8)
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func helpRow(icon: String, title: String, detail: String) -> some View {

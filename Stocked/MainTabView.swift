@@ -124,6 +124,10 @@ struct MainTabView: View {
             case .databases:   showDatabases = true
             case .editProfile:   activeDrawerSheet = .editProfile
             case .notifications: activeDrawerSheet = .notifications
+            case .dataStorage:     activeDrawerSheet = .dataStorage
+            case .transferKitchen: activeDrawerSheet = .transferKitchen
+            case .recipeSources:   activeDrawerSheet = .recipeSources
+            case .storePopout:     activeDrawerSheet = .storePopout
             }
         }
     }
@@ -139,6 +143,7 @@ struct MainTabView: View {
     // second tap); a single item-driven sheet presents reliably on the first tap.
     private enum DrawerActionSheet: Int, Identifiable {
         case editProfile, notifications, quickUpdate, household, householdPaywall, activity
+        case dataStorage, transferKitchen, recipeSources, storePopout
         var id: Int { rawValue }
     }
     @State private var activeDrawerSheet: DrawerActionSheet? = nil
@@ -243,6 +248,10 @@ struct MainTabView: View {
             case .household:        HouseholdHomeView().environment(session)
             case .householdPaywall: HouseholdPaywallView(onUnlocked: { activeDrawerSheet = .household }).environment(session)
             case .activity:         ActivityFeedSheet().environment(session)
+            case .dataStorage:      DataStorageView().environment(session)
+            case .transferKitchen:  KitchenTransferView().environment(session)
+            case .recipeSources:    RecipeSourcesManagerView().environment(session)
+            case .storePopout:      PreferredStorePopout().environment(session)
             }
         }
         // #228/#229 — floating "In Progress" pill, isolated in its own view. Crucially,

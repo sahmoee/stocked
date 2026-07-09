@@ -8,6 +8,7 @@ import SwiftUI
 struct DatabasesView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedDismiss) private var stockedDismiss
     @State private var selectedTab = 0
 
     private let tabs      = ["Substitutions", "Abbreviations", "Ingredients", "Tips"]
@@ -59,7 +60,7 @@ struct DatabasesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") { if let stockedDismiss { stockedDismiss() } else { dismiss() } }
                         .foregroundStyle(Color.stockedGold)
                 }
             }
