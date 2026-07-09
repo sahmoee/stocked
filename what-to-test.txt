@@ -1,19 +1,17 @@
 Stocked — What to Test (latest build)
 
-NEARBY STORES (main fix)
-- Open the grocery store finder and allow location (or enter a zip).
-- Confirm MULTIPLE nearby grocery stores now appear on the map and in the list, sorted by
-  distance — not just a single store. Try it somewhere you know several stores exist.
-- Enter a zip far from you and confirm it recenters and lists stores near that zip.
-
-GROCERY PRODUCT / BRAND / PRICE LOOKUP (new, if RAPIDAPI_KEY is set)
-- Where wired in, search a common item (milk, eggs, coffee) and confirm brand and price
-  results come back, and that repeating the same search is instant (cached, no re-fetch).
-- With no key set, the feature should simply show nothing (no crash, no error).
+BRAND & PRICE (new)
+- With RAPIDAPI_KEY set in Secrets.xcconfig, open an inventory item (tap a row to edit it).
+  Under the item name, confirm a brand and a price appear once loaded (from Walmart/Amazon
+  catalog), with the source label.
+- Open the same item again and confirm it appears instantly (cached, no re-fetch, no flicker).
+- With NO key set, confirm the item screen looks exactly as before (the badge simply hides,
+  no blank space, no error).
+- Try items with clear matches (milk, eggs, coffee) and odd/rare names (should just hide).
 
 REGRESSION
-- Grocery list still groups by store section as before.
-- Preferred store and receipt store detection still work.
+- Editing an item (name, zone, quantity, expiry, photo) still saves correctly.
+- Inventory rows, Add Item, and Scan Barcode still open first-tap.
 
-Note: aisle-level data is not provided by any available API; aisle grouping continues to
-use Stocked's store-section logic.
+Note: brand/price is currently shown on the item detail screen. Other screens (grocery rows,
+add item, barcode result) can show the same badge with a one-line drop-in.

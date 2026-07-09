@@ -114,6 +114,10 @@ struct EditItemSheet: View {
                         .padding(.horizontal, 28).padding(.bottom, 16)
                     }
 
+                    // Brand & price from the grocery catalog — hidden until data loads.
+                    BrandPriceView(itemName: editedName, compact: false)
+                        .padding(.horizontal, 28).padding(.bottom, 14)
+
                     // ── Photo row ────────────────────────────────────────
                     photoRow
                     Picker("Zone", selection: $zone) {
