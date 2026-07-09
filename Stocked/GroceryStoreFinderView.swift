@@ -100,7 +100,12 @@ class GroceryStoreFinder: NSObject, CLLocationManagerDelegate {
 
     private func searchWithRadius(near location: CLLocation, latDelta: Double, attempt: Int) {
         let req = MKLocalSearch.Request()
-        req.naturalLanguageQuery = "grocery store supermarket"
+        // Query PLUS a point-of-interest category filter. The old plain-text query
+        // "grocery store supermarket" returned only a single best match on many devices;
+        // filtering by the foodMarket POI category returns the full set of nearby stores.
+        req.naturalLanguageQuery = "grocery"
+        req.resultTypes = .pointOfInterest
+        req.pointOfInterestFilter = MKPointOfInterestFilter(including: [.foodMarket])
         req.region = MKCoordinateRegion(center: location.coordinate,
             span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: latDelta))
         MKLocalSearch(request: req).start { [weak self] response, err in
