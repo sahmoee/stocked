@@ -138,8 +138,7 @@ struct AsyncFoodImage: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: radius)
                         .fill(Color.stockedWhite.opacity(0.3))
-                    Text(ImageFallbackService.emoji(for: name))
-                        .font(.system(size: size * 0.55))
+                    FoodIconView(name: name, category: category, size: size * 0.9, emojiSize: size * 0.55)
                 }
                 .frame(width: size, height: size)
             } else {
@@ -204,5 +203,39 @@ struct AsyncFoodImage: View {
                 await MainActor.run { failed = true }
             }
         }
+    }
+}
+
+// MARK: - FoodIconView (bundled inventory icon → category icon → emoji)
+
+/// Renders an item's icon from Icons.xcassets, falling back to its category icon,
+/// then to the emoji placeholder. Requires ItemIcon.swift (IconResolver) + Icons.xcassets.
+struct FoodIconView: View {
+    let name: String
+    var category: String? = nil
+    /// Square size for the bundled image (the emoji uses `emojiSize`).
+    var size: CGFloat = 40
+    var emojiSize: CGFloat = 22
+
+    var body: some View {
+        let slug = IconResolver.slug(name)
+        let catAsset = category.map { IconResolver.categoryIcon[$0.lowercased()] ?? IconResolver.slug($0) }
+        if assetExists(slug) {
+            Image(slug).resizable().scaledToFit().frame(width: size, height: size)
+        } else if let c = catAsset, assetExists(c) {
+            Image(c).resizable().scaledToFit().frame(width: size, height: size)
+        } else {
+            Text(ImageFallbackService.emoji(for: name)).font(.system(size: emojiSize))
+        }
+    }
+
+    private func assetExists(_ n: String) -> Bool {
+        #if canImport(UIKit)
+        return UIImage(named: n) != nil
+        #elseif canImport(AppKit)
+        return NSImage(named: n) != nil
+        #else
+        return false
+        #endif
     }
 }

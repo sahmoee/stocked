@@ -690,8 +690,7 @@ struct GroceryListView: View {
                     .a11yDecorative()
 
                 // #237 — food emoji tile, matching the mockup's grocery rows.
-                Text(ImageFallbackService.emoji(for: item.name))
-                    .font(.system(size: 17))
+                FoodIconView(name: item.name, size: 22, emojiSize: 17)
                     .frame(width: 24)
 
                 // Item name + source badge
