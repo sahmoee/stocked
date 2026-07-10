@@ -481,14 +481,31 @@ struct RecipeVaultView: View {
         // instructions (or link-only "instructions" from sources like Edamam). The
         // loader pulls from several feeds and the same dish can come back from more
         // than one with different ids — which is why the same recipe showed twice.
+        // #FB — drinks are excluded here entirely: they get their own compact rail
+        // (and the Drinks hub card) instead of popping up in Popular/Dinner ideas.
+        let drinkIDs = Set(RecipeSourceHub.drinks(pool: onlineLoader.recipes).map { $0.id })
         var seen = Set<String>()
         var out: [OnlineRecipe] = []
         for r in onlineLoader.recipes
-            where !r.imageURL.isEmpty && OnlineRecipeFacts.hasRealInstructions(r.instructions) {
+            where !r.imageURL.isEmpty
+               && !drinkIDs.contains(r.id)
+               && OnlineRecipeFacts.hasRealInstructions(r.instructions) {
             let key = OnlineRecipeFacts.normalizedTitle(r.title)
             if seen.insert(key).inserted { out.append(r) }
         }
         return out
+    }
+
+    /// #FB — compact drinks pool for the small Discover rail (never mixed with food).
+    private var discoverDrinks: [OnlineRecipe] {
+        var seen = Set<String>()
+        var out: [OnlineRecipe] = []
+        for r in RecipeSourceHub.drinks(pool: onlineLoader.recipes)
+            where !r.imageURL.isEmpty && OnlineRecipeFacts.hasRealInstructions(r.instructions) {
+            let key = OnlineRecipeFacts.normalizedTitle(r.title)
+            if seen.insert(key).inserted { out.append(r) }
+        }
+        return Array(out.prefix(8))
     }
     // #251 — pantry + saved snapshots reused by every Discover card's badges.
     private var discoverInStock: Set<String> { session.guestStore.inStockNameSet }
@@ -497,6 +514,8 @@ struct RecipeVaultView: View {
     /// Splits the pool into (hero, popular, dinners, sweets) with no recipe repeated.
     /// "Popular right now" is ordered by what this user actually opens (#6) — recipes whose
     /// category/area match the user's interest profile float to the front.
+    /// #FB — rails also prefer recipes you can actually make (fewest missing first),
+    /// so the ideas read as convenient instead of 9-ingredients-short.
     private var discoverSplit: (hero: OnlineRecipe?, popular: [OnlineRecipe], dinners: [OnlineRecipe], sweets: [OnlineRecipe]) {
         var pool = discoverPool
         let hero = pool.first
@@ -505,13 +524,19 @@ struct RecipeVaultView: View {
         let sweetCats  = ["dessert", "breakfast"]
         let dinnerCats = ["beef", "chicken", "pasta", "pork", "lamb", "seafood", "vegetarian", "vegan", "side"]
 
+        let inStock = discoverInStock
+        func missingCount(_ r: OnlineRecipe) -> Int {
+            if case .missing(let n) = OnlineRecipeMatch.status(r, inStock: inStock) { return n }
+            return 0
+        }
+
         var used = Set<String>()
         func take(_ n: Int, where match: (OnlineRecipe) -> Bool) -> [OnlineRecipe] {
             var out: [OnlineRecipe] = []
             for r in pool where out.count < n && !used.contains(r.id) && match(r) {
                 out.append(r); used.insert(r.id)
             }
-            return out
+            return out.sorted { missingCount($0) < missingCount($1) }
         }
         let sweets  = take(8) { sweetCats.contains($0.category.lowercased()) }
         let dinners = take(8) { dinnerCats.contains($0.category.lowercased()) }
@@ -523,6 +548,27 @@ struct RecipeVaultView: View {
         return (hero, popular, dinners, sweets)
     }
 
+    // #FB — Discover no longer reshuffles under your thumb: the split is frozen into
+    // a snapshot that only rebuilds when you re-enter the screen or tap Refresh.
+    private struct DiscoverSnapshot {
+        var hero: OnlineRecipe?
+        var popular: [OnlineRecipe] = []
+        var dinners: [OnlineRecipe] = []
+        var sweets:  [OnlineRecipe] = []
+        var drinks:  [OnlineRecipe] = []
+        var isEmpty: Bool { hero == nil && popular.isEmpty && dinners.isEmpty && sweets.isEmpty }
+    }
+    @State private var discoverSnapshot = DiscoverSnapshot()
+
+    private func rebuildDiscoverSnapshot() {
+        let split = discoverSplit
+        discoverSnapshot = DiscoverSnapshot(hero: split.hero,
+                                            popular: split.popular,
+                                            dinners: split.dinners,
+                                            sweets: split.sweets,
+                                            drinks: discoverDrinks)
+    }
+
     /// One-tap open that also teaches the interest profile (#6).
     private func openOnlineRecipe(_ recipe: OnlineRecipe) {
         RecipeInterest.shared.record(category: recipe.category, area: recipe.area)
@@ -531,18 +577,41 @@ struct RecipeVaultView: View {
 
     @ViewBuilder
     private var discoverSections: some View {
-        let split = discoverSplit
+        let split = discoverSnapshot
 
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Discover")
-                    .font(.system(size: 15, weight: .bold, design: .serif))
+                    .font(.system(size: 19, weight: .bold, design: .serif))
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
+                // #FB — manual refresh; Discover otherwise only changes on re-entry.
+                if onlineLoader.isLoading {
+                    ProgressView().scaleEffect(0.7).tint(Color.stockedGold)
+                } else {
+                    Button {
+                        onlineLoader.forceRefresh(profile: session.guestStore.cookingProfile,
+                                                  pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .bold))
+                            Text("Refresh").font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundStyle(Color.stockedGold)
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Color.stockedGold.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Refresh recipe ideas")
+                }
             }
             .padding(.horizontal, 24).padding(.bottom, 8)
 
-            if discoverPool.isEmpty {
+            // #FB — quick-pick categories: Under 15 mins, One Pot, Feeling Lazy.
+            quickPickChips
+
+            if split.isEmpty {
                 if onlineLoader.isLoading {
                     discoverSkeleton
                 } else {
@@ -571,9 +640,68 @@ struct RecipeVaultView: View {
                 if !split.popular.isEmpty { discoverRail("Popular right now", split.popular) }
                 if !split.dinners.isEmpty { discoverRail("Dinner ideas", split.dinners) }
                 if !split.sweets.isEmpty  { discoverRail("Something sweet", split.sweets) }
+                // #FB — drinks get a small, contained highlight of their own (never
+                // mixed into the food rails; View All opens the full Drinks browser).
+                if !split.drinks.isEmpty {
+                    HStack {
+                        HStack(spacing: 6) {
+                            Text("🍹").font(.system(size: 14))
+                            Text("Drinks")
+                                .font(.system(size: 17, weight: .bold, design: .serif))
+                                .foregroundStyle(session.themeTextColor)
+                        }
+                        Spacer()
+                        Button { navTarget = .drinks } label: {
+                            Text("View All").font(.system(size: 12.5, weight: .semibold))
+                                .foregroundStyle(Color.stockedGold)
+                        }.buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 24).padding(.bottom, 8)
+                    discoverRail(nil, split.drinks)
+                }
             }
         }
         .padding(.bottom, 6)
+        .onAppear {
+            // #FB — snapshot rebuilds only on screen entry (or Refresh), never mid-scroll.
+            if discoverSnapshot.isEmpty || !discoverPool.isEmpty { rebuildDiscoverSnapshot() }
+        }
+        .onChange(of: onlineLoader.isLoading) { _, loading in
+            // A refresh (manual or first load) just finished — show the new batch once.
+            if !loading { rebuildDiscoverSnapshot() }
+        }
+    }
+
+    // #FB — quick-pick browse chips over the discover pool.
+    private var quickPickChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                quickPickChip("Under 15 mins", icon: "bolt.fill")
+                quickPickChip("One Pot", icon: "frying.pan.fill")
+                quickPickChip("Feeling Lazy", icon: "moon.zzz.fill")
+                quickPickChip("Comfort Food", icon: "heart.fill")
+            }
+            .padding(.horizontal, 24)
+        }
+        .padding(.bottom, 12)
+    }
+
+    private func quickPickChip(_ title: String, icon: String) -> some View {
+        NavigationLink {
+            QuickPickListView(pick: title, pool: discoverPool,
+                              onOpenRecipe: { openOnlineRecipe($0) })
+                .environment(session)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 10))
+                Text(title).font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(session.themeTextColor)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     // Featured hero — big photo card with a gradient title plate.
@@ -626,12 +754,15 @@ struct RecipeVaultView: View {
         .padding(.horizontal, 24)
     }
 
-    private func discoverRail(_ title: String, _ recipes: [OnlineRecipe]) -> some View {
+    private func discoverRail(_ title: String?, _ recipes: [OnlineRecipe]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 13.5, weight: .semibold))
-                .foregroundStyle(session.themeTextColor.opacity(0.7))
-                .padding(.horizontal, 24)
+            // #FB — bigger section headers so they hold their own against the cards.
+            if let title {
+                Text(title)
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .foregroundStyle(session.themeTextColor)
+                    .padding(.horizontal, 24)
+            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(recipes) { recipe in

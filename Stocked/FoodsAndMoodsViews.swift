@@ -140,7 +140,20 @@ struct FoodsSubOptionView: View {
 
     var options: [String] { optionsMap[category] ?? [] }
 
+    // #FB — in-pantry items jump to the top of the list.
+    private var sortedOptions: [String] {
+        guard category == "Protein" || category == "Vegetables" else { return options }
+        return options.sorted { a, b in
+            let sa = isInInventory(a, store: session.guestStore) ? 0 : 1
+            let sb = isInInventory(b, store: session.guestStore) ? 0 : 1
+            if sa != sb { return sa < sb }
+            return (options.firstIndex(of: a) ?? 0) < (options.firstIndex(of: b) ?? 0)
+        }
+    }
+
     var body: some View {
+        // #FB — header is anchored (screen no longer pushes up and cuts it off);
+        // only the option list scrolls below it.
         StockedShell(showBack: true, scrollDisabled: true) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 20) {
@@ -152,7 +165,7 @@ struct FoodsSubOptionView: View {
                         .font(.system(size: 28, weight: .regular, design: .serif))
                         .foregroundStyle(Color.stockedWhite)
                 }
-                .padding(.horizontal, 28).padding(.bottom, 32)
+                .padding(.horizontal, 28).padding(.bottom, 20)
 
                 // Inventory legend (protein + veg categories only)
                 if category == "Protein" || category == "Vegetables" {
@@ -180,8 +193,9 @@ struct FoodsSubOptionView: View {
                     .padding(.horizontal, 28).padding(.bottom, 16)
                 }
 
+                ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
-                    ForEach(options, id: \.self) { opt in
+                    ForEach(sortedOptions, id: \.self) { opt in
                         let inStock = (category == "Protein" || category == "Vegetables")
                             ? isInInventory(opt, store: session.guestStore) : true
                         let justAdded = addedToList == opt
@@ -263,10 +277,16 @@ struct FoodsSubOptionView: View {
                     .presentationDetents([.height(280)])
                     .presentationDragIndicator(.visible)
                 }
+                .padding(.bottom, 24)
+                }
             }
         }
         .navigationDestination(isPresented: $gotoRecipe) {
-            RecipeOverviewView(title: "\(category) — \(selected ?? "")", servings: servings)
+            // #FB — selections now open REAL recipes starring the pick, ranked by
+            // pantry coverage, instead of a one-size generic template.
+            StarIngredientRecipesView(category: category,
+                                      selection: selected ?? category,
+                                      servings: servings)
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             gotoRecipe = false

@@ -89,7 +89,11 @@
 	<key>MealDBBaseURL</key>
 	<string>$(MEALDB_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Stocked uses the camera to scan barcodes and receipts so you can quickly add items to your pantry.</string>
+	<string>Stocked uses the camera to scan barcodes and receipts, and to snap plate photos of meals you cook.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Stocked listens for hands-free voice commands like next, back, and finish while you cook, only when you turn the mic on.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Stocked uses speech recognition to understand voice commands during cooking mode. Recognition runs on device when supported.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Stocked uses your location to determine close by stores. </string>
 	<key>HomeBaseAPIKey</key>

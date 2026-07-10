@@ -149,6 +149,23 @@ struct HouseholdCreateView: View {
                     }
                     .disabled(creating)
                     .padding(.top, 10)
+
+                    // #FB — creation used to fail silently ("Creating…" for a blink,
+                    // then nothing). The exact reason now shows here.
+                    if let err = household.lastError {
+                        HStack(alignment: .top, spacing: 7) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 12)).foregroundStyle(.orange)
+                            Text(err)
+                                .font(.system(size: 12))
+                                .foregroundStyle(session.themeTextColor.opacity(0.75))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(12)
+                        .background(Color.orange.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.top, 10)
+                    }
                 }
             } else {
                 successContent

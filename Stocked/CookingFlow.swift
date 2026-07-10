@@ -99,6 +99,7 @@ struct RecipeOverviewView: View {
     @State private var showPortionEdit   = false
     @State private var adjustedServings  = 0   // 0 = use passed-in servings
     @State private var showCancelAlert   = false
+    @State private var addedToGrocery: Set<String> = []   // #FB — per-ingredient "Added ✓" feedback
 
     init(title: String, servings: Int, ingredients: [String] = [],
          steps: [String] = [], cookTime: String = "", prepTime: String = "") {
@@ -348,7 +349,10 @@ struct RecipeOverviewView: View {
             CookingFlashcardView(recipeTitle: title, ingredients: scaledIngredients, steps: displaySteps, baseServings: effectiveServings)
         }
         .sheet(isPresented: $showPortionEdit) {
-            AddItemSheet(defaultZone: "Fridge").environment(session)
+            // #FB — pop-up lists the recipe's ingredients with live inventory editing;
+            // the statuses on this screen update in real time as amounts change.
+            RecipePortionsEditSheet(recipeTitle: title, ingredients: displayIngredients)
+                .environment(session)
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             startCooking = false   // collapse cook flow on iPad (no .id rebuild there)
@@ -370,21 +374,46 @@ struct RecipeOverviewView: View {
             }
             ForEach(Array(scaledIngredients.enumerated()), id: \.offset) { _, ing in
                 let rawIng = ing
-                let inStock = session.guestStore.inventoryItems.contains {
-                    $0.effectiveLevel > 0.1 &&
-                    ($0.name.lowercased().contains(rawIng.lowercased()) ||
-                     rawIng.lowercased().contains($0.name.lowercased()))
-                }
+                // #FB — smarter matching: "2.6 lbs Chicken" now finds "Chicken Breast".
+                let inStock = IngredientStockMatch.inStock(rawIng, items: session.guestStore.inventoryItems, minLevel: 0.1)
+                let addedKey = rawIng.lowercased()
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 10) {
                         Circle().fill(inStock ? Color.stockedGreen : Color.stockedGold)
                             .frame(width: 7, height: 7)
                         Text(ing).font(.system(size: 14))
                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                        Spacer()
-                        Text(inStock ? "✓ In stock" : "Need to buy")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(inStock ? Color.stockedGreen : Color.stockedGold)
+                            .layoutPriority(1)
+                        Spacer(minLength: 8)
+                        if inStock {
+                            Text("✓ In stock")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color.stockedGreen)
+                        } else {
+                            // #FB — "Need to buy" is now an action: add it right here.
+                            Button {
+                                let name = RecipeIngredients.parse(rawIng).name
+                                session.guestStore.addToGroceryIfMissing(
+                                    name.isEmpty ? rawIng : name.capitalized,
+                                    recommended: false, recipeSource: title)
+                                withAnimation { _ = addedToGrocery.insert(addedKey) }
+                                HapticManager.success()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: addedToGrocery.contains(addedKey)
+                                          ? "checkmark.circle.fill" : "cart.badge.plus")
+                                        .font(.system(size: 10))
+                                    Text(addedToGrocery.contains(addedKey) ? "Added ✓" : "Add to Grocery List")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                }
+                                .foregroundStyle(addedToGrocery.contains(addedKey) ? Color.stockedGreen : Color.stockedGold)
+                                .padding(.horizontal, 8).padding(.vertical, 5)
+                                .background((addedToGrocery.contains(addedKey) ? Color.stockedGreen : Color.stockedGold).opacity(0.12))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(addedToGrocery.contains(addedKey))
+                        }
                     }
                     // #9 — if not in stock, suggest a substitute the user actually has.
                     if !inStock {
@@ -437,12 +466,9 @@ struct RecipeOverviewView: View {
     }
 
     @ViewBuilder private var portionCheckSection: some View {
-        let missingItems = displayIngredients.filter { ing in
-            !session.guestStore.inventoryItems.contains {
-                $0.effectiveLevel > 0.05 &&
-                ($0.name.lowercased().contains(ing.lowercased()) || ing.lowercased().contains($0.name.lowercased()))
-            }
-        }
+        // #FB — same smart matcher as the ingredient rows, so the two never disagree.
+        let missingItems = IngredientStockMatch.missing(displayIngredients,
+                                                        items: session.guestStore.inventoryItems)
         if !missingItems.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -451,9 +477,22 @@ struct RecipeOverviewView: View {
                     Text("Portions check")
                         .font(.system(size: 14, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
                 }
-                Text("\(missingItems.count) item(s) appear to be out of stock or very low. Double-check your inventory before starting.")
+                Text("\(missingItems.count) item(s) appear to be out of stock or very low:")
                     .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
+                // #FB — list exactly which portions don't line up with the recipe.
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(missingItems.enumerated()), id: \.offset) { _, item in
+                        HStack(spacing: 6) {
+                            Circle().fill(Color.orange.opacity(0.7)).frame(width: 5, height: 5)
+                            Text(item)
+                                .font(.system(size: 12))
+                                .foregroundStyle(session.themeTextColor.opacity(0.75))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .padding(.leading, 2)
                 HStack(spacing: 10) {
                     Button { showPortionEdit = true } label: {
                         Text("Edit Inventory")
@@ -461,8 +500,17 @@ struct RecipeOverviewView: View {
                             .padding(.horizontal, 16).padding(.vertical, 9)
                             .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                     }.buttonStyle(.plain)
-                    Text("or continue anyway →")
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    // #FB — continue anyway is now a real button: it starts the recipe.
+                    Button { startCooking = true } label: {
+                        HStack(spacing: 3) {
+                            Text("or continue anyway")
+                            Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold))
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.stockedGold)
+                        .padding(.vertical, 9)
+                        .contentShape(Rectangle())
+                    }.buttonStyle(.plain)
                 }
             }
             .padding(14)
@@ -542,6 +590,7 @@ struct CookingFlashcardView: View {
     @State private var showCancelAlert      = false
     @State private var midCookSubIngredient: String = ""
     @State private var showMidCookSub       = false
+    @State private var showFullScreen       = false   // #FB — full-screen flashcards + voice control
 
     let tips: [String] = [
         "Oil is ready when a water drop sizzles immediately.",
@@ -725,6 +774,19 @@ struct CookingFlashcardView: View {
                             .foregroundStyle(session.themeTextColor)
                     }
                     Spacer()
+                    // #FB — full-screen flashcards (with voice control inside).
+                    Button {
+                        currentCard = steps.indices.first { !completedSteps.contains($0) } ?? max(0, steps.count - 1)
+                        showFullScreen = true
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 15))
+                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .padding(8)
+                            .background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                    }.buttonStyle(.plain).padding(.trailing, 8)
+                        .accessibilityLabel("Full screen cooking mode")
                     // View mode toggle
                     Button {
                         withAnimation(.spring(response: 0.3)) { isSwipeMode.toggle() }
@@ -947,6 +1009,23 @@ struct CookingFlashcardView: View {
             MidCookSubstitutionSheet(ingredientName: midCookSubIngredient)
                 .environment(session)
         }
+        // #FB — full-screen flashcards with hands-free voice control. Finishing from
+        // full screen marks everything complete and rolls straight into Finish Cooking.
+        .fullScreenCover(isPresented: $showFullScreen) {
+            FullScreenCookView(
+                recipeTitle: recipeTitle,
+                steps: steps,
+                currentCard: $currentCard,
+                completedSteps: $completedSteps,
+                onFinish: {
+                    clearProgress()
+                    sessionEnded = true
+                    session.activeCook = nil
+                    finishCooking = true
+                }
+            )
+            .environment(session)
+        }
     }
 }
 
@@ -1144,6 +1223,7 @@ struct TimeToPlatView: View {
     @State private var platePhoto:    Data?
     @State private var didDeduct        = false
     @State private var showDeductSheet  = false
+    @State private var showCamera       = false   // #FB — camera actually opens the camera now
 
     init(recipeTitle: String, ingredients: [String] = []) {
         self.recipeTitle = recipeTitle; self.ingredients = ingredients
@@ -1161,20 +1241,47 @@ struct TimeToPlatView: View {
                         Image(uiImage: ui).resizable().scaledToFill()
                             .frame(maxWidth: .infinity).frame(height: 200).clipped().clipShape(RoundedRectangle(cornerRadius: 16))
                     } else {
-                        RoundedRectangle(cornerRadius: 16).fill(Color.stockedCharcoal.opacity(0.2))
-                            .frame(maxWidth: .infinity).frame(height: 160)
-                        VStack(spacing: 10) {
-                            Image(systemName: "camera.fill").font(.system(size: 32)).foregroundStyle(Color.stockedGold)
-                            Text("Add a plate photo (optional)").font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                        // #FB — the whole tile (camera icon included) opens the camera.
+                        Button {
+                            if CameraCaptureView.isAvailable { showCamera = true }
+                        } label: {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 16).fill(Color.stockedCharcoal.opacity(0.2))
+                                    .frame(maxWidth: .infinity).frame(height: 160)
+                                VStack(spacing: 10) {
+                                    Image(systemName: "camera.fill").font(.system(size: 32)).foregroundStyle(Color.stockedGold)
+                                    Text("Add a plate photo (optional)").font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                }
+                            }
+                            .contentShape(RoundedRectangle(cornerRadius: 16))
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 24).padding(.bottom, 10)
 
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    Text(platePhoto == nil ? "Take Plate Photo" : "Change Photo")
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedGold)
-                }.padding(.bottom, 20)
+                // #FB — two clear paths: camera capture, or upload from the library.
+                HStack(spacing: 18) {
+                    if CameraCaptureView.isAvailable {
+                        Button { showCamera = true } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "camera.fill").font(.system(size: 11))
+                                Text(platePhoto == nil ? "Take Plate Photo" : "Retake Photo")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(Color.stockedGold)
+                        }.buttonStyle(.plain)
+                    }
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "photo.on.rectangle").font(.system(size: 11))
+                            Text("Upload from Library")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(Color.stockedGold)
+                    }
+                }
+                .padding(.bottom, 20)
                 .onChange(of: selectedPhoto) { _, item in
                     Task {
                         if let data = try? await item?.loadTransferable(type: Data.self) {
@@ -1208,27 +1315,39 @@ struct TimeToPlatView: View {
         .sheet(isPresented: $showDeductSheet) {
             IngredientDeductSheet(
                 ingredients: ingredients,
-                onConfirm: { session.guestStore.deductIngredients($0); didDeduct = true },
+                onConfirmWeighted: { session.guestStore.deductIngredients(weighted: $0); didDeduct = true },
                 onSkip:    { didDeduct = true }
             ).environment(session)
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraCaptureView { data in platePhoto = data }
+                .ignoresSafeArea()
         }
     }
 }
 
 // MARK: - Ingredient deduction adjustment sheet
+// #FB — portions are now editable: choose None / Half / All per ingredient and
+// the pantry deduction scales to match (Half deducts half the usual amount).
 struct IngredientDeductSheet: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
     let ingredients: [String]
-    let onConfirm: ([String]) -> Void
+    let onConfirmWeighted: ([(name: String, portion: Double)]) -> Void
     let onSkip:    () -> Void
-    @State private var usedFull: [Bool]
+    @State private var portions: [Double]   // 0 = none, 0.5 = half, 1 = all
 
-    init(ingredients: [String], onConfirm: @escaping ([String]) -> Void, onSkip: @escaping () -> Void) {
-        self.ingredients = ingredients
-        self.onConfirm   = onConfirm
-        self.onSkip      = onSkip
-        _usedFull = State(initialValue: Array(repeating: true, count: ingredients.count))
+    init(ingredients: [String],
+         onConfirmWeighted: @escaping ([(name: String, portion: Double)]) -> Void,
+         onSkip: @escaping () -> Void) {
+        self.ingredients       = ingredients
+        self.onConfirmWeighted = onConfirmWeighted
+        self.onSkip            = onSkip
+        _portions = State(initialValue: Array(repeating: 1.0, count: ingredients.count))
+    }
+
+    private func portionLabel(_ p: Double) -> String {
+        p <= 0 ? "None" : (p < 1 ? "Half" : "All")
     }
 
     var body: some View {
@@ -1240,29 +1359,49 @@ struct IngredientDeductSheet: View {
                         .font(.system(size: 18, weight: .bold, design: .serif))
                         .foregroundStyle(session.themeTextColor)
                         .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 6)
-                    Text("Uncheck anything you didn't use — those won't be deducted.")
+                    Text("Tap the amount to adjust how much gets deducted — All, Half, or None.")
                         .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
                         .padding(.horizontal, 24).padding(.bottom, 16)
 
                     ScrollView {
                         VStack(spacing: 0) {
                             ForEach(ingredients.indices, id: \.self) { i in
-                                Button {
-                                    withAnimation(.spring(response: 0.2)) { usedFull[i].toggle() }
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: usedFull[i] ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 20))
-                                            .foregroundStyle(usedFull[i] ? Color.stockedGold : session.themeTextColor.opacity(0.3))
-                                        Text(ingredients[i])
-                                            .font(.system(size: 14))
-                                            .foregroundStyle(usedFull[i] ? session.themeTextColor : session.themeTextColor.opacity(0.4))
-                                            .strikethrough(!usedFull[i])
-                                        Spacer()
+                                HStack(spacing: 12) {
+                                    Image(systemName: portions[i] > 0 ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 20))
+                                        .foregroundStyle(portions[i] > 0 ? Color.stockedGold : session.themeTextColor.opacity(0.3))
+                                        .onTapGesture {
+                                            withAnimation(.spring(response: 0.2)) {
+                                                portions[i] = portions[i] > 0 ? 0 : 1
+                                            }
+                                        }
+                                    Text(ingredients[i])
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(portions[i] > 0 ? session.themeTextColor : session.themeTextColor.opacity(0.4))
+                                        .strikethrough(portions[i] <= 0)
+                                        .layoutPriority(1)
+                                    Spacer(minLength: 8)
+                                    // Portion selector — cycles None → Half → All.
+                                    Button {
+                                        withAnimation(.spring(response: 0.2)) {
+                                            if portions[i] <= 0 { portions[i] = 0.5 }
+                                            else if portions[i] < 1 { portions[i] = 1 }
+                                            else { portions[i] = 0 }
+                                        }
+                                    } label: {
+                                        Text(portionLabel(portions[i]))
+                                            .font(.system(size: 11.5, weight: .bold))
+                                            .foregroundStyle(portions[i] > 0 ? Color.stockedGold : session.themeTextColor.opacity(0.4))
+                                            .frame(width: 46)
+                                            .padding(.vertical, 6)
+                                            .background((portions[i] > 0 ? Color.stockedGold : session.themeTextColor).opacity(0.10))
+                                            .clipShape(Capsule())
                                     }
-                                    .padding(.horizontal, 24).padding(.vertical, 12)
-                                    .contentShape(Rectangle())
-                                }.buttonStyle(.plain)
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("Amount used: \(portionLabel(portions[i])). Tap to change.")
+                                }
+                                .padding(.horizontal, 24).padding(.vertical, 12)
+                                .contentShape(Rectangle())
                                 if i < ingredients.count - 1 { Divider().padding(.leading, 60) }
                             }
                         }
@@ -1273,8 +1412,10 @@ struct IngredientDeductSheet: View {
 
                     VStack(spacing: 10) {
                         Button {
-                            let used = ingredients.indices.compactMap { usedFull[$0] ? ingredients[$0] : nil }
-                            onConfirm(used); dismiss()
+                            let weighted = ingredients.indices.compactMap { i -> (name: String, portion: Double)? in
+                                portions[i] > 0 ? (ingredients[i], portions[i]) : nil
+                            }
+                            onConfirmWeighted(weighted); dismiss()
                         } label: {
                             Text("Deduct from Pantry")
                                 .font(.system(size: 16, weight: .semibold, design: .serif))
@@ -1305,8 +1446,8 @@ struct RatingView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedGoHome) private var goHome
     @Environment(\.dismiss) private var dismiss
-    @State private var rating      = 4
-    @State private var thumbUp     = true
+    @State private var rating      = 0            // #FB — starts empty until the user chooses
+    @State private var thumbUp: Bool? = nil       // #FB — no pre-filled thumb
     @State private var hasLeftover: Bool? = nil
     @State private var leftoverName = ""
     @State private var leftoverZone = "Fridge"
@@ -1335,15 +1476,15 @@ struct RatingView: View {
                 HStack(spacing: 32) {
                     Button { withAnimation { thumbUp = true } } label: {
                         VStack(spacing: 4) {
-                            Image(systemName: thumbUp ? "hand.thumbsup.fill" : "hand.thumbsup")
-                                .font(.system(size: 36)).foregroundStyle(thumbUp ? Color.stockedGold : Color.stockedCharcoal.opacity(0.3))
+                            Image(systemName: thumbUp == true ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                .font(.system(size: 36)).foregroundStyle(thumbUp == true ? Color.stockedGold : Color.stockedCharcoal.opacity(0.3))
                             Text("Would make again").font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.4))
                         }
                     }.buttonStyle(.plain)
                     Button { withAnimation { thumbUp = false } } label: {
                         VStack(spacing: 4) {
-                            Image(systemName: !thumbUp ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                                .font(.system(size: 36)).foregroundStyle(!thumbUp ? .red.opacity(0.7) : session.themeTextColor.opacity(0.2))
+                            Image(systemName: thumbUp == false ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                                .font(.system(size: 36)).foregroundStyle(thumbUp == false ? .red.opacity(0.7) : session.themeTextColor.opacity(0.2))
                             Text("Not for me").font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.4))
                         }
                     }.buttonStyle(.plain)
@@ -1369,6 +1510,23 @@ struct RatingView: View {
                     }.padding(.bottom, 12)
 
                     if hasLeftover == true {
+                        // #FB — storage guideline so the leftover gets stored safely.
+                        HStack(alignment: .top, spacing: 7) {
+                            Image(systemName: "info.circle.fill")
+                                .font(.system(size: 11)).foregroundStyle(Color.stockedInfo)
+                            Text(leftoverZone == "Freezer"
+                                 ? "Storage guideline: freeze within 2 hours of cooking. Best quality within 2–3 months. Label with today's date."
+                                 : "Storage guideline: refrigerate within 2 hours of cooking. Eat within 3–4 days. Reheat to 165°F.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.stockedInfo.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                        .padding(.bottom, 10)
+
                         TextField("Leftover name (e.g. \(recipeTitle) Leftovers)", text: $leftoverName)
                             .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
                             .padding(14).background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -1408,7 +1566,9 @@ struct RatingView: View {
     private func finishMeal() {
         let dateStr = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
         var meal = LocalPastMeal(title: recipeTitle, date: dateStr)
-        meal.rating = rating; meal.thumbUp = thumbUp
+        // #FB — rating/thumb start empty; if untouched, infer a neutral record.
+        meal.rating = rating > 0 ? rating : 0
+        meal.thumbUp = thumbUp ?? (rating >= 3)
         // Rating recorded to session: session.guestStore.cookingProfile is updated elsewhere
         meal.platePhotoData = platePhotoData; meal.notes = notes
         meal.recipeId = session.guestStore.markRecipeCooked(title: recipeTitle)   // #5 — bump cook count + link for ratings
@@ -1448,7 +1608,18 @@ struct RatingView: View {
 struct SurpriseRecipeDetailView: View {
     let recipe: GeneratedRecipe
     var body: some View {
-        RecipeOverviewView(title: recipe.title, servings: recipe.servings, ingredients: recipe.missingIngredients)
+        // #FB — was passing only missingIngredients, which showed an (often empty)
+        // ingredient list. Pass the FULL ingredient lines plus the generated steps
+        // and cook time so the surprise recipe reads like a real recipe.
+        RecipeOverviewView(
+            title:       recipe.title,
+            servings:    recipe.servings,
+            ingredients: recipe.ingredients.map { line in
+                line.amount.isEmpty ? line.name : "\(line.amount) \(line.name)"
+            },
+            steps:       recipe.steps,
+            cookTime:    recipe.cookTime
+        )
     }
 }
 

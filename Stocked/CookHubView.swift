@@ -18,8 +18,11 @@ struct CookHubView: View {
     @State private var goCookLater = false
 
     var body: some View {
-        StockedShell(titleText: "Cook", leadingTitle: true) {
-            VStack(alignment: .leading, spacing: 16) {
+        // #FB — the two choices are centered and fit the page on every device:
+        // scrolling is disabled and the cards are balanced with spacers so nothing
+        // hangs off-screen or huddles at the top.
+        StockedShell(scrollDisabled: true, titleText: "Cook", leadingTitle: true) {
+            VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(greeting)
                         .font(.system(size: 14, weight: .semibold))
@@ -33,6 +36,8 @@ struct CookHubView: View {
                 }
                 .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
                 .coachmarkAnchor("cook.header")
+
+                Spacer(minLength: 12)
 
                 VStack(spacing: CookStyle.sectionSpacing) {
                     CookHeroCard(
@@ -56,9 +61,11 @@ struct CookHubView: View {
                     .coachmarkAnchor("cook.later")
                 }
                 .padding(.horizontal, CookStyle.screenHPad)
+                .frame(maxWidth: .infinity)
 
-                Spacer(minLength: 20)
+                Spacer(minLength: 12)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
         .navigationDestination(isPresented: $goCookLater) { CookLaterHomeView() }

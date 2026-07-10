@@ -27,6 +27,7 @@ struct InventoryHubView: View {
     // Weekly plan strip (mirrors the full Inventory list) — tap opens the day's planner.
     @State private var plannerDayIndex: Int? = nil
     @State private var planToast: String? = nil
+    @State private var showStatusDetails = false   // #FB — Inventory Status → View details
 
     private var allItems: [LocalInventoryItem] { session.guestStore.inventoryItems }
 
@@ -78,15 +79,9 @@ struct InventoryHubView: View {
                 } else if allItems.isEmpty {
                     emptyKitchenCard
                 } else {
-                    // Drag-to-plan week strip, same as the full Inventory list.
-                    WeeklyPlanStrip(
-                        onDrop: { itemName, dayIndex in
-                            addToBuildingMeal(itemName: itemName, dayIndex: dayIndex)
-                        },
-                        onTap: { dayIndex in
-                            plannerDayIndex = dayIndex
-                        }
-                    )
+                    // #FB — the drag-to-plan calendar strip was removed from THIS landing
+                    // page; it still lives on "View all inventory" (the full item list),
+                    // where items can actually be dragged onto days.
                     statusCard
                         .coachmarkAnchor("inv.status")
                     // AI assistant: change inventory in plain language (use/remove/clear items).
@@ -130,6 +125,9 @@ struct InventoryHubView: View {
         }
         .sheet(isPresented: $showAIAssistant) {
             AIInventoryAssistantView().environment(session)
+        }
+        .sheet(isPresented: $showStatusDetails) {
+            InventoryDetailsSheet().environment(session)
         }
         .sheet(item: Binding(get: { plannerDayIndex.map { PlannerDay(id: $0) } },
                              set: { plannerDayIndex = $0?.id })) { day in
@@ -327,7 +325,10 @@ struct InventoryHubView: View {
             Divider().overlay(session.themeTextColor.opacity(0.12))
 
             Button {
-                NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.stats)
+                // #FB — "View details" now actually shows details (per-zone breakdown,
+                // low, out-of-stock, and expiring items) instead of firing a drawer
+                // action that had no listener on this screen.
+                showStatusDetails = true
             } label: {
                 HStack {
                     Text("View details")
@@ -525,7 +526,7 @@ private struct ExpiringPreviewRow: View {
 // ── Category model + classifier ──────────────────────────────────────
 
 enum MockCategory: String, CaseIterable, Identifiable, Hashable {
-    case produce, dairy, meatSeafood, pantry, frozen, beverages
+    case produce, dairy, meatSeafood, pantry, frozen, beverages, leftovers
     var id: String { rawValue }
 
     var title: String {
@@ -536,6 +537,7 @@ enum MockCategory: String, CaseIterable, Identifiable, Hashable {
         case .pantry:      return "Pantry"
         case .frozen:      return "Frozen"
         case .beverages:   return "Beverages"
+        case .leftovers:   return "Leftovers"
         }
     }
 
@@ -547,6 +549,7 @@ enum MockCategory: String, CaseIterable, Identifiable, Hashable {
         case .pantry:      return "cabinet"
         case .frozen:      return "snowflake"
         case .beverages:   return "cup.and.saucer.fill"
+        case .leftovers:   return "takeoutbag.and.cup.and.straw.fill"
         }
     }
 
@@ -558,13 +561,19 @@ enum MockCategory: String, CaseIterable, Identifiable, Hashable {
         case .pantry:      return .stockedGoldDark
         case .frozen:      return .stockedInfo
         case .beverages:   return .stockedGold
+        case .leftovers:   return .stockedGreen
         }
     }
 
-    /// Maps an inventory item into one of the six mockup categories.
-    /// Zone wins for Frozen; otherwise name keywords decide, falling back to Pantry.
+    /// Maps an inventory item into one of the mockup categories.
+    /// Leftovers win outright, then zone wins for Frozen; otherwise name keywords
+    /// decide, falling back to Pantry.
     static func classify(_ item: LocalInventoryItem) -> MockCategory {
         let n = item.name.lowercased()
+
+        // #FB — leftovers were unfindable: they now have their own category, no
+        // matter which zone (Fridge or Freezer) they were saved to.
+        if item.isLeftover || n.contains("leftover") { return .leftovers }
 
         // Frozen: zone first, then obvious frozen keywords.
         if item.zone == "Freezer" { return .frozen }
@@ -608,11 +617,91 @@ struct CategoryItemsView: View {
     @Environment(AppSession.self) var session
     let category: MockCategory
 
+    // #FB — view options like the Calendar app: Detail list / Compact list / Icon grid.
+    enum CategoryViewMode: String, CaseIterable {
+        case detail, compact, icons
+        var icon: String {
+            switch self {
+            case .detail:  return "list.bullet.rectangle"
+            case .compact: return "list.dash"
+            case .icons:   return "square.grid.3x3"
+            }
+        }
+        var label: String {
+            switch self {
+            case .detail:  return "Detail list"
+            case .compact: return "Compact list"
+            case .icons:   return "Icon grid"
+            }
+        }
+    }
+    @State private var viewMode: CategoryViewMode = CategoryViewMode(
+        rawValue: UserDefaults.standard.string(forKey: "stocked.categoryViewMode") ?? "detail") ?? .detail
+    @State private var editItemID: UUID? = nil
+
+    private struct EditTarget: Identifiable { let id: UUID }
+
     private var items: [LocalInventoryItem] {
         session.guestStore.inventoryItems
             .filter { MockCategory.classify($0) == category }
             .sorted { ($0.daysUntilExpiry ?? 999) < ($1.daysUntilExpiry ?? 999) }
     }
+
+    // #FB — subcategory grouping within each category.
+    private func subcategory(for item: LocalInventoryItem) -> String {
+        let n = item.name.lowercased()
+        func hit(_ words: [String]) -> Bool { words.contains { n.contains($0) } }
+        switch category {
+        case .produce:
+            if hit(["apple","banana","orange","grape","berry","strawberry","blueberry","raspberry",
+                    "mango","pineapple","peach","plum","pear","cherry","melon","lemon","lime",
+                    "kiwi","papaya","pomegranate","grapefruit","fig","avocado"]) { return "Fruits" }
+            if hit(["basil","parsley","cilantro","thyme","rosemary","mint","dill","oregano","sage","chive"]) { return "Herbs" }
+            return "Vegetables"
+        case .dairy:
+            if hit(["cheese","cheddar","mozzarella","parmesan","brie","feta","ricotta","swiss","jack"]) { return "Cheese" }
+            if hit(["yogurt","kefir"]) { return "Yogurt & Cultured" }
+            if hit(["egg"]) { return "Eggs" }
+            if hit(["milk","cream","half and half"]) { return "Milk & Cream" }
+            return "Other Dairy"
+        case .meatSeafood:
+            if hit(["chicken","turkey","duck","wings","drumstick"]) { return "Poultry" }
+            if hit(["salmon","tuna","shrimp","fish","cod","tilapia","crab","lobster","scallop","squid","catfish","mahi","mussel"]) { return "Seafood" }
+            if hit(["tofu","tempeh"]) { return "Plant Protein" }
+            return "Meat"
+        case .pantry:
+            if hit(["salt","pepper","cumin","paprika","cinnamon","oregano","chili powder","turmeric",
+                    "seasoning","spice","garlic powder","onion powder","nutmeg","cayenne"]) { return "Spices & Seasonings" }
+            if hit(["rice","pasta","spaghetti","penne","macaroni","quinoa","oat","noodle","flour","bread","tortilla","cereal","grain"]) { return "Grains & Pasta" }
+            if hit(["can","canned","beans","chickpea","broth","stock","soup","tomato paste","tomato sauce"]) { return "Canned & Jarred" }
+            if hit(["sauce","ketchup","mustard","mayo","dressing","vinegar","oil","soy","salsa","syrup","honey"]) { return "Oils, Sauces & Condiments" }
+            if hit(["sugar","baking","yeast","vanilla","cocoa","chocolate chip","cornmeal"]) { return "Baking" }
+            if hit(["chip","cracker","cookie","popcorn","pretzel","granola","snack","nut","jerky"]) { return "Snacks" }
+            return "Other Pantry"
+        case .frozen:
+            if hit(["pizza","burrito","dumpling","meatball","waffle","sandwich","meal","entree"]) { return "Frozen Meals" }
+            if hit(["vegetable","veg","broccoli","corn","pea","fries","hashbrown","fruit"]) { return "Frozen Produce & Sides" }
+            if hit(["ice cream","sorbet","popsicle","dessert"]) { return "Frozen Desserts" }
+            return "Other Frozen"
+        case .beverages:
+            if hit(["coffee","tea","cold brew"]) { return "Coffee & Tea" }
+            if hit(["soda","cola","sprite","seltzer","sparkling","tonic","olipop","poppi"]) { return "Sodas & Sparkling" }
+            if hit(["juice","lemonade","smoothie"]) { return "Juices" }
+            if hit(["wine","beer","cider"]) { return "Alcohol" }
+            return "Other Drinks"
+        case .leftovers:
+            return item.zone == "Freezer" ? "Frozen Leftovers" : "Fridge Leftovers"
+        }
+    }
+
+    private var grouped: [(String, [LocalInventoryItem])] {
+        var buckets: [String: [LocalInventoryItem]] = [:]
+        for item in items { buckets[subcategory(for: item), default: []].append(item) }
+        return buckets.sorted { $0.value.count > $1.value.count }
+    }
+
+    let iconCols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
         StockedShell(showBack: true, scrollDisabled: false) {
@@ -628,6 +717,25 @@ struct CategoryItemsView: View {
                     Text("\(items.count) item\(items.count == 1 ? "" : "s")")
                         .font(.system(size: 13))
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    // #FB — view options menu (detail / compact / icon grid).
+                    Menu {
+                        ForEach(CategoryViewMode.allCases, id: \.self) { mode in
+                            Button {
+                                viewMode = mode
+                                UserDefaults.standard.set(mode.rawValue, forKey: "stocked.categoryViewMode")
+                            } label: {
+                                Label(mode.label, systemImage: mode.icon)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: viewMode.icon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.stockedGold)
+                            .padding(8)
+                            .background(Color.stockedGold.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                    }
+                    .accessibilityLabel("Change view: \(viewMode.label)")
                 }
                 .padding(.top, 4)
 
@@ -637,9 +745,39 @@ struct CategoryItemsView: View {
                                       subtitle: "Items you add that fit \(category.title) will show up here.")
                         .padding(.top, 40)
                 } else {
-                    VStack(spacing: 10) {
-                        ForEach(items) { item in
-                            InventoryItemRow(item: item)
+                    // #FB — grouped under subcategory headers.
+                    ForEach(grouped, id: \.0) { name, groupItems in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Text(name)
+                                    .font(.system(size: 15, weight: .bold, design: .serif))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.8))
+                                Text("\(groupItems.count)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(category.tint)
+                            }
+                            switch viewMode {
+                            case .detail:
+                                VStack(spacing: 10) {
+                                    ForEach(groupItems) { item in InventoryItemRow(item: item) }
+                                }
+                            case .compact:
+                                VStack(spacing: 0) {
+                                    ForEach(Array(groupItems.enumerated()), id: \.element.id) { idx, item in
+                                        compactRow(item)
+                                        if idx < groupItems.count - 1 {
+                                            Divider().overlay(session.themeTextColor.opacity(0.08))
+                                                .padding(.leading, 14)
+                                        }
+                                    }
+                                }
+                                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            case .icons:
+                                LazyVGrid(columns: iconCols, spacing: 12) {
+                                    ForEach(groupItems) { item in iconTile(item) }
+                                }
+                            }
                         }
                     }
                 }
@@ -647,6 +785,66 @@ struct CategoryItemsView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 110)
         }
+        .sheet(item: Binding(get: { editItemID.map { EditTarget(id: $0) } },
+                             set: { editItemID = $0?.id })) { target in
+            if let item = session.guestStore.inventoryItems.first(where: { $0.id == target.id }) {
+                EditItemSheet(item: item).environment(session)
+            }
+        }
+    }
+
+    // Compact list row — one dense line per item.
+    private func compactRow(_ item: LocalInventoryItem) -> some View {
+        Button { editItemID = item.id } label: {
+            HStack(spacing: 10) {
+                FoodIconView(name: item.name, size: 24, emojiSize: 15)
+                Text(item.name.displayNormalized)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(session.themeTextColor)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Spacer(minLength: 6)
+                if let d = item.daysUntilExpiry, d <= 3 {
+                    Text(d < 0 ? "Expired" : d == 0 ? "Today" : "\(d)d")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(d <= 1 ? Color.red.opacity(0.8) : Color.orange)
+                }
+                Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(item.level >= 0.33 ? Color.stockedGreen : Color.stockedGold)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // Icon grid tile — big icon, name below.
+    private func iconTile(_ item: LocalInventoryItem) -> some View {
+        Button { editItemID = item.id } label: {
+            VStack(spacing: 6) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
+                        .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.55))
+                        .frame(height: 62)
+                    FoodIconView(name: item.name, size: 44, emojiSize: 26)
+                    if let d = item.daysUntilExpiry, d <= 3 {
+                        VStack { HStack { Spacer()
+                            Circle().fill(d <= 1 ? Color.red : Color.orange)
+                                .frame(width: 8, height: 8).padding(5)
+                        }; Spacer() }
+                    }
+                }
+                Text(item.name.displayNormalized)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(session.themeTextColor)
+                    .lineLimit(1)
+                Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(item.level >= 0.33 ? Color.stockedGreen : Color.stockedGold)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

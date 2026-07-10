@@ -694,11 +694,18 @@ struct GroceryListView: View {
                     .frame(width: 24)
 
                 // Item name + source badge
+                // #FB — the name column now wins the width fight with the trailing
+                // controls, so long names wrap on word boundaries (max 2 lines)
+                // instead of shattering one character per line.
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.name.displayNormalized)
                         .font(.system(size: 15)).dynamicTypeSize(.xSmall ... .xxxLarge)
                         .foregroundStyle(item.isChecked ? sub : text)
                         .strikethrough(item.isChecked)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 4) {
                         if !item.recipeSource.isEmpty {
                             Image(systemName: "fork.knife").font(.system(size: 8))
@@ -722,11 +729,12 @@ struct GroceryListView: View {
                     .foregroundStyle(item.recipeSource.isEmpty && !item.isRecommended
                         ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold.opacity(0.7))
                 }
+                .layoutPriority(1)
 
-                Spacer()
+                Spacer(minLength: 6)
 
                 // Qty buttons — centred between item and Find in Store
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Button { if item.quantity > 1 { store.updateGroceryQty(id: item.id, qty: item.quantity - 1) } } label: {
                         Image(systemName: "minus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)

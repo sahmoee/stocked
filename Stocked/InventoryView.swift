@@ -1080,11 +1080,24 @@ struct InventoryItemRow: View {
                         .font(.system(size: 15.5, weight: .semibold))
                         .dynamicTypeSize(.xSmall ... .xxxLarge)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(1)
-                    Text(qtyLine)
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    // #FB — the brand the receipt reader captured now shows in the list
+                    // (skipped when the name already contains it).
+                    if let brand = item.brand, !brand.isEmpty,
+                       !item.name.lowercased().contains(brand.lowercased()) {
+                        Text("\(brand) · \(qtyLine)")
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .lineLimit(1)
+                    } else {
+                        Text(qtyLine)
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    }
                 }
+                .layoutPriority(1)
 
                 Spacer(minLength: 8)
 

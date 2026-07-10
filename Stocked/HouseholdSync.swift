@@ -196,7 +196,8 @@ final class HouseholdSync {
         myDisplayName = resolvedName()   // never create as "You"
         let body: [String: Any] = ["ownerName": myDisplayName, "memberId": memberId]
         guard let resp = await post("/household/create", body) else {
-            fail("Couldn't create a household. Check your connection and try again.")
+            // #FB — say exactly why (401 key mismatch / 404 not deployed / offline).
+            fail(explainLastFailure("create a household"))
             return false
         }
         guard let code = resp["code"] as? String else {
@@ -247,7 +248,8 @@ final class HouseholdSync {
         myDisplayName = resolvedName()   // never join as "You"
         let body: [String: Any] = ["code": code, "memberName": myDisplayName, "memberId": memberId]
         guard let resp = await post("/household/join", body) else {
-            fail("Couldn't find a household with that code.")
+            fail(lastPostStatus == 404 ? "Couldn't find a household with that code."
+                                       : explainLastFailure("join the household"))
             return false
         }
         guard (resp["ok"] as? Bool) == true, let hh = resp["household"] as? [String: Any] else {
@@ -501,7 +503,31 @@ final class HouseholdSync {
 
     // MARK: - Networking
 
+    /// #FB — diagnostics for the create/join failures: the last HTTP status the
+    /// Worker returned (nil = transport error / no response), so the UI can say
+    /// exactly WHY instead of a generic "check your connection".
+    @ObservationIgnored private(set) var lastPostStatus: Int? = nil
+
+    /// Human-readable explanation of the last post failure, keyed off the status.
+    func explainLastFailure(_ action: String) -> String {
+        switch lastPostStatus {
+        case .some(401):
+            return "The server rejected the app key (HTTP 401). STOCKED_WORKER_KEY in Secrets.xcconfig must match the Worker's STOCKED_SHARED_KEY secret."
+        case .some(404):
+            return "The server doesn't have the household endpoints yet (HTTP 404). Redeploy the Worker (BuildBuddy → Deploy Worker) and try again."
+        case .some(429):
+            return "Too many requests right now (HTTP 429). Wait a minute and try again."
+        case .some(let code) where code >= 500:
+            return "The server hit an error (HTTP \(code)). Try again in a moment."
+        case .some(let code):
+            return "Couldn't \(action) (HTTP \(code)). Try again."
+        case .none:
+            return "Couldn't reach the server. Check your connection and try again."
+        }
+    }
+
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
+        lastPostStatus = nil
         guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -511,8 +537,10 @@ final class HouseholdSync {
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         guard let (data, resp) = try? await URLSession.shared.data(for: req),
               let http = resp as? HTTPURLResponse else { return nil }
+        lastPostStatus = http.statusCode
         guard (200...299).contains(http.statusCode) else {
-            Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
+            let bodyText = String(data: data.prefix(200), encoding: .utf8) ?? ""
+            Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode) body=\(bodyText, privacy: .public)")
             return nil
         }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
