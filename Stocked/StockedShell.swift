@@ -146,7 +146,9 @@ struct StockedShell<Content: View>: View {
                     .a11yButton("Back", hint: "Returns to the previous screen")
                     Spacer().allowsHitTesting(false)
                 }
-                .padding(.leading, 12)
+                // #FB2 — nudged right, clear of the 28pt drawer edge catcher, so taps
+                // on the chevron never open the drawer.
+                .padding(.leading, 30)
             }
 
             // Trailing action pinned right (e.g. search) (#7).

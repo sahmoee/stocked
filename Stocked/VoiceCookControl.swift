@@ -35,6 +35,10 @@ final class VoiceCookControl {
     @ObservationIgnored private var task: SFSpeechRecognitionTask? = nil
     @ObservationIgnored private var onCommand: ((VoiceCookCommand) -> Void)? = nil
     @ObservationIgnored private var lastCommandAt: Date = .distantPast
+    // #FB2 — continuous listening: instead of tearing the session down after every
+    // command (which made only the FIRST "next" work), the transcript keeps running
+    // and we only inspect words spoken AFTER the last command fired.
+    @ObservationIgnored private var consumedWordCount: Int = 0
 
     func toggle(onCommand: @escaping (VoiceCookCommand) -> Void) {
         if isListening { stop() } else { start(onCommand: onCommand) }
@@ -94,6 +98,7 @@ final class VoiceCookControl {
         audioEngine = engine
         request = req
         isListening = true
+        consumedWordCount = 0   // fresh transcript — nothing consumed yet
 
         task = recognizer.recognitionTask(with: req) { [weak self] result, error in
             Task { @MainActor in
@@ -116,28 +121,33 @@ final class VoiceCookControl {
 
     private func detectCommand(in text: String) {
         // Debounce: partial results repeat the same words many times per second.
-        guard Date().timeIntervalSince(lastCommandAt) > 1.2 else { return }
-        // Only look at the tail of the transcript so old words don't re-fire.
-        let tail = text.split(separator: " ").suffix(4).joined(separator: " ")
+        guard Date().timeIntervalSince(lastCommandAt) > 0.9 else { return }
+
+        // #FB2 — only look at words spoken AFTER the last fired command. The old
+        // approach restarted the whole session per command, which silently killed
+        // recognition after the first one; now the transcript keeps running and
+        // "next … next … next" fires every time.
+        let words = text.split(separator: " ").map { String($0) }
+        guard words.count > consumedWordCount else { return }
+        let fresh = words.suffix(from: consumedWordCount).suffix(4).joined(separator: " ")
 
         let command: VoiceCookCommand?
-        if tail.contains("finish") || tail.contains("done cooking") || tail.contains("end cooking") {
+        if fresh.contains("finish") || fresh.contains("done cooking") || fresh.contains("end cooking") {
             command = .finish
-        } else if tail.hasSuffix("next") || tail.contains("next step") || tail.hasSuffix("continue") {
+        } else if fresh.contains("next") || fresh.contains("continue") {
             command = .next
-        } else if tail.hasSuffix("back") || tail.contains("go back") || tail.contains("previous") {
+        } else if fresh.contains("back") || fresh.contains("previous") {
             command = .back
-        } else if tail.contains("repeat") || tail.contains("read that") || tail.contains("say again") {
+        } else if fresh.contains("repeat") || fresh.contains("read that") || fresh.contains("say again") {
             command = .repeatStep
         } else {
             command = nil
         }
         if let command {
             lastCommandAt = Date()
+            consumedWordCount = words.count   // everything up to here is spent
             HapticManager.select()
             onCommand?(command)
-            // Restart the transcript so the same word can be used again later.
-            if isListening { beginSession() }
         }
     }
 }

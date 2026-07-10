@@ -74,6 +74,16 @@
         }
       }
     },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "%@ · %lld" : {
       "localizations" : {
         "en" : {
@@ -140,6 +150,9 @@
 
     },
     "%@ of that is expired" : {
+
+    },
+    "%@ recipes" : {
 
     },
     "%@ timer" : {
@@ -307,6 +320,9 @@
         }
       }
     },
+    "%lld days" : {
+
+    },
     "%lld duplicate%@" : {
       "localizations" : {
         "en" : {
@@ -369,7 +385,7 @@
     "%lld ingredients missing" : {
 
     },
-    "%lld item(s) appear to be out of stock or very low. Double-check your inventory before starting." : {
+    "%lld item(s) appear to be out of stock or very low:" : {
 
     },
     "%lld item%@" : {
@@ -717,6 +733,16 @@
         }
       }
     },
+    "%lld%% stocked across %lld item%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld%% stocked across %2$lld item%3$@"
+          }
+        }
+      }
+    },
     "%lld×" : {
 
     },
@@ -833,6 +859,9 @@
     "1 ingredient missing" : {
 
     },
+    "1 missing" : {
+
+    },
     "8-character code" : {
 
     },
@@ -931,6 +960,9 @@
     "Add a few staples to get started — we'll instantly show meals you can cook and recipes worth a look." : {
 
     },
+    "Add a pantry item" : {
+
+    },
     "Add a photo" : {
 
     },
@@ -1013,6 +1045,9 @@
 
     },
     "Add to Cook Later Calendar" : {
+
+    },
+    "Add to Grocery List" : {
 
     },
     "Add to list" : {
@@ -1103,6 +1138,9 @@
 
     },
     "Amount per container" : {
+
+    },
+    "Amount used: %@. Tap to change." : {
 
     },
     "amt" : {
@@ -1279,6 +1317,9 @@
 
     },
     "Change Photo" : {
+
+    },
+    "Change view: %@" : {
 
     },
     "Cheapest at %@ · $%@" : {
@@ -1685,6 +1726,9 @@
     "Edit Abbreviation" : {
 
     },
+    "Edit amounts, remove items, or add what's missing to your grocery list. The recipe updates as you go." : {
+
+    },
     "Edit Inventory" : {
 
     },
@@ -1756,6 +1800,9 @@
 
     },
     "Examples" : {
+
+    },
+    "Exit full screen" : {
 
     },
     "Exit Guest Mode?" : {
@@ -1897,6 +1944,9 @@
 
     },
     "Full" : {
+
+    },
+    "Full screen cooking mode" : {
 
     },
     "Generate Recipe" : {
@@ -2119,6 +2169,9 @@
     "Inventory Assistant" : {
 
     },
+    "Inventory Details" : {
+
+    },
     "Inventory Insights" : {
 
     },
@@ -2292,6 +2345,9 @@
     "List Templates" : {
 
     },
+    "Listening — say \"next\", \"back\", \"repeat\", or \"finish\"" : {
+
+    },
     "Load Demo Receipt (Simulator)" : {
 
     },
@@ -2407,6 +2463,9 @@
     "Minute" : {
 
     },
+    "Missing" : {
+
+    },
     "Missing %lld" : {
 
     },
@@ -2479,9 +2538,6 @@
     "Need more help? Reach out from your App Store review or the support link on the product page." : {
 
     },
-    "Need to buy" : {
-
-    },
     "Need: %@%@" : {
       "localizations" : {
         "en" : {
@@ -2505,6 +2561,9 @@
 
     },
     "Next month" : {
+
+    },
+    "Next Step" : {
 
     },
     "No activity yet" : {
@@ -2703,7 +2762,7 @@
     "OR" : {
 
     },
-    "or continue anyway →" : {
+    "or continue anyway" : {
 
     },
     "or enter manually" : {
@@ -2904,6 +2963,9 @@
     "Re-import" : {
 
     },
+    "Read step aloud" : {
+
+    },
     "Reading…" : {
 
     },
@@ -2914,6 +2976,9 @@
 
     },
     "Ready to Cook" : {
+
+    },
+    "Real recipes starring %@, sorted by what you already have." : {
 
     },
     "Receipt %lld · %lld added so far" : {
@@ -2933,6 +2998,9 @@
 
     },
     "Recipe from %@" : {
+
+    },
+    "Recipe Ingredients" : {
 
     },
     "Recipe name" : {
@@ -2983,6 +3051,12 @@
 
     },
     "Refresh Location" : {
+
+    },
+    "Refresh recipe ideas" : {
+
+    },
+    "Refresh recipes" : {
 
     },
     "Regenerate Code" : {
@@ -3059,6 +3133,9 @@
 
     },
     "Restore Purchase" : {
+
+    },
+    "Retake Photo" : {
 
     },
     "Retry" : {
@@ -3405,6 +3482,9 @@
     "Start Timer" : {
 
     },
+    "Start voice control" : {
+
+    },
     "Start with the longest-cooking items so everything finishes close together." : {
 
     },
@@ -3447,6 +3527,15 @@
 
     },
     "Stop Cooking?" : {
+
+    },
+    "Stop voice control" : {
+
+    },
+    "Storage guideline: freeze within 2 hours of cooking. Best quality within 2–3 months. Label with today's date." : {
+
+    },
+    "Storage guideline: refrigerate within 2 hours of cooking. Eat within 3–4 days. Reheat to 165°F." : {
 
     },
     "Storage Tips" : {
@@ -3531,6 +3620,9 @@
 
     },
     "Tap Refresh to pull recipes from\n%lld top cooking websites" : {
+
+    },
+    "Tap the amount to adjust how much gets deducted — All, Half, or None." : {
 
     },
     "Tap the ones you usually have on hand." : {
@@ -3646,10 +3738,16 @@
     "today" : {
 
     },
+    "Today" : {
+
+    },
     "Today's Brief" : {
 
     },
     "Toggle off any items you don't want. Edit names if the scanner misread them." : {
+
+    },
+    "Tomorrow" : {
 
     },
     "Tonight, make" : {
@@ -3703,9 +3801,6 @@
     "Uncheck all" : {
 
     },
-    "Uncheck anything you didn't use — those won't be deducted." : {
-
-    },
     "Undo" : {
 
     },
@@ -3725,6 +3820,9 @@
 
     },
     "Updated just now" : {
+
+    },
+    "Upload from Library" : {
 
     },
     "Usage Insights" : {
@@ -3791,6 +3889,9 @@
 
     },
     "View source" : {
+
+    },
+    "Voice control needs mic + speech access — enable both in Settings → Stocked." : {
 
     },
     "W" : {

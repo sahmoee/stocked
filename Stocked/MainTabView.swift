@@ -735,17 +735,27 @@ struct DrawerDragLayer: View {
             // while the drawer is closed, so it never blocks content when the drawer is open.
             // Sits BELOW the visible pull tab (zIndex 100) so the tab's own button still works;
             // the tap handler here covers taps that land in the wider edge zone but off the tab.
+            // #FB2 — the strip's TOP segment (header height) no longer accepts taps: taps
+            // aimed at the back chevron were opening the drawer instead. Swipe-to-open
+            // still works across the full height; tap-to-open works below the header.
             if !showDrawer {
-                Color.clear
-                    .frame(width: 28)
-                    .frame(maxHeight: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        HapticManager.select()
-                        withAnimation(openSpring) { showDrawer = true }
-                    }
-                    .gesture(edgeDragGesture)
-                    .zIndex(50)
+                VStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: 116)
+                        .contentShape(Rectangle())
+                        .gesture(edgeDragGesture)
+                    Color.clear
+                        .frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            HapticManager.select()
+                            withAnimation(openSpring) { showDrawer = true }
+                        }
+                        .gesture(edgeDragGesture)
+                }
+                .frame(width: 28)
+                .frame(maxHeight: .infinity, alignment: .leading)
+                .zIndex(50)
             }
 
             // Drawer panel — slides in/out on showDrawer, and tracks the finger while dragging.

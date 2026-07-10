@@ -12,6 +12,7 @@ struct EditPreferencesView: View {
     @State private var skillLevel    = ""
     @State private var budgetLevel   = ""
     @State private var weeklyMeals   = 5
+    @AppStorage(CookHubStyle.storageKey) private var cookHubStyleRaw = CookHubStyle.circles.rawValue
 
     var body: some View {
         ZStack {
@@ -68,6 +69,22 @@ struct EditPreferencesView: View {
                     }
                 } header: {
                     Text("FAVOURITE CUISINES").font(.system(size: 10, weight: .bold)).tracking(1)
+                }
+
+                // #FB2 — Cook hub layout preference: Circles (default), Photo Cards,
+                // or Compact Rows. Applies immediately; no save needed.
+                Section {
+                    Picker("Cook Hub Style", selection: $cookHubStyleRaw) {
+                        ForEach(CookHubStyle.allCases) { style in
+                            Text(style.label).tag(style.rawValue)
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                } header: {
+                    Text("APPEARANCE").font(.system(size: 10, weight: .bold)).tracking(1)
+                } footer: {
+                    Text("Choose how the Cook tab shows its two options.")
+                        .font(.system(size: 11))
                 }
             }
             .listStyle(.insetGrouped)

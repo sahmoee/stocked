@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>APINinjasKey</key>
+	<string>$(APININJAS_KEY)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -50,7 +52,7 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>$(MARKETING_VERSION)</string>
+	<string>1.1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -66,42 +68,50 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ChompAPIKey</key>
+	<string>$(CHOMP_API_KEY)</string>
 	<key>ClaudeAPIKey</key>
 	<string>$(CLAUDE_API_KEY)</string>
 	<key>ClaudeAPIURL</key>
 	<string>$(CLAUDE_API_URL)</string>
-	<key>APINinjasKey</key>
-	<string>$(APININJAS_KEY)</string>
 	<key>ClaudeModel</key>
 	<string>$(CLAUDE_MODEL)</string>
 	<key>EdamamAppID</key>
 	<string>$(EDAMAM_APP_ID)</string>
 	<key>EdamamAppKey</key>
 	<string>$(EDAMAM_APP_KEY)</string>
+	<key>HomeBaseAPIKey</key>
+	<string>$(HOMEBASE_API_KEY)</string>
+	<key>HomeBaseURL</key>
+	<string>$(HOMEBASE_URL</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Stocked connects to your HomeBase server on your Mac to sync your pantry</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<false/>
+	<key>LogMealAPIToken</key>
+	<string>$(LOGMEAL_API_TOKEN)</string>
 	<key>MealDBBaseURL</key>
 	<string>$(MEALDB_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Stocked uses the camera to scan barcodes and receipts, and to snap plate photos of meals you cook.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Stocked listens for hands-free voice commands like next, back, and finish while you cook, only when you turn the mic on.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Stocked uses speech recognition to understand voice commands during cooking mode. Recognition runs on device when supported.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Stocked reads nothing from Health; access is requested only to enable nutrition logging.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Stocked logs the estimated nutrition of meals you cook to Apple Health, when you turn this on in Preferences.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Stocked connects to your HomeBase server on your Mac to sync your pantry</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Stocked uses your location to determine close by stores. </string>
-	<key>HomeBaseAPIKey</key>
-	<string>$(HOMEBASE_API_KEY)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Stocked listens for hands-free voice commands like next, back, and finish while you cook, only when you turn the mic on.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Stocked saves shared kitchen QR codes to your photo library so you can send them to others.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Stocked lets you choose photos from your library to add to recipes and pantry items.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Stocked uses speech recognition to understand voice commands during cooking mode. Recognition runs on device when supported.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSUserNotificationsUsageDescription</key>
@@ -114,12 +124,10 @@
 	<string>$(SPOONACULAR_API_KEY)</string>
 	<key>StockedEnv</key>
 	<string>$(STOCKED_ENV)</string>
-	<key>HomeBaseURL</key>
-	<string>$(HOMEBASE_URL</string>
-	<key>LogMealAPIToken</key>
-	<string>$(LOGMEAL_API_TOKEN)</string>
 	<key>StockedWorkerKey</key>
 	<string>$(STOCKED_WORKER_KEY)</string>
+	<key>SuggesticAPIToken</key>
+	<string>$(SUGGESTIC_API_TOKEN)</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -134,8 +142,6 @@
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
-	<key>ChompAPIKey</key>
-	<string>$(CHOMP_API_KEY)</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
@@ -144,8 +150,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>SuggesticAPIToken</key>
-	<string>$(SUGGESTIC_API_TOKEN)</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -179,9 +183,5 @@
 			</dict>
 		</dict>
 	</array>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Stocked reads nothing from Health; access is requested only to enable nutrition logging.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Stocked logs the estimated nutrition of meals you cook to Apple Health, when you turn this on in Preferences.</string>
 </dict>
 </plist>
