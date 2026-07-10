@@ -1001,7 +1001,7 @@ struct CookingStepRow: View {
                     .animation(.spring(response: 0.3), value: stepTimer?.isRunning)
 
                     Text(isExpanded ? "Step \(stepNumber)" : stepText)
-                        .font(.system(size: 14, design: .serif))
+                        .font(.system(size: RecipeTextPrefs.shared.scaled(14), design: .serif))
                         .foregroundStyle(isCompleted ? session.themeTextColor.opacity(0.4) : session.themeTextColor)
                         .strikethrough(isCompleted)
                         .lineLimit(isExpanded ? nil : 2)
@@ -1034,7 +1034,7 @@ struct CookingStepRow: View {
 
                     HStack(alignment: .top, spacing: 8) {
                         Text(stepText)
-                            .font(.system(size: 15, design: .serif))
+                            .font(.system(size: RecipeTextPrefs.shared.scaled(15), design: .serif))
                             .foregroundStyle(session.themeTextColor)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)

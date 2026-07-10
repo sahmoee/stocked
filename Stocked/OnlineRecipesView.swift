@@ -943,6 +943,11 @@ struct OnlineRecipeDetailView: View {
     @State private var addedIngredients = false
     @State private var addedToCalendar  = false
     @State private var savedRecipeID: UUID? = nil   // set when saved to My Collection (heart)
+    // #9 live cooking — per-recipe step timers (notification + Live Activity backed).
+    @State private var timerEngine = StepTimerEngine()
+
+    // #9 — instructions blob split into numbered steps for the timer rows.
+    private var instructionSteps: [String] { RecipeStepSplitter.split(recipe.instructions) }
 
     // #251 — live "can I make this?" badge for the detail header.
     @ViewBuilder private var detailStockBadge: some View {
@@ -1005,7 +1010,7 @@ struct OnlineRecipeDetailView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text(recipe.title)
-                                .font(.system(size: 24, weight: .bold, design: .serif)).dynamicTypeSize(.xSmall ... .accessibility2)
+                                .font(.system(size: RecipeTextPrefs.shared.scaled(24), weight: .bold, design: .serif)).dynamicTypeSize(.xSmall ... .accessibility2)
                                 .foregroundStyle(session.themeTextColor)
                             Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
                                 .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
@@ -1084,7 +1089,7 @@ struct OnlineRecipeDetailView: View {
                                 HStack(spacing: 10) {
                                     Circle().fill(Color.stockedGold).frame(width: 6, height: 6)
                                     Text("\(pair.measure) \(pair.ingredient)")
-                                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                                        .font(.system(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor)
                                 }
                             }
                         }
@@ -1095,9 +1100,20 @@ struct OnlineRecipeDetailView: View {
                             Text("Instructions")
                                 .font(.system(size: 16, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
                             if OnlineRecipeFacts.hasRealInstructions(recipe.instructions) {
-                                Text(recipe.instructions)
-                                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.8))
-                                    .fixedSize(horizontal: false, vertical: true)
+                                // #9 live cooking — numbered steps; any step that mentions a
+                                // duration gets a tappable timer (notification + Live Activity).
+                                let steps = instructionSteps
+                                if steps.isEmpty {
+                                    Text(recipe.instructions)
+                                        .font(.system(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor.opacity(0.8))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                } else {
+                                    VStack(alignment: .leading, spacing: 14) {
+                                        ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
+                                            TimedStepRow(stepNumber: i + 1, stepText: step, timerEngine: timerEngine)
+                                        }
+                                    }
+                                }
                             } else {
                                 // This source (e.g. Edamam) doesn't provide step-by-step
                                 // instructions. Show an honest message instead of a raw
@@ -1169,6 +1185,9 @@ struct OnlineRecipeDetailView: View {
                 // #251 — opening a recipe is a strong interest signal.
                 RecipeInterest.shared.record(category: recipe.category, area: recipe.area)
                 UsageMetrics.shared.record(.onlineRecipeOpened)
+                // #9 — context for step timers surfaced on the Lock Screen / Dynamic Island.
+                timerEngine.recipeTitle = recipe.title
+                timerEngine.totalSteps  = instructionSteps.count
             }
         }
     }

@@ -69,6 +69,11 @@ struct SettingsContent: View {
                     }
                     .listRowBackground(Color.clear)
 
+                    // #9 — Recipe Text Size: scales recipe titles, ingredients, and steps
+                    // app-wide (fixed-size fonts don't follow the system text-size slider).
+                    RecipeTextSizeControl()
+                        .listRowBackground(Color.clear)
+
                     // Preferred Store (pop-out picker).
                     Button { if let onQuickAction { onQuickAction(.storePopout) } else { activeSheet = .storePopout } } label: {
                         HStack {

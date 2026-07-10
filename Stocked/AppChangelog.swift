@@ -38,12 +38,26 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.14 (build 40) — Live cooking timers + recipe text size ──
+        ChangelogVersion(
+            version: "4.14",
+            buildDate: "Build 40 · July 9, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "timer", color: Color.stockedGold,
+                               title: "Tap-to-start timers on every recipe",
+                               detail: "Recipe pages now show instructions as numbered steps, and any step that mentions a time — like simmer for 10 minutes — gets a tap-to-start timer. It counts down on your Lock Screen and Dynamic Island and sends an alert when time is up, even if you leave the recipe."),
+                ChangelogEntry(icon: "textformat.size", color: Color.stockedGold,
+                               title: "Choose your recipe text size",
+                               detail: "A new Recipe Text Size setting in Preferences makes recipe titles, ingredients, and steps bigger or smaller everywhere — great for reading at a glance while your hands are busy cooking."),
+            ]),
         // ── 4.13 (build 32) — API Ninjas recipes wired in ──
         ChangelogVersion(
             version: "4.13",
             buildDate: "Build 33 · July 7, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "fork.knife.circle", color: Color.stockedGold,
                                title: "More recipes from API Ninjas",

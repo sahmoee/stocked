@@ -63,6 +63,8 @@ struct UserRecipeDetailView: View {
     @State private var showRenameAlert        = false
     @State private var renameText             = ""
     @State private var showDeleteConfirm      = false
+    // #9 live cooking — per-recipe step timers (notification + Live Activity backed).
+    @State private var timerEngine            = StepTimerEngine()
 
     init(recipe: UserRecipe) {
         self._recipe         = State(initialValue: recipe)
@@ -116,7 +118,12 @@ struct UserRecipeDetailView: View {
 
     var body: some View {
         detailContent
-            .onAppear { session.recordRecipeView(recipe.id) }   // #240 — Recently Viewed
+            .onAppear {
+                session.recordRecipeView(recipe.id)   // #240 — Recently Viewed
+                // #9 — context for step timers surfaced on the Lock Screen / Dynamic Island.
+                timerEngine.recipeTitle = recipe.title
+                timerEngine.totalSteps  = recipe.instructions.count
+            }
             .navigationTitle(recipe.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { recipeOptionsToolbar }
@@ -343,7 +350,7 @@ struct UserRecipeDetailView: View {
                                             .frame(width: 6, height: 6)
                                         // Scale amount if numeric
                                         Text(scaledAmount(ing.amount) + " " + ing.name)
-                                            .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                                            .font(.system(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor)
                                         if ing.isOptional {
                                             Text("(optional)").font(.system(size: 11))
                                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
@@ -383,15 +390,10 @@ struct UserRecipeDetailView: View {
                             Text("Instructions")
                                 .font(.system(size: 16, weight: .bold, design: .serif))
                                 .foregroundStyle(session.themeTextColor)
+                            // #9 live cooking — steps mentioning a duration get a tappable
+                            // timer chip (notification + Live Activity backed).
                             ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
-                                HStack(alignment: .top, spacing: 12) {
-                                    ZStack {
-                                        Circle().fill(Color.stockedGold).frame(width: 24, height: 24)
-                                        Text("\(i+1)").font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedWhite)
-                                    }
-                                    Text(step).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
+                                TimedStepRow(stepNumber: i + 1, stepText: step, timerEngine: timerEngine)
                             }
                         }
                         .padding(16)
