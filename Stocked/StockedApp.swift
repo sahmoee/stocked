@@ -68,6 +68,8 @@ struct StockedApp: App {
         UITabBar.appearance().backgroundColor = .clear
         UITabBar.appearance().barTintColor = .clear
     }
+    
+    
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -229,3 +231,4 @@ extension UIApplication {
         sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
+
