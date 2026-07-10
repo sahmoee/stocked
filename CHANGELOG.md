@@ -1,3 +1,45 @@
+07:10:26 16:04 — v1.2 (build 9) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 8) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 8) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 7) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 7) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 6) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 6) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 5) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 4) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 3) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 3) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 3) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 2) — Build
+Big change
+
+07:10:26 16:04 — v1.2 (build 1) — Version
+Small change or fix
+
 07:10:26 15:39 — v1.1 (build 1) — Version
 Small change or fix
 

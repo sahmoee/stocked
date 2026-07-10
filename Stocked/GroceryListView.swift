@@ -734,6 +734,8 @@ struct GroceryListView: View {
                 Spacer(minLength: 6)
 
                 // Qty buttons — centred between item and Find in Store
+                // #FB3 — fixed-size so the controls never mash when names are long;
+                // the name column wraps instead.
                 HStack(spacing: 4) {
                     Button { if item.quantity > 1 { store.updateGroceryQty(id: item.id, qty: item.quantity - 1) } } label: {
                         Image(systemName: "minus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
@@ -741,17 +743,20 @@ struct GroceryListView: View {
                     Text("\(item.quantity)")
                         .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
                         .frame(minWidth: 18)
+                        .lineLimit(1)
                     Button { store.updateGroceryQty(id: item.id, qty: item.quantity + 1) } label: {
                         Image(systemName: "plus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                 }
+                .fixedSize()
 
                 // Find in Store
                 Button { openInStore(item.name) } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "cart.fill").font(.system(size: 10))
-                        Text("Find").font(.system(size: 10, weight: .semibold))
+                        Text("Find").font(.system(size: 10, weight: .semibold)).lineLimit(1)
                     }
+                    .fixedSize()
                     .foregroundStyle(Color.stockedGold)
                     .padding(.horizontal, 8).padding(.vertical, 9)
                     .background(Color.stockedGold.opacity(0.12))

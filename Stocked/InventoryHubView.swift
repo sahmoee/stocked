@@ -808,10 +808,14 @@ struct CategoryItemsView: View {
                     Text(d < 0 ? "Expired" : d == 0 ? "Today" : "\(d)d")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(d <= 1 ? Color.red.opacity(0.8) : Color.orange)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(item.level >= 0.33 ? Color.stockedGreen : Color.stockedGold)
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .padding(.horizontal, 14).padding(.vertical, 9)
             .contentShape(Rectangle())

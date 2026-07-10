@@ -1101,15 +1101,20 @@ struct InventoryItemRow: View {
 
                 Spacer(minLength: 8)
 
+                // #FB3 — trailing labels are fixed-size: the name column compresses
+                // and wraps instead, so "Full" can never shatter into stacked letters.
                 if let d = item.daysUntilExpiry {
                     Text(d < 0 ? "Expired" : d == 0 ? "Expires today" : d == 1 ? "Expires tomorrow" : "Expires in \(d) days")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(d < 0 ? Color.red : d <= 1 ? Color.red.opacity(0.8) : Color.orange)
-                        .lineLimit(1).minimumScaleFactor(0.75)
+                        .lineLimit(1)
+                        .fixedSize()
                 } else {
                     Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(batteryColor)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))

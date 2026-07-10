@@ -66,20 +66,31 @@ struct CookHeroCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.system(size: 23, weight: .bold, design: .serif))
                         .foregroundStyle(Color.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
                         .shadow(color: Color.black.opacity(0.6), radius: 4, y: 1)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 13))
                             .foregroundStyle(Color.white.opacity(0.92))
+                            .lineLimit(2)
                             .shadow(color: Color.black.opacity(0.6), radius: 3, y: 1)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Spacer()
+                .layoutPriority(1)
+                Spacer(minLength: 8)
                 Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.white)
                     .shadow(color: Color.black.opacity(0.5), radius: 3, y: 1)
             }
             .padding(CookStyle.cardPadding)
+            // #FB3 — a solid plate behind the text row guarantees legibility over any
+            // photo; the gradient alone let bright image areas mash with the type.
+            .background(
+                LinearGradient(colors: [Color.black.opacity(0.0), Color.black.opacity(0.55)],
+                               startPoint: .top, endPoint: .bottom)
+            )
         }
         .frame(height: 150)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -87,8 +98,8 @@ struct CookHeroCard: View {
             ZStack {
                 photo.resizable().scaledToFill()
                 LinearGradient(
-                    colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
-                             Color.black.opacity(0.55), Color.black.opacity(0.82)],
+                    colors: [Color.black.opacity(0.0), Color.black.opacity(0.2),
+                             Color.black.opacity(0.62), Color.black.opacity(0.88)],
                     startPoint: .top, endPoint: .bottom)
             }
         )
@@ -170,20 +181,30 @@ struct CookActionCard: View {
                     Text(title)
                         .font(.system(size: 22, weight: .bold, design: .serif))
                         .foregroundStyle(Color.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
                         .shadow(color: Color.black.opacity(0.6), radius: 4, y: 1)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 13))
                             .foregroundStyle(Color.white.opacity(0.92))
+                            .lineLimit(2)
                             .shadow(color: Color.black.opacity(0.6), radius: 3, y: 1)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Spacer()
+                .layoutPriority(1)
+                Spacer(minLength: 8)
                 Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.white)
                     .shadow(color: Color.black.opacity(0.5), radius: 3, y: 1)
             }
             .padding(CookStyle.cardPadding)
+            // #FB3 — solid legibility plate behind the text row (see CookHeroCard).
+            .background(
+                LinearGradient(colors: [Color.black.opacity(0.0), Color.black.opacity(0.55)],
+                               startPoint: .top, endPoint: .bottom)
+            )
         }
         .frame(height: cardHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -191,8 +212,8 @@ struct CookActionCard: View {
             ZStack {
                 photo.resizable().scaledToFill()
                 LinearGradient(
-                    colors: [Color.black.opacity(0.0), Color.black.opacity(0.15),
-                             Color.black.opacity(0.55), Color.black.opacity(0.82)],
+                    colors: [Color.black.opacity(0.0), Color.black.opacity(0.2),
+                             Color.black.opacity(0.62), Color.black.opacity(0.88)],
                     startPoint: .top, endPoint: .bottom)
             }
         )

@@ -1158,6 +1158,9 @@
     "Anything we missed?" : {
 
     },
+    "APPEARANCE" : {
+
+    },
     "Apple Health" : {
 
     },
@@ -1347,6 +1350,9 @@
     "Choose an avatar that represents\nyour cooking personality." : {
 
     },
+    "Choose how the Cook tab shows its two options." : {
+
+    },
     "Choose Photo" : {
 
     },
@@ -1458,6 +1464,9 @@
 
     },
     "Cook %lldm" : {
+
+    },
+    "Cook Hub Style" : {
 
     },
     "Cook Later" : {

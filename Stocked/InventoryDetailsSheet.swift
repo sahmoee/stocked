@@ -141,15 +141,19 @@ struct InventoryDetailsSheet: View {
                                 .font(.system(size: 13.5))
                                 .foregroundStyle(session.themeTextColor)
                                 .lineLimit(1)
-                            Spacer()
+                            Spacer(minLength: 6)
                             if let d = item.daysUntilExpiry, title == "Expiring Soon" {
                                 Text(d < 0 ? "Expired" : d == 0 ? "Today" : d == 1 ? "Tomorrow" : "\(d) days")
                                     .font(.system(size: 11.5, weight: .semibold))
                                     .foregroundStyle(d <= 1 ? Color.red.opacity(0.8) : Color.orange)
+                                    .lineLimit(1)
+                                    .fixedSize()
                             } else {
                                 Text("\(Int((item.effectiveLevel * 100).rounded()))%")
                                     .font(.system(size: 11.5, weight: .semibold))
                                     .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .lineLimit(1)
+                                    .fixedSize()
                             }
                         }
                         .padding(.horizontal, 12).padding(.vertical, 9)

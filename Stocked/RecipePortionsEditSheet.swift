@@ -100,6 +100,8 @@ struct RecipePortionsEditSheet: View {
                 Text(match != nil ? "In stock" : "Missing")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(match != nil ? Color.stockedGreen : Color.stockedGold)
+                    .lineLimit(1)
+                    .fixedSize()
             }
 
             if let item = match {

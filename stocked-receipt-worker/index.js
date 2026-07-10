@@ -57,6 +57,19 @@ const CORS_HEADERS = {
 
 export default {
   async fetch(request, env) {
+    // #FB3 — top-level guard: any uncaught exception (KV write quota exceeded,
+    // storage errors, unexpected payloads) used to surface as a bare Cloudflare
+    // 500 with no detail. Now the error message comes back as JSON so the app
+    // can show the actual reason instead of a generic try-again.
+    try {
+      return await this.handle(request, env);
+    } catch (err) {
+      const detail = (err && err.message) ? String(err.message).slice(0, 200) : "Unknown server error";
+      return json({ error: "Server error: " + detail }, 500);
+    }
+  },
+
+  async handle(request, env) {
     // ── CORS preflight ──
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -369,8 +382,7 @@ async function handleHousehold(pathname, request, env) {
     }
     if (!code) return json({ error: "Could not allocate a code, try again" }, 503);
     const household = {
-      code,
-      ownerName,
+      code,      ownerName,
       ownerId,
       members: [{ name: ownerName, memberId: ownerId, joinedAt: Date.now() }],
       inventory: [],
@@ -381,7 +393,13 @@ async function handleHousehold(pathname, request, env) {
       activity: [{ kind: "householdCreated", itemName: "", actorName: ownerName, date: Date.now() }],
       updatedAt: Date.now(),
     };
-    await kv.put(hhKey(code), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
+    try {
+      await kv.put(hhKey(code), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
+    } catch (err) {
+      // Most common real-world cause: the KV namespace hit its daily write quota.
+      const msg = (err && err.message) ? String(err.message).slice(0, 160) : "write failed";
+      return json({ error: "Could not save the household (" + msg + "). If this mentions a limit, the KV write quota is exhausted for today." }, 500);
+    }
     return json({ code, household });
   }
 

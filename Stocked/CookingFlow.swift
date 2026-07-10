@@ -109,9 +109,11 @@ struct RecipeOverviewView: View {
     }
 
     // Use internet data when nothing is manually supplied
+    // #FB3 — .stockedWrappable strips non-breaking/zero-width whitespace from
+    // scraped text so long steps wrap instead of clipping at the right edge.
     private var displaySteps: [String] {
-        if !steps.isEmpty { return steps }
-        if let net = internetData, !net.steps.isEmpty { return net.steps }
+        if !steps.isEmpty { return steps.map(\.stockedWrappable) }
+        if let net = internetData, !net.steps.isEmpty { return net.steps.map(\.stockedWrappable) }
         return [
             "Gather and prep all your ingredients.",
             "Heat your pan or oven as needed.",
@@ -122,8 +124,8 @@ struct RecipeOverviewView: View {
         ]
     }
     private var displayIngredients: [String] {
-        if !ingredients.isEmpty { return ingredients }
-        if let net = internetData, !net.ingredients.isEmpty { return net.ingredients }
+        if !ingredients.isEmpty { return ingredients.map(\.stockedWrappable) }
+        if let net = internetData, !net.ingredients.isEmpty { return net.ingredients.map(\.stockedWrappable) }
         return defaultIngredients(for: title)
     }
     private var displayCookTime: String {
@@ -383,12 +385,14 @@ struct RecipeOverviewView: View {
                             .frame(width: 7, height: 7)
                         Text(ing).font(.system(size: 14))
                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                            .layoutPriority(1)
+                            .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 8)
                         if inStock {
                             Text("✓ In stock")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(Color.stockedGreen)
+                                .lineLimit(1)
+                                .fixedSize()
                         } else {
                             // #FB — "Need to buy" is now an action: add it right here.
                             Button {
@@ -405,7 +409,9 @@ struct RecipeOverviewView: View {
                                         .font(.system(size: 10))
                                     Text(addedToGrocery.contains(addedKey) ? "Added ✓" : "Add to Grocery List")
                                         .font(.system(size: 10.5, weight: .semibold))
+                                        .lineLimit(1)
                                 }
+                                .fixedSize()   // #FB3 — the pill keeps its shape; the ingredient wraps instead
                                 .foregroundStyle(addedToGrocery.contains(addedKey) ? Color.stockedGreen : Color.stockedGold)
                                 .padding(.horizontal, 8).padding(.vertical, 5)
                                 .background((addedToGrocery.contains(addedKey) ? Color.stockedGreen : Color.stockedGold).opacity(0.12))
@@ -604,7 +610,8 @@ struct CookingFlashcardView: View {
     ]
 
     init(recipeTitle: String, ingredients: [String] = [], steps: [String] = [], baseServings: Int = 4) {
-        self.recipeTitle = recipeTitle; self.ingredients = ingredients
+        self.recipeTitle = recipeTitle
+        self.ingredients = ingredients.map(\.stockedWrappable)   // #FB3 — wrap-safe
         self.steps = steps.isEmpty ? [
             "Gather and prep all ingredients — measure everything before you start.",
             "Heat pan over medium-high heat with a drizzle of oil.",
@@ -614,7 +621,7 @@ struct CookingFlashcardView: View {
             "Add remaining ingredients and finish cooking through.",
             "Taste and adjust seasoning — salt, acid, heat.",
             "Plate and serve immediately."
-        ] : steps
+        ] : steps.map(\.stockedWrappable)
     }
 
     private var allDone: Bool { completedSteps.count == steps.count }
@@ -764,16 +771,23 @@ struct CookingFlashcardView: View {
                 }
 
                 // Header
-                HStack {
+                // #FB3 — long recipe titles wrap to two lines and scale slightly instead
+                // of mashing into the fullscreen/view-mode buttons and the progress ring.
+                HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("How to Cook")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .lineLimit(1)
                         Text(recipeTitle)
                             .font(.system(size: 20, weight: .bold, design: .serif))
                             .foregroundStyle(session.themeTextColor)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                            .multilineTextAlignment(.leading)
                     }
-                    Spacer()
+                    .layoutPriority(1)
+                    Spacer(minLength: 10)
                     // #FB — full-screen flashcards (with voice control inside).
                     Button {
                         currentCard = steps.indices.first { !completedSteps.contains($0) } ?? max(0, steps.count - 1)

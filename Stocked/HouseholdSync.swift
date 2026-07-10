@@ -507,9 +507,16 @@ final class HouseholdSync {
     /// Worker returned (nil = transport error / no response), so the UI can say
     /// exactly WHY instead of a generic "check your connection".
     @ObservationIgnored private(set) var lastPostStatus: Int? = nil
+    /// #FB3 — the server's own error text from the response body, when present.
+    @ObservationIgnored private(set) var lastServerError: String? = nil
 
     /// Human-readable explanation of the last post failure, keyed off the status.
     func explainLastFailure(_ action: String) -> String {
+        // #FB3 — the Worker now returns descriptive JSON errors (e.g. KV write
+        // quota exhausted). Prefer its exact words over our status guess.
+        if let server = lastServerError, !server.isEmpty {
+            return server
+        }
         switch lastPostStatus {
         case .some(401):
             return "The server rejected the app key (HTTP 401). STOCKED_WORKER_KEY in Secrets.xcconfig must match the Worker's STOCKED_SHARED_KEY secret."
@@ -528,6 +535,7 @@ final class HouseholdSync {
 
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
         lastPostStatus = nil
+        lastServerError = nil
         guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -539,6 +547,11 @@ final class HouseholdSync {
               let http = resp as? HTTPURLResponse else { return nil }
         lastPostStatus = http.statusCode
         guard (200...299).contains(http.statusCode) else {
+            // Pull the server's own explanation out of the JSON body when it has one.
+            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let serverMessage = obj["error"] as? String, !serverMessage.isEmpty {
+                lastServerError = "\(serverMessage) (HTTP \(http.statusCode))"
+            }
             let bodyText = String(data: data.prefix(200), encoding: .utf8) ?? ""
             Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode) body=\(bodyText, privacy: .public)")
             return nil
