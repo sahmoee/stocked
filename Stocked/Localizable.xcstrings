@@ -19,6 +19,9 @@
     "· %@" : {
 
     },
+    "· Start timer" : {
+
+    },
     "\"%@\" is already in your %@. Add another or cancel to update that item instead." : {
       "localizations" : {
         "en" : {
@@ -1102,6 +1105,9 @@
     "Amount per container" : {
 
     },
+    "amt" : {
+
+    },
     "Any" : {
 
     },
@@ -1646,6 +1652,9 @@
     "e.g. \"I finished the milk and used half the rice\"" : {
 
     },
+    "e.g. 6 cans of 8 oz, half a bag" : {
+
+    },
     "e.g. 16, 12, 1.5" : {
 
     },
@@ -1665,6 +1674,9 @@
 
     },
     "e.g. Weekly staples" : {
+
+    },
+    "Each" : {
 
     },
     "Edit" : {
@@ -2736,6 +2748,9 @@
     "Paste the recipe text — title, ingredients, and steps. We'll structure it; you can fix anything before saving." : {
 
     },
+    "paused" : {
+
+    },
     "Pending" : {
 
     },
@@ -2865,6 +2880,9 @@
     "QR Code Transfer" : {
 
     },
+    "Qty" : {
+
+    },
     "QUANTITY" : {
 
     },
@@ -2927,6 +2945,9 @@
 
     },
     "Recipe Steps" : {
+
+    },
+    "Recipe Text Size" : {
 
     },
     "Recipe Websites" : {
@@ -3306,6 +3327,9 @@
     "Sign in with Apple, or continue as a guest with your name." : {
 
     },
+    "Simmer for 10 minutes, stirring occasionally." : {
+
+    },
     "Single Item" : {
 
     },
@@ -3586,6 +3610,9 @@
 
     },
     "Time to Plate" : {
+
+    },
+    "Timer done — tap to reset" : {
 
     },
     "Tip: add prices to items (or scan receipts) to make this more accurate. %lld item%@ no price yet." : {
