@@ -11,6 +11,7 @@
 		7B5266482FDB475300ABE8B1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B5266472FDB475200ABE8B1 /* WidgetKit.framework */; };
 		7B52664A2FDB475300ABE8B1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B5266492FDB475300ABE8B1 /* SwiftUI.framework */; };
 		7B5266572FDB475700ABE8B1 /* StockedWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7B57D42C3001742500AAAB1C /* Icons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7B57D42B3001742400AAAB1C /* Icons.xcassets */; };
 		7BA5021E3BD8B1A700ABE8B1 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BA5021F3BD8B1A700ABE8B1 /* libsqlite3.tbd */; };
 /* End PBXBuildFile section */
 
@@ -53,6 +54,7 @@
 		7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StockedWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B5266472FDB475200ABE8B1 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		7B5266492FDB475300ABE8B1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		7B57D42B3001742400AAAB1C /* Icons.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Icons.xcassets; sourceTree = "<group>"; };
 		7BA5021F3BD8B1A700ABE8B1 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		7BF4905A2FD3BD1A00F32BED /* Stocked.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stocked.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -173,6 +175,7 @@
 				7B5266462FDB475200ABE8B1 /* Frameworks */,
 				7BF4905B2FD3BD1A00F32BED /* Products */,
 				7B90A1772FDF4D0E0078E9C8 /* Recovered References */,
+				7B57D42B3001742400AAAB1C /* Icons.xcassets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -319,6 +322,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7B57D42C3001742500AAAB1C /* Icons.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
