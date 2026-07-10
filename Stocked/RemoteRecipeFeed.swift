@@ -1,57 +1,67 @@
-// RemoteRecipeFeed.swift
-// A recipe "funnel" you control WITHOUT shipping an app update. Host a recipes.json file
-// on GitHub (or any static host), point feedURLString at its RAW url, and the app pulls +
-// merges those recipes into the shared database on each Discover refresh. Add recipes any
-// time by editing that one file — the app picks them up within the cache window.
+// RemoteRecipeFeed.swift — DROP-IN replacement for the Stocked app.
 //
-// The JSON is simply an array of the app's own OnlineRecipe shape, so it decodes directly.
-// Use the included build_recipes.py to generate a large recipes.json from free sources.
+// FIXES THE PHONE FREEZE: the hosted feed can now hold thousands of recipes, and ingesting
+// them all overwhelmed Discover's de-dupe/ingest. This version:
+//   • CAPS how many recipes are handed to the app (default 250; override with maxRecipes in
+//     feed_config.json), preferring recipes that already have an image;
+//   • DROPS junk (missing title/steps, or absurdly long instructions from bad imports);
+//   • reads the refresh interval from feed_config.json (refreshHours) instead of a fixed 6h.
+//
+// Apply to the Stocked repo (replaces the existing RemoteRecipeFeed.swift).
 
 import Foundation
 
 enum RemoteRecipeFeed {
-
-    // ── LIVE ────────────────────────────────────────────────────────────────────
-    // Your hosted recipe feed. Edit recipes.json in this repo and push to add recipes;
-    // the app pulls the update automatically (no app update needed). Set to "" to disable.
     static let feedURLString = "https://raw.githubusercontent.com/sahmoee/stocked-recipes/refs/heads/main/recipes.json"
-    // ────────────────────────────────────────────────────────────────────────────
-
-    private static let cacheKey = "remoteRecipeFeed_v1"
-    private static let ttl: TimeInterval = 60 * 60 * 6   // refresh at most every 6 hours
+    private static let cacheKey = "remoteRecipeFeed_v2"   // bumped: capped payload
+    private static let defaultHours: Double = 6
+    private static let defaultMax = 250
 
     private static let session: URLSession = {
         let c = URLSessionConfiguration.default
-        c.timeoutIntervalForRequest = 15
-        c.timeoutIntervalForResource = 30
+        c.timeoutIntervalForRequest = 15; c.timeoutIntervalForResource = 30
         return URLSession(configuration: c)
     }()
 
-    /// Fetches the hosted recipe feed and returns presentable recipes. Cached for a few hours,
-    /// so repeated Discover refreshes don't re-download, and the last good copy survives offline.
+    /// Reads { refreshHours, maxRecipes } from feed_config.json next to recipes.json.
+    private static func config() async -> (ttl: TimeInterval, max: Int) {
+        let cfg = feedURLString.replacingOccurrences(of: "recipes.json", with: "feed_config.json")
+        guard cfg != feedURLString, let url = URL(string: cfg),
+              let (data, resp) = try? await session.data(from: url),
+              let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return (defaultHours * 3600, defaultMax)
+        }
+        let hours = (obj["refreshHours"] as? NSNumber)?.doubleValue ?? defaultHours
+        let maxN  = (obj["maxRecipes"] as? NSNumber)?.intValue ?? defaultMax
+        return (max(1, hours) * 3600, max(20, maxN))
+    }
+
     static func fetch() async -> [OnlineRecipe] {
         let trimmed = feedURLString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return [] }
 
-        if let cached = await APIResponseCache.shared.value(for: cacheKey, as: [OnlineRecipe].self) {
-            return cached
-        }
+        if let cached = await APIResponseCache.shared.value(for: cacheKey, as: [OnlineRecipe].self) { return cached }
 
         guard let (data, resp) = try? await session.data(from: url),
-              let http = resp as? HTTPURLResponse,
-              (200..<300).contains(http.statusCode) else {
-            return []
-        }
-        guard let recipes = try? JSONDecoder().decode([OnlineRecipe].self, from: data) else {
-            return []
-        }
+              let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let recipes = try? JSONDecoder().decode([OnlineRecipe].self, from: data) else { return [] }
 
-        // Keep only entries the app can actually present (a title and some steps).
+        let (ttl, maxN) = await config()
+
+        // Keep only presentable, sanely-sized recipes.
         let cleaned = recipes.filter {
             !$0.title.trimmingCharacters(in: .whitespaces).isEmpty &&
-            !$0.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            !$0.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            $0.instructions.count < 6000
         }
-        await APIResponseCache.shared.store(cleaned, for: cacheKey, ttl: ttl)
-        return cleaned
+        // Prefer recipes that already have an image, then cap — so Discover stays light and
+        // the image resolver isn't asked to fill hundreds of blanks.
+        let imaged = cleaned.filter { !$0.imageURL.trimmingCharacters(in: .whitespaces).isEmpty }
+        let rest   = cleaned.filter { $0.imageURL.trimmingCharacters(in: .whitespaces).isEmpty }
+        let capped = Array((imaged + rest).prefix(maxN))
+
+        await APIResponseCache.shared.store(capped, for: cacheKey, ttl: ttl)
+        return capped
     }
 }
