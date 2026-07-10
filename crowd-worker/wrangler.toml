@@ -2,11 +2,13 @@ name = "stocked-crowd"
 main = "crowd-worker.js"
 compatibility_date = "2024-11-01"
 
-# 1) Create a KV namespace:  npx wrangler kv namespace create CROWD
-#    then paste its id below.
+# KV namespace binding. Create it once, then paste the id below:
+#   npx wrangler kv namespace create CROWD
+# The command prints an id — put it here.
 [[kv_namespaces]]
 binding = "CROWD"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "PASTE_KV_NAMESPACE_ID_HERE"
 
-# 2) Set the shared secret the app sends as X-Stocked-Key:
-#    npx wrangler secret put CROWD_KEY
+# CROWD_KEY is a SECRET, not stored here. Set it with:
+#   npx wrangler secret put CROWD_KEY
+# Use the same value as CrowdDB.defaultKey (or CrowdWorkerKey in Secrets.xcconfig).
