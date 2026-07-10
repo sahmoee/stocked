@@ -38,12 +38,35 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.15 (build 45) — Feedback wave: cooking flow, AI scan, voice control ──
+        ChangelogVersion(
+            version: "4.15",
+            buildDate: "Build 45 · July 10, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "wand.and.stars", color: Color.stockedGold,
+                               title: "AI Inventory Scan",
+                               detail: "One tap reviews everything in your kitchen and suggests cleaned-up names, the right storage spot, missing nutrition info, and expiry estimates. You approve every change before it happens."),
+                ChangelogEntry(icon: "mic.fill", color: Color.stockedGold,
+                               title: "Hands-free cooking",
+                               detail: "Cook mode now has a full-screen view with voice control — say next, back, repeat, or finish while your hands are busy. There's also a camera option for plate photos and editable amounts when deducting what you used."),
+                ChangelogEntry(icon: "fork.knife", color: Color.stockedGold,
+                               title: "Real recipes in Cook Now",
+                               detail: "Picking a protein or vegetable now shows real recipes starring it, sorted by what you already have, with a refresh for new ideas. Missing ingredients can be added to your grocery list right from the recipe."),
+                ChangelogEntry(icon: "square.grid.3x3", color: Color.stockedGold,
+                               title: "Inventory views and details",
+                               detail: "Category pages gained subcategories and three view styles, leftovers have their own category, brands from receipts now show on items, and Inventory Status has a real details view."),
+                ChangelogEntry(icon: "textformat.size", color: Color.stockedGold,
+                               title: "Cleaner text and smoother scrolling",
+                               detail: "Fixed text wrapping and spacing across the app so nothing gets cut off or mashed together, and tightened up scrolling performance on image-heavy screens."),
+            ]),
         // ── 4.14 (build 40) — Live cooking timers + recipe text size ──
         ChangelogVersion(
             version: "4.14",
             buildDate: "Build 40 · July 9, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "timer", color: Color.stockedGold,
                                title: "Tap-to-start timers on every recipe",

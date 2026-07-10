@@ -658,6 +658,16 @@
         }
       }
     },
+    "%lld suggestion%@ — uncheck anything you don't want. Nutrition and expiry values are AI estimates." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld suggestion%2$@ — uncheck anything you don't want. Nutrition and expiry values are AI estimates."
+          }
+        }
+      }
+    },
     "%lld total across %lld receipts this session" : {
       "localizations" : {
         "en" : {
@@ -1092,7 +1102,13 @@
     "Added!" : {
 
     },
+    "AI Inventory Scan" : {
+
+    },
     "AI recipes need an internet connection and the recipe service set up." : {
+
+    },
+    "All" : {
 
     },
     "All caught up" : {
@@ -1170,6 +1186,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Apply %1$lld %2$@"
+          }
+        }
+      }
+    },
+    "Apply %lld change%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Apply %1$lld change%2$@"
           }
         }
       }
@@ -2184,6 +2210,9 @@
     "Inventory Insights" : {
 
     },
+    "Inventory Scan Results" : {
+
+    },
     "Inventory Status" : {
 
     },
@@ -2777,6 +2806,9 @@
     "or enter manually" : {
 
     },
+    "Or scan everything" : {
+
+    },
     "OR SHARE THIS CODE" : {
 
     },
@@ -3172,6 +3204,9 @@
     "Review, then save it to your vault." : {
 
     },
+    "Reviews every item and suggests cleaned-up names, the right storage spot, missing nutrition, and expiry estimates. You approve each change." : {
+
+    },
     "Running low" : {
 
     },
@@ -3267,6 +3302,9 @@
 
     },
     "Scan Receipt" : {
+
+    },
+    "Scanning your inventory…" : {
 
     },
     "Scheduled" : {
@@ -4041,6 +4079,9 @@
 
     },
     "Your household access level doesn't allow adding items. Ask the household owner if you need to add things." : {
+
+    },
+    "Your inventory already looks tidy — nothing to suggest." : {
 
     },
     "Your inventory won't be changed. You can restart this recipe any time." : {
