@@ -85,6 +85,15 @@ export default {
       return handleHousehold(url.pathname, request, env);
     }
 
+    // ── Crowd (shared, anonymized item intelligence) routing ──
+    // Any path under /crowd is aggregate-only: typical unit/container/quantity per item,
+    // autocomplete, and pairings. No personal data is stored. Reuses the RATE_KV namespace
+    // with a "crowd:" prefix, so no new Cloudflare config is required.
+    if (url.pathname.startsWith("/crowd")) {
+      if (!env.RATE_KV) return json({ error: "Server misconfigured (no KV)" }, 500);
+      return handleCrowd(url.pathname, request, env);
+    }
+
     // ── 2. Per-IP rate limiting ──
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     if (env.RATE_KV) {
@@ -659,4 +668,117 @@ function appendActivity(list, newEvent) {
   if (newEvent) arr.push(newEvent);
   arr.sort((a, b) => (b.date || 0) - (a.date || 0));
   return arr.slice(0, HH_MAX_ACTIVITY);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CROWD DB (KV-backed, anonymized). The cross-user layer that makes the app
+// smarter for everyone. Stores ONLY aggregate counts — never account, name,
+// email, device id, or location. Shares the RATE_KV namespace under "crowd:".
+//
+// Endpoints (all POST, all require X-Stocked-Key, JSON body):
+//   POST /crowd/report        { items:[{name,category,unit,container,quantity}], basket?:[names] }
+//   POST /crowd/suggest       { name }   -> { count, topUnit, topContainer, topCategory, avgQuantity }
+//   POST /crowd/autocomplete  { prefix, limit? } -> { items:[...] }
+//   POST /crowd/pairings      { name }   -> { pairings:[["tomato",210],...] }
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CROWD_MAX_ITEMS = 200;
+const CROWD_MAX_BASKET = 60;
+
+function crowdNorm(v) {
+  return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function crowdBump(map, k) {
+  if (!k) return;
+  k = String(k).toLowerCase();
+  map[k] = (map[k] || 0) + 1;
+}
+function crowdTop(map) {
+  let best = null, n = -1;
+  for (const k in map) if (map[k] > n) { best = k; n = map[k]; }
+  return best;
+}
+async function crowdGetAgg(kv, key) {
+  const raw = await kv.get("crowd:item:" + key);
+  return raw ? JSON.parse(raw) : { count: 0, units: {}, containers: {}, categories: {}, qtySum: 0, qtyN: 0 };
+}
+async function crowdBumpPopular(kv, key) {
+  const raw = await kv.get("crowd:pop");
+  const pop = raw ? JSON.parse(raw) : {};
+  pop[key] = (pop[key] || 0) + 1;
+  const entries = Object.entries(pop).sort((a, b) => b[1] - a[1]).slice(0, 2000);
+  await kv.put("crowd:pop", JSON.stringify(Object.fromEntries(entries)));
+}
+
+async function handleCrowd(pathname, request, env) {
+  const kv = env.RATE_KV;
+  let body;
+  try {
+    body = JSON.parse(await request.text());
+  } catch {
+    return json({ error: "Invalid JSON" }, 400);
+  }
+  const action = pathname.replace(/^\/crowd\/?/, "");
+
+  if (action === "report") {
+    const items = Array.isArray(body.items) ? body.items.slice(0, CROWD_MAX_ITEMS) : [];
+    for (const it of items) {
+      const key = crowdNorm(it.name);
+      if (!key || key.length < 2) continue;
+      const agg = await crowdGetAgg(kv, key);
+      agg.count += 1;
+      crowdBump(agg.units, it.unit);
+      crowdBump(agg.containers, it.container);
+      crowdBump(agg.categories, it.category);
+      const q = Number(it.quantity);
+      if (isFinite(q) && q > 0) { agg.qtySum += q; agg.qtyN += 1; }
+      await kv.put("crowd:item:" + key, JSON.stringify(agg));
+      await crowdBumpPopular(kv, key);
+    }
+    const basket = Array.isArray(body.basket)
+      ? [...new Set(body.basket.map(crowdNorm).filter(Boolean))].slice(0, CROWD_MAX_BASKET) : [];
+    for (const a of basket) {
+      const raw = await kv.get("crowd:pair:" + a);
+      const m = raw ? JSON.parse(raw) : {};
+      for (const b of basket) if (a !== b) m[b] = (m[b] || 0) + 1;
+      const top = Object.entries(m).sort((x, y) => y[1] - x[1]).slice(0, 40);
+      await kv.put("crowd:pair:" + a, JSON.stringify(Object.fromEntries(top)));
+    }
+    return json({ ok: true, received: items.length });
+  }
+
+  if (action === "suggest") {
+    const key = crowdNorm(body.name);
+    if (!key) return json({ error: "name required" }, 400);
+    const agg = await crowdGetAgg(kv, key);
+    return json({
+      count: agg.count,
+      topUnit: crowdTop(agg.units),
+      topContainer: crowdTop(agg.containers),
+      topCategory: crowdTop(agg.categories),
+      avgQuantity: agg.qtyN ? +(agg.qtySum / agg.qtyN).toFixed(2) : null,
+    });
+  }
+
+  if (action === "autocomplete") {
+    const prefix = crowdNorm(body.prefix);
+    const limit = Math.min(20, Number(body.limit) || 10);
+    const raw = await kv.get("crowd:pop");
+    const pop = raw ? JSON.parse(raw) : {};
+    const items = Object.entries(pop)
+      .filter(([k]) => !prefix || k.startsWith(prefix))
+      .sort((a, b) => b[1] - a[1]).slice(0, limit).map(([k]) => k);
+    return json({ items });
+  }
+
+  if (action === "pairings") {
+    const key = crowdNorm(body.name);
+    const raw = await kv.get("crowd:pair:" + key);
+    const m = raw ? JSON.parse(raw) : {};
+    const pairings = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 20);
+    return json({ pairings });
+  }
+
+  return json({ error: "not found" }, 404);
 }
