@@ -80,6 +80,8 @@
 	<string>$(EDAMAM_APP_KEY)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Stocked connects to your HomeBase server on your Mac to sync your pantry</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
@@ -90,6 +92,8 @@
 	<string>Stocked uses the camera to scan barcodes and receipts so you can quickly add items to your pantry.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Stocked uses your location to determine close by stores. </string>
+	<key>HomeBaseAPIKey</key>
+	<string>$(HOMEBASE_API_KEY)</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Stocked saves shared kitchen QR codes to your photo library so you can send them to others.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -106,6 +110,8 @@
 	<string>$(SPOONACULAR_API_KEY)</string>
 	<key>StockedEnv</key>
 	<string>$(STOCKED_ENV)</string>
+	<key>HomeBaseURL</key>
+	<string>$(HOMEBASE_URL</string>
 	<key>LogMealAPIToken</key>
 	<string>$(LOGMEAL_API_TOKEN)</string>
 	<key>StockedWorkerKey</key>

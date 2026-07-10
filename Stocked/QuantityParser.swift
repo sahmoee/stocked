@@ -14,7 +14,7 @@
 
 import Foundation
 
-struct ParsedQuantity: Equatable, Codable {
+struct StockedAmount: Equatable, Codable {
     /// How many containers/items (e.g. 4 bags, 6 cans, 0.5 bag, 12 eggs).
     var count: Double
     /// The container/packaging or "item" (bag, can, box, jar, bottle, pack, bunch, item, …).
@@ -29,12 +29,12 @@ struct ParsedQuantity: Equatable, Codable {
 
     /// A tidy human string, e.g. "6 cans · 8 oz each" or "0.5 bag" or "12 oz".
     var display: String {
-        let n = ParsedQuantity.trim(count)
+        let n = StockedAmount.trim(count)
         let base = container == "item"
             ? "\(n)\(item.isEmpty ? "" : " \(item)")"
             : "\(n) \(pluralize(container, count))"
         if let a = amountEach, let u = unitEach {
-            return "\(base) · \(ParsedQuantity.trim(a)) \(u) each"
+            return "\(base) · \(StockedAmount.trim(a)) \(u) each"
         }
         return base
     }
@@ -72,7 +72,7 @@ enum QuantityParser {
     ]
 
     /// Parse free text into a structured quantity. Always returns something usable.
-    static func parse(_ raw: String) -> ParsedQuantity {
+    static func parse(_ raw: String) -> StockedAmount {
         let lower = raw.lowercased()
             .replacingOccurrences(of: " of ", with: " of ")
         var tokens = tokenize(lower)
@@ -141,7 +141,7 @@ enum QuantityParser {
         if count == nil { count = pendingNumber ?? 1 }
 
         let item = itemWords.joined(separator: " ").trimmingCharacters(in: .whitespaces)
-        return ParsedQuantity(count: max(0, count ?? 1),
+        return StockedAmount(count: max(0, count ?? 1),
                               container: container,
                               amountEach: amountEach,
                               unitEach: unitEach,
