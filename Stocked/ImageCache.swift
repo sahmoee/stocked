@@ -43,6 +43,30 @@ final class ImageCache {
         return img
     }
 
+    /// #PERF — memory-only lookup (no disk touch). Safe on the main thread.
+    func memoryImage(for url: String) -> UIImage? {
+        memCache.object(forKey: key(for: url) as NSString)
+    }
+
+    /// #PERF — the disk half of `image(for:)`, run off the caller's thread. The old path
+    /// did a synchronous Data(contentsOf:) inside fetchImage, which is awaited from
+    /// SwiftUI's MainActor — so every cache-hit-on-disk read blocked the main thread and
+    /// stuttered image-heavy scrolls. This hops the file read to a background task and
+    /// only touches the memory cache back on return.
+    private func diskImage(for url: String) async -> UIImage? {
+        let k = key(for: url)
+        let path = cacheDir.appendingPathComponent(k)
+        let img = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let data = try? Data(contentsOf: path) else { return nil }
+            return UIImage(data: data)
+        }.value
+        if let img {
+            let cost = Int(img.size.width * img.size.height * 4)
+            memCache.setObject(img, forKey: k as NSString, cost: cost)
+        }
+        return img
+    }
+
     // MARK: - Write
     func store(_ image: UIImage, for url: String) {
         let k    = key(for: url) as NSString
@@ -57,7 +81,10 @@ final class ImageCache {
     // MARK: - Fetch (cache-first)
     @discardableResult
     func fetchImage(url urlString: String) async -> UIImage? {
-        if let cached = image(for: urlString) { return cached }
+        // #PERF — split the cache probe: memory is instant (fine on main); the disk read
+        // hops off-thread so scrolling image grids never blocks on file IO.
+        if let mem = memoryImage(for: urlString) { return mem }
+        if let disk = await diskImage(for: urlString) { return disk }
         guard let url = URL(string: urlString) else { return nil }
         // #16: limit concurrent network fetches so a grid appearing doesn't saturate things.
         await ImageFetchLimiter.shared.acquire()

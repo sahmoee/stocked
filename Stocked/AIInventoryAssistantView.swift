@@ -22,6 +22,11 @@ struct AIInventoryAssistantView: View {
     @State private var reviewPayload: ReviewPayload? = nil
     @State private var noChanges = false
     @FocusState private var focused: Bool
+    // #FB4 — AI Inventory Scan: one-tap whole-inventory tidy-up.
+    @State private var scanner = AIInventoryScanner()
+    private struct ScanPayload: Identifiable { let id = UUID(); let updates: [InventoryScanUpdate] }
+    @State private var scanPayload: ScanPayload? = nil
+    @State private var scanClean = false
 
     private var ink: Color { session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal }
     private var fieldBg: Color { session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.45) }
@@ -50,6 +55,7 @@ struct AIInventoryAssistantView: View {
                         }
                         examplesBlock
                         askButton
+                        scanSection   // #FB4 — whole-inventory AI scan
                         if !InventoryIntentParser.isAvailable {
                             Text("This needs an internet connection and the recipe service set up.")
                                 .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.45))
@@ -68,6 +74,68 @@ struct AIInventoryAssistantView: View {
                 onApply: { _ in close() }
             ).environment(session)
         }
+        .sheet(item: $scanPayload) { payload in
+            AIInventoryScanView(updates: payload.updates).environment(session)
+        }
+    }
+
+    // #FB4 — one-tap scan of the whole inventory: cleaned-up names, corrected storage
+    // locations, nutrition estimates, and expiry estimates, all reviewed before applying.
+    private var scanSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Or scan everything")
+                .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Button {
+                Task { await runScan() }
+            } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        Circle().fill(Color.stockedGold.opacity(0.14)).frame(width: 40, height: 40)
+                        if scanner.isScanning {
+                            ProgressView().scaleEffect(0.8).tint(Color.stockedGold)
+                        } else {
+                            Image(systemName: "wand.and.stars")
+                                .font(.system(size: 16)).foregroundStyle(Color.stockedGold)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(scanner.isScanning ? "Scanning your inventory…" : "AI Inventory Scan")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(session.themeTextColor)
+                        Text("Reviews every item and suggests cleaned-up names, the right storage spot, missing nutrition, and expiry estimates. You approve each change.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .padding(.top, 12)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(fieldBg))
+            }
+            .buttonStyle(.plain)
+            .disabled(scanner.isScanning || !AIInventoryScanner.isAvailable)
+
+            if let err = scanner.lastError {
+                Text(err).font(.system(size: 12.5)).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if scanClean {
+                Text("Your inventory already looks tidy — nothing to suggest.")
+                    .font(.system(size: 12.5)).foregroundStyle(session.themeTextColor.opacity(0.55))
+            }
+        }
+    }
+
+    private func runScan() async {
+        scanClean = false
+        focused = false
+        guard let updates = await scanner.scan(store: session.guestStore) else { return }
+        if updates.isEmpty { scanClean = true; return }
+        scanPayload = ScanPayload(updates: updates)
     }
 
     private var header: some View {

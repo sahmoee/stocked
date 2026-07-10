@@ -252,6 +252,39 @@ function buildPrompt(p) {
     };
   }
 
+  // #FB4 — AI Inventory Scan: audit the whole inventory and propose tidy-ups (names,
+  // storage location, nutrition estimates, expiry estimates). Only propose changes
+  // that genuinely improve the data; leave good entries alone.
+  if (p.inventoryScan === true && Array.isArray(p.inventory)) {
+    return {
+      system:
+        "You are a kitchen inventory auditor. You receive a JSON array of pantry items, each " +
+        "with: id, name, zone (Fridge|Freezer|Pantry|Staples), quantity, brand (may be empty), " +
+        "hasNutrition (bool), hasExpiry (bool). Propose improvements ONLY where clearly " +
+        "warranted:\n" +
+        "- newName: fix garbled receipt text, misspellings, ALL-CAPS, or cryptic abbreviations " +
+        "into a clean Title Case product name (keep the brand if present). Null if the name is " +
+        "already fine.\n" +
+        "- newZone: the correct storage location for the item as named (e.g. raw chicken does " +
+        "not belong in the Pantry). Null if the current zone is reasonable.\n" +
+        "- calories, protein, servingSize: a typical-serving nutrition estimate for the item, " +
+        "ONLY when hasNutrition is false. calories is an integer per serving, protein is grams " +
+        "per serving, servingSize is a short string like '1 cup' or '2 tbsp'. Null when " +
+        "hasNutrition is true or the item is too ambiguous to estimate.\n" +
+        "- expiryDays: a typical shelf-life estimate in days from today for perishables, ONLY " +
+        "when hasExpiry is false and the item genuinely perishes (produce, dairy, meat, " +
+        "leftovers). Null for shelf-stable goods or when hasExpiry is true.\n" +
+        "- reason: one short sentence explaining the change.\n" +
+        "Skip items that need nothing (do not emit an entry for them). Respond ONLY with a " +
+        "JSON object, no prose, no markdown fences: " +
+        '{"updates": [{"id": string, "newName": string|null, "newZone": ' +
+        '"Fridge"|"Freezer"|"Pantry"|"Staples"|null, "calories": number|null, ' +
+        '"protein": number|null, "servingSize": string|null, "expiryDays": number|null, ' +
+        '"reason": string}]}',
+      user: JSON.stringify(p.inventory),
+    };
+  }
+
   // Recipe generation from a description → structured recipe JSON (SAME shape as recipeText,
   // so the app parses it with the existing recipe parser). The user describes what they want and
   // may list ingredients they have and dietary/time constraints. Generate a complete, realistic

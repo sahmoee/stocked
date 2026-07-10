@@ -188,6 +188,7 @@ struct StarIngredientRecipesView: View {
         isLoading = true
         let terms = searchTerms
         let items = session.guestStore.inventoryItems
+        let seed = rollSeed
 
         var pool: [RecipeDatabaseEntry] = []
         var seen = Set<String>()
@@ -199,29 +200,32 @@ struct StarIngredientRecipesView: View {
             }
         }
 
-        // The selection should STAR the dish: keep recipes whose title or first few
-        // ingredients actually feature one of the search terms.
-        let lowered = terms.map { $0.lowercased() }
-        pool = pool.filter { e in
-            let title = e.title.lowercased()
-            if lowered.contains(where: { title.contains($0) }) { return true }
-            let leadIngredients = e.ingredients.prefix(4).joined(separator: " ").lowercased()
-            return lowered.contains(where: { leadIngredients.contains($0) })
-        }
+        // #PERF — filtering + pantry-coverage ranking runs off the main thread with the
+        // pantry's word sets computed ONCE, instead of re-parsing every inventory name
+        // for every ingredient of every recipe on the UI thread.
+        let filteredAndRanked = await Task.detached(priority: .userInitiated) { () -> [RankedRecipe] in
+            let lowered = terms.map { $0.lowercased() }
+            let starred = pool.filter { e in
+                let title = e.title.lowercased()
+                if lowered.contains(where: { title.contains($0) }) { return true }
+                let leadIngredients = e.ingredients.prefix(4).joined(separator: " ").lowercased()
+                return lowered.contains(where: { leadIngredients.contains($0) })
+            }
+            let pantryWords = IngredientStockMatch.pantryWordSets(items)
+            var generator = SeededGenerator(seed: UInt64(truncatingIfNeeded: seed &+ 7))
+            let shuffled = starred.shuffled(using: &generator)
+            let scored: [RankedRecipe] = shuffled.map { e in
+                RankedRecipe(entry: e,
+                             missing: IngredientStockMatch.missingCount(e.ingredients, pantryWords: pantryWords))
+            }
+            let sorted = scored.sorted {
+                if $0.missing != $1.missing { return $0.missing < $1.missing }
+                return ($0.entry.imageURL.isEmpty ? 1 : 0) < ($1.entry.imageURL.isEmpty ? 1 : 0)
+            }
+            return Array(sorted.prefix(12))
+        }.value
 
-        // Rank by pantry coverage (fewest missing first), then quality of the entry,
-        // shuffled within ties so Refresh produces different picks.
-        var generator = SeededGenerator(seed: UInt64(truncatingIfNeeded: rollSeed &+ 7))
-        let shuffled = pool.shuffled(using: &generator)
-        let scored: [RankedRecipe] = shuffled.map { e in
-            let miss = IngredientStockMatch.missing(e.ingredients, items: items).count
-            return RankedRecipe(entry: e, missing: miss)
-        }
-        let sorted = scored.sorted {
-            if $0.missing != $1.missing { return $0.missing < $1.missing }
-            return ($0.entry.imageURL.isEmpty ? 1 : 0) < ($1.entry.imageURL.isEmpty ? 1 : 0)
-        }
-        ranked = Array(sorted.prefix(12))
+        ranked = filteredAndRanked
         isLoading = false
     }
 }

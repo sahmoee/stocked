@@ -230,12 +230,19 @@ struct FoodIconView: View {
     }
 
     private func assetExists(_ n: String) -> Bool {
+        // #PERF — UIImage(named:) caches HITS but a MISS walks the asset catalog every
+        // call. Inventory rows call this for every item on every render, so items with
+        // no bundled icon paid a catalog lookup per row per frame. Memoize misses.
+        if Self.knownMissing.contains(n) { return false }
         #if canImport(UIKit)
-        return UIImage(named: n) != nil
+        let exists = UIImage(named: n) != nil
         #elseif canImport(AppKit)
-        return NSImage(named: n) != nil
+        let exists = NSImage(named: n) != nil
         #else
-        return false
+        let exists = false
         #endif
+        if !exists { Self.knownMissing.insert(n) }
+        return exists
     }
+    @MainActor private static var knownMissing = Set<String>()
 }

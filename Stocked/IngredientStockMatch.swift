@@ -101,4 +101,40 @@ enum IngredientStockMatch {
                         minLevel: Double = 0.05) -> [String] {
         ingredients.filter { !inStock($0, items: items, minLevel: minLevel) }
     }
+
+    // MARK: - Fast batch path (#PERF)
+    // Ranking dozens of recipes against the pantry re-parsed every inventory name
+    // for every ingredient of every recipe. Precompute the pantry's word sets once
+    // and reuse them for the whole batch; safe to call off the main thread.
+
+    /// Word sets for all sufficiently-stocked inventory items, computed once per batch.
+    static func pantryWordSets(_ items: [LocalInventoryItem],
+                               minLevel: Double = 0.05) -> [[String]] {
+        items.filter { $0.effectiveLevel > minLevel }.map { foodWords($0.name) }
+    }
+
+    /// Count of ingredients not covered by the precomputed pantry word sets.
+    static func missingCount(_ ingredients: [String], pantryWords: [[String]]) -> Int {
+        func wordHit(_ x: String, _ y: String) -> Bool {
+            if x == y { return true }
+            if x + "s" == y || y + "s" == x { return true }
+            if x + "es" == y || y + "es" == x { return true }
+            if x.hasSuffix("ies") && x.dropLast(3) + "y" == y { return true }
+            if y.hasSuffix("ies") && y.dropLast(3) + "y" == x { return true }
+            return false
+        }
+        var missing = 0
+        for ing in ingredients {
+            let a = foodWords(ing)
+            if a.isEmpty { continue }   // "to taste" etc. — don't count against the cook
+            var covered = false
+            outer: for b in pantryWords {
+                for wa in a {
+                    for wb in b where wordHit(wa, wb) { covered = true; break outer }
+                }
+            }
+            if !covered { missing += 1 }
+        }
+        return missing
+    }
 }

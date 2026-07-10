@@ -20,7 +20,7 @@ struct QuickPickListView: View {
             let words = ["one pot", "one-pot", "skillet", "sheet pan", "tray", "casserole",
                          "stew", "soup", "curry", "chili", "risotto", "paella", "bake"]
             return pool.filter { r in
-                let t = (r.title + " " + r.category + " " + r.instructions.prefix(300)).lowercased()
+                let t = (r.title + " " + r.category + " " + String(r.instructions.prefix(300))).lowercased()
                 return words.contains { t.contains($0) }
             }
         case "Feeling Lazy":
