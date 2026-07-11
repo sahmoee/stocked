@@ -26,6 +26,14 @@ struct DailyBriefOverlay: View {
     @State private var householdRows: [HouseholdActivity] = []
     @State private var fetchedHousehold = false
 
+    // Perf: the brief's derived lists (stale items, predicted restocks, unexplained
+    // waste) each scan the store; computed once when the brief opens instead of on
+    // every render of the overlay.
+    @State private var briefStale: [LocalInventoryItem] = []
+    @State private var briefPredicted: [String] = []
+    @State private var briefWaste: ConsumptionRecord? = nil
+    @State private var briefLoaded = false
+
     // Expiring / Low Stock detail presented from the brief itself, so "At a Glance"
     // numbers are tappable. sheet(item:) with an Identifiable payload (never
     // Bool+optional) per the app's sheet pattern.
@@ -59,7 +67,15 @@ struct DailyBriefOverlay: View {
                 .padding(.horizontal, 16)
                 .padding(.top, max(StockedScreen.safeTopInset + 24, 78))
         }
-        .task { await loadHouseholdActivity() }
+        .task {
+            if !briefLoaded {
+                briefLoaded = true
+                briefStale     = store.staleItems(limit: 3)
+                briefPredicted = store.predictedRunningLow(limit: 4)
+                briefWaste     = store.unexplainedWaste
+            }
+            await loadHouseholdActivity()
+        }
         .sheet(item: $detailSheet) { sheet in
             NavigationStack {
                 ExpiringItemsView(mode: sheet.mode).environment(session)
@@ -351,7 +367,7 @@ struct DailyBriefOverlay: View {
     @State private var checkedOff: Set<UUID> = []
 
     private var pantryCheck: some View {
-        let items = store.staleItems(limit: 3).filter { !checkedOff.contains($0.id) }
+        let items = briefStale.filter { !checkedOff.contains($0.id) }
         return Group {
             if !items.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
@@ -414,7 +430,7 @@ struct DailyBriefOverlay: View {
     @State private var addedRunningLow = false
 
     private var runningLow: some View {
-        let names = store.predictedRunningLow(limit: 4)
+        let names = briefPredicted
         return Group {
             if !names.isEmpty && !addedRunningLow {
                 VStack(alignment: .leading, spacing: 10) {
@@ -451,7 +467,7 @@ struct DailyBriefOverlay: View {
 
     private var wastePostMortem: some View {
         Group {
-            if let rec = store.unexplainedWaste, rec.id != answeredWasteID {
+            if let rec = briefWaste, rec.id != answeredWasteID {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Quick Question")
                         .font(.system(size: 14, weight: .bold, design: .serif))

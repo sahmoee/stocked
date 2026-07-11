@@ -38,12 +38,26 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.20 (build 40) — Cook button fix + app-wide speed pass ──
+        ChangelogVersion(
+            version: "4.20",
+            buildDate: "Build 40 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedGold,
+                               title: "Cook buttons truly resize now",
+                               detail: "The Cook Buttons setting finally controls the real Cook page: shape switches between circles, photo cards, and compact rows, and the size slider grows or shrinks them live — always centered."),
+                ChangelogEntry(icon: "hare.fill", color: Color.stockedGreen,
+                               title: "Faster everywhere",
+                               detail: "A speed pass across the app: the Cook page, inventory, grocery list, and Daily Brief now do their heavy thinking once instead of on every frame, and long lists load rows as you scroll. Scrolling and tab switches feel noticeably snappier."),
+            ]),
         // ── 4.19 (build 39) — Redesigned Settings page ──
         ChangelogVersion(
             version: "4.19",
             buildDate: "Build 39 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "gearshape.fill", color: Color.stockedGold,
                                title: "A brand-new Settings home",
@@ -3954,7 +3968,7 @@ struct AppVersionView: View {
                 Divider().padding(.horizontal, 24)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 0) {
+                    LazyVStack(alignment: .leading, spacing: 0) {   // perf: versions list grows every release
                         ForEach(StockedChangelog.versions) { ver in
                             versionSection(ver)
                         }

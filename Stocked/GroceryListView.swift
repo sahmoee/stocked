@@ -62,6 +62,9 @@ struct GroceryListView: View {
     @State private var householdMemberNames: [String] = []
     // #E2 — "Mine" filter: show only items assigned to me (or unassigned).
     @State private var showMineOnly = false
+    // Perf: the burn-rate prediction scans the consumption log; cached alongside the
+    // section cache instead of recomputing in the suggestions area every render.
+    @State private var cachedPredicted: [String] = []
 
     /// Names offered in the Assign menu: fetched roster, else just me.
     private var assignableMembers: [String] {
@@ -188,6 +191,11 @@ struct GroceryListView: View {
     }
 
     private func rebuildSections() {
+        // Perf: refresh the predicted-restock suggestions with the same cadence as the
+        // section cache (list changes, segment flips, search) — not per render.
+        cachedPredicted = store.predictedRunningLow(limit: 5).filter { name in
+            !GroceryDedup.isDuplicate(name, in: store.groceryItems.map { $0.name })
+        }
         // #244 — mockup grouping: store categories, ordered Produce → Pantry.
         // The To Buy / Bought segment (#235) still filters the pool first.
         var pool = store.groceryItems.filter { $0.isChecked == showBought }
@@ -454,9 +462,7 @@ struct GroceryListView: View {
 
                         // #A4 — predicted restocks: staples due based on YOUR burn rate
                         // (learned from the consumption log), not just current levels.
-                        let predicted = store.predictedRunningLow(limit: 5).filter { name in
-                            !GroceryDedup.isDuplicate(name, in: store.groceryItems.map { $0.name })
-                        }
+                        let predicted = cachedPredicted
                         if !predicted.isEmpty {
                             sectionLabel("🔮 Probably Running Low — Tap to Add")
                             ForEach(predicted, id: \.self) { name in

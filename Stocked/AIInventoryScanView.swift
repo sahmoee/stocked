@@ -43,7 +43,7 @@ struct AIInventoryScanView: View {
                     .padding(.horizontal, 20).padding(.bottom, 12)
 
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 10) {
+                        LazyVStack(spacing: 10) {   // perf: scan proposals are unbounded
                             ForEach($updates) { $update in
                                 updateCard($update)
                             }

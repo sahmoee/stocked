@@ -39,6 +39,7 @@ struct CookHeroCard: View {
     var assetName: String? = nil
     var tint: Color = Color.stockedCharcoal
     var textOnDark: Bool = true
+    var height: CGFloat = 150   // Cook Buttons size setting scales this from the call site
     let action: () -> Void
 
     var body: some View {
@@ -81,7 +82,7 @@ struct CookHeroCard: View {
             }
             .padding(CookStyle.cardPadding)
         }
-        .frame(height: 150)
+        .frame(height: height)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {

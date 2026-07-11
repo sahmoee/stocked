@@ -1361,7 +1361,7 @@ struct ReceiptArchiveSheet: View {
                     }
                 } else {
                     ScrollView(showsIndicators: false) {
-                        VStack(spacing: 10) {
+                        LazyVStack(spacing: 10) {   // perf: long receipts can be 50+ rows
                             ForEach(entries) { entry in
                                 HStack(spacing: 14) {
                                     ZStack {

@@ -30,7 +30,21 @@ struct CookHubView: View {
     private var dark: Bool { session.isDarkMode }
 
     @AppStorage(CookHubStyle.storageKey) private var hubStyleRaw = CookHubStyle.circles.rawValue
-    private var hubStyle: CookHubStyle { CookHubStyle(rawValue: hubStyleRaw) ?? .circles }
+    // The Cook Buttons setting (Settings > Preferences) is the single source of truth:
+    // shape picks the representation, size scales it — both live. (The old stored style
+    // had no picker anywhere, so the setting takes over cleanly; @AppStorage retained
+    // only so existing installs don't lose the key.)
+    private var hubStyle: CookHubStyle {
+        switch session.cookButtonShape {
+        case .circle:      return .circles
+        case .pill:        return .rows
+        case .roundedRect: return .cards
+        }
+    }
+    /// 280pt is the slider's baseline (matches the hub's design size).
+    private var sizeScale: CGFloat {
+        min(400, max(150, CGFloat(session.cookButtonSize))) / 280.0
+    }
 
     @State private var goCookNow = false
     @State private var goCookLater = false
@@ -66,6 +80,9 @@ struct CookHubView: View {
                 }
                 .padding(.horizontal, CookStyle.screenHPad)
                 .frame(maxWidth: .infinity)
+                // Live, centered, in-place: the Settings sliders animate these directly.
+                .animation(.spring(response: 0.28, dampingFraction: 0.85), value: session.cookButtonSize)
+                .animation(.spring(response: 0.28, dampingFraction: 0.85), value: session.cookButtonShape)
 
                 Spacer(minLength: 12)
             }
@@ -81,11 +98,16 @@ struct CookHubView: View {
     // so both options always fit without scrolling.
     private var circleOptions: some View {
         ViewThatFits(in: .vertical) {
-            circleStack(diameter: 176, spacing: 26, showSubtitles: true)
-            circleStack(diameter: 148, spacing: 18, showSubtitles: true)
-            circleStack(diameter: 128, spacing: 14, showSubtitles: false)
+            circleStack(diameter: scaledDiameter(176), spacing: 26, showSubtitles: true)
+            circleStack(diameter: scaledDiameter(148), spacing: 18, showSubtitles: true)
+            circleStack(diameter: scaledDiameter(128), spacing: 14, showSubtitles: false)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Cook Buttons size applied per tier; clamped so ViewThatFits can always land a fit.
+    private func scaledDiameter(_ base: CGFloat) -> CGFloat {
+        min(230, max(100, base * sizeScale))
     }
 
     private func circleStack(diameter: CGFloat, spacing: CGFloat, showSubtitles: Bool) -> some View {
@@ -145,7 +167,8 @@ struct CookHubView: View {
                 emoji: "🍳",
                 assetName: "cook_now_hero",
                 tint: Color.stockedCharcoal,
-                textOnDark: true
+                textOnDark: true,
+                height: min(210, max(110, 150 * sizeScale))   // Cook Buttons size, live
             ) { goCookNow = true }
             .coachmarkAnchor("cook.now")
 
@@ -155,7 +178,8 @@ struct CookHubView: View {
                 icon: "calendar",
                 assetName: "cook_later_hero",
                 tint: Color.stockedGold,
-                textOnDark: true
+                textOnDark: true,
+                height: min(210, max(110, 150 * sizeScale))   // Cook Buttons size, live
             ) { goCookLater = true }
             .coachmarkAnchor("cook.later")
         }
@@ -178,8 +202,9 @@ struct CookHubView: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 ZStack {
-                    Circle().fill(Color.white.opacity(0.16)).frame(width: 46, height: 46)
-                    Text(emoji).font(.system(size: 22))
+                    Circle().fill(Color.white.opacity(0.16))
+                        .frame(width: min(60, max(36, 46 * sizeScale)), height: min(60, max(36, 46 * sizeScale)))
+                    Text(emoji).font(.system(size: min(28, max(17, 22 * sizeScale))))
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
@@ -195,7 +220,7 @@ struct CookHubView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(Color.stockedWhite.opacity(0.8))
             }
-            .padding(18)
+            .padding(min(26, max(12, 18 * sizeScale)))   // Cook Buttons size, live
             .frame(maxWidth: .infinity)
             .background(tint)
             .clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
@@ -221,14 +246,21 @@ struct CookNowHomeView: View {
     @State private var goMood = false
     @State private var goSurprise = false
 
-    // Inventory-aware insight: the recipe that best uses expiring items, if any.
-    private var wasteNothing: (recipe: UserRecipe, used: [String])? {
+    // Perf: these two scans score every recipe against the whole inventory — far too
+    // heavy to recompute on every render. Computed once on appear and again only when
+    // the inventory actually changes, into plain @State the body reads for free.
+    @State private var wasteNothing: (recipe: UserRecipe, used: [String])? = nil
+    @State private var readyCount = 0
+
+    private func recomputeInsights() {
         if let top = store.cookableRankedByExpiry().first(where: { !$0.expiringUsed.isEmpty }) {
-            return (top.recipe, top.expiringUsed)
+            wasteNothing = (top.recipe, top.expiringUsed)
+        } else {
+            wasteNothing = nil
         }
-        return nil
+        readyCount = computedReadyCount
     }
-    private var readyCount: Int {
+    private var computedReadyCount: Int {
         store.cookCatalog.filter { r in
             let m = store.stockMatch(for: r)
             return m.total > 0 && m.have == m.total
@@ -237,6 +269,11 @@ struct CookNowHomeView: View {
 
     var body: some View {
         StockedShell(showBack: true, titleText: "Cook Now") {
+            // Perf hook: recompute the heavy insights off the render path.
+            Color.clear.frame(height: 0)
+                .task { recomputeInsights() }
+                .onChange(of: store.inventoryItems) { _, _ in recomputeInsights() }
+                .onChange(of: store.userRecipes)    { _, _ in recomputeInsights() }
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("How do you want to find dinner?")

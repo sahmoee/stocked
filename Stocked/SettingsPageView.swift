@@ -205,7 +205,7 @@ struct SettingsPageView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Cook Buttons", systemImage: "circle.grid.2x1.fill")
                 .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-            Text("Applies to Cook Now, Cook Later, and the Cook hub buttons — updates live")
+            Text("Shape picks the Cook page look (Circle, Pill rows, Rounded photo cards); size scales it — updates live")
                 .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
             HStack(spacing: 6) {
                 ForEach(CookButtonShape.allCases, id: \.self) { shape in

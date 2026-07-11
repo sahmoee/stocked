@@ -256,6 +256,7 @@ class GuestDataStore {
     var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
     var plannedMeals: [PlannedMeal] = [] {
         didSet {
+            invalidateReservedKeys()   // perf: reserved-ingredient cache follows the planner
             if isStamping { return }
             if !isApplyingHouseholdRemote {
                 isStamping = true
@@ -907,7 +908,13 @@ class GuestDataStore {
 
     /// Merge keys of ingredients committed to uncooked planned meals, so surfaces can
     /// show "planned" on items that look free but are spoken for.
+    /// Merge keys of ingredients committed to uncooked planned meals. CACHED: the set is
+    /// rebuilt lazily after any plannedMeals change instead of per call — inventory rows
+    /// ask about it once per row per render, which made the computed version O(rows ×
+    /// meals × ingredients) every frame.
+    private var reservedKeysCache: Set<String>? = nil
     var reservedIngredientKeys: Set<String> {
+        if let cached = reservedKeysCache { return cached }
         var keys = Set<String>()
         for meal in plannedMeals where !meal.isCooked {
             for ing in meal.ingredients {
@@ -915,8 +922,11 @@ class GuestDataStore {
                 if !k.isEmpty { keys.insert(k) }
             }
         }
+        reservedKeysCache = keys
         return keys
     }
+    /// Call whenever plannedMeals changes (didSet) so the next read rebuilds.
+    func invalidateReservedKeys() { reservedKeysCache = nil }
 
     /// Whether this inventory item is an ingredient of an upcoming planned meal.
     func isReservedForMeal(_ item: LocalInventoryItem) -> Bool {
