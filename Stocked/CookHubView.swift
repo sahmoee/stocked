@@ -223,7 +223,9 @@ struct CookHubView: View {
             .padding(min(26, max(12, 18 * sizeScale)))   // Cook Buttons size, live
             .frame(maxWidth: .infinity)
             .background(tint)
-            .clipShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+            // Pill means PILL: fully-rounded capsule ends, visually distinct from the
+            // rounded-rectangle photo cards.
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
     }

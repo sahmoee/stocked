@@ -38,12 +38,32 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.22 (build 42) — Assistant diagnostics, grocery names, deep lag fixes ──
+        ChangelogVersion(
+            version: "4.22",
+            buildDate: "Build 42 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "text.alignleft", color: Color.stockedGold,
+                               title: "Grocery names finally read right",
+                               detail: "Item names lead with the actual food — quantities and sizes baked into old names get split out automatically — and long names now truly glide across one line instead of cutting off."),
+                ChangelogEntry(icon: "hare.fill", color: Color.stockedGreen,
+                               title: "The big freeze hunt",
+                               detail: "Fixed the stutter when opening the side menu (a photo was being re-decoded every frame) and the freezes on the Recipes tab (duplicate detection and pantry-ranking were re-running on every screen refresh). Both now compute once and stay cached."),
+                ChangelogEntry(icon: "capsule", color: Color.stockedGold,
+                               title: "Pill actually looks like a pill",
+                               detail: "The Pill cook-button shape now uses fully rounded capsule rows, clearly distinct from the rounded photo cards."),
+                ChangelogEntry(icon: "stethoscope", color: Color.stockedGreen,
+                               title: "The kitchen assistant tells you what is wrong",
+                               detail: "Assistant errors now report the exact server-side cause, and the server has a health check that shows whether its keys are configured."),
+            ]),
         // ── 4.21 (build 41) — Build fix, worker health, smart grocery quantities ──
         ChangelogVersion(
             version: "4.21",
             buildDate: "Build 41 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "cart.badge.plus", color: Color.stockedGold,
                                title: "Grocery quantities add themselves up",

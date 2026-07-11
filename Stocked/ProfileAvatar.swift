@@ -14,9 +14,19 @@ struct ProfileAvatarView: View {
     var size: CGFloat = 46
     @Environment(AppSession.self) private var session
 
+    // Perf: UIImage(data:) is a full JPEG decode. As a computed var it ran on EVERY
+    // render — during the drawer's spring animation that's a decode per frame, which
+    // was the visible open/close stutter. The decode is now cached and keyed by the
+    // data's identity; changing the photo invalidates naturally via the key.
+    private static let decodeCache = NSCache<NSNumber, UIImage>()
+
     private var photo: UIImage? {
         guard let data = session.guestStore.cookingProfile.avatarPhotoData else { return nil }
-        return UIImage(data: data)
+        let key = NSNumber(value: data.hashValue)
+        if let hit = Self.decodeCache.object(forKey: key) { return hit }
+        guard let img = UIImage(data: data) else { return nil }
+        Self.decodeCache.setObject(img, forKey: key)
+        return img
     }
 
     var body: some View {

@@ -629,7 +629,12 @@ class GuestDataStore {
     /// #4 — canonical set of lowercased names currently in stock (level > 0). One place
     /// for "do I already have this?" so callers don't rebuild it inconsistently.
     var inStockNameSet: Set<String> {
-        Set(inventoryItems.filter { $0.level > 0 }.map { $0.name.lowercased() })
+        // Memoized: rebuilt only after the inventory changes (see invalidateStockMatches).
+        // The Discover rails and recipe badges read this repeatedly per render.
+        if let hit = inStockNamesCache { return hit }
+        let set = Set(inventoryItems.filter { $0.level > 0 }.map { $0.name.lowercased() })
+        inStockNamesCache = set
+        return set
     }
 
     /// #5 — push a recipe's ingredients to the grocery list: skip anything already in
@@ -653,8 +658,20 @@ class GuestDataStore {
                 guard !n.isEmpty else { continue }
                 let low = n.lowercased()
                 if inStock.contains(where: { low.contains($0) || $0.contains(low) }) { continue }
-                let contribution = Self.groceryContribution(for: ing, scale: scale)
-                let key = GroceryConsolidator.normalizeKey(n)
+                var contribution = Self.groceryContribution(for: ing, scale: scale)
+                // Amounts baked into the ingredient NAME ("6 corn tortillas", "14 oz jar
+                // Enchilada sauce") split apart here so the stored name is clean and the
+                // count/size land in their proper fields.
+                var cleanName = n
+                let parsed = GroceryNameParser.parse(n)
+                if parsed.name != n {
+                    cleanName = parsed.name
+                    if let c = parsed.count, contribution.count <= Int(scale.rounded(.up)) {
+                        contribution.count = max(1, Int((Double(c) * scale).rounded(.up)))
+                    }
+                    if contribution.sizeText.isEmpty { contribution.sizeText = parsed.sizeText }
+                }
+                let key = GroceryConsolidator.normalizeKey(cleanName)
                 if let idx = groceryItems.firstIndex(where: { GroceryConsolidator.normalizeKey($0.name) == key }) {
                     groceryItems[idx].quantity += contribution.count
                     if groceryItems[idx].sizeText.isEmpty, !contribution.sizeText.isEmpty {
@@ -665,7 +682,7 @@ class GuestDataStore {
                     }
                     if groceryItems[idx].recipeId.isEmpty { groceryItems[idx].recipeId = rid }   // #9
                 } else {
-                    var item = LocalGroceryItem(name: n, isChecked: false, recipeSource: recipe, recipeId: rid)
+                    var item = LocalGroceryItem(name: cleanName, isChecked: false, recipeSource: recipe, recipeId: rid)
                     item.quantity = contribution.count
                     item.sizeText = contribution.sizeText
                     groceryItems.append(item)
@@ -1282,7 +1299,11 @@ class GuestDataStore {
     /// was the app's single biggest scroll/freeze cost. The cache clears whenever the
     /// inventory or the recipes change.
     private var stockMatchCache: [UUID: (have: Int, total: Int)] = [:]
-    func invalidateStockMatches() { stockMatchCache.removeAll(keepingCapacity: true) }
+    private var inStockNamesCache: Set<String>? = nil
+    func invalidateStockMatches() {
+        stockMatchCache.removeAll(keepingCapacity: true)
+        inStockNamesCache = nil
+    }
 
     func stockMatch(for recipe: UserRecipe) -> (have: Int, total: Int) {
         if let hit = stockMatchCache[recipe.id] { return hit }

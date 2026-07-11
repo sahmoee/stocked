@@ -211,8 +211,14 @@ final class InventoryIntentParser {
             let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
             guard status == 200 else {
                 if !localChanges.isEmpty { return localChanges }
-                // Distinguish server-side problems from bad phrasing so a stale worker
-                // deploy or key mismatch doesn't masquerade as a user error.
+                // Prefer the Worker's own error text (it now says exactly what's wrong —
+                // missing secret, upstream failure with status, etc.), else map the code.
+                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let serverError = obj["error"] as? String, !serverError.isEmpty {
+                    let upstream = obj["upstreamStatus"] as? Int
+                    lastError = upstream != nil ? "\(serverError) (upstream \(upstream!))" : serverError
+                    return nil
+                }
                 switch status {
                 case 401:      lastError = "The kitchen assistant rejected the app key — check the Worker's shared key."
                 case 422:      lastError = "The kitchen assistant server is out of date — redeploy the Worker."

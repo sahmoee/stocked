@@ -768,11 +768,15 @@ struct GroceryListView: View {
                 // Item name + source badge
                 VStack(alignment: .leading, spacing: 4) {
                     // One line, never wrapped: long names glide to reveal the tail.
-                    // Measured items show their size, e.g. "Enchilada sauce (14 oz)".
+                    // Legacy rows with amounts baked into the name ("6 corn tortillas",
+                    // "14 oz jar Enchilada sauce") are parsed apart at display time so
+                    // the NAME leads and the size trails in parentheses.
+                    let parsed = GroceryNameParser.parse(item.name)
+                    let size = item.sizeText.isEmpty ? parsed.sizeText : item.sizeText
                     MarqueeText(
-                        text: item.sizeText.isEmpty
-                            ? item.name.displayNormalized
-                            : "\(item.name.displayNormalized) (\(item.sizeText))",
+                        text: size.isEmpty
+                            ? parsed.name.displayNormalized
+                            : "\(parsed.name.displayNormalized) (\(size))",
                         font: .system(size: 15),
                         color: item.isChecked ? sub : text,
                         strikethrough: item.isChecked
@@ -834,10 +838,10 @@ struct GroceryListView: View {
                 Button { openInStore(item.name) } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "cart.fill").font(.system(size: 10))
-                        Text("Find").font(.system(size: 10, weight: .semibold))
+                        // Icon-only (was icon + "Find") — reclaims width for the item name.
                     }
                     .foregroundStyle(Color.stockedGold)
-                    .padding(.horizontal, 8).padding(.vertical, 9)
+                    .padding(.horizontal, 9).padding(.vertical, 9)
                     .background(Color.stockedGold.opacity(0.12))
                     .clipShape(Capsule())
                 }.buttonStyle(.plain)

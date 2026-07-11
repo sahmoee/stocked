@@ -31,7 +31,7 @@
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const WORKER_VERSION = "2026-07-11.1"; // bump on every route/prompt change
+const WORKER_VERSION = "2026-07-11.2"; // bump on every route/prompt change
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1500;
 
@@ -69,7 +69,15 @@ export default {
     {
       const u = new URL(request.url);
       if (u.pathname === "/health") {
-        return json({ ok: true, version: WORKER_VERSION }, 200);
+        return json({
+          ok: true,
+          version: WORKER_VERSION,
+          // Booleans only — never the values. Lets a browser check instantly whether the
+          // secrets were actually set on THIS worker (they do not carry over when a
+          // worker is created fresh; run: wrangler secret put ANTHROPIC_API_KEY).
+          hasAnthropicKey: !!env.ANTHROPIC_API_KEY,
+          hasSharedKey: !!env.STOCKED_SHARED_KEY,
+        }, 200);
       }
     }
 
@@ -140,7 +148,8 @@ export default {
     }
 
     if (!env.ANTHROPIC_API_KEY) {
-      return json({ error: "Server misconfigured" }, 500);
+      // Explicit so the client can tell the user the real problem.
+      return json({ error: "Worker is missing the ANTHROPIC_API_KEY secret. Run: wrangler secret put ANTHROPIC_API_KEY" }, 500);
     }
 
     // ── Call Anthropic ──
@@ -165,13 +174,24 @@ export default {
       return json({ error: "Upstream request failed" }, 502);
     }
 
-    // Pass Anthropic's response through unchanged (status + body) so the app keeps
-    // reading content[0].text exactly as before.
+    // Success passes through unchanged so the app keeps reading content[0].text.
+    // Upstream FAILURES are wrapped with a distinct status (502) and the upstream
+    // status inside the body — otherwise an Anthropic 401 (bad API key) would reach
+    // the app as a 401 and masquerade as an X-Stocked-Key mismatch.
     const text = await upstream.text();
-    return new Response(text, {
-      status: upstream.status,
-      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-    });
+    if (upstream.ok) {
+      return new Response(text, {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+    let detail = "";
+    try { detail = (JSON.parse(text).error || {}).message || ""; } catch {}
+    return json({
+      error: "Assistant upstream error",
+      upstreamStatus: upstream.status,
+      detail: detail.slice(0, 200),
+    }, 502);
   },
 };
 

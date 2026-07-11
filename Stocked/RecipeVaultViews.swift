@@ -1049,6 +1049,27 @@ private struct RecipeMyCollectionView: View {
     @State private var showPastMeals  = true    // collapsible past meals section
     @State private var cookableSort   = false   // #2 — rank by what's in stock right now
 
+    // Perf snapshot: the cookable sort and the O(n squared) duplicate scan were running
+    // in body on EVERY render — the My Collection freeze with large vaults. Both are now
+    // computed once per data change into plain state the body reads for free.
+    @State private var displayRecipes: [UserRecipe] = []
+    @State private var dupPairs: [(UserRecipe, UserRecipe)] = []
+
+    private func rebuildCollectionSnapshot() {
+        let store = session.guestStore
+        let raw = store.userRecipes
+        displayRecipes = cookableSort
+            ? raw.sorted { a, b in
+                let ma = store.stockMatch(for: a), mb = store.stockMatch(for: b)
+                let ra = ma.total == 0 ? 0 : Double(ma.have) / Double(ma.total)
+                let rb = mb.total == 0 ? 0 : Double(mb.have) / Double(mb.total)
+                if ra != rb { return ra > rb }
+                return store.profileBoost(for: a) > store.profileBoost(for: b)
+            }
+            : raw
+        dupPairs = duplicatePairs(displayRecipes)
+    }
+
     // Fuzzy duplicate: same normalised title (lowercase, drop punctuation)
     private func duplicatePairs(_ recipes: [UserRecipe]) -> [(UserRecipe, UserRecipe)] {
         var pairs: [(UserRecipe, UserRecipe)] = []
@@ -1065,25 +1086,20 @@ private struct RecipeMyCollectionView: View {
     }
 
     var body: some View {
-        let store = session.guestStore
-        let raw = store.userRecipes
-        // #2 cook-what-you-have: rank by % of ingredients in stock; #1 profile boost breaks ties.
-        let recipes: [UserRecipe] = cookableSort
-            ? raw.sorted { a, b in
-                let ma = store.stockMatch(for: a), mb = store.stockMatch(for: b)
-                let ra = ma.total == 0 ? 0 : Double(ma.have) / Double(ma.total)
-                let rb = mb.total == 0 ? 0 : Double(mb.have) / Double(mb.total)
-                if ra != rb { return ra > rb }
-                return store.profileBoost(for: a) > store.profileBoost(for: b)
-            }
-            : raw
+        let recipes = displayRecipes
         VStack(alignment: .leading, spacing: 0) {
+            // Perf hook: rebuild the sorted list + duplicate pairs off the render path.
+            Color.clear.frame(height: 0)
+                .task { rebuildCollectionSnapshot() }
+                .onChange(of: session.guestStore.userRecipes)     { _, _ in rebuildCollectionSnapshot() }
+                .onChange(of: session.guestStore.inventoryItems)  { _, _ in rebuildCollectionSnapshot() }
+                .onChange(of: cookableSort)                       { _, _ in rebuildCollectionSnapshot() }
             HStack {
                 Text("Recipes you've saved or created")
                     .font(.system(size: 14, weight: .bold)).foregroundStyle(session.themeTextColor)
                 Spacer()
                 // Duplicate merge badge
-                let dups = duplicatePairs(recipes)
+                let dups = dupPairs
                 if !dups.isEmpty {
                     Button {
                         if let pair = dups.first {
