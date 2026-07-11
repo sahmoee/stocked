@@ -181,7 +181,7 @@ nonisolated struct NutritionFacts: Codable, Equatable, Sendable {
 }
 
 // MARK: - Recipe Ingredient
-struct RecipeIngredient: Identifiable, Codable, Sendable, Equatable {
+nonisolated struct RecipeIngredient: Identifiable, Codable, Sendable, Equatable {
     var id         = UUID()
     var name:      String
     var amount:    String
