@@ -4,21 +4,53 @@ import Combine
 import PhotosUI
 import AVFoundation
 
-// #6 — Read-aloud helper. Speaks a cooking step; tapping again stops.
+// #6/#C5 — Read-aloud helper. Speaks a cooking step; tapping again stops. Upgraded to
+// @Observable so step rows can highlight the speaker icon while their step is being
+// read. Keeps the original toggle(_ text:) API for existing callers (cooking flow,
+// full-screen cook) and adds an id-based variant used by TimedStepRow so per-step
+// icons know which step is active.
+@Observable
+@MainActor
 final class SpeechReader {
     static let shared = SpeechReader()
     private let synth = AVSpeechSynthesizer()
-    func toggle(_ text: String) {
-        if synth.isSpeaking {
-            synth.stopSpeaking(at: .immediate)
+    /// Which step is currently being spoken (nil = silent). Views observe this
+    /// to swap the speaker icon. For legacy id-less calls this is the text itself.
+    private(set) var speakingID: String? = nil
+
+    private init() {}
+
+    /// Legacy API — toggle speech for a step, keyed by its text.
+    func toggle(_ text: String) { toggle(id: text, text: text) }
+
+    /// Id-keyed toggle: tapping the speaking step stops it; tapping a different
+    /// step switches to it.
+    func toggle(id: String, text: String) {
+        if speakingID == id, synth.isSpeaking {
+            stop()
             return
         }
+        if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
         let u = AVSpeechUtterance(string: text)
         u.rate = 0.48
         u.voice = AVSpeechSynthesisVoice(language: "en-US")
         synth.speak(u)
+        speakingID = id
+        // Reset the highlight after the utterance would have finished (approximate;
+        // a delegate needs an NSObject subclass — the icon also resets on any toggle).
+        let estimate = Double(text.count) * 0.065 + 1.0
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(estimate * 1_000_000_000))
+            if self?.speakingID == id, self?.synth.isSpeaking == false {
+                self?.speakingID = nil
+            }
+        }
     }
-    func stop() { if synth.isSpeaking { synth.stopSpeaking(at: .immediate) } }
+
+    func stop() {
+        if synth.isSpeaking { synth.stopSpeaking(at: .immediate) }
+        speakingID = nil
+    }
     var isSpeaking: Bool { synth.isSpeaking }
 }
 
