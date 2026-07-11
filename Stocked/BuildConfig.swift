@@ -37,8 +37,8 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 47
-    private static let fallbackVersion     = "4.21"
+    private static let fallbackBuildNumber = 34
+    private static let fallbackVersion     = "4.14"
 
     static let changeCount   = 1
     static let buildName     = "Build 298 — Wires the API Ninjas v3 recipe endpoint in as a general recipe source seeded by cuisine and pantry, adds the APINinjasKey Info.plist mapping so the key is read from Secrets.xcconfig, and the source appears once configured."
@@ -104,9 +104,6 @@ nonisolated enum BuildConfig {
     /// API Ninjas Cocktail API (free tier, 10k/month). Add APINinjasKey to Info.plist via
     /// Secrets.xcconfig to enable; absent -> the source simply no-ops.
     static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "vW0az1EDsqyUDn6Uwk9aoHq075u6BK7YkKnsnWOx" }
-    /// Suggestic recipe API token. Add SuggesticAPIToken to Info.plist via Secrets.xcconfig
-    /// to enable; absent -> the source simply no-ops.
-    static var suggesticToken: String { bundleString("SuggesticAPIToken") ?? "" }
     static var networkTimeout: Double {
         Double(bundleString("NetworkTimeout") ?? "8") ?? 8
     }
@@ -135,6 +132,5 @@ nonisolated enum BuildConfig {
     private static func bundleBool(_ key: String, default def: Bool) -> Bool {
         guard let val = bundleString(key) else { return def }
         return val == "1" || val.lowercased() == "true"
-
     }
 }

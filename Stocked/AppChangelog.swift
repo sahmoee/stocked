@@ -38,117 +38,16 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
-        // ── 4.21 (build 47) — Dark mode consistency ──
+        // ── 4.14 (build 34) — Tap target fix on cards ──
         ChangelogVersion(
-            version: "4.21",
-            buildDate: "Build 47 · July 10, 2026",
+            version: "4.14",
+            buildDate: "Build 34 · July 11, 2026",
             headline: "What's new in Stocked",
             isLatest: true,
             entries: [
-                ChangelogEntry(icon: "moon.stars", color: Color.stockedGold,
-                               title: "Consistent dark mode",
-                               detail: "Grocery List category cards and meal planner day cards now use the same dark surface as the rest of the app, instead of a washed-out grey overlay in dark mode."),
-            ]),
-        // ── 4.20 (build 46) — Build fix ──
-        ChangelogVersion(
-            version: "4.20",
-            buildDate: "Build 46 · July 10, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
-                               title: "Stability fix",
-                               detail: "Ensures the Kitchen Health breakdown loads reliably in the Kitchen Report."),
-            ]),
-        // ── 4.19 (build 45) — Build fix ──
-        ChangelogVersion(
-            version: "4.19",
-            buildDate: "Build 45 · July 10, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
-                               title: "Stability fix",
-                               detail: "Resolves an internal naming conflict so the new natural-language amount entry and Kitchen Report work reliably."),
-            ]),
-        // ── 4.18 (build 44) — Do-all batch: smarter adding, budget, presence, big cook buttons ──
-        ChangelogVersion(
-            version: "4.18",
-            buildDate: "Build 44 · July 10, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "wand.and.stars", color: Color.stockedGold,
-                               title: "Type amounts the way you'd say them",
-                               detail: "Adding items and confirming barcode scans now take natural amounts — try 6 cans of 8 oz or half a bag of chips — and Stocked fills in quantity, packaging, and size for you. It also learns your usual amounts and pre-fills them."),
-                ChangelogEntry(icon: "barcode.viewfinder", color: Color.stockedGold,
-                               title: "Scan it again to use one",
-                               detail: "Scanning something already in your pantry offers a one-tap mark 1 used, so keeping counts accurate is as easy as scanning the can before you open it."),
-                ChangelogEntry(icon: "circle.grid.2x1.fill", color: Color.stockedGold,
-                               title: "Bigger, shapeable Cook buttons",
-                               detail: "The Cook Now buttons are bigger by default, and a new Cook Buttons setting lets you resize them and pick their shape — circle, pill, or rounded square."),
-                ChangelogEntry(icon: "dollarsign.circle", color: Color.stockedGreen,
-                               title: "What meals actually cost you",
-                               detail: "Recipes now show an estimated cost built from prices on YOUR receipts, and the Kitchen Report adds weekly spending plus a weekly nutrition rollup from the meals you cooked."),
-                ChangelogEntry(icon: "person.3.fill", color: Color.stockedInfo,
-                               title: "Household, more alive",
-                               detail: "See when household members were last active, and if someone removes an item you can undo it right from the notice. Recipe discovery adds Vegetarian, Vegan, and Gluten-Free filters, and there's an optional community database that makes item suggestions smarter for everyone."),
-            ]),
-        // ── 4.17 (build 43) — One backend worker ──
-        ChangelogVersion(
-            version: "4.17",
-            buildDate: "Build 43 · July 10, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "bolt.horizontal.circle", color: Color.stockedGold,
-                               title: "Faster, simpler behind the scenes",
-                               detail: "Stocked's shared services now run through a single backend, which makes smart suggestions and community features quicker and more reliable. Nothing changes in how you use the app."),
-            ]),
-        // ── 4.16 (build 42) — Staples-anchored composite Kitchen Health ──
-        ChangelogVersion(
-            version: "4.16",
-            buildDate: "Build 42 · July 10, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "gauge.with.needle", color: Color.stockedGreen,
-                               title: "A Kitchen Health score that means something",
-                               detail: "Once you've picked your must-have staples, the health percentage is anchored to them — how many of YOUR essentials are in stock — blended with par levels, freshness, and how many meals you can cook right now. A new Health Breakdown in the Kitchen Report shows exactly what's behind the number."),
-                ChangelogEntry(icon: "list.bullet.clipboard", color: Color.stockedGold,
-                               title: "Setup asks what stocked means to you",
-                               detail: "The welcome quiz now has a step for your stock baseline: start with common staples (recommended) or track average fill. Either way, you can change it later by tapping the Kitchen Health ring."),
-            ]),
-        // ── 4.15 (build 41) — Kitchen Goals restored + one-tap full erase ──
-        ChangelogVersion(
-            version: "4.15",
-            buildDate: "Build 41 · July 10, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "checklist", color: Color.stockedGreen,
-                               title: "Your stock level, your rules",
-                               detail: "Tap the Kitchen Health ring in the Kitchen Report to answer 'what does stocked mean to you?' — pick the staples you like to keep on hand, and the percentage becomes how many of YOUR staples are actually in stock, instead of an average fill level. The ring now also says which measure it's using."),
-                ChangelogEntry(icon: "trash", color: Color.stockedGold,
-                               title: "One clean erase",
-                               detail: "Clear All App Data and Delete iCloud Data are now one action: Erase All Data removes everything from this device AND every Stocked backup in iCloud, all at once."),
-                ChangelogEntry(icon: "sparkles", color: Color.stockedGold,
-                               title: "Fresh start after erasing",
-                               detail: "After erasing all data, Stocked walks you through setup again from the beginning — whether you come back as a guest or with Sign in with Apple."),
-            ]),
-        // ── 4.14 (build 40) — Live cooking timers + recipe text size ──
-        ChangelogVersion(
-            version: "4.14",
-            buildDate: "Build 40 · July 9, 2026",
-            headline: "What's new in Stocked",
-            isLatest: false,
-            entries: [
-                ChangelogEntry(icon: "timer", color: Color.stockedGold,
-                               title: "Tap-to-start timers on every recipe",
-                               detail: "Recipe pages now show instructions as numbered steps, and any step that mentions a time — like simmer for 10 minutes — gets a tap-to-start timer. It counts down on your Lock Screen and Dynamic Island and sends an alert when time is up, even if you leave the recipe."),
-                ChangelogEntry(icon: "textformat.size", color: Color.stockedGold,
-                               title: "Choose your recipe text size",
-                               detail: "A new Recipe Text Size setting in Preferences makes recipe titles, ingredients, and steps bigger or smaller everywhere — great for reading at a glance while your hands are busy cooking."),
+                ChangelogEntry(icon: "hand.tap", color: Color.stockedGold,
+                               title: "Cards tap where you tap",
+                               detail: "Fixed the photo cards on the Cook screens, like Build Around Food, where tapping the bottom of a card could open the next one. Every card now responds anywhere inside it and never triggers its neighbor."),
             ]),
         // ── 4.13 (build 32) — API Ninjas recipes wired in ──
         ChangelogVersion(
