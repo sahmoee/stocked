@@ -81,9 +81,9 @@ enum StockedScreen {
     // ── Cook-button default diameter by width (#2) — user can override 150–500.
     static let cookButtonSmallMaxWidth:   CGFloat = 375
     static let cookButtonRegularMaxWidth: CGFloat = 413
-    static let cookButtonSizeSmall:   Double = 180
-    static let cookButtonSizeRegular: Double = 220
-    static let cookButtonSizeLarge:   Double = 240
+    static let cookButtonSizeSmall:   Double = 220
+    static let cookButtonSizeRegular: Double = 260
+    static let cookButtonSizeLarge:   Double = 280
     static func defaultCookButtonSize(forWidth w: CGFloat) -> Double {
         if w <= cookButtonSmallMaxWidth   { return cookButtonSizeSmall }
         if w <= cookButtonRegularMaxWidth { return cookButtonSizeRegular }

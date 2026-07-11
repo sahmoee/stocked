@@ -9,6 +9,13 @@ compatibility_date = "2025-01-01"
 binding = "RATE_KV"
 id = "e0bde8969aad4e3c88b6281227bc08d1"
 
+# Crowd item database KV (merged in from the former standalone stocked-crowd worker).
+# Create it and paste the id below:
+#   wrangler kv namespace create CROWD
+[[kv_namespaces]]
+binding = "CROWD"
+id = "REPLACE_WITH_CROWD_KV_NAMESPACE_ID"
+
 # Optional: override the model without editing code.
 [vars]
 ANTHROPIC_MODEL = "claude-sonnet-4-6"

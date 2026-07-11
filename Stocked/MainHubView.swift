@@ -31,16 +31,19 @@ struct MainHubView: View {
         let w = StockedScreen.width
         return device == .tablet ? min(w, Self.hubColumnCapTablet) : w
     }
+    // User-resizable Cook buttons: scale factor from the Settings size slider, relative to
+    // the 280pt baseline. Width-fit remains the hard ceiling so the pair never overflows.
+    private var sizeScale: CGFloat { CGFloat(session.cookButtonSize) / 280.0 }
     // Foods/Moods sit two-up: (width − 28*2 horizontal padding − 14 spacing) / 2.
     // Capped so the pair never grows so large it pushes Surprise Me off-screen on iPad.
     private var pairDiameter: CGFloat {
-        min(device == .tablet ? Self.pairDiameterCapTablet : Self.pairDiameterCapPhone,
-            max(120, (layoutWidth - 56 - 14) / 2))
+        let cap = (device == .tablet ? Self.pairDiameterCapTablet : Self.pairDiameterCapPhone) * sizeScale
+        return min(cap, max(120, (layoutWidth - 56 - 14) / 2))
     }
     // Surprise Me is one-up with 60pt horizontal padding (capped on iPad).
     private var surpriseDiameter: CGFloat {
-        min(device == .tablet ? Self.surpriseDiameterCapTablet : Self.surpriseDiameterCapPhone,
-            max(160, layoutWidth - 120))
+        let cap = (device == .tablet ? Self.surpriseDiameterCapTablet : Self.surpriseDiameterCapPhone) * sizeScale
+        return min(cap, max(160, layoutWidth - 120))
     }
 
     // Hub buttons honor the same shape choice as the Home Cook buttons. For pill, the

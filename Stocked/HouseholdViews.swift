@@ -149,23 +149,6 @@ struct HouseholdCreateView: View {
                     }
                     .disabled(creating)
                     .padding(.top, 10)
-
-                    // #FB — creation used to fail silently ("Creating…" for a blink,
-                    // then nothing). The exact reason now shows here.
-                    if let err = household.lastError {
-                        HStack(alignment: .top, spacing: 7) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12)).foregroundStyle(.orange)
-                            Text(err)
-                                .font(.system(size: 12))
-                                .foregroundStyle(session.themeTextColor.opacity(0.75))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(12)
-                        .background(Color.orange.opacity(0.10))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.top, 10)
-                    }
                 }
             } else {
                 successContent
@@ -343,7 +326,18 @@ struct HouseholdMembersView: View {
                 : UIDevice.current.name   // guests: use the device name, not "Chef"
             members = await household.fetchMembers()
             loading = false
+            presence = await household.fetchPresence()   // #11 last-active per member
         }
+    }
+
+    // #11 — name → seconds since that member's device last synced.
+    @State private var presence: [String: TimeInterval] = [:]
+    private func presenceLabel(_ name: String) -> (String, Color)? {
+        guard let ago = presence[name] else { return nil }
+        if ago < 90 { return ("Active now", Color.stockedGreen) }
+        if ago < 3600 { return ("Active \(Int(ago / 60))m ago", Color.stockedGold) }
+        if ago < 86400 { return ("Active \(Int(ago / 3600))h ago", Color.stockedGold) }
+        return ("Active \(Int(ago / 86400))d ago", Color.stockedCharcoal.opacity(0.4))
     }
 
     private func memberRow(_ m: HouseholdMember) -> some View {
@@ -352,6 +346,12 @@ struct HouseholdMembersView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(m.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
                 Text(m.displayLabel).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                if let p = presenceLabel(m.name) {
+                    HStack(spacing: 4) {
+                        Circle().fill(p.1).frame(width: 6, height: 6)
+                        Text(p.0).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    }
+                }
             }
             Spacer()
             if m.isMe {

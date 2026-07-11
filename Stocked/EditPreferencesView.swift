@@ -6,13 +6,13 @@ struct EditPreferencesView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
 
+    @State private var showKitchenGoals = false   // #16 Kitchen Goals sheet
     @State private var dietaryStyle  = ""
     @State private var allergens:    [String] = []
     @State private var cuisinePrefs: [String] = []
     @State private var skillLevel    = ""
     @State private var budgetLevel   = ""
     @State private var weeklyMeals   = 5
-    @AppStorage(CookHubStyle.storageKey) private var cookHubStyleRaw = CookHubStyle.circles.rawValue
 
     var body: some View {
         ZStack {
@@ -49,6 +49,34 @@ struct EditPreferencesView: View {
                     Text("COOKING PROFILE").font(.system(size: 10, weight: .bold)).tracking(1)
                 }
 
+                // #16 — Kitchen Goals editable here too, not only via the Kitchen Health ring.
+                Section {
+                    Button { showKitchenGoals = true } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "checklist").font(.system(size: 14)).foregroundStyle(Color.stockedGreen)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Kitchen Goals")
+                                    .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                                Text(session.guestStore.stockGoalsConfigured
+                                     ? "\(session.guestStore.stockStaples.count) staples anchor your Kitchen Health score"
+                                     : "Define what stocked means to you")
+                                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(Color.clear)
+                    .sheet(isPresented: $showKitchenGoals) {
+                        StockGoalsSetupView(existing: session.guestStore.stockStaples,
+                                            configured: session.guestStore.stockGoalsConfigured)
+                            .environment(session)
+                    }
+                } header: {
+                    Text("KITCHEN GOALS").font(.system(size: 10, weight: .bold)).tracking(1)
+                }
+
                 Section {
                     let cuisines = ["Italian","Mexican","Japanese","Chinese","Indian",
                                     "Mediterranean","American","French","Thai","Korean"]
@@ -69,22 +97,6 @@ struct EditPreferencesView: View {
                     }
                 } header: {
                     Text("FAVOURITE CUISINES").font(.system(size: 10, weight: .bold)).tracking(1)
-                }
-
-                // #FB2 — Cook hub layout preference: Circles (default), Photo Cards,
-                // or Compact Rows. Applies immediately; no save needed.
-                Section {
-                    Picker("Cook Hub Style", selection: $cookHubStyleRaw) {
-                        ForEach(CookHubStyle.allCases) { style in
-                            Text(style.label).tag(style.rawValue)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-                } header: {
-                    Text("APPEARANCE").font(.system(size: 10, weight: .bold)).tracking(1)
-                } footer: {
-                    Text("Choose how the Cook tab shows its two options.")
-                        .font(.system(size: 11))
                 }
             }
             .listStyle(.insetGrouped)

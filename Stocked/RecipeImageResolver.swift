@@ -93,6 +93,12 @@ actor RecipeImageResolver {
         let key = normalize(title)
         guard !key.isEmpty else { return nil }
 
+        // Curated feed first: images.json from the stocked-recipes repo (zero API quota).
+        if let curated = await RemoteImageFeed.shared.lookup(title: title), let u = URL(string: curated) {
+            cache[key] = curated
+            return u
+        }
+
         // Cache hit (including a remembered genuine "nothing found" → "").
         if let hit = cache[key] {
             return hit.isEmpty ? nil : URL(string: hit)

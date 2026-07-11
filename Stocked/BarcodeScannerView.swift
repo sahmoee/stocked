@@ -102,16 +102,21 @@ struct BarcodeScannerView: View {
                     productName: resolvedName, barcode: lastScanned,
                     product: resolvedProduct,
                     zone: $zone, level: $level, zones: zones
-                ) { name, z, lv, sizeStr, expiry in
+                ) { name, z, lv, sizeStr, expiry, qty, container in
                     var item = LocalInventoryItem(name: name, level: lv, zone: z)
                     item.expirationDate = expiry                    // #12
                     item.brand = resolvedProduct?.brand             // brand from OFF
+                    item.quantity = max(1, qty)
+                    if !container.isEmpty, container != "item" { item.containerType = container }
                     // #11 — parse a pack size like "500 g" / "12 ct" into amount + unit.
                     if let sizeStr, let parsed = Self.parsePackSize(sizeStr) {
                         item.sizeAmount = parsed.0
                         item.sizeUnit   = parsed.1
                     }
                     session.guestStore.addInventoryItem(item)
+                    // Crowd DB — opt-in anonymized report (fire and forget).
+                    let ru = item.sizeUnit ?? "", rct = item.containerType, rq = Double(item.quantity)
+                    Task { await CrowdDB.report(items: [(name: name, category: z, unit: ru, container: rct, quantity: rq)]) }
                     if isBulkMode {
                         bulkScanned.append(name)
                         activeSheet = nil     // keep scanner open for next item
@@ -460,9 +465,24 @@ struct BarcodeConfirmSheet: View {
     @Binding var zone:  String
     @Binding var level: Double
     let zones: [String]
-    let onAdd: (String, String, Double, String?, Date?) -> Void
+    // name, zone, level, packSize, expiry, quantity, container
+    let onAdd: (String, String, Double, String?, Date?, Int, String) -> Void
     @State private var scannedExpiry: Date? = nil   // #12
     @State private var showExpiryScanner = false
+    // #9 quantity + container carried through the scan (natural-language editable).
+    @State private var scanQuantity: Int = 1
+    @State private var scanContainer: String = ""
+    @State private var deducted = false
+
+    // #9 barcode re-scan to deduct: the matching item already in the pantry, if any.
+    private var existingItem: LocalInventoryItem? {
+        let n = productName.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !n.isEmpty else { return nil }
+        return session.guestStore.inventoryItems.first {
+            let e = $0.name.lowercased()
+            return e == n || e.contains(n) || n.contains(e)
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -541,6 +561,52 @@ struct BarcodeConfirmSheet: View {
                 }.padding(.horizontal, 24).padding(.bottom, 14)
                     .padding(.bottom, 10)
 
+                // Quantity — type it naturally ("6 cans of 8 oz") or leave as 1.
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Quantity").font(.system(size: 11, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Spacer()
+                        Stepper("", value: $scanQuantity, in: 1...999).labelsHidden()
+                        Text("\(scanQuantity)\(scanContainer.isEmpty ? "" : " \(scanContainer)")")
+                            .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
+                    }
+                    NaturalQuantityField(placeholder: "e.g. 6 cans of 8 oz") { parsed in
+                        scanQuantity = max(1, Int(parsed.count.rounded()))
+                        if parsed.container != "item" { scanContainer = parsed.container }
+                    }
+                }.padding(.horizontal, 24).padding(.bottom, 14)
+
+                // #9 — re-scan to deduct: this product is already in the pantry; one tap
+                // marks one used (drops quantity, removing when the last one is used).
+                if let existing = existingItem {
+                    Button {
+                        guard !deducted else { return }
+                        if let i = session.guestStore.inventoryItems.firstIndex(where: { $0.id == existing.id }) {
+                            if session.guestStore.inventoryItems[i].quantity > 1 {
+                                session.guestStore.inventoryItems[i].quantity -= 1
+                            } else {
+                                session.guestStore.inventoryItems[i].level = 0
+                            }
+                            deducted = true
+                            HapticManager.success()
+                            ToastCenter.shared.success("Used 1 \(existing.name)")
+                            dismiss()
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "minus.circle.fill")
+                            Text("Already have \(existing.quantity) — mark 1 used")
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .background(Color.stockedGold.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 24).padding(.bottom, 12)
+                }
+
                 // #12 — scan the printed best-by / expiry date.
                 Button { showExpiryScanner = true } label: {
                     HStack(spacing: 8) {
@@ -565,7 +631,7 @@ struct BarcodeConfirmSheet: View {
                         AppAnalytics.shared.log(.dataCorrected)
                     }
                     // #11 — carry the OFF pack size (e.g. "500 g") through as the size string.
-                    onAdd(n, zone, level, product?.quantity, scannedExpiry)
+                    onAdd(n, zone, level, product?.quantity, scannedExpiry, scanQuantity, scanContainer)
                 } label: {
                     Text("Add to \(zone)").font(.system(size: 16, weight: .semibold, design: .serif)).foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15).background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))

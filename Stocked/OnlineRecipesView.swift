@@ -449,6 +449,7 @@ struct OnlineRecipesView: View {
     @State private var isFocused    = false
     @State private var selectedCuisine: String? = nil   // #20 cuisine filter
     @State private var hideAllergens = false             // #251 allergen filter toggle
+    @State private var selectedDiet: String? = nil       // #261 diet filter chip
 
     // Predictive suggestions from local RecipeDatabase
     @State private var dbSnapshot:    [RecipeDatabaseEntry] = []
@@ -497,7 +498,20 @@ struct OnlineRecipesView: View {
         }
         // Final guard: never display a recipe without real step-by-step instructions,
         // regardless of which source it came from (live search, cache, corpus).
-        return allergenFiltered(base).filter { OnlineRecipeFacts.hasRealInstructions($0.instructions) }
+        // #261 — diet chip: keep recipes whose inferred labels include the selected diet.
+        var out = allergenFiltered(base).filter { OnlineRecipeFacts.hasRealInstructions($0.instructions) }
+        if let diet = selectedDiet {
+            out = out.filter { r in
+                let f = DietaryClassifier.flags(for: r.ingredients, title: r.title)
+                switch diet {
+                case "Vegan":       return f.vegan
+                case "Vegetarian":  return f.vegetarian || f.vegan
+                case "Gluten-Free": return f.glutenFree
+                default:            return true
+                }
+            }
+        }
+        return out
     }
 
     private var hasAllergens: Bool { !session.guestStore.cookingProfile.allergens.filter { !$0.isEmpty }.isEmpty }
@@ -645,6 +659,24 @@ struct OnlineRecipesView: View {
                             .foregroundStyle(hideAllergens ? Color.stockedWhite : (session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal))
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .background(hideAllergens ? Color.stockedError.opacity(0.9) : Color.stockedCharcoal.opacity(0.08))
+                            .clipShape(Capsule())
+                        }.buttonStyle(.plain)
+                    }
+                    // #261 — diet filter chips: keep only recipes whose inferred dietary
+                    // flags include the chosen diet (DietaryClassifier, same as the badges).
+                    ForEach(["Vegetarian", "Vegan", "Gluten-Free"], id: \.self) { diet in
+                        Button {
+                            withAnimation(.spring(response: 0.2)) {
+                                selectedDiet = selectedDiet == diet ? nil : diet
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "leaf").font(.system(size: 10, weight: .bold))
+                                Text(diet).font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundStyle(selectedDiet == diet ? Color.stockedWhite : (session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal))
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(selectedDiet == diet ? Color.stockedGreen : Color.stockedCharcoal.opacity(0.08))
                             .clipShape(Capsule())
                         }.buttonStyle(.plain)
                     }

@@ -37,8 +37,8 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 45
-    private static let fallbackVersion     = "4.15"
+    private static let fallbackBuildNumber = 44
+    private static let fallbackVersion     = "4.18"
 
     static let changeCount   = 1
     static let buildName     = "Build 298 — Wires the API Ninjas v3 recipe endpoint in as a general recipe source seeded by cuisine and pantry, adds the APINinjasKey Info.plist mapping so the key is read from Secrets.xcconfig, and the source appears once configured."

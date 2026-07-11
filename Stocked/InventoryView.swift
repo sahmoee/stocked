@@ -433,6 +433,36 @@ struct InventoryView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                     Spacer()
+                    // #4 — bulk quantity: nudge every selected item's count up or down.
+                    Button {
+                        for id in selectedIDs {
+                            if let i = session.guestStore.inventoryItems.firstIndex(where: { $0.id == id }),
+                               session.guestStore.inventoryItems[i].quantity > 1 {
+                                session.guestStore.inventoryItems[i].quantity -= 1
+                            }
+                        }
+                        HapticManager.select()
+                    } label: {
+                        Label("Qty −1", systemImage: "minus.circle")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .background(Color.stockedCharcoal).clipShape(Capsule())
+                    }.buttonStyle(.plain)
+                    Button {
+                        for id in selectedIDs {
+                            if let i = session.guestStore.inventoryItems.firstIndex(where: { $0.id == id }) {
+                                session.guestStore.inventoryItems[i].quantity += 1
+                            }
+                        }
+                        HapticManager.select()
+                    } label: {
+                        Label("Qty +1", systemImage: "plus.circle")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .background(Color.stockedCharcoal).clipShape(Capsule())
+                    }.buttonStyle(.plain)
                     // Add selected to grocery list
                     Button {
                         for id in selectedIDs {
@@ -1034,8 +1064,12 @@ struct InventoryItemRow: View {
     var onSelect: ((UUID) -> Void)? = nil   // iPad: route tap to detail pane instead of sheet
     @State private var showUndo = false
     @State private var undoItem: LocalInventoryItem? = nil
-    @State private var showEdit = false
-    @State private var showPairings = false
+    // Single .sheet(item:) — stacked .sheet(isPresented:) made these need a second tap.
+    private enum RowSheet: Int, Identifiable {
+        case edit, pairings
+        var id: Int { rawValue }
+    }
+    @State private var activeRowSheet: RowSheet? = nil
 
     private var batteryColor: Color {
         if item.isExpired { return .red }
@@ -1055,7 +1089,7 @@ struct InventoryItemRow: View {
 
     var body: some View {
         Button {
-            if let onSelect { onSelect(item.id) } else { showEdit = true }
+            if let onSelect { onSelect(item.id) } else { activeRowSheet = .edit }
         } label: {
             // #237 — full mockup row: emoji/photo tile · name + qty line · right-aligned
             // expiry in orange · chevron. The level bar moved into a thin strip under the
@@ -1071,7 +1105,8 @@ struct InventoryItemRow: View {
                         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
                             .fill(Color.stockedWhite.opacity(0.55))
                             .frame(width: 42, height: 42)
-                        FoodIconView(name: item.name, size: 40, emojiSize: 22)
+                        Text(ImageFallbackService.emoji(for: item.name))
+                            .font(.system(size: 22))
                     }
                 }
 
@@ -1080,41 +1115,23 @@ struct InventoryItemRow: View {
                         .font(.system(size: 15.5, weight: .semibold))
                         .dynamicTypeSize(.xSmall ... .xxxLarge)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                    // #FB — the brand the receipt reader captured now shows in the list
-                    // (skipped when the name already contains it).
-                    if let brand = item.brand, !brand.isEmpty,
-                       !item.name.lowercased().contains(brand.lowercased()) {
-                        Text("\(brand) · \(qtyLine)")
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
-                            .lineLimit(1)
-                    } else {
-                        Text(qtyLine)
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
-                    }
+                        .lineLimit(1)
+                    Text(qtyLine)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
-                .layoutPriority(1)
 
                 Spacer(minLength: 8)
 
-                // #FB3 — trailing labels are fixed-size: the name column compresses
-                // and wraps instead, so "Full" can never shatter into stacked letters.
                 if let d = item.daysUntilExpiry {
                     Text(d < 0 ? "Expired" : d == 0 ? "Expires today" : d == 1 ? "Expires tomorrow" : "Expires in \(d) days")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(d < 0 ? Color.red : d <= 1 ? Color.red.opacity(0.8) : Color.orange)
-                        .lineLimit(1)
-                        .fixedSize()
+                        .lineLimit(1).minimumScaleFactor(0.75)
                 } else {
                     Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(batteryColor)
-                        .lineLimit(1)
-                        .fixedSize()
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
@@ -1135,7 +1152,7 @@ struct InventoryItemRow: View {
             Button { session.guestStore.updateInventoryLevel(id: item.id, level: max(0.1, item.level - 0.25)) } label: {
                 Label("Use Some (-25%)", systemImage: "minus.circle")
             }
-            Button { showPairings = true } label: {
+            Button { activeRowSheet = .pairings } label: {
                 Label("Ingredient Pairings", systemImage: "link.circle")
             }
             Button {
@@ -1162,11 +1179,11 @@ struct InventoryItemRow: View {
                 Label("Remove", systemImage: "trash")
             }
         }
-        .sheet(isPresented: $showEdit) {
-            EditItemSheet(item: item).environment(session)
-        }
-        .sheet(isPresented: $showPairings) {
-            IngredientPairingsSheet(itemName: item.name).environment(session)
+        .sheet(item: $activeRowSheet) { sheet in
+            switch sheet {
+            case .edit:     EditItemSheet(item: item).environment(session)
+            case .pairings: IngredientPairingsSheet(itemName: item.name).environment(session)
+            }
         }
         // Drag to meal calendar — transfers item name as plain text
         .draggable(item.name)

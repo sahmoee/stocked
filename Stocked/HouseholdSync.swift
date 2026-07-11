@@ -196,8 +196,7 @@ final class HouseholdSync {
         myDisplayName = resolvedName()   // never create as "You"
         let body: [String: Any] = ["ownerName": myDisplayName, "memberId": memberId]
         guard let resp = await post("/household/create", body) else {
-            // #FB — say exactly why (401 key mismatch / 404 not deployed / offline).
-            fail(explainLastFailure("create a household"))
+            fail("Couldn't create a household. Check your connection and try again.")
             return false
         }
         guard let code = resp["code"] as? String else {
@@ -248,8 +247,7 @@ final class HouseholdSync {
         myDisplayName = resolvedName()   // never join as "You"
         let body: [String: Any] = ["code": code, "memberName": myDisplayName, "memberId": memberId]
         guard let resp = await post("/household/join", body) else {
-            fail(lastPostStatus == 404 ? "Couldn't find a household with that code."
-                                       : explainLastFailure("join the household"))
+            fail("Couldn't find a household with that code.")
             return false
         }
         guard (resp["ok"] as? Bool) == true, let hh = resp["household"] as? [String: Any] else {
@@ -277,7 +275,8 @@ final class HouseholdSync {
         guard let code = joinCode, state == .owner || state == .member else { return }
         // #1 changed-since: send the last updatedAt we applied; the server returns a tiny
         // "unchanged" reply when nothing is new, so frequent polling stays cheap.
-        guard let resp = await post("/household/pull", ["code": code, "since": lastAppliedUpdatedAt]) else { return }
+        guard let resp = await post("/household/pull", ["code": code, "since": lastAppliedUpdatedAt,
+                                                        "memberId": memberId, "memberName": myDisplayName]) else { return }
         if (resp["unchanged"] as? Bool) == true { markPullSucceeded(route: .workerPull); return }
         guard let hh = resp["household"] as? [String: Any] else { return }
         detectConflictsOnApply = true          // pull path: guard local unsynced edits
@@ -503,39 +502,7 @@ final class HouseholdSync {
 
     // MARK: - Networking
 
-    /// #FB — diagnostics for the create/join failures: the last HTTP status the
-    /// Worker returned (nil = transport error / no response), so the UI can say
-    /// exactly WHY instead of a generic "check your connection".
-    @ObservationIgnored private(set) var lastPostStatus: Int? = nil
-    /// #FB3 — the server's own error text from the response body, when present.
-    @ObservationIgnored private(set) var lastServerError: String? = nil
-
-    /// Human-readable explanation of the last post failure, keyed off the status.
-    func explainLastFailure(_ action: String) -> String {
-        // #FB3 — the Worker now returns descriptive JSON errors (e.g. KV write
-        // quota exhausted). Prefer its exact words over our status guess.
-        if let server = lastServerError, !server.isEmpty {
-            return server
-        }
-        switch lastPostStatus {
-        case .some(401):
-            return "The server rejected the app key (HTTP 401). STOCKED_WORKER_KEY in Secrets.xcconfig must match the Worker's STOCKED_SHARED_KEY secret."
-        case .some(404):
-            return "The server doesn't have the household endpoints yet (HTTP 404). Redeploy the Worker (BuildBuddy → Deploy Worker) and try again."
-        case .some(429):
-            return "Too many requests right now (HTTP 429). Wait a minute and try again."
-        case .some(let code) where code >= 500:
-            return "The server hit an error (HTTP \(code)). Try again in a moment."
-        case .some(let code):
-            return "Couldn't \(action) (HTTP \(code)). Try again."
-        case .none:
-            return "Couldn't reach the server. Check your connection and try again."
-        }
-    }
-
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
-        lastPostStatus = nil
-        lastServerError = nil
         guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else { return nil }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -545,15 +512,8 @@ final class HouseholdSync {
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         guard let (data, resp) = try? await URLSession.shared.data(for: req),
               let http = resp as? HTTPURLResponse else { return nil }
-        lastPostStatus = http.statusCode
         guard (200...299).contains(http.statusCode) else {
-            // Pull the server's own explanation out of the JSON body when it has one.
-            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let serverMessage = obj["error"] as? String, !serverMessage.isEmpty {
-                lastServerError = "\(serverMessage) (HTTP \(http.statusCode))"
-            }
-            let bodyText = String(data: data.prefix(200), encoding: .utf8) ?? ""
-            Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode) body=\(bodyText, privacy: .public)")
+            Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
             return nil
         }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
@@ -725,13 +685,35 @@ final class HouseholdSync {
                     byID[r.id] = r; invAdded += 1
                 }
             }
+            var remotelyRemoved: [LocalInventoryItem] = []
             for id in byID.keys where invTombstones.contains(id.uuidString) {
                 if lockedIDs.contains(id), let mine = byID[id] {
                     recordInventoryDeleteConflict(mine: mine)
-                } else { byID[id] = nil }
+                } else {
+                    if detectConflictsOnApply, let gone = byID[id] { remotelyRemoved.append(gone) }
+                    byID[id] = nil
+                }
             }
             let merged = Array(byID.values)
             if merged != store.inventoryItems { store.inventoryItems = merged }
+            // #12 — undo across the household: when another member's delete lands here via a
+            // pull, offer a 10s undo. Re-adding uses a FRESH id (the old id is tombstoned
+            // server-side, so restoring it would just be deleted again on the next pull);
+            // the new item then pushes back out to the whole household.
+            if !remotelyRemoved.isEmpty {
+                let count = remotelyRemoved.count
+                ToastCenter.shared.undo(count == 1
+                                        ? "\(remotelyRemoved[0].name) was removed by your household"
+                                        : "\(count) items were removed by your household") { [weak store] in
+                    guard let store else { return }
+                    for old in remotelyRemoved {
+                        var copy = old
+                        copy.id = UUID()
+                        copy.updatedAt = Date().timeIntervalSince1970 * 1000
+                        store.inventoryItems.append(copy)
+                    }
+                }
+            }
         }
 
         // Recipes: last-write-wins by updatedAt, honoring tombstones. UserRecipe/GeneratedRecipe
@@ -925,5 +907,26 @@ final class HouseholdSync {
     static func normalize(_ raw: String) -> String {
         let allowed = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
         return String(raw.uppercased().filter { allowed.contains($0) })
+    }
+}
+
+// MARK: - #11 Household member presence
+// The worker records a lastSeen timestamp per member whenever their device polls
+// (/household/pull with memberId). This fetches that map for the members screen.
+extension HouseholdSync {
+    /// name → seconds since that member's device last synced. Empty on any failure.
+    func fetchPresence() async -> [String: TimeInterval] {
+        guard let code = joinCode, state == .owner || state == .member else { return [:] }
+        guard let resp = await post("/household/presence", ["code": code]),
+              let raw = resp["presence"] as? [String: Any] else { return [:] }
+        let now = Date().timeIntervalSince1970 * 1000
+        var out: [String: TimeInterval] = [:]
+        for (_, v) in raw {
+            guard let entry = v as? [String: Any],
+                  let name = entry["name"] as? String,
+                  let ts = entry["ts"] as? Double else { continue }
+            out[name] = max(0, (now - ts) / 1000)
+        }
+        return out
     }
 }

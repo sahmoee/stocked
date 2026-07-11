@@ -21,7 +21,6 @@ struct SettingsContent: View {
     var onQuickAction: ((DrawerQuickAction) -> Void)? = nil
 
     @State private var showClearAlert   = false
-    @State private var showWipeICloudAlert = false     // delete iCloud backups only
     @State private var showDeleteAccountAlert = false
 
     // One enum drives a SINGLE .sheet(item:). Stacking several .sheet(isPresented:) on the same
@@ -73,6 +72,45 @@ struct SettingsContent: View {
                     // app-wide (fixed-size fonts don't follow the system text-size slider).
                     RecipeTextSizeControl()
                         .listRowBackground(Color.clear)
+
+                    // Cook Buttons — shape + size for the Cook Now hub buttons (Foods, Moods,
+                    // Surprise Me). Size scales them up to the width limit of the screen.
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Cook Buttons", systemImage: "circle.grid.2x1.fill")
+                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                        HStack(spacing: 6) {
+                            ForEach(CookButtonShape.allCases, id: \.self) { shape in
+                                themeButton(shape.rawValue, active: session.cookButtonShape == shape) {
+                                    withAnimation(.spring(response: 0.25)) { session.cookButtonShape = shape }
+                                }
+                            }
+                        }
+                        HStack(spacing: 10) {
+                            Image(systemName: "minus.magnifyingglass")
+                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            Slider(value: Binding(get: { session.cookButtonSize },
+                                                  set: { session.cookButtonSize = $0 }),
+                                   in: 150...400, step: 10)
+                                .tint(Color.stockedGold)
+                            Image(systemName: "plus.magnifyingglass")
+                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+
+                    // Crowd database — opt-in, anonymized shared item facts. Read features
+                    // (smart defaults, pairings) work for everyone; only reporting is gated.
+                    Toggle(isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "crowdShareEnabled") },
+                        set: { UserDefaults.standard.set($0, forKey: "crowdShareEnabled") }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Improve Stocked for Everyone", systemImage: "person.3.fill")
+                                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                            Text("Share anonymized item facts (name, unit, container, quantity) — never your identity, account, or location")
+                                .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        }
+                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
 
                     // Preferred Store (pop-out picker).
                     Button { if let onQuickAction { onQuickAction(.storePopout) } else { activeSheet = .storePopout } } label: {
@@ -212,31 +250,21 @@ struct SettingsContent: View {
                                     detail: "Usage, migration · Backs up \(session.backupFrequency.rawValue.lowercased())")
                     }.listRowBackground(Color.clear)
 
-                    // Delete iCloud Data (destructive, cloud-only). Removes every Stocked
-                    // backup from iCloud without touching local data or signing out.
-                    Button { showWipeICloudAlert = true } label: {
-                        settingsRow(icon: "icloud.slash.fill", color: Color.stockedInfo,
-                                    title: "Delete iCloud Data",
-                                    detail: "Remove all backups stored in iCloud")
-                    }
-                    .listRowBackground(Color.clear)
-                    .alert("Delete iCloud Data?", isPresented: $showWipeICloudAlert) {
-                        Button("Delete from iCloud", role: .destructive) {
-                            session.transferManager.wipeAllICloudData()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("Permanently deletes every Stocked backup from your iCloud account. Your data on this device is not affected. This cannot be undone.")
-                    }
-
-                    // Clear All App Data (destructive).
+                    // Erase All Data — combined destructive action. One tap now clears
+                    // EVERYTHING everywhere: local device data, the iCloud Key-Value Store,
+                    // the iCloud Documents backup, and all CloudKit KitchenBackup records
+                    // (the old separate "Delete iCloud Data" row was folded into this).
+                    // signOut(clearData: true) also forces the onboarding quiz on next entry.
                     Button { showClearAlert = true } label: {
                         HStack(spacing: 12) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 7).fill(Color.red).frame(width: 28, height: 28)
                                 Image(systemName: "trash.fill").font(.system(size: 13)).foregroundStyle(.white)
                             }
-                            Text("Clear All App Data").font(.system(size: 14, design: .serif)).foregroundStyle(.red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Erase All Data").font(.system(size: 14, design: .serif)).foregroundStyle(.red)
+                                Text("This device and iCloud").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                            }
                             Spacer()
                         }
                     }.listRowBackground(Color.clear)
@@ -244,7 +272,7 @@ struct SettingsContent: View {
                         Button("Erase Everything", role: .destructive) { session.signOut(clearData: true) }
                         Button("Cancel", role: .cancel) {}
                     } message: {
-                        Text("Permanently deletes your pantry, grocery list, meal history, recipes, settings, and iCloud backup. Cannot be undone.")
+                        Text("Permanently deletes your pantry, grocery list, meal history, recipes, and settings from this device AND removes every Stocked backup from iCloud. You'll go through setup again next time. Cannot be undone.")
                     }
                 } label: {
                     fieldLabel(icon: "internaldrive.fill", color: Color.stockedCharcoal, title: "Data & Storage")
@@ -1139,7 +1167,7 @@ struct HelpCenterSheet: View {
                     helpRow(icon: "person.crop.circle", title: "Sign in or guest",
                             detail: "Use Sign in with Apple to sync and share, or continue as a guest on just this device. Your Apple name and email stay on your device.")
                     helpRow(icon: "lock.shield", title: "Your data is yours",
-                            detail: "No ads and no tracking. Data lives on your device and in your own iCloud. Delete iCloud Data, Clear All App Data, or Delete Account are all available in Settings.")
+                            detail: "No ads and no tracking. Data lives on your device and in your own iCloud. Erase All Data (device and iCloud together) or Delete Account are available in Settings.")
 
                     Text("Need more help? Reach out from your App Store review or the support link on the product page.")
                         .font(.system(size: 12))

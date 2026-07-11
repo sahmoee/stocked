@@ -206,6 +206,21 @@ struct UserRecipeDetailView: View {
                             }
                         }
 
+                        // #6 — estimated cost from the user's OWN paid prices; honest about
+                        // coverage rather than pretending an incomplete number is complete.
+                        let costEst = RecipeCost.estimate(
+                            ingredients: recipe.ingredients.map { $0.name },
+                            history: session.guestStore.priceHistory)
+                        if costEst.isUseful {
+                            HStack(spacing: 6) {
+                                Image(systemName: "dollarsign.circle")
+                                    .font(.system(size: 11)).foregroundStyle(Color.stockedGreen)
+                                Text("~\(costEst.display) est. · priced \(costEst.pricedCount) of \(costEst.totalCount) ingredients from your receipts")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            }
+                        }
+
                         // #5 — average rating earned across past cooks
                         if let avg = averageRating {
                             HStack(spacing: 4) {

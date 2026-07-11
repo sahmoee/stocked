@@ -2,15 +2,15 @@
 //
 // Drop into the Add Item sheet, the barcode confirm sheet, and receipt review so every entry
 // point supports flexible amounts. Type naturally ("6 cans of 8 oz", "half a bag of cheese")
-// or adjust with the steppers/pickers. Binds to a StockedAmount.
+// or adjust with the steppers/pickers. Binds to a ParsedQuantity.
 //
-//     @State private var qty = StockedAmount(count: 1, container: "item", amountEach: nil, unitEach: nil, item: "")
+//     @State private var qty = ParsedQuantity(count: 1, container: "item", amountEach: nil, unitEach: nil, item: "")
 //     QuantityInputView(quantity: $qty)
 
 import SwiftUI
 
 struct QuantityInputView: View {
-    @Binding var quantity: StockedAmount
+    @Binding var quantity: ParsedQuantity
     @State private var raw: String = ""
     @FocusState private var focused: Bool
 
@@ -38,7 +38,7 @@ struct QuantityInputView: View {
                 Stepper(value: $quantity.count, in: 0...9999, step: stepSize) {
                     HStack(spacing: 4) {
                         Text("Qty").foregroundStyle(.secondary).font(.subheadline)
-                        Text(StockedAmount.trim(quantity.count)).font(.headline.monospacedDigit())
+                        Text(ParsedQuantity.trim(quantity.count)).font(.headline.monospacedDigit())
                     }
                 }
                 .fixedSize()
@@ -91,5 +91,47 @@ struct QuantityInputView: View {
         if parsed.item.isEmpty { parsed.item = quantity.item }
         quantity = parsed
         focused = false
+    }
+}
+
+// MARK: - Compact natural-language amount field
+// A one-line "type it how you'd say it" field for the Add Item sheet and barcode confirm.
+// Parses "6 cans of 8 oz", "half a bag of cheese", "4 bags of chips" via QuantityParser and
+// hands the structured result to the host, which maps it onto its own state.
+struct NaturalQuantityField: View {
+    @Environment(AppSession.self) var session
+    var placeholder: String = "Type it: 6 cans of 8 oz, half a bag…"
+    let onParse: (ParsedQuantity) -> Void
+    @State private var raw = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wand.and.stars")
+                .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+            TextField(placeholder, text: $raw)
+                .font(.system(size: 14))
+                .focused($focused)
+                .submitLabel(.done)
+                .onSubmit { apply() }
+            if !raw.isEmpty {
+                Button { apply() } label: {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+    }
+
+    private func apply() {
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return }
+        onParse(QuantityParser.parse(t))
+        raw = ""
+        focused = false
+        HapticManager.select()
     }
 }

@@ -57,32 +57,16 @@ const CORS_HEADERS = {
 
 export default {
   async fetch(request, env) {
-    // #FB3 — top-level guard: any uncaught exception (KV write quota exceeded,
-    // storage errors, unexpected payloads) used to surface as a bare Cloudflare
-    // 500 with no detail. Now the error message comes back as JSON so the app
-    // can show the actual reason instead of a generic try-again.
-    try {
-      return await this.handle(request, env);
-    } catch (err) {
-      const detail = (err && err.message) ? String(err.message).slice(0, 200) : "Unknown server error";
-      return json({ error: "Server error: " + detail }, 500);
-    }
-  },
-
-  async handle(request, env) {
     // ── CORS preflight ──
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    if (request.method !== "POST") {
-      return json({ error: "Method not allowed" }, 405);
-    }
-
-    // ── 1. Shared-secret check ──
+    // ── Shared-secret check (applies to every route) ──
     // The app sends X-Stocked-Key; reject anything that doesn't match. This isn't
     // bulletproof (the secret ships in the app), but combined with rate limiting it
-    // stops casual/automated abuse of the endpoint.
+    // stops casual/automated abuse of the endpoint. Checked here, before the POST-only
+    // guard, so the crowd GET routes below are authenticated but not rejected as non-POST.
     const provided = request.headers.get("X-Stocked-Key") || "";
     if (!env.STOCKED_SHARED_KEY || !timingSafeEqual(provided, env.STOCKED_SHARED_KEY)) {
       return json({ error: "Unauthorized" }, 401);
@@ -98,14 +82,21 @@ export default {
       return handleHousehold(url.pathname, request, env);
     }
 
-    // ── Crowd (shared, anonymized item intelligence) routing ──
-    // Any path under /crowd is aggregate-only: typical unit/container/quantity per item,
-    // autocomplete, and pairings. No personal data is stored. Reuses the RATE_KV namespace
-    // with a "crowd:" prefix, so no new Cloudflare config is required.
+    // ── Crowd item database routing (KV-backed; merged in from the standalone ──
+    // stocked-crowd worker so there is a SINGLE worker to deploy and one shared secret.
+    // Any path under /crowd is served here and never reaches the Anthropic proxy. It uses
+    // its own CROWD KV namespace and the same X-Stocked-Key secret checked above. Crowd
+    // read routes are GET, so this must run before the POST-only guard below.
     if (url.pathname.startsWith("/crowd")) {
-      if (!env.RATE_KV) return json({ error: "Server misconfigured (no KV)" }, 500);
-      return handleCrowd(url.pathname, request, env);
+      if (!env.CROWD) return json({ error: "Server misconfigured (no CROWD KV)" }, 500);
+      return handleCrowd(url, request, env);
     }
+
+    // ── The Anthropic proxy routes below are POST-only ──
+    if (request.method !== "POST") {
+      return json({ error: "Method not allowed" }, 405);
+    }
+
 
     // ── 2. Per-IP rate limiting ──
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
@@ -252,39 +243,6 @@ function buildPrompt(p) {
     };
   }
 
-  // #FB4 — AI Inventory Scan: audit the whole inventory and propose tidy-ups (names,
-  // storage location, nutrition estimates, expiry estimates). Only propose changes
-  // that genuinely improve the data; leave good entries alone.
-  if (p.inventoryScan === true && Array.isArray(p.inventory)) {
-    return {
-      system:
-        "You are a kitchen inventory auditor. You receive a JSON array of pantry items, each " +
-        "with: id, name, zone (Fridge|Freezer|Pantry|Staples), quantity, brand (may be empty), " +
-        "hasNutrition (bool), hasExpiry (bool). Propose improvements ONLY where clearly " +
-        "warranted:\n" +
-        "- newName: fix garbled receipt text, misspellings, ALL-CAPS, or cryptic abbreviations " +
-        "into a clean Title Case product name (keep the brand if present). Null if the name is " +
-        "already fine.\n" +
-        "- newZone: the correct storage location for the item as named (e.g. raw chicken does " +
-        "not belong in the Pantry). Null if the current zone is reasonable.\n" +
-        "- calories, protein, servingSize: a typical-serving nutrition estimate for the item, " +
-        "ONLY when hasNutrition is false. calories is an integer per serving, protein is grams " +
-        "per serving, servingSize is a short string like '1 cup' or '2 tbsp'. Null when " +
-        "hasNutrition is true or the item is too ambiguous to estimate.\n" +
-        "- expiryDays: a typical shelf-life estimate in days from today for perishables, ONLY " +
-        "when hasExpiry is false and the item genuinely perishes (produce, dairy, meat, " +
-        "leftovers). Null for shelf-stable goods or when hasExpiry is true.\n" +
-        "- reason: one short sentence explaining the change.\n" +
-        "Skip items that need nothing (do not emit an entry for them). Respond ONLY with a " +
-        "JSON object, no prose, no markdown fences: " +
-        '{"updates": [{"id": string, "newName": string|null, "newZone": ' +
-        '"Fridge"|"Freezer"|"Pantry"|"Staples"|null, "calories": number|null, ' +
-        '"protein": number|null, "servingSize": string|null, "expiryDays": number|null, ' +
-        '"reason": string}]}',
-      user: JSON.stringify(p.inventory),
-    };
-  }
-
   // Recipe generation from a description → structured recipe JSON (SAME shape as recipeText,
   // so the app parses it with the existing recipe parser). The user describes what they want and
   // may list ingredients they have and dietary/time constraints. Generate a complete, realistic
@@ -415,7 +373,8 @@ async function handleHousehold(pathname, request, env) {
     }
     if (!code) return json({ error: "Could not allocate a code, try again" }, 503);
     const household = {
-      code,      ownerName,
+      code,
+      ownerName,
       ownerId,
       members: [{ name: ownerName, memberId: ownerId, joinedAt: Date.now() }],
       inventory: [],
@@ -426,13 +385,7 @@ async function handleHousehold(pathname, request, env) {
       activity: [{ kind: "householdCreated", itemName: "", actorName: ownerName, date: Date.now() }],
       updatedAt: Date.now(),
     };
-    try {
-      await kv.put(hhKey(code), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
-    } catch (err) {
-      // Most common real-world cause: the KV namespace hit its daily write quota.
-      const msg = (err && err.message) ? String(err.message).slice(0, 160) : "write failed";
-      return json({ error: "Could not save the household (" + msg + "). If this mentions a limit, the KV write quota is exhausted for today." }, 500);
-    }
+    await kv.put(hhKey(code), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
     return json({ code, household });
   }
 
@@ -494,6 +447,17 @@ async function handleHousehold(pathname, request, env) {
     const code = normalizeCode(body.code);
     const household = await readHousehold(kv, code);
     if (!household) return json({ error: "share not found", code: "notFound" }, 404);
+    // #11 presence: remember when this member's device last synced (fire-and-forget style;
+    // stored under its own key so the household snapshot shape is untouched).
+    const mid = sanitizeId(body.memberId);
+    if (mid) {
+      try {
+        const pRaw = await kv.get("hh:presence:" + code);
+        const presence = pRaw ? JSON.parse(pRaw) : {};
+        presence[mid] = { name: sanitizeName(body.memberName), ts: Date.now() };
+        await kv.put("hh:presence:" + code, JSON.stringify(presence), { expirationTtl: 60 * 60 * 24 * 30 });
+      } catch (e) { /* presence is best-effort; never block a pull */ }
+    }
     // #1 changed-since: if the caller passes the updatedAt it last saw and nothing changed,
     // return a tiny "unchanged" response instead of the full document. Lets the client poll
     // frequently and cheaply for near-instant sync without shipping the whole pantry each time.
@@ -502,6 +466,15 @@ async function handleHousehold(pathname, request, env) {
       return json({ unchanged: true, updatedAt: household.updatedAt || 0 });
     }
     return json({ household });
+  }
+
+  // #11 — presence map for the members screen: { memberId: { name, ts } }.
+  if (action === "presence") {
+    const code = normalizeCode(body.code);
+    const household = await readHousehold(kv, code);
+    if (!household) return json({ error: "share not found", code: "notFound" }, 404);
+    const pRaw = await kv.get("hh:presence:" + code);
+    return json({ presence: pRaw ? JSON.parse(pRaw) : {} });
   }
 
   if (action === "push") {
@@ -721,115 +694,97 @@ function appendActivity(list, newEvent) {
   return arr.slice(0, HH_MAX_ACTIVITY);
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Crowd item database (merged from the former standalone stocked-crowd worker).
+// Anonymized + opt-in on the client. Paths are served under /crowd:
+//   POST /crowd/report        { items: [{name,category,unit,container,quantity}], basket?: [names] }
+//   GET  /crowd/suggest?name=milk
+//   GET  /crowd/autocomplete?prefix=ch
+//   GET  /crowd/pairings?name=pasta
+// Reuses the top-level json() helper and the shared X-Stocked-Key auth already enforced
+// in fetch(). Storage is the CROWD KV namespace.
+// ─────────────────────────────────────────────────────────────────
+const crowdNorm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CROWD DB (KV-backed, anonymized). The cross-user layer that makes the app
-// smarter for everyone. Stores ONLY aggregate counts — never account, name,
-// email, device id, or location. Shares the RATE_KV namespace under "crowd:".
-//
-// Endpoints (all POST, all require X-Stocked-Key, JSON body):
-//   POST /crowd/report        { items:[{name,category,unit,container,quantity}], basket?:[names] }
-//   POST /crowd/suggest       { name }   -> { count, topUnit, topContainer, topCategory, avgQuantity }
-//   POST /crowd/autocomplete  { prefix, limit? } -> { items:[...] }
-//   POST /crowd/pairings      { name }   -> { pairings:[["tomato",210],...] }
-// ─────────────────────────────────────────────────────────────────────────────
-
-const CROWD_MAX_ITEMS = 200;
-const CROWD_MAX_BASKET = 60;
-
-function crowdNorm(v) {
-  return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-function crowdBump(map, k) {
-  if (!k) return;
-  k = String(k).toLowerCase();
-  map[k] = (map[k] || 0) + 1;
-}
-function crowdTop(map) {
-  let best = null, n = -1;
-  for (const k in map) if (map[k] > n) { best = k; n = map[k]; }
-  return best;
-}
-async function crowdGetAgg(kv, key) {
-  const raw = await kv.get("crowd:item:" + key);
+async function crowdGetAgg(env, key) {
+  const raw = await env.CROWD.get("item:" + key);
   return raw ? JSON.parse(raw) : { count: 0, units: {}, containers: {}, categories: {}, qtySum: 0, qtyN: 0 };
 }
-async function crowdBumpPopular(kv, key) {
-  const raw = await kv.get("crowd:pop");
+function crowdBump(map, k) { if (!k) return; k = String(k).toLowerCase(); map[k] = (map[k] || 0) + 1; }
+function crowdTopKey(map) { let best = null, n = -1; for (const k in map) if (map[k] > n) { best = k; n = map[k]; } return best; }
+async function crowdUpdatePopular(env, key) {
+  const raw = await env.CROWD.get("popular");
   const pop = raw ? JSON.parse(raw) : {};
   pop[key] = (pop[key] || 0) + 1;
   const entries = Object.entries(pop).sort((a, b) => b[1] - a[1]).slice(0, 2000);
-  await kv.put("crowd:pop", JSON.stringify(Object.fromEntries(entries)));
+  await env.CROWD.put("popular", JSON.stringify(Object.fromEntries(entries)));
 }
 
-async function handleCrowd(pathname, request, env) {
-  const kv = env.RATE_KV;
-  let body;
+async function handleCrowd(url, request, env) {
+  const path = url.pathname.replace(/^\/crowd/, "") || "/";
   try {
-    body = JSON.parse(await request.text());
-  } catch {
-    return json({ error: "Invalid JSON" }, 400);
-  }
-  const action = pathname.replace(/^\/crowd\/?/, "");
-
-  if (action === "report") {
-    const items = Array.isArray(body.items) ? body.items.slice(0, CROWD_MAX_ITEMS) : [];
-    for (const it of items) {
-      const key = crowdNorm(it.name);
-      if (!key || key.length < 2) continue;
-      const agg = await crowdGetAgg(kv, key);
-      agg.count += 1;
-      crowdBump(agg.units, it.unit);
-      crowdBump(agg.containers, it.container);
-      crowdBump(agg.categories, it.category);
-      const q = Number(it.quantity);
-      if (isFinite(q) && q > 0) { agg.qtySum += q; agg.qtyN += 1; }
-      await kv.put("crowd:item:" + key, JSON.stringify(agg));
-      await crowdBumpPopular(kv, key);
+    if (request.method === "POST" && path === "/report") {
+      const body = await request.json();
+      const items = Array.isArray(body.items) ? body.items.slice(0, 200) : [];
+      for (const it of items) {
+        const key = crowdNorm(it.name);
+        if (!key || key.length < 2) continue;
+        const agg = await crowdGetAgg(env, key);
+        agg.count += 1;
+        crowdBump(agg.units, it.unit);
+        crowdBump(agg.containers, it.container);
+        crowdBump(agg.categories, it.category);
+        const q = Number(it.quantity);
+        if (isFinite(q) && q > 0) { agg.qtySum += q; agg.qtyN += 1; }
+        await env.CROWD.put("item:" + key, JSON.stringify(agg));
+        await crowdUpdatePopular(env, key);
+      }
+      const basket = Array.isArray(body.basket)
+        ? [...new Set(body.basket.map(crowdNorm).filter(Boolean))].slice(0, 60) : [];
+      for (const a of basket) {
+        const raw = await env.CROWD.get("pair:" + a);
+        const m = raw ? JSON.parse(raw) : {};
+        for (const b of basket) if (a !== b) m[b] = (m[b] || 0) + 1;
+        const top = Object.entries(m).sort((x, y) => y[1] - x[1]).slice(0, 40);
+        await env.CROWD.put("pair:" + a, JSON.stringify(Object.fromEntries(top)));
+      }
+      return json({ ok: true, received: items.length });
     }
-    const basket = Array.isArray(body.basket)
-      ? [...new Set(body.basket.map(crowdNorm).filter(Boolean))].slice(0, CROWD_MAX_BASKET) : [];
-    for (const a of basket) {
-      const raw = await kv.get("crowd:pair:" + a);
+
+    if (request.method === "GET" && path === "/suggest") {
+      const key = crowdNorm(url.searchParams.get("name"));
+      if (!key) return json({ error: "name required" }, 400);
+      const agg = await crowdGetAgg(env, key);
+      return json({
+        count: agg.count,
+        topUnit: crowdTopKey(agg.units),
+        topContainer: crowdTopKey(agg.containers),
+        topCategory: crowdTopKey(agg.categories),
+        avgQuantity: agg.qtyN ? +(agg.qtySum / agg.qtyN).toFixed(2) : null,
+      });
+    }
+
+    if (request.method === "GET" && path === "/autocomplete") {
+      const prefix = crowdNorm(url.searchParams.get("prefix"));
+      const limit = Math.min(20, Number(url.searchParams.get("limit")) || 10);
+      const raw = await env.CROWD.get("popular");
+      const pop = raw ? JSON.parse(raw) : {};
+      const items = Object.entries(pop)
+        .filter(([k]) => !prefix || k.startsWith(prefix))
+        .sort((a, b) => b[1] - a[1]).slice(0, limit).map(([k]) => k);
+      return json({ items });
+    }
+
+    if (request.method === "GET" && path === "/pairings") {
+      const key = crowdNorm(url.searchParams.get("name"));
+      const raw = await env.CROWD.get("pair:" + key);
       const m = raw ? JSON.parse(raw) : {};
-      for (const b of basket) if (a !== b) m[b] = (m[b] || 0) + 1;
-      const top = Object.entries(m).sort((x, y) => y[1] - x[1]).slice(0, 40);
-      await kv.put("crowd:pair:" + a, JSON.stringify(Object.fromEntries(top)));
+      const pairings = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 20);
+      return json({ pairings });
     }
-    return json({ ok: true, received: items.length });
-  }
 
-  if (action === "suggest") {
-    const key = crowdNorm(body.name);
-    if (!key) return json({ error: "name required" }, 400);
-    const agg = await crowdGetAgg(kv, key);
-    return json({
-      count: agg.count,
-      topUnit: crowdTop(agg.units),
-      topContainer: crowdTop(agg.containers),
-      topCategory: crowdTop(agg.categories),
-      avgQuantity: agg.qtyN ? +(agg.qtySum / agg.qtyN).toFixed(2) : null,
-    });
+    return json({ error: "not found" }, 404);
+  } catch (e) {
+    return json({ error: String((e && e.message) || e) }, 500);
   }
-
-  if (action === "autocomplete") {
-    const prefix = crowdNorm(body.prefix);
-    const limit = Math.min(20, Number(body.limit) || 10);
-    const raw = await kv.get("crowd:pop");
-    const pop = raw ? JSON.parse(raw) : {};
-    const items = Object.entries(pop)
-      .filter(([k]) => !prefix || k.startsWith(prefix))
-      .sort((a, b) => b[1] - a[1]).slice(0, limit).map(([k]) => k);
-    return json({ items });
-  }
-
-  if (action === "pairings") {
-    const key = crowdNorm(body.name);
-    const raw = await kv.get("crowd:pair:" + key);
-    const m = raw ? JSON.parse(raw) : {};
-    const pairings = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 20);
-    return json({ pairings });
-  }
-
-  return json({ error: "not found" }, 404);
 }

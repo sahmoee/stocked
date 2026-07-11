@@ -653,6 +653,20 @@ struct AddItemSheet: View {
                 Text("QUANTITY")
                     .font(.system(size: 10, weight: .bold)).tracking(1)
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
+                // Natural-language amount: "6 cans of 8 oz", "half a bag of chips" — fills
+                // the name (if empty), quantity, container, and per-container size below.
+                NaturalQuantityField { parsed in
+                    if itemName.trimmingCharacters(in: .whitespaces).isEmpty, !parsed.item.isEmpty {
+                        itemName = parsed.item.capitalized
+                    }
+                    quantity = max(1, Int(parsed.count.rounded()))
+                    if parsed.container != "item" { containerType = parsed.container }
+                    if let amt = parsed.amountEach {
+                        showSizeDetails = true
+                        sizeAmount = ParsedQuantity.trim(amt)
+                        sizeUnit   = parsed.unitEach ?? sizeUnit
+                    }
+                }
                 HStack(spacing: 0) {
                     Button { if quantity > 1 { withAnimation(.spring(response: 0.2)) { quantity -= 1 } } } label: {
                         Image(systemName: "minus")
@@ -673,6 +687,24 @@ struct AddItemSheet: View {
                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             }.padding(.horizontal, 24)
+            .task(id: itemName) {
+                // Smart quantity/container defaults — only when the user hasn't set them.
+                // Own history first (typical purchase of this exact item), crowd second.
+                let name = itemName.trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty, quantity == 1, containerType.isEmpty else { return }
+                try? await Task.sleep(nanoseconds: 600_000_000)   // settle while typing
+                guard !Task.isCancelled else { return }
+                let mine = session.guestStore.inventoryItems.filter { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+                if let last = mine.last {
+                    if quantity == 1 { quantity = max(1, last.quantity) }
+                    if containerType.isEmpty, last.containerType != "item" { containerType = last.containerType }
+                    return
+                }
+                if let s = await CrowdDB.suggest(name: name), s.count >= 3 {
+                    if quantity == 1, let q = s.avgQuantity { quantity = max(1, Int(q.rounded())) }
+                    if containerType.isEmpty, let c = s.topContainer, c != "item" { containerType = c }
+                }
+            }
 
             // Container type
             VStack(alignment: .leading, spacing: 8) {
@@ -903,6 +935,9 @@ struct AddItemSheet: View {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     session.guestStore.addInventoryItem(item)
                     UsageMetrics.shared.record(.itemAddedManual)
+                    // Crowd DB — opt-in anonymized report of item facts (fire and forget).
+                    let rn = name, rc = zone, ru = sizeUnit, rct = item.containerType, rq = Double(quantity)
+                    Task { await CrowdDB.report(items: [(name: rn, category: rc, unit: ru, container: rct, quantity: rq)]) }
                     ToastCenter.shared.success("Added \(name) to \(zone)")
                     dismiss()
                 } label: {
@@ -1511,7 +1546,14 @@ struct IngredientPairingsSheet: View {
         // Pull data-derived pairings from SQLite into the session cache first…
         await IngredientCooccurrence.shared.warm(for: itemName)
         // …then read the now-warmed (or curated-fallback) list synchronously.
-        let pairs = IngredientCooccurrence.shared.pairings(for: itemName, limit: 10)
+        var pairs = IngredientCooccurrence.shared.pairings(for: itemName, limit: 10)
+        // Crowd DB — blend community pairings in after local data (dedup, cap 12). Read-only
+        // and anonymous; works whether or not the user opted into reporting.
+        let crowd = await CrowdDB.pairings(name: itemName).map(\.0)
+        for c in crowd where !pairs.contains(where: { $0.caseInsensitiveCompare(c) == .orderedSame }) {
+            pairs.append(c.capitalized)
+            if pairs.count >= 12 { break }
+        }
         let pantry = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
         pairList = pairs.map { (name: $0, inStock: pantry.contains($0.lowercased())) }
     }
