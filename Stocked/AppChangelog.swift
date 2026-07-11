@@ -38,12 +38,23 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.19 (build 45) — Build fix ──
+        ChangelogVersion(
+            version: "4.19",
+            buildDate: "Build 45 · July 10, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
+                               title: "Stability fix",
+                               detail: "Resolves an internal naming conflict so the new natural-language amount entry and Kitchen Report work reliably."),
+            ]),
         // ── 4.18 (build 44) — Do-all batch: smarter adding, budget, presence, big cook buttons ──
         ChangelogVersion(
             version: "4.18",
             buildDate: "Build 44 · July 10, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "wand.and.stars", color: Color.stockedGold,
                                title: "Type amounts the way you'd say them",

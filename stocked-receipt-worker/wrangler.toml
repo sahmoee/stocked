@@ -14,7 +14,7 @@ id = "e0bde8969aad4e3c88b6281227bc08d1"
 #   wrangler kv namespace create CROWD
 [[kv_namespaces]]
 binding = "CROWD"
-id = "REPLACE_WITH_CROWD_KV_NAMESPACE_ID"
+id = "030167e99e0c41f4a233bb139a8b466f"
 
 # Optional: override the model without editing code.
 [vars]

@@ -663,7 +663,7 @@ struct AddItemSheet: View {
                     if parsed.container != "item" { containerType = parsed.container }
                     if let amt = parsed.amountEach {
                         showSizeDetails = true
-                        sizeAmount = ParsedQuantity.trim(amt)
+                        sizeAmount = ParsedAmount.trim(amt)
                         sizeUnit   = parsed.unitEach ?? sizeUnit
                     }
                 }

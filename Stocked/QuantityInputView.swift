@@ -2,15 +2,15 @@
 //
 // Drop into the Add Item sheet, the barcode confirm sheet, and receipt review so every entry
 // point supports flexible amounts. Type naturally ("6 cans of 8 oz", "half a bag of cheese")
-// or adjust with the steppers/pickers. Binds to a ParsedQuantity.
+// or adjust with the steppers/pickers. Binds to a ParsedAmount.
 //
-//     @State private var qty = ParsedQuantity(count: 1, container: "item", amountEach: nil, unitEach: nil, item: "")
+//     @State private var qty = ParsedAmount(count: 1, container: "item", amountEach: nil, unitEach: nil, item: "")
 //     QuantityInputView(quantity: $qty)
 
 import SwiftUI
 
 struct QuantityInputView: View {
-    @Binding var quantity: ParsedQuantity
+    @Binding var quantity: ParsedAmount
     @State private var raw: String = ""
     @FocusState private var focused: Bool
 
@@ -38,7 +38,7 @@ struct QuantityInputView: View {
                 Stepper(value: $quantity.count, in: 0...9999, step: stepSize) {
                     HStack(spacing: 4) {
                         Text("Qty").foregroundStyle(.secondary).font(.subheadline)
-                        Text(ParsedQuantity.trim(quantity.count)).font(.headline.monospacedDigit())
+                        Text(ParsedAmount.trim(quantity.count)).font(.headline.monospacedDigit())
                     }
                 }
                 .fixedSize()
@@ -101,7 +101,7 @@ struct QuantityInputView: View {
 struct NaturalQuantityField: View {
     @Environment(AppSession.self) var session
     var placeholder: String = "Type it: 6 cans of 8 oz, half a bag…"
-    let onParse: (ParsedQuantity) -> Void
+    let onParse: (ParsedAmount) -> Void
     @State private var raw = ""
     @FocusState private var focused: Bool
 
