@@ -38,12 +38,23 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.20 (build 46) — Build fix ──
+        ChangelogVersion(
+            version: "4.20",
+            buildDate: "Build 46 · July 10, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
+                               title: "Stability fix",
+                               detail: "Ensures the Kitchen Health breakdown loads reliably in the Kitchen Report."),
+            ]),
         // ── 4.19 (build 45) — Build fix ──
         ChangelogVersion(
             version: "4.19",
             buildDate: "Build 45 · July 10, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
                                title: "Stability fix",
