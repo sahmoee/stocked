@@ -74,16 +74,6 @@
         }
       }
     },
-    "%@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$@"
-          }
-        }
-      }
-    },
     "%@ · %lld" : {
       "localizations" : {
         "en" : {
@@ -144,6 +134,9 @@
       }
     },
     "%@ done" : {
+
+    },
+    "%@ in the last 7 days" : {
 
     },
     "%@ is expiring soon." : {
@@ -645,6 +638,9 @@
         }
       }
     },
+    "%lld staples anchor your Kitchen Health score" : {
+
+    },
     "%lld step(s) remaining" : {
 
     },
@@ -714,6 +710,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld/%2$lld prepped"
+          }
+        }
+      }
+    },
+    "%lld%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld%2$@"
           }
         }
       }
@@ -804,6 +810,16 @@
     },
     "~%@" : {
 
+    },
+    "~%@ est. · priced %lld of %lld ingredients from your receipts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "~%1$@ est. · priced %2$lld of %3$lld ingredients from your receipts"
+          }
+        }
+      }
     },
     "≈ %@ g of %@" : {
       "localizations" : {
@@ -1144,6 +1160,9 @@
     "Allow Camera Access" : {
 
     },
+    "Already have %lld — mark 1 used" : {
+
+    },
     "Already in Pantry" : {
 
     },
@@ -1162,6 +1181,9 @@
     "amt" : {
 
     },
+    "Anchored to your %lld staples · tap to edit" : {
+
+    },
     "Any" : {
 
     },
@@ -1172,9 +1194,6 @@
 
     },
     "Anything we missed?" : {
-
-    },
-    "APPEARANCE" : {
 
     },
     "Apple Health" : {
@@ -1228,6 +1247,9 @@
 
     },
     "Autofilled from %@" : {
+
+    },
+    "Average fill · tap to set goals" : {
 
     },
     "Back" : {
@@ -1376,9 +1398,6 @@
     "Choose an avatar that represents\nyour cooking personality." : {
 
     },
-    "Choose how the Cook tab shows its two options." : {
-
-    },
     "Choose Photo" : {
 
     },
@@ -1398,9 +1417,6 @@
 
     },
     "Clear %lld checked" : {
-
-    },
-    "Clear All App Data" : {
 
     },
     "Close" : {
@@ -1492,7 +1508,7 @@
     "Cook %lldm" : {
 
     },
-    "Cook Hub Style" : {
+    "Cook Buttons" : {
 
     },
     "Cook Later" : {
@@ -1647,6 +1663,9 @@
     "Deduct from Pantry" : {
 
     },
+    "Define what stocked means to you" : {
+
+    },
     "Delete" : {
 
     },
@@ -1657,12 +1676,6 @@
 
     },
     "Delete Account?" : {
-
-    },
-    "Delete from iCloud" : {
-
-    },
-    "Delete iCloud Data?" : {
 
     },
     "Delete Recipe" : {
@@ -1801,6 +1814,9 @@
 
     },
     "Erase & Exit" : {
+
+    },
+    "Erase All Data" : {
 
     },
     "Erase All Data?" : {
@@ -1971,6 +1987,16 @@
     },
     "Fresh online recipe ideas are paused" : {
 
+    },
+    "From %lld cooked meal%@ with nutrition data this week" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "From %1$lld cooked meal%2$@ with nutrition data this week"
+          }
+        }
+      }
     },
     "FROM THE WEB" : {
 
@@ -2156,6 +2182,9 @@
     "Improve Stocked for everyone" : {
 
     },
+    "Improve Stocked for Everyone" : {
+
+    },
     "In pantry" : {
 
     },
@@ -2297,6 +2326,9 @@
 
     },
     "Kitchen Goals" : {
+
+    },
+    "KITCHEN GOALS" : {
 
     },
     "Kitchen Health" : {
@@ -2866,10 +2898,7 @@
     "per %@" : {
 
     },
-    "Permanently deletes every Stocked backup from your iCloud account. Your data on this device is not affected. This cannot be undone." : {
-
-    },
-    "Permanently deletes your pantry, grocery list, meal history, recipes, settings, and iCloud backup. Cannot be undone." : {
+    "Permanently deletes your pantry, grocery list, meal history, recipes, and settings from this device AND removes every Stocked backup from iCloud. You'll go through setup again next time. Cannot be undone." : {
 
     },
     "Personalized AI recipes are coming to Stocked. as part of the Premium tier. We're building a system that reads your taste profile, pantry, and cooking history to suggest recipes you'll actually love — before you even know you want them." : {
@@ -2984,6 +3013,15 @@
 
     },
     "Qty" : {
+
+    },
+    "Qty +1" : {
+
+    },
+    "Qty −1" : {
+
+    },
+    "Quantity" : {
 
     },
     "QUANTITY" : {
@@ -3409,6 +3447,9 @@
     "SHARE ACROSS ACCOUNTS" : {
 
     },
+    "Share anonymized item facts (name, unit, container, quantity) — never your identity, account, or location" : {
+
+    },
     "Share Code" : {
 
     },
@@ -3717,6 +3758,9 @@
     "These two recipes look similar. Keep one, or keep both." : {
 
     },
+    "This device and iCloud" : {
+
+    },
     "this month" : {
 
     },
@@ -3960,6 +4004,9 @@
 
     },
     "Weekly Review" : {
+
+    },
+    "Weighted %@" : {
 
     },
     "What are you planning?" : {

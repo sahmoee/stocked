@@ -38,12 +38,23 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.21 (build 47) — Dark mode consistency ──
+        ChangelogVersion(
+            version: "4.21",
+            buildDate: "Build 47 · July 10, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "moon.stars", color: Color.stockedGold,
+                               title: "Consistent dark mode",
+                               detail: "Grocery List category cards and meal planner day cards now use the same dark surface as the rest of the app, instead of a washed-out grey overlay in dark mode."),
+            ]),
         // ── 4.20 (build 46) — Build fix ──
         ChangelogVersion(
             version: "4.20",
             buildDate: "Build 46 · July 10, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
                                title: "Stability fix",

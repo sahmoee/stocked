@@ -492,7 +492,7 @@ struct DayPlanCard: View {
                 }
             }
         }
-        .background(Color.stockedWhite.opacity(0.30))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }

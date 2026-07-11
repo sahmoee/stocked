@@ -661,7 +661,7 @@ struct GroceryListView: View {
                 }
             }
         }
-        .background(Color.stockedWhite.opacity(0.35))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .onAppear { if !expanded.contains(section.title) { expanded.insert(section.title) } }
     }
@@ -690,22 +690,16 @@ struct GroceryListView: View {
                     .a11yDecorative()
 
                 // #237 — food emoji tile, matching the mockup's grocery rows.
-                FoodIconView(name: item.name, size: 22, emojiSize: 17)
+                Text(ImageFallbackService.emoji(for: item.name))
+                    .font(.system(size: 17))
                     .frame(width: 24)
 
                 // Item name + source badge
-                // #FB — the name column now wins the width fight with the trailing
-                // controls, so long names wrap on word boundaries (max 2 lines)
-                // instead of shattering one character per line.
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.name.displayNormalized)
                         .font(.system(size: 15)).dynamicTypeSize(.xSmall ... .xxxLarge)
                         .foregroundStyle(item.isChecked ? sub : text)
                         .strikethrough(item.isChecked)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 4) {
                         if !item.recipeSource.isEmpty {
                             Image(systemName: "fork.knife").font(.system(size: 8))
@@ -729,34 +723,28 @@ struct GroceryListView: View {
                     .foregroundStyle(item.recipeSource.isEmpty && !item.isRecommended
                         ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold.opacity(0.7))
                 }
-                .layoutPriority(1)
 
-                Spacer(minLength: 6)
+                Spacer()
 
                 // Qty buttons — centred between item and Find in Store
-                // #FB3 — fixed-size so the controls never mash when names are long;
-                // the name column wraps instead.
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Button { if item.quantity > 1 { store.updateGroceryQty(id: item.id, qty: item.quantity - 1) } } label: {
                         Image(systemName: "minus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                     Text("\(item.quantity)")
                         .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
                         .frame(minWidth: 18)
-                        .lineLimit(1)
                     Button { store.updateGroceryQty(id: item.id, qty: item.quantity + 1) } label: {
                         Image(systemName: "plus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                 }
-                .fixedSize()
 
                 // Find in Store
                 Button { openInStore(item.name) } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "cart.fill").font(.system(size: 10))
-                        Text("Find").font(.system(size: 10, weight: .semibold)).lineLimit(1)
+                        Text("Find").font(.system(size: 10, weight: .semibold))
                     }
-                    .fixedSize()
                     .foregroundStyle(Color.stockedGold)
                     .padding(.horizontal, 8).padding(.vertical, 9)
                     .background(Color.stockedGold.opacity(0.12))
