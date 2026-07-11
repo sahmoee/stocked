@@ -38,12 +38,32 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.15 (build 35) — Cook buttons, Daily Brief, recipe cleanup ──
+        ChangelogVersion(
+            version: "4.15",
+            buildDate: "Build 35 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedGold,
+                               title: "Cook buttons resize everywhere",
+                               detail: "The size and shape options in the side menu now change the Cook Now and Cook Later buttons too — they grow, shrink, and reshape live while staying perfectly centered."),
+                ChangelogEntry(icon: "person.3.fill", color: Color.stockedGreen,
+                               title: "Daily Brief shows real household activity",
+                               detail: "When you're in a household, the brief now shows what your family actually did — who added, checked off, or updated items — instead of a rough guess."),
+                ChangelogEntry(icon: "hand.tap", color: Color.stockedGold,
+                               title: "Everything in the Daily Brief works",
+                               detail: "Every number and stat in the brief is now a shortcut: tap expiring or low stock to see those items, tap meals to jump to Cook, and use the new Quick Actions to scan a receipt or barcode right from the brief."),
+                ChangelogEntry(icon: "wand.and.stars", color: Color.stockedGold,
+                               title: "Recipe instructions, cleaned up",
+                               detail: "Blank or broken steps no longer appear in your recipes. If a recipe's instructions still look off, tap Fix with AI on the recipe page and Stocked will rewrite them into clear, ordered steps."),
+            ]),
         // ── 4.14 (build 34) — Tap target fix on cards ──
         ChangelogVersion(
             version: "4.14",
             buildDate: "Build 34 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "hand.tap", color: Color.stockedGold,
                                title: "Cards tap where you tap",

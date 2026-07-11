@@ -1377,7 +1377,14 @@ class GuestDataStore {
     var userSubstitutions: [UserSubstitutionEntry] = [] {
         didSet { saveDebounced("userSubstitutions_v1", userSubstitutions) }
     }
-    func addUserRecipe(_ r: UserRecipe) {
+    func addUserRecipe(_ recipeIn: UserRecipe) {
+        // Every save funnel (create form, web import, share extension, AI generator)
+        // passes through here, so blank/whitespace steps are dropped once, centrally —
+        // no recipe can render an empty numbered instruction row.
+        var r = recipeIn
+        r.instructions = r.instructions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         AppAnalytics.shared.log(.recipeSaved)
         var l = userRecipes; l.append(r); userRecipes = l
         Task { @MainActor in
@@ -1417,7 +1424,11 @@ class GuestDataStore {
         Task { @MainActor in DatabaseSyncBus.shared.publish(.userRecipeUpdated(title: trimmed)) }
     }
     func deleteUserRecipe(id: UUID)     { var l = userRecipes; l.removeAll { $0.id == id }; userRecipes = l }
-    func updateUserRecipe(_ r: UserRecipe) {
+    func updateUserRecipe(_ recipeIn: UserRecipe) {
+        var r = recipeIn
+        r.instructions = r.instructions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         guard let idx = userRecipes.firstIndex(where: { $0.id == r.id }) else { return }
         var l = userRecipes; l[idx] = r; userRecipes = l
     }

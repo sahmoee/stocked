@@ -19,6 +19,36 @@ struct CookTabView: View {
     @State private var showFilter   = false
     @State private var minutesCap: Int? = nil   // header funnel — time filter
 
+    // ── Cook Buttons setting (drawer > Cook Buttons) ──────────────────────
+    // The Cook Now / Cook Later hero cards honor the same shape + size options as the
+    // Cook hub buttons. Size scales the cards' width and padding relative to the 280pt
+    // baseline; shape swaps the card outline. Cards always stay centered and animate
+    // in place as the drawer slider moves.
+    private var cookCardScale: CGFloat {
+        min(400, max(150, CGFloat(session.cookButtonSize))) / 280.0
+    }
+    private var cookCardShape: AnyShape {
+        switch session.cookButtonShape {
+        case .circle:      return AnyShape(Capsule())          // fully rounded ends
+        case .pill:        return AnyShape(Capsule())          // capsule, slimmer height
+        case .roundedRect: return AnyShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        }
+    }
+    // Pill reads as a slimmer bar; circle/rounded keep the roomier mockup height.
+    private var cookCardVPad: CGFloat {
+        let base: CGFloat = session.cookButtonShape == .pill ? 15 : 24
+        return min(40, max(11, base * cookCardScale))
+    }
+    // Capsule ends need extra inset so the icon never clips into the curve.
+    private var cookCardHPad: CGFloat {
+        session.cookButtonShape == .roundedRect ? 20 : 28
+    }
+    // Width shrinks below full width when the slider goes down; never overflows.
+    private var cookCardWidth: CGFloat {
+        let available = StockedScreen.width - 48   // 24pt outer padding each side
+        return min(available, max(230, available * min(1.0, cookCardScale)))
+    }
+
     // Leading minutes in a "30 min" / "1 hr 20 min" style string (nil if unparseable).
     private func minutes(of recipe: UserRecipe) -> Int? {
         let digits = recipe.cookTime.compactMap { $0.isNumber ? $0 : nil }
@@ -66,11 +96,15 @@ struct CookTabView: View {
                     .padding(.horizontal, 24).padding(.top, 4)
 
                 // ── Cook Now (dark) / Cook Later (outlined) — mockup ──
+                // Centered; resizes + reshapes in real time from drawer > Cook Buttons.
                 VStack(spacing: 12) {
                     cookNowCard
                     cookLaterCard
                 }
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 24)
+                .animation(.spring(response: 0.25, dampingFraction: 0.85), value: session.cookButtonSize)
+                .animation(.spring(response: 0.25, dampingFraction: 0.85), value: session.cookButtonShape)
 
                 // ── #14 Cook Right Now banner — only when something makeable uses expiring items ──
                 if let topExpiring = store.cookableRankedByExpiry().first(where: { !$0.expiringUsed.isEmpty }) {
@@ -222,10 +256,10 @@ struct CookTabView: View {
                 }
                 Spacer(minLength: 6)
             }
-            .padding(.horizontal, 20).padding(.vertical, 24)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, cookCardHPad).padding(.vertical, cookCardVPad)
+            .frame(width: cookCardWidth, alignment: .leading)
             .background(Color.stockedCharcoal)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+            .clipShape(cookCardShape)
         }
         .buttonStyle(.plain)
         .a11yButton("Cook Now", hint: "See meals you can make right now")
@@ -251,14 +285,14 @@ struct CookTabView: View {
                 }
                 Spacer(minLength: 6)
             }
-            .padding(.horizontal, 20).padding(.vertical, 24)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, cookCardHPad).padding(.vertical, cookCardVPad)
+            .frame(width: cookCardWidth, alignment: .leading)
             .background(Color.clear)
             .overlay(
-                RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
+                cookCardShape
                     .stroke((dark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.35), lineWidth: 1.5)
             )
-            .contentShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+            .contentShape(cookCardShape)
         }
         .buttonStyle(.plain)
         .a11yButton("Cook Later", hint: "Plan for later or save for the week")

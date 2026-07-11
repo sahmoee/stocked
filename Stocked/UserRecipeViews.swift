@@ -65,6 +65,17 @@ struct UserRecipeDetailView: View {
     @State private var showDeleteConfirm      = false
     // #9 live cooking — per-recipe step timers (notification + Live Activity backed).
     @State private var timerEngine            = StepTimerEngine()
+    // AI instruction cleanup — sends the recipe through the Worker's recipe branch
+    // (same one imports use) and replaces the steps with the corrected set.
+    @State private var aiFixing               = false
+
+    // Steps as shown: trimmed, with blank entries dropped so imported or hand-entered
+    // recipes never render empty numbered rows (e.g. a bare "2" with no text).
+    private var displaySteps: [String] {
+        recipe.instructions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 
     init(recipe: UserRecipe) {
         self._recipe         = State(initialValue: recipe)
@@ -122,7 +133,7 @@ struct UserRecipeDetailView: View {
                 session.recordRecipeView(recipe.id)   // #240 — Recently Viewed
                 // #9 — context for step timers surfaced on the Lock Screen / Dynamic Island.
                 timerEngine.recipeTitle = recipe.title
-                timerEngine.totalSteps  = recipe.instructions.count
+                timerEngine.totalSteps  = displaySteps.count
             }
             .navigationTitle(recipe.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -157,6 +168,12 @@ struct UserRecipeDetailView: View {
                 Button { renameText = recipe.title; showRenameAlert = true } label: {
                     Label("Rename", systemImage: "pencil")
                 }
+                if RecipeImportAI.isAvailable {
+                    Button { Task { await fixInstructionsWithAI() } } label: {
+                        Label("Clean Up with AI", systemImage: "wand.and.stars")
+                    }
+                    .disabled(aiFixing)
+                }
                 Button(role: .destructive) { showDeleteConfirm = true } label: {
                     Label("Delete Recipe", systemImage: "trash")
                 }
@@ -165,6 +182,42 @@ struct UserRecipeDetailView: View {
             }
             .accessibilityLabel("Recipe options")
         }
+    }
+
+    // ── AI instruction cleanup ─────────────────────────────────────────
+    // Reuses the import pipeline: compose the recipe as raw text, send it through the
+    // Worker's recipe branch, and adopt the corrected steps. Only the instructions are
+    // replaced — title, ingredients, notes, photos, and history are untouched. Any
+    // failure (offline, unusable response) leaves the recipe exactly as it was.
+    private func fixInstructionsWithAI() async {
+        guard !aiFixing else { return }
+        aiFixing = true
+        defer { aiFixing = false }
+        let raw = RecipeImportAI.composeRawText(
+            title: recipe.title,
+            description: recipe.description,
+            ingredients: recipe.ingredients.map { ing in
+                ing.amount.isEmpty ? ing.name : "\(ing.amount) \(ing.name)"
+            },
+            steps: displaySteps)
+        guard let ai = await RecipeImportAI.structure(rawText: raw), ai.isUsable else {
+            ToastCenter.shared.success("Couldn't reach the recipe assistant — try again later")
+            return
+        }
+        let cleaned = ai.steps
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !cleaned.isEmpty else {
+            ToastCenter.shared.success("No fixes suggested — steps look good")
+            return
+        }
+        var updated = recipe
+        updated.instructions = cleaned
+        session.guestStore.updateUserRecipe(updated)
+        recipe = updated
+        timerEngine.totalSteps = cleaned.count
+        HapticManager.light()
+        ToastCenter.shared.success("Instructions cleaned up")
     }
 
     private var detailContent: some View {
@@ -400,14 +453,41 @@ struct UserRecipeDetailView: View {
                     }
 
                     // ── Instructions ──────────────────────────────────────
-                    if !recipe.instructions.isEmpty {
+                    if !displaySteps.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Instructions")
-                                .font(.system(size: 16, weight: .bold, design: .serif))
-                                .foregroundStyle(session.themeTextColor)
+                            HStack {
+                                Text("Instructions")
+                                    .font(.system(size: 16, weight: .bold, design: .serif))
+                                    .foregroundStyle(session.themeTextColor)
+                                Spacer()
+                                // AI cleanup — reorders, de-dupes, and rewrites garbled or
+                                // missing steps via the Worker; falls back silently offline.
+                                if RecipeImportAI.isAvailable {
+                                    Button {
+                                        Task { await fixInstructionsWithAI() }
+                                    } label: {
+                                        HStack(spacing: 4) {
+                                            if aiFixing {
+                                                ProgressView().controlSize(.mini)
+                                            } else {
+                                                Image(systemName: "wand.and.stars").font(.system(size: 11))
+                                            }
+                                            Text(aiFixing ? "Fixing…" : "Fix with AI")
+                                                .font(.system(size: 12, weight: .semibold))
+                                        }
+                                        .foregroundStyle(Color.stockedGold)
+                                        .padding(.horizontal, 9).padding(.vertical, 4)
+                                        .background(Color.stockedGold.opacity(0.12))
+                                        .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(aiFixing)
+                                    .a11yButton("Fix instructions with AI")
+                                }
+                            }
                             // #9 live cooking — steps mentioning a duration get a tappable
                             // timer chip (notification + Live Activity backed).
-                            ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
+                            ForEach(Array(displaySteps.enumerated()), id: \.offset) { i, step in
                                 TimedStepRow(stepNumber: i + 1, stepText: step, timerEngine: timerEngine)
                             }
                         }

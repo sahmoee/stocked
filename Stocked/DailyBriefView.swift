@@ -18,6 +18,22 @@ struct DailyBriefOverlay: View {
 
     var store: GuestDataStore { session.guestStore }
 
+    // ── Real household activity ─────────────────────────────────────────
+    // When the user is in a household, the feed shows actual synced events from the
+    // Worker (who added/removed/checked what, and when) instead of only local
+    // inventory guesses. Fetched once per open; falls back to local rows when solo
+    // or offline.
+    @State private var householdRows: [HouseholdActivity] = []
+    @State private var fetchedHousehold = false
+
+    // Expiring / Low Stock detail presented from the brief itself, so "At a Glance"
+    // numbers are tappable. sheet(item:) with an Identifiable payload (never
+    // Bool+optional) per the app's sheet pattern.
+    private struct BriefDetailSheet: Identifiable {
+        let id: String
+        let mode: ExpiringItemsView.Mode
+    }
+    @State private var detailSheet: BriefDetailSheet?
 
     // "Recommended in 2 Days (Sat, May 24)" — exact mockup string for the cream card.
     private var nextRunValue: String {
@@ -42,6 +58,25 @@ struct DailyBriefOverlay: View {
             mainCard
                 .padding(.horizontal, 16)
                 .padding(.top, max(StockedScreen.safeTopInset + 24, 78))
+        }
+        .task { await loadHouseholdActivity() }
+        .sheet(item: $detailSheet) { sheet in
+            NavigationStack {
+                ExpiringItemsView(mode: sheet.mode).environment(session)
+            }
+        }
+    }
+
+    /// Pull the shared activity feed when in a household. Solo users keep the
+    /// local fallback rows; any network failure quietly keeps the fallback too.
+    private func loadHouseholdActivity() async {
+        guard !fetchedHousehold else { return }
+        fetchedHousehold = true
+        let sync = HouseholdSync.shared
+        guard sync.state == .owner || sync.state == .member else { return }
+        let fetched = await sync.fetchActivity(limit: 10)
+        if !fetched.isEmpty {
+            householdRows = Array(fetched.sorted { $0.date > $1.date }.prefix(4))
         }
     }
 
@@ -84,6 +119,7 @@ struct DailyBriefOverlay: View {
                         VStack(alignment: .leading, spacing: 18) {
                             atAGlance
                             householdActivity
+                            quickActions
                         }
                         .frame(width: 230, alignment: .leading)
                     }
@@ -92,6 +128,7 @@ struct DailyBriefOverlay: View {
                         statsCard
                         atAGlance
                         householdActivity
+                        quickActions
                     }
                 }
             }
@@ -105,14 +142,26 @@ struct DailyBriefOverlay: View {
     // ── Cream stats card (mockup left column) ─────────────────────────
     private var statsCard: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Every stat is a working shortcut, not just a readout.
             statRow(icon: "fork.knife", label: "Available Meals",
-                    value: "\(store.metrics.mealsReady) makeable meal\(store.metrics.mealsReady == 1 ? "" : "s")")
+                    value: "\(store.metrics.mealsReady) makeable meal\(store.metrics.mealsReady == 1 ? "" : "s")") {
+                close()
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.cook)
+            }
             statRow(icon: "refrigerator", label: "Inventory Status",
-                    value: "\(store.metrics.stockPercent)% Stocked")
+                    value: "\(store.metrics.stockPercent)% Stocked") {
+                close()
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.inventory)
+            }
             statRow(icon: "clock.badge.exclamationmark", label: "Items Expiring Soon",
-                    value: "\(store.metrics.expiringSoonCount) item\(store.metrics.expiringSoonCount == 1 ? "" : "s")")
+                    value: "\(store.metrics.expiringSoonCount) item\(store.metrics.expiringSoonCount == 1 ? "" : "s")") {
+                detailSheet = BriefDetailSheet(id: "expiring", mode: .expiring)
+            }
             statRow(icon: "cart", label: "Next Grocery Run",
-                    value: nextRunValue)
+                    value: nextRunValue) {
+                close()
+                onShoppingList()
+            }
 
             Divider().background((session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.12)).padding(.top, 4)
 
@@ -139,28 +188,38 @@ struct DailyBriefOverlay: View {
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg - 4))
     }
 
-    private func statRow(icon: String, label: String, value: String) -> some View {
+    private func statRow(icon: String, label: String, value: String,
+                         action: @escaping () -> Void = {}) -> some View {
         // Text/icon sit on the brief card, which is white in light mode and dark in dark mode,
-        // so the ink color flips with it to stay legible.
+        // so the ink color flips with it to stay legible. Each row is a shortcut to its detail.
         let ink = session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal
-        return HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundStyle(ink.opacity(0.6))
-                .frame(width: 20)
-                .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.system(size: 12))
-                    .foregroundStyle(ink.opacity(0.55))
-                Text(value)
-                    .font(.system(size: 15.5, weight: .bold))
-                    .foregroundStyle(ink)
-                    .lineLimit(1).minimumScaleFactor(0.75)
+        return Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(ink.opacity(0.6))
+                    .frame(width: 20)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 12))
+                        .foregroundStyle(ink.opacity(0.55))
+                    Text(value)
+                        .font(.system(size: 15.5, weight: .bold))
+                        .foregroundStyle(ink)
+                        .lineLimit(1).minimumScaleFactor(0.75)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(ink.opacity(0.25))
+                    .padding(.top, 8)
             }
-            Spacer(minLength: 0)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 8)
+        .buttonStyle(.plain)
+        .a11yButton(label, hint: value)
     }
 
     // ── At a Glance (mockup right column) ─────────────────────────────
@@ -169,27 +228,43 @@ struct DailyBriefOverlay: View {
             Text("At a Glance")
                 .font(.system(size: 14, weight: .bold, design: .serif))
                 .foregroundStyle(Color.stockedGoldDark)
-            glanceLine(expiringCount, "expiring", "clock.badge.exclamationmark")
-            glanceLine(lowStockCount, "low stock", "chart.bar")
-            glanceLine(toBuyCount, "to buy", "cart")
+            glanceLine(expiringCount, "expiring", "clock.badge.exclamationmark") {
+                detailSheet = BriefDetailSheet(id: "expiring", mode: .expiring)
+            }
+            glanceLine(lowStockCount, "low stock", "chart.bar") {
+                detailSheet = BriefDetailSheet(id: "lowstock", mode: .lowStock)
+            }
+            glanceLine(toBuyCount, "to buy", "cart") {
+                close()
+                onShoppingList()
+            }
         }
     }
 
-    private func glanceLine(_ value: Int, _ label: String, _ icon: String) -> some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Circle().fill(Color.stockedGold.opacity(0.18)).frame(width: 28, height: 28)
-                Image(systemName: icon).font(.system(size: 12))
-                    .foregroundStyle(Color.stockedGoldDark)
+    private func glanceLine(_ value: Int, _ label: String, _ icon: String,
+                            action: @escaping () -> Void = {}) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(Color.stockedGold.opacity(0.18)).frame(width: 28, height: 28)
+                    Image(systemName: icon).font(.system(size: 12))
+                        .foregroundStyle(Color.stockedGoldDark)
+                }
+                Text("\(value)")
+                    .font(.system(size: 16, weight: .heavy, design: .serif))
+                    .foregroundStyle(Color.stockedWhite)
+                Text(label)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Color.stockedWhite.opacity(0.25))
             }
-            Text("\(value)")
-                .font(.system(size: 16, weight: .heavy, design: .serif))
-                .foregroundStyle(Color.stockedWhite)
-            Text(label)
-                .font(.system(size: 12.5))
-                .foregroundStyle(Color.stockedWhite.opacity(0.6))
-            Spacer(minLength: 0)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .a11yButton("\(value) \(label)")
     }
 
     // ── Household Activity (mockup) ───────────────────────────────────
@@ -224,26 +299,82 @@ struct DailyBriefOverlay: View {
             Text("Household Activity")
                 .font(.system(size: 14, weight: .bold, design: .serif))
                 .foregroundStyle(Color.stockedGoldDark)
-            let rows = activityRows
-            if rows.isEmpty {
-                Text("No activity yet")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Color.stockedWhite.opacity(0.5))
-            } else {
-                ForEach(rows) { row in
+            // Real synced events win; local fallback rows cover solo/offline use.
+            if !householdRows.isEmpty {
+                ForEach(householdRows) { a in
                     HStack(spacing: 10) {
-                        Text(row.text)
+                        Text("\(a.actorName) \(a.kind.verb) \(a.phrase)")
                             .font(.system(size: 13.5))
                             .foregroundStyle(Color.stockedWhite.opacity(0.9))
                             .lineLimit(1).minimumScaleFactor(0.8)
                         Spacer(minLength: 6)
-                        Text(relative(row.when))
+                        Text(relative(a.date))
                             .font(.system(size: 11.5))
                             .foregroundStyle(Color.stockedWhite.opacity(0.45))
                     }
                 }
+            } else {
+                let rows = activityRows
+                if rows.isEmpty {
+                    Text("No activity yet")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                } else {
+                    ForEach(rows) { row in
+                        HStack(spacing: 10) {
+                            Text(row.text)
+                                .font(.system(size: 13.5))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.9))
+                                .lineLimit(1).minimumScaleFactor(0.8)
+                            Spacer(minLength: 6)
+                            Text(relative(row.when))
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.45))
+                        }
+                    }
+                }
             }
         }
+    }
+
+    // ── Quick actions ──────────────────────────────────────────────────
+    // The brief's direct actions, wired to the callbacks MainTabView already passes
+    // in (previously they were plumbed but never surfaced, so nothing happened).
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.system(size: 14, weight: .bold, design: .serif))
+                .foregroundStyle(Color.stockedGoldDark)
+            HStack(spacing: 8) {
+                quickAction("Scan Receipt", "doc.text.viewfinder") { close(); onScanReceipt() }
+                quickAction("Scan Barcode", "barcode.viewfinder")  { close(); onScanBarcode() }
+            }
+            HStack(spacing: 8) {
+                quickAction("Shopping List", "cart")               { close(); onShoppingList() }
+                quickAction("Settings", "slider.horizontal.3")     { close(); onPreferences() }
+            }
+        }
+    }
+
+    private func quickAction(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).font(.system(size: 13))
+                    .foregroundStyle(Color.stockedGoldDark)
+                Text(title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Color.stockedWhite.opacity(0.9))
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(Color.stockedWhite.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .a11yButton(title)
     }
 
     private func close() {
