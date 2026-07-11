@@ -26,7 +26,7 @@ struct SettingsContent: View {
     // One enum drives a SINGLE .sheet(item:). Stacking several .sheet(isPresented:) on the same
     // view makes SwiftUI present one then immediately dismiss it, so a sheet needed a second tap.
     private enum DrawerSheet: Int, Identifiable {
-        case dataStorage, storePopout, household, recipeSources, transfer, notifications
+        case dataStorage, storePopout, household, recipeSources, transfer, notifications, appIcon
         var id: Int { rawValue }
     }
     @State private var activeSheet: DrawerSheet? = nil
@@ -160,6 +160,14 @@ struct SettingsContent: View {
                         settingsRow(icon: "globe", color: Color.stockedGold,
                                     title: "Recipe Sources",
                                     detail: "Add websites or manage sources")
+                    }
+                    .listRowBackground(Color.clear)
+
+                    // App Icon — personalization: 16 alternate Home Screen icons.
+                    Button { activeSheet = .appIcon } label: {
+                        settingsRow(icon: "app.badge", color: Color.stockedGold,
+                                    title: "App Icon",
+                                    detail: "Choose an alternate Home Screen icon")
                     }
                     .listRowBackground(Color.clear)
 
@@ -309,6 +317,7 @@ struct SettingsContent: View {
             case .recipeSources: RecipeSourcesManagerView().environment(session)
             case .transfer:      KitchenTransferView().environment(session)
             case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
+            case .appIcon:       NavigationStack { AppIconPickerView().environment(session) }
             }
         }
     }
