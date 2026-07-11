@@ -222,7 +222,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>46</string>
+	<string>49</string>
 	<key>ChompAPIKey</key>
 	<string>$(CHOMP_API_KEY)</string>
 	<key>ClaudeAPIKey</key>

@@ -88,6 +88,8 @@ struct StockedApp: App {
                 // Pull the latest household state right away so returning to the app shows
                 // changes other members made while we were backgrounded.
                 HouseholdSync.shared.syncOnForeground()
+                // #drift — apply any "I used X" items queued by the Siri intent.
+                session.guestStore.drainPendingUsedItems()
                 let ud = UserDefaults.standard
                 if ud.bool(forKey: "pendingOpenGrocery") {
                     ud.set(false, forKey: "pendingOpenGrocery")

@@ -450,6 +450,9 @@ struct OnlineRecipesView: View {
     @State private var selectedCuisine: String? = nil   // #20 cuisine filter
     @State private var hideAllergens = false             // #251 allergen filter toggle
     @State private var selectedDiet: String? = nil       // #261 diet filter chip
+    // #C1 — filters now SEED from the saved dietary profile so protection is the
+    // default, not an every-session opt-in. The buttons still toggle per session.
+    @State private var seededFromProfile = false
 
     // Predictive suggestions from local RecipeDatabase
     @State private var dbSnapshot:    [RecipeDatabaseEntry] = []
@@ -523,6 +526,23 @@ struct OnlineRecipesView: View {
             HStack {
                 Text("Discover Recipes")
                     .font(.system(size: 14, weight: .bold)).foregroundStyle(session.themeTextColor)
+                    .onAppear {
+                        // #C1 — apply the saved dietary profile once per session: allergen
+                        // hide defaults ON when allergens are saved; the diet chip seeds
+                        // from the profile's dietary style when it maps to a chip.
+                        guard !seededFromProfile else { return }
+                        seededFromProfile = true
+                        let profile = session.guestStore.cookingProfile
+                        if !profile.allergens.filter({ !$0.isEmpty }).isEmpty { hideAllergens = true }
+                        if selectedDiet == nil {
+                            switch profile.dietaryStyle.lowercased() {
+                            case "vegan":        selectedDiet = "Vegan"
+                            case "vegetarian":   selectedDiet = "Vegetarian"
+                            case "gluten-free":  selectedDiet = "Gluten-Free"
+                            default: break
+                            }
+                        }
+                    }
                 Spacer()
                 if loader.isLoading || isSearching {
                     ProgressView().scaleEffect(0.7).tint(Color.stockedGold)

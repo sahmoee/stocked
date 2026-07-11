@@ -120,6 +120,7 @@ struct DailyBriefOverlay: View {
                             atAGlance
                             pantryCheck
                             runningLow
+                            wastePostMortem
                             householdActivity
                             quickActions
                         }
@@ -131,6 +132,7 @@ struct DailyBriefOverlay: View {
                         atAGlance
                         pantryCheck
                         runningLow
+                        wastePostMortem
                         householdActivity
                         quickActions
                     }
@@ -437,6 +439,41 @@ struct DailyBriefOverlay: View {
                     }
                     .buttonStyle(.plain)
                     .a11yButton("Add all running-low items to grocery list")
+                }
+            }
+        }
+    }
+
+    // ── Waste post-mortem (#D3) ────────────────────────────────────────
+    // One short "what happened?" for the most recent unexplained waste this week.
+    // Answers train par levels and sharpen the Stats coaching over time.
+    @State private var answeredWasteID: UUID? = nil
+
+    private var wastePostMortem: some View {
+        Group {
+            if let rec = store.unexplainedWaste, rec.id != answeredWasteID {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Quick Question")
+                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.stockedGoldDark)
+                    Text("\(rec.itemName.displayNormalized) went to waste — what happened?")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        checkChip("Bought too much", "cart.fill.badge.plus", Color.stockedGold) {
+                            store.setWasteReason(recordID: rec.id, reason: "too much")
+                            withAnimation { answeredWasteID = rec.id }
+                        }
+                        checkChip("Forgot it", "eye.slash", Color.stockedWhite.opacity(0.8)) {
+                            store.setWasteReason(recordID: rec.id, reason: "forgot")
+                            withAnimation { answeredWasteID = rec.id }
+                        }
+                        checkChip("Plans changed", "calendar.badge.minus", Color.stockedGreen) {
+                            store.setWasteReason(recordID: rec.id, reason: "plans changed")
+                            withAnimation { answeredWasteID = rec.id }
+                        }
+                    }
                 }
             }
         }

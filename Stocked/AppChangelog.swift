@@ -38,12 +38,38 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.17 (build 37) — Improvements batch 2: profile, planning, and voice ──
+        ChangelogVersion(
+            version: "4.17",
+            buildDate: "Build 37 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "leaf.circle", color: Color.stockedGreen,
+                               title: "Your dietary profile, applied everywhere",
+                               detail: "Set your diet and allergens once in Kitchen Tools > Dietary Profile. Recipe browsing hides allergen conflicts by default and AI recipe ideas respect your diet automatically."),
+                ChangelogEntry(icon: "speaker.wave.2", color: Color.stockedGold,
+                               title: "Recipes read steps aloud",
+                               detail: "Every instruction step now has a speaker button — one tap reads it out loud for flour-covered hands."),
+                ChangelogEntry(icon: "calendar.badge.checkmark", color: Color.stockedGreen,
+                               title: "Planned ingredients are marked",
+                               detail: "Items committed to an upcoming planned meal show a small planned tag in your inventory, so you never plan two dinners around the same onion."),
+                ChangelogEntry(icon: "person.badge.plus", color: Color.stockedGold,
+                               title: "Assign grocery items to family",
+                               detail: "Long-press any grocery item to assign it to a household member — everyone sees who's grabbing what."),
+                ChangelogEntry(icon: "mic.circle", color: Color.stockedGold,
+                               title: "Tell Siri when you finish something",
+                               detail: "Say something like Mark an item used in Stocked and it's marked used the next time you open the app. Scaled recipes also now add the right amounts to your grocery list."),
+                ChangelogEntry(icon: "questionmark.bubble", color: Color.stockedGreen,
+                               title: "Stocked learns why food goes to waste",
+                               detail: "When something goes to waste, the Daily Brief asks one quick question — bought too much, forgot it, or plans changed — and tailors its advice to your answer. Expiry dates also get smarter defaults learned from the community."),
+            ]),
         // ── 4.16 (build 36) — Improvements batch 1: drift-proofing + smarter data ──
         ChangelogVersion(
             version: "4.16",
             buildDate: "Build 36 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
                                title: "Pantry Check keeps your kitchen honest",

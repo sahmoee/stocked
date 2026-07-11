@@ -270,9 +270,7 @@ struct StatsView: View {
                                 reportStat("\(savedRatePercent)%", "Use-it\nrate", Color.stockedGold)
                                 reportStat(money(wastedValueThisMonthTotal), "Waste\ncost", wastedValueThisMonthTotal > 0 ? .orange : Color.stockedGreen)
                             }
-                            Text(savedRatePercent >= 80
-                                 ? "Great month — almost everything got used before it went bad."
-                                 : "Every item cooked before its date is money kept out of the trash.")
+                            Text(savedCoachingLine)
                                 .font(.system(size: 10.5))
                                 .foregroundStyle(Color.stockedWhite.opacity(0.5))
                         }
@@ -349,6 +347,26 @@ struct StatsView: View {
         return Int((Double(usedThisMonthCount) / Double(total) * 100).rounded())
     }
     private var wastedValueThisMonthTotal: Double { wastedValueThisMonth }
+
+    // #D3 — coaching tuned by post-mortem answers from the Daily Brief. The dominant
+    // reason (when there are a few answers) makes the tip concrete instead of generic.
+    private var savedCoachingLine: String {
+        let reasons = store.consumptionLog.compactMap { $0.wasted ? $0.wasteReason : nil }
+        if reasons.count >= 2 {
+            let counts = Dictionary(grouping: reasons, by: { $0 }).mapValues(\.count)
+            if let top = counts.max(by: { $0.value < $1.value }) {
+                switch top.key {
+                case "too much":      return "Your most common waste reason is buying too much — try smaller sizes of repeat offenders."
+                case "forgot":        return "Forgotten items are your top waste reason — the Pantry Check in the Daily Brief helps catch them."
+                case "plans changed": return "Plans changing is your top waste reason — the freezer is your friend when dinner moves."
+                default: break
+                }
+            }
+        }
+        return savedRatePercent >= 80
+            ? "Great month — almost everything got used before it went bad."
+            : "Every item cooked before its date is money kept out of the trash."
+    }
     private var recentWaste: [ConsumptionRecord] {
         store.consumptionLog.filter { $0.wasted }.sorted { $0.depletedAt > $1.depletedAt }.prefix(5).map { $0 }
     }

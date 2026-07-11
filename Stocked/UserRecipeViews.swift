@@ -394,7 +394,7 @@ struct UserRecipeDetailView: View {
                                 // Linked grocery push — consolidates duplicates across recipes
                                 Button {
                                     groceryPushCount = session.guestStore.addRecipeIngredientsToGrocery(
-                                        recipe.ingredients, recipeName: recipe.title)
+                                        recipe.ingredients, recipeName: recipe.title, scale: scaleFactor)
                                     showGroceryPushAlert = true
                                 } label: {
                                     Label("Add Missing to List", systemImage: "cart.badge.plus")

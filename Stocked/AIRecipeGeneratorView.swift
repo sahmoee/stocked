@@ -54,7 +54,16 @@ struct AIRecipeGeneratorView: View {
                 }
             }
         }
-        .onAppear { ideaFocused = true }
+        .onAppear {
+            ideaFocused = true
+            // #C1 — default the dietary choice from the saved profile (still changeable).
+            if dietary == "Any" {
+                let style = session.guestStore.cookingProfile.dietaryStyle
+                if dietaryOptions.contains(where: { $0.caseInsensitiveCompare(style) == .orderedSame }) {
+                    dietary = dietaryOptions.first { $0.caseInsensitiveCompare(style) == .orderedSame } ?? "Any"
+                }
+            }
+        }
     }
 
     // MARK: - Header

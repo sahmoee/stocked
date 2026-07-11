@@ -19,6 +19,7 @@ struct CrowdSuggestion: Codable {
     var topContainer: String?
     var topCategory: String?
     var avgQuantity: Double?
+    var avgShelfLifeDays: Double?   // #B4 — crowd-learned typical days until expiry
 }
 
 enum CrowdDB {
@@ -50,6 +51,17 @@ enum CrowdDB {
             "items": items.map { ["name": $0.name, "category": $0.category, "unit": $0.unit,
                                   "container": $0.container, "quantity": $0.quantity] },
             "basket": basket
+        ]
+        _ = await post("/crowd/report", payload, as: DummyOK.self)
+    }
+
+    /// #B4 — report how long an item lasts (expiry minus purchase, in days) so the crowd
+    /// DB can suggest realistic default expiry windows. Anonymized like everything else;
+    /// no-ops unless contribution is enabled.
+    static func reportShelfLife(name: String, days: Double) async {
+        guard isEnabled, days > 0, days < 720 else { return }
+        let payload: [String: Any] = [
+            "items": [["name": name, "shelfLifeDays": days]]
         ]
         _ = await post("/crowd/report", payload, as: DummyOK.self)
     }

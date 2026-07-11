@@ -12,7 +12,7 @@ import SwiftUI
 
 nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
     case pantryValue, expiryCalendar, wasteInsights, weeklyReview, lowStockReport, priceLookup
-    case budget, batchCook, groceryTemplates, mealCost
+    case budget, batchCook, groceryTemplates, mealCost, dietaryProfile
     case roulette, timers, converter, leftoverIdeas
     case seasonal, storageTips, shelfLife, snapshot
     case duplicates, achievements
@@ -31,6 +31,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .batchCook:        return "Batch Cook Planner"
         case .groceryTemplates: return "List Templates"
         case .mealCost:         return "Meal Cost"
+        case .dietaryProfile:   return "Dietary Profile"
         case .roulette:         return "Recipe Roulette"
         case .timers:           return "Kitchen Timers"
         case .converter:        return "Unit Converter"
@@ -56,6 +57,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .batchCook:        return "Scale a recipe and shop for it"
         case .groceryTemplates: return "Save and reuse shopping lists"
         case .mealCost:         return "Estimate a recipe's cost"
+        case .dietaryProfile:   return "Diet and allergens, applied everywhere"
         case .roulette:         return "Can't decide? Spin for dinner"
         case .timers:           return "Run up to four timers at once"
         case .converter:        return "Cups, grams, ounces, and more"
@@ -81,6 +83,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .batchCook:        return "square.stack.3d.up"
         case .groceryTemplates: return "list.bullet.rectangle"
         case .mealCost:         return "fork.knife.circle"
+        case .dietaryProfile:   return "leaf.circle"
         case .roulette:         return "dice"
         case .timers:           return "timer"
         case .converter:        return "arrow.left.arrow.right"
@@ -98,7 +101,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         switch self {
         case .pantryValue, .expiryCalendar, .wasteInsights, .weeklyReview, .lowStockReport, .priceLookup:
             return "Insights"
-        case .budget, .batchCook, .groceryTemplates, .mealCost:
+        case .budget, .batchCook, .groceryTemplates, .mealCost, .dietaryProfile:
             return "Planning"
         case .roulette, .timers, .converter, .leftoverIdeas:
             return "Cooking"
@@ -188,6 +191,7 @@ struct KitchenToolboxView: View {
         case .batchCook:        BatchCookPlannerView()
         case .groceryTemplates: GroceryTemplatesView()
         case .mealCost:         MealCostView()
+        case .dietaryProfile:   DietaryProfileView()
         case .roulette:         RecipeRouletteView()
         case .timers:           MultiTimerView()
         case .converter:        MeasurementConverterView()

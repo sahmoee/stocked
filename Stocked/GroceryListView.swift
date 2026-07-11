@@ -58,6 +58,13 @@ struct GroceryListView: View {
     @State private var isSortedForShopping  = false
     @State private var pendingDeleteTitle    : String? = nil   // whole-group delete confirm
     @State private var showBought = false   // #235 — To Buy / Bought segment
+    // #E2 — household roster for the Assign to… menu (fetched once per appearance).
+    @State private var householdMemberNames: [String] = []
+
+    /// Names offered in the Assign menu: fetched roster, else just me.
+    private var assignableMembers: [String] {
+        householdMemberNames.isEmpty ? [session.userName] : householdMemberNames
+    }
     @State private var showQuickAdd = false  // #235 — bottom "+ Add Item" button
     @State private var showMoreDialog = false // #245 — header ··· (store/share/scan/move)
     @State private var sortAZ = false          // #245 — "Sort: Category / Name" pill
@@ -491,6 +498,14 @@ struct GroceryListView: View {
             }
         }
         .onAppear { rebuildSections() }
+        .task {
+            // #E2 — load the household roster for assignments (no-op when solo).
+            let sync = HouseholdSync.shared
+            if sync.state == .owner || sync.state == .member {
+                let members = await sync.fetchMembers()
+                householdMemberNames = members.map(\.name).filter { !$0.isEmpty }
+            }
+        }
         .onChange(of: store.groceryItems) { _, _ in rebuildSections() }
         .onChange(of: searchText) { _, _ in rebuildSections() }
         .onChange(of: showBought) { _, _ in rebuildSections() }   // #235 — segment filter
@@ -719,6 +734,20 @@ struct GroceryListView: View {
                             Text("Sub available").font(.system(size: 9, weight: .semibold))
                                 .foregroundStyle(Color.stockedGold.opacity(0.7))
                         }
+                        // #E2 assignment — who's been asked to grab this.
+                        if !item.assignedTo.isEmpty {
+                            Text("·").font(.system(size: 8)).foregroundStyle(sub)
+                            Image(systemName: "person.fill").font(.system(size: 7))
+                                .foregroundStyle(Color.stockedGreen)
+                            Text(item.assignedTo).font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(Color.stockedGreen)
+                        }
+                        // #E1 attribution — added by another household member.
+                        else if !item.addedByName.isEmpty {
+                            Text("·").font(.system(size: 8)).foregroundStyle(sub)
+                            Text("by \(item.addedByName)").font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(Color.stockedGold.opacity(0.7))
+                        }
                     }
                     .foregroundStyle(item.recipeSource.isEmpty && !item.isRecommended
                         ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold.opacity(0.7))
@@ -766,6 +795,28 @@ struct GroceryListView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // #E2 assignable items — long-press to ask a household member to grab it.
+        // Members come from the household roster; solo users just see Unassign/me.
+        .contextMenu {
+            if HouseholdSync.shared.state == .owner || HouseholdSync.shared.state == .member {
+                Menu {
+                    ForEach(assignableMembers, id: \.self) { name in
+                        Button {
+                            if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
+                                store.groceryItems[idx].assignedTo = name
+                            }
+                        } label: { Label(name, systemImage: "person") }
+                    }
+                    if !item.assignedTo.isEmpty {
+                        Button(role: .destructive) {
+                            if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
+                                store.groceryItems[idx].assignedTo = ""
+                            }
+                        } label: { Label("Unassign", systemImage: "person.slash") }
+                    }
+                } label: { Label("Assign to…", systemImage: "person.badge.plus") }
+            }
+        }
         .swipeToDelete {
             undoItem = item
             withAnimation { store.groceryItems.removeAll { $0.id == item.id } }

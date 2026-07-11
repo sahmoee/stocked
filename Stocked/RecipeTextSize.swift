@@ -220,6 +220,21 @@ struct TimedStepRow: View {
                 }
             }
             Spacer(minLength: 0)
+            // #C5 read-aloud — one tap speaks the step for flour-covered hands;
+            // tap again (or another step) to stop.
+            Button {
+                SpeechReader.shared.toggle(id: "\(timerEngine.recipeTitle)-\(stepNumber)", text: stepText)
+            } label: {
+                Image(systemName: SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)"
+                      ? "speaker.wave.2.fill" : "speaker.wave.2")
+                    .font(.system(size: 13))
+                    .foregroundStyle(SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)"
+                                     ? Color.stockedGold : session.themeTextColor.opacity(0.35))
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .a11yButton("Read step \(stepNumber) aloud")
         }
     }
 }

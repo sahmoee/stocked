@@ -708,7 +708,7 @@ const crowdNorm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").tri
 
 async function crowdGetAgg(env, key) {
   const raw = await env.CROWD.get("item:" + key);
-  return raw ? JSON.parse(raw) : { count: 0, units: {}, containers: {}, categories: {}, qtySum: 0, qtyN: 0 };
+  return raw ? JSON.parse(raw) : { count: 0, units: {}, containers: {}, categories: {}, qtySum: 0, qtyN: 0, shelfSum: 0, shelfN: 0 };
 }
 function crowdBump(map, k) { if (!k) return; k = String(k).toLowerCase(); map[k] = (map[k] || 0) + 1; }
 function crowdTopKey(map) { let best = null, n = -1; for (const k in map) if (map[k] > n) { best = k; n = map[k]; } return best; }
@@ -736,6 +736,12 @@ async function handleCrowd(url, request, env) {
         crowdBump(agg.categories, it.category);
         const q = Number(it.quantity);
         if (isFinite(q) && q > 0) { agg.qtySum += q; agg.qtyN += 1; }
+        // #B4 shelf-life learning: optional days-until-expiry contributed at add time.
+        const sl = Number(it.shelfLifeDays);
+        if (isFinite(sl) && sl > 0 && sl < 720) {
+          agg.shelfSum = (agg.shelfSum || 0) + sl;
+          agg.shelfN = (agg.shelfN || 0) + 1;
+        }
         await env.CROWD.put("item:" + key, JSON.stringify(agg));
         await crowdUpdatePopular(env, key);
       }
@@ -761,6 +767,7 @@ async function handleCrowd(url, request, env) {
         topContainer: crowdTopKey(agg.containers),
         topCategory: crowdTopKey(agg.categories),
         avgQuantity: agg.qtyN ? +(agg.qtySum / agg.qtyN).toFixed(2) : null,
+        avgShelfLifeDays: agg.shelfN ? +(agg.shelfSum / agg.shelfN).toFixed(1) : null,
       });
     }
 

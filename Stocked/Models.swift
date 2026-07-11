@@ -248,6 +248,7 @@ nonisolated struct LocalGroceryItem: Identifiable, Codable, Sendable, Equatable 
     var recipeSource:  String = ""   // Recipe name this ingredient came from ("" = manual)
     var recipeId:      String = ""   // #9 — owning recipe's stable id ("" = manual/legacy); lets a rename relabel the group
     var addedByName:   String = ""   // Household: display name of the member who added this ("" = me/unknown)
+    var assignedTo:    String = ""   // #E2 household: member asked to buy this ("" = unassigned)
     var updatedAt:     Double = 0    // last-modified ms since epoch, for household last-write-wins
 }
 
@@ -406,6 +407,9 @@ struct ConsumptionRecord: Identifiable, Codable, Sendable, Equatable {
     var depletedAt: Date        // when it hit empty
     var wasted: Bool = false    // #19 — removed past expiry (thrown out) rather than used up
     var estimatedValue: Double? = nil   // #19 — item's known price at removal, for $ wasted
+    // #D3 waste post-mortem — why it went to waste ("too much" / "forgot" / "plans changed").
+    // Optional + defaulted so the existing log decodes; set later from the Daily Brief ask.
+    var wasteReason: String? = nil
     /// Days the item lasted, if we know when it was bought.
     var daysLasted: Double? {
         guard let p = purchasedAt else { return nil }

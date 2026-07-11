@@ -628,10 +628,14 @@ class GuestDataStore {
     /// and tag new lines with the recipe. Skips ingredients marked optional. Returns the
     /// number of NEW lines added (0 = everything was already on the list or in stock).
     @discardableResult
-    func addRecipeIngredientsToGrocery(_ ingredients: [RecipeIngredient], recipeName: String) -> Int {
+    /// #C4 scale-aware: `scale` is the serving multiplier vs the recipe's base servings.
+    /// Missing ingredients land on the list with a quantity that reflects the scaled batch
+    /// (e.g. cooking a doubled recipe adds 2 of a missing ingredient, not 1).
+    func addRecipeIngredientsToGrocery(_ ingredients: [RecipeIngredient], recipeName: String, scale: Double = 1) -> Int {
         let recipe = recipeName.trimmingCharacters(in: .whitespaces)
         let rid = userRecipes.first(where: { $0.title == recipe })?.id.uuidString ?? ""   // #9
         let inStock = inStockNameSet
+        let qtyForScale = max(1, Int(scale.rounded(.up)))
         var added = 0
         withAnimation {
             for ing in ingredients where !ing.isOptional {
@@ -641,13 +645,15 @@ class GuestDataStore {
                 if inStock.contains(where: { low.contains($0) || $0.contains(low) }) { continue }
                 let key = GroceryConsolidator.normalizeKey(n)
                 if let idx = groceryItems.firstIndex(where: { GroceryConsolidator.normalizeKey($0.name) == key }) {
-                    groceryItems[idx].quantity += 1
+                    groceryItems[idx].quantity += qtyForScale
                     if !recipe.isEmpty, !groceryItems[idx].recipeSource.contains(recipe) {
                         groceryItems[idx].recipeSource += groceryItems[idx].recipeSource.isEmpty ? recipe : ", \(recipe)"
                     }
                     if groceryItems[idx].recipeId.isEmpty { groceryItems[idx].recipeId = rid }   // #9
                 } else {
-                    groceryItems.append(LocalGroceryItem(name: n, isChecked: false, recipeSource: recipe, recipeId: rid))
+                    var item = LocalGroceryItem(name: n, isChecked: false, recipeSource: recipe, recipeId: rid)
+                    item.quantity = qtyForScale
+                    groceryItems.append(item)
                     added += 1
                 }
             }
@@ -792,6 +798,29 @@ class GuestDataStore {
         var stamped = item
         stamped.lastConfirmedAt = Date()   // freshly added = freshly confirmed
         withAnimation { inventoryItems.append(stamped) }
+        // #B4 crowd shelf-life defaults — when the item arrives with no expiry, ask the
+        // anonymized crowd DB how long this item typically lasts and fill a sensible
+        // default. Applies only if the user still hasn't set a date by the time the
+        // suggestion returns; any failure is silent.
+        if stamped.expirationDate == nil {
+            let newID = stamped.id
+            Task { @MainActor [weak self] in
+                guard let suggestion = await CrowdDB.suggest(name: stamped.name),
+                      let days = suggestion.avgShelfLifeDays, days > 0, days < 720,
+                      let self,
+                      let i = self.inventoryIndex(of: newID),
+                      self.inventoryItems[i].expirationDate == nil else { return }
+                self.inventoryItems[i].expirationDate =
+                    Calendar.current.date(byAdding: .day, value: Int(days.rounded()), to: Date())
+            }
+        } else if let exp = stamped.expirationDate {
+            // Contribute this item's real shelf window back to the crowd (opt-out honored
+            // inside reportShelfLife). Purchase date defaults to today for a fresh add.
+            let bought = stamped.purchaseDate ?? Date()
+            let days = exp.timeIntervalSince(bought) / 86400
+            let name = stamped.name
+            Task { await CrowdDB.reportShelfLife(name: name, days: days) }
+        }
     }
 
     /// #B1 — conservative canonical merge key: case/whitespace/punctuation-insensitive
@@ -874,6 +903,79 @@ class GuestDataStore {
         return true
     }
 
+    // MARK: - Reserved for planned meals (#B3)
+
+    /// Merge keys of ingredients committed to uncooked planned meals, so surfaces can
+    /// show "planned" on items that look free but are spoken for.
+    var reservedIngredientKeys: Set<String> {
+        var keys = Set<String>()
+        for meal in plannedMeals where !meal.isCooked {
+            for ing in meal.ingredients {
+                let k = Self.mergeKey(ing)
+                if !k.isEmpty { keys.insert(k) }
+            }
+        }
+        return keys
+    }
+
+    /// Whether this inventory item is an ingredient of an upcoming planned meal.
+    func isReservedForMeal(_ item: LocalInventoryItem) -> Bool {
+        let key = Self.mergeKey(item.name)
+        guard !key.isEmpty else { return false }
+        // Loose containment both ways so "chicken" reserves "chicken breast" and vice versa.
+        return reservedIngredientKeys.contains(where: { $0.contains(key) || key.contains($0) })
+    }
+
+    // MARK: - Waste post-mortem (#D3)
+
+    /// Most recent wasted item this week with no reason recorded — the Daily Brief asks
+    /// one short "what happened?" so par levels and coaching can learn from the answer.
+    var unexplainedWaste: ConsumptionRecord? {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        return consumptionLog.last(where: { $0.wasted && $0.wasteReason == nil && $0.depletedAt > cutoff })
+    }
+
+    func setWasteReason(recordID: UUID, reason: String) {
+        if let i = consumptionLog.firstIndex(where: { $0.id == recordID }) {
+            consumptionLog[i].wasteReason = reason
+        }
+    }
+
+    // MARK: - Household role gating (#E3)
+
+    /// Kids can use up and add, but not delete inventory — deletion asks an adult.
+    /// Returns true when the current member may remove items.
+    private var canDeleteInventory: Bool {
+        let role = HouseholdSync.shared.myAccessRole
+        return role != .kid
+    }
+
+    // MARK: - Siri "I used X" handoff (#drift)
+
+    /// Names queued by the MarkItemUsedIntent (which runs outside the app's data layer).
+    /// Drained on foreground: matching items are marked used (level 0, consumption logged).
+    static let pendingUsedKey = "stocked.pendingUsedItems"
+
+    func drainPendingUsedItems() {
+        let ud = UserDefaults.standard
+        guard let names = ud.stringArray(forKey: Self.pendingUsedKey), !names.isEmpty else { return }
+        ud.removeObject(forKey: Self.pendingUsedKey)
+        var marked: [String] = []
+        for raw in names {
+            let key = Self.mergeKey(raw)
+            guard !key.isEmpty,
+                  let item = inventoryItems.first(where: { Self.mergeKey($0.name) == key && $0.level > 0 })
+            else { continue }
+            updateInventoryLevel(id: item.id, level: 0)
+            marked.append(item.name.displayNormalized)
+        }
+        if !marked.isEmpty {
+            ToastCenter.shared.success(marked.count == 1
+                ? "Marked \(marked[0]) as used (from Siri)"
+                : "Marked \(marked.count) items as used (from Siri)")
+        }
+    }
+
     // MARK: - Staleness / Pantry Check (#A2/#A3 drift-proofing)
 
     /// Days after which an unconfirmed item is considered stale (the app is no longer
@@ -915,6 +1017,12 @@ class GuestDataStore {
     }
 
     func removeInventoryItem(id: UUID) {
+        // #E3 — kid household members can't delete inventory; they can still mark items
+        // used or add to the grocery list. Silent data loss is worse than a nudge.
+        guard canDeleteInventory else {
+            ToastCenter.shared.success("Ask a household adult to delete items")
+            return
+        }
         // thrown out, not used up. Log it as waste (with its known price) for the Stats view.
         if let item = inventoryItems.first(where: { $0.id == id }),
            item.level > 0, let exp = item.expirationDate, exp < Date() {

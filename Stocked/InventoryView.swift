@@ -1156,6 +1156,19 @@ struct InventoryItemRow: View {
                                 .font(.system(size: 10.5))
                                 .foregroundStyle(Color.stockedGold.opacity(0.8))
                         }
+                        // #B3 reserved — committed to an upcoming planned meal, so it looks
+                        // free but is spoken for. Prevents planning two meals around one onion.
+                        if session.guestStore.isReservedForMeal(item) {
+                            HStack(spacing: 2) {
+                                Image(systemName: "calendar").font(.system(size: 8))
+                                Text("planned")
+                            }
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.stockedGreen)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.stockedGreen.opacity(0.12))
+                            .clipShape(Capsule())
+                        }
                     }
                 }
 

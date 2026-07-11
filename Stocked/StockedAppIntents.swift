@@ -45,6 +45,31 @@ struct StartCookingIntent: AppIntent {
 // works without the live session, and returns a spoken/printed result.
 
 @available(iOS 16.0, *)
+/// #drift — "Hey Siri, I used the milk in Stocked." Queues the item name; the app
+/// drains the queue on next foreground and marks matching items used (level 0,
+/// consumption logged, auto-restock honored). Queue-and-drain because the intent
+/// can run outside the app's live data layer — writing the store's full item JSON
+/// from here would risk clobbering fields this lightweight context doesn't decode.
+struct MarkItemUsedIntent: AppIntent {
+    static var title: LocalizedStringResource = "Mark Item Used in Stocked"
+    static var description = IntentDescription("Tell Stocked you finished or used up an item.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Item name") var itemName: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let name = itemName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else {
+            return .result(dialog: "Which item did you use?")
+        }
+        let ud = UserDefaults.standard
+        var pending = ud.stringArray(forKey: "stocked.pendingUsedItems") ?? []
+        pending.append(name)
+        ud.set(pending, forKey: "stocked.pendingUsedItems")
+        return .result(dialog: "Got it — I'll mark \(name) as used in Stocked.")
+    }
+}
+
 struct WhatsExpiringIntent: AppIntent {
     static var title: LocalizedStringResource = "What's expiring in Stocked"
     static var description = IntentDescription("Ask Stocked what food is expiring soon.")
@@ -114,6 +139,15 @@ struct StockedShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Start Cooking",
             systemImageName: "frying.pan.fill"
+        )
+        AppShortcut(
+            intent: MarkItemUsedIntent(),
+            phrases: [
+                "Mark an item used in \(.applicationName)",
+                "I used something in \(.applicationName)"
+            ],
+            shortTitle: "Mark Used",
+            systemImageName: "checkmark.circle"
         )
         AppShortcut(
             intent: WhatsExpiringIntent(),
