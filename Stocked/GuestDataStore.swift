@@ -573,6 +573,17 @@ class GuestDataStore {
     func addGroceryItem(name: String) {
         // #17 — accent/case-insensitive dedup so "milk" / "Milk" / "Crème" don't double up.
         guard !GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name }) else { return }
+        // #D2 duplicate-purchase guard — if it's already stocked, say so (still adds:
+        // buying more can be intentional, but "you have 2 already" prevents the classic
+        // three-cans-of-chickpeas mistake).
+        let key = Self.mergeKey(name)
+        if !key.isEmpty,
+           let have = inventoryItems.first(where: { Self.mergeKey($0.name) == key && $0.level > 0.15 }) {
+            let count = have.quantity
+            ToastCenter.shared.success(count > 1
+                ? "Heads up — you already have \(count) \(have.name.displayNormalized) in stock"
+                : "Heads up — \(have.name.displayNormalized) is already in stock")
+        }
         AppAnalytics.shared.log(.groceryItemAdded)
         withAnimation { groceryItems.append(LocalGroceryItem(name: name, isChecked: false)) }
     }
@@ -752,6 +763,15 @@ class GuestDataStore {
             withAnimation {
                 inventoryItems[idx].quantity += max(1, item.quantity)
                 inventoryItems[idx].level = 1.0            // restocked → full
+                inventoryItems[idx].lastConfirmedAt = Date()   // restock confirms it's here
+                // #B2 unit-aware math: when both rows carry a size and the units are
+                // convertible ("500 g" + "1 lb"), keep the existing row's unit and sum.
+                if let curAmt = inventoryItems[idx].sizeAmount,
+                   let curUnit = inventoryItems[idx].sizeUnit,
+                   let newAmt = item.sizeAmount, let newUnit = item.sizeUnit,
+                   let converted = UnitMath.convert(newAmt, from: newUnit, to: curUnit) {
+                    inventoryItems[idx].sizeAmount = curAmt + converted
+                }
                 // Prefer newly-scanned details when present.
                 if let p = item.price            { inventoryItems[idx].price = p }
                 if let d = item.purchaseDate     { inventoryItems[idx].purchaseDate = d }
@@ -769,24 +789,48 @@ class GuestDataStore {
             }
             return
         }
-        withAnimation { inventoryItems.append(item) }
+        var stamped = item
+        stamped.lastConfirmedAt = Date()   // freshly added = freshly confirmed
+        withAnimation { inventoryItems.append(stamped) }
     }
 
-    /// Two items are "the same" for merging if their names normalize equal and their
-    /// units are compatible (both countable, or same size unit). #18 keeps us from
-    /// merging "2 cans" into "3 lbs".
+    /// #B1 — conservative canonical merge key: case/whitespace/punctuation-insensitive
+    /// with a trailing-plural fold, so "Chicken Breasts" merges with "chicken breast".
+    /// Deliberately NOT IngredientMatcher.canonical (that maps cheddar→cheese, which is
+    /// right for recipe matching but would wrongly merge distinct products in inventory).
+    nonisolated static func mergeKey(_ raw: String) -> String {
+        var s = raw.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        // Plural fold: drop "es" only after sibilant endings (boxes, dishes, tomatoes
+        // stay linguistically wrong but symmetric); otherwise drop a single trailing
+        // "s" (pancakes→pancake) while leaving "ss" words (glass) alone.
+        if s.count > 4, ["ses", "xes", "zes", "ches", "shes", "oes"].contains(where: { s.hasSuffix($0) }) {
+            s = String(s.dropLast(2))
+        } else if s.hasSuffix("s"), !s.hasSuffix("ss"), s.count > 3 {
+            s = String(s.dropLast(1))
+        }
+        return s
+    }
+
+    /// Two items are "the same" for merging if their names share a merge key and their
+    /// units are compatible: identical, both absent, or convertible within the same
+    /// measurement family (mass/volume via UnitMath). #18 still keeps "2 cans" from
+    /// merging into "3 lbs".
     static func isSameItem(_ a: LocalInventoryItem, _ b: LocalInventoryItem) -> Bool {
-        let na = a.name.lowercased().trimmingCharacters(in: .whitespaces)
-        let nb = b.name.lowercased().trimmingCharacters(in: .whitespaces)
-        guard na == nb else { return false }
+        guard mergeKey(a.name) == mergeKey(b.name), !mergeKey(a.name).isEmpty else { return false }
         let ua = a.sizeUnit?.lowercased() ?? ""
         let ub = b.sizeUnit?.lowercased() ?? ""
-        return ua == ub
+        if ua == ub { return true }
+        if ua.isEmpty || ub.isEmpty { return false }   // one measured, one not → keep separate
+        return UnitMath.convertible(ua, ub)
     }
     func updateInventoryLevel(id: UUID, level: Double) {
         if let i = inventoryIndex(of: id) {   // #5 — O(1) lookup instead of firstIndex scan
             let was = inventoryItems[i].level
             withAnimation { inventoryItems[i].level = level }
+            inventoryItems[i].lastConfirmedAt = Date()   // #A3 — touching the level confirms it's real
             // Close-the-loop #1/#2 — if it just hit empty, log consumption + restock grocery.
             if was > 0 && level <= 0 { handleDepleted(inventoryItems[i]) }
         }
@@ -828,6 +872,46 @@ class GuestDataStore {
             return false
         }
         return true
+    }
+
+    // MARK: - Staleness / Pantry Check (#A2/#A3 drift-proofing)
+
+    /// Days after which an unconfirmed item is considered stale (the app is no longer
+    /// sure it's really in the kitchen). Perishables go stale faster than pantry goods.
+    nonisolated static func staleWindowDays(for item: LocalInventoryItem) -> Int {
+        switch item.storageCategory {
+        case .fridge:  return 10
+        case .freezer: return 45
+        default:       return 30
+        }
+    }
+
+    /// The reference date for staleness: last explicit confirmation, else purchase date.
+    /// Items with neither are treated as fresh (legacy data shouldn't all flag at once).
+    nonisolated static func staleness(of item: LocalInventoryItem) -> Int? {
+        guard let anchor = item.lastConfirmedAt ?? item.purchaseDate else { return nil }
+        return Calendar.current.dateComponents([.day], from: anchor, to: Date()).day
+    }
+
+    /// Whether the app should ask about this item ("Still have this?").
+    nonisolated static func isStale(_ item: LocalInventoryItem) -> Bool {
+        guard item.level > 0, let days = staleness(of: item) else { return false }
+        return days >= staleWindowDays(for: item)
+    }
+
+    /// Up to `limit` stale items, most-overdue first — feeds the Daily Brief Pantry Check.
+    func staleItems(limit: Int = 3) -> [LocalInventoryItem] {
+        inventoryItems
+            .filter { Self.isStale($0) && !isSnoozed($0.id) }
+            .sorted { (Self.staleness(of: $0) ?? 0) > (Self.staleness(of: $1) ?? 0) }
+            .prefix(limit).map { $0 }
+    }
+
+    /// Pantry Check "Yes, still have it" — refreshes the confirmation stamp.
+    func confirmInventoryItem(id: UUID) {
+        if let i = inventoryIndex(of: id) {
+            withAnimation { inventoryItems[i].lastConfirmedAt = Date() }
+        }
     }
 
     func removeInventoryItem(id: UUID) {
@@ -1385,6 +1469,29 @@ class GuestDataStore {
         r.instructions = r.instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+        // #C2 — auto-route broken imports through the AI cleanup pipeline. Heuristic:
+        // no usable steps despite real content, or one giant unsplit blob. Runs in the
+        // background and only applies if the recipe still exists and the fix is usable —
+        // the user sees the raw version instantly and it quietly improves moments later.
+        let looksBroken = (r.instructions.isEmpty && !r.description.isEmpty)
+            || (r.instructions.count == 1 && (r.instructions.first?.count ?? 0) > 350)
+        if looksBroken, RecipeImportAI.isAvailable {
+            let recipeID = r.id
+            let raw = RecipeImportAI.composeRawText(
+                title: r.title, description: r.description,
+                ingredients: r.ingredients.map { $0.amount.isEmpty ? $0.name : "\($0.amount) \($0.name)" },
+                steps: r.instructions)
+            Task { @MainActor [weak self] in
+                guard let ai = await RecipeImportAI.structure(rawText: raw), ai.isUsable else { return }
+                let cleaned = ai.steps
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                guard cleaned.count >= 2, let self,
+                      var current = self.userRecipes.first(where: { $0.id == recipeID }) else { return }
+                current.instructions = cleaned
+                self.updateUserRecipe(current)
+            }
+        }
         AppAnalytics.shared.log(.recipeSaved)
         var l = userRecipes; l.append(r); userRecipes = l
         Task { @MainActor in

@@ -95,6 +95,12 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
     // re-deriving provenance. Optional + defaulted so existing saved items decode cleanly.
     var sourceBadge:      SourceBadge?
 
+    // ── Staleness (drift-proofing #A3) ────────────────────────────
+    // When the user last confirmed this item is really still in the kitchen — set by
+    // Pantry Check nudges, level edits, and restocks. nil = never confirmed (legacy items
+    // decode cleanly and fall back to purchaseDate for staleness math).
+    var lastConfirmedAt:  Date?
+
     // ── Display ───────────────────────────────────────────────────
     var displayText: String {
         if let amt = sizeAmount, let unit = sizeUnit {

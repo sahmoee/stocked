@@ -605,17 +605,37 @@ struct InventoryView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
                 if items.isEmpty {
-                    StockedEmptyState(
-                        icon: "🧺",
-                        title: session.guestStore.inventoryItems.isEmpty
-                            ? "Your pantry is empty"
-                            : "Nothing in \(selectedZone) yet",
-                        subtitle: session.guestStore.inventoryItems.isEmpty
-                            ? "Add items with Quick Add above, scan a barcode, or scan a grocery receipt to fill your kitchen."
-                            : "Items you add to \(selectedZone) will appear here.",
-                        ctaLabel: "Add an item",
-                        onCTA: { activeSheet = .add }
-                    )
+                    // #A5 receipt-first onboarding: an empty pantry's hero action is the
+                    // one-photo bulk populate (receipt scan), with manual add secondary.
+                    if session.guestStore.inventoryItems.isEmpty {
+                        VStack(spacing: 14) {
+                            StockedEmptyState(
+                                icon: "🧺",
+                                title: "Your pantry is empty",
+                                subtitle: "The fastest way to fill it: snap a photo of your last grocery receipt and Stocked adds everything at once.",
+                                ctaLabel: "Scan a Receipt",
+                                onCTA: {
+                                    NotificationCenter.default.post(name: .stockedQuickAction,
+                                                                    object: DrawerQuickAction.scanReceipt)
+                                }
+                            )
+                            Button { activeSheet = .add } label: {
+                                Text("Or add items by hand")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Color.stockedGold)
+                            }
+                            .buttonStyle(.plain)
+                            .a11yButton("Add items by hand")
+                        }
+                    } else {
+                        StockedEmptyState(
+                            icon: "🧺",
+                            title: "Nothing in \(selectedZone) yet",
+                            subtitle: "Items you add to \(selectedZone) will appear here.",
+                            ctaLabel: "Add an item",
+                            onCTA: { activeSheet = .add }
+                        )
+                    }
                 } else {
                     // #245 — exact mockup: a FLAT list (no subcategory groups), first 8
                     // rows, then a "View All <zone> Items" footer that expands the rest.
@@ -1116,9 +1136,27 @@ struct InventoryItemRow: View {
                         .dynamicTypeSize(.xSmall ... .xxxLarge)
                         .foregroundStyle(session.themeTextColor)
                         .lineLimit(1)
-                    Text(qtyLine)
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    HStack(spacing: 6) {
+                        Text(qtyLine)
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        // #A3 staleness — the app hasn't seen this touched in a while; a
+                        // subtle chip turns invisible drift into a visible, fixable state.
+                        if GuestDataStore.isStale(item) {
+                            Text("Still have this?")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Color.orange)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                        // #E1 household attribution — who added it, when synced from a member.
+                        if let who = item.addedBy, !who.isEmpty, who != session.userName {
+                            Text("by \(who)")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(Color.stockedGold.opacity(0.8))
+                        }
+                    }
                 }
 
                 Spacer(minLength: 8)

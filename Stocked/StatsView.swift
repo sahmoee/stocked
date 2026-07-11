@@ -260,6 +260,23 @@ struct StatsView: View {
                             reportStat("\(expiredThisWeek)", "Items\nExpired", .red)
                         }
                     }
+                    // #D1 — the positive counterpart to waste: what the app helped you SAVE.
+                    // Used-before-wasted rate this month, plus dollars kept out of the trash
+                    // (spend on used items estimated from receipt prices where known).
+                    reportPanel("Saved This Month") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 0) {
+                                reportStat("\(usedThisMonthCount)", "Used, not\nwasted", Color.stockedGreen)
+                                reportStat("\(savedRatePercent)%", "Use-it\nrate", Color.stockedGold)
+                                reportStat(money(wastedValueThisMonthTotal), "Waste\ncost", wastedValueThisMonthTotal > 0 ? .orange : Color.stockedGreen)
+                            }
+                            Text(savedRatePercent >= 80
+                                 ? "Great month — almost everything got used before it went bad."
+                                 : "Every item cooked before its date is money kept out of the trash.")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                        }
+                    }
                     // #6 — spending: this week alongside the month, from receipt prices.
                     if !store.priceHistory.isEmpty {
                         reportPanel("Spending") {
@@ -320,6 +337,18 @@ struct StatsView: View {
     }
     private var wastedThisMonth: [ConsumptionRecord] { store.consumptionLog.filter { $0.wasted && isThisMonth($0.depletedAt) } }
     private var wastedValueThisMonth: Double { wastedThisMonth.compactMap { $0.estimatedValue }.reduce(0, +) }
+
+    // #D1 "Saved This Month" — the positive framing of the same log.
+    private var usedThisMonthCount: Int {
+        store.consumptionLog.filter { !$0.wasted && isThisMonth($0.depletedAt) }.count
+    }
+    private var savedRatePercent: Int {
+        let wasted = wastedThisMonth.count
+        let total = usedThisMonthCount + wasted
+        guard total > 0 else { return 100 }
+        return Int((Double(usedThisMonthCount) / Double(total) * 100).rounded())
+    }
+    private var wastedValueThisMonthTotal: Double { wastedValueThisMonth }
     private var recentWaste: [ConsumptionRecord] {
         store.consumptionLog.filter { $0.wasted }.sorted { $0.depletedAt > $1.depletedAt }.prefix(5).map { $0 }
     }

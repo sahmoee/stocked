@@ -118,6 +118,8 @@ struct DailyBriefOverlay: View {
                         statsCard.frame(maxWidth: .infinity)
                         VStack(alignment: .leading, spacing: 18) {
                             atAGlance
+                            pantryCheck
+                            runningLow
                             householdActivity
                             quickActions
                         }
@@ -127,6 +129,8 @@ struct DailyBriefOverlay: View {
                     VStack(alignment: .leading, spacing: 18) {
                         statsCard
                         atAGlance
+                        pantryCheck
+                        runningLow
                         householdActivity
                         quickActions
                     }
@@ -332,6 +336,107 @@ struct DailyBriefOverlay: View {
                                 .foregroundStyle(Color.stockedWhite.opacity(0.45))
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // ── Pantry Check (#A2 drift-proofing) ──────────────────────────────
+    // Items the app hasn't seen touched in a while get a one-tap "still have this?"
+    // ask. Three taps a week keeps the inventory honest without a chore. Answers:
+    // Yes (refreshes confirmation) · Used it (level → 0, logs consumption) ·
+    // Ran out (level → 0 AND straight onto the grocery list).
+    @State private var checkedOff: Set<UUID> = []
+
+    private var pantryCheck: some View {
+        let items = store.staleItems(limit: 3).filter { !checkedOff.contains($0.id) }
+        return Group {
+            if !items.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Pantry Check")
+                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.stockedGoldDark)
+                    Text("Haven't seen these in a while — still have them?")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                    ForEach(items) { item in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(item.name.displayNormalized)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.9))
+                            HStack(spacing: 8) {
+                                checkChip("Yes", "checkmark", Color.stockedGreen) {
+                                    store.confirmInventoryItem(id: item.id)
+                                    withAnimation { _ = checkedOff.insert(item.id) }
+                                }
+                                checkChip("Used it", "fork.knife", Color.stockedGold) {
+                                    store.updateInventoryLevel(id: item.id, level: 0)
+                                    withAnimation { _ = checkedOff.insert(item.id) }
+                                }
+                                checkChip("Ran out", "cart.badge.plus", Color.stockedWhite.opacity(0.8)) {
+                                    store.updateInventoryLevel(id: item.id, level: 0)
+                                    store.addGroceryItem(name: item.name)
+                                    withAnimation { _ = checkedOff.insert(item.id) }
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .background(Color.stockedWhite.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    }
+                }
+            }
+        }
+    }
+
+    private func checkChip(_ title: String, _ icon: String, _ color: Color,
+                           action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticManager.light()
+        } label: {
+            Label(title, systemImage: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(color)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(color.opacity(0.14))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .a11yButton(title)
+    }
+
+    // ── Running Low Soon (#A4 depletion-rate learning, surfaced) ───────
+    // predictedRunningLow() learns each item's burn rate from the consumption log
+    // and flags staples that are due or overdue for a restock. One tap adds them all.
+    @State private var addedRunningLow = false
+
+    private var runningLow: some View {
+        let names = store.predictedRunningLow(limit: 4)
+        return Group {
+            if !names.isEmpty && !addedRunningLow {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Running Low Soon")
+                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.stockedGoldDark)
+                    Text("Based on how fast you usually go through them: \(names.map { $0.displayNormalized }.joined(separator: ", "))")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.75))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        for n in names { store.addGroceryItem(name: n) }
+                        withAnimation { addedRunningLow = true }
+                        HapticManager.light()
+                    } label: {
+                        Label("Add all to grocery list", systemImage: "cart.badge.plus")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.stockedGoldDark)
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(Color.stockedGold.opacity(0.16))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .a11yButton("Add all running-low items to grocery list")
                 }
             }
         }

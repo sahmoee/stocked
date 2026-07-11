@@ -38,12 +38,38 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.16 (build 36) — Improvements batch 1: drift-proofing + smarter data ──
+        ChangelogVersion(
+            version: "4.16",
+            buildDate: "Build 36 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
+                               title: "Pantry Check keeps your kitchen honest",
+                               detail: "The Daily Brief now asks about items it hasn't seen you touch in a while — one tap says Yes, Used it, or Ran out, so your inventory stays true to your real kitchen."),
+                ChangelogEntry(icon: "clock.arrow.circlepath", color: Color.stockedGold,
+                               title: "Stocked learns how fast you go through things",
+                               detail: "Based on your own usage history, the Daily Brief predicts staples you're about to run out of — like milk every five days — and adds them to your list in one tap."),
+                ChangelogEntry(icon: "arrow.triangle.merge", color: Color.stockedGold,
+                               title: "Smarter duplicate merging",
+                               detail: "Adding Chicken Breasts when you already have chicken breast now updates one item instead of creating two — and 500 g plus 1 lb of the same thing adds up correctly."),
+                ChangelogEntry(icon: "cart.badge.questionmark", color: Color.stockedGold,
+                               title: "No more triple-buying chickpeas",
+                               detail: "Adding something to your grocery list that's already stocked shows a friendly heads-up with how many you have."),
+                ChangelogEntry(icon: "dollarsign.circle", color: Color.stockedGreen,
+                               title: "See what you saved",
+                               detail: "The Kitchen Report now celebrates the wins: items used before they went bad, your use-it rate for the month, and what waste actually cost you."),
+                ChangelogEntry(icon: "doc.text.viewfinder", color: Color.stockedGold,
+                               title: "Faster first fill-up",
+                               detail: "An empty pantry now leads with the quickest way to fill it — scan a grocery receipt and everything's added at once. New recipes with jumbled steps also get cleaned up automatically."),
+            ]),
         // ── 4.15 (build 35) — Cook buttons, Daily Brief, recipe cleanup ──
         ChangelogVersion(
             version: "4.15",
             buildDate: "Build 35 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedGold,
                                title: "Cook buttons resize everywhere",
