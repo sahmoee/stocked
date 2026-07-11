@@ -181,7 +181,7 @@ nonisolated struct NutritionFacts: Codable, Equatable, Sendable {
 }
 
 // MARK: - Recipe Ingredient
-struct RecipeIngredient: Identifiable, Codable, Sendable {
+struct RecipeIngredient: Identifiable, Codable, Sendable, Equatable {
     var id         = UUID()
     var name:      String
     var amount:    String
@@ -198,7 +198,7 @@ struct RecipeIngredient: Identifiable, Codable, Sendable {
 }
 
 // MARK: - User Recipe
-nonisolated struct UserRecipe: Identifiable, Codable, Sendable {
+nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var id            = UUID()
     var title:        String
     var description:  String   = ""
@@ -249,6 +249,7 @@ nonisolated struct LocalGroceryItem: Identifiable, Codable, Sendable, Equatable 
     var recipeId:      String = ""   // #9 — owning recipe's stable id ("" = manual/legacy); lets a rename relabel the group
     var addedByName:   String = ""   // Household: display name of the member who added this ("" = me/unknown)
     var assignedTo:    String = ""   // #E2 household: member asked to buy this ("" = unassigned)
+    var sizeText:      String = ""   // measured size for display, e.g. "14 oz" ("" = none)
     var updatedAt:     Double = 0    // last-modified ms since epoch, for household last-write-wins
 }
 

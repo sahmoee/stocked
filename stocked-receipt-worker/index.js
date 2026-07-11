@@ -31,6 +31,7 @@
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
+const WORKER_VERSION = "2026-07-11.1"; // bump on every route/prompt change
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1500;
 
@@ -60,6 +61,16 @@ export default {
     // ── CORS preflight ──
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
+    // ── Health/version probe (auth-free) ──
+    // GET /health returns the deployed marker so a stale deploy is provable from the
+    // app or a browser. Bump WORKER_VERSION whenever routes/prompts change.
+    {
+      const u = new URL(request.url);
+      if (u.pathname === "/health") {
+        return json({ ok: true, version: WORKER_VERSION }, 200);
+      }
     }
 
     // ── Shared-secret check (applies to every route) ──

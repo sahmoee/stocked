@@ -19,12 +19,14 @@ enum StockedToastStyle: Equatable {
     case success     // green check — something completed
     case info        // gold dot — neutral status / the app did something for you
     case undo        // trash + Undo action
+    case warning     // orange triangle — an error/failure notice (never a green check)
 
     var icon: String {
         switch self {
         case .success: return "checkmark.circle.fill"
         case .info:    return "sparkles"
         case .undo:    return "trash"
+        case .warning: return "exclamationmark.triangle.fill"
         }
     }
     var tint: Color {
@@ -32,6 +34,7 @@ enum StockedToastStyle: Equatable {
         case .success: return .stockedGreen
         case .info:    return .stockedGold
         case .undo:    return .stockedWhite
+        case .warning: return .orange
         }
     }
 }
@@ -73,6 +76,12 @@ final class ToastCenter {
     /// A success confirmation (e.g. saved, added, completed).
     func success(_ message: String, duration: Double = 2.4) {
         present(StockedToast(message: message, style: .success), duration: duration)
+    }
+
+    /// Something went wrong but the app is fine (network failures, server hiccups).
+    /// Orange triangle instead of the green check, so errors never look like wins.
+    func warning(_ message: String, duration: Double = 3.0) {
+        present(StockedToast(message: message, style: .warning), duration: duration)
     }
 
     /// A destructive action with an Undo affordance (#11). The action runs if the user taps Undo.

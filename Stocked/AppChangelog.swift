@@ -38,12 +38,32 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.21 (build 41) — Build fix, worker health, smart grocery quantities ──
+        ChangelogVersion(
+            version: "4.21",
+            buildDate: "Build 41 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "cart.badge.plus", color: Color.stockedGold,
+                               title: "Grocery quantities add themselves up",
+                               detail: "When two recipes and a manual add all call for onions, the list shows one row with the right total — 4 plus 3 plus 1 makes 8. Measured items like a 14 oz sauce show their size right on the row."),
+                ChangelogEntry(icon: "text.alignleft", color: Color.stockedGreen,
+                               title: "Long names glide, never wrap",
+                               detail: "Grocery item names always stay on one line — if a name is too long, it gently scrolls to show the rest."),
+                ChangelogEntry(icon: "exclamationmark.triangle", color: Color.stockedGold,
+                               title: "Clearer error messages",
+                               detail: "When the kitchen assistant can't be reached, Stocked now tells you exactly why — and error messages no longer wear a green checkmark."),
+                ChangelogEntry(icon: "hare.fill", color: Color.stockedGreen,
+                               title: "Recipe browsing, unfrozen",
+                               detail: "Recipe matching against your pantry is now cached, eliminating the biggest cause of stutter when scrolling and sorting large recipe collections."),
+            ]),
         // ── 4.20 (build 40) — Cook button fix + app-wide speed pass ──
         ChangelogVersion(
             version: "4.20",
             buildDate: "Build 40 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "slider.horizontal.3", color: Color.stockedGold,
                                title: "Cook buttons truly resize now",

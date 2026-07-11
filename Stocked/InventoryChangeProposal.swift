@@ -208,9 +208,19 @@ final class InventoryIntentParser {
         defer { isParsing = false }
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
+            let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            guard status == 200 else {
                 if !localChanges.isEmpty { return localChanges }
-                lastError = "The assistant couldn't process that. Try rephrasing."; return nil
+                // Distinguish server-side problems from bad phrasing so a stale worker
+                // deploy or key mismatch doesn't masquerade as a user error.
+                switch status {
+                case 401:      lastError = "The kitchen assistant rejected the app key — check the Worker's shared key."
+                case 422:      lastError = "The kitchen assistant server is out of date — redeploy the Worker."
+                case 429:      lastError = "Too many requests right now — try again in a minute."
+                case 500...599: lastError = "The kitchen assistant had a server problem. Try again shortly."
+                default:       lastError = "The assistant couldn't process that. Try rephrasing."
+                }
+                return nil
             }
             let changes = Self.decodeChanges(from: data, store: store)
             // If the Worker found nothing, fall back to the local pass (branded-name matching

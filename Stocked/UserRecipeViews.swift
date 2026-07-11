@@ -201,7 +201,7 @@ struct UserRecipeDetailView: View {
             },
             steps: displaySteps)
         guard let ai = await RecipeImportAI.structure(rawText: raw), ai.isUsable else {
-            ToastCenter.shared.success("Couldn't reach the recipe assistant — try again later")
+            ToastCenter.shared.warning("Couldn't reach the recipe assistant — try again later")
             return
         }
         let cleaned = ai.steps

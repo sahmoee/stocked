@@ -767,10 +767,16 @@ struct GroceryListView: View {
 
                 // Item name + source badge
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.name.displayNormalized)
-                        .font(.system(size: 15)).dynamicTypeSize(.xSmall ... .xxxLarge)
-                        .foregroundStyle(item.isChecked ? sub : text)
-                        .strikethrough(item.isChecked)
+                    // One line, never wrapped: long names glide to reveal the tail.
+                    // Measured items show their size, e.g. "Enchilada sauce (14 oz)".
+                    MarqueeText(
+                        text: item.sizeText.isEmpty
+                            ? item.name.displayNormalized
+                            : "\(item.name.displayNormalized) (\(item.sizeText))",
+                        font: .system(size: 15),
+                        color: item.isChecked ? sub : text,
+                        strikethrough: item.isChecked
+                    )
                     HStack(spacing: 4) {
                         if !item.recipeSource.isEmpty {
                             Image(systemName: "fork.knife").font(.system(size: 8))

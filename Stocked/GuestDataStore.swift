@@ -61,6 +61,7 @@ class GuestDataStore {
 
     var inventoryItems: [LocalInventoryItem] = [] {
         didSet {
+            invalidateStockMatches()   // perf: recipe-match cache follows the inventory
             if isStamping { return }   // re-entrant pass from stampChanged: nothing more to do
             // Stamp updatedAt on locally-changed items (skip while applying remote data, which
             // already carries authoritative timestamps). Record tombstones for removed ids.
@@ -572,8 +573,15 @@ class GuestDataStore {
     }
 
     func addGroceryItem(name: String) {
-        // #17 — accent/case-insensitive dedup so "milk" / "Milk" / "Crème" don't double up.
-        guard !GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name }) else { return }
+        // #GQ — manual adds of an existing item bump its quantity instead of being
+        // silently dropped: recipe 4 + recipe 3 + manual 1 = one row showing 8.
+        if GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name }) {
+            let key = GroceryConsolidator.normalizeKey(name)
+            if let idx = groceryItems.firstIndex(where: { GroceryConsolidator.normalizeKey($0.name) == key }) {
+                withAnimation { groceryItems[idx].quantity += 1 }
+            }
+            return
+        }
         // #D2 duplicate-purchase guard — if it's already stocked, say so (still adds:
         // buying more can be intentional, but "you have 2 already" prevents the classic
         // three-cans-of-chickpeas mistake).
@@ -629,14 +637,15 @@ class GuestDataStore {
     /// and tag new lines with the recipe. Skips ingredients marked optional. Returns the
     /// number of NEW lines added (0 = everything was already on the list or in stock).
     @discardableResult
-    /// #C4 scale-aware: `scale` is the serving multiplier vs the recipe's base servings.
-    /// Missing ingredients land on the list with a quantity that reflects the scaled batch
-    /// (e.g. cooking a doubled recipe adds 2 of a missing ingredient, not 1).
+    /// #C4/#GQ — scale-aware AND quantity-aware: each ingredient contributes its own count
+    /// ("4 onions" adds 4, not 1), multiplied by the serving scale. Measured ingredients
+    /// ("2 cups flour", "14 oz sauce") add as ONE unit to buy but carry their size for
+    /// display. Merging into an existing row sums counts, so Recipe A's 4 onions plus
+    /// Recipe B's 3 plus a manual 1 shows 8.
     func addRecipeIngredientsToGrocery(_ ingredients: [RecipeIngredient], recipeName: String, scale: Double = 1) -> Int {
         let recipe = recipeName.trimmingCharacters(in: .whitespaces)
         let rid = userRecipes.first(where: { $0.title == recipe })?.id.uuidString ?? ""   // #9
         let inStock = inStockNameSet
-        let qtyForScale = max(1, Int(scale.rounded(.up)))
         var added = 0
         withAnimation {
             for ing in ingredients where !ing.isOptional {
@@ -644,22 +653,54 @@ class GuestDataStore {
                 guard !n.isEmpty else { continue }
                 let low = n.lowercased()
                 if inStock.contains(where: { low.contains($0) || $0.contains(low) }) { continue }
+                let contribution = Self.groceryContribution(for: ing, scale: scale)
                 let key = GroceryConsolidator.normalizeKey(n)
                 if let idx = groceryItems.firstIndex(where: { GroceryConsolidator.normalizeKey($0.name) == key }) {
-                    groceryItems[idx].quantity += qtyForScale
+                    groceryItems[idx].quantity += contribution.count
+                    if groceryItems[idx].sizeText.isEmpty, !contribution.sizeText.isEmpty {
+                        groceryItems[idx].sizeText = contribution.sizeText
+                    }
                     if !recipe.isEmpty, !groceryItems[idx].recipeSource.contains(recipe) {
                         groceryItems[idx].recipeSource += groceryItems[idx].recipeSource.isEmpty ? recipe : ", \(recipe)"
                     }
                     if groceryItems[idx].recipeId.isEmpty { groceryItems[idx].recipeId = rid }   // #9
                 } else {
                     var item = LocalGroceryItem(name: n, isChecked: false, recipeSource: recipe, recipeId: rid)
-                    item.quantity = qtyForScale
+                    item.quantity = contribution.count
+                    item.sizeText = contribution.sizeText
                     groceryItems.append(item)
                     added += 1
                 }
             }
         }
         return added
+    }
+
+    /// How an ingredient lands on the grocery list: a whole-unit count plus an optional
+    /// measured size string. "4 onions" → (4, ""). "2 large eggs" → (2, ""). "14 oz
+    /// enchilada sauce" → (1, "14 oz"): you buy one can, sized 14 oz. Counts multiply by
+    /// the serving scale and round up; everything defaults to (1, "").
+    nonisolated static func groceryContribution(for ing: RecipeIngredient, scale: Double)
+        -> (count: Int, sizeText: String) {
+        let measuredUnits: Set<String> = ["g","kg","oz","lb","lbs","ml","l","cup","cups","tbsp","tsp",
+                                          "quart","quarts","pint","pints","gallon","gallons","fl oz",
+                                          "gram","grams","ounce","ounces","pound","pounds","liter","liters"]
+        let unit = (ing.unit ?? "").lowercased().trimmingCharacters(in: .whitespaces)
+        // Numeric amount: structured quantity first, else leading number in the amount string.
+        var qty = ing.quantity
+        if qty == nil {
+            let amt = ing.amount.trimmingCharacters(in: .whitespaces)
+            if let match = amt.split(separator: " ").first, let d = Double(match) { qty = d }
+        }
+        if !unit.isEmpty, measuredUnits.contains(unit) {
+            // Measured → one unit to buy; the size travels for display.
+            let size = ing.amount.trimmingCharacters(in: .whitespaces)
+            return (max(1, Int(scale.rounded(.up))), size)
+        }
+        if let q = qty, q > 0, q <= 50 {   // sanity cap: "500 g" mis-parsed as count stays 1
+            return (max(1, Int((q * scale).rounded(.up))), "")
+        }
+        return (max(1, Int(scale.rounded(.up))), "")
     }
     /// Normalized titles of saved recipes — for de-duping online results (#4).
     var savedRecipeTitles: Set<String> {
@@ -1047,7 +1088,7 @@ class GuestDataStore {
         // #E3 — kid household members can't delete inventory; they can still mark items
         // used or add to the grocery list. Silent data loss is worse than a nudge.
         guard canDeleteInventory else {
-            ToastCenter.shared.success("Ask a household adult to delete items")
+            ToastCenter.shared.warning("Ask a household adult to delete items")
             return
         }
         // thrown out, not used up. Log it as waste (with its known price) for the Stats view.
@@ -1066,7 +1107,7 @@ class GuestDataStore {
     func removeInventoryItems(ids: [UUID], label: String? = nil) {
         // #E3 — same kid-role guard as single deletion.
         guard canDeleteInventory else {
-            ToastCenter.shared.success("Ask a household adult to delete items")
+            ToastCenter.shared.warning("Ask a household adult to delete items")
             return
         }
         let removed = inventoryItems.filter { ids.contains($0.id) }
@@ -1235,12 +1276,22 @@ class GuestDataStore {
         inventoryItems.contains { $0.effectiveLevel > 0 && Self.looseMatch(ingredient, $0.name) }
     }
 
-    /// How much of a recipe you can make right now: (have, total) over non-optional ingredients.
+    /// How much of a recipe you can make right now: (have, total) over non-optional
+    /// ingredients. MEMOIZED: this is ingredients x inventory string matching, and it
+    /// gets called from sort comparators and per-row in the recipe grids — uncached it
+    /// was the app's single biggest scroll/freeze cost. The cache clears whenever the
+    /// inventory or the recipes change.
+    private var stockMatchCache: [UUID: (have: Int, total: Int)] = [:]
+    func invalidateStockMatches() { stockMatchCache.removeAll(keepingCapacity: true) }
+
     func stockMatch(for recipe: UserRecipe) -> (have: Int, total: Int) {
+        if let hit = stockMatchCache[recipe.id] { return hit }
         let needed = recipe.ingredients.filter { !$0.isOptional }
-        guard !needed.isEmpty else { return (0, 0) }
+        guard !needed.isEmpty else { stockMatchCache[recipe.id] = (0, 0); return (0, 0) }
         let have = needed.filter { ingredientInStock($0.name) }.count
-        return (have, needed.count)
+        let result = (have, needed.count)
+        stockMatchCache[recipe.id] = result
+        return result
     }
 
     /// What the Cook tab matches against: the user's saved recipes plus the built-in
@@ -1579,6 +1630,7 @@ class GuestDataStore {
     // UserRecipes stored in UserDefaults
     var userRecipes: [UserRecipe] = [] {
         didSet {
+            invalidateStockMatches()   // perf: recipe edits change their own match
             if isStamping { return }
             if !isApplyingHouseholdRemote {
                 isStamping = true
