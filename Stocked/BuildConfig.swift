@@ -104,6 +104,10 @@ nonisolated enum BuildConfig {
     /// API Ninjas Cocktail API (free tier, 10k/month). Add APINinjasKey to Info.plist via
     /// Secrets.xcconfig to enable; absent -> the source simply no-ops.
     static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "vW0az1EDsqyUDn6Uwk9aoHq075u6BK7YkKnsnWOx" }
+    /// Suggestic recipe API token. Read from Info.plist's SuggesticAPIToken key, which maps
+    /// to SUGGESTIC_API_TOKEN in Secrets.xcconfig. Empty when unconfigured — SuggesticSource
+    /// guards on empty and simply returns no results, so this is never a hard dependency.
+    static var suggesticToken: String { bundleString("SuggesticAPIToken") ?? "" }
     static var networkTimeout: Double {
         Double(bundleString("NetworkTimeout") ?? "8") ?? 8
     }
