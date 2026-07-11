@@ -412,6 +412,7 @@ struct SidebarContent: View {
     @Binding var showSearch:    Bool
     @Binding var showStats:     Bool
     @Binding var showDatabases: Bool
+    @State private var showSettingsPage = false
 
     var body: some View {
         List(selection: Binding(get: { selected }, set: { if let v = $0 { selected = v } })) {
@@ -431,15 +432,11 @@ struct SidebarContent: View {
             } header: { sidebarHeader("Quick Actions") }
 
             Section {
-                DisclosureGroup {
-                    SettingsContent()
-                } label: {
-                    Label("Settings", systemImage: "slider.horizontal.3")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                }
-                .listRowBackground(Color.clear)
+                // The full Settings home (Preferences, Notifications, Data & Storage,
+                // Account, Help) — same page the iPhone drawer opens.
+                sidebarButton("Settings", icon: "gearshape.fill") { showSettingsPage = true }
             }
+            .listRowBackground(Color.clear)
 
             // ── Build Info — standalone, below Settings ──────────────
             Section {
@@ -453,6 +450,9 @@ struct SidebarContent: View {
         .navigationBarTitleDisplayMode(.large)
         .scrollContentBackground(.hidden)
         .background(session.themeBgColor)
+        .sheet(isPresented: $showSettingsPage) {
+            NavigationStack { SettingsPageView().environment(session) }
+        }
     }
 
     private func iPadNavRow(_ tab: StockedTab) -> some View {
@@ -486,11 +486,10 @@ struct DrawerContent: View {
     // One enum drives a SINGLE .sheet(item:) (see DrawerSheet note above) so these present
     // reliably on the first tap instead of flashing open then closed.
     private enum HomeSheet: Int, Identifiable {
-        case helpCenter, usageInsights, toolbox, profileHub
+        case helpCenter, usageInsights, toolbox, profileHub, settingsPage
         var id: Int { rawValue }
     }
     @State private var activeHomeSheet: HomeSheet? = nil
-    @State private var showLogoutConfirm = false
     @State private var orderStore = DrawerOrderStore.shared   // rearrangeable drawer rows
     @Environment(AppSession.self) var session
     @Binding var selected:       StockedTab
@@ -600,22 +599,10 @@ struct DrawerContent: View {
                 } header: { drawerHeader("Insights") }
 
                 Section {
-                    drawerButton("Help Center",   icon: "questionmark.circle") { activeHomeSheet = .helpCenter }
-                    drawerButton(session.accountType == .guest ? "Exit Guest Mode" : "Log Out",
-                                 icon: "rectangle.portrait.and.arrow.right") { showLogoutConfirm = true }
+                    // The full Settings home — Preferences, Notifications, Data & Storage,
+                    // Account (Log Out / Delete Account), and Help Center all live there now.
+                    drawerButton("Settings", icon: "gearshape.fill") { activeHomeSheet = .settingsPage }
                 } header: { drawerHeader("Settings") }
-
-                // Preferences / Notifications / Data & Storage accordions (and Delete Account)
-                // now live here in the drawer's Settings list, below the Help Center / Log Out
-                // rows. Edit Profile is reached from the chef row above, not here.
-                SettingsContent(onQuickAction: onQuickAction)
-
-                // ── Build Info — standalone, below Settings ──────────────
-                Section {
-                    BuildInfoFooter()
-                }
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
 
             }
             .listStyle(.sidebar)
@@ -631,17 +618,10 @@ struct DrawerContent: View {
             case .usageInsights: NavigationStack { UsageInsightsView().environment(session) }
             case .toolbox:       NavigationStack { KitchenToolboxView().environment(session) }
             case .profileHub:    EditProfileView().environment(session)
+            case .settingsPage:  NavigationStack { SettingsPageView().environment(session) }
             }
         }
-        .alert(session.accountType == .guest ? "Exit Guest Mode?" : "Log Out?", isPresented: $showLogoutConfirm) {
-            if session.accountType == .guest {
-                Button("Keep Data") { session.signOut(clearData: false) }
-                Button("Erase & Exit", role: .destructive) { session.signOut(clearData: true) }
-            } else {
-                Button("Log Out", role: .destructive) { session.signOut() }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
+        // (The Log Out confirmation moved to the Settings page along with its row.)
     }
 
     // Prefer the parent's handler (it closes the drawer AND runs the action from

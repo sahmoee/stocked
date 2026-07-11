@@ -38,12 +38,26 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.19 (build 39) — Redesigned Settings page ──
+        ChangelogVersion(
+            version: "4.19",
+            buildDate: "Build 39 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "gearshape.fill", color: Color.stockedGold,
+                               title: "A brand-new Settings home",
+                               detail: "Everything settings-shaped now lives on one beautiful page — tap Settings in the side menu. Preferences, Notifications, Data & Storage, your Account, and Help each expand in place, so nothing is more than two taps away."),
+                ChangelogEntry(icon: "sidebar.left", color: Color.stockedGreen,
+                               title: "A lighter side menu",
+                               detail: "The drawer is now just your tools and insights — the long settings list moved to the new Settings page, including Log Out, Delete Account, and the Help Center."),
+            ]),
         // ── 4.18 (build 38) — Improvements batch 3: onboarding, audit, and household polish ──
         ChangelogVersion(
             version: "4.18",
             buildDate: "Build 38 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "hand.tap.fill", color: Color.stockedGold,
                                title: "Fill an empty pantry in seconds",

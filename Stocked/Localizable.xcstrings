@@ -1026,6 +1026,9 @@
     "Add an item by hand" : {
 
     },
+    "Add an item to your Stocked kitchen inventory." : {
+
+    },
     "Add another (e.g. cilantro)" : {
 
     },
@@ -1042,6 +1045,9 @@
 
     },
     "Add Item" : {
+
+    },
+    "Add Item to Stocked" : {
 
     },
     "Add item…" : {
@@ -1147,6 +1153,9 @@
 
     },
     "All caught up" : {
+
+    },
+    "All caught up!" : {
 
     },
     "All cook times" : {
@@ -1899,6 +1908,9 @@
     "Every widget is already on your Home screen." : {
 
     },
+    "Everything's confirmed!" : {
+
+    },
     "Examples" : {
 
     },
@@ -1987,6 +1999,9 @@
 
     },
     "Fill Level" : {
+
+    },
+    "Filtered for your dietary profile" : {
 
     },
     "Find" : {
@@ -2084,6 +2099,9 @@
 
     },
     "Got It" : {
+
+    },
+    "Got it — I'll add %@ to your kitchen in Stocked." : {
 
     },
     "Got it — I'll mark %@ as used in Stocked." : {
@@ -2424,6 +2442,16 @@
     },
     "Last backup: %@" : {
 
+    },
+    "Last seen %lld day%@ ago · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Last seen %1$lld day%2$@ ago · %3$@"
+          }
+        }
+      }
     },
     "Last synced %@" : {
 
@@ -2914,6 +2942,9 @@
     "OR SHARE THIS CODE" : {
 
     },
+    "Or tap what you usually have:" : {
+
+    },
     "Original Text" : {
 
     },
@@ -2921,6 +2952,9 @@
 
     },
     "Pairs well with %@" : {
+
+    },
+    "Pantry Audit" : {
 
     },
     "Pantry Check" : {
@@ -3689,6 +3723,9 @@
     "Stocked — %@" : {
 
     },
+    "Stocked hasn't seen these touched in a while. One tap each keeps your kitchen honest." : {
+
+    },
     "Stocked." : {
 
     },
@@ -4124,6 +4161,9 @@
     "What should we call you?" : {
 
     },
+    "What would you like to add?" : {
+
+    },
     "What would you like to do?" : {
 
     },
@@ -4229,6 +4269,9 @@
 
     },
     "Your inventory already looks tidy — nothing to suggest." : {
+
+    },
+    "Your inventory matches your real kitchen. Recipe matches and grocery suggestions are as accurate as they can be." : {
 
     },
     "Your inventory won't be changed. You can restart this recipe any time." : {
