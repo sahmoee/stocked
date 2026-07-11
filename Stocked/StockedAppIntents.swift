@@ -70,6 +70,29 @@ struct MarkItemUsedIntent: AppIntent {
     }
 }
 
+/// #drift — "Hey Siri, add milk to Stocked." Same queue-and-drain pattern as
+/// MarkItemUsedIntent: queue the name, apply through the store on next foreground
+/// (smart merge, crowd defaults, and household sync all honored).
+struct AddItemIntent: AppIntent {
+    static var title: LocalizedStringResource = "Add Item to Stocked"
+    static var description = IntentDescription("Add an item to your Stocked kitchen inventory.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Item name") var itemName: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let name = itemName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else {
+            return .result(dialog: "What would you like to add?")
+        }
+        let ud = UserDefaults.standard
+        var pending = ud.stringArray(forKey: "stocked.pendingAddItems") ?? []
+        pending.append(name)
+        ud.set(pending, forKey: "stocked.pendingAddItems")
+        return .result(dialog: "Got it — I'll add \(name) to your kitchen in Stocked.")
+    }
+}
+
 struct WhatsExpiringIntent: AppIntent {
     static var title: LocalizedStringResource = "What's expiring in Stocked"
     static var description = IntentDescription("Ask Stocked what food is expiring soon.")
@@ -148,6 +171,15 @@ struct StockedShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Mark Used",
             systemImageName: "checkmark.circle"
+        )
+        AppShortcut(
+            intent: AddItemIntent(),
+            phrases: [
+                "Add an item to \(.applicationName)",
+                "Add something to my \(.applicationName) kitchen"
+            ],
+            shortTitle: "Add Item",
+            systemImageName: "plus.circle"
         )
         AppShortcut(
             intent: WhatsExpiringIntent(),

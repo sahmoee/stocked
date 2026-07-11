@@ -38,12 +38,35 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.18 (build 38) — Improvements batch 3: onboarding, audit, and household polish ──
+        ChangelogVersion(
+            version: "4.18",
+            buildDate: "Build 38 · July 11, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "hand.tap.fill", color: Color.stockedGold,
+                               title: "Fill an empty pantry in seconds",
+                               detail: "A brand-new kitchen now offers a tap-to-add grid of twenty common staples right on the empty pantry screen, alongside receipt scanning — no typing required."),
+                ChangelogEntry(icon: "checkmark.seal", color: Color.stockedGreen,
+                               title: "Pantry Audit",
+                               detail: "New in Kitchen Tools: sweep through everything Stocked hasn't seen you touch in a while and confirm, mark used, or restock each in one tap. Ten minutes resets your whole kitchen to truth."),
+                ChangelogEntry(icon: "person.crop.circle.badge.checkmark", color: Color.stockedGold,
+                               title: "Assignments now sync to your household",
+                               detail: "Grocery items you assign to family members now show up for everyone, and a new Mine filter shows just your items plus anything unassigned."),
+                ChangelogEntry(icon: "plus.circle", color: Color.stockedGold,
+                               title: "Add items with Siri",
+                               detail: "Say Add an item to Stocked and it lands in your kitchen the next time you open the app — joining the mark-as-used command from last update."),
+                ChangelogEntry(icon: "clock.arrow.circlepath", color: Color.stockedGreen,
+                               title: "Smarter grocery suggestions",
+                               detail: "The grocery list now suggests staples you're probably running low on based on your own usage rhythm, a new Needs Check sort surfaces items to verify, and merging duplicates adds amounts correctly across units like grams and pounds."),
+            ]),
         // ── 4.17 (build 37) — Improvements batch 2: profile, planning, and voice ──
         ChangelogVersion(
             version: "4.17",
             buildDate: "Build 37 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "leaf.circle", color: Color.stockedGreen,
                                title: "Your dietary profile, applied everywhere",

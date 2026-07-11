@@ -453,6 +453,7 @@ struct OnlineRecipesView: View {
     // #C1 — filters now SEED from the saved dietary profile so protection is the
     // default, not an every-session opt-in. The buttons still toggle per session.
     @State private var seededFromProfile = false
+    @State private var showProfileEditor = false   // #C1 — banner "Edit" sheet
 
     // Predictive suggestions from local RecipeDatabase
     @State private var dbSnapshot:    [RecipeDatabaseEntry] = []
@@ -554,6 +555,31 @@ struct OnlineRecipesView: View {
                 }
             }
             .padding(.horizontal, 24).padding(.bottom, 8)
+
+            // #C1 glue — when the saved profile is shaping results, say so and give a
+            // one-tap path to edit it (discoverability for the Toolbox editor).
+            if hideAllergens || selectedDiet != nil {
+                Button { showProfileEditor = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "leaf.circle.fill").font(.system(size: 12))
+                            .foregroundStyle(Color.stockedGreen)
+                        Text("Filtered for your dietary profile")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        Text("Edit")
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundStyle(Color.stockedGold)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 24).padding(.bottom, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .a11yButton("Filtered for your dietary profile. Edit profile")
+                .sheet(isPresented: $showProfileEditor) {
+                    NavigationStack { DietaryProfileView().environment(session) }
+                }
+            }
 
             // ── Search bar + predictive chips ────────────────────────
             VStack(alignment: .leading, spacing: 0) {

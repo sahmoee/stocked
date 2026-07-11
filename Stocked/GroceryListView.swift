@@ -60,6 +60,8 @@ struct GroceryListView: View {
     @State private var showBought = false   // #235 — To Buy / Bought segment
     // #E2 — household roster for the Assign to… menu (fetched once per appearance).
     @State private var householdMemberNames: [String] = []
+    // #E2 — "Mine" filter: show only items assigned to me (or unassigned).
+    @State private var showMineOnly = false
 
     /// Names offered in the Assign menu: fetched roster, else just me.
     private var assignableMembers: [String] {
@@ -188,7 +190,12 @@ struct GroceryListView: View {
     private func rebuildSections() {
         // #244 — mockup grouping: store categories, ordered Produce → Pantry.
         // The To Buy / Bought segment (#235) still filters the pool first.
-        let pool = store.groceryItems.filter { $0.isChecked == showBought }
+        var pool = store.groceryItems.filter { $0.isChecked == showBought }
+        // #E2 — "Mine" keeps items assigned to me or to nobody (unassigned = shared).
+        if showMineOnly {
+            let me = session.userName
+            pool = pool.filter { $0.assignedTo.isEmpty || $0.assignedTo.caseInsensitiveCompare(me) == .orderedSame }
+        }
         let visible = filteredItems(pool)
         var grouped: [String: (icon: String, order: Int, items: [LocalGroceryItem])] = [:]
         for item in visible {
@@ -226,6 +233,14 @@ struct GroceryListView: View {
                     }
                     segmentButton("Bought", count: store.groceryItems.filter { $0.isChecked }.count, active: showBought) {
                         withAnimation(.easeInOut(duration: 0.18)) { showBought = true }
+                    }
+                    // #E2 — only meaningful in a household with assignments in play.
+                    if store.groceryItems.contains(where: { !$0.assignedTo.isEmpty }) {
+                        segmentButton("Mine", count: store.groceryItems.filter {
+                            !$0.isChecked && ($0.assignedTo.isEmpty || $0.assignedTo.caseInsensitiveCompare(session.userName) == .orderedSame)
+                        }.count, active: showMineOnly) {
+                            withAnimation(.easeInOut(duration: 0.18)) { showMineOnly.toggle(); rebuildSections() }
+                        }
                     }
                 }
                 .padding(4)
@@ -437,6 +452,40 @@ struct GroceryListView: View {
                             }
                         }
 
+                        // #A4 — predicted restocks: staples due based on YOUR burn rate
+                        // (learned from the consumption log), not just current levels.
+                        let predicted = store.predictedRunningLow(limit: 5).filter { name in
+                            !GroceryDedup.isDuplicate(name, in: store.groceryItems.map { $0.name })
+                        }
+                        if !predicted.isEmpty {
+                            sectionLabel("🔮 Probably Running Low — Tap to Add")
+                            ForEach(predicted, id: \.self) { name in
+                                Button {
+                                    withAnimation { store.addGroceryItem(name: name) }
+                                    HapticManager.light()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "clock.arrow.circlepath")
+                                            .font(.system(size: 16))
+                                            .foregroundStyle(Color.stockedGold)
+                                            .frame(width: 28)
+                                        Text(name.displayNormalized).font(.system(size: 14)).foregroundStyle(text)
+                                        Spacer()
+                                        Text("Add").font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(Color.stockedGold)
+                                    }
+                                    .padding(.horizontal, 14).padding(.vertical, 11)
+                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .padding(.horizontal, 24)
+                                    .padding(.bottom, 8)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .a11yButton("Add \(name.displayNormalized), likely running low")
+                            }
+                        }
+
                         // Your usuals — frequently added items not currently on the list.
                         let usuals = GroceryUsuals.shared.suggestions(
                             excluding: store.groceryItems.map { $0.name }, limit: 8)
@@ -509,6 +558,7 @@ struct GroceryListView: View {
         .onChange(of: store.groceryItems) { _, _ in rebuildSections() }
         .onChange(of: searchText) { _, _ in rebuildSections() }
         .onChange(of: showBought) { _, _ in rebuildSections() }   // #235 — segment filter
+        .onChange(of: showMineOnly) { _, _ in rebuildSections() } // #E2 — Mine filter
         .onChange(of: sortAZ) { _, _ in rebuildSections() }        // #245 — sort pill
         // #245 — header ··· hosts the relocated chrome (store / share / scan / move).
         .confirmationDialog("Grocery List", isPresented: $showMoreDialog, titleVisibility: .visible) {

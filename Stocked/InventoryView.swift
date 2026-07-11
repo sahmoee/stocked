@@ -103,6 +103,13 @@ struct InventoryView: View {
         case .quantity:  return filtered.sorted { $0.quantity > $1.quantity }
         case .lowFirst:  return filtered.sorted { $0.effectiveLevel < $1.effectiveLevel }
         case .recent:    return filtered.sorted { ($0.purchaseDate ?? .distantPast) > ($1.purchaseDate ?? .distantPast) }
+        case .needsCheck:
+            // Stale items first (most overdue at top), then everything else by expiry.
+            return filtered.sorted {
+                let a = GuestDataStore.staleness(of: $0) ?? -1
+                let b = GuestDataStore.staleness(of: $1) ?? -1
+                return a > b
+            }
         }
     }
 
@@ -112,6 +119,7 @@ struct InventoryView: View {
         case quantity = "Quantity"
         case lowFirst = "Low first"
         case recent   = "Recent"
+        case needsCheck = "Needs check"   // #A3 — stalest (least recently confirmed) first
     }
     @State private var invSort: InvSort = .useFirst   // #5
     @State private var invSearch: String = ""          // #16
@@ -619,6 +627,43 @@ struct InventoryView: View {
                                                                     object: DrawerQuickAction.scanReceipt)
                                 }
                             )
+                            // #F1 — staples quick-grid: tap the things you usually have for an
+                            // instant starter pantry, no typing. Tapped chips add immediately.
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Or tap what you usually have:")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                let staples = ["Milk", "Eggs", "Butter", "Bread", "Rice", "Pasta",
+                                               "Chicken", "Ground beef", "Cheese", "Onions",
+                                               "Garlic", "Potatoes", "Tomatoes", "Olive oil",
+                                               "Salt", "Flour", "Sugar", "Coffee", "Cereal", "Bananas"]
+                                let cols = [GridItem(.adaptive(minimum: 96), spacing: 8)]
+                                LazyVGrid(columns: cols, spacing: 8) {
+                                    ForEach(staples, id: \.self) { name in
+                                        let added = session.guestStore.inventoryItems.contains {
+                                            GuestDataStore.mergeKey($0.name) == GuestDataStore.mergeKey(name)
+                                        }
+                                        Button {
+                                            guard !added else { return }
+                                            session.guestStore.addInventoryItem(LocalInventoryItem(name: name))
+                                            HapticManager.light()
+                                        } label: {
+                                            HStack(spacing: 4) {
+                                                if added { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)) }
+                                                Text(name).font(.system(size: 12.5, weight: .semibold))
+                                            }
+                                            .foregroundStyle(added ? Color.stockedWhite : session.themeTextColor.opacity(0.75))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 9)
+                                            .background(added ? Color.stockedGold : session.themeTextColor.opacity(0.07))
+                                            .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .a11yButton(added ? "\(name), added" : "Add \(name)")
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 24)
                             Button { activeSheet = .add } label: {
                                 Text("Or add items by hand")
                                     .font(.system(size: 13, weight: .semibold))

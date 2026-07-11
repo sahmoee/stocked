@@ -110,6 +110,16 @@
         }
       }
     },
+    "%@ %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ %3$@"
+          }
+        }
+      }
+    },
     "%@ %@ =" : {
       "localizations" : {
         "en" : {
@@ -149,6 +159,9 @@
 
     },
     "%@ timer" : {
+
+    },
+    "%@ went to waste — what happened?" : {
 
     },
     "%@, %@" : {
@@ -1004,10 +1017,16 @@
     "Add all %lld to grocery list" : {
 
     },
+    "Add all to grocery list" : {
+
+    },
     "Add an item below, or tap a suggestion to restock." : {
 
     },
     "Add an item by hand" : {
+
+    },
+    "Add another (e.g. cilantro)" : {
 
     },
     "Add Anyway" : {
@@ -1157,6 +1176,9 @@
     "Allergen Warning" : {
 
     },
+    "Allergens to Avoid" : {
+
+    },
     "Allow Camera Access" : {
 
     },
@@ -1164,6 +1186,9 @@
 
     },
     "Already in Pantry" : {
+
+    },
+    "Alternate icons aren't available on this device." : {
 
     },
     "Amount" : {
@@ -1196,7 +1221,13 @@
     "Anything we missed?" : {
 
     },
+    "App Icon" : {
+
+    },
     "Apple Health" : {
+
+    },
+    "Applies to Cook Now, Cook Later, and the Cook hub buttons — updates live" : {
 
     },
     "Apply %lld %@" : {
@@ -1228,6 +1259,9 @@
     "Ask Stocked what food is expiring soon." : {
 
     },
+    "Assign to…" : {
+
+    },
     "At a Glance" : {
 
     },
@@ -1253,6 +1287,9 @@
 
     },
     "Back" : {
+
+    },
+    "Based on how fast you usually go through them: %@" : {
 
     },
     "Based on what you have" : {
@@ -1320,6 +1357,9 @@
 
     },
     "by" : {
+
+    },
+    "by %@" : {
 
     },
     "Calendar" : {
@@ -1398,6 +1438,9 @@
     "Choose an avatar that represents\nyour cooking personality." : {
 
     },
+    "Choose an icon for Stocked. It updates on your Home Screen right away." : {
+
+    },
     "Choose Photo" : {
 
     },
@@ -1411,6 +1454,9 @@
 
     },
     "Claude is reading your receipt" : {
+
+    },
+    "Clean Up with AI" : {
 
     },
     "Clear" : {
@@ -1696,6 +1742,9 @@
     "Did you mean" : {
 
     },
+    "Dietary Profile" : {
+
+    },
     "Dietary Style" : {
 
     },
@@ -1964,6 +2013,12 @@
     "Finish Cooking" : {
 
     },
+    "Fix with AI" : {
+
+    },
+    "Fixing…" : {
+
+    },
     "Foods" : {
 
     },
@@ -2031,6 +2086,9 @@
     "Got It" : {
 
     },
+    "Got it — I'll mark %@ as used in Stocked." : {
+
+    },
     "Grocery Budget" : {
 
     },
@@ -2061,6 +2119,9 @@
 
     },
     "Have another device running Stocked\nscan this code to import your kitchen." : {
+
+    },
+    "Haven't seen these in a while — still have them?" : {
 
     },
     "Heads up: about %@ went to waste — room to save more next season." : {
@@ -2479,6 +2540,12 @@
     "Mark Incomplete" : {
 
     },
+    "Mark Item Used in Stocked" : {
+
+    },
+    "Mark Used" : {
+
+    },
     "Matching Recipes" : {
 
     },
@@ -2832,6 +2899,9 @@
     "OR" : {
 
     },
+    "Or add items by hand" : {
+
+    },
     "or continue anyway" : {
 
     },
@@ -2851,6 +2921,9 @@
 
     },
     "Pairs well with %@" : {
+
+    },
+    "Pantry Check" : {
 
     },
     "Pantry Snapshot" : {
@@ -2932,6 +3005,9 @@
 
     },
     "Plan Saved" : {
+
+    },
+    "planned" : {
 
     },
     "Planned" : {
@@ -3027,6 +3103,12 @@
     "QUANTITY" : {
 
     },
+    "Quick Actions" : {
+
+    },
+    "Quick Question" : {
+
+    },
     "Quick tips" : {
 
     },
@@ -3104,6 +3186,9 @@
 
     },
     "Recipes" : {
+
+    },
+    "Recipes containing these are hidden by default in the recipe browser — the shield button there can show them again for one session." : {
 
     },
     "Recipes from this source appear here as they're pulled into Discover or imported. Pull down on the Recipes tab to refresh, or import any recipe by URL." : {
@@ -3246,6 +3331,9 @@
 
     },
     "Running low" : {
+
+    },
+    "Running Low Soon" : {
 
     },
     "Runs out ~%@" : {
@@ -3589,6 +3677,9 @@
         }
       }
     },
+    "Still have this?" : {
+
+    },
     "Stock %lld common staples" : {
 
     },
@@ -3735,6 +3826,9 @@
 
     },
     "Tell me what you bought, used, or ran out of — in your own words. I'll suggest the changes and you confirm them." : {
+
+    },
+    "Tell Stocked you finished or used up an item." : {
 
     },
     "Text Manually" : {
@@ -3884,6 +3978,9 @@
 
     },
     "Typical times for quality and safety — always trust your eyes and nose first." : {
+
+    },
+    "Unassign" : {
 
     },
     "Uncertain — tap to correct" : {
@@ -4048,6 +4145,9 @@
     "When items are expiring, suggest a recipe that uses them up" : {
 
     },
+    "Which item did you use?" : {
+
+    },
     "Which of these do you keep stocked?" : {
 
     },
@@ -4165,6 +4265,9 @@
 
     },
     "Your Recipe" : {
+
+    },
+    "Your saved diet and allergens filter recipe results automatically and steer AI recipe ideas." : {
 
     },
     "Your Sources" : {

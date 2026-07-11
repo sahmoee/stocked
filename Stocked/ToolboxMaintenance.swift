@@ -46,6 +46,17 @@ struct DuplicateFinderView: View {
         // Keep the item with the most information; combine quantities; keep earliest expiry.
         guard var keeper = group.items.max(by: { score($0) < score($1) }) else { return }
         keeper.quantity = group.items.reduce(0) { $0 + max(1, $1.quantity) }
+        // #B2 — unit-aware amounts: sum other rows' sizeAmounts into the keeper's unit
+        // where the units are convertible (500 g + 1 lb → one correct total).
+        if let keeperUnit = keeper.sizeUnit, var total = keeper.sizeAmount {
+            for other in group.items where other.id != keeper.id {
+                if let amt = other.sizeAmount, let unit = other.sizeUnit,
+                   let converted = UnitMath.convert(amt, from: unit, to: keeperUnit) {
+                    total += converted
+                }
+            }
+            keeper.sizeAmount = total
+        }
         let expirations = group.items.compactMap { $0.expirationDate }
         if let earliest = expirations.min() { keeper.expirationDate = earliest }
         if keeper.price == nil { keeper.price = group.items.compactMap { $0.price }.first }

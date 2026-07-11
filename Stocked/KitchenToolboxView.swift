@@ -15,7 +15,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
     case budget, batchCook, groceryTemplates, mealCost, dietaryProfile
     case roulette, timers, converter, leftoverIdeas
     case seasonal, storageTips, shelfLife, snapshot
-    case duplicates, achievements
+    case duplicates, achievements, pantryAudit
 
     var id: String { rawValue }
 
@@ -42,6 +42,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .snapshot:         return "Pantry Snapshot"
         case .duplicates:       return "Duplicate Finder"
         case .achievements:     return "Achievements"
+        case .pantryAudit:      return "Pantry Audit"
         }
     }
 
@@ -68,6 +69,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .snapshot:         return "Share your pantry as text"
         case .duplicates:       return "Find and merge duplicate items"
         case .achievements:     return "Badges for kitchen milestones"
+        case .pantryAudit:      return "Confirm what is really still there"
         }
     }
 
@@ -94,6 +96,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .snapshot:         return "square.and.arrow.up"
         case .duplicates:       return "doc.on.doc"
         case .achievements:     return "rosette"
+        case .pantryAudit:      return "checkmark.seal"
         }
     }
 
@@ -107,7 +110,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
             return "Cooking"
         case .seasonal, .storageTips, .shelfLife, .snapshot:
             return "Reference"
-        case .duplicates, .achievements:
+        case .duplicates, .achievements, .pantryAudit:
             return "Housekeeping"
         }
     }
@@ -202,6 +205,7 @@ struct KitchenToolboxView: View {
         case .snapshot:         PantrySnapshotView()
         case .duplicates:       DuplicateFinderView()
         case .achievements:     AchievementsView()
+        case .pantryAudit:      PantryAuditView()
         }
     }
 }

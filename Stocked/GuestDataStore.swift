@@ -955,9 +955,26 @@ class GuestDataStore {
     /// Names queued by the MarkItemUsedIntent (which runs outside the app's data layer).
     /// Drained on foreground: matching items are marked used (level 0, consumption logged).
     static let pendingUsedKey = "stocked.pendingUsedItems"
+    static let pendingAddKey  = "stocked.pendingAddItems"
 
     func drainPendingUsedItems() {
         let ud = UserDefaults.standard
+        // Adds first, then depletions — "add milk, used the old milk" resolves sanely.
+        if let adds = ud.stringArray(forKey: Self.pendingAddKey), !adds.isEmpty {
+            ud.removeObject(forKey: Self.pendingAddKey)
+            var addedNames: [String] = []
+            for raw in adds {
+                let name = raw.trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty else { continue }
+                addInventoryItem(LocalInventoryItem(name: name.displayNormalized))
+                addedNames.append(name.displayNormalized)
+            }
+            if !addedNames.isEmpty {
+                ToastCenter.shared.success(addedNames.count == 1
+                    ? "Added \(addedNames[0]) (from Siri)"
+                    : "Added \(addedNames.count) items (from Siri)")
+            }
+        }
         guard let names = ud.stringArray(forKey: Self.pendingUsedKey), !names.isEmpty else { return }
         ud.removeObject(forKey: Self.pendingUsedKey)
         var marked: [String] = []
@@ -1037,6 +1054,11 @@ class GuestDataStore {
     /// #16 Remove several inventory items with an Undo toast. Captures the removed items and
     /// restores them (with their original ids) if the user taps Undo before the toast expires.
     func removeInventoryItems(ids: [UUID], label: String? = nil) {
+        // #E3 — same kid-role guard as single deletion.
+        guard canDeleteInventory else {
+            ToastCenter.shared.success("Ask a household adult to delete items")
+            return
+        }
         let removed = inventoryItems.filter { ids.contains($0.id) }
         guard !removed.isEmpty else { return }
         withAnimation { inventoryItems.removeAll { ids.contains($0.id) } }

@@ -538,6 +538,7 @@ final class HouseholdSync {
             "id": item.id.uuidString, "name": item.name, "quantity": item.quantity,
             "isChecked": item.isChecked, "recipeSource": item.recipeSource,
             "addedByName": item.addedByName, "updatedAt": item.updatedAt,
+            "assignedTo": item.assignedTo,
         ]
     }
     private func parseGrocery(_ d: [String: Any]) -> LocalGroceryItem? {
@@ -547,6 +548,7 @@ final class HouseholdSync {
         item.quantity = (d["quantity"] as? Int) ?? 1
         item.recipeSource = (d["recipeSource"] as? String) ?? ""
         item.addedByName = (d["addedByName"] as? String) ?? ""
+        item.assignedTo = (d["assignedTo"] as? String) ?? ""
         item.updatedAt = (d["updatedAt"] as? Double) ?? 0
         return item
     }
