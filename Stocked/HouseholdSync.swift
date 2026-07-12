@@ -110,6 +110,7 @@ final class HouseholdSync {
         syncStatus.lastError = nil
         syncStatus.activeRoute = route
         nextRetryAllowedAt = .distantPast          // #6 clear backoff on success
+        consecutivePushFailures = 0                // #6 reset failure streak on success
         syncStatus.hasStuckOperations = false
         persistQueue()
     }
@@ -117,13 +118,23 @@ final class HouseholdSync {
         for i in pendingOps.indices { pendingOps[i].retryCount += 1; pendingOps[i].lastError = message }
         syncStatus.lastError = message
         // #6 exponential backoff: wait longer after each failure (2,4,8,16… capped at 5 min) so a
-        // persistently failing push doesn't hammer the server. Also flag ops stuck past 8 tries.
-        let maxRetry = pendingOps.map(\.retryCount).max() ?? 0
-        let delay = min(pow(2.0, Double(maxRetry)), 300)
+        // persistently failing push doesn't hammer the server.
+        //
+        // BUG FIX: the delay used to be derived from pendingOps.map(retryCount).max(), which is 0
+        // when the queue is empty — so a push that failed with no queued ops backed off only
+        // ~1 second and retried in a tight loop, hammering the Worker (this is what burned through
+        // the daily KV write quota). Track consecutive failures on the sync object itself so
+        // backoff grows regardless of queue contents, and floor the delay at 5s so it can never
+        // collapse to a fast loop.
+        consecutivePushFailures += 1
+        let steps = max(consecutivePushFailures, pendingOps.map(\.retryCount).max() ?? 0)
+        let delay = min(max(pow(2.0, Double(steps)), 5), 300)
         nextRetryAllowedAt = Date().addingTimeInterval(delay)
-        syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
+        syncStatus.hasStuckOperations = consecutivePushFailures >= 8 || pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
     }
+    // #6 consecutive push failures, independent of the queue, so backoff always grows.
+    @ObservationIgnored private var consecutivePushFailures: Int = 0
     // #6 backoff gate: the poller checks this before attempting a push.
     private var nextRetryAllowedAt: Date = .distantPast
     var retryIsAllowed: Bool { Date() >= nextRetryAllowedAt }

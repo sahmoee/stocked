@@ -31,7 +31,7 @@
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const WORKER_VERSION = "2026-07-12.2"; // bump on every route/prompt change
+const WORKER_VERSION = "2026-07-12.3"; // bump on every route/prompt change
 const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 1500;
 
@@ -102,7 +102,6 @@ export default {
       try {
         return await handleHousehold(url.pathname, request, env);
       } catch (e) {
-        // Surface the real cause instead of a blind 500 so the app log shows it.
         return json({ error: "household handler threw: " + String((e && e.message) || e), code: "householdCrash" }, 500);
       }
     }
@@ -199,8 +198,6 @@ export default {
       detail: detail.slice(0, 200),
     }, 502);
    } catch (e) {
-     // Top-level backstop: any unhandled throw returns its message instead of a
-     // bare Cloudflare 500 with no body, so the cause is visible in the app log.
      return json({ error: "Worker threw: " + String((e && e.message) || e), code: "workerCrash" }, 500);
    }
   },
@@ -323,34 +320,56 @@ function buildPrompt(p) {
  * and a per-day cap. Counters auto-expire via KV TTL so there's no cleanup.
  */
 async function isRateLimited(kv, ip) {
-  const now = Date.now();
-  const minuteKey = `m:${ip}:${Math.floor(now / 60000)}`;
-  const dayKey = `d:${ip}:${Math.floor(now / 86400000)}`;
-
-  const [minRaw, dayRaw] = await Promise.all([kv.get(minuteKey), kv.get(dayKey)]);
-  const minCount = parseInt(minRaw || "0", 10);
-  const dayCount = parseInt(dayRaw || "0", 10);
-
+  // Counters live in the Cache API instead of KV. KV has a hard 1000 writes/day
+  // cap on the free plan, and writing a counter on every request burned through
+  // it and made every route throw "KV put() limit exceeded". The Cache API has
+  // no such write cap and is plenty for coarse per-IP rate limiting.
+  const minuteKey = `m:${ip}:${Math.floor(Date.now() / 60000)}`;
+  const dayKey = `d:${ip}:${Math.floor(Date.now() / 86400000)}`;
+  const minCount = await cacheCounterGet(minuteKey);
+  const dayCount = await cacheCounterGet(dayKey);
   if (minCount >= PER_MINUTE_LIMIT || dayCount >= PER_DAY_LIMIT) return true;
-
-  // Increment both (fire-and-forget TTLs: 120s for minute bucket, ~25h for day).
   await Promise.all([
-    kv.put(minuteKey, String(minCount + 1), { expirationTtl: 120 }),
-    kv.put(dayKey, String(dayCount + 1), { expirationTtl: 90000 }),
+    cacheCounterBump(minuteKey, 120),
+    cacheCounterBump(dayKey, 90000),
   ]);
   return false;
+}
+
+// ── Cache-API counter helpers (no KV writes) ──────────────────────────────
+// The Cache API keys on a URL. We use a synthetic https URL under a private host
+// so keys never collide with real requests. Values are a small integer body with
+// a max-age so the bucket self-expires like the old KV TTL.
+function counterURL(key) {
+  return "https://rate-limit.internal/" + encodeURIComponent(key);
+}
+async function cacheCounterGet(key) {
+  try {
+    const hit = await caches.default.match(counterURL(key));
+    if (!hit) return 0;
+    const n = parseInt(await hit.text(), 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch { return 0; }
+}
+async function cacheCounterBump(key, ttlSeconds) {
+  try {
+    const current = await cacheCounterGet(key);
+    const resp = new Response(String(current + 1), {
+      headers: { "Cache-Control": "max-age=" + ttlSeconds, "Content-Type": "text/plain" },
+    });
+    await caches.default.put(counterURL(key), resp);
+  } catch { /* best-effort; never block a request on the limiter */ }
 }
 
 /** #20 Per-household push limiter: caps writes per household per minute so one runaway client
  *  can't hammer the KV store, independent of the per-IP limit. Returns true when over the cap. */
 async function isHouseholdWriteLimited(kv, code) {
-  if (!kv || !code) return false;
-  const now = Date.now();
-  const key = `hw:${code}:${Math.floor(now / 60000)}`;
-  const raw = await kv.get(key);
-  const count = parseInt(raw || "0", 10);
+  if (!code) return false;
+  // Also moved off KV writes onto the Cache API (see isRateLimited note).
+  const key = `hw:${code}:${Math.floor(Date.now() / 60000)}`;
+  const count = await cacheCounterGet(key);
   if (count >= HH_WRITE_PER_MINUTE) return true;
-  await kv.put(key, String(count + 1), { expirationTtl: 120 });
+  await cacheCounterBump(key, 120);
   return false;
 }
 const HH_WRITE_PER_MINUTE = 60;   // generous for real use, blocks a stuck client loop
@@ -699,7 +718,15 @@ async function readHousehold(kv, code) {
 }
 
 async function writeHousehold(kv, code, household) {
-  await kv.put(hhKey(code), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
+  // Skip the KV write when the document is byte-identical to what is already
+  // stored. Most pushes are no-ops (a member polling with no real change), and
+  // every avoided put() is one saved against the daily write quota.
+  const next = JSON.stringify(household);
+  try {
+    const prev = await kv.get(hhKey(code));
+    if (prev === next) return;
+  } catch { /* fall through and write */ }
+  await kv.put(hhKey(code), next, { expirationTtl: HH_TTL_SECONDS });
 }
 
 function makeHouseholdCode() {
