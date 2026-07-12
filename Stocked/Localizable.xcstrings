@@ -2016,9 +2016,6 @@
     "Finding %@ recipes…" : {
 
     },
-    "Finding image…" : {
-
-    },
     "Finding your %@ recipe…" : {
 
     },
@@ -2029,6 +2026,9 @@
 
     },
     "Finish Cooking" : {
+
+    },
+    "Fix ingredients" : {
 
     },
     "Fix with AI" : {

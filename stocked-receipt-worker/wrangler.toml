@@ -18,7 +18,7 @@ id = "030167e99e0c41f4a233bb139a8b466f"
 
 # Optional: override the model without editing code.
 [vars]
-ANTHROPIC_MODEL = "claude-sonnet-4-6"
+ANTHROPIC_MODEL = "claude-sonnet-5"
 
 # Secrets are NOT set here — set them with `wrangler secret put` (see README):
 #   ANTHROPIC_API_KEY    (your sk-ant-… key)

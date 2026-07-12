@@ -31,8 +31,8 @@
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const WORKER_VERSION = "2026-07-11.2"; // bump on every route/prompt change
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const WORKER_VERSION = "2026-07-12.1"; // bump on every route/prompt change
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 1500;
 
 // Rate limits per IP.
