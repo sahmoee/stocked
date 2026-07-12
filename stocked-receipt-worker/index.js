@@ -31,7 +31,7 @@
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const WORKER_VERSION = "2026-07-12.3"; // bump on every route/prompt change
+const WORKER_VERSION = "2026-07-12.4"; // bump on every route/prompt change
 const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 1500;
 
@@ -309,6 +309,41 @@ function buildPrompt(p) {
         "resting time inside the relevant step text (e.g. \"Bake for 12 minutes\") so timers can " +
         "be derived. Keep cookTime and prepTime as short human strings like \"20 minutes\".",
       user: `Recipe request: ${p.recipeIdea}${have}${diet}${time}`,
+    };
+  }
+
+  // ── Inventory tidy-up scan (AI Inventory Scan feature) ──────────────────
+  // The app sends { inventoryScan: true, inventory: [ {id, name, zone, quantity,
+  // brand, hasNutrition, hasExpiry}, … ] } and expects back a JSON object
+  // {"updates": [...]} where each update references an item id and proposes only
+  // genuinely helpful cleanups. This branch was missing from the consolidated
+  // worker, so the scan always failed; it is restored here.
+  if (p.inventoryScan === true && Array.isArray(p.inventory)) {
+    const rows = p.inventory.slice(0, 120).map((it) => {
+      const flags = [];
+      if (it && it.hasNutrition) flags.push("hasNutrition");
+      if (it && it.hasExpiry) flags.push("hasExpiry");
+      const brand = it && it.brand ? ` brand=${it.brand}` : "";
+      return `- id=${it && it.id} name=${it && it.name} zone=${it && it.zone}${brand}${flags.length ? " (" + flags.join(",") + ")" : ""}`;
+    }).join("\n");
+    return {
+      system:
+        "You tidy up a kitchen inventory. You are given a list of items with an id, name, " +
+        "storage zone, and flags. Propose ONLY genuinely helpful cleanups, and return the id " +
+        "of each item you change. Rules: correct obvious misspellings or normalize a messy name " +
+        "with newName (otherwise omit newName). Fix a clearly wrong storage zone with newZone, " +
+        'which MUST be exactly one of "Fridge", "Freezer", "Pantry", or "Staples" (omit if the ' +
+        "current zone is fine). For an item WITHOUT hasNutrition, you may add rough per-serving " +
+        "calories (integer) and protein grams (number) with a short servingSize string; NEVER add " +
+        "nutrition for an item that already has hasNutrition. For an item WITHOUT hasExpiry you may " +
+        "add expiryDays, an integer estimate of typical shelf life from today (1 to 730); NEVER add " +
+        "expiry for an item that already has hasExpiry. Give a short reason for each change. Do NOT " +
+        "invent items, do NOT propose deletions, and skip items that are already fine. Respond with " +
+        'ONLY a JSON object, no prose and no markdown fences: {"updates": [{"id": string, ' +
+        '"newName"?: string, "newZone"?: string, "calories"?: number, "protein"?: number, ' +
+        '"servingSize"?: string, "expiryDays"?: number, "reason": string}]}. If nothing needs ' +
+        'changing, return {"updates": []}.',
+      user: `Inventory to review:\n${rows}`,
     };
   }
 
