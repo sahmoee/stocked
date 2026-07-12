@@ -73,6 +73,9 @@ struct UserRecipeDetailView: View {
     // AI instruction cleanup — sends the recipe through the Worker's recipe branch
     // (same one imports use) and replaces the steps with the corrected set.
     @State private var aiFixing               = false
+    @State private var aiFixingIngredients    = false
+    @State private var detailMetrics          = UserRecipeDetailMetrics.empty
+    @State private var substitutionIngredientIDs: Set<UUID> = []
 
     // Steps as shown: trimmed, with blank entries dropped so imported or hand-entered
     // recipes never render empty numbered rows (e.g. a bare "2" with no text).
@@ -103,32 +106,17 @@ struct UserRecipeDetailView: View {
             : "Made \(recipe.cookCount)× · Last \(dateStr)"
     }
 
-    // #5 — ratings this recipe has earned across past cooks. Linked by recipeId, with a
-    // title fallback so meals logged before linking existed still count.
-    private var ratedMeals: [LocalPastMeal] {
-        let key = recipe.title.lowercased().trimmingCharacters(in: .whitespaces)
-        return session.guestStore.pastMeals.filter { m in
-            (m.recipeId == recipe.id || m.title.lowercased().trimmingCharacters(in: .whitespaces) == key) && m.rating > 0
-        }
-    }
-    private var averageRating: Double? {
-        guard !ratedMeals.isEmpty else { return nil }
-        return Double(ratedMeals.map(\.rating).reduce(0, +)) / Double(ratedMeals.count)
-    }
+    private var averageRating: Double? { detailMetrics.averageRating }
 
-    // Nutrition summary — scale by serving ratio
+    // Nutrition is precomputed once per original serving. The live stepper only applies a
+    // cheap multiplier, so changing servings no longer reparses every ingredient.
     private var nutritionSummary: (cal: Int, protein: Double, carbs: Double, fat: Double)? {
-        let cals    = recipe.ingredients.compactMap { $0.nutrition?.calories }
-        let protein = recipe.ingredients.compactMap { $0.nutrition?.protein }
-        let carbs   = recipe.ingredients.compactMap { $0.nutrition?.totalCarbs }
-        let fat     = recipe.ingredients.compactMap { $0.nutrition?.totalFat }
-        guard !cals.isEmpty else { return nil }
-        let srv = max(1, recipe.servings)
+        guard let calories = detailMetrics.calories else { return nil }
         return (
-            cal:     Int(Double(cals.reduce(0,+))    / Double(srv) * scaleFactor),
-            protein: (protein.reduce(0,+) / Double(srv) * scaleFactor).rounded(toPlaces: 1),
-            carbs:   (carbs.reduce(0,+)   / Double(srv) * scaleFactor).rounded(toPlaces: 1),
-            fat:     (fat.reduce(0,+)     / Double(srv) * scaleFactor).rounded(toPlaces: 1)
+            cal: Int(calories * scaleFactor),
+            protein: (detailMetrics.protein * scaleFactor).rounded(toPlaces: 1),
+            carbs: (detailMetrics.carbs * scaleFactor).rounded(toPlaces: 1),
+            fat: (detailMetrics.fat * scaleFactor).rounded(toPlaces: 1)
         )
     }
 
@@ -139,6 +127,14 @@ struct UserRecipeDetailView: View {
                 // #9 — context for step timers surfaced on the Lock Screen / Dynamic Island.
                 timerEngine.recipeTitle = recipe.title
                 timerEngine.totalSteps  = displaySteps.count
+                substitutionIngredientIDs = Set(recipe.ingredients.compactMap {
+                    StockedDatabase.shared.hasSubstitution(for: $0.name) ? $0.id : nil
+                })
+            }
+            .task(id: "\(recipe.id.uuidString)-\(recipe.updatedAt)-\(session.guestStore.pastMeals.count)-\(session.guestStore.priceHistory.count)") {
+                detailMetrics = await UserRecipeMetricsCache.shared.metrics(
+                    recipe: recipe, pastMeals: session.guestStore.pastMeals,
+                    priceHistory: session.guestStore.priceHistory)
             }
             .navigationTitle(recipe.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -225,6 +221,61 @@ struct UserRecipeDetailView: View {
         ToastCenter.shared.success("Instructions cleaned up")
     }
 
+    private func fixIngredientsWithAI() async {
+        guard !aiFixingIngredients else { return }
+        aiFixingIngredients = true
+        defer { aiFixingIngredients = false }
+        let raw = RecipeImportAI.composeRawText(
+            title: recipe.title,
+            description: "Repair the ingredient list. Preserve exact quantities, units, preparation notes, and optional ingredients. Remove broken fragments.",
+            ingredients: recipe.ingredients.map {
+                [$0.amount, $0.name, $0.prep ?? ""].filter { !$0.isEmpty }.joined(separator: " ")
+            },
+            steps: displaySteps)
+        guard let ai = await RecipeImportAI.structure(rawText: raw), !ai.ingredients.isEmpty else {
+            ToastCenter.shared.warning("Couldn't repair ingredients — try again later")
+            return
+        }
+        let cleaned = ai.ingredients.filter {
+            let name = $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.count > 1 && name.rangeOfCharacter(from: .letters) != nil
+        }
+        guard !cleaned.isEmpty else {
+            ToastCenter.shared.warning("No usable ingredient fixes were returned")
+            return
+        }
+        let old = recipe.ingredients
+        var rebuilt: [RecipeIngredient] = []
+        for (index, fixed) in cleaned.enumerated() {
+            let canonical = IngredientSynonyms.canonical(fixed.name)
+            let matched = old.first { IngredientSynonyms.canonical($0.name) == canonical }
+                ?? (index < old.count ? old[index] : nil)
+            var ingredient = RecipeIngredient(name: fixed.name, amount: fixed.amount)
+            ingredient.id = matched?.id ?? UUID()
+            ingredient.brand = matched?.brand
+            ingredient.nutrition = matched?.nutrition
+            ingredient.isOptional = matched?.isOptional ?? false
+            ingredient.notes = matched?.notes
+            ingredient.quantity = fixed.quantity
+            ingredient.unit = fixed.unit
+            ingredient.prep = fixed.prep
+            rebuilt.append(ingredient)
+        }
+        var updated = recipe
+        updated.ingredients = rebuilt
+        updated.updatedAt = Date().timeIntervalSince1970 * 1000
+        session.guestStore.updateUserRecipe(updated)
+        recipe = updated
+        substitutionIngredientIDs = Set(rebuilt.compactMap {
+            StockedDatabase.shared.hasSubstitution(for: $0.name) ? $0.id : nil
+        })
+        detailMetrics = await UserRecipeMetricsCache.shared.metrics(
+            recipe: updated, pastMeals: session.guestStore.pastMeals,
+            priceHistory: session.guestStore.priceHistory)
+        HapticManager.success()
+        ToastCenter.shared.success("Ingredients repaired and saved")
+    }
+
     private var detailContent: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
@@ -271,9 +322,7 @@ struct UserRecipeDetailView: View {
 
                         // #6 — estimated cost from the user's OWN paid prices; honest about
                         // coverage rather than pretending an incomplete number is complete.
-                        let costEst = RecipeCost.estimate(
-                            ingredients: recipe.ingredients.map { $0.name },
-                            history: session.guestStore.priceHistory)
+                        let costEst = detailMetrics.cost
                         if costEst.isUseful {
                             HStack(spacing: 6) {
                                 Image(systemName: "dollarsign.circle")
@@ -295,7 +344,7 @@ struct UserRecipeDetailView: View {
                                 Text(String(format: "%.1f", avg))
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(session.themeTextColor.opacity(0.7))
-                                Text("(\(ratedMeals.count))")
+                                Text("(\(detailMetrics.ratingCount))")
                                     .font(.system(size: 11))
                                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                             }
@@ -401,6 +450,22 @@ struct UserRecipeDetailView: View {
                                     .font(.system(size: 16, weight: .bold, design: .serif))
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
+                                if RecipeImportAI.isAvailable {
+                                    Button { Task { await fixIngredientsWithAI() } } label: {
+                                        HStack(spacing: 4) {
+                                            if aiFixingIngredients { ProgressView().controlSize(.mini) }
+                                            else { Image(systemName: "wand.and.stars").font(.system(size: 10)) }
+                                            Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
+                                                .font(.system(size: 10.5, weight: .semibold))
+                                        }
+                                        .foregroundStyle(Color.stockedGold)
+                                        .padding(.horizontal, 7).padding(.vertical, 4)
+                                        .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(aiFixingIngredients)
+                                    .a11yButton("Fix ingredients with AI")
+                                }
                                 // Linked grocery push — consolidates duplicates across recipes
                                 Button {
                                     groceryPushCount = session.guestStore.addRecipeIngredientsToGrocery(
@@ -434,7 +499,7 @@ struct UserRecipeDetailView: View {
                                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                                         }
                                         Spacer()
-                                        if StockedDatabase.shared.hasSubstitution(for: ing.name) {
+                                        if substitutionIngredientIDs.contains(ing.id) {
                                             Button {
                                                 withAnimation(.spring(response: 0.25)) {
                                                     substitutionScrollTarget = ing.name
@@ -640,14 +705,16 @@ struct RecipeSubstitutionsSection: View {
     @Binding var isExpanded: Bool
     @Binding var scrollTarget: String?
 
-    private var entries: [(name: String, entry: SubstitutionEntry)] {
-        ingredientNames.compactMap { name in
-            StockedDatabase.shared.substitutions(for: name).map { (name, $0) }
-        }
+    @State private var entries: [(name: String, entry: SubstitutionEntry)] = []
+
+    private var ingredientKey: String {
+        ingredientNames.map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+            .joined(separator: "|")
     }
 
     var body: some View {
-        if !entries.isEmpty {
+        Group {
+            if !entries.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 // Section header — tappable to expand/collapse
                 Button {
@@ -732,6 +799,14 @@ struct RecipeSubstitutionsSection: View {
                     withAnimation(.spring(response: 0.28)) { isExpanded = true }
                 }
             }
+            }
+        }
+        .task(id: ingredientKey) {
+            // Resolve once per ingredient list instead of scanning the substitution database
+            // every time the recipe detail body or an accordion animation updates.
+            entries = ingredientNames.compactMap { name in
+                StockedDatabase.shared.substitutions(for: name).map { (name, $0) }
+            }
         }
     }
 }
@@ -788,7 +863,7 @@ struct RecipeKitchenTipsSection: View {
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .padding(.horizontal, 24)
         .onAppear {
-            tips = CookingTipsDatabase.shared.randomTips(3)
+            if tips.isEmpty { tips = CookingTipsDatabase.shared.randomTips(3) }
         }
     }
 }

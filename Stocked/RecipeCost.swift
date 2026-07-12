@@ -7,9 +7,9 @@
 // paid, which also makes it household-local and free.
 import Foundation
 
-enum RecipeCost {
+nonisolated enum RecipeCost {
 
-    struct Estimate {
+    nonisolated struct Estimate: Sendable {
         let total: Double          // summed average price of priced ingredients
         let pricedCount: Int       // ingredients a price was found for
         let totalCount: Int        // ingredients considered

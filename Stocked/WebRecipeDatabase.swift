@@ -174,18 +174,72 @@ enum RecipeSourceRegistry {
         .init(id: UUID(), domain: "maangchi.com",           displayName: "Maangchi",                 category: .international, specialty: "Authentic Korean cooking", iconEmoji: "🇰🇷"),
         .init(id: UUID(), domain: "indianhealthyrecipes.com", displayName: "Indian Healthy Recipes", category: .international, specialty: "Authentic Indian cooking", iconEmoji: "🇮🇳"),
         .init(id: UUID(), domain: "mexicanplease.com",      displayName: "Mexican Please",           category: .international, specialty: "Authentic Mexican cooking", iconEmoji: "🇲🇽"),
+
+        // ── American publishers (v0.1.3) ─────────────────────────────────────
+        .init(id: UUID(), domain: "onceuponachef.com",       displayName: "Once Upon a Chef",         category: .homeCook, specialty: "Tested American favorites", iconEmoji: "👩‍🍳"),
+        .init(id: UUID(), domain: "spendwithpennies.com",    displayName: "Spend With Pennies",      category: .budget,   specialty: "Affordable family meals", iconEmoji: "🪙"),
+        .init(id: UUID(), domain: "wellplated.com",          displayName: "Well Plated",             category: .healthy,  specialty: "Lighter American cooking", iconEmoji: "🥗"),
+        .init(id: UUID(), domain: "natashaskitchen.com",     displayName: "Natasha's Kitchen",       category: .homeCook, specialty: "Family dinner recipes", iconEmoji: "🍽️"),
+        .init(id: UUID(), domain: "julieseatsandtreats.com", displayName: "Julie's Eats & Treats",   category: .homeCook, specialty: "Easy family favorites", iconEmoji: "🥘"),
+        .init(id: UUID(), domain: "iheartnaptime.net",       displayName: "I Heart Naptime",         category: .homeCook, specialty: "Quick family recipes", iconEmoji: "⏱️"),
+        .init(id: UUID(), domain: "cookiesandcups.com",      displayName: "Cookies & Cups",          category: .baking,   specialty: "American baking and meals", iconEmoji: "🍪"),
+        .init(id: UUID(), domain: "aheadofthyme.com",        displayName: "Ahead of Thyme",          category: .homeCook, specialty: "Modern everyday recipes", iconEmoji: "🌿"),
+        .init(id: UUID(), domain: "modernhoney.com",         displayName: "Modern Honey",            category: .homeCook, specialty: "Comfort food and baking", iconEmoji: "🍯"),
+        .init(id: UUID(), domain: "thechunkychef.com",       displayName: "The Chunky Chef",         category: .homeCook, specialty: "Hearty weeknight cooking", iconEmoji: "🥄"),
+
+        // ── Black and Southern publishers (v0.1.3) ──────────────────────────
+        .init(id: UUID(), domain: "divascancook.com",        displayName: "Divas Can Cook",          category: .world,    specialty: "Southern and soul food", iconEmoji: "🍗"),
+        .init(id: UUID(), domain: "grandbaby-cakes.com",     displayName: "Grandbaby Cakes",         category: .baking,   specialty: "Southern baking and soul food", iconEmoji: "🎂"),
+        .init(id: UUID(), domain: "butterbeready.com",       displayName: "Butter Be Ready",         category: .world,    specialty: "Southern comfort and Caribbean", iconEmoji: "🧈"),
+        .init(id: UUID(), domain: "blackpeoplesrecipes.com", displayName: "Black People's Recipes",  category: .world,    specialty: "Black culinary traditions", iconEmoji: "🖤"),
+        .init(id: UUID(), domain: "staysnatched.com",        displayName: "Stay Snatched",           category: .healthy,  specialty: "Southern and soul food", iconEmoji: "🍤"),
+        .init(id: UUID(), domain: "whiskitrealgud.com",      displayName: "Whisk It Real Gud",       category: .world,    specialty: "Southern and global comfort food", iconEmoji: "🥣"),
+        .init(id: UUID(), domain: "kennethtemple.com",       displayName: "Kenneth Temple",          category: .professional, specialty: "New Orleans and Southern", iconEmoji: "⚜️"),
+        .init(id: UUID(), domain: "coopcancook.com",         displayName: "Coop Can Cook",           category: .world,    specialty: "Louisiana and soul food", iconEmoji: "🌶️"),
+        .init(id: UUID(), domain: "southernbite.com",        displayName: "Southern Bite",           category: .homeCook, specialty: "Classic Southern cooking", iconEmoji: "🥧"),
+        .init(id: UUID(), domain: "deepsouthdish.com",       displayName: "Deep South Dish",         category: .homeCook, specialty: "Deep South home cooking", iconEmoji: "🍲"),
     ]
 
-    /// Ten publisher sites that now participate in live recipe discovery, not just URL import.
-    /// Keeping this list explicit prevents a refresh from hammering every catalogue-only site.
+    /// Live publisher groups. The groups are kept separate so the discovery funnel can
+    /// pull a balanced mix rather than letting the largest general sites crowd out Black,
+    /// Southern, or soul-food results.
+    nonisolated static let legacyExpandedDomains: Set<String> = [
+        "simplyrecipes.com", "halfbakedharvest.com", "skinnytaste.com",
+        "thepioneerwoman.com", "smittenkitchen.com", "101cookbooks.com",
+        "minimalistbaker.com", "cookingclassy.com", "cafedelites.com", "damndelicious.net"
+    ]
+    nonisolated static let americanLiveDomains: Set<String> = [
+        "onceuponachef.com", "spendwithpennies.com", "wellplated.com",
+        "natashaskitchen.com", "julieseatsandtreats.com", "iheartnaptime.net",
+        "cookiesandcups.com", "aheadofthyme.com", "modernhoney.com", "thechunkychef.com"
+    ]
+    nonisolated static let blackSouthernLiveDomains: Set<String> = [
+        "divascancook.com", "grandbaby-cakes.com", "butterbeready.com",
+        "blackpeoplesrecipes.com", "staysnatched.com", "whiskitrealgud.com",
+        "kennethtemple.com", "coopcancook.com", "southernbite.com", "deepsouthdish.com"
+    ]
+
     nonisolated static var expandedLive: [RecipeSource] {
-        let domains: Set<String> = [
-            "simplyrecipes.com", "halfbakedharvest.com", "skinnytaste.com",
-            "thepioneerwoman.com", "smittenkitchen.com", "101cookbooks.com",
-            "minimalistbaker.com", "cookingclassy.com", "cafedelites.com",
-            "damndelicious.net"
-        ]
+        let domains = legacyExpandedDomains.union(americanLiveDomains).union(blackSouthernLiveDomains)
         return builtIn.filter { domains.contains($0.domain) }
+    }
+
+    /// A balanced rotating subset for automatic searches. All thirty sources remain
+    /// individually searchable, while each refresh limits network fan-out to twelve sites.
+    nonisolated static func discoverySources(seed: String, perGroup: Int = 4) -> [RecipeSource] {
+        let count = max(1, perGroup)
+        let day = Int(Date().timeIntervalSince1970 / 86_400)
+        let seedValue = seed.unicodeScalars.reduce(day) { ($0 &* 31) &+ Int($1.value) }
+        func pick(_ domains: Set<String>, offset: Int) -> [RecipeSource] {
+            let values = builtIn.filter { domains.contains($0.domain) }.sorted { $0.domain < $1.domain }
+            guard !values.isEmpty else { return [] }
+            let mixed = seedValue &+ offset
+            let start = (mixed == Int.min ? 0 : abs(mixed)) % values.count
+            return (0..<min(count, values.count)).map { values[(start + $0) % values.count] }
+        }
+        return pick(legacyExpandedDomains, offset: 0)
+            + pick(americanLiveDomains, offset: 7)
+            + pick(blackSouthernLiveDomains, offset: 13)
     }
 
     /// Sites with an implemented public search URL. Catalogue-only sites remain available
@@ -283,12 +337,17 @@ actor WebRecipeCatalogue {
     private let maxPerSource     = 50    // keep up to 50 recipes per website
     private let maxTotal         = 500
 
-    // In-memory store, keyed by domain
+    // In-memory store, keyed by domain. Persistence is loaded lazily on the first actor
+    // operation so a search can never race the asynchronous init task and miss the cache.
     private var catalogue: [String: [WebRecipe]] = [:]
+    private var didLoad = false
 
-    init() {
-        // Load persisted data asynchronously to avoid actor-isolation warning in Swift 6
-        Task { await self.load() }
+    init() {}
+
+    private func ensureLoaded() {
+        guard !didLoad else { return }
+        didLoad = true
+        load()
     }
 
     // MARK: Store
@@ -297,6 +356,7 @@ actor WebRecipeCatalogue {
     private var flushTask: Task<Void, Never>?
 
     func save(_ recipe: WebRecipe) async {
+        ensureLoaded()
         let domain = recipe.sourceDomain
         var existing = catalogue[domain] ?? []
         guard !existing.contains(where: { $0.sourceURL == recipe.sourceURL }) else { return }
@@ -348,13 +408,15 @@ actor WebRecipeCatalogue {
 
     // MARK: Query
     func all() -> [WebRecipe] {
-        Array(catalogue.values.flatMap { $0 }
+        ensureLoaded()
+        return Array(catalogue.values.flatMap { $0 }
             .sorted { $0.cachedAt > $1.cachedAt }
             .prefix(maxTotal))
     }
 
     func recipes(for domain: String) -> [WebRecipe] {
-        catalogue[domain] ?? []
+        ensureLoaded()
+        return catalogue[domain] ?? []
     }
 
     func search(_ query: String) -> [WebRecipe] {
@@ -369,9 +431,15 @@ actor WebRecipeCatalogue {
         }
     }
 
-    func count(for domain: String) -> Int { catalogue[domain]?.count ?? 0 }
+    func count(for domain: String) -> Int {
+        ensureLoaded()
+        return catalogue[domain]?.count ?? 0
+    }
 
-    func totalCount() -> Int { catalogue.values.map(\.count).reduce(0, +) }
+    func totalCount() -> Int {
+        ensureLoaded()
+        return catalogue.values.map(\.count).reduce(0, +)
+    }
 
     // MARK: Persistence
     private func persist() {
@@ -696,12 +764,17 @@ actor WebRecipeFetcher {
             .filter { healthy.contains($0.domain) }
             .sorted { (order[$0.domain] ?? 99) < (order[$1.domain] ?? 99) }
 
-        await withTaskGroup(of: Void.self) { group in
-            for source in sources {
-                group.addTask {
-                    await self.fetchFromSource(source, query: query, limit: limitPerSource)
+        var index = 0
+        while index < sources.count {
+            let batch = Array(sources[index..<min(index + 4, sources.count)])
+            await withTaskGroup(of: Void.self) { group in
+                for source in batch {
+                    group.addTask {
+                        await self.fetchFromSource(source, query: query, limit: limitPerSource)
+                    }
                 }
             }
+            index += 4
         }
     }
 
@@ -710,25 +783,42 @@ actor WebRecipeFetcher {
         _ = await fetchRecipes(from: source, query: query, limit: limit)
     }
 
-    /// Pull a small, bounded batch from the ten newly wired publishers. This is used by
-    /// Discover and Build Around Food so these sites funnel actual recipes into the app.
+    /// Pull a balanced, bounded batch from the publisher funnel. Fresh catalogue hits are
+    /// returned without network access; only a rotating twelve-site subset is refreshed.
     func fetchExpandedPublisherRecipes(query: String, limitPerSource: Int = 1) async -> [WebRecipe] {
         let perSource = max(1, min(limitPerSource, 3))
-        return await withTaskGroup(of: [WebRecipe].self) { group in
-            for source in RecipeSourceRegistry.expandedLive {
-                group.addTask {
-                    await self.fetchRecipes(from: source, query: query, limit: perSource)
+        let sources = RecipeSourceRegistry.discoverySources(seed: query)
+        var combined: [WebRecipe] = []
+        var index = 0
+        while index < sources.count {
+            let batch = Array(sources[index..<min(index + 4, sources.count)])
+            await withTaskGroup(of: [WebRecipe].self) { group in
+                for source in batch {
+                    group.addTask {
+                        await self.fetchRecipes(from: source, query: query, limit: perSource)
+                    }
                 }
+                for await recipes in group { combined.append(contentsOf: recipes) }
             }
-            var combined: [WebRecipe] = []
-            for await batch in group { combined.append(contentsOf: batch) }
-            return combined
+            index += 4
         }
+        var seen = Set<String>()
+        return combined.filter { seen.insert($0.sourceURL).inserted }
     }
 
     private func fetchRecipes(from source: RecipeSource, query: String, limit: Int) async -> [WebRecipe] {
+        let normalizedQuery = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let cached = await catalogue.recipes(for: source.domain).filter { recipe in
+            let fresh = Date().timeIntervalSince(recipe.cachedAt) < 60 * 60 * 24 * 14
+            guard fresh else { return false }
+            if normalizedQuery.isEmpty { return true }
+            let haystack = ([recipe.title, recipe.category, recipe.cuisine] + recipe.tags + recipe.ingredients)
+                .joined(separator: " ").lowercased()
+            return haystack.contains(normalizedQuery)
+        }
+        var output = Array(cached.prefix(limit))
+        if output.count >= limit { return output }
         let searchURLs = buildSearchURLs(for: source, query: query)
-        var output: [WebRecipe] = []
         for urlStr in searchURLs {
             guard output.count < limit, let url = URL(string: urlStr) else { continue }
             await throttle(for: url.host ?? source.domain)
@@ -850,6 +940,30 @@ actor WebRecipeFetcher {
             return ["https://cafedelites.com/?s=\(q)"]
         case "damndelicious.net":
             return ["https://damndelicious.net/search/\(plusQ)/"]
+
+        // Ten additional American publishers.
+        case "onceuponachef.com": return ["https://www.onceuponachef.com/?s=\(q)"]
+        case "spendwithpennies.com": return ["https://www.spendwithpennies.com/?s=\(q)"]
+        case "wellplated.com": return ["https://www.wellplated.com/?s=\(q)"]
+        case "natashaskitchen.com": return ["https://natashaskitchen.com/?s=\(q)"]
+        case "julieseatsandtreats.com": return ["https://www.julieseatsandtreats.com/?s=\(q)"]
+        case "iheartnaptime.net": return ["https://www.iheartnaptime.net/?s=\(q)"]
+        case "cookiesandcups.com": return ["https://cookiesandcups.com/?s=\(q)"]
+        case "aheadofthyme.com": return ["https://www.aheadofthyme.com/?s=\(q)"]
+        case "modernhoney.com": return ["https://www.modernhoney.com/?s=\(q)"]
+        case "thechunkychef.com": return ["https://www.thechunkychef.com/?s=\(q)"]
+
+        // Ten Black and Southern publishers.
+        case "divascancook.com": return ["https://divascancook.com/?s=\(q)"]
+        case "grandbaby-cakes.com": return ["https://grandbaby-cakes.com/?s=\(q)"]
+        case "butterbeready.com": return ["https://www.butterbeready.com/?s=\(q)"]
+        case "blackpeoplesrecipes.com": return ["https://blackpeoplesrecipes.com/?s=\(q)"]
+        case "staysnatched.com": return ["https://www.staysnatched.com/?s=\(q)"]
+        case "whiskitrealgud.com": return ["https://whiskitrealgud.com/?s=\(q)"]
+        case "kennethtemple.com": return ["https://kennethtemple.com/?s=\(q)"]
+        case "coopcancook.com": return ["https://coopcancook.com/?s=\(q)"]
+        case "southernbite.com": return ["https://southernbite.com/?s=\(q)"]
+        case "deepsouthdish.com": return ["https://www.deepsouthdish.com/search?q=\(q)"]
         default:
             return []
         }

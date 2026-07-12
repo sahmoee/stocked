@@ -15,8 +15,8 @@ import CryptoKit
 import os
 
 /// A structured recipe returned by the Worker's Haiku recipe branch.
-struct AIRecipe: Codable {
-    struct Ingredient: Codable {
+nonisolated struct AIRecipe: Codable, Sendable {
+    nonisolated struct Ingredient: Codable, Sendable {
         let name: String
         let amount: String
         var quantity: Double? = nil
@@ -199,5 +199,84 @@ enum RecipeImportAI {
         candidate = candidate.replacingOccurrences(of: ",\\s*([}\\]])", with: "$1",
                                                    options: .regularExpression)
         return try? JSONSerialization.jsonObject(with: Data(candidate.utf8)) as? [String: Any]
+    }
+}
+
+
+// MARK: - Persistent AI ingredient repairs
+
+/// Stores cleaned ingredient lists independently from the recipe feed. This lets an
+/// imported/web recipe reopen with the repaired list immediately, even offline, without
+/// calling the Worker again. Entries are capped and expire after 90 days.
+actor RecipeIngredientRepairCache {
+    static let shared = RecipeIngredientRepairCache()
+
+    private struct Entry: Codable, Sendable {
+        let ingredients: [AIRecipe.Ingredient]
+        let savedAt: Date
+    }
+
+    private let prefix = "stocked.recipeIngredientRepair.v1."
+    private let indexKey = "stocked.recipeIngredientRepair.index.v1"
+    private let ttl: TimeInterval = 60 * 60 * 24 * 90
+    private let cap = 160
+    private var memory: [String: Entry] = [:]
+
+    func load(for rawKey: String) -> [AIRecipe.Ingredient]? {
+        let key = storageKey(rawKey)
+        if let entry = memory[key] {
+            guard Date().timeIntervalSince(entry.savedAt) < ttl else {
+                memory.removeValue(forKey: key)
+                UserDefaults.standard.removeObject(forKey: key)
+                return nil
+            }
+            return entry.ingredients
+        }
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let entry = try? JSONDecoder().decode(Entry.self, from: data) else { return nil }
+        guard Date().timeIntervalSince(entry.savedAt) < ttl else {
+            UserDefaults.standard.removeObject(forKey: key)
+            return nil
+        }
+        memory[key] = entry
+        return entry.ingredients
+    }
+
+    func store(_ ingredients: [AIRecipe.Ingredient], for rawKey: String) {
+        guard !ingredients.isEmpty else { return }
+        let key = storageKey(rawKey)
+        let entry = Entry(ingredients: ingredients, savedAt: Date())
+        memory[key] = entry
+        guard let data = try? JSONEncoder().encode(entry) else { return }
+        let defaults = UserDefaults.standard
+        defaults.set(data, forKey: key)
+        var index = defaults.stringArray(forKey: indexKey) ?? []
+        index.removeAll { $0 == key }
+        index.insert(key, at: 0)
+        while index.count > cap {
+            if let old = index.popLast() {
+                memory.removeValue(forKey: old)
+                defaults.removeObject(forKey: old)
+            }
+        }
+        defaults.set(index, forKey: indexKey)
+    }
+
+    private func storageKey(_ raw: String) -> String {
+        let digest = SHA256.hash(data: Data(raw.lowercased().utf8))
+        let hash = digest.map { String(format: "%02x", $0) }.joined().prefix(40)
+        return prefix + hash
+    }
+}
+
+extension AIRecipe.Ingredient {
+    /// Clean display line used by recipe detail, grocery, and cook views.
+    nonisolated var displayLine: String {
+        let amountText = amount.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prepText = (prep ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return [amountText, name, prepText.isEmpty ? "" : prepText]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .replacingOccurrences(of: "  ", with: " ")
     }
 }

@@ -56,63 +56,90 @@ final class SpeechReader {
 
 // MARK: - Meal image helper (internet fetch or user photo)
 struct MealHeroImage: View {
-    @Environment(AppSession.self) var session
     let recipeName: String
     let imageData:  Data?
-    @State private var fetchedURL: URL?
-    @State private var didFetch = false
-    @State private var resolveFailed = false
 
     var body: some View {
-        ZStack {
-            if let data = imageData, let ui = UIImage(data: data) {
-                Image(uiImage: ui).resizable().scaledToFill().clipped()
-            } else if let url = fetchedURL {
-                CachedAsyncImage(url: url.absoluteString, imageData: nil, height: 220)
-            } else {
-                placeholder
-            }
-        }
-        .onAppear { fetchInternetImage() }
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            Color.stockedCharcoal.opacity(0.15)
-            VStack(spacing: 8) {
-                Image(systemName: resolveFailed ? "fork.knife" : "photo.badge.magnifyingglass")
-                    .font(.system(size: 36)).foregroundStyle(Color.stockedGold)
-                if !resolveFailed {
-                    Text("Finding image…").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
-                }
-            }
-        }
-    }
-
-    private func fetchInternetImage() {
-        guard !didFetch, imageData == nil else { return }
-        didFetch = true
-        // Use the full resolver chain (TheMealDB → Spoonacular → Foodish), which always
-        // returns something rather than getting stuck on generic titles like "Quick Stir Fry".
-        let name = (recipeName.components(separatedBy: " — ").last ?? recipeName)
-            .trimmingCharacters(in: .whitespaces)
-        Task { @MainActor in
-            if let url = await RecipeImageResolver.shared.imageURL(for: name) {
-                fetchedURL = url
-            } else {
-                resolveFailed = true
-            }
-        }
+        // Keep local photo decoding, disk reads, remote fetches, downsampling, and
+        // name-based image resolution off the render path. CachedAsyncImage reuses the
+        // shared memory/disk cache instead of resolving the same recipe on every visit.
+        CachedAsyncImage(
+            url: nil,
+            imageData: imageData,
+            height: 220,
+            resolveName: recipeName
+        )
     }
 }
 
 // MARK: - Internet recipe data (fetched when no manual data)
-struct InternetRecipeData {
+nonisolated struct InternetRecipeData: Codable, Sendable {
     var imageURL:  String  = ""
     var steps:     [String] = []
     var cookTime:  String  = ""
     var prepTime:  String  = ""
     var ingredients: [String] = []
+}
+
+/// Persistent stale-while-revalidate cache for overview recipes. Network and JSON parsing
+/// happen inside this actor, never on the UI actor, and a cached recipe opens immediately.
+actor InternetRecipeCache {
+    static let shared = InternetRecipeCache()
+    private struct Entry: Codable, Sendable { let data: InternetRecipeData; let savedAt: Date }
+    private let defaultsKey = "stocked.internetRecipeCache.v2"
+    private let ttl: TimeInterval = 60 * 60 * 24 * 30
+    private var entries: [String: Entry]? = nil
+
+    func recipe(for title: String) async -> InternetRecipeData? {
+        loadIfNeeded()
+        let key = normalized(title)
+        guard let entry = entries?[key], Date().timeIntervalSince(entry.savedAt) < ttl else { return nil }
+        return entry.data
+    }
+
+    func fetchIfNeeded(title: String) async -> InternetRecipeData? {
+        if let cached = await recipe(for: title) { return cached }
+        let query = title.components(separatedBy: " — ").last ?? title
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(encoded)") else { return nil }
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 15
+        guard let (raw, response) = try? await URLSession(configuration: config).data(from: url),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let json = try? JSONSerialization.jsonObject(with: raw) as? [String: Any],
+              let meals = json["meals"] as? [[String: Any]], let meal = meals.first else { return nil }
+        var data = InternetRecipeData()
+        data.imageURL = meal["strMealThumb"] as? String ?? ""
+        data.cookTime = "30 min"
+        data.prepTime = "15 min"
+        let instructionText = meal["strInstructions"] as? String ?? ""
+        let split = RecipeStepSplitter.split(instructionText)
+        data.steps = split.isEmpty ? [instructionText].filter { !$0.isEmpty } : split
+        for index in 1...20 {
+            let ingredient = (meal["strIngredient\(index)"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let measure = (meal["strMeasure\(index)"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !ingredient.isEmpty { data.ingredients.append([measure, ingredient].filter { !$0.isEmpty }.joined(separator: " ")) }
+        }
+        loadIfNeeded()
+        entries?[normalized(title)] = Entry(data: data, savedAt: Date())
+        if let entries, let encoded = try? JSONEncoder().encode(entries) {
+            UserDefaults.standard.set(encoded, forKey: defaultsKey)
+        }
+        return data
+    }
+
+    private func loadIfNeeded() {
+        guard entries == nil else { return }
+        if let raw = UserDefaults.standard.data(forKey: defaultsKey),
+           let decoded = try? JSONDecoder().decode([String: Entry].self, from: raw) {
+            entries = decoded.filter { Date().timeIntervalSince($0.value.savedAt) < ttl }
+        } else { entries = [:] }
+    }
+
+    private func normalized(_ title: String) -> String {
+        title.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 // MARK: - Recipe Overview (full info before Start Cooking)
@@ -132,6 +159,10 @@ struct RecipeOverviewView: View {
     @State private var adjustedServings  = 0   // 0 = use passed-in servings
     @State private var showCancelAlert   = false
     @State private var addedToGrocery: Set<String> = []   // #FB — per-ingredient "Added ✓" feedback
+    @State private var repairedIngredients: [AIRecipe.Ingredient] = []
+    @State private var aiFixingIngredients = false
+    @State private var overviewSnapshot = RecipeOverviewSnapshot.empty
+    @State private var inStockSubstituteByIngredient: [String: String] = [:]
 
     init(title: String, servings: Int, ingredients: [String] = [],
          steps: [String] = [], cookTime: String = "", prepTime: String = "") {
@@ -156,10 +187,12 @@ struct RecipeOverviewView: View {
         ]
     }
     private var displayIngredients: [String] {
+        if !repairedIngredients.isEmpty { return repairedIngredients.map { $0.displayLine.stockedWrappable } }
         if !ingredients.isEmpty { return ingredients.map(\.stockedWrappable) }
         if let net = internetData, !net.ingredients.isEmpty { return net.ingredients.map(\.stockedWrappable) }
         return defaultIngredients(for: title)
     }
+    private var ingredientRepairKey: String { "overview:\(title)" }
     private var displayCookTime: String {
         if !cookTime.isEmpty { return cookTime }
         return internetData?.cookTime ?? "25–35 min"
@@ -177,13 +210,8 @@ struct RecipeOverviewView: View {
     private var baseServings: Int { max(1, servings == 0 ? 4 : servings) }
     private var scaleFactor: Double { Double(effectiveServings) / Double(baseServings) }
 
-    /// #16 — sum of detectable per-step timer durations, as whole minutes.
-    private var estimatedTimerMinutes: Int? {
-        let total = displaySteps.reduce(0) { acc, step in
-            acc + (StepTimerEngine.detectSeconds(in: step) ?? 0)
-        }
-        return total > 0 ? Int((Double(total) / 60.0).rounded()) : nil
-    }
+    /// #16 — prepared off the UI actor together with ingredient stock matching.
+    private var estimatedTimerMinutes: Int? { overviewSnapshot.estimatedTimerMinutes }
 
     // Scale a single ingredient string by scaleFactor, then convert its unit to the
     // user's selected measurement system (US/metric, incl. cups↔grams) when recognized.
@@ -225,36 +253,70 @@ struct RecipeOverviewView: View {
         displayIngredients.map { scaleIngredient($0) }
     }
 
-    // Fetch full recipe from TheMealDB — Task-based (no retain cycle risk)
+    // Cached, actor-isolated fetch. The screen never parses network JSON on the main actor.
     private func fetchInternetRecipeIfNeeded() {
         guard ingredients.isEmpty || steps.isEmpty, !isFetchingRecipe, internetData == nil else { return }
         isFetchingRecipe = true
-        let q = title.components(separatedBy: " — ").last ?? title
-        guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") else { return }
-        Task { @MainActor in
-            guard let (data, _) = try? await URLSession.shared.data(from: url),
-                  let json  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let meals = json["meals"] as? [[String: Any]],
-                  let m     = meals.first else {
-                isFetchingRecipe = false; return
-            }
-            var d       = InternetRecipeData()
-            d.imageURL  = m["strMealThumb"] as? String ?? ""
-            d.cookTime  = "30 min"; d.prepTime = "15 min"
-            d.steps = (m["strInstructions"] as? String ?? "")
-                .components(separatedBy: CharacterSet.newlines)
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { $0.count > 15 }.prefix(8).map { $0 }
-            var ings: [String] = []
-            for i in 1...20 {
-                let ing  = (m["strIngredient\(i)"] as? String ?? "").trimmingCharacters(in: .whitespaces)
-                let meas = (m["strMeasure\(i)"]    as? String ?? "").trimmingCharacters(in: .whitespaces)
-                if !ing.isEmpty { ings.append(meas.isEmpty ? ing : "\(meas) \(ing)") }
-            }
-            d.ingredients = ings
-            internetData    = d
+        Task {
+            let data = await InternetRecipeCache.shared.fetchIfNeeded(title: title)
+            guard !Task.isCancelled else { return }
+            internetData = data
             isFetchingRecipe = false
+            await prepareOverviewSnapshot()
         }
+    }
+
+    private func prepareOverviewSnapshot() async {
+        let prepared = await RecipeDetailSnapshotCache.shared.overviewSnapshot(
+            title: title, ingredients: scaledIngredients, steps: displaySteps,
+            inventory: session.guestStore.inventoryItems)
+        guard !Task.isCancelled else { return }
+        overviewSnapshot = prepared
+
+        // Resolve inventory-backed substitutions once after the background snapshot.
+        // Previously every missing row rescanned the database during each body update.
+        var substitutes: [String: String] = [:]
+        substitutes.reserveCapacity(prepared.missingItems.count)
+        for line in prepared.missingItems {
+            if let first = session.guestStore.inStockSubstitutes(for: line).first {
+                substitutes[line] = first
+            }
+        }
+        inStockSubstituteByIngredient = substitutes
+    }
+
+    private func loadCachedIngredientRepair() async {
+        guard repairedIngredients.isEmpty,
+              let cached = await RecipeIngredientRepairCache.shared.load(for: ingredientRepairKey) else { return }
+        repairedIngredients = cached
+    }
+
+    private func fixIngredientsWithAI() async {
+        guard !aiFixingIngredients else { return }
+        aiFixingIngredients = true
+        defer { aiFixingIngredients = false }
+        let raw = RecipeImportAI.composeRawText(
+            title: title,
+            description: "Repair and reconstruct this ingredient list. Keep quantities, units, and preparation notes. Remove punctuation-only or incomplete fragments.",
+            ingredients: displayIngredients,
+            steps: displaySteps)
+        guard let ai = await RecipeImportAI.structure(rawText: raw), !ai.ingredients.isEmpty else {
+            ToastCenter.shared.warning("Couldn't repair ingredients — try again later")
+            return
+        }
+        let cleaned = ai.ingredients.filter {
+            let name = $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.count > 1 && name.rangeOfCharacter(from: .letters) != nil
+        }
+        guard !cleaned.isEmpty else {
+            ToastCenter.shared.warning("No usable ingredient fixes were returned")
+            return
+        }
+        repairedIngredients = cleaned
+        await RecipeIngredientRepairCache.shared.store(cleaned, for: ingredientRepairKey)
+        await prepareOverviewSnapshot()
+        HapticManager.success()
+        ToastCenter.shared.success("Ingredients repaired and cached")
     }
 
     var body: some View {
@@ -391,13 +453,35 @@ struct RecipeOverviewView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             startCooking = false   // collapse cook flow on iPad (no .id rebuild there)
         }
+        .task(id: "\(title)-\(effectiveServings)-\(internetData?.ingredients.count ?? -1)-\(session.guestStore.inventoryItems.count)") {
+            await loadCachedIngredientRepair()
+            await prepareOverviewSnapshot()
+        }
     }
 
     @ViewBuilder private var ingredientsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Ingredients")
-                .font(.system(size: 16, weight: .bold, design: .serif))
-                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+            HStack {
+                Text("Ingredients")
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+                Spacer()
+                if RecipeImportAI.isAvailable {
+                    Button { Task { await fixIngredientsWithAI() } } label: {
+                        HStack(spacing: 4) {
+                            if aiFixingIngredients { ProgressView().controlSize(.mini) }
+                            else { Image(systemName: "wand.and.stars").font(.system(size: 10)) }
+                            Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(Color.stockedGold)
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(aiFixingIngredients)
+                }
+            }
 
             // Scale indicator
             if scaleFactor != 1.0 {
@@ -406,10 +490,10 @@ struct RecipeOverviewView: View {
                     .foregroundStyle(Color.stockedGold)
                     .padding(.bottom, 4)
             }
-            ForEach(Array(scaledIngredients.enumerated()), id: \.offset) { _, ing in
-                let rawIng = ing
-                // #FB — smarter matching: "2.6 lbs Chicken" now finds "Chicken Breast".
-                let inStock = IngredientStockMatch.inStock(rawIng, items: session.guestStore.inventoryItems, minLevel: 0.1)
+            ForEach(overviewSnapshot.rows) { row in
+                let ing = row.line
+                let rawIng = row.line
+                let inStock = row.isInStock
                 let addedKey = rawIng.lowercased()
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 10) {
@@ -455,8 +539,7 @@ struct RecipeOverviewView: View {
                     }
                     // #9 — if not in stock, suggest a substitute the user actually has.
                     if !inStock {
-                        let subs = session.guestStore.inStockSubstitutes(for: rawIng)
-                        if let sub = subs.first {
+                        if let sub = inStockSubstituteByIngredient[rawIng] {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrow.2.squarepath").font(.system(size: 9))
                                 Text("Use \(sub) instead (you have it)")
@@ -505,8 +588,7 @@ struct RecipeOverviewView: View {
 
     @ViewBuilder private var portionCheckSection: some View {
         // #FB — same smart matcher as the ingredient rows, so the two never disagree.
-        let missingItems = IngredientStockMatch.missing(displayIngredients,
-                                                        items: session.guestStore.inventoryItems)
+        let missingItems = overviewSnapshot.missingItems
         if !missingItems.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {

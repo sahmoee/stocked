@@ -5,7 +5,7 @@ import Foundation
 import SwiftUI
 
 // MARK: - Extended nutrition entry (internal)
-private struct RichNutrition {
+private nonisolated struct RichNutrition: Sendable {
     var calories: Int
     var protein, carbs, fat, fiber, sugar: Double
     var sodium, potassium, calcium, iron, vitaminC: Double
@@ -38,7 +38,7 @@ private struct RichNutrition {
 }
 
 // MARK: - Nutrition Database
-struct NutritionDatabase {
+nonisolated struct NutritionDatabase {
 
     // #1: Synchronous lookup — static DB first, then normalised name fallback
     static func facts(for name: String) -> NutritionFacts? {
@@ -166,50 +166,70 @@ struct NutritionDatabase {
     ]
 }
 
+// MARK: - Cached recipe nutrition aggregation
+actor RecipeNutritionSummaryCache {
+    static let shared = RecipeNutritionSummaryCache()
+    private var cache: [String: NutritionFacts] = [:]
+
+    func totals(ingredients: [String], servings: Int) -> NutritionFacts {
+        let key = ingredients.joined(separator: "|").lowercased() + "#" + String(max(1, servings))
+        if let cached = cache[key] { return cached }
+        var cal = 0; var prot = 0.0; var carb = 0.0; var fat = 0.0
+        var fib = 0.0; var sug = 0.0; var sod = 0.0
+        for raw in ingredients {
+            let parts = raw.trimmingCharacters(in: .whitespaces).components(separatedBy: " ")
+            var found: NutritionFacts?
+            for startIndex in parts.indices {
+                let candidate = parts[startIndex...].joined(separator: " ")
+                if let facts = NutritionDatabase.facts(for: candidate) { found = facts; break }
+            }
+            guard let facts = found else { continue }
+            cal += facts.calories
+            prot += facts.protein
+            carb += facts.totalCarbs
+            fat += facts.totalFat
+            fib += facts.dietaryFiber
+            sug += facts.totalSugars
+            sod += facts.sodium
+        }
+        let divisor = Double(max(1, servings))
+        let result = NutritionFacts(
+            servingSize: "Per serving (est.)",
+            calories: Int(Double(cal) / divisor),
+            totalFat: fat / divisor, saturatedFat: 0, transFat: 0, cholesterol: 0,
+            sodium: sod / divisor, totalCarbs: carb / divisor, dietaryFiber: fib / divisor,
+            totalSugars: sug / divisor, addedSugars: 0, protein: prot / divisor,
+            vitaminD: 0, calcium: 0, iron: 0, potassium: 0
+        )
+        cache[key] = result
+        if cache.count > 100, let first = cache.keys.first { cache.removeValue(forKey: first) }
+        return result
+    }
+}
+
 // MARK: - Recipe Nutrition Summary (used by CookingFlow)
 struct RecipeNutritionSummary: View {
     @Environment(AppSession.self) private var session
     let ingredients: [String]
     let servings:    Int
     @State private var expanded = false
-
-    // Lookup each ingredient name and accumulate
-    private var totals: NutritionFacts {
-        var cal = 0; var prot = 0.0; var carb = 0.0; var fat = 0.0
-        var fib  = 0.0; var sug = 0.0; var sod = 0.0
-        for raw in ingredients {
-            // Strip measures – take the last word(s) as the ingredient name
-            let parts = raw.trimmingCharacters(in: .whitespaces)
-                          .components(separatedBy: " ")
-            // Try full string first, then progressively shorter suffixes
-            var found: NutritionFacts? = nil
-            for startIdx in 0..<parts.count {
-                let candidate = parts[startIdx...].joined(separator: " ")
-                if let f = NutritionDatabase.facts(for: candidate) { found = f; break }
-            }
-            guard let f = found else { continue }
-            cal  += f.calories;  prot += f.protein
-            carb += f.totalCarbs; fat += f.totalFat
-            fib  += f.dietaryFiber; sug += f.totalSugars; sod += f.sodium
-        }
-        let s = max(1, servings)
-        return NutritionFacts(servingSize: "Per serving (est.)",
-                              calories:     cal / s,
-                              totalFat:     fat / Double(s),
-                              saturatedFat: 0, transFat: 0,
-                              cholesterol:  0,
-                              sodium:       sod / Double(s),
-                              totalCarbs:   carb / Double(s),
-                              dietaryFiber: fib / Double(s),
-                              totalSugars:  sug / Double(s),
-                              addedSugars:  0,
-                              protein:      prot / Double(s),
-                              vitaminD: 0, calcium: 0, iron: 0, potassium: 0)
+    @State private var totals = NutritionFacts()
+    private var cacheKey: String {
+        ingredients.joined(separator: "|") + "#" + String(max(1, servings))
     }
 
     var body: some View {
         let t = totals
-        guard t.calories > 0 else { return AnyView(EmptyView()) }
+        guard t.calories > 0 else {
+            return AnyView(
+                Color.clear
+                    .frame(height: 0)
+                    .task(id: cacheKey) {
+                        totals = await RecipeNutritionSummaryCache.shared.totals(
+                            ingredients: ingredients, servings: servings)
+                    }
+            )
+        }
 
         return AnyView(
             VStack(spacing: 0) {
@@ -254,6 +274,10 @@ struct RecipeNutritionSummary: View {
             }
             .background(session.isDarkMode ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.32))
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .task(id: cacheKey) {
+                totals = await RecipeNutritionSummaryCache.shared.totals(
+                    ingredients: ingredients, servings: servings)
+            }
         )
     }
 

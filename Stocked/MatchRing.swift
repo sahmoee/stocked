@@ -15,7 +15,7 @@ import SwiftUI
 // MARK: - Coverage value
 
 /// A recipe's inventory coverage, plus the context needed for a human explanation.
-struct RecipeCoverage: Equatable {
+nonisolated struct RecipeCoverage: Equatable, Sendable {
     let have: Int
     let total: Int
     /// Canonical names still missing (already run through the matcher). May be empty.
@@ -46,25 +46,24 @@ enum RecipeCoverageBuilder {
     /// store's expiring-soon list. Kept in one place so callers don't re-implement matching.
     @MainActor
     static func make(for recipe: OnlineRecipe, store: GuestDataStore) -> RecipeCoverage {
-        let inStock = store.inStockNameSet
-        let m = OnlineRecipeMatch.stockMatch(recipe, inStock: inStock)
+        make(for: recipe, inStock: store.inStockNameSet,
+             expiringNames: store.expiringSoonItems.map { $0.name.lowercased() })
+    }
 
-        // Canonical ingredient names for this recipe.
+    /// Snapshot-based overload used by background recipe-detail preparation. It avoids
+    /// touching the observable store while parsing and matching a large ingredient list.
+    nonisolated static func make(for recipe: OnlineRecipe, inStock: Set<String>,
+                                 expiringNames: [String]) -> RecipeCoverage {
+        let m = OnlineRecipeMatch.stockMatch(recipe, inStock: inStock)
         let names = RecipeIngredients.names(recipe.ingredients)
             .map { IngredientSynonyms.canonical($0) }
             .filter { !$0.isEmpty }
-
-        // Missing = canonical names with no loose two-way match in stock (same test as stockMatch).
         let missing = names.filter { n in
             !inStock.contains(where: { $0.contains(n) || n.contains($0) })
         }
-
-        // Which expiring-soon items this recipe actually uses (loose two-way match).
-        let expiringNames = store.expiringSoonItems.map { $0.name.lowercased() }
         let expiringUsed = expiringNames.filter { exp in
             names.contains(where: { $0.contains(exp) || exp.contains($0) })
         }
-
         return RecipeCoverage(have: m.have, total: m.total,
                               missingNames: missing, expiringUsed: expiringUsed)
     }
@@ -76,7 +75,7 @@ enum MatchExplanation {
     /// One short, honest line. Prioritizes the most actionable signal:
     /// expiring-use hook > "missing only X" > "N of M" > ready. Returns nil when there's no
     /// pantry signal to speak to (empty kitchen), so callers can hide it.
-    static func line(for c: RecipeCoverage) -> String? {
+    nonisolated static func line(for c: RecipeCoverage) -> String? {
         guard c.total > 0 else { return nil }
 
         if let first = c.expiringUsed.first {

@@ -325,3 +325,155 @@ enum RecipeMerge {
     }
 }
 
+
+
+// MARK: - Recipe detail snapshots
+
+/// Precomputed values used by recipe detail screens. Keeping these values in one immutable
+/// snapshot prevents SwiftUI body updates (timers, steppers, image state) from repeatedly
+/// reparsing every ingredient and instruction on the main actor.
+nonisolated struct OnlineRecipeDetailSnapshot: Sendable, Equatable {
+    let steps: [String]
+    let coverage: RecipeCoverage
+    let stockStatus: OnlineRecipeMatch.Status
+    let dietLabels: [String]
+    let allergenHits: [String]
+    let hasRealInstructions: Bool
+
+    static let empty = OnlineRecipeDetailSnapshot(
+        steps: [],
+        coverage: RecipeCoverage(have: 0, total: 0, missingNames: [], expiringUsed: []),
+        stockStatus: .unknown,
+        dietLabels: [],
+        allergenHits: [],
+        hasRealInstructions: false
+    )
+}
+
+nonisolated struct RecipeOverviewIngredientState: Identifiable, Sendable, Equatable {
+    let id: String
+    let line: String
+    let isInStock: Bool
+}
+
+nonisolated struct RecipeOverviewSnapshot: Sendable, Equatable {
+    let rows: [RecipeOverviewIngredientState]
+    let missingItems: [String]
+    let estimatedTimerMinutes: Int?
+
+    static let empty = RecipeOverviewSnapshot(rows: [], missingItems: [], estimatedTimerMinutes: nil)
+}
+
+
+nonisolated struct UserRecipeDetailMetrics: Sendable {
+    let averageRating: Double?
+    let ratingCount: Int
+    let cost: RecipeCost.Estimate
+    /// Nutrition per original recipe serving; the UI applies the live serving scale.
+    let calories: Double?
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+
+    static let empty = UserRecipeDetailMetrics(
+        averageRating: nil, ratingCount: 0,
+        cost: RecipeCost.Estimate(total: 0, pricedCount: 0, totalCount: 0),
+        calories: nil, protein: 0, carbs: 0, fat: 0
+    )
+}
+
+actor UserRecipeMetricsCache {
+    static let shared = UserRecipeMetricsCache()
+    private var cache: [String: UserRecipeDetailMetrics] = [:]
+
+    func metrics(recipe: UserRecipe, pastMeals: [LocalPastMeal],
+                 priceHistory: [PriceRecord]) -> UserRecipeDetailMetrics {
+        let key = [recipe.id.uuidString, String(recipe.updatedAt), String(pastMeals.count),
+                   String(priceHistory.count)].joined(separator: "|")
+        if let cached = cache[key] { return cached }
+        let titleKey = recipe.title.lowercased().trimmingCharacters(in: .whitespaces)
+        let ratings = pastMeals.compactMap { meal -> Int? in
+            let matches = meal.recipeId == recipe.id ||
+                meal.title.lowercased().trimmingCharacters(in: .whitespaces) == titleKey
+            return matches && meal.rating > 0 ? meal.rating : nil
+        }
+        let average = ratings.isEmpty ? nil : Double(ratings.reduce(0, +)) / Double(ratings.count)
+        let servingCount = Double(max(1, recipe.servings))
+        let calories = recipe.ingredients.compactMap { $0.nutrition?.calories }
+        let result = UserRecipeDetailMetrics(
+            averageRating: average, ratingCount: ratings.count,
+            cost: RecipeCost.estimate(ingredients: recipe.ingredients.map(\.name), history: priceHistory),
+            calories: calories.isEmpty ? nil : Double(calories.reduce(0, +)) / servingCount,
+            protein: recipe.ingredients.compactMap { $0.nutrition?.protein }.reduce(0, +) / servingCount,
+            carbs: recipe.ingredients.compactMap { $0.nutrition?.totalCarbs }.reduce(0, +) / servingCount,
+            fat: recipe.ingredients.compactMap { $0.nutrition?.totalFat }.reduce(0, +) / servingCount
+        )
+        cache[key] = result
+        if cache.count > 80 { cache.removeValue(forKey: cache.keys.first!) }
+        return result
+    }
+}
+
+actor RecipeDetailSnapshotCache {
+    static let shared = RecipeDetailSnapshotCache()
+
+    private var online: [String: OnlineRecipeDetailSnapshot] = [:]
+    private var overview: [String: RecipeOverviewSnapshot] = [:]
+    private let cap = 100
+
+    func onlineSnapshot(recipe: OnlineRecipe, inStock: Set<String>,
+                        expiringNames: [String], allergens: [String]) -> OnlineRecipeDetailSnapshot {
+        let key = onlineKey(recipe: recipe, inStock: inStock, expiringNames: expiringNames, allergens: allergens)
+        if let cached = online[key] { return cached }
+        let result = OnlineRecipeDetailSnapshot(
+            steps: RecipeStepSplitter.split(recipe.instructions),
+            coverage: RecipeCoverageBuilder.make(for: recipe, inStock: inStock, expiringNames: expiringNames),
+            stockStatus: OnlineRecipeMatch.status(recipe, inStock: inStock),
+            dietLabels: DietaryClassifier.flags(for: recipe.ingredients, title: recipe.title).labels,
+            allergenHits: OnlineRecipeFacts.allergenHits(recipe, allergens: allergens),
+            hasRealInstructions: OnlineRecipeFacts.hasRealInstructions(recipe.instructions)
+        )
+        online[key] = result
+        trim(&online)
+        return result
+    }
+
+    func overviewSnapshot(title: String, ingredients: [String], steps: [String],
+                          inventory: [LocalInventoryItem]) -> RecipeOverviewSnapshot {
+        let key = overviewKey(title: title, ingredients: ingredients, steps: steps, inventory: inventory)
+        if let cached = overview[key] { return cached }
+        let rows = ingredients.enumerated().map { index, line in
+            RecipeOverviewIngredientState(
+                id: "\(index)-\(line.lowercased())", line: line,
+                isInStock: IngredientStockMatch.inStock(line, items: inventory, minLevel: 0.1)
+            )
+        }
+        let timerSeconds = steps.reduce(0) { $0 + (StepTimerEngine.detectSeconds(in: $1) ?? 0) }
+        let result = RecipeOverviewSnapshot(
+            rows: rows,
+            missingItems: rows.filter { !$0.isInStock }.map(\.line),
+            estimatedTimerMinutes: timerSeconds > 0 ? Int((Double(timerSeconds) / 60).rounded()) : nil
+        )
+        overview[key] = result
+        trim(&overview)
+        return result
+    }
+
+    private func onlineKey(recipe: OnlineRecipe, inStock: Set<String>,
+                           expiringNames: [String], allergens: [String]) -> String {
+        [recipe.id, recipe.title, recipe.ingredients.joined(separator: "|"), recipe.instructions,
+         inStock.sorted().joined(separator: "|"), expiringNames.sorted().joined(separator: "|"),
+         allergens.sorted().joined(separator: "|")].joined(separator: "§")
+    }
+
+    private func overviewKey(title: String, ingredients: [String], steps: [String],
+                             inventory: [LocalInventoryItem]) -> String {
+        let pantry = inventory.map { "\($0.name.lowercased()):\($0.effectiveLevel)" }.sorted().joined(separator: "|")
+        return [title, ingredients.joined(separator: "|"), steps.joined(separator: "|"), pantry].joined(separator: "§")
+    }
+
+    private func trim<T>(_ dictionary: inout [String: T]) {
+        guard dictionary.count > cap else { return }
+        for key in dictionary.keys.prefix(dictionary.count - cap) { dictionary.removeValue(forKey: key) }
+    }
+}

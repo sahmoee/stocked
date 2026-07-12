@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 // MARK: - Model
-struct OnlineRecipe: Identifiable, Codable, Hashable, Sendable {
+nonisolated struct OnlineRecipe: Identifiable, Codable, Hashable, Sendable {
     let id:           String
     let title:        String
     let category:     String
@@ -21,6 +21,28 @@ struct OnlineRecipe: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// Decodes and encodes the Discover cache away from the main actor. Large recipe arrays
+/// previously went through JSONDecoder synchronously when the tab appeared, which could
+/// stall navigation even when every recipe was already cached.
+private actor OnlineRecipesPersistentCache {
+    static let shared = OnlineRecipesPersistentCache()
+
+    func load(cacheKey: String, timestampKey: String) -> (recipes: [OnlineRecipe], savedAt: Date?) {
+        let savedAt = UserDefaults.standard.object(forKey: timestampKey) as? Date
+        guard let data = UserDefaults.standard.data(forKey: cacheKey),
+              let recipes = try? JSONDecoder().decode([OnlineRecipe].self, from: data) else {
+            return ([], savedAt)
+        }
+        return (recipes, savedAt)
+    }
+
+    func save(_ recipes: [OnlineRecipe], cacheKey: String, timestampKey: String, savedAt: Date) {
+        guard let data = try? JSONEncoder().encode(recipes) else { return }
+        UserDefaults.standard.set(data, forKey: cacheKey)
+        UserDefaults.standard.set(savedAt, forKey: timestampKey)
+    }
+}
+
 // MARK: - Loader
 @Observable
 @MainActor
@@ -31,8 +53,13 @@ class OnlineRecipesLoader {
     var error:     String?
 
     private let cacheKey = "onlineRecipesCache_v3"
+    private let cacheTimestampKey = "onlineRecipesCacheTimestamp_v3"
+    private let cacheTTL: TimeInterval = 60 * 60 * 6
     private let countKey = "appOpenCount"
     private var loadTask: Task<Void, Never>?
+    private var bootstrapTask: Task<Void, Never>?
+    private var didBootstrapCache = false
+    private var cachedAt: Date?
 
     /// Top pantry ingredient names to seed ingredient-based fetches with, so Discover fills
     /// with recipes the user can actually make. Set by callers that have store access; empty
@@ -45,13 +72,33 @@ class OnlineRecipesLoader {
 
     func loadIfNeeded(profile: UserCookingProfile? = nil, pantry: [String] = []) {
         if !pantry.isEmpty { pantrySeedNames = pantry }
-        // Show cached results instantly while fresh ones load
-        if let cached = loadCacheSync() { recipes = filterByProfile(cached, profile: profile) }
-        // #251 — if we have nothing cached yet, seed from the synced local RecipeDatabase
-        // so Discover shows real recipes even with no network (graceful offline).
-        if recipes.isEmpty { seedFromLocalDatabase(profile: profile) }
-        // Always fetch fresh results on every appear
-        fetchInBackground(profile: profile)
+
+        if didBootstrapCache {
+            if recipes.isEmpty { seedFromLocalDatabase(profile: profile) }
+            let isFresh = cachedAt.map { Date().timeIntervalSince($0) < cacheTTL } ?? false
+            if !isFresh { fetchInBackground(profile: profile) }
+            return
+        }
+        guard bootstrapTask == nil else { return }
+
+        // Stale-while-revalidate: decode the persisted cache on its own actor, publish it
+        // immediately, and only start the bounded source funnel when that cache is stale.
+        let cacheKey = self.cacheKey
+        let timestampKey = self.cacheTimestampKey
+        bootstrapTask = Task { [weak self] in
+            let cached = await OnlineRecipesPersistentCache.shared.load(
+                cacheKey: cacheKey, timestampKey: timestampKey)
+            guard let self, !Task.isCancelled else { return }
+            self.cachedAt = cached.savedAt
+            self.didBootstrapCache = true
+            if self.recipes.isEmpty, !cached.recipes.isEmpty {
+                self.recipes = self.filterByProfile(cached.recipes, profile: profile)
+            }
+            if self.recipes.isEmpty { self.seedFromLocalDatabase(profile: profile) }
+            let isFresh = cached.savedAt.map { Date().timeIntervalSince($0) < self.cacheTTL } ?? false
+            if !isFresh { self.fetchInBackground(profile: profile) }
+            self.bootstrapTask = nil
+        }
     }
 
     /// Pull a batch from the on-device RecipeDatabase (Spoonacular/CocktailDB/MealDB already
@@ -116,9 +163,17 @@ class OnlineRecipesLoader {
 
     func forceRefresh(profile: UserCookingProfile? = nil, pantry: [String] = []) {
         if !pantry.isEmpty { pantrySeedNames = pantry }
+        bootstrapTask?.cancel()
+        bootstrapTask = nil
+        didBootstrapCache = true
+        loadTask?.cancel()
+        loadTask = nil
         fetchInBackground(profile: profile)
     }
-    func cancel() { loadTask?.cancel(); loadTask = nil }
+    func cancel() {
+        bootstrapTask?.cancel(); bootstrapTask = nil
+        loadTask?.cancel(); loadTask = nil
+    }
 
     private func filterByProfile(_ all: [OnlineRecipe], profile: UserCookingProfile?) -> [OnlineRecipe] {
         // Always drop recipes that have no real step-by-step instructions, or whose
@@ -136,7 +191,7 @@ class OnlineRecipesLoader {
     }
 
     private func fetchInBackground(profile: UserCookingProfile? = nil) {
-        loadTask?.cancel()
+        guard loadTask == nil else { return }
         loadTask = Task(priority: .background) { [weak self] in
             guard let self, !Task.isCancelled else { return }
             await MainActor.run { self.isLoading = true; self.error = nil }
@@ -353,6 +408,7 @@ class OnlineRecipesLoader {
                 } else if self.recipes.isEmpty {
                     self.error = "Couldn't load recipes. Check your connection."
                 }
+                self.loadTask = nil
             }
         }
     }
@@ -452,15 +508,14 @@ class OnlineRecipesLoader {
         return results
     }
 
-    private func loadCacheSync() -> [OnlineRecipe]? {
-        guard let data = UserDefaults.standard.data(forKey: cacheKey) else { return nil }
-        return try? JSONDecoder().decode([OnlineRecipe].self, from: data)
-    }
     private func saveCacheAsync(_ recipes: [OnlineRecipe]) {
+        let savedAt = Date()
+        cachedAt = savedAt
+        let cacheKey = self.cacheKey
+        let timestampKey = self.cacheTimestampKey
         Task(priority: .background) {
-            if let data = try? JSONEncoder().encode(recipes) {
-                UserDefaults.standard.set(data, forKey: self.cacheKey)
-            }
+            await OnlineRecipesPersistentCache.shared.save(
+                recipes, cacheKey: cacheKey, timestampKey: timestampKey, savedAt: savedAt)
         }
     }
 }
@@ -1014,7 +1069,7 @@ struct OnlineRecipeCard: View {
 
     @ViewBuilder private var cardStatusBadge: some View {
         let coverage = RecipeCoverageBuilder.make(for: recipe, store: session.guestStore)
-        switch OnlineRecipeMatch.status(recipe, inStock: session.guestStore.inStockNameSet) {
+        switch OnlineRecipeMatch.status(recipe, store: session.guestStore) {
         case .ready:       badge(text: "Ready", system: "checkmark.circle.fill", bg: Color.stockedGreen)
         case .missing(let n):
             // Ring makes coverage scannable at a glance; keep the text badge for the exact count.
@@ -1048,19 +1103,42 @@ struct OnlineRecipeDetailView: View {
     @State private var savedRecipeID: UUID? = nil   // set when saved to My Collection (heart)
     // #9 live cooking — per-recipe step timers (notification + Live Activity backed).
     @State private var timerEngine = StepTimerEngine()
+    @State private var repairedIngredients: [AIRecipe.Ingredient] = []
+    @State private var aiFixingIngredients = false
+    @State private var detailSnapshot = OnlineRecipeDetailSnapshot.empty
 
-    // #9 — instructions blob split into numbered steps for the timer rows.
-    private var instructionSteps: [String] { RecipeStepSplitter.split(recipe.instructions) }
+    private var ingredientRepairKey: String { "online:\(recipe.id):\(recipe.title)" }
+
+    /// The repaired list becomes the single source of truth for display, grocery actions,
+    /// calendar planning, and saving to My Collection. The original feed remains untouched.
+    private var displayedRecipe: OnlineRecipe {
+        guard !repairedIngredients.isEmpty else { return recipe }
+        return OnlineRecipe(
+            id: recipe.id, title: recipe.title, category: recipe.category, area: recipe.area,
+            instructions: recipe.instructions, imageURL: recipe.imageURL,
+            ingredients: repairedIngredients.map {
+                [$0.name, ($0.prep ?? "").trimmingCharacters(in: .whitespacesAndNewlines)]
+                    .filter { !$0.isEmpty }.joined(separator: ", ")
+            },
+            measures: repairedIngredients.map { $0.amount }, source: recipe.source
+        )
+    }
+
+    private var displayedIngredientLines: [(measure: String, ingredient: String)] {
+        displayedRecipe.ingredientLines
+    }
+
+    private var instructionSteps: [String] { detailSnapshot.steps }
 
     // #251 — live "can I make this?" badge for the detail header.
     @ViewBuilder private var detailStockBadge: some View {
-        let coverage = RecipeCoverageBuilder.make(for: recipe, store: session.guestStore)
+        let coverage = detailSnapshot.coverage
         HStack(spacing: 10) {
             if coverage.total > 0 {
                 MatchRing(coverage: coverage, size: 44)
             }
             VStack(alignment: .leading, spacing: 3) {
-                switch OnlineRecipeMatch.status(recipe, inStock: session.guestStore.inStockNameSet) {
+                switch detailSnapshot.stockStatus {
                 case .ready:
                     HStack(spacing: 5) {
                         Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .bold))
@@ -1124,10 +1202,9 @@ struct OnlineRecipeDetailView: View {
                             // #12 auto-inferred dietary tags from the ingredient list (+ title
                             // so meat dishes like "Lamb Chops" aren't mislabeled when the
                             // ingredient list is sparse).
-                            let diet = DietaryClassifier.flags(for: recipe.ingredients, title: recipe.title)
-                            if !diet.labels.isEmpty {
+                            if !detailSnapshot.dietLabels.isEmpty {
                                 HStack(spacing: 6) {
-                                    ForEach(diet.labels, id: \.self) { label in
+                                    ForEach(detailSnapshot.dietLabels, id: \.self) { label in
                                         Text(label)
                                             .font(.system(size: 11, weight: .semibold))
                                             .foregroundStyle(Color.stockedGreen)
@@ -1139,7 +1216,7 @@ struct OnlineRecipeDetailView: View {
                             }
 
                             // #251 — allergen warning (only when the user has allergens set).
-                            let allergenHits = OnlineRecipeFacts.allergenHits(recipe, allergens: session.guestStore.cookingProfile.allergens)
+                            let allergenHits = detailSnapshot.allergenHits
                             if !allergenHits.isEmpty {
                                 HStack(spacing: 6) {
                                     Image(systemName: "exclamationmark.triangle.fill")
@@ -1186,12 +1263,32 @@ struct OnlineRecipeDetailView: View {
                         }.padding(.horizontal, 24)
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Ingredients")
-                                .font(.system(size: 16, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-                            ForEach(recipe.ingredientLines, id: \.ingredient) { pair in
+                            HStack {
+                                Text("Ingredients")
+                                    .font(.system(size: 16, weight: .bold, design: .serif))
+                                    .foregroundStyle(session.themeTextColor)
+                                Spacer()
+                                if RecipeImportAI.isAvailable {
+                                    Button { Task { await fixIngredientsWithAI() } } label: {
+                                        HStack(spacing: 4) {
+                                            if aiFixingIngredients { ProgressView().controlSize(.mini) }
+                                            else { Image(systemName: "wand.and.stars").font(.system(size: 11)) }
+                                            Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
+                                                .font(.system(size: 11.5, weight: .semibold))
+                                        }
+                                        .foregroundStyle(Color.stockedGold)
+                                        .padding(.horizontal, 9).padding(.vertical, 5)
+                                        .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(aiFixingIngredients)
+                                    .a11yButton("Fix ingredients with AI")
+                                }
+                            }
+                            ForEach(Array(displayedIngredientLines.enumerated()), id: \.offset) { _, pair in
                                 HStack(spacing: 10) {
                                     Circle().fill(Color.stockedGold).frame(width: 6, height: 6)
-                                    Text("\(pair.measure) \(pair.ingredient)")
+                                    Text([pair.measure, pair.ingredient].filter { !$0.isEmpty }.joined(separator: " "))
                                         .font(.system(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor)
                                 }
                             }
@@ -1202,7 +1299,7 @@ struct OnlineRecipeDetailView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Instructions")
                                 .font(.system(size: 16, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-                            if OnlineRecipeFacts.hasRealInstructions(recipe.instructions) {
+                            if detailSnapshot.hasRealInstructions {
                                 // #9 live cooking — numbered steps; any step that mentions a
                                 // duration gets a tappable timer (notification + Live Activity).
                                 let steps = instructionSteps
@@ -1292,12 +1389,59 @@ struct OnlineRecipeDetailView: View {
                 timerEngine.recipeTitle = recipe.title
                 timerEngine.totalSteps  = instructionSteps.count
             }
+            .task { await prepareDetail() }
         }
     }
 
+    private func prepareDetail() async {
+        if repairedIngredients.isEmpty,
+           let cached = await RecipeIngredientRepairCache.shared.load(for: ingredientRepairKey) {
+            repairedIngredients = cached
+        }
+        let current = displayedRecipe
+        let inStock = session.guestStore.inStockNameSet
+        let expiring = session.guestStore.expiringSoonItems.map { $0.name.lowercased() }
+        let allergens = session.guestStore.cookingProfile.allergens
+        let prepared = await RecipeDetailSnapshotCache.shared.onlineSnapshot(
+            recipe: current, inStock: inStock, expiringNames: expiring, allergens: allergens)
+        guard !Task.isCancelled else { return }
+        detailSnapshot = prepared
+        timerEngine.totalSteps = prepared.steps.count
+    }
+
+    private func fixIngredientsWithAI() async {
+        guard !aiFixingIngredients else { return }
+        aiFixingIngredients = true
+        defer { aiFixingIngredients = false }
+        let raw = RecipeImportAI.composeRawText(
+            title: recipe.title,
+            description: "Repair and fully reconstruct this ingredient list. Preserve quantities, units, and preparation notes. Remove fragments such as punctuation-only ingredients.",
+            ingredients: displayedIngredientLines.map {
+                [$0.measure, $0.ingredient].filter { !$0.isEmpty }.joined(separator: " ")
+            },
+            steps: detailSnapshot.steps.isEmpty ? [recipe.instructions] : detailSnapshot.steps)
+        guard let ai = await RecipeImportAI.structure(rawText: raw), !ai.ingredients.isEmpty else {
+            ToastCenter.shared.warning("Couldn't repair ingredients — try again later")
+            return
+        }
+        let cleaned = ai.ingredients.filter {
+            let name = $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.count > 1 && name.rangeOfCharacter(from: .letters) != nil
+        }
+        guard !cleaned.isEmpty else {
+            ToastCenter.shared.warning("No usable ingredient fixes were returned")
+            return
+        }
+        repairedIngredients = cleaned
+        await RecipeIngredientRepairCache.shared.store(cleaned, for: ingredientRepairKey)
+        await prepareDetail()
+        HapticManager.success()
+        ToastCenter.shared.success("Ingredients repaired and cached")
+    }
+
     private func saveToCalendar() {
-        StockedKnowledgeBase.shared.learnFromOnlineRecipe(recipe)
-        let ings = recipe.ingredientLines.map { "\($0.measure) \($0.ingredient)".trimmingCharacters(in: .whitespaces) }
+        StockedKnowledgeBase.shared.learnFromOnlineRecipe(displayedRecipe)
+        let ings = displayedRecipe.ingredientLines.map { "\($0.measure) \($0.ingredient)".trimmingCharacters(in: .whitespaces) }
         let meal = PlannedMeal(dayIndex: 1, title: recipe.title, servings: 2, ingredients: ings, mealType: "Dinner")
         _ = meal
         session.guestStore.pastMeals.append(LocalPastMeal(title: "Planned: \(recipe.title)", date: "Pending"))
@@ -1314,15 +1458,15 @@ struct OnlineRecipeDetailView: View {
         }
         // #251 — import with structured ParsedQuantity fields so scaling + grocery
         // consolidation work on this imported recipe like a hand-entered one.
-        let id = session.guestStore.importOnlineRecipe(recipe)
+        let id = session.guestStore.importOnlineRecipe(displayedRecipe)
         UsageMetrics.shared.record(.recipeImportedOnline)
         withAnimation(.spring(response: 0.3)) { savedRecipeID = id }
     }
 
     private func autoFillIngredients() {
-        StockedKnowledgeBase.shared.learnFromOnlineRecipe(recipe)
+        StockedKnowledgeBase.shared.learnFromOnlineRecipe(displayedRecipe)
         let stockedLower = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
-        for pair in recipe.ingredientLines {
+        for pair in displayedRecipe.ingredientLines {
             let ing = pair.ingredient
             let inStock = stockedLower.contains { $0.contains(ing.lowercased()) || ing.lowercased().contains($0) }
             if !inStock {

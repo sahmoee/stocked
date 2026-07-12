@@ -2119,7 +2119,7 @@
     "Grocery List" : {
 
     },
-    "Grocery Stores Near You" : {
+    "Grocery stores near you" : {
 
     },
     "grocery.title" : {
@@ -3618,6 +3618,12 @@
 
     },
     "Shopping at %@ — change store" : {
+
+    },
+    "Show all %lld stores" : {
+
+    },
+    "Show fewer stores" : {
 
     },
     "Show meals" : {

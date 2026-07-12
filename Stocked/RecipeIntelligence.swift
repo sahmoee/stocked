@@ -29,7 +29,7 @@ enum OnlineRecipeMatch {
 
     /// A short status for a Discover/browser card: nil when there's nothing in the
     /// pantry yet (so we don't show a discouraging "all missing" on an empty kitchen).
-    enum Status: Equatable {
+    nonisolated enum Status: Equatable, Sendable {
         case ready                 // everything on hand
         case missing(Int)          // n ingredients short
         case unknown               // no pantry signal — show nothing

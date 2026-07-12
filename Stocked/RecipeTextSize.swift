@@ -110,7 +110,7 @@ struct RecipeTextSizeControl: View {
 
 // MARK: - Step splitting
 
-enum RecipeStepSplitter {
+nonisolated enum RecipeStepSplitter {
 
     /// Splits an instructions blob into readable numbered steps.
     /// Newline-separated sources split on lines; single-paragraph sources

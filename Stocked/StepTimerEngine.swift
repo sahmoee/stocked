@@ -76,7 +76,7 @@ final class StepTimerEngine {
 
     // MARK: - Time parsing
     /// Returns detected seconds from a step string, or nil if none found.
-    static func detectSeconds(in text: String) -> Int? {
+    nonisolated static func detectSeconds(in text: String) -> Int? {
         let t = text.lowercased()
 
         // Patterns: "30 minutes", "5 mins", "1 hour 30 minutes", "45 seconds", "1½ hours"
@@ -122,7 +122,7 @@ final class StepTimerEngine {
         return found && totalSeconds > 0 ? totalSeconds : nil
     }
 
-    private static func extractNumber(from string: String) -> Double? {
+    private nonisolated static func extractNumber(from string: String) -> Double? {
         // Handle "1½" → 1.5, "30" → 30, "1.5" → 1.5
         let s = string
             .replacingOccurrences(of: "½", with: ".5")
