@@ -12,7 +12,7 @@
 
 import Foundation
 
-enum IngredientStockMatch {
+nonisolated enum IngredientStockMatch {
 
     /// Words that describe preparation or state, not the food itself.
     private static let prepWords: Set<String> = [

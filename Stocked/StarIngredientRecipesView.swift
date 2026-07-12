@@ -16,7 +16,7 @@ struct StarIngredientRecipesView: View {
     let selection: String    // "Chicken", "Leafy Greens", …
     let servings: Int
 
-    private struct RankedRecipe: Identifiable, Sendable {
+    private nonisolated struct RankedRecipe: Identifiable, Sendable {
         let entry: RecipeDatabaseEntry
         let missing: Int
         var id: UUID { entry.id }
@@ -337,7 +337,7 @@ struct StarIngredientRecipesView: View {
 }
 
 /// Deterministic shuffle source so Refresh re-rolls but a single render doesn't.
-private struct SeededGenerator: RandomNumberGenerator {
+private nonisolated struct SeededGenerator: RandomNumberGenerator, Sendable {
     var state: UInt64
     init(seed: UInt64) { state = seed &* 2862933555777941757 &+ 3037000493 }
     mutating func next() -> UInt64 {

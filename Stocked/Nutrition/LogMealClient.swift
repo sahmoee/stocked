@@ -16,13 +16,13 @@ import CryptoKit
 
 // MARK: - Public models
 
-struct LogMealDish: Codable, Identifiable, Hashable {
+nonisolated struct LogMealDish: Codable, Identifiable, Hashable, Sendable {
     var id: String { "\(name)-\(Int(probability * 1000))" }
     let name: String
     let probability: Double
 }
 
-struct LogMealResult: Codable, Hashable {
+nonisolated struct LogMealResult: Codable, Hashable, Sendable {
     let imageId: Int
     let dishes: [LogMealDish]
     let calories: Double?

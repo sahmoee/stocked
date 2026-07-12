@@ -94,7 +94,7 @@ actor APIResponseCache {
 private extension String {
     /// Deterministic hash (djb2). Foundation's String.hashValue is randomized per launch,
     /// so it cannot be used for on-disk cache filenames.
-    var stableHash: Int {
+    nonisolated var stableHash: Int {
         var result = 5381
         for byte in self.utf8 {
             result = (result &* 33) &+ Int(byte)

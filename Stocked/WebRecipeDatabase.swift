@@ -191,13 +191,13 @@ enum RecipeSourceRegistry {
     /// Sites with an implemented public search URL. Catalogue-only sites remain available
     /// for manual URL import but are excluded from automated refreshes.
     nonisolated static var liveSearchable: [RecipeSource] {
-        let domains: Set<String> = [
+        let domains = Set([
             "seriouseats.com", "food52.com", "epicurious.com", "americastestkitchen.com",
             "foodnetwork.com", "allrecipes.com", "thekitchn.com", "tasteofhome.com",
             "budgetbytes.com", "therecipecritic.com", "bonappetit.com", "foodandwine.com",
             "eatingwell.com", "delish.com", "bettycrocker.com", "sallysbakingaddiction.com",
             "kingarthurbaking.com", "loveandlemons.com", "pinchofyum.com", "thewoksoflife.com"
-        ].union(expandedLive.map(\.domain))
+        ]).union(expandedLive.map(\.domain))
         return all.filter { domains.contains($0.domain) }
     }
 

@@ -9,7 +9,7 @@
 
 import Foundation
 
-enum NutritionAPIConfig {
+nonisolated enum NutritionAPIConfig {
 
     /// Info.plist key names. The plist values must reference Secrets.xcconfig build settings.
     private enum PlistKey {
@@ -36,7 +36,7 @@ enum NutritionAPIConfig {
 }
 
 /// Errors surfaced by the nutrition/recipe API clients.
-enum NutritionAPIError: Error, LocalizedError {
+nonisolated enum NutritionAPIError: Error, LocalizedError {
     case missingKey(String)
     case badResponse(Int)
     case decoding
@@ -58,7 +58,7 @@ enum NutritionAPIError: Error, LocalizedError {
 
 /// Builds a URLSession carrying Stocked's User-Agent and JSON Accept headers.
 /// copyWithUA() is fileprivate to RecipeSourcesPlus.swift, so clients build their own here.
-enum NutritionAPISession {
+nonisolated enum NutritionAPISession {
     static func make() -> URLSession {
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = [
