@@ -87,12 +87,12 @@ nonisolated enum BuildConfig {
     }
     /// Injected via xcconfig SPOONACULAR_API_KEY → Info.plist SpoonacularAPIKey.
     static var spoonacularAPIKey: String {
-        bundleString("SpoonacularAPIKey") ?? "550bcb34b0b54d9aadc59ced1f9e4f53"
+        bundleString("SpoonacularAPIKey") ?? ""
     }
     /// USDA FoodData Central key (Info.plist USDAAPIKey). Falls back to the rate-limited
     /// DEMO_KEY for development; ship a real free key for production.
     static var usdaAPIKey: String {
-        let k = bundleString("USDAAPIKey") ?? "r7oepibxxl2dFn6bFTxUijRcLWwEfTvLnW8qwO4Z"
+        let k = bundleString("USDAAPIKey") ?? "DEMO_KEY"
         return k.isEmpty ? "DEMO_KEY" : k
     }
     /// Edamam Recipe Search free tier (no card). Add EdamamAppID + EdamamAppKey to
