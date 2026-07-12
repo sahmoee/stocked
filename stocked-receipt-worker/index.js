@@ -31,7 +31,7 @@
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const WORKER_VERSION = "2026-07-12.1"; // bump on every route/prompt change
+const WORKER_VERSION = "2026-07-12.2"; // bump on every route/prompt change
 const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 1500;
 
@@ -58,6 +58,7 @@ const CORS_HEADERS = {
 
 export default {
   async fetch(request, env) {
+   try {
     // ── CORS preflight ──
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -98,7 +99,12 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/household")) {
       if (!env.RATE_KV) return json({ error: "Server misconfigured (no KV)" }, 500);
-      return handleHousehold(url.pathname, request, env);
+      try {
+        return await handleHousehold(url.pathname, request, env);
+      } catch (e) {
+        // Surface the real cause instead of a blind 500 so the app log shows it.
+        return json({ error: "household handler threw: " + String((e && e.message) || e), code: "householdCrash" }, 500);
+      }
     }
 
     // ── Crowd item database routing (KV-backed; merged in from the standalone ──
@@ -192,6 +198,11 @@ export default {
       upstreamStatus: upstream.status,
       detail: detail.slice(0, 200),
     }, 502);
+   } catch (e) {
+     // Top-level backstop: any unhandled throw returns its message instead of a
+     // bare Cloudflare 500 with no body, so the cause is visible in the app log.
+     return json({ error: "Worker threw: " + String((e && e.message) || e), code: "workerCrash" }, 500);
+   }
   },
 };
 
