@@ -13,28 +13,17 @@ import PhotosUI
 struct ProfileAvatarView: View {
     var size: CGFloat = 46
     @Environment(AppSession.self) private var session
+    @State private var decodedPhoto: UIImage? = nil
 
-    // Perf: UIImage(data:) is a full JPEG decode. As a computed var it ran on EVERY
-    // render — during the drawer's spring animation that's a decode per frame, which
-    // was the visible open/close stutter. The decode is now cached and keyed by the
-    // data's identity; changing the photo invalidates naturally via the key.
-    private static let decodeCache = NSCache<NSNumber, UIImage>()
-
-    private var photo: UIImage? {
-        guard let data = session.guestStore.cookingProfile.avatarPhotoData else { return nil }
-        let key = NSNumber(value: data.hashValue)
-        if let hit = Self.decodeCache.object(forKey: key) { return hit }
-        guard let img = UIImage(data: data) else { return nil }
-        Self.decodeCache.setObject(img, forKey: key)
-        return img
-    }
+    private var photoData: Data? { session.guestStore.cookingProfile.avatarPhotoData }
+    private var photoSignature: ImageDataSignature? { ImageDataSignature(photoData) }
 
     var body: some View {
         ZStack {
             Circle()
                 .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-            if let photo {
-                Image(uiImage: photo)
+            if let decodedPhoto {
+                Image(uiImage: decodedPhoto)
                     .resizable()
                     .scaledToFill()
             } else {
@@ -44,6 +33,31 @@ struct ProfileAvatarView: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
+        .task(id: photoSignature) { await decodePhoto() }
+    }
+
+    private func decodePhoto() async {
+        guard let data = photoData else {
+            decodedPhoto = nil
+            return
+        }
+        let targetSize = max(size, 80)
+        guard let signature = ImageDataSignature(data) else {
+            decodedPhoto = nil
+            return
+        }
+        if let cached = ImageCache.shared.localImage(for: signature, maxDimension: targetSize) {
+            decodedPhoto = cached
+            return
+        }
+        let image = await Task.detached(priority: .userInitiated) {
+            ImageCache.downsample(data, maxDimension: targetSize) ?? UIImage(data: data)
+        }.value
+        guard !Task.isCancelled else { return }
+        if let image {
+            ImageCache.shared.storeLocal(image, for: signature, maxDimension: targetSize)
+        }
+        decodedPhoto = image
     }
 }
 

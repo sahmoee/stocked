@@ -593,7 +593,8 @@ struct CreateRecipeView: View {
                     RecipeHeroImage(
                         imageData: imageData,
                         imageURL: imageURL.isEmpty ? nil : imageURL,
-                        recipeName: title
+                        recipeName: title,
+                        height: 200
                     )
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)

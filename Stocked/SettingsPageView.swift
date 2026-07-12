@@ -18,7 +18,8 @@ struct SettingsPageView: View {
     private enum SettingsSection: String, CaseIterable {
         case preferences, notifications, dataStorage, account, help
     }
-    @State private var expanded: SettingsSection? = .preferences
+    // Accordions start closed and remain mutually exclusive: opening one closes another.
+    @State private var expanded: SettingsSection? = nil
 
     // ── Detail sheets — single item-driven presenter ────────────────
     private enum Sheet: Int, Identifiable {

@@ -3995,7 +3995,7 @@ struct StockedChangelog {
 struct AppVersionView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
-    @State private var expandedVersion: String? = StockedChangelog.versions.first?.version
+    @State private var expandedVersion: String? = nil
 
     var body: some View {
         StockedSheet(title: "What's New") {

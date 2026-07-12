@@ -9,38 +9,19 @@ struct RecipeHeroImage: View {
     let imageURL:   String?
     let recipeName: String
     var category:   String? = nil
-
-    @State private var resolvedURL: String? = nil
-    @State private var resolving = false
+    var height:     CGFloat = 220
 
     var body: some View {
-        ZStack {
-            if let data = imageData, let ui = UIImage(data: data) {
-                Image(uiImage: ui).resizable().scaledToFill().clipped()
-            } else if let urlStr = imageURL, !urlStr.isEmpty {
-                CachedAsyncImage(url: urlStr, imageData: nil, height: 220)
-            } else if let resolved = resolvedURL {
-                CachedAsyncImage(url: resolved, imageData: nil, height: 220)
-            } else {
-                // No stored image — resolve one online by recipe name, show a placeholder meanwhile.
-                ZStack {
-                    Color.stockedGold
-                    Image(systemName: resolving ? "photo" : "photo.badge.magnifyingglass")
-                        .font(.system(size: 32)).foregroundStyle(Color.stockedWhite)
-                }
-                .task { await resolveImageIfNeeded() }
-            }
-        }
-    }
-
-    private func resolveImageIfNeeded() async {
-        guard resolvedURL == nil, !resolving,
-              (imageURL?.isEmpty ?? true), imageData == nil else { return }
-        resolving = true
-        if let url = await RecipeImageResolver.shared.imageURL(for: recipeName, category: category) {
-            resolvedURL = url.absoluteString
-        }
-        resolving = false
+        // CachedAsyncImage now handles local JPEG decoding, URL loading, and name-based
+        // fallback resolution off the render path. Keeping one path avoids repeated
+        // UIImage(data:) work throughout recipe grids and details.
+        CachedAsyncImage(
+            url: imageURL,
+            imageData: imageData,
+            height: height,
+            resolveName: recipeName,
+            resolveCategory: category
+        )
     }
 }
 
@@ -1038,6 +1019,156 @@ private struct RecipeBrowseOnlineSheet: View {
     }
 }
 
+// MARK: - My Collection snapshot
+private nonisolated struct RecipeCollectionEntry: Identifiable, Sendable {
+    let recipe: UserRecipe
+    let stockHave: Int
+    let stockTotal: Int
+    let allergenConflicts: [String]
+    let profileBoost: Int
+
+    var id: UUID { recipe.id }
+}
+
+private nonisolated struct RecipeDuplicatePair: Sendable {
+    let first: UserRecipe
+    let second: UserRecipe
+}
+
+private nonisolated struct RecipeDuplicateSummary: Sendable {
+    let count: Int
+    let firstPair: RecipeDuplicatePair?
+
+    static let empty = RecipeDuplicateSummary(count: 0, firstPair: nil)
+}
+
+private nonisolated struct RecipeCollectionSnapshot: Sendable {
+    let entries: [RecipeCollectionEntry]
+    let duplicates: RecipeDuplicateSummary
+
+    static let empty = RecipeCollectionSnapshot(entries: [], duplicates: .empty)
+}
+
+private nonisolated struct EntityRevisionToken: Hashable, Sendable {
+    let id: UUID
+    let updatedAt: Double
+}
+
+private nonisolated struct RecipeProfileRevision: Hashable, Sendable {
+    let allergens: [String]
+    let cuisinePrefs: [String]
+}
+
+private nonisolated struct RecipeCollectionSnapshotBuilder {
+    static func build(
+        recipes: [UserRecipe],
+        inventory: [LocalInventoryItem],
+        allergens: [String],
+        cuisinePrefs: [String],
+        cookableSort: Bool
+    ) -> RecipeCollectionSnapshot {
+        let inStockNames = inventory
+            .filter { $0.effectiveLevel > 0 }
+            .map(\.name)
+        let normalizedAllergens = allergens.filter { !$0.isEmpty }
+        let normalizedPrefs = cuisinePrefs.map { $0.lowercased() }
+
+        var entries = recipes.map { recipe -> RecipeCollectionEntry in
+            let needed = recipe.ingredients.filter { !$0.isOptional }
+            let have = needed.filter { ingredient in
+                inStockNames.contains { looseMatch(ingredient.name, $0) }
+            }.count
+
+            var conflicts: Set<String> = []
+            for ingredient in recipe.ingredients {
+                for allergen in normalizedAllergens where looseMatch(ingredient.name, allergen) {
+                    conflicts.insert(allergen)
+                }
+            }
+
+            var boost = 0
+            if !recipe.cuisine.isEmpty,
+               normalizedPrefs.contains(recipe.cuisine.lowercased()) {
+                boost += 2
+            }
+            let title = recipe.title.lowercased()
+            if normalizedPrefs.contains(where: { !$0.isEmpty && title.contains($0) }) {
+                boost += 1
+            }
+
+            return RecipeCollectionEntry(
+                recipe: recipe,
+                stockHave: have,
+                stockTotal: needed.count,
+                allergenConflicts: conflicts.sorted(),
+                profileBoost: boost
+            )
+        }
+
+        if cookableSort {
+            entries.sort { lhs, rhs in
+                let lhsRatio = lhs.stockTotal == 0 ? 0 : Double(lhs.stockHave) / Double(lhs.stockTotal)
+                let rhsRatio = rhs.stockTotal == 0 ? 0 : Double(rhs.stockHave) / Double(rhs.stockTotal)
+                if lhsRatio != rhsRatio { return lhsRatio > rhsRatio }
+                if lhs.profileBoost != rhs.profileBoost { return lhs.profileBoost > rhs.profileBoost }
+                return lhs.recipe.title.localizedCaseInsensitiveCompare(rhs.recipe.title) == .orderedAscending
+            }
+        }
+
+        return RecipeCollectionSnapshot(
+            entries: entries,
+            duplicates: duplicateSummary(entries.map(\.recipe))
+        )
+    }
+
+    private static func looseMatch(_ a: String, _ b: String) -> Bool {
+        let lhs = a.lowercased().trimmingCharacters(in: .whitespaces)
+        let rhs = b.lowercased().trimmingCharacters(in: .whitespaces)
+        guard lhs.count > 2, rhs.count > 2 else { return lhs == rhs }
+        return lhs.contains(rhs) || rhs.contains(lhs)
+    }
+
+    private static func duplicateSummary(_ recipes: [UserRecipe]) -> RecipeDuplicateSummary {
+        guard recipes.count > 1 else { return .empty }
+
+        let normalized = recipes.map { recipe -> (title: String, words: Set<String>) in
+            let title = recipe.title
+                .lowercased()
+                .filter { $0.isLetter || $0.isNumber || $0.isWhitespace }
+            let words = Set(title.split(separator: " ").map(String.init))
+            return (title, words)
+        }
+
+        var count = 0
+        var firstPair: RecipeDuplicatePair? = nil
+        for i in recipes.indices {
+            guard !Task.isCancelled else { break }
+            for j in (i + 1)..<recipes.count {
+                let lhs = normalized[i]
+                let rhs = normalized[j]
+                let sharedWords = lhs.words.count <= rhs.words.count
+                    ? lhs.words.reduce(into: 0) { total, word in
+                        if rhs.words.contains(word) { total += 1 }
+                    }
+                    : rhs.words.reduce(into: 0) { total, word in
+                        if lhs.words.contains(word) { total += 1 }
+                    }
+                let isDuplicate = lhs.title == rhs.title
+                    || (!lhs.title.isEmpty && !rhs.title.isEmpty
+                        && (lhs.title.contains(rhs.title) || rhs.title.contains(lhs.title)))
+                    || sharedWords >= 3
+                if isDuplicate {
+                    count += 1
+                    if firstPair == nil {
+                        firstPair = RecipeDuplicatePair(first: recipes[i], second: recipes[j])
+                    }
+                }
+            }
+        }
+        return RecipeDuplicateSummary(count: count, firstPair: firstPair)
+    }
+}
+
 // MARK: - My Collection Tab
 private struct RecipeMyCollectionView: View {
     @Environment(AppSession.self) var session
@@ -1046,64 +1177,70 @@ private struct RecipeMyCollectionView: View {
     // Identity-driven merge payload — .sheet(item:) presents reliably on the first tap.
     private struct MergePayload: Identifiable { let id = UUID(); let a: UserRecipe; let b: UserRecipe }
     @State private var mergePayload: MergePayload? = nil
-    @State private var showPastMeals  = true    // collapsible past meals section
+    @State private var showPastMeals  = false   // accordions start collapsed
     @State private var cookableSort   = false   // #2 — rank by what's in stock right now
 
-    // Perf snapshot: the cookable sort and the O(n squared) duplicate scan were running
-    // in body on EVERY render — the My Collection freeze with large vaults. Both are now
-    // computed once per data change into plain state the body reads for free.
-    @State private var displayRecipes: [UserRecipe] = []
-    @State private var dupPairs: [(UserRecipe, UserRecipe)] = []
+    @State private var collectionSnapshot: RecipeCollectionSnapshot = .empty
+    @State private var isBuildingSnapshot = true
+    @State private var snapshotTask: Task<Void, Never>? = nil
+    @State private var snapshotGeneration = 0
 
-    private func rebuildCollectionSnapshot() {
-        let store = session.guestStore
-        let raw = store.userRecipes
-        displayRecipes = cookableSort
-            ? raw.sorted { a, b in
-                let ma = store.stockMatch(for: a), mb = store.stockMatch(for: b)
-                let ra = ma.total == 0 ? 0 : Double(ma.have) / Double(ma.total)
-                let rb = mb.total == 0 ? 0 : Double(mb.have) / Double(mb.total)
-                if ra != rb { return ra > rb }
-                return store.profileBoost(for: a) > store.profileBoost(for: b)
-            }
-            : raw
-        dupPairs = duplicatePairs(displayRecipes)
+    // Lightweight change tokens avoid SwiftUI comparing full recipe and inventory values,
+    // including embedded photo Data, every time this view redraws.
+    private var recipeRevision: [EntityRevisionToken] {
+        session.guestStore.userRecipes.map { EntityRevisionToken(id: $0.id, updatedAt: $0.updatedAt) }
     }
 
-    // Fuzzy duplicate: same normalised title (lowercase, drop punctuation)
-    private func duplicatePairs(_ recipes: [UserRecipe]) -> [(UserRecipe, UserRecipe)] {
-        var pairs: [(UserRecipe, UserRecipe)] = []
-        let norm: (String) -> String = { $0.lowercased().filter { $0.isLetter || $0.isNumber || $0.isWhitespace } }
-        for i in recipes.indices {
-            for j in (i+1)..<recipes.count {
-                let a = norm(recipes[i].title), b = norm(recipes[j].title)
-                let sim = a == b || a.contains(b) || b.contains(a)
-                    || (Set(a.components(separatedBy: " ")).intersection(Set(b.components(separatedBy: " "))).count >= 3)
-                if sim { pairs.append((recipes[i], recipes[j])) }
-            }
+    private var inventoryRevision: [EntityRevisionToken] {
+        session.guestStore.inventoryItems.map { EntityRevisionToken(id: $0.id, updatedAt: $0.updatedAt) }
+    }
+
+    private var profileRevision: RecipeProfileRevision {
+        let profile = session.guestStore.cookingProfile
+        return RecipeProfileRevision(allergens: profile.allergens, cuisinePrefs: profile.cuisinePrefs)
+    }
+
+    private func rebuildCollectionSnapshot() {
+        snapshotTask?.cancel()
+        snapshotGeneration &+= 1
+        let generation = snapshotGeneration
+        let store = session.guestStore
+        let recipes = store.userRecipes
+        let inventory = store.inventoryItems
+        let allergens = store.cookingProfile.allergens
+        let cuisinePrefs = store.cookingProfile.cuisinePrefs
+        let shouldSort = cookableSort
+
+        if collectionSnapshot.entries.isEmpty { isBuildingSnapshot = true }
+        snapshotTask = Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                RecipeCollectionSnapshotBuilder.build(
+                    recipes: recipes,
+                    inventory: inventory,
+                    allergens: allergens,
+                    cuisinePrefs: cuisinePrefs,
+                    cookableSort: shouldSort
+                )
+            }.value
+            guard !Task.isCancelled, generation == snapshotGeneration else { return }
+            collectionSnapshot = result
+            isBuildingSnapshot = false
         }
-        return pairs
     }
 
     var body: some View {
-        let recipes = displayRecipes
+        let entries = collectionSnapshot.entries
         VStack(alignment: .leading, spacing: 0) {
-            // Perf hook: rebuild the sorted list + duplicate pairs off the render path.
-            Color.clear.frame(height: 0)
-                .task { rebuildCollectionSnapshot() }
-                .onChange(of: session.guestStore.userRecipes)     { _, _ in rebuildCollectionSnapshot() }
-                .onChange(of: session.guestStore.inventoryItems)  { _, _ in rebuildCollectionSnapshot() }
-                .onChange(of: cookableSort)                       { _, _ in rebuildCollectionSnapshot() }
             HStack {
                 Text("Recipes you've saved or created")
                     .font(.system(size: 14, weight: .bold)).foregroundStyle(session.themeTextColor)
                 Spacer()
                 // Duplicate merge badge
-                let dups = dupPairs
-                if !dups.isEmpty {
+                let dups = collectionSnapshot.duplicates
+                if dups.count > 0 {
                     Button {
-                        if let pair = dups.first {
-                            mergePayload = MergePayload(a: pair.0, b: pair.1)
+                        if let pair = dups.firstPair {
+                            mergePayload = MergePayload(a: pair.first, b: pair.second)
                         }
                     } label: {
                         Label("\(dups.count) duplicate\(dups.count == 1 ? "" : "s")", systemImage: "arrow.triangle.merge")
@@ -1129,7 +1266,16 @@ private struct RecipeMyCollectionView: View {
                 }.buttonStyle(.plain).padding(.leading, 4)
             }.padding(.horizontal, 24).padding(.bottom, 12)
 
-            if recipes.isEmpty {
+            if entries.isEmpty && isBuildingSnapshot {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Color.stockedGold)
+                    Text("Loading collection…")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 36)
+            } else if entries.isEmpty {
                 StockedEmptyState(
                     icon: "📖", title: "Collection is empty",
                     subtitle: "Create a recipe or save one from Search.",
@@ -1140,7 +1286,8 @@ private struct RecipeMyCollectionView: View {
                 let colCount = UIDevice.current.userInterfaceIdiom == .pad ? 3 : 2
                 let cols = Array(repeating: GridItem(.flexible(), spacing: 12), count: colCount)
                 LazyVGrid(columns: cols, spacing: 12) {
-                    ForEach(Array(recipes.enumerated()), id: \.element.id) { idx, recipe in
+                    ForEach(entries) { entry in
+                        let recipe = entry.recipe
                         ZStack(alignment: .topTrailing) {
                             NavigationLink(destination: UserRecipeDetailView(recipe: recipe).environment(session)) {
                                 UserRecipeCard(recipe: recipe)
@@ -1154,18 +1301,16 @@ private struct RecipeMyCollectionView: View {
                             }
                             // #2 in-stock badge + #1 allergen warning (bottom-leading, clear of the delete button)
                             .overlay(alignment: .bottomLeading) {
-                                let match = session.guestStore.stockMatch(for: recipe)
-                                let conflicts = session.guestStore.allergenConflicts(in: recipe)
                                 HStack(spacing: 4) {
-                                    if match.total > 0 {
-                                        Text("\(match.have)/\(match.total) in stock")
+                                    if entry.stockTotal > 0 {
+                                        Text("\(entry.stockHave)/\(entry.stockTotal) in stock")
                                             .font(.system(size: 9, weight: .bold))
-                                            .foregroundStyle(match.have == match.total ? Color.stockedGreen : session.themeTextColor.opacity(0.6))
+                                            .foregroundStyle(entry.stockHave == entry.stockTotal ? Color.stockedGreen : session.themeTextColor.opacity(0.6))
                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                             .background(.ultraThinMaterial, in: Capsule())
                                     }
-                                    if !conflicts.isEmpty {
-                                        Label(conflicts.joined(separator: ", "), systemImage: "exclamationmark.triangle.fill")
+                                    if !entry.allergenConflicts.isEmpty {
+                                        Label(entry.allergenConflicts.joined(separator: ", "), systemImage: "exclamationmark.triangle.fill")
                                             .font(.system(size: 9, weight: .bold))
                                             .foregroundStyle(.orange)
                                             .lineLimit(1)
@@ -1189,7 +1334,6 @@ private struct RecipeMyCollectionView: View {
                             }
                             .buttonStyle(.plain).padding(6)
                         }
-                        .springIn(delay: Double(idx) * 0.04)
                     }
                 }.padding(.horizontal, 20)
             }
@@ -1239,6 +1383,12 @@ private struct RecipeMyCollectionView: View {
                 }
             }
         }
+        .task { rebuildCollectionSnapshot() }
+        .onChange(of: recipeRevision)   { _, _ in rebuildCollectionSnapshot() }
+        .onChange(of: inventoryRevision) { _, _ in rebuildCollectionSnapshot() }
+        .onChange(of: profileRevision)  { _, _ in rebuildCollectionSnapshot() }
+        .onChange(of: cookableSort)     { _, _ in rebuildCollectionSnapshot() }
+        .onDisappear { snapshotTask?.cancel() }
         .sheet(item: $mergePayload) { payload in
             RecipeMergeSheet(recipeA: payload.a, recipeB: payload.b)
                 .environment(session)

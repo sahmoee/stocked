@@ -798,7 +798,7 @@ struct InventoryView: View {
         ) {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 if expandedSubs.contains(subcat) { expandedSubs.remove(subcat) }
-                else { expandedSubs.insert(subcat) }
+                else { expandedSubs = [subcat] }
             }
         }
     }

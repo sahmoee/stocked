@@ -472,10 +472,7 @@ struct MainTabView: View {
         }
     }
 
-    // MARK: - iPad tab area
-    // Uses TabView as container (stable, no GPU fence) but hides its native tab bar
-    // and overlays the custom StockedTabBar pill — identical appearance to iPhone.
-    // MARK: - Tab area
+    // MARK: - iPhone tab area
     // ONE NavigationStack rendering only the SELECTED tab's content — never all four at
     // once (building every hub simultaneously triggers a GPU-fence timeout → blank screen).
     // The tab bar lives OUTSIDE this stack (in the VStack below), so tab buttons always
@@ -483,30 +480,20 @@ struct MainTabView: View {
     // whenever the tab changes OR the tab is re-tapped (pop-to-root), so deep flows never
     // linger when navigating away.
     private var iphoneTabArea: some View {
-        ZStack {
-            session.themeBgColor.ignoresSafeArea(.all)
-            // Keep ALL tabs alive so switching tabs preserves each tab's state (scroll,
-            // search, expanded sections, selection). Visibility is by opacity; only the
-            // selected tab is hittable. Each tab has its OWN NavigationStack with an .id
-            // keyed to ONLY that tab's pop-counter — so switching tabs does NOT rebuild
-            // (state survives), while re-tapping the active tab still pops it to root.
-            ForEach(StockedTab.allCases, id: \.self) { tab in
-                NavigationStack {
-                    ZStack {
-                        session.themeBgColor.ignoresSafeArea(.all)
-                        tabContent(tab)
-                    }
-                    .toolbar(.hidden, for: .navigationBar)
-                    .toolbarBackground(.hidden, for: .navigationBar)
-                    .toolbarBackground(session.themeBgColor, for: .navigationBar)
-                    .toolbarColorScheme(session.isDarkMode ? .dark : .light, for: .navigationBar)
-                }
-                .id("\(tab.rawValue)#\(rootPopID[tab]?.uuidString ?? "0")")
-                .opacity(selected == tab ? 1 : 0)
-                .allowsHitTesting(selected == tab)
-                .accessibilityHidden(selected != tab)
+        NavigationStack {
+            ZStack {
+                session.themeBgColor.ignoresSafeArea(.all)
+                // Render only the selected iPhone tab. Keeping every recipe and grocery
+                // screen alive behind opacity allowed hidden grids, image tasks, and marquee
+                // animations to keep consuming the main thread while the drawer was moving.
+                tabContent(selected)
             }
+            .toolbar(.hidden, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarBackground(session.themeBgColor, for: .navigationBar)
+            .toolbarColorScheme(session.isDarkMode ? .dark : .light, for: .navigationBar)
         }
+        .id("\(selected.rawValue)#\(rootPopID[selected]?.uuidString ?? "0")")
         .background(session.themeBgColor)
         .scrollContentBackground(.hidden)
         .environment(\.stockedTitleTap, openBrief)
@@ -523,12 +510,9 @@ struct MainTabView: View {
     private var iPadTabArea: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea(.all)
-            // Keep-alive: all four tabs stay mounted (inactive ones hidden via opacity and
-            // made non-interactive / accessibility-hidden) so iPad tab switches preserve each
-            // tab's scroll position and expanded state. This is the same approach the iPhone
-            // path uses. (It was briefly replaced by a single-selected-tab version during the
-            // memory-crash investigation, but the real cause was a per-row regex recompile in
-            // displayNormalized — fixed in Build 145 — not the keep-alive, so it's safe to use.)
+            // Keep-alive remains iPad-only so wider multi-column screens preserve each tab's
+            // scroll position. iPhone renders only the active tab to keep the drawer and recipe
+            // transitions responsive on the tighter memory and animation budget.
             ForEach(StockedTab.allCases, id: \.self) { tab in
                 NavigationStack {
                     ZStack {

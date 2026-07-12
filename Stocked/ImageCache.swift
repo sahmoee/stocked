@@ -8,6 +8,40 @@ import SwiftUI
 import PhotosUI
 import ImageIO
 
+/// Lightweight identity for locally stored image data. Sampling a few bytes avoids
+/// hashing or decoding the entire JPEG every time SwiftUI reevaluates a view.
+nonisolated struct ImageDataSignature: Hashable, Sendable {
+    let byteCount: Int
+    let fingerprint: UInt64
+
+    init?(_ data: Data?) {
+        guard let data, !data.isEmpty else { return nil }
+        byteCount = data.count
+
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        data.withUnsafeBytes { rawBuffer in
+            let bytes = rawBuffer.bindMemory(to: UInt8.self)
+            let sampleCount = min(32, bytes.count)
+            guard sampleCount > 0 else { return }
+            for sample in 0..<sampleCount {
+                let index = sampleCount == 1
+                    ? 0
+                    : (sample * (bytes.count - 1)) / (sampleCount - 1)
+                hash ^= UInt64(bytes[index])
+                hash &*= 1_099_511_628_211
+            }
+        }
+        fingerprint = hash
+    }
+}
+
+private nonisolated struct CachedImageLoadID: Hashable, Sendable {
+    let url: String?
+    let dataSignature: ImageDataSignature?
+    let resolveName: String?
+    let resolveCategory: String?
+}
+
 // MARK: - ImageCache
 final class ImageCache {
     static let shared = ImageCache()
@@ -15,9 +49,12 @@ final class ImageCache {
         createCacheDir()
         memCache.countLimit = 150
         memCache.totalCostLimit = 50 * 1024 * 1024  // 50MB mem cap
+        localDataCache.countLimit = 100
+        localDataCache.totalCostLimit = 40 * 1024 * 1024
     }
 
     private let memCache = NSCache<NSString, UIImage>()
+    private let localDataCache = NSCache<NSString, UIImage>()
     private var prefetchTasks: [String: Task<Void, Never>] = [:]
 
     private let cacheDir: URL = {
@@ -30,6 +67,22 @@ final class ImageCache {
     }
 
     private func key(for url: String) -> String { "\(abs(url.hashValue)).jpg" }
+    private func localDataKey(for signature: ImageDataSignature, maxDimension: CGFloat) -> NSString {
+        "\(signature.byteCount)-\(signature.fingerprint)-\(Int(maxDimension.rounded()))" as NSString
+    }
+
+    func localImage(for signature: ImageDataSignature, maxDimension: CGFloat) -> UIImage? {
+        localDataCache.object(forKey: localDataKey(for: signature, maxDimension: maxDimension))
+    }
+
+    func storeLocal(_ image: UIImage, for signature: ImageDataSignature, maxDimension: CGFloat) {
+        let cost = Int(image.size.width * image.size.height * 4)
+        localDataCache.setObject(
+            image,
+            forKey: localDataKey(for: signature, maxDimension: maxDimension),
+            cost: cost
+        )
+    }
 
     // MARK: - Read
     func image(for url: String) -> UIImage? {
@@ -148,6 +201,7 @@ final class ImageCache {
     }
     func clearAll() {
         memCache.removeAllObjects()
+        localDataCache.removeAllObjects()
         ((try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)) ?? [])
             .forEach { try? FileManager.default.removeItem(at: $0) }
     }
@@ -192,13 +246,18 @@ struct CachedAsyncImage: View {
     @State private var showPicker  = false
     @State private var appeared    = false   // #10 fade-in once the image is shown
 
+    private var loadID: CachedImageLoadID {
+        CachedImageLoadID(
+            url: url,
+            dataSignature: ImageDataSignature(imageData),
+            resolveName: resolveName,
+            resolveCategory: resolveCategory
+        )
+    }
+
     var body: some View {
         ZStack {
-            if let data = imageData, let ui = UIImage(data: data) {
-                Image(uiImage: ui).resizable().scaledToFill()
-                    .opacity(appeared ? 1 : 0)
-                    .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
-            } else if let img = loadedImage {
+            if let img = loadedImage {
                 Image(uiImage: img).resizable().scaledToFill()
                     .opacity(appeared ? 1 : 0)
                     .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
@@ -230,12 +289,34 @@ struct CachedAsyncImage: View {
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .clipped()
         .sheet(isPresented: $showPicker) { PhotoPickerSheet { onUpdate?($0) } }
-        .task(id: url) { await loadImage() }
+        .task(id: loadID) { await loadImage() }
     }
 
     private func loadImage() async {
+        loadedImage = nil
+        appeared = false
         isLoading = true
         defer { isLoading = false }
+
+        // User-selected recipe photos used to call UIImage(data:) directly from body,
+        // causing a full JPEG decode on every render. Decode once off the main actor.
+        if let data = imageData, let signature = ImageDataSignature(data) {
+            let targetHeight = max(height, 96)
+            if let cached = ImageCache.shared.localImage(for: signature, maxDimension: targetHeight) {
+                loadedImage = cached
+                return
+            }
+            let decoded = await Task.detached(priority: .userInitiated) {
+                ImageCache.downsample(data, maxDimension: targetHeight) ?? UIImage(data: data)
+            }.value
+            guard !Task.isCancelled else { return }
+            if let decoded {
+                ImageCache.shared.storeLocal(decoded, for: signature, maxDimension: targetHeight)
+                loadedImage = decoded
+                return
+            }
+        }
+
         // Try the stored URL first.
         if let u = url, !u.isEmpty {
             if let img = await ImageCache.shared.fetchImage(url: u) {

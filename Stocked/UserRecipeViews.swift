@@ -10,7 +10,12 @@ struct UserRecipeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack {
-                RecipeHeroImage(imageData: recipe.imageData, imageURL: recipe.imageURL, recipeName: recipe.title)
+                RecipeHeroImage(
+                    imageData: recipe.imageData,
+                    imageURL: recipe.imageURL,
+                    recipeName: recipe.title,
+                    height: 130
+                )
                     .frame(height: 130).clipped()
                 // Tip overlay
                 if recipe.imageData == nil {
@@ -228,7 +233,12 @@ struct UserRecipeDetailView: View {
 
                     // Hero
                     ZStack(alignment: .bottom) {
-                        RecipeHeroImage(imageData: recipe.imageData, imageURL: recipe.imageURL, recipeName: recipe.title)
+                        RecipeHeroImage(
+                            imageData: recipe.imageData,
+                            imageURL: recipe.imageURL,
+                            recipeName: recipe.title,
+                            height: 220
+                        )
                             .frame(maxWidth: .infinity).frame(height: 220).clipped().clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         if recipe.imageData == nil {
                             HStack {

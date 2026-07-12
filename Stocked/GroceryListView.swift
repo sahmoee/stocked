@@ -46,7 +46,9 @@ struct GroceryListView: View {
     @Environment(AppSession.self) var session
     @State private var newItem      = ""
     @State private var searchText   = ""
-    @State private var expanded     = Set<String>()
+    // One accordion may be open at a time. Starting nil keeps the grocery list compact
+    // and opening another group automatically closes the previous one.
+    @State private var expandedSection: String? = nil
     @State private var undoItem:    LocalGroceryItem? = nil
     @State private var showUndo     = false
     @State private var batchMode    = false
@@ -636,7 +638,7 @@ struct GroceryListView: View {
     // MARK: - Section card with expandable rows
     @ViewBuilder
     private func sectionCard(_ section: GrocerySection) -> some View {
-        let isOpen = expanded.contains(section.title)
+        let isOpen = expandedSection == section.title
         let done   = section.items.filter { $0.isChecked }.count
         let total  = section.items.count
 
@@ -645,8 +647,7 @@ struct GroceryListView: View {
             HStack(spacing: 0) {
                 Button {
                     withAnimation(.spring(response: 0.28)) {
-                        if isOpen { expanded.remove(section.title) }
-                        else      { expanded.insert(section.title) }
+                        expandedSection = isOpen ? nil : section.title
                     }
                 } label: {
                     HStack(spacing: 10) {
@@ -734,117 +735,138 @@ struct GroceryListView: View {
         }
         .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-        .onAppear { if !expanded.contains(section.title) { expanded.insert(section.title) } }
     }
 
     // MARK: - Individual row — full cell tappable
     private func groceryRow(_ item: LocalGroceryItem) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.25)) {
-                if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
-                    store.groceryItems[idx].isChecked.toggle()
-                    // Light tap confirms the check toggle (#20).
-                    HapticManager.light()
-                    // Checking off is a strong "I bought this" signal — weight it for usuals.
-                    if store.groceryItems[idx].isChecked {
-                        GroceryUsuals.shared.record(store.groceryItems[idx].name)
+        let parsed = GroceryNameParser.parse(item.name)
+        let size = item.sizeText.isEmpty ? parsed.sizeText : item.sizeText
+        let displayName = size.isEmpty
+            ? parsed.name.displayNormalized
+            : "\(parsed.name.displayNormalized) (\(size))"
+
+        return HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 7) {
+                Button {
+                    withAnimation(.spring(response: 0.25)) {
+                        if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
+                            store.groceryItems[idx].isChecked.toggle()
+                            HapticManager.light()
+                            if store.groceryItems[idx].isChecked {
+                                GroceryUsuals.shared.record(store.groceryItems[idx].name)
+                            }
+                        }
                     }
+                } label: {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
+                            .font(.system(size: 20))
+                            .foregroundStyle(item.isChecked ? Color.stockedGold : Color.stockedCharcoal.opacity(0.35))
+                            .frame(width: 26, height: 28, alignment: .center)
+                            .a11yDecorative()
+
+                        Text(ImageFallbackService.emoji(for: item.name))
+                            .font(.system(size: 17))
+                            .frame(width: 24, height: 28, alignment: .center)
+
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(displayName)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(item.isChecked ? sub : text)
+                                .strikethrough(item.isChecked)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            HStack(spacing: 4) {
+                                if !item.recipeSource.isEmpty {
+                                    Image(systemName: "fork.knife").font(.system(size: 8))
+                                    Text(item.recipeSource).font(.system(size: 9, weight: .semibold))
+                                } else if item.isRecommended {
+                                    Image(systemName: "arrow.2.circlepath").font(.system(size: 8))
+                                    Text("Auto-added").font(.system(size: 9, weight: .semibold))
+                                } else {
+                                    Image(systemName: "hand.point.right").font(.system(size: 8))
+                                    Text("Manual").font(.system(size: 9, weight: .semibold))
+                                }
+                                if StockedDatabase.shared.hasSubstitution(for: item.name) {
+                                    Text("·").font(.system(size: 8)).foregroundStyle(sub)
+                                    Image(systemName: "arrow.left.arrow.right").font(.system(size: 7))
+                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                    Text("Sub available").font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                }
+                                if !item.assignedTo.isEmpty {
+                                    Text("·").font(.system(size: 8)).foregroundStyle(sub)
+                                    Image(systemName: "person.fill").font(.system(size: 7))
+                                        .foregroundStyle(Color.stockedGreen)
+                                    Text(item.assignedTo).font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(Color.stockedGreen)
+                                } else if !item.addedByName.isEmpty {
+                                    Text("·").font(.system(size: 8)).foregroundStyle(sub)
+                                    Text("by \(item.addedByName)").font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                }
+                            }
+                            .foregroundStyle(item.recipeSource.isEmpty && !item.isRecommended
+                                ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold.opacity(0.7))
+                            .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(item.isChecked ? "Uncheck" : "Check") \(displayName)")
+
+                // Quantity sits on its own line beneath the name, aligned with the text column.
+                HStack(spacing: 7) {
+                    Color.clear.frame(width: 60, height: 1)
+                    Text("Qty")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(sub)
+                    Button {
+                        if item.quantity > 1 {
+                            store.updateGroceryQty(id: item.id, qty: item.quantity - 1)
+                        }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(Color.stockedGold)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Decrease quantity")
+
+                    Text("\(item.quantity)")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.stockedGold)
+                        .frame(minWidth: 18)
+
+                    Button {
+                        store.updateGroceryQty(id: item.id, qty: item.quantity + 1)
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(Color.stockedGold)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Increase quantity")
+                    Spacer(minLength: 0)
                 }
             }
-        } label: {
-            HStack(spacing: 12) {
-                // Checkmark — #237 mockup style (square check)
-                Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 20))
-                    .foregroundStyle(item.isChecked ? Color.stockedGold : Color.stockedCharcoal.opacity(0.35))
-                    .frame(width: 26)
-                    .a11yDecorative()
+            .layoutPriority(1)
 
-                // #237 — food emoji tile, matching the mockup's grocery rows.
-                Text(ImageFallbackService.emoji(for: item.name))
-                    .font(.system(size: 17))
-                    .frame(width: 24)
-
-                // Item name + source badge
-                VStack(alignment: .leading, spacing: 4) {
-                    // One line, never wrapped: long names glide to reveal the tail.
-                    // Legacy rows with amounts baked into the name ("6 corn tortillas",
-                    // "14 oz jar Enchilada sauce") are parsed apart at display time so
-                    // the NAME leads and the size trails in parentheses.
-                    let parsed = GroceryNameParser.parse(item.name)
-                    let size = item.sizeText.isEmpty ? parsed.sizeText : item.sizeText
-                    MarqueeText(
-                        text: size.isEmpty
-                            ? parsed.name.displayNormalized
-                            : "\(parsed.name.displayNormalized) (\(size))",
-                        font: .system(size: 15),
-                        color: item.isChecked ? sub : text,
-                        strikethrough: item.isChecked
-                    )
-                    HStack(spacing: 4) {
-                        if !item.recipeSource.isEmpty {
-                            Image(systemName: "fork.knife").font(.system(size: 8))
-                            Text(item.recipeSource).font(.system(size: 9, weight: .semibold))
-                        } else if item.isRecommended {
-                            Image(systemName: "arrow.2.circlepath").font(.system(size: 8))
-                            Text("Auto-added").font(.system(size: 9, weight: .semibold))
-                        } else {
-                            Image(systemName: "hand.point.right").font(.system(size: 8))
-                            Text("Manual").font(.system(size: 9, weight: .semibold))
-                        }
-                        // Sub available hint
-                        if StockedDatabase.shared.hasSubstitution(for: item.name) {
-                            Text("·").font(.system(size: 8)).foregroundStyle(sub)
-                            Image(systemName: "arrow.left.arrow.right").font(.system(size: 7))
-                                .foregroundStyle(Color.stockedGold.opacity(0.7))
-                            Text("Sub available").font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(Color.stockedGold.opacity(0.7))
-                        }
-                        // #E2 assignment — who's been asked to grab this.
-                        if !item.assignedTo.isEmpty {
-                            Text("·").font(.system(size: 8)).foregroundStyle(sub)
-                            Image(systemName: "person.fill").font(.system(size: 7))
-                                .foregroundStyle(Color.stockedGreen)
-                            Text(item.assignedTo).font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(Color.stockedGreen)
-                        }
-                        // #E1 attribution — added by another household member.
-                        else if !item.addedByName.isEmpty {
-                            Text("·").font(.system(size: 8)).foregroundStyle(sub)
-                            Text("by \(item.addedByName)").font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(Color.stockedGold.opacity(0.7))
-                        }
-                    }
-                    .foregroundStyle(item.recipeSource.isEmpty && !item.isRecommended
-                        ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold.opacity(0.7))
-                }
-
-                Spacer()
-
-                // Qty buttons — centred between item and Find in Store
-                HStack(spacing: 6) {
-                    Button { if item.quantity > 1 { store.updateGroceryQty(id: item.id, qty: item.quantity - 1) } } label: {
-                        Image(systemName: "minus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
-                    }.buttonStyle(.plain)
-                    Text("\(item.quantity)")
-                        .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
-                        .frame(minWidth: 18)
-                    Button { store.updateGroceryQty(id: item.id, qty: item.quantity + 1) } label: {
-                        Image(systemName: "plus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
-                    }.buttonStyle(.plain)
-                }
-
-                // Find in Store
+            VStack(spacing: 8) {
                 Button { openInStore(item.name) } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cart.fill").font(.system(size: 10))
-                        // Icon-only (was icon + "Find") — reclaims width for the item name.
-                    }
-                    .foregroundStyle(Color.stockedGold)
-                    .padding(.horizontal, 9).padding(.vertical, 9)
-                    .background(Color.stockedGold.opacity(0.12))
-                    .clipShape(Capsule())
-                }.buttonStyle(.plain)
+                    Image(systemName: "cart.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.stockedGold)
+                        .frame(width: 30, height: 30)
+                        .background(Color.stockedGold.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Find in store")
 
                 Button {
                     undoItem = item
@@ -852,15 +874,19 @@ struct GroceryListView: View {
                     withAnimation(.spring(response: 0.3)) { showUndo = true }
                     HapticManager.warning()
                 } label: {
-                    Image(systemName: "xmark").font(.system(size: 12))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12))
                         .foregroundStyle(sub.opacity(0.5))
-                        .frame(width: 30, height: 30).contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove item")
             }
-            .padding(.horizontal, 14).padding(.vertical, 11)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
         // #E2 assignable items — long-press to ask a household member to grab it.
         // Members come from the household roster; solo users just see Unassign/me.
         .contextMenu {

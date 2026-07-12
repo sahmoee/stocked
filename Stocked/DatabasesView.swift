@@ -114,6 +114,7 @@ struct SubstitutionsDatabaseTab: View {
     @Environment(AppSession.self) var session
     @State private var search           = ""
     @State private var subsSheet: SubsSheet? = nil
+    @State private var expandedSubstitutionID: UUID? = nil
 
     private var filtered: [SubstitutionEntry] {
         let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -169,9 +170,16 @@ struct SubstitutionsDatabaseTab: View {
 
                     // Built-in entries
                     ForEach(filtered) { entry in
-                        SubstitutionDBRow(entry: entry) {
-                            subsSheet = .edit(entry: entry)
-                        }
+                        SubstitutionDBRow(
+                            entry: entry,
+                            isExpanded: expandedSubstitutionID == entry.id,
+                            onToggle: {
+                                withAnimation(.spring(response: 0.25)) {
+                                    expandedSubstitutionID = expandedSubstitutionID == entry.id ? nil : entry.id
+                                }
+                            },
+                            onTap: { subsSheet = .edit(entry: entry) }
+                        )
                         Divider().padding(.leading, 20)
                     }
                 }
@@ -298,15 +306,13 @@ private struct AddCustomSubstitutionSheet: View {
 private struct SubstitutionDBRow: View {
     @Environment(AppSession.self) var session
     let entry: SubstitutionEntry
+    let isExpanded: Bool
+    let onToggle: () -> Void
     var onTap: () -> Void
-
-    @State private var expanded = false
 
     var body: some View {
         VStack(spacing: 0) {
-            Button {
-                withAnimation(.spring(response: 0.25)) { expanded.toggle() }
-            } label: {
+            Button(action: onToggle) {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(entry.displayName)
@@ -322,14 +328,14 @@ private struct SubstitutionDBRow: View {
                             .font(.system(size: 14))
                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                     }.buttonStyle(.plain)
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
                 }
                 .padding(.horizontal, 20).padding(.vertical, 14)
                 .contentShape(Rectangle())
             }.buttonStyle(.plain)
 
-            if expanded {
+            if isExpanded {
                 VStack(spacing: 0) {
                     ForEach(entry.substitutions) { sub in
                         HStack(alignment: .top, spacing: 10) {
@@ -819,7 +825,7 @@ struct TipsDatabaseTab: View {
                         TipDBRow(tip: tip, isExpanded: expandedIDs.contains(tip.id)) {
                             withAnimation(.spring(response: 0.25)) {
                                 if expandedIDs.contains(tip.id) { expandedIDs.remove(tip.id) }
-                                else                             { expandedIDs.insert(tip.id) }
+                                else                             { expandedIDs = [tip.id] }
                             }
                         }
                         Divider().padding(.leading, 20)
