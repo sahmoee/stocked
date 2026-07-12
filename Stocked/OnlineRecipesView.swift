@@ -1068,8 +1068,14 @@ struct OnlineRecipeCard: View {
     }
 
     @ViewBuilder private var cardStatusBadge: some View {
-        let coverage = RecipeCoverageBuilder.make(for: recipe, store: session.guestStore)
-        switch OnlineRecipeMatch.status(recipe, store: session.guestStore) {
+        let inStock = session.guestStore.inStockNameSet
+        let expiringNames = session.guestStore.expiringSoonItems.map { $0.name.lowercased() }
+        let coverage = RecipeCoverageBuilder.make(
+            for: recipe,
+            inStock: inStock,
+            expiringNames: expiringNames
+        )
+        switch OnlineRecipeMatch.status(recipe, inStock: inStock) {
         case .ready:       badge(text: "Ready", system: "checkmark.circle.fill", bg: Color.stockedGreen)
         case .missing(let n):
             // Ring makes coverage scannable at a glance; keep the text badge for the exact count.

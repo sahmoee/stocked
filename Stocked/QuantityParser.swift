@@ -75,7 +75,7 @@ enum QuantityParser {
     static func parse(_ raw: String) -> ParsedAmount {
         let lower = raw.lowercased()
             .replacingOccurrences(of: " of ", with: " of ")
-        var tokens = tokenize(lower)
+        let tokens = tokenize(lower)
 
         var count: Double? = nil
         var container = "item"

@@ -176,7 +176,7 @@ struct OnDeviceRecipeGenerator {
     }
 
     // MARK: Ingredient parsing using NaturalLanguage
-    struct ParsedIngredients {
+    nonisolated struct ParsedIngredients: Sendable {
         var proteins:  [String] = []
         var produce:   [String] = []
         var dairy:     [String] = []
