@@ -80,6 +80,13 @@ struct HomeView: View {
                 // ── Customizable widget board ─────────────────────────
                 ForEach(visibleWidgets, id: \.self) { widget in
                     widgetView(widget)
+                        // Keep the original press-and-hold customization gesture available even
+                        // when a widget contains its own buttons or navigation links.
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.5)
+                                .onEnded { _ in enterEditMode() }
+                        )
                         .disabled(editMode)          // iOS-style: taps don't fire while editing
                         .padding(.horizontal, 24)
                         .coachmarkAnchor("home.widget.\(widget.rawValue)")
@@ -124,13 +131,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             // Long-press anywhere enters customize mode (iPhone-style).
             .contentShape(Rectangle())
-            .onLongPressGesture(minimumDuration: 0.5) {
-                if !editMode {
-                    HapticManager.medium()
-                    UsageMetrics.shared.record(.homeEditModeEntered)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { editMode = true }
-                }
-            }
+            .onLongPressGesture(minimumDuration: 0.5) { enterEditMode() }
             .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
             .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
                 goExpiringList = false
@@ -145,6 +146,13 @@ struct HomeView: View {
             }
         }
         .coachmarks(page: .home, steps: HomeCoachmarks.steps)
+    }
+
+    private func enterEditMode() {
+        guard !editMode else { return }
+        HapticManager.medium()
+        UsageMetrics.shared.record(.homeEditModeEntered)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { editMode = true }
     }
 
     // ── Action Center (extracted so every widget is a uniform view) ──

@@ -1,5 +1,5 @@
 // WebRecipeDatabase.swift
-// Scrapes, catalogues, and serves recipes from 20 top recipe websites via JSON-LD structured data.
+// Scrapes, catalogues, and serves recipes from top recipe publishers via JSON-LD structured data.
 // All sites publish Schema.org Recipe markup — no brittle CSS selectors needed.
 // Falls back to OpenGraph title → MealDB search when JSON-LD is absent.
 
@@ -7,7 +7,7 @@ import Foundation
 import os
 
 // MARK: - Rich Web Recipe (superset of CachedRecipe — adds timing, yield, nutrition, source URL)
-struct WebRecipe: Identifiable, Codable {
+struct WebRecipe: Identifiable, Codable, Sendable {
     var id           = UUID()
     let title:       String
     let sourceURL:   String          // canonical page URL
@@ -30,7 +30,7 @@ struct WebRecipe: Identifiable, Codable {
     let calories:    String?         // nutrition.calories
     let cachedAt:    Date
 
-    struct RecipeStep: Codable, Identifiable {
+    struct RecipeStep: Codable, Identifiable, Sendable {
         var id    = UUID()
         let index: Int
         let text:  String
@@ -96,7 +96,7 @@ private extension String {
 }
 
 // MARK: - Recipe Source Registry
-struct RecipeSource: Identifiable, Codable {
+struct RecipeSource: Identifiable, Codable, Sendable {
     let id:           UUID
     let domain:       String
     let displayName:  String
@@ -104,7 +104,7 @@ struct RecipeSource: Identifiable, Codable {
     let specialty:    String   // e.g. "Baking & Pastry" or "Asian Cuisine"
     let iconEmoji:    String
 
-    enum SourceCategory: String, Codable, CaseIterable {
+    enum SourceCategory: String, Codable, CaseIterable, Sendable {
         case flagship      = "Flagship"
         case network       = "Food Network"
         case homeCook      = "Home Cook"
@@ -118,7 +118,7 @@ struct RecipeSource: Identifiable, Codable {
     }
 }
 
-// MARK: - All 20 Supported Recipe Sources
+// MARK: - Supported Recipe Sources
 enum RecipeSourceRegistry {
     // #19: sources can be overridden by a bundled `recipe_sources.json` so a broken
     // source can be fixed (or a new one added) without an app release. When the file
@@ -167,7 +167,7 @@ enum RecipeSourceRegistry {
         .init(id: UUID(), domain: "davidlebovitz.com",      displayName: "David Lebovitz",           category: .baking,    specialty: "Pastries and French cooking", iconEmoji: "🥐"),
         .init(id: UUID(), domain: "cooking.nytimes.com",    displayName: "NYT Cooking",              category: .professional, specialty: "NYT tested recipes",      iconEmoji: "📰"),
         .init(id: UUID(), domain: "minimalistbaker.com",    displayName: "Minimalist Baker",         category: .healthy,   specialty: "Simple plant-based",         iconEmoji: "🌿"),
-        .init(id: UUID(), domain: "cooking.classy.com",     displayName: "Cooking Classy",           category: .homeCook,  specialty: "Family-friendly dinners",    iconEmoji: "👨‍👩‍👧"),
+        .init(id: UUID(), domain: "cookingclassy.com",       displayName: "Cooking Classy",           category: .homeCook,  specialty: "Family-friendly dinners",    iconEmoji: "👨‍👩‍👧"),
         .init(id: UUID(), domain: "cafedelites.com",        displayName: "Cafe Delites",             category: .homeCook,  specialty: "Restaurant-quality at home", iconEmoji: "☕"),
         .init(id: UUID(), domain: "damndelicious.net",      displayName: "Damn Delicious",           category: .homeCook,  specialty: "Quick easy weeknight meals", iconEmoji: "⚡"),
         .init(id: UUID(), domain: "gimmesomeoven.com",      displayName: "Gimme Some Oven",          category: .homeCook,  specialty: "Simple flavourful cooking",  iconEmoji: "🔥"),
@@ -175,6 +175,31 @@ enum RecipeSourceRegistry {
         .init(id: UUID(), domain: "indianhealthyrecipes.com", displayName: "Indian Healthy Recipes", category: .international, specialty: "Authentic Indian cooking", iconEmoji: "🇮🇳"),
         .init(id: UUID(), domain: "mexicanplease.com",      displayName: "Mexican Please",           category: .international, specialty: "Authentic Mexican cooking", iconEmoji: "🇲🇽"),
     ]
+
+    /// Ten publisher sites that now participate in live recipe discovery, not just URL import.
+    /// Keeping this list explicit prevents a refresh from hammering every catalogue-only site.
+    nonisolated static var expandedLive: [RecipeSource] {
+        let domains: Set<String> = [
+            "simplyrecipes.com", "halfbakedharvest.com", "skinnytaste.com",
+            "thepioneerwoman.com", "smittenkitchen.com", "101cookbooks.com",
+            "minimalistbaker.com", "cookingclassy.com", "cafedelites.com",
+            "damndelicious.net"
+        ]
+        return builtIn.filter { domains.contains($0.domain) }
+    }
+
+    /// Sites with an implemented public search URL. Catalogue-only sites remain available
+    /// for manual URL import but are excluded from automated refreshes.
+    nonisolated static var liveSearchable: [RecipeSource] {
+        let domains: Set<String> = [
+            "seriouseats.com", "food52.com", "epicurious.com", "americastestkitchen.com",
+            "foodnetwork.com", "allrecipes.com", "thekitchn.com", "tasteofhome.com",
+            "budgetbytes.com", "therecipecritic.com", "bonappetit.com", "foodandwine.com",
+            "eatingwell.com", "delish.com", "bettycrocker.com", "sallysbakingaddiction.com",
+            "kingarthurbaking.com", "loveandlemons.com", "pinchofyum.com", "thewoksoflife.com"
+        ].union(expandedLive.map(\.domain))
+        return all.filter { domains.contains($0.domain) }
+    }
 
     /// Alias for the bundled catalogue (built-in + optional JSON override + the extended
     /// thirty-site pack), excluding the user's custom sources. Deduplicated by domain.
@@ -658,7 +683,7 @@ actor WebRecipeFetcher {
     func refreshAll(query: String = "", limitPerSource: Int = 5) async {
         // #6: rank sources best-first and skip ones that keep failing, so users get
         // working results sooner and we stop hammering dead sites.
-        let domains = RecipeSourceRegistry.all.map { $0.domain }
+        let domains = RecipeSourceRegistry.liveSearchable.map { $0.domain }
         let ranked = await SourceHealth.shared.ranked(domains)
         let healthy = await withTaskGroup(of: (String, Bool).self) { group -> [String] in
             for d in ranked { group.addTask { (d, await SourceHealth.shared.isUnhealthy(d)) } }
@@ -667,7 +692,7 @@ actor WebRecipeFetcher {
             return keep
         }
         let order = Dictionary(uniqueKeysWithValues: ranked.enumerated().map { ($1, $0) })
-        let sources = RecipeSourceRegistry.all
+        let sources = RecipeSourceRegistry.liveSearchable
             .filter { healthy.contains($0.domain) }
             .sorted { (order[$0.domain] ?? 99) < (order[$1.domain] ?? 99) }
 
@@ -680,23 +705,44 @@ actor WebRecipeFetcher {
         }
     }
 
-    /// Fetch from a single source domain using their sitemap/search URL patterns
+    /// Fetch from a single source domain using its public search URL pattern.
     func fetchFromSource(_ source: RecipeSource, query: String = "", limit: Int = 5) async {
+        _ = await fetchRecipes(from: source, query: query, limit: limit)
+    }
+
+    /// Pull a small, bounded batch from the ten newly wired publishers. This is used by
+    /// Discover and Build Around Food so these sites funnel actual recipes into the app.
+    func fetchExpandedPublisherRecipes(query: String, limitPerSource: Int = 1) async -> [WebRecipe] {
+        let perSource = max(1, min(limitPerSource, 3))
+        return await withTaskGroup(of: [WebRecipe].self) { group in
+            for source in RecipeSourceRegistry.expandedLive {
+                group.addTask {
+                    await self.fetchRecipes(from: source, query: query, limit: perSource)
+                }
+            }
+            var combined: [WebRecipe] = []
+            for await batch in group { combined.append(contentsOf: batch) }
+            return combined
+        }
+    }
+
+    private func fetchRecipes(from source: RecipeSource, query: String, limit: Int) async -> [WebRecipe] {
         let searchURLs = buildSearchURLs(for: source, query: query)
-        var fetched = 0
+        var output: [WebRecipe] = []
         for urlStr in searchURLs {
-            guard fetched < limit, let url = URL(string: urlStr) else { continue }
-            await throttle(for: url.host ?? source.domain)   // #4: space out same-domain requests
-            if let recipes = await fetchRecipePage(url: url, source: source) {
-                for r in recipes.prefix(limit - fetched) {
-                    await catalogue.save(r)
-                    fetched += 1
+            guard output.count < limit, let url = URL(string: urlStr) else { continue }
+            await throttle(for: url.host ?? source.domain)
+            if let recipes = await fetchRecipePage(url: url, source: source, limit: limit - output.count) {
+                for recipe in recipes where !output.contains(where: { $0.sourceURL == recipe.sourceURL }) {
+                    await catalogue.save(recipe)
+                    output.append(recipe)
+                    if output.count >= limit { break }
                 }
             }
         }
-        // #6: record the outcome for this source so its reliability ranking adapts.
-        if fetched > 0 { await SourceHealth.shared.recordSuccess(source.domain) }
-        else { await SourceHealth.shared.recordFailure(source.domain) }
+        if output.isEmpty { await SourceHealth.shared.recordFailure(source.domain) }
+        else { await SourceHealth.shared.recordSuccess(source.domain) }
+        return output
     }
 
     /// Scrape a single recipe page URL and return a parsed WebRecipe
@@ -735,95 +781,151 @@ actor WebRecipeFetcher {
     // MARK: - Site-specific search URL patterns
     // Each site has a public search endpoint or sitemap that returns recipe pages
     private func buildSearchURLs(for source: RecipeSource, query: String) -> [String] {
-        let q = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        let d = source.domain
-        switch d {
+        let raw = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = raw.isEmpty ? "dinner" : raw
+        let q = fallback.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? fallback
+        let pathQ = fallback.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? fallback
+        let plusQ = fallback.replacingOccurrences(of: " ", with: "+")
+            .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? fallback
+        switch source.domain {
         case "seriouseats.com":
-            return ["https://www.seriouseats.com/search?q=\(q.isEmpty ? "dinner" : q)"]
+            return ["https://www.seriouseats.com/search?q=\(q)"]
         case "food52.com":
-            return ["https://food52.com/recipes/search?q=\(q.isEmpty ? "pasta" : q)"]
+            return ["https://food52.com/recipes/search?q=\(q)"]
         case "epicurious.com":
-            return ["https://www.epicurious.com/search/\(q.isEmpty ? "chicken" : q)"]
+            return ["https://www.epicurious.com/search/\(pathQ)"]
         case "americastestkitchen.com":
-            return ["https://www.americastestkitchen.com/search#q=\(q.isEmpty ? "soup" : q)&content=recipe"]
+            return ["https://www.americastestkitchen.com/search#q=\(q)&content=recipe"]
         case "foodnetwork.com":
-            return ["https://www.foodnetwork.com/search/\(q.isEmpty ? "easy-dinner" : q)-"]
+            return ["https://www.foodnetwork.com/search/\(pathQ)-"]
         case "allrecipes.com":
-            return ["https://www.allrecipes.com/search?q=\(q.isEmpty ? "chicken" : q)"]
+            return ["https://www.allrecipes.com/search?q=\(q)"]
         case "thekitchn.com":
-            return ["https://www.thekitchn.com/search?q=\(q.isEmpty ? "weeknight" : q)"]
+            return ["https://www.thekitchn.com/search?q=\(q)"]
         case "tasteofhome.com":
-            return ["https://www.tasteofhome.com/search/?q=\(q.isEmpty ? "casserole" : q)"]
+            return ["https://www.tasteofhome.com/search/?q=\(q)"]
         case "budgetbytes.com":
-            return ["https://www.budgetbytes.com/?s=\(q.isEmpty ? "cheap+meals" : q)"]
+            return ["https://www.budgetbytes.com/?s=\(q)"]
         case "therecipecritic.com":
-            return ["https://therecipecritic.com/?s=\(q.isEmpty ? "dinner" : q)"]
+            return ["https://therecipecritic.com/?s=\(q)"]
         case "bonappetit.com":
-            return ["https://www.bonappetit.com/search?q=\(q.isEmpty ? "pasta" : q)"]
+            return ["https://www.bonappetit.com/search?q=\(q)"]
         case "foodandwine.com":
-            return ["https://www.foodandwine.com/search?q=\(q.isEmpty ? "steak" : q)"]
+            return ["https://www.foodandwine.com/search?q=\(q)"]
         case "eatingwell.com":
-            return ["https://www.eatingwell.com/search?q=\(q.isEmpty ? "healthy" : q)"]
+            return ["https://www.eatingwell.com/search?q=\(q)"]
         case "delish.com":
-            return ["https://www.delish.com/search/?q=\(q.isEmpty ? "easy" : q)"]
+            return ["https://www.delish.com/search/?q=\(q)"]
         case "bettycrocker.com":
-            return ["https://www.bettycrocker.com/search/SearchResults.aspx?RecipeSearchTerm=\(q.isEmpty ? "cake" : q)"]
+            return ["https://www.bettycrocker.com/search/SearchResults.aspx?RecipeSearchTerm=\(q)"]
         case "sallysbakingaddiction.com":
-            return ["https://sallysbakingaddiction.com/?s=\(q.isEmpty ? "cookies" : q)"]
+            return ["https://sallysbakingaddiction.com/?s=\(q)"]
         case "kingarthurbaking.com":
-            return ["https://www.kingarthurbaking.com/search?query=\(q.isEmpty ? "bread" : q)"]
+            return ["https://www.kingarthurbaking.com/search?query=\(q)"]
         case "loveandlemons.com":
-            return ["https://www.loveandlemons.com/?s=\(q.isEmpty ? "vegetarian" : q)"]
+            return ["https://www.loveandlemons.com/?s=\(q)"]
         case "pinchofyum.com":
-            return ["https://pinchofyum.com/?s=\(q.isEmpty ? "soup" : q)"]
+            return ["https://pinchofyum.com/?s=\(q)"]
         case "thewoksoflife.com":
-            return ["https://thewoksoflife.com/?s=\(q.isEmpty ? "stir+fry" : q)"]
+            return ["https://thewoksoflife.com/?s=\(q)"]
+
+        // Ten additional publishers now included in the live funnel.
+        case "simplyrecipes.com":
+            return ["https://www.simplyrecipes.com/search?q=\(q)"]
+        case "halfbakedharvest.com":
+            return ["https://www.halfbakedharvest.com/?s=\(q)"]
+        case "skinnytaste.com":
+            return ["https://www.skinnytaste.com/?s=\(q)"]
+        case "thepioneerwoman.com":
+            return ["https://www.thepioneerwoman.com/search/?q=\(q)"]
+        case "smittenkitchen.com":
+            return ["https://smittenkitchen.com/?s=\(q)"]
+        case "101cookbooks.com":
+            return ["https://www.101cookbooks.com/search/?q=\(q)"]
+        case "minimalistbaker.com":
+            return ["https://minimalistbaker.com/?s=\(q)"]
+        case "cookingclassy.com":
+            return ["https://www.cookingclassy.com/?s=\(q)"]
+        case "cafedelites.com":
+            return ["https://cafedelites.com/?s=\(q)"]
+        case "damndelicious.net":
+            return ["https://damndelicious.net/search/\(plusQ)/"]
         default:
             return []
         }
     }
 
-    // Fetch a search results page and extract recipe URLs, then scrape each
-    private func fetchRecipePage(url: URL, source: RecipeSource) async -> [WebRecipe]? {
+    // Fetch a search results page and extract recipe URLs, then scrape candidates until
+    // the requested number of real JSON-LD recipes has been found.
+    private func fetchRecipePage(url: URL, source: RecipeSource, limit: Int) async -> [WebRecipe]? {
         guard let (data, response) = try? await session.data(from: url),
               let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
               let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
         else { return nil }
 
-        // First: check if this page itself has a Recipe JSON-LD (deep link hit)
         if let recipe = JSONLDRecipeParser.parse(html: html, pageURL: url.absoluteString) {
             return [recipe]
         }
 
-        // Otherwise: extract href links that look like recipe pages, then scrape up to 5
-        let recipeLinks = extractRecipeLinks(from: html, baseDomain: source.domain, baseURL: url.absoluteString)
+        let recipeLinks = extractRecipeLinks(from: html, baseDomain: source.domain, baseURL: url)
         var results: [WebRecipe] = []
-        await withTaskGroup(of: WebRecipe?.self) { group in
-            for link in recipeLinks.prefix(5) {
-                group.addTask { await self.scrape(urlString: link) }
+        let candidateLimit = max(4, limit * 3)
+        for link in recipeLinks.prefix(candidateLimit) {
+            guard !Task.isCancelled else { break }
+            if let recipe = await scrape(urlString: link),
+               !results.contains(where: { $0.sourceURL == recipe.sourceURL }) {
+                results.append(recipe)
+                if results.count >= limit { break }
             }
-            for await r in group { if let r { results.append(r) } }
         }
         return results.isEmpty ? nil : results
     }
 
-    // Pull recipe-like hrefs from a search results page
-    private func extractRecipeLinks(from html: String, baseDomain: String, baseURL: String) -> [String] {
+    /// Pull same-domain links from publisher search pages. Most modern recipe sites use
+    /// relative links and many recipe slugs do not contain the word “recipe,” so the old
+    /// absolute-URL-only regex silently excluded most of the newly added publishers.
+    private func extractRecipeLinks(from html: String, baseDomain: String, baseURL: URL) -> [String] {
         guard let regex = try? NSRegularExpression(
-            pattern: #"href=["'](https?://(?:www\.)?(?:[^"']*\.)?DOMAIN[^"']*recipe[^"']*)["']"#
-                .replacingOccurrences(of: "DOMAIN", with: NSRegularExpression.escapedPattern(for: baseDomain)),
+            pattern: #"href\s*=\s*["']([^"'#]+)["']"#,
             options: .caseInsensitive
         ) else { return [] }
 
         let ns = html as NSString
         let matches = regex.matches(in: html, range: NSRange(location: 0, length: ns.length))
+        let blockedPieces = [
+            "/search", "/category", "/categories", "/tag/", "/tags/", "/author/",
+            "/about", "/contact", "/privacy", "/terms", "/shop", "/books", "/login",
+            "/account", "/newsletter", "/page/", "/wp-content/", "/cdn-cgi/"
+        ]
+        let blockedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf", ".css", ".js"]
+        let normalizedDomain = baseDomain.lowercased().replacingOccurrences(of: "www.", with: "")
         var seen = Set<String>()
-        return matches.compactMap { m -> String? in
-            guard let r = Range(m.range(at: 1), in: html) else { return nil }
-            let url = String(html[r])
-            guard seen.insert(url).inserted else { return nil }
-            return url
+        var preferred: [String] = []
+        var fallback: [String] = []
+
+        for match in matches {
+            guard let range = Range(match.range(at: 1), in: html) else { continue }
+            let raw = String(html[range]).replacingOccurrences(of: "&amp;", with: "&")
+            guard var components = URLComponents(url: URL(string: raw, relativeTo: baseURL)?.absoluteURL ?? baseURL,
+                                                 resolvingAgainstBaseURL: true),
+                  let host = components.host?.lowercased().replacingOccurrences(of: "www.", with: ""),
+                  host == normalizedDomain || host.hasSuffix(".\(normalizedDomain)") else { continue }
+            components.fragment = nil
+            guard let resolved = components.url else { continue }
+            let path = resolved.path.lowercased()
+            guard path != "/", path.count > 2,
+                  !blockedPieces.contains(where: { path.contains($0) }),
+                  !blockedExtensions.contains(where: { path.hasSuffix($0) }) else { continue }
+            let value = resolved.absoluteString
+            guard seen.insert(value).inserted else { continue }
+
+            if path.contains("recipe") || path.range(of: #"/20\d{2}/"#, options: .regularExpression) != nil {
+                preferred.append(value)
+            } else {
+                fallback.append(value)
+            }
         }
+        return preferred + fallback
     }
 
     // MARK: - Pre-load known Taste of Home URLs (DeepSeek export May 2026)

@@ -528,6 +528,11 @@ struct GroceryListView: View {
                                 .a11yButton("Add \(name) to list", hint: "One of your frequently bought items")
                             }
                         }
+
+                        // Nearby grocery discovery belongs directly in the Grocery tab. The
+                        // embedded variant reuses this scroll view instead of nesting another one.
+                        GroceryStoreFinderView(embedded: true)
+                            .padding(.top, 20)
                     }
                     .padding(.bottom, 110)
                 }

@@ -3,7 +3,7 @@ import SwiftUI
 import Combine
 
 // MARK: - Model
-struct OnlineRecipe: Identifiable, Codable, Hashable {
+struct OnlineRecipe: Identifiable, Codable, Hashable, Sendable {
     let id:           String
     let title:        String
     let category:     String
@@ -96,6 +96,21 @@ class OnlineRecipesLoader {
             ingredients: entry.ingredients,
             measures: Array(repeating: "", count: entry.ingredients.count),
             source: entry.sourceName.isEmpty ? "My Database" : entry.sourceName
+        )
+    }
+
+    /// Map a live JSON-LD publisher recipe into the shared Discover model.
+    private static func makeOnlineRecipe(from web: WebRecipe) -> OnlineRecipe {
+        OnlineRecipe(
+            id: "web-\(web.id.uuidString)",
+            title: web.title,
+            category: web.category,
+            area: web.cuisine,
+            instructions: web.steps.map(\.text).joined(separator: "\n"),
+            imageURL: web.imageURL,
+            ingredients: web.ingredients,
+            measures: Array(repeating: "", count: web.ingredients.count),
+            source: web.sourceName
         )
     }
 
@@ -267,6 +282,16 @@ class OnlineRecipesLoader {
                 group.addTask { await RemoteRecipeFeed.fetch() }
                 for await results in group { fetched += results }
             }
+
+            // Phase 9: ten additional publisher websites. Their public search pages funnel
+            // real JSON-LD recipes into Discover and then into the shared on-device database.
+            // One relevance seed per refresh keeps the request volume bounded.
+            let publisherSeed = pantrySeeds.first ?? seedTerms.first ?? "dinner"
+            let publisherBatch = await WebRecipeFetcher.shared.fetchExpandedPublisherRecipes(
+                query: publisherSeed,
+                limitPerSource: 1
+            )
+            fetched += publisherBatch.map { Self.makeOnlineRecipe(from: $0) }
 
             guard !Task.isCancelled else { return }
 

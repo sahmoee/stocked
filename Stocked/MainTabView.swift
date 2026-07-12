@@ -34,24 +34,6 @@ struct MainTabView: View {
         }
     }
 
-    // MARK: - iPad auto-hide tab bar control
-    private func revealIPadTabBar() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { iPadTabBarVisible = true }
-        scheduleIPadTabBarAutoHide()
-    }
-    private func hideIPadTabBar() {
-        iPadTabBarHideTask?.cancel()
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { iPadTabBarVisible = false }
-    }
-    private func scheduleIPadTabBarAutoHide() {
-        iPadTabBarHideTask?.cancel()
-        iPadTabBarHideTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 4_000_000_000)   // 4s idle → hide
-            guard !Task.isCancelled else { return }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { iPadTabBarVisible = false }
-        }
-    }
-
     // MARK: - iPhone auto-hide tab bar control (mirrors iPad)
     private func revealIPhoneTabBar() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { iPhoneTabBarVisible = true }
@@ -149,10 +131,7 @@ struct MainTabView: View {
     @State private var activeDrawerSheet: DrawerActionSheet? = nil
     @State private var showDrawer    = false
     @State private var showBrief     = false
-    // iPad auto-hide tab bar: hidden by default, slides up on a tap near the bottom edge,
-    // hides again when the content scrolls or after a few idle seconds.
-    @State private var iPadTabBarVisible = false
-    @State private var iPadTabBarHideTask: Task<Void, Never>? = nil
+    // iPad navigation is persistent. It never auto-hides while scrolling or after idle time.
     // iPhone auto-hide tab bar: visible by default, hides when the content is scrolled,
     // reveals on a tap near the bottom edge, auto-hides after idle.
     @State private var iPhoneTabBarVisible = true
@@ -308,30 +287,14 @@ struct MainTabView: View {
             .zIndex(1000)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            // Show the bar once on launch so it's discoverable, then let it auto-hide.
-            if !iPadTabBarVisible { revealIPadTabBar() }
-        }
     }
 
-    // iPad content: the selected tab + overlays + pull tab.
+    // iPad content: the selected tab + overlays with a permanently visible global tab bar.
     private var iPadContentArea: some View {
         ZStack(alignment: .bottom) {
-            // Content + overlays fill the whole area.
             ZStack(alignment: .leading) {
                 iPadTabArea
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    // Hide the bar when the CONTENT is scrolled/dragged. Attached only to the
-                    // content (not the whole ZStack), with a high threshold so a tab tap — which
-                    // involves only a few points of finger jitter — never triggers a hide.
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 24)
-                            .onChanged { value in
-                                if iPadTabBarVisible && abs(value.translation.height) > 24 {
-                                    hideIPadTabBar()
-                                }
-                            }
-                    )
 
                 if showBrief {
                     DailyBriefOverlay(
@@ -353,38 +316,16 @@ struct MainTabView: View {
                 if showDatabases { overlaySheet($showDatabases) { DatabasesView() } }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.bottom, tabBarHeight + safeBottomInset + 12)
 
-            // Thin tap-catcher along the very bottom edge — tapping here reveals the bar.
-            // A faint handle makes it discoverable (like a grab affordance).
-            if !iPadTabBarVisible {
-                HStack {
-                    Spacer()
-                    Capsule()
-                        .fill(session.themeTextColor.opacity(0.25))
-                        .frame(width: 44, height: 5)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 30)
-                .padding(.bottom, safeBottomInset + 4)
-                .contentShape(Rectangle())
-                .onTapGesture { revealIPadTabBar() }
-            }
-
-            // ── Floating bottom navigation — slides up when revealed ───────
-            // Sits ABOVE the content's drag gesture (higher in the ZStack + zIndex), so its
-            // Button taps are never intercepted by the scroll-to-hide gesture.
-            if iPadTabBarVisible {
-                StockedTabBar(
-                    selected:  $selected,
-                    onTap:     { tab in navigate(to: tab); scheduleIPadTabBarAutoHide() },
-                    onSameTap: { navigate(to: selected); scheduleIPadTabBarAutoHide() }
-                )
-                    .frame(maxWidth: 600)
-                    .padding(.bottom, safeBottomInset + 6)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(150)
-            }
+            StockedTabBar(
+                selected:  $selected,
+                onTap:     { tab in navigate(to: tab) },
+                onSameTap: { navigate(to: selected) }
+            )
+            .frame(maxWidth: 600)
+            .padding(.bottom, safeBottomInset + 6)
+            .zIndex(150)
         }
         .ignoresSafeArea(edges: .bottom)
     }

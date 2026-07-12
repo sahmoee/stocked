@@ -1715,6 +1715,9 @@
     "Days with a dot have items expiring. Tap a day to see them." : {
 
     },
+    "Decrease quantity" : {
+
+    },
     "Deduct from Pantry" : {
 
     },
@@ -2007,6 +2010,9 @@
     "Find a Recipe Anyway →" : {
 
     },
+    "Find in store" : {
+
+    },
     "Finding %@ recipes…" : {
 
     },
@@ -2279,6 +2285,9 @@
     "In-season produce is usually cheaper, fresher, and lasts longer at home." : {
 
     },
+    "Increase quantity" : {
+
+    },
     "Ingredient" : {
 
     },
@@ -2508,6 +2517,9 @@
 
     },
     "Load Recipes" : {
+
+    },
+    "Loading collection…" : {
 
     },
     "Local only — used to improve the app" : {
@@ -3289,6 +3301,9 @@
 
     },
     "Remove from My Collection" : {
+
+    },
+    "Remove item" : {
 
     },
     "Remove Item" : {

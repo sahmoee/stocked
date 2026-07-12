@@ -175,15 +175,38 @@ class GroceryStoreFinder: NSObject, CLLocationManagerDelegate {
 
 struct GroceryStoreFinderView: View {
     @Environment(AppSession.self) private var session
+    let embedded: Bool
+
     @State private var finder = GroceryStoreFinder()
     @State private var zipInput = ""
     @State private var showMap  = false
+    @State private var showAllStores = false
+
+    init(embedded: Bool = false) {
+        self.embedded = embedded
+    }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
+        Group {
+            if embedded {
+                finderContent
+            } else {
+                ScrollView(showsIndicators: false) { finderContent }
+            }
+        }
+        .onAppear {
+            // Only auto-search if already authorized — don't silently request permission.
+            let status = CLLocationManager().authorizationStatus
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                finder.requestLocationAndSearch()
+            }
+        }
+    }
+
+    private var finderContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Grocery Stores Near You")
+                Text("Grocery stores near you")
                     .font(.system(size: 16, weight: .bold, design: .serif))
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
@@ -264,20 +287,18 @@ struct GroceryStoreFinderView: View {
                 }
                 .frame(maxWidth: .infinity).padding(.top, 24)
             }
-        } // end VStack
-        } // end ScrollView
-        .onAppear {
-            // Only auto-search if already authorized — don't silently request permission
-            let status = CLLocationManager().authorizationStatus
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
-                finder.requestLocationAndSearch()
-            }
         }
+        .padding(.top, embedded ? 8 : 0)
+    }
+
+    private var visibleStores: [NearbyGroceryStore] {
+        if !embedded || showAllStores { return finder.stores }
+        return Array(finder.stores.prefix(5))
     }
 
     private var storeList: some View {
         VStack(spacing: 0) {
-            ForEach(Array(finder.stores.enumerated()), id: \.element.id) { i, store in
+            ForEach(Array(visibleStores.enumerated()), id: \.element.id) { i, store in
                 if i > 0 { Divider().padding(.leading, 68).padding(.horizontal, 24) }
                 HStack(spacing: 12) {
                     ZStack {
@@ -295,8 +316,28 @@ struct GroceryStoreFinderView: View {
                 }
                 .padding(.horizontal, 24).padding(.vertical, 11)
             }
+
+            if embedded && finder.stores.count > 5 {
+                Divider().padding(.horizontal, 24)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showAllStores.toggle() }
+                } label: {
+                    HStack {
+                        Text(showAllStores ? "Show fewer stores" : "Show all \(finder.stores.count) stores")
+                            .font(.system(size: 12.5, weight: .semibold))
+                        Spacer()
+                        Image(systemName: showAllStores ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.stockedGold)
+                    .padding(.horizontal, 24).padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .background(Color.stockedWhite.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 16)).padding(.horizontal, 20).padding(.bottom, 12)
+        .background(Color.stockedWhite.opacity(0.25))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 20).padding(.bottom, 12)
     }
 }
 

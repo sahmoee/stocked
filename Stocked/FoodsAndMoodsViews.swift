@@ -270,7 +270,9 @@ struct FoodsSubOptionView: View {
             }
         }
         .navigationDestination(isPresented: $gotoRecipe) {
-            RecipeOverviewView(title: "\(category) — \(selected ?? "")", servings: servings)
+            if let selected {
+                StarIngredientRecipesView(category: category, selection: selected, servings: servings)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             gotoRecipe = false

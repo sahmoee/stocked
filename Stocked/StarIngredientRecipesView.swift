@@ -16,7 +16,7 @@ struct StarIngredientRecipesView: View {
     let selection: String    // "Chicken", "Leafy Greens", …
     let servings: Int
 
-    private struct RankedRecipe: Identifiable {
+    private struct RankedRecipe: Identifiable, Sendable {
         let entry: RecipeDatabaseEntry
         let missing: Int
         var id: UUID { entry.id }
@@ -24,6 +24,7 @@ struct StarIngredientRecipesView: View {
 
     @State private var ranked: [RankedRecipe] = []
     @State private var isLoading = true
+    @State private var loadingMessage = "Searching your recipe library…"
     @State private var rollSeed = 0        // bumps on Refresh to re-shuffle picks
     @State private var openEntry: RecipeDatabaseEntry? = nil
 
@@ -87,7 +88,7 @@ struct StarIngredientRecipesView: View {
                 if isLoading {
                     HStack {
                         Spacer()
-                        ProgressView("Finding \(selection.lowercased()) recipes…")
+                        ProgressView(loadingMessage)
                             .font(.system(size: 12.5)).tint(Color.stockedGold)
                         Spacer()
                     }
@@ -95,7 +96,7 @@ struct StarIngredientRecipesView: View {
                 } else if ranked.isEmpty {
                     StockedEmptyState(icon: "fork.knife",
                                       title: "No matches yet",
-                                      subtitle: "Couldn't find recipes starring \(selection.lowercased()) in your recipe database. Browse the Recipes tab to pull more in, then try again.")
+                                      subtitle: "Couldn't find or build a complete recipe for \(selection.lowercased()). Check your connection and try Refresh.")
                         .padding(.top, 40)
                         .padding(.horizontal, 20)
                 } else {
@@ -149,7 +150,8 @@ struct StarIngredientRecipesView: View {
                         .foregroundStyle(session.themeTextColor)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    Text([r.entry.cuisine, r.entry.totalTime.isEmpty ? r.entry.cookTime : r.entry.totalTime]
+                    Text([r.entry.sourceName, r.entry.cuisine,
+                          r.entry.totalTime.isEmpty ? r.entry.cookTime : r.entry.totalTime]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
                         .font(.system(size: 11.5))
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
@@ -186,6 +188,7 @@ struct StarIngredientRecipesView: View {
 
     private func load() async {
         isLoading = true
+        loadingMessage = "Searching your recipe library…"
         let terms = searchTerms
         let items = session.guestStore.inventoryItems
         let seed = rollSeed
@@ -194,29 +197,91 @@ struct StarIngredientRecipesView: View {
         var seen = Set<String>()
         for term in terms {
             let hits = await RecipeDatabase.shared.search(term, limit: 30)
-            for e in hits where !e.steps.isEmpty && !e.ingredients.isEmpty {
-                let key = e.title.lowercased()
-                if seen.insert(key).inserted { pool.append(e) }
+            appendUnique(hits, to: &pool, seen: &seen)
+        }
+
+        var results = await rank(pool: pool, terms: terms, items: items, seed: seed)
+        if !results.isEmpty {
+            // Surface real local matches immediately; publisher enrichment can continue without
+            // making the user stare at a network spinner.
+            ranked = results
+            isLoading = false
+        }
+
+        // If the local pool is thin, query the ten newly wired recipe publishers and ingest
+        // their complete JSON-LD recipes into the same database used everywhere else.
+        if pool.count < 12, let query = terms.first {
+            if results.isEmpty { loadingMessage = "Checking more recipe sources…" }
+            let webRecipes = await WebRecipeFetcher.shared.fetchExpandedPublisherRecipes(
+                query: query,
+                limitPerSource: 1
+            )
+            let webEntries = webRecipes.map { databaseEntry(from: $0) }
+            appendUnique(webEntries, to: &pool, seen: &seen)
+            if !webEntries.isEmpty {
+                await RecipeDatabase.shared.upsertAll(webEntries)
+                results = await rank(pool: pool, terms: terms, items: items, seed: seed)
             }
         }
 
-        // #PERF — filtering + pantry-coverage ranking runs off the main thread with the
-        // pantry's word sets computed ONCE, instead of re-parsing every inventory name
-        // for every ingredient of every recipe on the UI thread.
-        let filteredAndRanked = await Task.detached(priority: .userInitiated) { () -> [RankedRecipe] in
+        // Last resort: build a complete recipe through the deployed Worker. This prevents
+        // Build Around Food from ending at a title-only placeholder or a dead empty state.
+        if results.isEmpty, RecipeGeneratorAI.isAvailable {
+            loadingMessage = "Building a recipe around \(selection.lowercased())…"
+            let pantry = items.prefix(30).map(\.name)
+            let dietary = session.guestStore.cookingProfile.dietaryStyle
+            let idea = "Create a practical \(category.lowercased()) recipe starring \(selection). Use normal grocery-store ingredients and give complete measured ingredients and step-by-step instructions."
+            let generated = await RecipeGeneratorAI.generate(
+                idea: idea,
+                options: .init(
+                    haveItems: pantry,
+                    dietary: dietary.isEmpty ? nil : dietary,
+                    maxTime: nil
+                )
+            )
+            if let generated {
+                let entry = databaseEntry(from: generated)
+                _ = await RecipeDatabase.shared.upsert(entry)
+                results = await rank(pool: [entry], terms: terms, items: items, seed: seed)
+            }
+        }
+
+        ranked = results
+        isLoading = false
+    }
+
+    private func appendUnique(_ entries: [RecipeDatabaseEntry],
+                              to pool: inout [RecipeDatabaseEntry],
+                              seen: inout Set<String>) {
+        for entry in entries where !entry.steps.isEmpty && !entry.ingredients.isEmpty {
+            let key = entry.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if seen.insert(key).inserted { pool.append(entry) }
+        }
+    }
+
+    private func rank(pool: [RecipeDatabaseEntry],
+                      terms: [String],
+                      items: [LocalInventoryItem],
+                      seed: Int) async -> [RankedRecipe] {
+        // Filtering + pantry coverage stay off the main actor so recipe discovery cannot freeze
+        // the drawer or tab transitions while a larger source batch is being evaluated.
+        await Task.detached(priority: .userInitiated) { () -> [RankedRecipe] in
             let lowered = terms.map { $0.lowercased() }
-            let starred = pool.filter { e in
-                let title = e.title.lowercased()
+            let starred = pool.filter { entry in
+                let title = entry.title.lowercased()
                 if lowered.contains(where: { title.contains($0) }) { return true }
-                let leadIngredients = e.ingredients.prefix(4).joined(separator: " ").lowercased()
+                let leadIngredients = entry.ingredients.prefix(5).joined(separator: " ").lowercased()
                 return lowered.contains(where: { leadIngredients.contains($0) })
             }
+            let candidates = starred.isEmpty && pool.count == 1 ? pool : starred
             let pantryWords = IngredientStockMatch.pantryWordSets(items)
             var generator = SeededGenerator(seed: UInt64(truncatingIfNeeded: seed &+ 7))
-            let shuffled = starred.shuffled(using: &generator)
-            let scored: [RankedRecipe] = shuffled.map { e in
-                RankedRecipe(entry: e,
-                             missing: IngredientStockMatch.missingCount(e.ingredients, pantryWords: pantryWords))
+            let shuffled = candidates.shuffled(using: &generator)
+            let scored = shuffled.map { entry in
+                RankedRecipe(
+                    entry: entry,
+                    missing: IngredientStockMatch.missingCount(entry.ingredients, pantryWords: pantryWords)
+                )
             }
             let sorted = scored.sorted {
                 if $0.missing != $1.missing { return $0.missing < $1.missing }
@@ -224,9 +289,50 @@ struct StarIngredientRecipesView: View {
             }
             return Array(sorted.prefix(12))
         }.value
+    }
 
-        ranked = filteredAndRanked
-        isLoading = false
+    private func databaseEntry(from web: WebRecipe) -> RecipeDatabaseEntry {
+        RecipeDatabaseEntry(
+            title: web.title,
+            description: web.description,
+            sourceURL: web.sourceURL,
+            sourceName: web.sourceName,
+            prepTime: web.prepTime,
+            cookTime: web.cookTime,
+            totalTime: web.totalTime,
+            servings: web.servings,
+            category: web.category,
+            cuisine: web.cuisine,
+            tags: web.tags,
+            ingredients: web.ingredients,
+            steps: web.steps.map(\.text),
+            imageURL: web.imageURL,
+            calories: web.calories ?? "",
+            rating: web.rating
+        )
+    }
+
+    private func databaseEntry(from generated: GeneratedRecipe) -> RecipeDatabaseEntry {
+        let ingredientLines = generated.ingredients.map { line in
+            let amount = line.amount.trimmingCharacters(in: .whitespacesAndNewlines)
+            return amount.isEmpty ? line.name : "\(amount) \(line.name)"
+        }
+        return RecipeDatabaseEntry(
+            title: generated.title,
+            description: generated.tips,
+            sourceURL: "",
+            sourceName: "Stocked AI",
+            prepTime: "",
+            cookTime: generated.cookTime,
+            totalTime: generated.cookTime,
+            servings: String(generated.servings),
+            category: category,
+            cuisine: "",
+            tags: [category, selection] + searchTerms,
+            ingredients: ingredientLines,
+            steps: generated.steps,
+            imageURL: generated.imageURL ?? ""
+        )
     }
 }
 
