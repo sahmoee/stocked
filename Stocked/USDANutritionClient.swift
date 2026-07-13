@@ -196,7 +196,7 @@ nonisolated private struct CodableNutritionFacts: Codable {
     }
 }
 
-private extension String {
+nonisolated private extension String {
     var nilIfEmpty: String? {
         let cleaned = trimmingCharacters(in: .whitespacesAndNewlines)
         return cleaned.isEmpty ? nil : cleaned
