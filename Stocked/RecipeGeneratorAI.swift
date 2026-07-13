@@ -19,7 +19,7 @@ nonisolated enum RecipeGeneratorAI {
 
     /// Whether the Worker endpoint is configured. (Does not guarantee the recipeIdea branch is
     /// deployed; a missing branch simply yields nil at call time.)
-    static var isAvailable: Bool { StockedWorkerClient.isConfigured }
+    nonisolated static var isAvailable: Bool { StockedWorkerClient.isConfigured }
 
     /// Constraints the user can attach to a request. All optional.
     struct Options {

@@ -130,12 +130,11 @@ struct SettingsPageView: View {
     @ViewBuilder
     // A top-level settings entry that looks like the accordion headers but opens a sheet
     // directly instead of expanding inline. Used for Household, which has its own full screen.
+    // Mirrors the proven settingsButton structure (Button(action:) label) so the opaque
+    // return type infers cleanly.
     private func settingsSectionRow(icon: String, tint: Color, title: String, subtitle: String,
                                     action: @escaping () -> Void) -> some View {
-        Button {
-            HapticManager.light()
-            action()
-        } label: {
+        Button(action: action) {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 9).fill(tint).frame(width: 34, height: 34)
@@ -159,7 +158,6 @@ struct SettingsPageView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .a11yButton(title, hint: "Opens \(title)")
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(session.themeCardColor)

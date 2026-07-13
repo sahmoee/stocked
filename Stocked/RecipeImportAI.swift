@@ -41,7 +41,7 @@ nonisolated struct AIRecipe: Codable, Sendable {
 enum RecipeImportAI {
 
     /// Whether the Worker is configured (shares the receipt Worker endpoint).
-    static var isAvailable: Bool { StockedWorkerClient.isConfigured }
+    nonisolated static var isAvailable: Bool { StockedWorkerClient.isConfigured }
 
     /// Compose a raw-text blob from already-parsed form fields, for when we don't have
     /// the original page text but still want the model to clean up / re-split.

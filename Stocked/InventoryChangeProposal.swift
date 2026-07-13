@@ -162,7 +162,7 @@ final class InventoryIntentParser {
     var lastError: String?
 
     /// Whether the Worker endpoint is configured (shared with the recipe features).
-    static var isAvailable: Bool { StockedWorkerClient.isConfigured }
+    nonisolated static var isAvailable: Bool { StockedWorkerClient.isConfigured }
 
     /// Sends the utterance + current inventory (name+id) to the Worker, returns proposed changes.
     /// Falls back to nil (caller shows an error) if offline or the Worker isn't configured.

@@ -57,7 +57,7 @@ final class AIInventoryScanner {
     var isScanning = false
     var lastError: String?
 
-    static var isAvailable: Bool { StockedWorkerClient.isConfigured }
+    nonisolated static var isAvailable: Bool { StockedWorkerClient.isConfigured }
 
     /// Sends the inventory snapshot to the Worker; returns proposed updates
     /// (empty array = inventory already tidy), or nil on failure with lastError set.
@@ -144,13 +144,13 @@ final class AIInventoryScanner {
             if let z = u["newZone"] as? String, let cat = StorageCategory(rawValue: z),
                cat.rawValue != item.zone {
                 // Cross-reference the on-device classifier before trusting the model's zone.
-                // StockedIntelligence.classify already knows that dried seasonings ("cayenne
+                // ZoneClassifier.classify already knows that dried seasonings ("cayenne
                 // pepper", "lemon pepper") are Staples and flavored snacks ("cheddar chips")
                 // are Pantry — NOT Fridge. If the model wants to move an item INTO Fridge or
                 // Freezer but the local classifier keeps it shelf-stable (Pantry/Staples),
                 // distrust the model and drop the zone change. This stops the classic
                 // misfires (cayenne pepper -> Fridge, cheddar chips -> dairy/Fridge).
-                let localZone = StockedIntelligence.classify(item.name)
+                let localZone = ZoneClassifier.classify(item.name)
                 let modelWantsCold = (cat == .fridge || cat == .freezer)
                 let localSaysShelfStable = (localZone == .pantry || localZone == .staples)
                 if modelWantsCold && localSaysShelfStable {
