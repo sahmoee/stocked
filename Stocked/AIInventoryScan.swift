@@ -143,7 +143,21 @@ final class AIInventoryScanner {
             var newZone: StorageCategory? = nil
             if let z = u["newZone"] as? String, let cat = StorageCategory(rawValue: z),
                cat.rawValue != item.zone {
-                newZone = cat
+                // Cross-reference the on-device classifier before trusting the model's zone.
+                // StockedIntelligence.classify already knows that dried seasonings ("cayenne
+                // pepper", "lemon pepper") are Staples and flavored snacks ("cheddar chips")
+                // are Pantry — NOT Fridge. If the model wants to move an item INTO Fridge or
+                // Freezer but the local classifier keeps it shelf-stable (Pantry/Staples),
+                // distrust the model and drop the zone change. This stops the classic
+                // misfires (cayenne pepper -> Fridge, cheddar chips -> dairy/Fridge).
+                let localZone = StockedIntelligence.classify(item.name)
+                let modelWantsCold = (cat == .fridge || cat == .freezer)
+                let localSaysShelfStable = (localZone == .pantry || localZone == .staples)
+                if modelWantsCold && localSaysShelfStable {
+                    newZone = nil   // reject the naive cold-storage move
+                } else {
+                    newZone = cat
+                }
             }
             // Nutrition only when the item genuinely has none (the model is told this,
             // but enforce it here too).

@@ -15,6 +15,7 @@ struct HouseholdActivity: Identifiable, Codable, Hashable {
         case inventoryAdded, inventoryUpdated, inventoryRemoved
         case recipeAdded, recipeUpdated
         case memberJoined, memberLeft, householdCreated
+        case memberRenamed
 
         /// Which filter tab this belongs to in the Activity screen.
         var category: Category {
@@ -23,6 +24,7 @@ struct HouseholdActivity: Identifiable, Codable, Hashable {
             case .inventoryAdded, .inventoryUpdated, .inventoryRemoved: return .inventory
             case .recipeAdded, .recipeUpdated: return .recipes
             case .memberJoined, .memberLeft, .householdCreated: return .lists
+            case .memberRenamed: return .lists
             }
         }
         /// Verb shown in the feed.
@@ -39,6 +41,7 @@ struct HouseholdActivity: Identifiable, Codable, Hashable {
             case .memberJoined:    return "joined"
             case .memberLeft:      return "left"
             case .householdCreated:return "created the household"
+            case .memberRenamed:   return "changed their name to"
             }
         }
         /// Where the verb points ("…to Grocery List", "…in Inventory").
@@ -72,6 +75,7 @@ struct HouseholdActivity: Identifiable, Codable, Hashable {
         case .groceryChecked:                       return itemName
         case .inventoryAdded, .inventoryUpdated, .inventoryRemoved: return "\(itemName) in \(kind.target)"
         case .recipeAdded, .recipeUpdated:          return itemName
+        case .memberRenamed:                        return itemName
         default:                                     return itemName
         }
     }

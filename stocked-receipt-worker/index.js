@@ -31,7 +31,7 @@
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const WORKER_VERSION = "2026-07-12.4"; // bump on every route/prompt change
+const WORKER_VERSION = "2026-07-12.5"; // bump on every route/prompt change
 const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 1500;
 
@@ -332,6 +332,13 @@ function buildPrompt(p) {
         "storage zone, and flags. Propose ONLY genuinely helpful cleanups, and return the id " +
         "of each item you change. Rules: correct obvious misspellings or normalize a messy name " +
         "with newName (otherwise omit newName). Fix a clearly wrong storage zone with newZone, " +
+        "but be VERY careful about food identity so you never move a shelf-stable item into the fridge. " +
+        "Dried seasonings and spices are Staples, NEVER Fridge, even when the name contains a produce word: " +
+        "cayenne pepper, lemon pepper, black pepper, chili powder, garlic powder, onion powder, and paprika are " +
+        "dried spices, not fresh peppers. Flavored or named snacks stay in Pantry, NEVER dairy or Fridge just " +
+        "because of a word in the name: cheddar chips, sour cream and onion chips, cheese crackers, and ranch " +
+        "crackers are shelf-stable snacks, not cheese or dairy. Only choose Fridge or Freezer when the item truly " +
+        "is fresh, chilled, or frozen. When unsure, leave the zone unchanged and omit newZone. " +
         'which MUST be exactly one of "Fridge", "Freezer", "Pantry", or "Staples" (omit if the ' +
         "current zone is fine). For an item WITHOUT hasNutrition, you may add rough per-serving " +
         "calories (integer) and protein grams (number) with a short servingSize string; NEVER add " +
@@ -683,6 +690,26 @@ async function handleHousehold(pathname, request, env) {
         else if (typeof body[key] === "boolean") household.members[idx][key] = body[key];
       }
     }
+    household.updatedAt = Date.now();
+    await writeHousehold(kv, code, household);
+    return json({ ok: true, household });
+  }
+
+  if (action === "setname") {
+    const code = normalizeCode(body.code);
+    const household = await readHousehold(kv, code);
+    if (!household) return json({ error: "share not found", code: "notFound" }, 404);
+    const actorId = sanitizeId(body.actorId || body.memberId);
+    const newName = sanitizeName(body.name);
+    if (!actorId || !newName) return json({ error: "Missing member or name", code: "badRequest" }, 400);
+    const idx = (household.members || []).findIndex((m) => m.memberId === actorId);
+    if (idx === -1) return json({ error: "member not found", code: "notFound" }, 404);
+    const oldName = household.members[idx].name || "";
+    if (oldName === newName) return json({ ok: true, household });
+    household.members[idx].name = newName;
+    if (actorId === household.ownerId) household.ownerName = newName;
+    const evt = { kind: "memberRenamed", itemName: newName, oldName: oldName, actorName: oldName || newName, date: Date.now() };
+    household.activity = appendActivity((household.activity || []).concat([evt]), null);
     household.updatedAt = Date.now();
     await writeHousehold(kv, code, household);
     return json({ ok: true, household });

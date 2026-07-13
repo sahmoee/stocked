@@ -110,7 +110,6 @@ final class HouseholdSync {
         syncStatus.lastError = nil
         syncStatus.activeRoute = route
         nextRetryAllowedAt = .distantPast          // #6 clear backoff on success
-        consecutivePushFailures = 0                // #6 reset failure streak on success
         syncStatus.hasStuckOperations = false
         persistQueue()
     }
@@ -118,23 +117,13 @@ final class HouseholdSync {
         for i in pendingOps.indices { pendingOps[i].retryCount += 1; pendingOps[i].lastError = message }
         syncStatus.lastError = message
         // #6 exponential backoff: wait longer after each failure (2,4,8,16… capped at 5 min) so a
-        // persistently failing push doesn't hammer the server.
-        //
-        // BUG FIX: the delay used to be derived from pendingOps.map(retryCount).max(), which is 0
-        // when the queue is empty — so a push that failed with no queued ops backed off only
-        // ~1 second and retried in a tight loop, hammering the Worker (this is what burned through
-        // the daily KV write quota). Track consecutive failures on the sync object itself so
-        // backoff grows regardless of queue contents, and floor the delay at 5s so it can never
-        // collapse to a fast loop.
-        consecutivePushFailures += 1
-        let steps = max(consecutivePushFailures, pendingOps.map(\.retryCount).max() ?? 0)
-        let delay = min(max(pow(2.0, Double(steps)), 5), 300)
+        // persistently failing push doesn't hammer the server. Also flag ops stuck past 8 tries.
+        let maxRetry = pendingOps.map(\.retryCount).max() ?? 0
+        let delay = min(pow(2.0, Double(maxRetry)), 300)
         nextRetryAllowedAt = Date().addingTimeInterval(delay)
-        syncStatus.hasStuckOperations = consecutivePushFailures >= 8 || pendingOps.contains { $0.retryCount >= 8 }
+        syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
     }
-    // #6 consecutive push failures, independent of the queue, so backoff always grows.
-    @ObservationIgnored private var consecutivePushFailures: Int = 0
     // #6 backoff gate: the poller checks this before attempting a push.
     private var nextRetryAllowedAt: Date = .distantPast
     var retryIsAllowed: Bool { Date() >= nextRetryAllowedAt }
@@ -182,9 +171,29 @@ final class HouseholdSync {
     private func resolvedName() -> String {
         let saved = (UserDefaults.standard.string(forKey: "hh_my_name") ?? "").trimmingCharacters(in: .whitespaces)
         if !saved.isEmpty && saved != "You" { return saved }
-        let device = UIDevice.current.name.trimmingCharacters(in: .whitespaces)
-        if !device.isEmpty { return device }
+        // Previously fell back to UIDevice.current.name, which returns "iPhone" on iOS 16+
+        // (Apple no longer exposes the user-set device name to apps), so members showed as
+        // "iPhone". The app now feeds the real profile name via updateDisplayName(_:) before
+        // creating/joining, so a device-name fallback is no longer used. If somehow still
+        // unset, "Member" is a neutral placeholder rather than a misleading device name.
         return "Member"
+    }
+
+    /// Called by the app (from AppSession) whenever the user's profile name is known or changes.
+    /// Updates the local display name and, if already in a household, propagates the rename to the
+    /// server so every device and the Daily Brief see the new name.
+    func updateDisplayName(_ name: String, store: GuestDataStore? = nil) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed.lowercased() != "chef", trimmed != "You" else { return }
+        let previous = myDisplayName
+        myDisplayName = trimmed
+        guard previous != trimmed, state == .owner || state == .member,
+              let code = joinCode, !code.isEmpty else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            _ = await self.post("/household/setname", ["code": code, "actorId": self.memberId, "memberId": self.memberId, "name": trimmed])
+            if let store { await self.pullNow(into: store) }
+        }
     }
 
     private func persist() {
@@ -204,7 +213,11 @@ final class HouseholdSync {
     func createHousehold() async -> Bool {
         syncStage = .creating
         state = .creating
-        myDisplayName = resolvedName()   // never create as "You"
+        // Use the profile name the app already set (via updateDisplayName / the household views).
+        // Only fall back to resolvedName() when nothing usable is set, so we never overwrite a
+        // real name with a placeholder.
+        let current = myDisplayName.trimmingCharacters(in: .whitespaces)
+        if current.isEmpty || current == "You" { myDisplayName = resolvedName() }
         let body: [String: Any] = ["ownerName": myDisplayName, "memberId": memberId]
         guard let resp = await post("/household/create", body) else {
             fail("Couldn't create a household. Check your connection and try again.")

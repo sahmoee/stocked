@@ -323,7 +323,7 @@ struct HouseholdMembersView: View {
         }
         .task {
             household.myDisplayName = session.isNamedUser ? session.userName
-                : UIDevice.current.name   // guests: use the device name, not "Chef"
+                : (session.effectiveName)   // guests: use their entered/effective name, never the device name ("iPhone")
             members = await household.fetchMembers()
             loading = false
             presence = await household.fetchPresence()   // #11 last-active per member
@@ -430,7 +430,7 @@ struct HouseholdActivityView: View {
         }
         .task {
             household.myDisplayName = session.isNamedUser ? session.userName
-                : UIDevice.current.name   // guests: use the device name, not "Chef"
+                : (session.effectiveName)   // guests: use their entered/effective name, never the device name ("iPhone")
             events = await household.fetchActivity()
             loading = false
         }

@@ -579,6 +579,20 @@ enum MockCategory: String, CaseIterable, Identifiable, Hashable {
         if item.zone == "Freezer" { return .frozen }
         if ["frozen", "ice cream", "popsicle", "sorbet"].contains(where: { n.contains($0) }) { return .frozen }
 
+        // Snacks & dried seasonings BEFORE dairy/produce — otherwise substring matches
+        // misfile them: "cheddar chips" would hit the dairy "cheddar" rule and "cayenne
+        // pepper" would hit the produce "pepper" rule. These are shelf-stable and belong in
+        // Pantry. Mirrors the guard order in StockedIntelligence.classify so the two
+        // classifiers agree.
+        let shelfStableSnacksAndSpices = [
+            "chip", "chips", "cracker", "pretzel", "popcorn", "tortilla chip", "puffs",
+            "seasoning", "spice", "cayenne", "paprika", "chili powder", "chili flakes",
+            "black pepper", "white pepper", "lemon pepper", "garlic powder", "onion powder",
+            "cumin", "oregano", "basil dried", "dried basil", "turmeric", "curry powder",
+            "cinnamon", "nutmeg"
+        ]
+        if shelfStableSnacksAndSpices.contains(where: { n.contains($0) }) { return .pantry }
+
         // Beverages BEFORE produce — drink names often contain fruit words.
         let beverages = ["juice", "water", "soda", "cola", "pepsi", "sprite", "coffee", "tea", "wine", "beer",
                          "drink", "lemonade", "smoothie", "kombucha", "seltzer", "tonic", "gatorade",

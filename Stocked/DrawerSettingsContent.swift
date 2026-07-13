@@ -147,14 +147,6 @@ struct SettingsContent: View {
                     }
                     .listRowBackground(Color.clear)
 
-                    // Household Sync — opens the existing household management screen.
-                    Button { if let onQuickAction { onQuickAction(.household) } else { activeSheet = .household } } label: {
-                        settingsRow(icon: "person.2.fill", color: Color.stockedInfo,
-                                    title: "Household Sync",
-                                    detail: session.householdCode.isEmpty ? "Share pantry with family" : "Code: \(session.householdCode)")
-                    }
-                    .listRowBackground(Color.clear)
-
                     // Recipe Sources — add your own websites or manage the built-in list.
                     Button { if let onQuickAction { onQuickAction(.recipeSources) } else { activeSheet = .recipeSources } } label: {
                         settingsRow(icon: "globe", color: Color.stockedGold,

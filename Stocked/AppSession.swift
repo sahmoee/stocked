@@ -489,6 +489,9 @@ class AppSession {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         displayName = trimmed
         guestStore.displayName = trimmed
+        // Keep the household member name in sync with the profile name, so other members and the
+        // Daily Brief see "Old changed their name to New" instead of a stale "iPhone".
+        HouseholdSync.shared.updateDisplayName(userName, store: guestStore)
     }
 
     func signOut(clearData: Bool = false) {
