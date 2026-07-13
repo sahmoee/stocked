@@ -170,7 +170,11 @@ struct SettingsPageView: View {
                                           title: String, subtitle: String,
                                           @ViewBuilder content: () -> Content) -> some View {
         let isOpen = expanded == section
-        VStack(alignment: .leading, spacing: 0) {
+        // Explicit return required: implicit return only applies to single-expression
+        // bodies, and the let above makes this a multi-statement body. Without it the
+        // compiler reports no return statements and discards the VStack (the unused
+        // background(_:alignment:) warning).
+        return VStack(alignment: .leading, spacing: 0) {
             Button {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
                     expanded = isOpen ? nil : section
