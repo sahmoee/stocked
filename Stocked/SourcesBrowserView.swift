@@ -32,7 +32,7 @@ struct SourcesBrowserView: View {
                 let feeds = listings.filter { $0.isLiveFeed }
                 let sites = listings.filter { !$0.isLiveFeed }
 
-                Text("Only sources with recipes on your device are shown. Counts are live.")
+                Text("Sources appear after at least 20 unique, complete recipes are available. Counts are live.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -44,6 +44,22 @@ struct SourcesBrowserView: View {
                 if !sites.isEmpty {
                     sectionLabel("Websites With Recipes")
                     ForEach(sites) { row(for: $0) }
+                }
+                if feeds.isEmpty && sites.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "books.vertical")
+                            .font(.system(size: 28))
+                            .foregroundStyle(session.themeSecondaryText.opacity(0.5))
+                        Text(query.isEmpty ? "No qualified sources yet" : "No matching qualified sources")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(session.themeTextColor)
+                        Text("A source is shown only after Stocked has cached 20 complete recipes from it.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(session.themeSecondaryText)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
                 }
 
                 Button { showManage = true } label: {
@@ -301,8 +317,10 @@ struct DrinksBrowseView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
+                            .stockedScrollTargetLayout()
                             .padding(.horizontal, 24)
                         }
+                        .stockedHorizontalSnap()
                     }
                 }
             }

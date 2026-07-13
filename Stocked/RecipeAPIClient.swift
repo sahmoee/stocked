@@ -85,6 +85,12 @@ class OfflineRecipeCache {
         if recipes.count > limit { recipes = Array(recipes.prefix(limit)) }
         persist()
     }
+    func clear() {
+        recipes.removeAll()
+        LocalDatabase.shared.delete(key: key)
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
     func search(_ q: String) -> [CachedRecipe] {
         let low = q.lowercased()
         return recipes.filter {

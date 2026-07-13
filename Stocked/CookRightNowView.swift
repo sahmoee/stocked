@@ -61,8 +61,10 @@ struct CookRightNowView: View {
                                     .clipShape(Capsule())
                                 }
                             }
+                            .stockedScrollTargetLayout()
                             .padding(.horizontal, 24)
                         }
+                        .stockedHorizontalSnap()
                     }
                 }
 

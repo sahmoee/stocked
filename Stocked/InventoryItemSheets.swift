@@ -118,6 +118,60 @@ struct EditItemSheet: View {
                     BrandPriceView(itemName: editedName, compact: false)
                         .padding(.horizontal, 28).padding(.bottom, 14)
 
+                    if item.brand != nil || item.nutrition != nil || !(item.productLabels ?? []).isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if let brand = item.brand, !brand.isEmpty {
+                                        Text(brand)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(session.themeTextColor)
+                                    }
+                                    if let source = item.nutritionSource, !source.isEmpty {
+                                        Text("Nutrition from \(source)")
+                                            .font(.system(size: 10.5))
+                                            .foregroundStyle(session.themeSecondaryText)
+                                    }
+                                }
+                                Spacer()
+                                if let barcode = item.barcode, !barcode.isEmpty {
+                                    Text(barcode)
+                                        .font(.system(size: 9.5, design: .monospaced))
+                                        .foregroundStyle(session.themeSecondaryText)
+                                }
+                            }
+
+                            if let facts = item.nutrition {
+                                HStack(spacing: 8) {
+                                    productMetric("Calories", "\(facts.calories)")
+                                    productMetric("Protein", "\(facts.protein.formatted(.number.precision(.fractionLength(0...1))))g")
+                                    productMetric("Carbs", "\(facts.totalCarbs.formatted(.number.precision(.fractionLength(0...1))))g")
+                                    productMetric("Fat", "\(facts.totalFat.formatted(.number.precision(.fractionLength(0...1))))g")
+                                }
+                            }
+
+                            if let labels = item.productLabels, !labels.isEmpty {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 6) {
+                                        ForEach(labels.prefix(8), id: \.self) { label in
+                                            Text(label)
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundStyle(session.themeTextColor.opacity(0.72))
+                                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                                .background(Capsule().fill(Color.stockedGold.opacity(0.12)))
+                                        }
+                                    }
+                                    .stockedScrollTargetLayout()
+                                }
+                                .stockedHorizontalSnap()
+                            }
+                        }
+                        .padding(12)
+                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.34))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(.horizontal, 28).padding(.bottom, 16)
+                    }
+
                     // ── Photo row ────────────────────────────────────────
                     photoRow
                     Picker("Zone", selection: $zone) {
@@ -263,6 +317,21 @@ struct EditItemSheet: View {
         .sheet(isPresented: $showPhotoPicker) {
             ItemPhotoPicker(imageData: $imageData)
         }
+    }
+
+    private func productMetric(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 11.5, weight: .bold))
+                .foregroundStyle(session.themeTextColor)
+            Text(label)
+                .font(.system(size: 9.5))
+                .foregroundStyle(session.themeSecondaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(Color.stockedGold.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
     }
 
     @ViewBuilder private var quantityRow: some View {
@@ -1099,8 +1168,10 @@ struct IngredientBrowserSheet: View {
                                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                                 }.buttonStyle(.plain)
                             }
-                        }.padding(.horizontal, 24).padding(.bottom, 12)
+                        }
+                        .stockedScrollTargetLayout().padding(.horizontal, 24).padding(.bottom, 12)
                     }
+                    .stockedHorizontalSnap()
                 }
 
                 List {

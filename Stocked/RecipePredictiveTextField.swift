@@ -100,9 +100,11 @@ struct RecipePredictiveTextField: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                        .stockedScrollTargetLayout()
                         .padding(.horizontal, 2)
                         .padding(.vertical, 2)
                     }
+                    .stockedHorizontalSnap()
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -133,9 +135,11 @@ struct RecipePredictiveTextField: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .stockedScrollTargetLayout()
                     .padding(.horizontal, 2)
                     .padding(.vertical, 2)
                 }
+                .stockedHorizontalSnap()
                 .padding(.top, 8)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }

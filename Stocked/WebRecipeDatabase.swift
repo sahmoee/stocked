@@ -314,18 +314,17 @@ private struct RecipeSourceConfig: Codable {
 // Prevents the same recipe appearing in both the web grid and the vault simultaneously.
 actor RecipeDedupRegistry {
     static let shared = RecipeDedupRegistry()
-    private var seen: Set<Int> = []  // hash of normalised title
+    private var seen: Set<String> = []
 
-    private static func titleHash(_ title: String) -> Int {
-        title.lowercased().filter { $0.isLetter }.hashValue
+    private static func titleKey(_ title: String) -> String {
+        title.lowercased().filter { $0.isLetter || $0.isNumber }
     }
     /// Returns true if NOT a duplicate (i.e. safe to insert).
     func register(_ title: String) -> Bool {
-        let h = RecipeDedupRegistry.titleHash(title)
-        return seen.insert(h).inserted
+        seen.insert(Self.titleKey(title)).inserted
     }
     func contains(_ title: String) -> Bool {
-        seen.contains(RecipeDedupRegistry.titleHash(title))
+        seen.contains(Self.titleKey(title))
     }
     func reset() { seen.removeAll() }
 }
@@ -333,7 +332,8 @@ actor RecipeDedupRegistry {
 actor WebRecipeCatalogue {
     static let shared = WebRecipeCatalogue()
 
-    private let userDefaultsKey = "webRecipeCatalogue_v1"
+    private let legacyUserDefaultsKey = "webRecipeCatalogue_v1"
+    private let storageKey = DBKey.webRecipeCache.rawValue
     private let maxPerSource     = 50    // keep up to 50 recipes per website
     private let maxTotal         = 500
 
@@ -357,6 +357,7 @@ actor WebRecipeCatalogue {
 
     func save(_ recipe: WebRecipe) async {
         ensureLoaded()
+        guard Self.isFullRecipe(recipe) else { return }
         let domain = recipe.sourceDomain
         var existing = catalogue[domain] ?? []
         guard !existing.contains(where: { $0.sourceURL == recipe.sourceURL }) else { return }
@@ -393,6 +394,7 @@ actor WebRecipeCatalogue {
                 ))
             }
         }
+        trimToTotalLimit()
         persist()   // single persist for the whole batch
     }
 
@@ -407,6 +409,70 @@ actor WebRecipeCatalogue {
     }
 
     // MARK: Query
+    nonisolated static func isFullRecipe(_ recipe: WebRecipe) -> Bool {
+        !recipe.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        recipe.ingredients.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count >= 3 &&
+        recipe.steps.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count >= 1
+    }
+
+    nonisolated private static func normalizedTitle(_ title: String) -> String {
+        title.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// Unique complete-recipe counts per publisher. This is the source of truth for every
+    /// website count and picker: raw links, incomplete JSON-LD, and duplicate titles do not count.
+    func completeRecipeCounts() -> [String: Int] {
+        ensureLoaded()
+        var titlesByDomain: [String: Set<String>] = [:]
+        for (domain, recipes) in catalogue {
+            for recipe in recipes where Self.isFullRecipe(recipe) {
+                let title = Self.normalizedTitle(recipe.title)
+                guard !title.isEmpty else { continue }
+                titlesByDomain[domain, default: []].insert(title)
+            }
+        }
+        return titlesByDomain.mapValues(\.count)
+    }
+
+    /// Only return recipes belonging to a source with a full twenty-recipe library.
+    func qualifiedRecipes(minimum: Int) -> [WebRecipe] {
+        ensureLoaded()
+        let counts = completeRecipeCounts()
+        let qualifiedDomains = Set(counts.compactMap { $0.value >= minimum ? $0.key : nil })
+        return Array(catalogue.values.flatMap { $0 }
+            .filter { qualifiedDomains.contains($0.sourceDomain) && Self.isFullRecipe($0) }
+            .sorted { $0.cachedAt > $1.cachedAt }
+            .prefix(maxTotal))
+    }
+
+    /// Drop failed sources immediately (five or fewer complete recipes). Sources with 6–19
+    /// recipes stay hidden while they are actively being completed, but are removed if stale.
+    func pruneUnqualifiedSources(minimum: Int, hardRemoval: Int, staleAfter: TimeInterval = 14 * 86_400) {
+        ensureLoaded()
+        let counts = completeRecipeCounts()
+        let staleCutoff = Date().addingTimeInterval(-staleAfter)
+        let domainsToRemove = catalogue.compactMap { domain, recipes -> String? in
+            let count = counts[domain, default: 0]
+            let newest = recipes.map(\.cachedAt).max() ?? .distantPast
+            return count <= hardRemoval || (count < minimum && newest < staleCutoff) ? domain : nil
+        }
+        guard !domainsToRemove.isEmpty else { return }
+        for domain in domainsToRemove { catalogue.removeValue(forKey: domain) }
+        persist()
+    }
+
+    private func trimToTotalLimit() {
+        let flattened = catalogue.values.flatMap { $0 }
+        guard flattened.count > maxTotal else { return }
+        let keepKeys = Set(flattened.sorted { $0.cachedAt > $1.cachedAt }
+            .prefix(maxTotal)
+            .map { "\($0.sourceDomain)|\($0.sourceURL)" })
+        catalogue = catalogue.reduce(into: [:]) { result, entry in
+            let kept = entry.value.filter { keepKeys.contains("\($0.sourceDomain)|\($0.sourceURL)") }
+            if !kept.isEmpty { result[entry.key] = kept }
+        }
+    }
+
     func all() -> [WebRecipe] {
         ensureLoaded()
         return Array(catalogue.values.flatMap { $0 }
@@ -441,20 +507,33 @@ actor WebRecipeCatalogue {
         return catalogue.values.map(\.count).reduce(0, +)
     }
 
+    func clear() {
+        catalogue.removeAll()
+        pendingBusEvents.removeAll()
+        flushTask?.cancel()
+        flushTask = nil
+        LocalDatabase.shared.delete(key: storageKey)
+        UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
+    }
+
     // MARK: Persistence
     private func persist() {
-        Task(priority: .background) { [catalogue] in
-            if let data = try? JSONEncoder().encode(catalogue) {
-                UserDefaults.standard.set(data, forKey: self.userDefaultsKey)
-            }
-        }
+        let snapshot = catalogue
+        LocalDatabase.shared.save(snapshot, key: storageKey)
+        UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+        if let decoded = LocalDatabase.shared.load([String: [WebRecipe]].self, key: storageKey) {
+            catalogue = decoded
+            return
+        }
+        guard let data = UserDefaults.standard.data(forKey: legacyUserDefaultsKey),
               let decoded = try? JSONDecoder().decode([String: [WebRecipe]].self, from: data)
         else { return }
         catalogue = decoded
+        LocalDatabase.shared.save(decoded, key: storageKey)
+        UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
     }
 }
 
@@ -747,35 +826,84 @@ actor WebRecipeFetcher {
     // Since we can't hit the sites' own search APIs without keys, we use a curated
     // set of known deep-link patterns + Google's recipe search endpoint pattern.
 
-    /// Fetch recipes from all enabled sources, backgrounded, up to `limitPerSource` per domain.
-    func refreshAll(query: String = "", limitPerSource: Int = 5) async {
-        // #6: rank sources best-first and skip ones that keep failing, so users get
-        // working results sooner and we stop hammering dead sites.
-        let domains = RecipeSourceRegistry.liveSearchable.map { $0.domain }
+    /// Refresh a bounded set of sources toward the twenty-complete-recipe threshold.
+    /// Automatic refreshes no longer fan out to every registered website. We first finish the
+    /// closest underfilled sources, then maintain a few qualified sources and rotate through a
+    /// small discovery set so network work remains predictable.
+    func refreshAll(query: String = "", limitPerSource: Int = 20) async {
+        let searchable = RecipeSourceRegistry.liveSearchable
+        let counts = await catalogue.completeRecipeCounts()
+
+        let building = searchable
+            .filter {
+                let count = counts[$0.domain, default: 0]
+                return count > RecipeSourceHub.hardRemovalThreshold &&
+                    count < RecipeSourceHub.minimumVisibleRecipeCount
+            }
+            .sorted { counts[$0.domain, default: 0] > counts[$1.domain, default: 0] }
+
+        let qualified = searchable
+            .filter { counts[$0.domain, default: 0] >= RecipeSourceHub.minimumVisibleRecipeCount }
+            .sorted { counts[$0.domain, default: 0] < counts[$1.domain, default: 0] }
+
+        let discovery = RecipeSourceRegistry.discoverySources(
+            seed: query.isEmpty ? "stocked-background" : query,
+            perGroup: 1
+        )
+
+        var selected: [RecipeSource] = []
+        var seenDomains = Set<String>()
+        func appendUnique(_ source: RecipeSource) {
+            if seenDomains.insert(source.domain).inserted { selected.append(source) }
+        }
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            building.prefix(3).forEach(appendUnique)
+            qualified.prefix(4).forEach(appendUnique)
+            discovery.forEach(appendUnique)
+        } else {
+            // An explicit search refresh is intentionally smaller; cached filtering is instant,
+            // and the network pass only supplements a handful of likely sources.
+            qualified.prefix(4).forEach(appendUnique)
+            building.prefix(1).forEach(appendUnique)
+            discovery.prefix(1).forEach(appendUnique)
+        }
+        if selected.isEmpty { searchable.prefix(3).forEach(appendUnique) }
+
+        let domains = selected.map(\.domain)
         let ranked = await SourceHealth.shared.ranked(domains)
-        let healthy = await withTaskGroup(of: (String, Bool).self) { group -> [String] in
-            for d in ranked { group.addTask { (d, await SourceHealth.shared.isUnhealthy(d)) } }
-            var keep: [String] = []
-            for await (d, bad) in group where !bad { keep.append(d) }
-            return keep
+        let unhealthy = await withTaskGroup(of: (String, Bool).self) { group -> Set<String> in
+            for domain in ranked {
+                group.addTask { (domain, await SourceHealth.shared.isUnhealthy(domain)) }
+            }
+            var bad = Set<String>()
+            for await (domain, isBad) in group where isBad { bad.insert(domain) }
+            return bad
         }
         let order = Dictionary(uniqueKeysWithValues: ranked.enumerated().map { ($1, $0) })
-        let sources = RecipeSourceRegistry.liveSearchable
-            .filter { healthy.contains($0.domain) }
+        let sources = selected
+            .filter { !unhealthy.contains($0.domain) }
             .sorted { (order[$0.domain] ?? 99) < (order[$1.domain] ?? 99) }
 
+        let targetCount = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? max(RecipeSourceHub.minimumVisibleRecipeCount, limitPerSource)
+            : min(5, limitPerSource)
         var index = 0
         while index < sources.count {
-            let batch = Array(sources[index..<min(index + 4, sources.count)])
+            let batch = Array(sources[index..<min(index + 3, sources.count)])
             await withTaskGroup(of: Void.self) { group in
                 for source in batch {
                     group.addTask {
-                        await self.fetchFromSource(source, query: query, limit: limitPerSource)
+                        await self.fetchFromSource(source, query: query, limit: targetCount)
                     }
                 }
             }
-            index += 4
+            index += 3
         }
+
+        await catalogue.pruneUnqualifiedSources(
+            minimum: RecipeSourceHub.minimumVisibleRecipeCount,
+            hardRemoval: RecipeSourceHub.hardRemovalThreshold
+        )
     }
 
     /// Fetch from a single source domain using its public search URL pattern.
@@ -783,27 +911,30 @@ actor WebRecipeFetcher {
         _ = await fetchRecipes(from: source, query: query, limit: limit)
     }
 
-    /// Pull a balanced, bounded batch from the publisher funnel. Fresh catalogue hits are
-    /// returned without network access; only a rotating twelve-site subset is refreshed.
+    /// Returns cached publisher recipes only from sources that already contain at least twenty
+    /// complete recipes. The previous implementation launched one-request-per-site fan-outs that
+    /// created slow, permanently under-filled source rows. Direct URL import and explicit source
+    /// refresh remain available, but normal discovery never scrapes a dozen sites at once.
     func fetchExpandedPublisherRecipes(query: String, limitPerSource: Int = 1) async -> [WebRecipe] {
-        let perSource = max(1, min(limitPerSource, 3))
-        let sources = RecipeSourceRegistry.discoverySources(seed: query)
-        var combined: [WebRecipe] = []
-        var index = 0
-        while index < sources.count {
-            let batch = Array(sources[index..<min(index + 4, sources.count)])
-            await withTaskGroup(of: [WebRecipe].self) { group in
-                for source in batch {
-                    group.addTask {
-                        await self.fetchRecipes(from: source, query: query, limit: perSource)
-                    }
-                }
-                for await recipes in group { combined.append(contentsOf: recipes) }
+        let perSource = max(1, min(limitPerSource, 20))
+        let normalized = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let allCached = await catalogue.qualifiedRecipes(
+            minimum: RecipeSourceHub.minimumVisibleRecipeCount
+        )
+        let grouped = Dictionary(grouping: allCached, by: \.sourceDomain)
+
+        var results: [WebRecipe] = []
+        for recipes in grouped.values {
+            let matches = recipes.filter { recipe in
+                guard !normalized.isEmpty else { return true }
+                let haystack = ([recipe.title, recipe.category, recipe.cuisine] + recipe.tags + recipe.ingredients)
+                    .joined(separator: " ").lowercased()
+                return haystack.contains(normalized)
             }
-            index += 4
+            results.append(contentsOf: matches.prefix(perSource))
         }
         var seen = Set<String>()
-        return combined.filter { seen.insert($0.sourceURL).inserted }
+        return results.filter { seen.insert($0.sourceURL).inserted }
     }
 
     private func fetchRecipes(from source: RecipeSource, query: String, limit: Int) async -> [WebRecipe] {
@@ -1369,7 +1500,7 @@ class WebRecipeManager {
     // MARK: Load from cache immediately, refresh in background
     func loadIfNeeded() {
         Task {
-            let cached = await catalogue.all()
+            let cached = await catalogue.qualifiedRecipes(minimum: RecipeSourceHub.minimumVisibleRecipeCount)
             if !cached.isEmpty { self.recipes = cached }
         }
         let needsRefresh = lastRefreshed == nil ||
@@ -1378,15 +1509,24 @@ class WebRecipeManager {
     }
 
     func search(_ query: String) async -> [WebRecipe] {
-        await catalogue.search(query)
+        let qualified = await catalogue.qualifiedRecipes(minimum: RecipeSourceHub.minimumVisibleRecipeCount)
+        let normalized = query.lowercased()
+        return qualified.filter {
+            $0.title.lowercased().contains(normalized) ||
+            $0.cuisine.lowercased().contains(normalized) ||
+            $0.category.lowercased().contains(normalized) ||
+            $0.tags.contains { $0.lowercased().contains(normalized) } ||
+            $0.ingredients.contains { $0.lowercased().contains(normalized) }
+        }
     }
 
     func recipesFor(domain: String) async -> [WebRecipe] {
-        await catalogue.recipes(for: domain)
+        await catalogue.qualifiedRecipes(minimum: RecipeSourceHub.minimumVisibleRecipeCount)
+            .filter { $0.sourceDomain == domain }
     }
 
     func recipesFor(category: RecipeSource.SourceCategory) async -> [WebRecipe] {
-        let all = await catalogue.all()
+        let all = await catalogue.qualifiedRecipes(minimum: RecipeSourceHub.minimumVisibleRecipeCount)
         return all.filter { r in
             RecipeSourceRegistry.source(for: r.sourceDomain)?.category == category
         }
@@ -1401,13 +1541,12 @@ class WebRecipeManager {
         guard let recipe = await fetcher.scrape(urlString: urlString) else {
             throw StockedError.noResults(urlString)
         }
-        await MainActor.run {
-            self.recipes.insert(recipe, at: 0)
-        }
+        let qualified = await catalogue.qualifiedRecipes(minimum: RecipeSourceHub.minimumVisibleRecipeCount)
+        await MainActor.run { self.recipes = qualified }
         return recipe
     }
 
-    /// Force-refresh from all 20 websites
+    /// Refresh a bounded set of sources and only expose those that reach twenty complete recipes.
     func forceRefreshAll(query: String = "") {
         backgroundRefresh(query: query, force: true)
     }
@@ -1416,8 +1555,16 @@ class WebRecipeManager {
     func refreshSource(_ source: RecipeSource, query: String = "") {
         Task { [weak self] in
             guard let self else { return }
-            await self.fetcher.fetchFromSource(source, query: query, limit: 10)
-            let updated = await self.catalogue.all()
+            await self.fetcher.fetchFromSource(
+                source,
+                query: query,
+                limit: RecipeSourceHub.minimumVisibleRecipeCount
+            )
+            await self.catalogue.pruneUnqualifiedSources(
+                minimum: RecipeSourceHub.minimumVisibleRecipeCount,
+                hardRemoval: RecipeSourceHub.hardRemovalThreshold
+            )
+            let updated = await self.catalogue.qualifiedRecipes(minimum: RecipeSourceHub.minimumVisibleRecipeCount)
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 self.recipes = updated
@@ -1431,9 +1578,12 @@ class WebRecipeManager {
             guard let self else { return }
             await MainActor.run { self.isLoading = true; self.error = nil }
 
-            await self.fetcher.refreshAll(query: query, limitPerSource: force ? 10 : 5)
+            await self.fetcher.refreshAll(
+                query: query,
+                limitPerSource: RecipeSourceHub.minimumVisibleRecipeCount
+            )
 
-            let updated = await self.catalogue.all()
+            let updated = await self.catalogue.qualifiedRecipes(minimum: RecipeSourceHub.minimumVisibleRecipeCount)
             let ts = Date()
             await MainActor.run { [weak self] in
                 guard let self else { return }

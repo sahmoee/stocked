@@ -1,5 +1,5 @@
 // WebRecipesView.swift
-// Replaces OnlineRecipesView — shows recipes from all 20 supported websites.
+// Replaces OnlineRecipesView — shows complete recipes from qualified publisher libraries.
 // Supports: source filtering, category tabs, full step-by-step detail,
 // prep/cook time, servings, ratings, tags, and ingredient→grocery integration.
 
@@ -32,6 +32,22 @@ struct WebRecipesView: View {
     @State private var maxCookMinutes: Int? = nil   // #15 cook-time filter (nil = any)
 
     let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
+    private var qualifiedSources: [RecipeSource] {
+        var seen = Set<String>()
+        return manager.recipes.compactMap { recipe in
+            guard seen.insert(recipe.sourceDomain).inserted else { return nil }
+            return RecipeSourceRegistry.source(for: recipe.sourceDomain) ?? RecipeSource(
+                id: UUID(),
+                domain: recipe.sourceDomain,
+                displayName: recipe.sourceName.isEmpty ? recipe.sourceDomain : recipe.sourceName,
+                category: .homeCook,
+                specialty: "20+ complete cached recipes",
+                iconEmoji: "🌐"
+            )
+        }
+        .sorted { $0.displayName < $1.displayName }
+    }
 
     // MARK: Filtered recipes
     var displayRecipes: [WebRecipe] {
@@ -74,7 +90,7 @@ struct WebRecipesView: View {
                     Text("Recipe Websites")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(session.themeTextColor)
-                    Text("\(manager.recipes.count) recipes · \(RecipeSourceRegistry.everything.count) sources")
+                    Text("\(manager.recipes.count) recipes · \(qualifiedSources.count) qualified sources")
                         .font(.system(size: 10))
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
@@ -104,9 +120,6 @@ struct WebRecipesView: View {
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                 TextField("Search recipes, cuisines, ingredients…", text: $searchText)
                     .font(.system(size: 14)).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                    .onChange(of: searchText) { _, q in
-                        if !q.isEmpty { manager.forceRefreshAll(query: q) }
-                    }
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -154,8 +167,10 @@ struct WebRecipesView: View {
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                     }.buttonStyle(.plain)
                 }
+                .stockedScrollTargetLayout()
                 .padding(.horizontal, 24)
             }
+            .stockedHorizontalSnap()
             .padding(.bottom, 8)
 
             // #15 cook-time quick filters
@@ -174,8 +189,10 @@ struct WebRecipesView: View {
                         maxCookMinutes = maxCookMinutes == 60 ? nil : 60
                     }
                 }
+                .stockedScrollTargetLayout()
                 .padding(.horizontal, 24)
             }
+            .stockedHorizontalSnap()
             .padding(.bottom, 12)
 
             // Content
@@ -205,8 +222,11 @@ struct WebRecipesView: View {
             case let .detail(recipe):
                 WebRecipeDetailView(recipe: recipe).environment(session)
             case .sourcePicker:
-                SourcePickerSheet(selected: $selectedSource,
-                                  onManageSources: { activeSheet = .manageSources })
+                SourcePickerSheet(
+                    selected: $selectedSource,
+                    sources: qualifiedSources,
+                    onManageSources: { activeSheet = .manageSources }
+                )
                     .environment(session)
             case .manageSources:
                 RecipeSourcesManagerView().environment(session)
@@ -228,10 +248,10 @@ struct WebRecipesView: View {
         VStack(spacing: 16) {
             Image(systemName: "globe").font(.system(size: 36))
                 .foregroundStyle(session.themeTextColor.opacity(0.2))
-            Text("No recipes yet")
+            Text("No qualified recipe sources yet")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
-            Text("Tap Refresh to pull recipes from\n\(RecipeSourceRegistry.everything.count) top cooking websites")
+            Text("Tap Refresh to build complete source libraries. A website appears only after 20 unique full recipes are cached.")
                 .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
                 .multilineTextAlignment(.center)
             Button { manager.forceRefreshAll() } label: {
@@ -471,7 +491,9 @@ struct WebRecipeDetailView: View {
                                         StatPill(icon: "globe", label: recipe.cuisine)
                                     }
                                 }
+                                .stockedScrollTargetLayout()
                             }
+                            .stockedHorizontalSnap()
                         }
                         .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 12)
 
@@ -811,6 +833,7 @@ struct SourcePickerSheet: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
     @Binding var selected: RecipeSource?
+    let sources: [RecipeSource]
     var onManageSources: () -> Void = {}
 
     var body: some View {
@@ -831,11 +854,17 @@ struct SourcePickerSheet: View {
                             .foregroundStyle(Color.stockedGold)
                     }
 
+                    if sources.isEmpty {
+                        Text("No source has reached 20 complete recipes yet.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(session.themeSecondaryText)
+                    }
+
                     ForEach(RecipeSource.SourceCategory.allCases, id: \.self) { cat in
-                        let sources = RecipeSourceRegistry.everything.filter { $0.category == cat }
-                        if !sources.isEmpty {
+                        let categorySources = sources.filter { $0.category == cat }
+                        if !categorySources.isEmpty {
                             Section(cat.rawValue) {
-                                ForEach(sources) { src in
+                                ForEach(categorySources) { src in
                                     Button {
                                         selected = src; dismiss()
                                     } label: {
@@ -880,16 +909,12 @@ struct URLImportSheet: View {
     @State private var errorMsg: String?
     let onImport: (String) -> Void
 
-    // Computed (not stored) so it reads the MainActor-isolated merged source list, which
-    // now includes user-added sources.
-    private var supportedDomains: [String] { RecipeSourceRegistry.everything.map { $0.domain } }
-
     var body: some View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Paste a recipe URL from any of the \(supportedDomains.count) supported websites:")
+                    Text("Paste a direct recipe URL from a site that publishes standard recipe data:")
                         .font(.system(size: 14))
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
 
@@ -923,7 +948,7 @@ struct URLImportSheet: View {
                     }
                     .disabled(url.isEmpty || isLoading)
 
-                    Text("Supported: " + RecipeSourceRegistry.everything.map { $0.displayName }.joined(separator: ", "))
+                    Text("Imported recipes are saved locally. A website is added to the source browser only after it has 20 complete recipes.")
                         .font(.system(size: 10))
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
 

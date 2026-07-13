@@ -170,12 +170,12 @@ struct RecipeSourcesManagerView: View {
                     } header: {
                         Text("Add a Website")
                     } footer: {
-                        Text("Paste any recipe site's domain. Stocked can pull recipes from most sites that publish standard recipe data.")
+                        Text("Paste any recipe site's domain. It remains hidden from recipe browsing until Stocked has cached 20 unique complete recipes from it.")
                     }
 
                     // Suggested
                     if !suggestions.isEmpty {
-                        Section("Suggested Sources") {
+                        Section("Discovery Candidates") {
                             ForEach(suggestions) { s in
                                 Button {
                                     store.add(domain: s.domain, displayName: s.displayName,
@@ -200,7 +200,7 @@ struct RecipeSourcesManagerView: View {
 
                     // Your custom sources
                     if !store.sources.isEmpty {
-                        Section("Your Sources") {
+                        Section("Your Configured Candidates") {
                             ForEach(store.sources) { src in
                                 HStack {
                                     Text(src.iconEmoji)
@@ -221,7 +221,7 @@ struct RecipeSourcesManagerView: View {
 
                     // Built-in count
                     Section {
-                        Text("\(RecipeSourceRegistry.bundled.count) built-in sources plus \(store.sources.count) of your own.")
+                        Text("Configured sources are discovery candidates only. Recipe browsing shows a source after it reaches 20 complete recipes; failed sources with five or fewer are removed from cache.")
                             .font(.system(size: 12))
                             .foregroundStyle(session.themeSecondaryText)
                     }

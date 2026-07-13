@@ -82,6 +82,10 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
     var addedBy:          String?          // household member who added it
     var storePurchasedAt: String?
     var nutrition:        NutritionFacts?
+    var barcode:          String?
+    var productLabels:    [String]?
+    var productIngredients: String?
+    var nutritionSource:  String?
     var isLeftover:       Bool = false
     var leftoverMeal:     String?
     var hasStash:         Bool = false

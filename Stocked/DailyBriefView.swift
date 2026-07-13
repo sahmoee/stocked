@@ -643,8 +643,10 @@ struct ExpiringItemsView: View {
                                         .a11yButton("Your recipe: \(r.title)", hint: "Uses an item that's expiring soon")
                                     }
                                 }
+                                .stockedScrollTargetLayout()
                                 .padding(.horizontal, 24)
                             }
+                            .stockedHorizontalSnap()
                             .padding(.bottom, 14)
                         }
 
@@ -691,8 +693,10 @@ struct ExpiringItemsView: View {
                                         .a11yButton("Recipe: \(r.title)", hint: "Uses an item that's expiring soon")
                                     }
                                 }
+                                .stockedScrollTargetLayout()
                                 .padding(.horizontal, 24)
                             }
+                            .stockedHorizontalSnap()
                             .padding(.bottom, 18)
                         }
                     } else {

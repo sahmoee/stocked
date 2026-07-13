@@ -38,8 +38,10 @@ struct DatabasesView: View {
                                 }.buttonStyle(.plain)
                             }
                         }
+                        .stockedScrollTargetLayout()
                         .padding(.horizontal, 20)
                     }
+                    .stockedHorizontalSnap()
                     .padding(.vertical, 12)
 
                     Divider().opacity(0.3)
@@ -685,8 +687,10 @@ struct IngredientsDatabaseTab: View {
                         }.buttonStyle(.plain)
                     }
                 }
+                .stockedScrollTargetLayout()
                 .padding(.horizontal, 20)
             }
+            .stockedHorizontalSnap()
             .padding(.vertical, 10)
 
             if filtered.isEmpty {
@@ -815,8 +819,10 @@ struct TipsDatabaseTab: View {
                         categoryPill(cat, label: cat.rawValue)
                     }
                 }
+                .stockedScrollTargetLayout()
                 .padding(.horizontal, 20)
             }
+            .stockedHorizontalSnap()
             .padding(.vertical, 10)
 
             ScrollView(showsIndicators: false) {

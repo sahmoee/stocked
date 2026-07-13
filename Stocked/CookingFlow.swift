@@ -388,8 +388,10 @@ struct RecipeOverviewView: View {
                             metaBadge(icon: "timer", text: "~\(mins) min timers")
                         }
                       }
+                      .stockedScrollTargetLayout()
                       .padding(.horizontal, 20)
                     }
+                    .stockedHorizontalSnap()
                 }
                 .padding(.bottom, 16)
 

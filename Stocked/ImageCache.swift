@@ -47,6 +47,8 @@ final class ImageCache {
     static let shared = ImageCache()
     private init() {
         createCacheDir()
+        removeLegacyUnstableCache()
+        pruneDiskIfNeeded()
         memCache.countLimit = 150
         memCache.totalCostLimit = 50 * 1024 * 1024  // 50MB mem cap
         localDataCache.countLimit = 100
@@ -57,8 +59,15 @@ final class ImageCache {
     private let localDataCache = NSCache<NSString, UIImage>()
     private var prefetchTasks: [String: Task<Void, Never>] = [:]
 
+    private let maxDiskBytes = 250 * 1_048_576
     private let cacheDir: URL = {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("Stocked/ImageCache", isDirectory: true)
+    }()
+    private let legacyCacheDir: URL = {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         return docs.appendingPathComponent("StockedDB/ImageCache", isDirectory: true)
     }()
 
@@ -66,7 +75,21 @@ final class ImageCache {
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
 
-    private func key(for url: String) -> String { "\(abs(url.hashValue)).jpg" }
+    /// Older builds used String.hashValue for filenames. That value changes each launch, so
+    /// those files cannot be addressed reliably and only consume storage.
+    private func removeLegacyUnstableCache() {
+        guard legacyCacheDir != cacheDir else { return }
+        try? FileManager.default.removeItem(at: legacyCacheDir)
+    }
+
+    private func key(for url: String) -> String {
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in url.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1_099_511_628_211
+        }
+        return String(hash, radix: 16) + ".jpg"
+    }
     private func localDataKey(for signature: ImageDataSignature, maxDimension: CGFloat) -> NSString {
         "\(signature.byteCount)-\(signature.fingerprint)-\(Int(maxDimension.rounded()))" as NSString
     }
@@ -111,6 +134,7 @@ final class ImageCache {
         let path = cacheDir.appendingPathComponent(k)
         let img = await Task.detached(priority: .userInitiated) { () -> UIImage? in
             guard let data = try? Data(contentsOf: path) else { return nil }
+            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: path.path)
             return UIImage(data: data)
         }.value
         if let img {
@@ -126,8 +150,13 @@ final class ImageCache {
         let cost = Int(image.size.width * image.size.height * 4)
         memCache.setObject(image, forKey: k, cost: cost)
         let path = cacheDir.appendingPathComponent(String(k))
+        let directory = cacheDir
+        let maxBytes = maxDiskBytes
         Task.detached(priority: .background) {
             image.jpegData(compressionQuality: 0.80).map { try? $0.write(to: path, options: .atomic) }
+            if await ImageDiskPruneGate.shared.shouldPrune() {
+                Self.prune(directory: directory, maxBytes: maxBytes)
+            }
         }
     }
 
@@ -176,7 +205,9 @@ final class ImageCache {
     /// Call from scroll view's onAppear with the upcoming URLs.
     func prefetch(urls: [String]) {
         for url in urls.prefix(10) {
-            guard image(for: url) == nil, prefetchTasks[url] == nil else { continue }
+            // Memory-only probe here. fetchImage performs the disk lookup asynchronously;
+            // the old synchronous disk probe could stall a fast carousel scroll.
+            guard memoryImage(for: url) == nil, prefetchTasks[url] == nil else { continue }
             let urlCopy = url
             prefetchTasks[url] = Task(priority: .background) {
                 _ = await ImageCache.shared.fetchImage(url: urlCopy)
@@ -190,6 +221,29 @@ final class ImageCache {
         prefetchTasks.removeValue(forKey: url)
     }
 
+    private func pruneDiskIfNeeded() {
+        Self.prune(directory: cacheDir, maxBytes: maxDiskBytes)
+    }
+
+    private nonisolated static func prune(directory: URL, maxBytes: Int) {
+        let keys: Set<URLResourceKey> = [.fileSizeKey, .contentModificationDateKey]
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]
+        )) ?? []
+        var records: [(URL, Int, Date)] = files.map { url in
+            let values = try? url.resourceValues(forKeys: keys)
+            return (url, values?.fileSize ?? 0, values?.contentModificationDate ?? .distantPast)
+        }
+        var total = records.reduce(0) { $0 + $1.1 }
+        guard total > maxBytes else { return }
+        let target = Int(Double(maxBytes) * 0.85)
+        records.sort { $0.2 < $1.2 }
+        for (url, size, _) in records where total > target {
+            try? FileManager.default.removeItem(at: url)
+            total -= size
+        }
+    }
+
     // MARK: - Stats & Clear
     var diskCacheSizeBytes: Int {
         ((try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: [.fileSizeKey])) ?? [])
@@ -200,10 +254,26 @@ final class ImageCache {
         return mb < 1 ? "\(diskCacheSizeBytes / 1024) KB" : String(format: "%.1f MB", mb)
     }
     func clearAll() {
+        prefetchTasks.values.forEach { $0.cancel() }
+        prefetchTasks.removeAll()
         memCache.removeAllObjects()
         localDataCache.removeAllObjects()
         ((try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)) ?? [])
             .forEach { try? FileManager.default.removeItem(at: $0) }
+    }
+}
+
+private actor ImageDiskPruneGate {
+    static let shared = ImageDiskPruneGate()
+    private var writes = 0
+
+    func shouldPrune() -> Bool {
+        writes += 1
+        if writes >= 25 {
+            writes = 0
+            return true
+        }
+        return false
     }
 }
 

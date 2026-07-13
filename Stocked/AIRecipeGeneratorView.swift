@@ -317,7 +317,9 @@ struct AIRecipeGeneratorView: View {
                     }.buttonStyle(.plain)
                 }
             }
+            .stockedScrollTargetLayout()
         }
+        .stockedHorizontalSnap()
     }
 
     private func metaPill(icon: String, text: String) -> some View {

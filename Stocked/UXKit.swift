@@ -272,3 +272,18 @@ extension View {
         modifier(StockedCardModifier(isDark: isDark, padding: padding, radius: radius))
     }
 }
+
+// MARK: - Horizontal scroll settling
+// Every horizontal rail opts into view-aligned targets and size-aware bounce. This prevents
+// carousels from stopping between cards or remaining overscrolled with empty trailing space.
+extension View {
+    func stockedScrollTargetLayout() -> some View {
+        scrollTargetLayout()
+    }
+
+    func stockedHorizontalSnap() -> some View {
+        scrollTargetBehavior(.viewAligned(limitBehavior: .always))
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            .defaultScrollAnchor(.leading)
+    }
+}

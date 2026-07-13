@@ -1,0 +1,8 @@
+1. Open Recipes > Sources. Confirm every visible source has at least 20 unique complete recipes.
+2. Open Recipe Websites. Confirm search filters locally without firing a refresh on each keystroke.
+3. Tap Refresh and confirm only qualified 20+ recipe source libraries appear in the source picker.
+4. Scroll every horizontal chip/card rail to the end. Confirm it snaps to content and does not stop on blank space.
+5. Scan a packaged-food barcode. Confirm brand, source, labels, serving nutrition, allergens, and Nutri-Score appear when available.
+6. Add the scanned product, open its inventory details, and confirm brand/nutrition/labels persist.
+7. Open Data & Storage. Confirm cache size breakdown is visible and Delete Cached Files clears downloaded data without deleting pantry, grocery, or saved recipes.
+8. Relaunch and revisit recipe/image screens to confirm cached content is reused.

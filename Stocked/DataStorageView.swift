@@ -26,6 +26,8 @@ struct DataStorageView: View {
     @State private var backupURL: URL?
     @State private var message: String?
     @State private var working = false
+    @State private var cacheUsage = AppCacheManager.Usage.empty
+    @State private var showClearCacheAlert = false
 
     private var store: GuestDataStore { session.guestStore }
 
@@ -69,6 +71,48 @@ struct DataStorageView: View {
                     drawerHeaderText("Migration check  (app → new store)")
                 } footer: {
                     Text("Both numbers should match once the new store has copied your data. Your existing data is untouched either way.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                }
+
+                Section {
+                    HStack {
+                        Label("Cached files", systemImage: "internaldrive")
+                            .foregroundStyle(session.themeTextColor)
+                        Spacer()
+                        Text(cacheUsage.totalString)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(cacheUsage.isLarge ? Color.stockedGold : session.themeSecondaryText)
+                    }
+                    .listRowBackground(Color.clear)
+
+                    cacheRow("Recipe and data responses", value: cacheUsage.dataString)
+                    cacheRow("Nutrition API responses", value: cacheUsage.apiString)
+                    cacheRow("Recipe and product images", value: cacheUsage.imageString)
+                    cacheRow("System network cache", value: cacheUsage.networkString)
+
+                    if cacheUsage.isLarge {
+                        Label("Cache is getting large. Deleting it frees space; Stocked will download needed content again.", systemImage: "exclamationmark.triangle")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.stockedGold)
+                            .listRowBackground(Color.clear)
+                    }
+
+                    Button(role: .destructive) {
+                        showClearCacheAlert = true
+                    } label: {
+                        HStack {
+                            Label(working ? "Deleting Cached Files…" : "Delete Cached Files", systemImage: "trash")
+                            Spacer()
+                            if working { ProgressView() }
+                        }
+                    }
+                    .disabled(working || cacheUsage.totalBytes == 0)
+                    .listRowBackground(Color.clear)
+                } header: {
+                    drawerHeaderText("Cache")
+                } footer: {
+                    Text("Downloaded recipes, nutrition responses, product metadata, and images are cached for faster loading and offline reuse. Your pantry, grocery list, saved recipes, and account data are never deleted here.")
                         .font(.system(size: 12))
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
@@ -126,7 +170,18 @@ struct DataStorageView: View {
                     Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
                 }
             }
-            .task { refreshCounts() }
+            .task {
+                refreshCounts()
+                await refreshCacheUsage()
+            }
+            .alert("Delete cached files?", isPresented: $showClearCacheAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete Cache", role: .destructive) {
+                    Task { await clearCache() }
+                }
+            } message: {
+                Text("This removes downloaded copies only. Stocked will rebuild the cache as you use the app.")
+            }
             .fileImporter(isPresented: $showImporter,
                           allowedContentTypes: [.json],
                           allowsMultipleSelection: false) { result in
@@ -134,6 +189,31 @@ struct DataStorageView: View {
             }
         }
         .environment(session)
+    }
+
+    private func cacheRow(_ label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundStyle(session.themeTextColor.opacity(0.72))
+            Spacer()
+            Text(value)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(session.themeSecondaryText)
+        }
+        .listRowBackground(Color.clear)
+    }
+
+    private func refreshCacheUsage() async {
+        cacheUsage = await AppCacheManager.usage()
+    }
+
+    private func clearCache() async {
+        working = true
+        await AppCacheManager.clearAll()
+        cacheUsage = await AppCacheManager.usage()
+        working = false
+        message = "Cached files deleted."
     }
 
     @ViewBuilder
@@ -170,5 +250,55 @@ struct DataStorageView: View {
                 message = "Restore failed: \(error.localizedDescription)"
             }
         }
+    }
+}
+
+
+@MainActor
+private enum AppCacheManager {
+    struct Usage: Sendable {
+        let dataBytes: Int
+        let apiBytes: Int
+        let imageBytes: Int
+        let networkBytes: Int
+
+        static let empty = Usage(dataBytes: 0, apiBytes: 0, imageBytes: 0, networkBytes: 0)
+        var totalBytes: Int { dataBytes + apiBytes + imageBytes + networkBytes }
+        var isLarge: Bool { totalBytes >= 300 * 1_048_576 }
+        var dataString: String { Self.format(dataBytes) }
+        var apiString: String { Self.format(apiBytes) }
+        var imageString: String { Self.format(imageBytes) }
+        var networkString: String { Self.format(networkBytes) }
+        var totalString: String { Self.format(totalBytes) }
+
+        private static func format(_ bytes: Int) -> String {
+            ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+        }
+    }
+
+    static func usage() async -> Usage {
+        let apiBytes = await APIResponseCache.shared.diskSizeBytes()
+        let dataBytes = LocalDatabase.shared.dataCacheSizeBytes
+            + BarcodeCache.shared.sizeBytes
+        return Usage(
+            dataBytes: dataBytes,
+            apiBytes: apiBytes,
+            imageBytes: ImageCache.shared.diskCacheSizeBytes,
+            networkBytes: URLCache.shared.currentDiskUsage
+        )
+    }
+
+    static func clearAll() async {
+        await WebRecipeCatalogue.shared.clear()
+        OfflineRecipeCache.shared.clear()
+        SpoonacularCache.shared.clear()
+        BarcodeCache.shared.clear()
+        LocalDatabase.shared.clearDataCache()
+        ImageCache.shared.clearAll()
+        await APIResponseCache.shared.clear()
+        URLCache.shared.removeAllCachedResponses()
+        UserDefaults.standard.removeObject(forKey: "onlineRecipesCache_v3")
+        UserDefaults.standard.removeObject(forKey: "onlineRecipesCacheTimestamp_v3")
+        UserDefaults.standard.removeObject(forKey: "webRecipeCatalogue_v1")
     }
 }

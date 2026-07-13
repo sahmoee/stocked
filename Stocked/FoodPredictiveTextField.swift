@@ -90,8 +90,10 @@ struct FoodPredictiveTextField: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .stockedScrollTargetLayout()
                     .padding(.horizontal, 2).padding(.vertical, 2)
                 }
+                .stockedHorizontalSnap()
                 .padding(.top, 8)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }

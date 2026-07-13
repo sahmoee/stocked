@@ -278,8 +278,10 @@ struct RecipeVaultView: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                        .stockedScrollTargetLayout()
                         .padding(.horizontal, 24)
                     }
+                    .stockedHorizontalSnap()
                     .padding(.bottom, 14)
                 }
 
@@ -662,8 +664,10 @@ struct RecipeVaultView: View {
                 quickPickChip("Feeling Lazy", icon: "moon.zzz.fill")
                 quickPickChip("Comfort Food", icon: "heart.fill")
             }
+            .stockedScrollTargetLayout()
             .padding(.horizontal, 24)
         }
+        .stockedHorizontalSnap()
         .padding(.bottom, 12)
     }
 
@@ -783,8 +787,10 @@ struct RecipeVaultView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .stockedScrollTargetLayout()
                 .padding(.horizontal, 24)
             }
+            .stockedHorizontalSnap()
         }
         .padding(.bottom, 14)
     }
@@ -839,8 +845,10 @@ struct RecipeVaultView: View {
                                 .frame(width: 134, height: 128)
                         }
                     }
+                    .stockedScrollTargetLayout()
                     .padding(.horizontal, 24)
                 }
+                .stockedHorizontalSnap()
                 .disabled(true)
             }
         }

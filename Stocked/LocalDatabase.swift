@@ -239,14 +239,12 @@ extension LocalDatabase {
     // Cache any Codable value with a string key (e.g. URL string, query string)
     func cacheData<T: Encodable>(_ value: T, forKey cacheKey: String) {
         // Use a sanitised filename derived from the key
-        let safeKey = cacheKey
-            .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "cache_\(abs(cacheKey.hashValue))"
+        let safeKey = cacheKey.stableCacheKey
         save(value, key: "cache_\(safeKey)")
     }
 
     func cachedData<T: Decodable>(_ type: T.Type, forKey cacheKey: String) -> T? {
-        let safeKey = cacheKey
-            .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "cache_\(abs(cacheKey.hashValue))"
+        let safeKey = cacheKey.stableCacheKey
         return load(type, key: "cache_\(safeKey)")
     }
 
@@ -266,22 +264,62 @@ extension LocalDatabase {
         load([GeneratedRecipe].self, key: "learnedRecipes") ?? []
     }
 
-    // Total data cache size (excluding images — those are in ImageCache)
-    var dataCacheSizeString: String {
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: DBFile.dir, includingPropertiesForKeys: [.fileSizeKey]) else { return "0 KB" }
-        let bytes = files.reduce(0) { acc, url in
-            (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map { acc + $0 } ?? acc
-        }
-        let mb = Double(bytes) / 1_048_576
-        return mb < 1 ? "\(bytes / 1024) KB" : String(format: "%.1f MB", mb)
+    private var cacheFileNames: Set<String> {
+        [
+            "learnedRecipes.json", "learnedRecipes.bak.json",
+            "onlineRecipesCache_v2.json", "onlineRecipesCache_v2.bak.json",
+            "onlineRecipesCache_v3.json", "onlineRecipesCache_v3.bak.json",
+            "web_recipe_cache_v1.json", "web_recipe_cache_v1.bak.json",
+            "offlineRecipeCache_v1.json", "offlineRecipeCache_v1.bak.json",
+            "spoonacular_result_cache_v1.json", "spoonacular_result_cache_v1.bak.json"
+        ]
     }
 
-    // Clear all data cache (NOT user data — only fetched/generated content)
+    private func isCacheFile(_ url: URL) -> Bool {
+        url.lastPathComponent.hasPrefix("cache_") || cacheFileNames.contains(url.lastPathComponent)
+    }
+
+    // Total fetched-data cache size (excluding pantry/user records and image/API caches).
+    var dataCacheSizeBytes: Int {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: DBFile.dir, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        return files.filter(isCacheFile).reduce(0) { total, url in
+            total + ((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+    }
+
+    var dataCacheSizeString: String {
+        ByteCountFormatter.string(fromByteCount: Int64(dataCacheSizeBytes), countStyle: .file)
+    }
+
+    // Clear fetched data only. Pantry, grocery, saved recipes, settings, and backups remain.
     func clearDataCache() {
+        // Cancel the current coalesced flush so cache entries queued moments before the
+        // clear action cannot immediately recreate the deleted files. Preserve any pending
+        // user-data writes and schedule a fresh flush for those values only.
+        writeWorkItem?.cancel()
+        writeWorkItem = nil
+        pendingWrites = pendingWrites.filter { key, _ in
+            let filename = "\(key).json"
+            return !filename.hasPrefix("cache_") && !cacheFileNames.contains(filename)
+        }
+        if !pendingWrites.isEmpty { scheduleFlush() }
+
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: DBFile.dir, includingPropertiesForKeys: nil) else { return }
-        files.filter { $0.lastPathComponent.hasPrefix("cache_") || $0.lastPathComponent == "learnedRecipes.json" }
-             .forEach { try? FileManager.default.removeItem(at: $0) }
+        files.filter(isCacheFile).forEach { try? FileManager.default.removeItem(at: $0) }
+    }
+
+}
+
+
+private extension String {
+    var stableCacheKey: String {
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1_099_511_628_211
+        }
+        return String(hash, radix: 16)
     }
 }

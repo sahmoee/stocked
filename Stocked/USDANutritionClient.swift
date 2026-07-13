@@ -1,153 +1,200 @@
 // USDANutritionClient.swift
-// ─────────────────────────────────────────────────────────────────────────────
-// Live nutrition lookup via USDA FoodData Central API.
-// Free, no key required for basic use (demo key: DEMO_KEY, 30 req/hour).
-//
-// Usage:
-//   let facts = await USDANutritionClient.shared.lookup("chicken breast")
-//
-// Integration:
-//   NutritionDatabase.facts(for:) checks static DB first, then falls back
-//   to this client for any ingredient not found locally. Results are cached
-//   in UserDefaults (key: "usdaCache_v1") so each ingredient is only fetched once.
-//
-// API Docs: https://fdc.nal.usda.gov/api-guide.html
-// ─────────────────────────────────────────────────────────────────────────────
+// USDA FoodData Central nutrition and branded-product fallback with persistent API caching.
 import Foundation
 import os
 
-@MainActor
-final class USDANutritionClient {
-
+actor USDANutritionClient {
     static let shared = USDANutritionClient()
-    private init() { loadCache() }
+    private init() { loadLegacyCache() }
 
-    // USDA FoodData Central — survey foods endpoint. Key comes from BuildConfig
-    // (Info.plist USDAAPIKey), falling back to DEMO_KEY for development.
-    private let base    = "https://api.nal.usda.gov/fdc/v1"
+    private let base = "https://api.nal.usda.gov/fdc/v1"
     private var apiKey: String { BuildConfig.usdaAPIKey }
-
-    private var cache: [String: NutritionFacts] = [:]
-    private let cacheKey = "usdaCache_v1"
-
+    private let cacheTTL: TimeInterval = 60 * 60 * 24 * 30
+    private var memory: [String: NutritionFacts] = [:]
+    private let legacyCacheKey = "usdaCache_v1"
     private let session: URLSession = {
-        let c = URLSessionConfiguration.default
-        c.timeoutIntervalForRequest = 8
-        return URLSession(configuration: c)
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 8
+        configuration.requestCachePolicy = .returnCacheDataElseLoad
+        configuration.urlCache = URLCache.shared
+        return URLSession(configuration: configuration)
     }()
 
-    // MARK: - Main lookup (static DB first, then USDA)
     func facts(for name: String) async -> NutritionFacts? {
-        let key = name.lowercased().trimmingCharacters(in: .whitespaces)
-
-        // 1. Static database (instant, offline)
+        let key = name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return nil }
         if let local = NutritionDatabase.facts(for: key) { return local }
+        if let cached = memory[key] { return cached }
 
-        // 2. In-memory / UserDefaults cache
-        if let cached = cache[key] { return cached }
-
-        // 3. USDA live lookup
-        return await fetchFromUSDA(query: key)
-    }
-
-    // MARK: - USDA search + first result nutrient parse
-    private func fetchFromUSDA(query: String) async -> NutritionFacts? {
-        let enc = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
-        guard let url = URL(string: "\(base)/foods/search?query=\(enc)&dataType=Survey%20%28FNDDS%29,SR%20Legacy&pageSize=1&api_key=\(apiKey)") else { return nil }
-
-        guard let (data, response) = try? await session.data(from: url) else { return nil }
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            // 429 = over rate limit (common with DEMO_KEY), 403 = bad/blocked key.
-            Log.net.error("USDA lookup failed (HTTP \(http.statusCode, privacy: .public)) for \(query, privacy: .public)")
-            return nil
+        let cacheKey = "usda:nutrition:\(key)"
+        if let cached = await APIResponseCache.shared.value(for: cacheKey, as: NutritionFacts.self) {
+            memory[key] = cached
+            return cached
         }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let foods = json["foods"] as? [[String: Any]],
-              let first = foods.first else { return nil }
-
-        guard let facts = parseFood(first) else { return nil }
-        let key = query.lowercased()
-        cache[key] = facts
-        persistCache()
+        guard let first = await searchFoods(
+            query: key,
+            dataTypes: "Branded,Foundation,Survey (FNDDS),SR Legacy",
+            pageSize: 5
+        ).first,
+              let facts = parseFood(first) else { return nil }
+        memory[key] = facts
+        await APIResponseCache.shared.store(facts, for: cacheKey, ttl: cacheTTL)
         return facts
     }
 
-    // MARK: - Nutrient extraction
-    private func parseFood(_ food: [String: Any]) -> NutritionFacts? {
-        guard let nutrients = food["foodNutrients"] as? [[String: Any]] else { return nil }
-
-        // USDA nutrient IDs we care about
-        // 1008=Energy(kcal), 1003=Protein, 1004=Fat, 1005=Carbs,
-        // 1079=Fiber, 2000=Sugars, 1093=Sodium, 1088=Cholesterol
-        // 1258=SatFat, 1087=Calcium, 1089=Iron, 1092=Potassium
-        var map: [Int: Double] = [:]
-        for n in nutrients {
-            if let id = n["nutrientId"] as? Int,
-               let val = n["value"] as? Double {
-                map[id] = val
-            }
+    /// Branded-food fallback for UPC scans. Open Food Facts remains first because it usually
+    /// has images and labels; USDA fills brand, ingredients, serving size and nutrition gaps.
+    func lookupProduct(barcode: String) async -> OpenFoodProduct? {
+        let cleaned = normalizedBarcode(barcode)
+        guard !cleaned.isEmpty else { return nil }
+        let cacheKey = "usda:barcode:\(cleaned)"
+        if let cached = await APIResponseCache.shared.value(for: cacheKey, as: OpenFoodProduct.self) {
+            return cached
         }
 
-        let cal = Int(map[1008] ?? 0)
-        guard cal > 0 else { return nil }
+        let foods = await searchFoods(query: cleaned, dataTypes: "Branded", pageSize: 10)
+        guard let food = foods.first(where: {
+            normalizedBarcode(string($0["gtinUpc"])) == cleaned
+        }) ?? foods.first else { return nil }
 
+        let name = string(food["description"]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+        let serving = servingText(food)
+        let result = OpenFoodProduct(
+            barcode: cleaned,
+            name: name,
+            brand: firstNonEmpty(string(food["brandName"]), string(food["brandOwner"])),
+            imageURL: nil,
+            nutriScore: nil,
+            allergens: [],
+            nutrition: parseFood(food, servingSize: serving),
+            quantity: serving,
+            categories: firstNonEmpty(string(food["foodCategory"]), string(food["marketCountry"])).nilIfEmpty,
+            labels: ["USDA Branded Food"],
+            ingredientsText: string(food["ingredients"]).nilIfEmpty,
+            sourceName: "USDA FoodData Central"
+        )
+        await APIResponseCache.shared.store(result, for: cacheKey, ttl: cacheTTL)
+        return result
+    }
+
+    private func searchFoods(query: String, dataTypes: String, pageSize: Int) async -> [[String: Any]] {
+        guard var components = URLComponents(string: "\(base)/foods/search") else { return [] }
+        components.queryItems = [
+            URLQueryItem(name: "query", value: query),
+            URLQueryItem(name: "dataType", value: dataTypes),
+            URLQueryItem(name: "pageSize", value: String(pageSize)),
+            URLQueryItem(name: "api_key", value: apiKey)
+        ]
+        guard let url = components.url,
+              let (data, response) = try? await session.data(from: url) else { return [] }
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            Log.net.error("USDA lookup failed (HTTP \(http.statusCode, privacy: .public))")
+            return []
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+        return json["foods"] as? [[String: Any]] ?? []
+    }
+
+    private func parseFood(_ food: [String: Any], servingSize: String = "100 g") -> NutritionFacts? {
+        guard let nutrients = food["foodNutrients"] as? [[String: Any]] else { return nil }
+        var byID: [Int: Double] = [:]
+        var byName: [String: Double] = [:]
+        for nutrient in nutrients {
+            let value = number(nutrient["value"])
+            if let id = integer(nutrient["nutrientId"]) { byID[id] = value }
+            let name = string(nutrient["nutrientName"]).lowercased()
+            if !name.isEmpty { byName[name] = value }
+        }
+        func nutrient(_ id: Int, names: [String] = []) -> Double {
+            if let value = byID[id] { return value }
+            for name in names {
+                if let pair = byName.first(where: { $0.key.contains(name) }) { return pair.value }
+            }
+            return 0
+        }
+        let calories = Int(nutrient(1008, names: ["energy"]).rounded())
+        guard calories > 0 else { return nil }
         return NutritionFacts(
-            servingSize:  "100g",
-            calories:     cal,
-            totalFat:     map[1004] ?? 0,
-            saturatedFat: map[1258] ?? 0,
-            transFat:     0,
-            cholesterol:  map[1088] ?? 0,
-            sodium:       map[1093] ?? 0,
-            totalCarbs:   map[1005] ?? 0,
-            dietaryFiber: map[1079] ?? 0,
-            totalSugars:  map[2000] ?? 0,
-            addedSugars:  0,
-            protein:      map[1003] ?? 0,
-            vitaminD:     map[1114] ?? 0,
-            calcium:      map[1087] ?? 0,
-            iron:         map[1089] ?? 0,
-            potassium:    map[1092] ?? 0
+            servingSize: servingSize,
+            calories: calories,
+            totalFat: nutrient(1004, names: ["total lipid", "total fat"]),
+            saturatedFat: nutrient(1258, names: ["saturated"]),
+            transFat: nutrient(1257, names: ["trans"]),
+            cholesterol: nutrient(1253, names: ["cholesterol"]),
+            sodium: nutrient(1093, names: ["sodium"]),
+            totalCarbs: nutrient(1005, names: ["carbohydrate"]),
+            dietaryFiber: nutrient(1079, names: ["fiber"]),
+            totalSugars: nutrient(2000, names: ["sugars, total", "total sugars"]),
+            addedSugars: nutrient(1235, names: ["added sugars"]),
+            protein: nutrient(1003, names: ["protein"]),
+            vitaminD: nutrient(1114, names: ["vitamin d"]),
+            calcium: nutrient(1087, names: ["calcium"]),
+            iron: nutrient(1089, names: ["iron"]),
+            potassium: nutrient(1092, names: ["potassium"])
         )
     }
 
-    // MARK: - Cache persistence
-    private func loadCache() {
-        guard let data = UserDefaults.standard.data(forKey: cacheKey),
-              let decoded = try? JSONDecoder().decode([String: CodableNutritionFacts].self, from: data)
-        else { return }
-        cache = decoded.mapValues { $0.toFacts() }
+    private func servingText(_ food: [String: Any]) -> String? {
+        let household = string(food["householdServingFullText"]).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !household.isEmpty { return household }
+        let amount = number(food["servingSize"])
+        let unit = string(food["servingSizeUnit"])
+        guard amount > 0 else { return nil }
+        return "\(amount.formatted(.number.precision(.fractionLength(0...2)))) \(unit)".trimmingCharacters(in: .whitespaces)
     }
 
-    private func persistCache() {
-        let encodable = cache.mapValues { CodableNutritionFacts(from: $0) }
-        if let data = try? JSONEncoder().encode(encodable) {
-            UserDefaults.standard.set(data, forKey: cacheKey)
-        }
+    private func normalizedBarcode(_ value: String) -> String {
+        let digits = value.filter(\.isNumber)
+        let withoutLeadingZeros = digits.drop(while: { $0 == "0" })
+        return withoutLeadingZeros.isEmpty ? digits : String(withoutLeadingZeros)
+    }
+
+    private func string(_ value: Any?) -> String {
+        if let string = value as? String { return string }
+        if let number = value as? NSNumber { return number.stringValue }
+        return ""
+    }
+    private func firstNonEmpty(_ values: String...) -> String {
+        values.first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? ""
+    }
+    private func number(_ value: Any?) -> Double {
+        if let number = value as? NSNumber { return number.doubleValue }
+        if let string = value as? String { return Double(string) ?? 0 }
+        return 0
+    }
+    private func integer(_ value: Any?) -> Int? {
+        if let number = value as? NSNumber { return number.intValue }
+        if let string = value as? String { return Int(string) }
+        return nil
+    }
+
+    private func loadLegacyCache() {
+        guard let data = UserDefaults.standard.data(forKey: legacyCacheKey),
+              let decoded = try? JSONDecoder().decode([String: CodableNutritionFacts].self, from: data) else { return }
+        memory = decoded.mapValues { $0.toFacts() }
+        UserDefaults.standard.removeObject(forKey: legacyCacheKey)
     }
 }
 
-// MARK: - Codable wrapper for NutritionFacts (Codable not on the model)
 private struct CodableNutritionFacts: Codable {
-    var servingSize, calories, totalFat, saturatedFat, transFat,
-        cholesterol, sodium, totalCarbs, dietaryFiber, totalSugars,
-        addedSugars, protein, vitaminD, calcium, iron, potassium: Double
-
-    init(from f: NutritionFacts) {
-        servingSize = 0; calories = Double(f.calories)
-        totalFat = f.totalFat; saturatedFat = f.saturatedFat; transFat = f.transFat
-        cholesterol = f.cholesterol; sodium = f.sodium; totalCarbs = f.totalCarbs
-        dietaryFiber = f.dietaryFiber; totalSugars = f.totalSugars; addedSugars = f.addedSugars
-        protein = f.protein; vitaminD = f.vitaminD; calcium = f.calcium
-        iron = f.iron; potassium = f.potassium
-    }
+    var calories, totalFat, saturatedFat, transFat, cholesterol, sodium, totalCarbs,
+        dietaryFiber, totalSugars, addedSugars, protein, vitaminD, calcium, iron, potassium: Double
 
     func toFacts() -> NutritionFacts {
-        NutritionFacts(servingSize: "100g", calories: Int(calories),
-            totalFat: totalFat, saturatedFat: saturatedFat, transFat: transFat,
-            cholesterol: cholesterol, sodium: sodium, totalCarbs: totalCarbs,
-            dietaryFiber: dietaryFiber, totalSugars: totalSugars, addedSugars: addedSugars,
-            protein: protein, vitaminD: vitaminD, calcium: calcium,
-            iron: iron, potassium: potassium)
+        NutritionFacts(
+            servingSize: "100 g", calories: Int(calories), totalFat: totalFat,
+            saturatedFat: saturatedFat, transFat: transFat, cholesterol: cholesterol,
+            sodium: sodium, totalCarbs: totalCarbs, dietaryFiber: dietaryFiber,
+            totalSugars: totalSugars, addedSugars: addedSugars, protein: protein,
+            vitaminD: vitaminD, calcium: calcium, iron: iron, potassium: potassium
+        )
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        let cleaned = trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? nil : cleaned
     }
 }

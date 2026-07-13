@@ -317,8 +317,10 @@ extension MealPlannerView {
                                     .background(Color.stockedGold.opacity(0.10))
                                     .clipShape(Capsule())
                             }
-                        }.padding(.horizontal, 20)
+                        }
+                        .stockedScrollTargetLayout().padding(.horizontal, 20)
                     }
+                    .stockedHorizontalSnap()
                 }
             }
 

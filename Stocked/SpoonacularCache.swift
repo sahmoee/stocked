@@ -18,7 +18,9 @@ final class SpoonacularCache {
     /// How long a cached result stays fresh. Spoonacular recipe data changes slowly; a day
     /// balances freshness against quota savings.
     private let ttl: TimeInterval = 60 * 60 * 24   // 24 hours
-    private let storeKey = "spoonacular.resultCache.v1"
+    private let legacyStoreKey = "spoonacular.resultCache.v1"
+    private let storageKey = "spoonacular_result_cache_v1"
+    private let maxEntries = 150
 
     private struct Entry: Codable {
         var json: Data
@@ -62,6 +64,12 @@ final class SpoonacularCache {
     /// Store raw JSON under a key.
     func store(_ json: Data, forKey key: String) {
         entries[key] = Entry(json: json, storedAt: Date())
+        if entries.count > maxEntries {
+            let overflow = entries.count - maxEntries
+            for staleKey in entries.sorted(by: { $0.value.storedAt < $1.value.storedAt }).prefix(overflow).map(\.key) {
+                entries[staleKey] = nil
+            }
+        }
         persist()
     }
 
@@ -74,24 +82,36 @@ final class SpoonacularCache {
     /// True if a fresh entry exists for a key — a cheap check before deciding to call the API.
     func has(_ key: String) -> Bool { cachedData(forKey: key) != nil }
 
+    var sizeBytes: Int {
+        (try? JSONEncoder().encode(entries).count) ?? 0
+    }
+
     /// Drop everything (e.g. a manual refresh).
     func clear() {
         entries.removeAll()
-        persist()
+        LocalDatabase.shared.delete(key: storageKey)
+        UserDefaults.standard.removeObject(forKey: legacyStoreKey)
     }
 
     // MARK: - Persistence
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: storeKey),
-              let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) else { return }
-        // Drop anything already stale on load so the store doesn't grow unbounded.
+        let decoded: [String: Entry]?
+        if let onDisk = LocalDatabase.shared.load([String: Entry].self, key: storageKey) {
+            decoded = onDisk
+        } else if let data = UserDefaults.standard.data(forKey: legacyStoreKey) {
+            decoded = try? JSONDecoder().decode([String: Entry].self, from: data)
+        } else {
+            decoded = nil
+        }
+        guard let decoded else { return }
         let now = Date()
         entries = decoded.filter { now.timeIntervalSince($0.value.storedAt) <= ttl }
+        persist()
+        UserDefaults.standard.removeObject(forKey: legacyStoreKey)
     }
 
     private func persist() {
-        guard let data = try? JSONEncoder().encode(entries) else { return }
-        UserDefaults.standard.set(data, forKey: storeKey)
+        LocalDatabase.shared.save(entries, key: storageKey)
     }
 }

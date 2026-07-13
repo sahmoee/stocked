@@ -537,9 +537,11 @@ struct OnboardingQuiz: View {
                                 )
                         }.buttonStyle(.plain)
                     }
+                    .stockedScrollTargetLayout()
                     .padding(.horizontal, 22)
                     .fixedSize(horizontal: false, vertical: true)
                 }
+                .stockedHorizontalSnap()
             }
             continueButton(enabled: !mealPrepDay.isEmpty) { advance() }
         }

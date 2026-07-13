@@ -66,7 +66,9 @@ struct IngredientFormRow: View {
                                         }.buttonStyle(.plain)
                                     }
                                 }
+                                .stockedScrollTargetLayout()
                             }
+                            .stockedHorizontalSnap()
                         }
                     }
                     if let n = ingredient.nutrition {
@@ -289,7 +291,9 @@ struct IngredientDetailForm: View {
                                             }.buttonStyle(.plain)
                                         }
                                     }
+                                    .stockedScrollTargetLayout()
                                 }
+                                .stockedHorizontalSnap()
                                 if let b = brand, let entry = BrandDatabase.brands(for: name).first(where: { $0.brand == b }) {
                                     HStack(spacing: 12) {
                                         nutriPill("Cal","\(entry.nutrition.calories)")

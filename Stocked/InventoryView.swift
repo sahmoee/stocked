@@ -239,8 +239,10 @@ struct InventoryView: View {
                                     .stroke(isSel ? Color.stockedCharcoal.opacity(0.25) : .clear, lineWidth: 1.2))
                             }.buttonStyle(.plain)
                         }
-                    }.padding(.horizontal, 24)
-                }.padding(.bottom, 14)
+                    }
+                    .stockedScrollTargetLayout().padding(.horizontal, 24)
+                }
+                .stockedHorizontalSnap().padding(.bottom, 14)
 
                 // ── Zone title + Sort pill (#245 exact) ──────────────────
                 HStack(alignment: .bottom) {

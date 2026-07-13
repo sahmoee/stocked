@@ -167,8 +167,10 @@ struct CookTabView: View {
                                         .buttonStyle(.plain)
                                 }
                             }
+                            .stockedScrollTargetLayout()
                             .padding(.horizontal, 24)
                         }
+                        .stockedHorizontalSnap()
                     }
                 }
 

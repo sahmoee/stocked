@@ -58,6 +58,39 @@ extension RecipeSourceRegistry {
 @MainActor
 enum RecipeSourceHub {
 
+    /// A source is only exposed as a browsable source when it can provide a real library,
+    /// not a nearly-empty row. Five-or-fewer sources are treated as failed sources; 6–19 are
+    /// kept as internal/import data but remain hidden until the source reaches twenty full recipes.
+    nonisolated static let minimumVisibleRecipeCount = 20
+    nonisolated static let hardRemovalThreshold = 5
+
+    /// Normalizes aliases created by different fetch paths so one real provider does not get
+    /// fragmented into several under-filled rows (for example TheMealDB, MealDB Search, and
+    /// country-specific "Kitchen" aliases all belong to TheMealDB).
+    nonisolated static func canonicalSourceName(_ raw: String) -> String {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = value.lowercased()
+        if lower.contains("mealdb") || lower.hasSuffix(" kitchen") { return "TheMealDB" }
+        if lower.contains("cocktaildb") { return "TheCocktailDB" }
+        if lower.contains("dummyjson") { return "DummyJSON" }
+        if lower.contains("wikibooks") { return "Wikibooks Cookbook" }
+        if lower.contains("spoonacular") { return "Spoonacular" }
+        if lower.contains("suggestic") { return "Suggestic" }
+        if lower.contains("api ninjas") { return "API Ninjas" }
+        if lower.contains("tasty") { return "Tasty" }
+        if lower.contains("edamam") { return "Edamam" }
+        return value.isEmpty ? "My Database" : value
+    }
+
+    /// A full recipe must contain a meaningful title, at least three ingredients, and actual
+    /// cooking directions. Source counts use this stricter definition so users never open a
+    /// source that claims twenty recipes but mostly contains links or incomplete stubs.
+    nonisolated static func isFullRecipe(_ recipe: OnlineRecipe) -> Bool {
+        !recipe.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        recipe.ingredients.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count >= 3 &&
+        OnlineRecipeFacts.hasRealInstructions(recipe.instructions)
+    }
+
     struct SourceListing: Identifiable {
         var id: String { name }
         let name: String
@@ -68,19 +101,19 @@ enum RecipeSourceHub {
         let isCustom: Bool       // user-added
     }
 
-    /// Only sources that ACTUALLY DELIVER. A source earns a row by having at least one
-    /// recipe in the merged pool (Discover loader + the on-device database). Catalogue
-    /// websites with nothing pulled, and keyed feeds without keys configured, are hidden —
-    /// no more tapping into empty screens. The full catalogue still powers URL import and
-    /// the add-source screen behind the scenes.
+    /// Only sources that deliver a usable library appear. A source earns a row after twenty
+    /// unique complete recipes exist in the merged pool. Smaller/failed sources remain hidden;
+    /// the full catalogue can still power direct URL import without creating empty source pages.
     static func allSources(pool: [OnlineRecipe]) -> [SourceListing] {
         // Count recipes per normalized source name across the shared pool.
-        var counts: [String: Int] = [:]
-        for r in pool {
-            let key = r.source.trimmingCharacters(in: .whitespaces)
-            guard !key.isEmpty else { continue }
-            counts[key, default: 0] += 1
+        var uniqueTitlesBySource: [String: Set<String>] = [:]
+        for recipe in pool where isFullRecipe(recipe) {
+            let source = canonicalSourceName(recipe.source)
+            let titleKey = OnlineRecipeFacts.normalizedTitle(recipe.title)
+            guard !source.isEmpty, !titleKey.isEmpty else { continue }
+            uniqueTitlesBySource[source, default: []].insert(titleKey)
         }
+        let counts = uniqueTitlesBySource.mapValues(\.count)
 
         // Known feed metadata (emoji + specialty) for nicer rows; keyed feeds are only
         // eligible when their credentials are configured.
@@ -110,7 +143,7 @@ enum RecipeSourceHub {
         // names (e.g. sites captured by URL import) still appear with a globe.
         let catalogue = RecipeSourceRegistry.everything
         let customDomains = Set(CustomRecipeSourceStore.shared.sources.map { $0.domain })
-        for (name, count) in counts where count > 0 {
+        for (name, count) in counts where count > hardRemovalThreshold && count >= minimumVisibleRecipeCount {
             guard seen.insert(name).inserted else { continue }
             if let meta = metaByName[name] {
                 guard meta.eligible else { continue }
@@ -155,7 +188,10 @@ enum RecipeSourceHub {
 
     /// Recipes from one source, out of the shared pool.
     static func recipes(from sourceName: String, pool: [OnlineRecipe]) -> [OnlineRecipe] {
-        pool.filter { $0.source.caseInsensitiveCompare(sourceName) == .orderedSame }
+        let canonical = canonicalSourceName(sourceName)
+        return pool.filter {
+            isFullRecipe($0) && canonicalSourceName($0.source).caseInsensitiveCompare(canonical) == .orderedSame
+        }
     }
 
     /// Drink-detection for the Drinks section: TheCocktailDB recipes plus anything whose

@@ -105,7 +105,12 @@ struct BarcodeScannerView: View {
                 ) { name, z, lv, sizeStr, expiry, qty, container in
                     var item = LocalInventoryItem(name: name, level: lv, zone: z)
                     item.expirationDate = expiry                    // #12
-                    item.brand = resolvedProduct?.brand             // brand from OFF
+                    item.brand = resolvedProduct?.brand.nilIfBlank
+                    item.nutrition = resolvedProduct?.nutrition
+                    item.barcode = lastScanned.nilIfBlank
+                    item.productLabels = resolvedProduct?.labels.isEmpty == false ? resolvedProduct?.labels : nil
+                    item.productIngredients = resolvedProduct?.ingredientsText
+                    item.nutritionSource = resolvedProduct?.sourceName
                     item.quantity = max(1, qty)
                     if !container.isEmpty, container != "item" { item.containerType = container }
                     // #11 — parse a pack size like "500 g" / "12 ct" into amount + unit.
@@ -343,25 +348,36 @@ struct BarcodeScannerView: View {
     private func resolveBarcode(_ code: String) {
         isLooking = true; scanError = ""
         Task { @MainActor in
-            // #9 — check the local cache first (instant + offline).
-            if let cached = BarcodeCache.shared.lookup(code) {
-                resolvedName    = cached
-                resolvedProduct = nil
-                zone = ReceiptDatabase.shared.guessZone(for: cached)
-                isLooking = false; activeSheet = .confirm; return
+            // The name cache is retained as an offline fallback, but nutrition sources still
+            // get first chance so a previously scanned item can gain brand/label/nutrition data.
+            let cachedName = BarcodeCache.shared.lookup(code)
+
+            // Waterfall: Open Food Facts first, then USDA branded foods. Both use persistent
+            // API caches, so repeat scans normally avoid the network.
+            let openFood = await withTimeout(5) { await OpenFoodFactsClient.shared.lookup(barcode: code) }
+            var product = openFood
+            if product == nil {
+                product = await withTimeout(5) {
+                    await USDANutritionClient.shared.lookupProduct(barcode: code)
+                }
             }
-            // Waterfall — each source capped at 5 seconds
-            let product = await withTimeout(5) { await OpenFoodFactsClient.shared.lookup(barcode: code) }
             if let p = product, !p.name.isEmpty {
                 resolvedName    = formatProductTitle(p.name, brand: p.brand)
                 // If this household previously corrected this product's name, honor that.
                 resolvedName    = UserCorrections.shared.apply(.productName, to: resolvedName)
                 resolvedProduct = p
-                zone = ReceiptDatabase.shared.guessZone(for: resolvedName)  // smart default
+                zone = p.suggestedZone
                 BarcodeCache.shared.save(code, name: resolvedName)         // #9 cache
                 isLooking = false; activeSheet = .confirm; return
             }
-            // Fallback 2 — UPC Item DB (5s cap)
+            if let cachedName {
+                resolvedName = cachedName
+                resolvedProduct = nil
+                zone = ReceiptDatabase.shared.guessZone(for: cachedName)
+                isLooking = false; activeSheet = .confirm; return
+            }
+
+            // Fallback 3 — UPC Item DB (5s cap)
             if let upcName = await withTimeout(5, work: { await self.lookupUPCItemDB(code) }) {
                 resolvedName = upcName; resolvedProduct = nil
                 zone = ReceiptDatabase.shared.guessZone(for: upcName)       // smart default
@@ -506,6 +522,45 @@ struct BarcodeConfirmSheet: View {
                                 }
                             }
                         }
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal")
+                                .font(.system(size: 10))
+                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            Text(p.sourceName)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            Spacer()
+                        }
+
+                        if !p.labels.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(Array(p.labels.prefix(8)), id: \.self) { label in
+                                        Text(label)
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                            .padding(.horizontal, 8).padding(.vertical, 4)
+                                            .background(Capsule().fill(Color.stockedGold.opacity(0.12)))
+                                    }
+                                }
+                                .scrollTargetLayout()
+                            }
+                            .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
+                        }
+
+                        if let facts = p.nutrition {
+                            HStack(spacing: 10) {
+                                nutritionMetric("Calories", "\(facts.calories)")
+                                nutritionMetric("Protein", Self.compactGrams(facts.protein))
+                                nutritionMetric("Carbs", Self.compactGrams(facts.totalCarbs))
+                                nutritionMetric("Fat", Self.compactGrams(facts.totalFat))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(10)
+                            .background(Color.stockedGold.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                        }
+
                         if !p.allergens.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack(spacing: 6) {
@@ -650,6 +705,18 @@ struct BarcodeConfirmSheet: View {
     static let shortDate: DateFormatter = {
         let f = DateFormatter(); f.dateStyle = .medium; return f
     }()
+    private func nutritionMetric(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value).font(.system(size: 11.5, weight: .bold)).foregroundStyle(session.themeTextColor)
+            Text(label).font(.system(size: 9.5)).foregroundStyle(session.themeTextColor.opacity(0.45))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private static func compactGrams(_ value: Double) -> String {
+        "\(value.formatted(.number.precision(.fractionLength(0...1))))g"
+    }
+
     private func nutriScoreColor(_ grade: String) -> Color {
         switch grade.uppercased() {
         case "A": return Color.stockedSuccess
@@ -879,6 +946,15 @@ final class BarcodeCache {
         guard !k.isEmpty else { return nil }
         return map[k]
     }
+    func clear() {
+        map.removeAll()
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
+    var sizeBytes: Int {
+        (try? JSONEncoder().encode(map).count) ?? 0
+    }
+
     func save(_ code: String, name: String) {
         let k = code.trimmingCharacters(in: .whitespaces)
         guard !k.isEmpty, !name.isEmpty else { return }
@@ -888,5 +964,13 @@ final class BarcodeCache {
         if let data = try? JSONEncoder().encode(map) {
             UserDefaults.standard.set(data, forKey: key)
         }
+    }
+}
+
+
+private extension String {
+    var nilIfBlank: String? {
+        let cleaned = trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? nil : cleaned
     }
 }

@@ -27,19 +27,35 @@ nonisolated struct OnlineRecipe: Identifiable, Codable, Hashable, Sendable {
 private actor OnlineRecipesPersistentCache {
     static let shared = OnlineRecipesPersistentCache()
 
+    private struct Snapshot: Codable, Sendable {
+        let recipes: [OnlineRecipe]
+        let savedAt: Date
+    }
+
     func load(cacheKey: String, timestampKey: String) -> (recipes: [OnlineRecipe], savedAt: Date?) {
+        if let snapshot = LocalDatabase.shared.load(Snapshot.self, key: cacheKey) {
+            return (snapshot.recipes, snapshot.savedAt)
+        }
+
+        // One-time migration from the old large UserDefaults payload. Keeping hundreds of
+        // recipes in preferences caused expensive preference-domain reads and writes.
         let savedAt = UserDefaults.standard.object(forKey: timestampKey) as? Date
         guard let data = UserDefaults.standard.data(forKey: cacheKey),
               let recipes = try? JSONDecoder().decode([OnlineRecipe].self, from: data) else {
             return ([], savedAt)
         }
+        let snapshot = Snapshot(recipes: recipes, savedAt: savedAt ?? Date.distantPast)
+        LocalDatabase.shared.save(snapshot, key: cacheKey)
+        UserDefaults.standard.removeObject(forKey: cacheKey)
+        UserDefaults.standard.removeObject(forKey: timestampKey)
         return (recipes, savedAt)
     }
 
     func save(_ recipes: [OnlineRecipe], cacheKey: String, timestampKey: String, savedAt: Date) {
-        guard let data = try? JSONEncoder().encode(recipes) else { return }
-        UserDefaults.standard.set(data, forKey: cacheKey)
-        UserDefaults.standard.set(savedAt, forKey: timestampKey)
+        LocalDatabase.shared.save(Snapshot(recipes: recipes, savedAt: savedAt), key: cacheKey)
+        // Remove legacy values if an older build recreated them.
+        UserDefaults.standard.removeObject(forKey: cacheKey)
+        UserDefaults.standard.removeObject(forKey: timestampKey)
     }
 }
 
@@ -132,7 +148,7 @@ class OnlineRecipesLoader {
     }
 
     /// Map a stored recipe entry to the Discover view model.
-    private static func makeOnlineRecipe(from entry: RecipeDatabaseEntry) -> OnlineRecipe {
+    nonisolated private static func makeOnlineRecipe(from entry: RecipeDatabaseEntry) -> OnlineRecipe {
         OnlineRecipe(
             id: entry.id.uuidString,
             title: entry.title,
@@ -147,7 +163,7 @@ class OnlineRecipesLoader {
     }
 
     /// Map a live JSON-LD publisher recipe into the shared Discover model.
-    private static func makeOnlineRecipe(from web: WebRecipe) -> OnlineRecipe {
+    nonisolated private static func makeOnlineRecipe(from web: WebRecipe) -> OnlineRecipe {
         OnlineRecipe(
             id: "web-\(web.id.uuidString)",
             title: web.title,
@@ -338,56 +354,19 @@ class OnlineRecipesLoader {
                 for await results in group { fetched += results }
             }
 
-            // Phase 9: ten additional publisher websites. Their public search pages funnel
-            // real JSON-LD recipes into Discover and then into the shared on-device database.
-            // One relevance seed per refresh keeps the request volume bounded.
-            let publisherSeed = pantrySeeds.first ?? seedTerms.first ?? "dinner"
-            let publisherBatch = await WebRecipeFetcher.shared.fetchExpandedPublisherRecipes(
-                query: publisherSeed,
-                limitPerSource: 1
-            )
-            fetched += publisherBatch.map { Self.makeOnlineRecipe(from: $0) }
+            // Publisher search previously issued a dozen one-recipe website requests on every
+            // refresh. Those rows could never satisfy the 20-complete-recipe source rule and the
+            // fan-out competed with image loading. Publisher recipes remain available after URL
+            // import or from the on-device catalogue, without automatic network scraping.
 
             guard !Task.isCancelled else { return }
 
-            // #11: fuzzy de-duplicate AND merge — when the same dish appears from two
-            // sources, keep the richer record (best image, longer steps, union ingredients)
-            // rather than just dropping the later one.
-            var merged: [OnlineRecipe] = []
-            for r in fetched.shuffled() {
-                // Drop empties up front.
-                if r.imageURL.isEmpty && r.source != "Wikibooks Cookbook" { continue }
-                if r.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { continue }
-                if r.instructions == "See full recipe at source." { continue }
-                // Precompute this recipe's key + name set ONCE (not per comparison) — the old
-                // code re-parsed ingredient strings inside the firstIndex closure for every
-                // existing item, a big contributor to the runaway-memory allocations.
-                let rKey = RecipeDedup.key(r.title)
-                let rNames = Set(RecipeIngredients.names(r.ingredients))
-                if let idx = merged.firstIndex(where: {
-                    RecipeDedup.areSameKeyed(keyA: RecipeDedup.key($0.title),
-                                             namesA: Set(RecipeIngredients.names($0.ingredients)),
-                                             keyB: rKey, namesB: rNames)
-                }) {
-                    let existing = merged[idx]
-                    merged[idx] = OnlineRecipe(
-                        id: existing.id,
-                        title: existing.title,
-                        category: existing.category.isEmpty ? r.category : existing.category,
-                        area: existing.area.isEmpty ? r.area : existing.area,
-                        instructions: RecipeMerge.bestSteps(
-                            existing.instructions.components(separatedBy: "\n"),
-                            r.instructions.components(separatedBy: "\n")).joined(separator: "\n"),
-                        imageURL: RecipeMerge.best(imageA: existing.imageURL, imageB: r.imageURL),
-                        ingredients: RecipeMerge.unionIngredients(existing.ingredients, r.ingredients),
-                        measures: existing.measures.count >= r.measures.count ? existing.measures : r.measures,
-                        source: existing.source
-                    )
-                } else {
-                    merged.append(r)
-                }
-            }
-            let unique = merged
+            // Normalize, validate, and merge away from the MainActor. The old firstIndex loop
+            // re-normalized every retained recipe for every candidate (quadratic work) and was a
+            // major source of freezes once the combined source pool became large.
+            let unique = await Task.detached(priority: .utility) {
+                Self.deduplicateAndMerge(fetched)
+            }.value
 
             await MainActor.run { [weak self] in
                 guard let self else { return }
@@ -414,7 +393,7 @@ class OnlineRecipesLoader {
     }
 
     // Fetch 2 recipes from a specific category (DB-style)
-    private func fetchByCategory(_ category: String, session: URLSession) async -> [OnlineRecipe] {
+    nonisolated private func fetchByCategory(_ category: String, session: URLSession) async -> [OnlineRecipe] {
         let enc = category.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? category
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?c=\(enc)") else { return [] }
         guard let (data, _) = try? await session.data(from: url),
@@ -434,7 +413,7 @@ class OnlineRecipesLoader {
         return results
     }
 
-    private func fetchById(_ id: String, session: URLSession) async -> OnlineRecipe? {
+    nonisolated private func fetchById(_ id: String, session: URLSession) async -> OnlineRecipe? {
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/lookup.php?i=\(id)"),
               let (data, _) = try? await session.data(from: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -443,7 +422,7 @@ class OnlineRecipesLoader {
         return parseMealPublic(meal)
     }
 
-    private func fetchOne(session: URLSession) async -> OnlineRecipe? {
+    nonisolated private func fetchOne(session: URLSession) async -> OnlineRecipe? {
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/random.php"),
               !Task.isCancelled else { return nil }
         guard let (data, _) = try? await session.data(from: url),
@@ -453,7 +432,7 @@ class OnlineRecipesLoader {
         return parseMealPublic(meal)
     }
 
-    func parseMealPublic(_ m: [String: Any]) -> OnlineRecipe? {
+    nonisolated func parseMealPublic(_ m: [String: Any]) -> OnlineRecipe? {
         guard let id    = m["idMeal"]  as? String,
               let title = m["strMeal"] as? String else { return nil }
         var ingredients: [String] = []; var measures: [String] = []
@@ -475,7 +454,7 @@ class OnlineRecipesLoader {
 
     // MARK: - Source 3: Open Meals (free community recipe API)
     // https://www.themealdb.com/api/json/v1/1/search.php?f=X — fetch by first letter
-    private func fetchByLetter(_ letter: String, session: URLSession) async -> [OnlineRecipe] {
+    nonisolated private func fetchByLetter(_ letter: String, session: URLSession) async -> [OnlineRecipe] {
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?f=\(letter)"),
               !Task.isCancelled else { return [] }
         guard let (data, _) = try? await session.data(from: url),
@@ -487,7 +466,7 @@ class OnlineRecipesLoader {
 
     // MARK: - Source 6: Wger Nutritional Plan (free workout/nutrition API — recipe section)
     // Uses TheMealDB area filter to pull country-specific recipes (more variety)
-    private func fetchByArea(_ area: String, session: URLSession) async -> [OnlineRecipe] {
+    nonisolated private func fetchByArea(_ area: String, session: URLSession) async -> [OnlineRecipe] {
         let enc = area.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? area
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?a=\(enc)"),
               !Task.isCancelled else { return [] }
@@ -506,6 +485,81 @@ class OnlineRecipesLoader {
             }
         }
         return results
+    }
+
+    /// Near-linear recipe merge. Exact normalized titles merge immediately; fuzzy checks are
+    /// limited to a small first-word bucket rather than comparing every recipe with every other.
+    private nonisolated static func deduplicateAndMerge(_ input: [OnlineRecipe]) -> [OnlineRecipe] {
+        var merged: [OnlineRecipe] = []
+        var keys: [String] = []
+        var ingredientNames: [Set<String>] = []
+        var exactIndex: [String: Int] = [:]
+        var leadBuckets: [String: [Int]] = [:]
+
+        func mergedRecipe(_ existing: OnlineRecipe, _ candidate: OnlineRecipe) -> OnlineRecipe {
+            OnlineRecipe(
+                id: existing.id,
+                title: existing.title,
+                category: existing.category.isEmpty ? candidate.category : existing.category,
+                area: existing.area.isEmpty ? candidate.area : existing.area,
+                instructions: RecipeMerge.bestSteps(
+                    existing.instructions.components(separatedBy: "\n"),
+                    candidate.instructions.components(separatedBy: "\n")
+                ).joined(separator: "\n"),
+                imageURL: RecipeMerge.best(imageA: existing.imageURL, imageB: candidate.imageURL),
+                ingredients: RecipeMerge.unionIngredients(existing.ingredients, candidate.ingredients),
+                measures: existing.measures.count >= candidate.measures.count ? existing.measures : candidate.measures,
+                source: RecipeSourceHub.canonicalSourceName(existing.source)
+            )
+        }
+
+        for raw in input {
+            guard RecipeSourceHub.isFullRecipe(raw) else { continue }
+            if raw.imageURL.isEmpty && RecipeSourceHub.canonicalSourceName(raw.source) != "Wikibooks Cookbook" { continue }
+
+            let recipe = OnlineRecipe(
+                id: raw.id,
+                title: raw.title,
+                category: raw.category,
+                area: raw.area,
+                instructions: raw.instructions,
+                imageURL: raw.imageURL,
+                ingredients: raw.ingredients,
+                measures: raw.measures,
+                source: RecipeSourceHub.canonicalSourceName(raw.source)
+            )
+            let key = RecipeDedup.key(recipe.title)
+            guard !key.isEmpty else { continue }
+            let names = Set(RecipeIngredients.names(recipe.ingredients))
+
+            var duplicateIndex = exactIndex[key]
+            if duplicateIndex == nil {
+                let lead = key.split(separator: " ").first.map(String.init) ?? key
+                let candidates = leadBuckets[lead, default: []]
+                duplicateIndex = candidates.first { index in
+                    abs(keys[index].count - key.count) <= 18 &&
+                    RecipeDedup.areSameKeyed(
+                        keyA: keys[index], namesA: ingredientNames[index],
+                        keyB: key, namesB: names
+                    )
+                }
+            }
+
+            if let index = duplicateIndex {
+                merged[index] = mergedRecipe(merged[index], recipe)
+                ingredientNames[index] = Set(RecipeIngredients.names(merged[index].ingredients))
+                exactIndex[key] = index
+            } else {
+                let index = merged.count
+                merged.append(recipe)
+                keys.append(key)
+                ingredientNames.append(names)
+                exactIndex[key] = index
+                let lead = key.split(separator: " ").first.map(String.init) ?? key
+                leadBuckets[lead, default: []].append(index)
+            }
+        }
+        return merged
     }
 
     private func saveCacheAsync(_ recipes: [OnlineRecipe]) {
@@ -755,8 +809,10 @@ struct OnlineRecipesView: View {
                                 }
                                 .buttonStyle(.plain)
                             }
+                            .stockedScrollTargetLayout()
                             .padding(.horizontal, 10).padding(.bottom, 8)
                         }
+                        .stockedHorizontalSnap()
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -828,8 +884,10 @@ struct OnlineRecipesView: View {
                                 .font(.system(size: 16))
                         }.buttonStyle(.plain)
                     }
-                }.padding(.horizontal, 24).padding(.bottom, 10)
+                }
+                .stockedScrollTargetLayout().padding(.horizontal, 24).padding(.bottom, 10)
             }
+            .stockedHorizontalSnap()
 
             // ── Live search label ─────────────────────────────────────
             if !liveResults.isEmpty {
