@@ -13,7 +13,7 @@
 import Foundation
 import os
 
-struct GroceryProduct: Codable, Identifiable, Hashable {
+nonisolated struct GroceryProduct: Codable, Identifiable, Hashable, Sendable {
     var id: String { "\(store)-\(name)-\(price ?? "")" }
     let name: String
     let brand: String?

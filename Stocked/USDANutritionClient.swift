@@ -5,13 +5,14 @@ import os
 
 actor USDANutritionClient {
     static let shared = USDANutritionClient()
-    private init() { loadLegacyCache() }
+    private init() {
+        memory = Self.migrateLegacyCache()
+    }
 
     private let base = "https://api.nal.usda.gov/fdc/v1"
     private var apiKey: String { BuildConfig.usdaAPIKey }
     private let cacheTTL: TimeInterval = 60 * 60 * 24 * 30
     private var memory: [String: NutritionFacts] = [:]
-    private let legacyCacheKey = "usdaCache_v1"
     private let session: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 8
@@ -67,7 +68,7 @@ actor USDANutritionClient {
             imageURL: nil,
             nutriScore: nil,
             allergens: [],
-            nutrition: parseFood(food, servingSize: serving),
+            nutrition: parseFood(food, servingSize: serving ?? "100 g"),
             quantity: serving,
             categories: firstNonEmpty(string(food["foodCategory"]), string(food["marketCountry"])).nilIfEmpty,
             labels: ["USDA Branded Food"],
@@ -169,15 +170,18 @@ actor USDANutritionClient {
         return nil
     }
 
-    private func loadLegacyCache() {
-        guard let data = UserDefaults.standard.data(forKey: legacyCacheKey),
-              let decoded = try? JSONDecoder().decode([String: CodableNutritionFacts].self, from: data) else { return }
-        memory = decoded.mapValues { $0.toFacts() }
-        UserDefaults.standard.removeObject(forKey: legacyCacheKey)
+    private nonisolated static func migrateLegacyCache() -> [String: NutritionFacts] {
+        let key = "usdaCache_v1"
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([String: CodableNutritionFacts].self, from: data) else {
+            return [:]
+        }
+        UserDefaults.standard.removeObject(forKey: key)
+        return decoded.mapValues { $0.toFacts() }
     }
 }
 
-private struct CodableNutritionFacts: Codable {
+nonisolated private struct CodableNutritionFacts: Codable {
     var calories, totalFat, saturatedFat, transFat, cholesterol, sodium, totalCarbs,
         dietaryFiber, totalSugars, addedSugars, protein, vitaminD, calcium, iron, potassium: Double
 
