@@ -134,30 +134,32 @@ struct SettingsPageView: View {
     // return type infers cleanly.
     private func settingsSectionRow(icon: String, tint: Color, title: String, subtitle: String,
                                     action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9).fill(tint).frame(width: 34, height: 34)
-                    Image(systemName: icon).font(.system(size: 15)).foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: action) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 9).fill(tint).frame(width: 34, height: 34)
+                        Image(systemName: icon).font(.system(size: 15)).foregroundStyle(.white)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .foregroundStyle(session.themeTextColor)
+                        Text(subtitle)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .bold, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                    Text(subtitle)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
-                        .lineLimit(1)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(session.themeTextColor.opacity(0.35))
+                .padding(16)
+                .contentShape(Rectangle())
             }
-            .padding(16)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(session.themeCardColor)

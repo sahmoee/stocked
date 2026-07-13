@@ -16,13 +16,13 @@ import os
 enum StockedWorkerClient {
 
     /// The configured Worker URL, or nil if still the placeholder.
-    static func url() -> URL? {
+    nonisolated static func url() -> URL? {
         let s = BuildConfig.receiptWorkerURL
         guard !s.contains("REPLACE-WITH-YOUR-WORKER"), let u = URL(string: s) else { return nil }
         return u
     }
 
-    static var isConfigured: Bool { url() != nil }
+    nonisolated static var isConfigured: Bool { url() != nil }
 
     /// POST `payload` to the Worker and return the model's text (content[0].text), or nil
     /// on any failure. Logs the failure reason via Log.app so problems aren't silent (#8).
