@@ -85,6 +85,10 @@ struct MealPlannerView: View {
     @State var isCalendarView = false
     @State var cookingMeal: PlannedMeal? = nil
     @State var navigateToCook = false
+    // Cook Now workspace: planned-meal cook transition (start now / cook ahead / prep).
+    @State var cookTransitionMeal: PlannedMeal? = nil
+    @State var cookAheadMeal: PlannedMeal? = nil
+    @State var navigateToCookAhead = false
     @State var preppingMeal: PlannedMeal? = nil
     @State var navigateToPrep = false
     @State var renamingMeal: PlannedMeal? = nil       // #1 building-meal rename
@@ -177,6 +181,20 @@ struct MealPlannerView: View {
             if let meal = cookingMeal {
                 RecipeOverviewView(title: meal.title, servings: meal.servings, ingredients: meal.ingredients)
             }
+        }
+        .navigationDestination(isPresented: $navigateToCookAhead) {
+            if let meal = cookAheadMeal {
+                CookAheadStatusView(mealID: meal.id)
+            }
+        }
+        .sheet(item: $cookTransitionMeal) { meal in
+            PlannedMealCookTransitionView(
+                meal: meal,
+                onStartCooking: { m in cookingMeal = m; navigateToCook = true },
+                onCookAhead:    { m in cookAheadMeal = m; navigateToCookAhead = true },
+                onPrepOnly:     { m in preppingMeal = m; navigateToPrep = true }
+            )
+            .environment(session)
         }
         .navigationDestination(isPresented: $navigateToPrep) {
             if let meal = preppingMeal {

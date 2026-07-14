@@ -49,31 +49,6 @@ struct MakeableNowView: View {
     }
 }
 
-// MARK: - Finish & Serve (stub → later batch)
-
-/// Food cooked earlier and intended for an upcoming meal — reheat + finish
-/// guidance. Batch on cook-ahead builds this out against the meal planner.
-struct FinishAndServeView: View {
-    @Environment(AppSession.self) var session
-
-    var body: some View {
-        StockedShell(showBack: true, titleText: "Finish & Serve") {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Cooked ahead, ready to finish")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
-                    .foregroundStyle(session.themeTextColor)
-                    .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
-                Text("Meals you cooked early will appear here with reheat and finishing steps. Coming with cook-ahead support.")
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
-                    .padding(.horizontal, CookStyle.screenHPad)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 20)
-            }
-        }
-    }
-}
-
 // MARK: - Use Something Up (routes to existing use-it-up path)
 
 /// Prioritize expiring, open, or leftover ingredients as anchors.

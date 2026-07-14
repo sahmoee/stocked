@@ -1143,6 +1143,24 @@ class GuestDataStore {
         }
     }
 
+    // MARK: - Cook-ahead lifecycle (Cook Now workspace)
+
+    /// Move a planned meal along the cook-ahead lifecycle WITHOUT changing its
+    /// planned day or marking it eaten. Cooking early only changes the cook
+    /// time; the meal stays on its slot until served.
+    func setCookAheadStatus(_ status: CookAheadStatus, for mealID: UUID) {
+        guard let i = plannedMeals.firstIndex(where: { $0.id == mealID }) else { return }
+        var meal = plannedMeals[i]
+        meal.cookAheadStatus = status
+        if status == .served { meal.isCooked = true }
+        plannedMeals[i] = meal   // didSet handles stamping + sync
+    }
+
+    /// Planned meals currently cooked ahead and awaiting a finish-and-serve.
+    var cookedAheadMeals: [PlannedMeal] {
+        plannedMeals.filter { $0.cookAheadStatus.isCookedAhead }
+    }
+
     func removeInventoryItem(id: UUID) {
         // #E3 — kid household members can't delete inventory; they can still mark items
         // used or add to the grocery list. Silent data loss is worse than a nudge.

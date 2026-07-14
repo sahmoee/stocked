@@ -224,10 +224,6 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var lastCooked:   Date?                 // date of most recent cook
     var updatedAt:    Double   = 0          // last-modified ms since epoch, for household last-write-wins
     var lastWriterID: String   = ""         // deterministic tie-breaker when timestamps tie
-    // Cook Now workspace (Direction B+): the role this preparation plays, so a
-    // protein search can surface standalone entrées rather than only complete
-    // dinners. Additive + decode-safe — old saved recipes decode as .unspecified.
-    var dishRole:     DishRole = .unspecified
 
     var ingredientNames: [String] { ingredients.map(\.name) }
     var estimatedCalories: Int? {
@@ -442,4 +438,51 @@ nonisolated struct PlannedMeal: Identifiable, Codable, Sendable, Equatable {
     var isBuilding: Bool = false   // true while accumulating dragged inventory items
     var updatedAt: Double = 0      // #13 last-modified ms, for household last-write-wins
     var lastWriterID: String = "" // deterministic tie-breaker when timestamps tie
+    // Cook Now workspace (Direction B+): cook-ahead lifecycle. A meal cooked
+    // early moves through these while STAYING on its planned day — cooking early
+    // changes only the cook time, never the plan. Additive + decode-safe; old
+    // saved meals decode as .none.
+    var cookAheadStatus: CookAheadStatus = .none
+}
+
+/// The cook-ahead lifecycle for a planned meal. `.none` means a normal planned
+/// meal (not cooked ahead). The rest track food cooked before its planned slot.
+nonisolated enum CookAheadStatus: String, Codable, Sendable {
+    case none          // normal planned meal
+    case prepped       // ingredients prepped ahead
+    case marinating
+    case cookingEarly  // actively cooking before the slot
+    case cooked        // fully cooked, not yet stored
+    case cooling
+    case stored
+    case readyToReheat
+    case served
+
+    var isCookedAhead: Bool { self != .none && self != .served }
+    var label: String {
+        switch self {
+        case .none:          return "Planned"
+        case .prepped:       return "Prepped ahead"
+        case .marinating:    return "Marinating"
+        case .cookingEarly:  return "Cooking early"
+        case .cooked:        return "Cooked"
+        case .cooling:       return "Cooling"
+        case .stored:        return "Stored"
+        case .readyToReheat: return "Ready to reheat"
+        case .served:        return "Served"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .none:          return "calendar"
+        case .prepped:       return "list.bullet.clipboard"
+        case .marinating:    return "drop"
+        case .cookingEarly:  return "flame"
+        case .cooked:        return "checkmark.circle"
+        case .cooling:       return "wind"
+        case .stored:        return "refrigerator"
+        case .readyToReheat: return "microwave"
+        case .served:        return "fork.knife"
+        }
+    }
 }

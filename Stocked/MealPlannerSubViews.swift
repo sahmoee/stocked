@@ -245,7 +245,7 @@ extension MealPlannerView {
                                         .padding(.horizontal, 9).padding(.vertical, 5)
                                         .overlay(Capsule().stroke(Color.stockedGold, lineWidth: 1))
                                 }.buttonStyle(.plain)
-                                Button { cookingMeal = meal; navigateToCook = true } label: {
+                                Button { cookTransitionMeal = meal } label: {
                                     Text("Cook Now")
                                         .font(.system(size: 11, weight: .semibold))
                                         .foregroundStyle(Color.stockedWhite)
@@ -284,7 +284,7 @@ extension MealPlannerView {
                     onToggle:    { withAnimation(.spring(response: 0.3)) { selectedDay = selectedDay == i ? -1 : i } },
                     onAddMeal:   { type in activeSheet = .picker(day: i, type: type) },
                     onRemoveMeal:{ meal in withAnimation { plannedMeals.removeAll { $0.id == meal.id } } },
-                    onCookNow:   { meal in cookingMeal = meal; navigateToCook = true },
+                    onCookNow:   { meal in cookTransitionMeal = meal },
                     onPrepNow:   { meal in preppingMeal = meal; navigateToPrep = true }
                 )
             }
