@@ -871,6 +871,9 @@
     "%lldd" : {
 
     },
+    "%lldd left" : {
+
+    },
     "%lldm cook" : {
 
     },
@@ -1425,6 +1428,9 @@
     "Back" : {
 
     },
+    "Back to Recipe" : {
+
+    },
     "Based on how fast you usually go through them: %@" : {
 
     },
@@ -1776,6 +1782,9 @@
     "Cooked %@" : {
 
     },
+    "Cooked ahead, ready to finish" : {
+
+    },
     "cooking at home instead of ordering out%@" : {
 
     },
@@ -2007,6 +2016,9 @@
     "e.g. I finished the eggs and used half the butter" : {
 
     },
+    "e.g. marinated lamb chops, seared then pressure cooked" : {
+
+    },
     "e.g. Mom, Big Sis" : {
 
     },
@@ -2068,6 +2080,9 @@
 
     },
     "Enter zip code" : {
+
+    },
+    "Equipment, ingredients to pull, prep tasks, and optional decisions will appear here. Full checklist coming in the next update." : {
 
     },
     "Erase & Exit" : {
@@ -2300,7 +2315,16 @@
     "Get a reminder the day before an item expires" : {
 
     },
+    "Get ahead" : {
+
+    },
+    "Get Ready to Cook" : {
+
+    },
     "Get ready to cook %@." : {
+
+    },
+    "Getting your kitchen ready" : {
 
     },
     "Give the item a name to continue" : {
@@ -2415,7 +2439,16 @@
     "How do you want to add this recipe?" : {
 
     },
+    "How do you want to cook %@?" : {
+
+    },
     "How do you want to cook?" : {
+
+    },
+    "How much energy do you have?" : {
+
+    },
+    "How much more are you trying to do?" : {
 
     },
     "How to Cook" : {
@@ -2431,6 +2464,9 @@
 
     },
     "https://www.seriouseats.com/recipe-name" : {
+
+    },
+    "I already know what I'm making" : {
 
     },
     "I couldn't find anything to change from that. Try naming specific items." : {
@@ -2654,6 +2690,9 @@
     "Kitchen Transfer" : {
 
     },
+    "Knock these out before step 1 and the cook goes smoothly." : {
+
+    },
     "Label (e.g. Pasta)" : {
 
     },
@@ -2710,6 +2749,9 @@
 
     },
     "Let's Stock your kitchen" : {
+
+    },
+    "Let's use what needs using" : {
 
     },
     "Level" : {
@@ -2832,6 +2874,9 @@
     "Meals you can make with what's on hand. Top picks use what's expiring first." : {
 
     },
+    "Meals you cooked early will appear here with reheat and finishing steps. Coming with cook-ahead support." : {
+
+    },
     "Meals/week: %lld" : {
 
     },
@@ -2884,6 +2929,9 @@
 
     },
     "More possibilities (%lld)" : {
+
+    },
+    "More ways in" : {
 
     },
     "Most cooked" : {
@@ -3010,6 +3058,9 @@
     "No pending invites." : {
 
     },
+    "No prep needed — jump straight in." : {
+
+    },
     "No purchases logged this month yet." : {
 
     },
@@ -3107,6 +3158,9 @@
 
     },
     "Nothing’s about to expire — cook anything you like." : {
+
+    },
+    "Nothing's expiring soon — your kitchen's in good shape." : {
 
     },
     "Nothing's fully stocked yet — add a few items and these will fill in." : {
@@ -3302,6 +3356,12 @@
     "Pick a screenshot of a recipe. We'll read the text on your device and structure it for you to review." : {
 
     },
+    "Pick an ingredient, a protein, a leftover — anything. We'll figure out what to do with it next." : {
+
+    },
+    "Pick one and stop there, or build from it — you decide how far to go." : {
+
+    },
     "Plan" : {
 
     },
@@ -3386,6 +3446,12 @@
     "Prep %lldm" : {
 
     },
+    "Prep Done — Back to Recipe" : {
+
+    },
+    "Prep First" : {
+
+    },
     "Prep reminder set!" : {
 
     },
@@ -3453,6 +3519,9 @@
 
     },
     "Rate & Finish" : {
+
+    },
+    "Raw meat and seafood prep is listed last." : {
 
     },
     "Raw: %@" : {
@@ -3852,6 +3921,9 @@
     "Search tools" : {
 
     },
+    "Search your kitchen" : {
+
+    },
     "Search your recipes by name or cuisine." : {
 
     },
@@ -3862,6 +3934,9 @@
 
     },
     "See all activity" : {
+
+    },
+    "See All Matches" : {
 
     },
     "See All Options" : {
@@ -4009,6 +4084,9 @@
 
     },
     "Skip — keep inventory as is" : {
+
+    },
+    "Skip discovery — go straight to prep and cooking." : {
 
     },
     "Skip for now" : {
@@ -4244,7 +4322,13 @@
     "That's the strongest match we found." : {
 
     },
+    "The %@ is the star. We'll keep the extras light." : {
+
+    },
     "The app thinks you have these. Anything changed?" : {
+
+    },
+    "The entrée is enough. You can stop after one thing, or keep going — your call." : {
 
     },
     "The Stash ✦" : {
@@ -4468,6 +4552,9 @@
     "Use This Swap" : {
 
     },
+    "Use today" : {
+
+    },
     "Use your location or enter a zip code" : {
 
     },
@@ -4540,6 +4627,9 @@
     "We couldn't find a match yet." : {
 
     },
+    "We'll compare the tradeoffs — texture, effort, and time — and check your equipment. Full comparison is coming; for now, continue to get set up." : {
+
+    },
     "We've set everything up based on your preferences. Update them anytime in Settings." : {
 
     },
@@ -4558,7 +4648,13 @@
     "What are you planning?" : {
 
     },
+    "What are you starting with?" : {
+
+    },
     "What changed?" : {
+
+    },
+    "What do you want to do with it?" : {
 
     },
     "What do you want to start with?" : {
@@ -4577,6 +4673,9 @@
 
     },
     "WHAT YOU CAN MAKE" : {
+
+    },
+    "What you can make right now" : {
 
     },
     "WHAT'S COMING" : {
@@ -4681,6 +4780,9 @@
 
     },
     "You're on a %lld-day cooking streak" : {
+
+    },
+    "You're starting with %@." : {
 
     },
     "You've joined a shared household." : {
