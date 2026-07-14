@@ -224,6 +224,10 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var lastCooked:   Date?                 // date of most recent cook
     var updatedAt:    Double   = 0          // last-modified ms since epoch, for household last-write-wins
     var lastWriterID: String   = ""         // deterministic tie-breaker when timestamps tie
+    // Cook Now workspace (Direction B+): the role this preparation plays, so a
+    // protein search can surface standalone entrées rather than only complete
+    // dinners. Additive + decode-safe — old saved recipes decode as .unspecified.
+    var dishRole:     DishRole = .unspecified
 
     var ingredientNames: [String] { ingredients.map(\.name) }
     var estimatedCalories: Int? {

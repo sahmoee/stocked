@@ -69,6 +69,26 @@ nonisolated struct CookNowSessionSnapshot: Codable, Sendable {
     var recipeID: UUID?
     var selectedIngredient: String?
     var servings: Int
+    // ── Adaptive workspace fields (all optional/defaulted for back-compat) ──
+    var source: CookSessionSource?
+    var sourceID: String?
+    var anchorItem: String?
+    var anchorInventoryItemID: UUID?
+    var intent: CookIntent?
+    var addScope: AddSomethingScope?
+    var effort: CookEffortLevel?
+    var preparationTitle: String?
+    var cookingMethodID: String?
+    var selectedEquipment: [String]?
+    var unavailableEquipment: [String]?
+    var plannedMealID: UUID?
+    var intendedServeTime: Date?
+    var cookAhead: Bool?
+    var serveLater: Bool?
+    var completedReadinessKeys: [String]?
+    var selectedSideTitles: [String]?
+    var completionType: CookCompletionType?
+    var status: CookSessionStatus?
     var overrides: [String: IngredientOverride]         // ingredient(lowercased) → override
     var confirmedSubstitutionKeys: [String]             // CookNowEngine.substitutionKey values
     var excludedRecipeIDs: [UUID]                        // Try-Another ring
@@ -111,6 +131,32 @@ final class CookNowSession {
     /// Permanent changes queued for review.
     private(set) var stagedChanges: [StagedInventoryChange] = []
 
+    // ── Adaptive cooking workspace state ──────────────────────────
+    /// Where this session started and what the anchor is.
+    var source: CookSessionSource? = nil
+    var sourceID: String? = nil
+    var anchorItem: String? = nil
+    var anchorInventoryItemID: UUID? = nil
+    /// What the user wants to do with the anchor, and how far.
+    var intent: CookIntent? = nil
+    var addScope: AddSomethingScope? = nil
+    var effort: CookEffortLevel? = nil
+    /// Chosen preparation + method + equipment for this cook.
+    var preparationTitle: String? = nil
+    var cookingMethodID: String? = nil
+    private(set) var selectedEquipment: Set<String> = []
+    private(set) var unavailableEquipment: Set<String> = []
+    /// Meal-planner coupling + cook-ahead intent.
+    var plannedMealID: UUID? = nil
+    var intendedServeTime: Date? = nil
+    var cookAhead: Bool = false
+    var serveLater: Bool = false
+    /// Before You Start progress + chosen sides + outcome.
+    private(set) var completedReadinessKeys: Set<String> = []
+    var selectedSideTitles: [String] = []
+    var completionType: CookCompletionType? = nil
+    var status: CookSessionStatus = .selectingIntent
+
     let startedAt: Date
     private(set) var lastActiveAt: Date
 
@@ -135,6 +181,25 @@ final class CookNowSession {
         self.excludedRecipeIDs = snapshot.excludedRecipeIDs
         self.completedPrepKeys = Set(snapshot.completedPrepKeys)
         self.stagedChanges = snapshot.stagedChanges
+        self.source = snapshot.source
+        self.sourceID = snapshot.sourceID
+        self.anchorItem = snapshot.anchorItem
+        self.anchorInventoryItemID = snapshot.anchorInventoryItemID
+        self.intent = snapshot.intent
+        self.addScope = snapshot.addScope
+        self.effort = snapshot.effort
+        self.preparationTitle = snapshot.preparationTitle
+        self.cookingMethodID = snapshot.cookingMethodID
+        self.selectedEquipment = Set(snapshot.selectedEquipment ?? [])
+        self.unavailableEquipment = Set(snapshot.unavailableEquipment ?? [])
+        self.plannedMealID = snapshot.plannedMealID
+        self.intendedServeTime = snapshot.intendedServeTime
+        self.cookAhead = snapshot.cookAhead ?? false
+        self.serveLater = snapshot.serveLater ?? false
+        self.completedReadinessKeys = Set(snapshot.completedReadinessKeys ?? [])
+        self.selectedSideTitles = snapshot.selectedSideTitles ?? []
+        self.completionType = snapshot.completionType
+        self.status = snapshot.status ?? .selectingIntent
         self.startedAt = snapshot.startedAt
         self.lastActiveAt = snapshot.lastActiveAt
     }
@@ -146,6 +211,25 @@ final class CookNowSession {
             recipeID: recipeID,
             selectedIngredient: selectedIngredient,
             servings: servings,
+            source: source,
+            sourceID: sourceID,
+            anchorItem: anchorItem,
+            anchorInventoryItemID: anchorInventoryItemID,
+            intent: intent,
+            addScope: addScope,
+            effort: effort,
+            preparationTitle: preparationTitle,
+            cookingMethodID: cookingMethodID,
+            selectedEquipment: Array(selectedEquipment),
+            unavailableEquipment: Array(unavailableEquipment),
+            plannedMealID: plannedMealID,
+            intendedServeTime: intendedServeTime,
+            cookAhead: cookAhead,
+            serveLater: serveLater,
+            completedReadinessKeys: Array(completedReadinessKeys),
+            selectedSideTitles: selectedSideTitles,
+            completionType: completionType,
+            status: status,
             overrides: overrides,
             confirmedSubstitutionKeys: Array(confirmedSubstitutionKeys),
             excludedRecipeIDs: excludedRecipeIDs,
@@ -203,6 +287,52 @@ final class CookNowSession {
     }
 
     func isPrepDone(_ key: String) -> Bool { completedPrepKeys.contains(key) }
+
+    // MARK: Adaptive workspace mutations
+
+    /// Set the anchor + source that begins a Start-With-Something session.
+    func setAnchor(item: String, source: CookSessionSource, inventoryItemID: UUID? = nil, sourceID: String? = nil) {
+        anchorItem = item
+        self.source = source
+        anchorInventoryItemID = inventoryItemID
+        self.sourceID = sourceID
+        touch()
+    }
+
+    func setIntent(_ newIntent: CookIntent) { intent = newIntent; touch() }
+    func setAddScope(_ scope: AddSomethingScope?) { addScope = scope; touch() }
+    func setEffort(_ level: CookEffortLevel?) { effort = level; touch() }
+    func setPreparation(_ title: String?) { preparationTitle = title; touch() }
+    func setCookingMethod(_ id: String?) { cookingMethodID = id; touch() }
+    func setStatus(_ newStatus: CookSessionStatus) { status = newStatus; touch() }
+    func setCompletion(_ type: CookCompletionType?) { completionType = type; touch() }
+
+    /// Couple this session to a planned meal (cook-ahead / finish-and-serve).
+    func linkPlannedMeal(_ id: UUID, intendedServeTime: Date? = nil, cookAhead: Bool = false, serveLater: Bool = false) {
+        plannedMealID = id
+        self.intendedServeTime = intendedServeTime
+        self.cookAhead = cookAhead
+        self.serveLater = serveLater
+        touch()
+    }
+
+    // Equipment selection for the current cook (session-scoped).
+    func selectEquipment(_ rawValue: String) { selectedEquipment.insert(rawValue); unavailableEquipment.remove(rawValue); touch() }
+    func deselectEquipment(_ rawValue: String) { selectedEquipment.remove(rawValue); touch() }
+    func markEquipmentUnavailable(_ rawValue: String) { unavailableEquipment.insert(rawValue); selectedEquipment.remove(rawValue); touch() }
+    func clearEquipmentUnavailable(_ rawValue: String) { unavailableEquipment.remove(rawValue); touch() }
+    func isEquipmentSelected(_ rawValue: String) -> Bool { selectedEquipment.contains(rawValue) }
+
+    // Before You Start readiness checklist completion.
+    func setReadinessDone(_ key: String, done: Bool) {
+        if done { completedReadinessKeys.insert(key) } else { completedReadinessKeys.remove(key) }
+        touch()
+    }
+    func isReadinessDone(_ key: String) -> Bool { completedReadinessKeys.contains(key) }
+
+    // Selected sides during / after the entrée.
+    func addSide(_ title: String) { if !selectedSideTitles.contains(title) { selectedSideTitles.append(title); touch() } }
+    func removeSide(_ title: String) { selectedSideTitles.removeAll { $0 == title }; touch() }
 
     // MARK: Staged changes
 
@@ -283,6 +413,13 @@ final class CookNowSession {
         excludedRecipeIDs.removeAll()
         completedPrepKeys.removeAll()
         stagedChanges.removeAll()
+        source = nil; sourceID = nil; anchorItem = nil; anchorInventoryItemID = nil
+        intent = nil; addScope = nil; effort = nil
+        preparationTitle = nil; cookingMethodID = nil
+        selectedEquipment.removeAll(); unavailableEquipment.removeAll()
+        plannedMealID = nil; intendedServeTime = nil; cookAhead = false; serveLater = false
+        completedReadinessKeys.removeAll(); selectedSideTitles.removeAll()
+        completionType = nil; status = .selectingIntent
         recipeID = nil
         selectedIngredient = nil
         saveWorkItem?.cancel()
