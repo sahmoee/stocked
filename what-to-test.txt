@@ -37,3 +37,7 @@ STOCKED COOK LATER COMMAND CENTER - TEST PLAN
 CORRECTIVE BUILD / CLEAR DATA
 - Confirm GuestDataStore compiles without saveFlushTask or dirtyKeys scope errors.
 - Edit inventory, immediately run Clear All Data, relaunch, and confirm cleared records do not return.
+
+ZONE CLASSIFIER CORRECTIVE BUILD
+- Confirm StockedIntelligence.swift compiles without the incorrect argument-label error at the ZoneClassifier anyMatch helper.
+- Spot-check zone classification for freezer, staples, fridge, and pantry terms to confirm behavior is unchanged.

@@ -68,3 +68,8 @@ The current data model stores planned meals as a seven-day `dayIndex` horizon. T
 
 - `GuestDataStore.clearAll()` now cancels pending persistence through `StorePersistenceScheduler.cancel()` instead of referencing removed legacy `saveFlushTask` and `dirtyKeys` fields.
 - It cancels once before resetting observable state and once afterward to discard empty-state saves scheduled by `didSet` hooks before deleting persistent stores.
+
+## ZoneClassifier corrective build fix
+
+- Corrects the `FoodNameMatcher.anyPhrase` invocation in `StockedIntelligence.swift` to use its declared labels: `anyPhrase(in:phrases:)`.
+- This is a call-site-only correction; classification ordering and keyword behavior are unchanged.

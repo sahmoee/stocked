@@ -204,7 +204,7 @@ nonisolated struct ZoneClassifier {
     }
 
     private static func anyMatch(_ text: String, _ keywords: [String]) -> Bool {
-        FoodNameMatcher.anyPhrase(keywords, in: text)
+        FoodNameMatcher.anyPhrase(in: text, phrases: keywords)
     }
 
     private static func tagWithNL(_ text: String) -> StorageCategory {
