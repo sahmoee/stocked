@@ -737,9 +737,15 @@ struct ExpiringItemsView: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadUseUpRecipes() }
-        .sheet(item: $selectedItem) { _ in
+        .sheet(item: $selectedItem) { item in
+            // Was a dead-end serving picker (the neutralized ServingSizeView with
+            // isCookNow: false advanced nowhere). Now: cook around this item —
+            // recipes built on the expiring ingredient, using the saved household
+            // size as the serving default.
             NavigationStack {
-                ServingSizeView(isCookNow: false)
+                StarIngredientRecipesView(category: "Expiring Soon",
+                                          selection: item.name,
+                                          servings: max(1, session.guestStore.cookingProfile.householdSize))
                     .environment(session)
             }
             .presentationDetents([.medium, .large])

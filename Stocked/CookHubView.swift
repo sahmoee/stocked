@@ -243,115 +243,531 @@ struct CookHubView: View {
 
 // MARK: - Cook Now Home
 
+// ═══════════════════════════════════════════════════════════════════
+// Cook Now — Direction B inventory-first dashboard.
+//
+// Replaces the previous three-photography-card landing. The screen leads
+// with what the kitchen can actually produce (classified by CookNowEngine),
+// adapts its hierarchy when counts are zero, keeps the three pathways as
+// compact secondary cards, and surfaces a focused Refresh Kitchen action.
+// All counts come from real classification — nothing is hardcoded.
+// ═══════════════════════════════════════════════════════════════════
+
 struct CookNowHomeView: View {
-    @Environment(AppSession.self) private var session
+    @Environment(AppSession.self) var session
+    @Environment(\.quickMenuCallbacks) private var quickMenu
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
-    @State private var goBuildFood = false
-    @State private var goMood = false
-    @State private var goSurprise = false
+    // One Cook Now session per visit — rehydrated from a persisted snapshot when
+    // its context hasn't expired, otherwise fresh with the household default.
+    @State private var cookSession: CookNowSession? = nil
 
-    // Perf: these two scans score every recipe against the whole inventory — far too
-    // heavy to recompute on every render. Computed once on appear and again only when
-    // the inventory actually changes, into plain @State the body reads for free.
-    @State private var wasteNothing: (recipe: UserRecipe, used: [String])? = nil
-    @State private var readyCount = 0
+    // Classified snapshot — computed off the render path, never in body.
+    @State private var snapshot = CookNowCompute.Output.empty
 
-    private func recomputeInsights() {
-        if let top = store.cookableRankedByExpiry().first(where: { !$0.expiringUsed.isEmpty }) {
-            wasteNothing = (top.recipe, top.expiringUsed)
-        } else {
-            wasteNothing = nil
-        }
-        readyCount = computedReadyCount
-    }
-    private var computedReadyCount: Int {
-        store.cookCatalog.filter { r in
-            let m = store.stockMatch(for: r)
-            return m.total > 0 && m.have == m.total
-        }.count
-    }
+    // Navigation
+    @State private var goBuildFood  = false
+    @State private var goMood       = false
+    @State private var goRefresh    = false
+    @State private var goReadyList  = false
+    @State private var goAlmostList = false
+    @State private var goMoreList   = false
+    @State private var surpriseRecipe: GeneratedRecipe? = nil
+    @State private var goSurpriseDetail = false
+    @State private var chipIngredient: String? = nil
+    @State private var goChip = false
+    @State private var noSurpriseYet = false
 
     var body: some View {
         StockedShell(showBack: true, titleText: "Cook Now") {
-            // Perf hook: recompute the heavy insights off the render path.
-            Color.clear.frame(height: 0)
-                .task { recomputeInsights() }
-                .onChange(of: store.inventoryRevision) { _, _ in recomputeInsights() }
-                .onChange(of: store.recipeRevision) { _, _ in recomputeInsights() }
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("How do you want to find dinner?")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                    Text("Pick a path and we'll do the rest.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+            VStack(alignment: .leading, spacing: 18) {
+
+                header
+
+                switch snapshot.emphasis {
+                case .emptyInventory:      emptyInventoryState
+                case .readyAndAlmost:      readinessDashboard(lead: .ready)
+                case .almostOnly:          readinessDashboard(lead: .almost)
+                case .morePossibilitiesOnly: buildTowardState
+                case .noMatches:           noMatchesState
                 }
-                .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
-                VStack(spacing: CookStyle.sectionSpacing) {
-                    CookActionCard(
-                        title: "Build Around Food",
-                        subtitle: "Use what you have or what you love.",
-                        emoji: "🥩",
-                        assetName: "cook_now_card",
-                        tint: Color.stockedCharcoal, textOnDark: true, cardHeight: 195
-                    ) { goBuildFood = true }
-
-                    CookActionCard(
-                        title: "Match My Mood",
-                        subtitle: "Find recipes that fit how you feel.",
-                        emoji: "🙂",
-                        assetName: "match_my_mood",
-                        tint: Color.stockedGold, textOnDark: true, cardHeight: 195
-                    ) { goMood = true }
-
-                    CookActionCard(
-                        title: "Surprise Me",
-                        subtitle: "Let us pick the perfect recipe.",
-                        icon: "gift",
-                        assetName: "surprise_me",
-                        tint: dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7),
-                        textOnDark: false, cardHeight: 195
-                    ) { goSurprise = true }
+                if snapshot.emphasis == .readyAndAlmost || snapshot.emphasis == .almostOnly {
+                    ingredientChips
+                    refreshKitchenCard
                 }
-                .padding(.horizontal, CookStyle.screenHPad)
 
-                // ── Inventory Insights (IntelligenceCard) ──
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Inventory Insights")
-                        .font(.system(size: 17, weight: .bold, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                        .padding(.horizontal, CookStyle.screenHPad)
-
-                    if let wn = wasteNothing {
-                        CookIntelligenceCard(
-                            title: "Cook now, waste nothing",
-                            detail: "Make \(wn.recipe.title) — uses \(wn.used.prefix(2).joined(separator: ", "))",
-                            icon: "leaf.fill",
-                            accent: Color.stockedGreen
-                        ) { goBuildFood = true }
-                        .padding(.horizontal, CookStyle.screenHPad)
-                    }
-
-                    CookIntelligenceCard(
-                        title: readyCount > 0 ? "Ready to cook" : "Stock up to unlock recipes",
-                        detail: readyCount > 0
-                            ? "\(readyCount) recipe\(readyCount == 1 ? "" : "s") you can make right now"
-                            : "Add a few ingredients and meals will show up here",
-                        icon: "checkmark.circle.fill",
-                        accent: Color.stockedGold
-                    ) { goBuildFood = true }
-                    .padding(.horizontal, CookStyle.screenHPad)
-                }
+                pathwaySection
 
                 Spacer(minLength: 20)
             }
-            .navigationDestination(isPresented: $goBuildFood) { BuildAroundFoodView(servings: 4) }
-            .navigationDestination(isPresented: $goMood) { MatchMyMoodFlowView() }
-            .navigationDestination(isPresented: $goSurprise) { ServingSizeView(isCookNow: true) }
+            .navigationDestination(isPresented: $goBuildFood)  { BuildAroundFoodView(servings: cookSession?.servings ?? max(1, store.cookingProfile.householdSize)) }
+            .navigationDestination(isPresented: $goMood)       { MatchMyMoodFlowView() }
+            .navigationDestination(isPresented: $goRefresh)    { RefreshKitchenView() }
+            .navigationDestination(isPresented: $goReadyList)  { CookRightNowView() }
+            .navigationDestination(isPresented: $goAlmostList) { RecipeResultsView() }
+            .navigationDestination(isPresented: $goMoreList)   { RecipeResultsView() }
+            .navigationDestination(isPresented: $goSurpriseDetail) {
+                if let r = surpriseRecipe { SurpriseRecipeDetailView(recipe: r) }
+            }
+            .navigationDestination(isPresented: $goChip) {
+                if let chipIngredient {
+                    // Batch 3 routes this into Smart Recommendation; until then the
+                    // chip opens Build Around Food scoped by the existing flow.
+                    StarIngredientRecipesView(category: "Protein", selection: chipIngredient,
+                                              servings: cookSession?.servings ?? max(1, store.cookingProfile.householdSize))
+                }
+            }
+        }
+        .task { bootstrap() }
+        .onChange(of: store.inventoryRevision) { _, _ in recompute() }
+        .onChange(of: store.recipeRevision)    { _, _ in recompute() }
+        .alert("No surprise yet", isPresented: $noSurpriseYet) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Add a few ingredients or save some recipes and Surprise Me will have something to work with.")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
+            goBuildFood = false; goMood = false; goRefresh = false
+            goReadyList = false; goAlmostList = false; goMoreList = false
+            goSurpriseDetail = false; goChip = false
+        }
+    }
+
+    // MARK: Bootstrap / recompute
+
+    private func bootstrap() {
+        if cookSession == nil {
+            if let snap = CookNowSession.loadPersisted() {
+                cookSession = CookNowSession(snapshot: snap)
+            } else {
+                cookSession = CookNowSession(householdSize: store.cookingProfile.householdSize)
+            }
+        }
+        recompute()
+    }
+
+    private func recompute() {
+        snapshot = CookNowCompute.run(store: store, session: cookSession)
+    }
+
+    // MARK: Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Dinner is closer than you think.")
+                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .foregroundStyle(session.themeTextColor)
+                    Text("Here's what your kitchen is telling us.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                }
+                Spacer(minLength: 8)
+            }
+            servingPill
+        }
+        .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
+        .coachmarkAnchor("cook.header")
+    }
+
+    /// Compact "Cooking for N" control. Session-scoped: adjusting it never
+    /// silently rewrites the saved household profile.
+    private var servingPill: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "person.2.fill")
+                .font(.system(size: 11, weight: .semibold))
+            Text("Cooking for \(cookSession?.servings ?? max(1, store.cookingProfile.householdSize))")
+                .font(.system(size: 13, weight: .semibold))
+                .contentTransition(.numericText())
+            HStack(spacing: 2) {
+                stepButton("minus") { adjustServings(-1) }
+                stepButton("plus")  { adjustServings(+1) }
+            }
+        }
+        .foregroundStyle(dark ? Color.stockedWhite : Color.stockedCharcoal)
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background((dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7)))
+        .overlay(Capsule().stroke(Color.stockedGold.opacity(0.35), lineWidth: 1))
+        .clipShape(Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Cooking for \(cookSession?.servings ?? 1). Adjust servings for this session.")
+    }
+
+    private func stepButton(_ icon: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticManager.select()
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
+                .frame(width: 26, height: 26)
+                .background(Color.stockedGold.opacity(0.14))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func adjustServings(_ delta: Int) {
+        guard let s = cookSession else { return }
+        withAnimation(.spring(response: 0.25)) { s.setServings(s.servings + delta) }
+    }
+
+    // MARK: Readiness dashboard (normal + almost-first)
+
+    private enum DashboardLead { case ready, almost }
+
+    private func readinessDashboard(lead: DashboardLead) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if lead == .almost {
+                Text("You're close to dinner.")
+                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .foregroundStyle(session.themeTextColor)
+            }
+            VStack(alignment: .leading, spacing: 14) {
+                Text("WHAT YOU CAN MAKE")
+                    .font(.system(size: 11, weight: .bold))
+                    .kerning(1.1)
+                    .foregroundStyle(Color.stockedGold)
+
+                HStack(spacing: 12) {
+                    if lead == .ready {
+                        metricColumn(count: snapshot.metrics.readyNowTotal,
+                                     title: "meals ready now",
+                                     sub: snapshot.metrics.readyBreakdown,
+                                     cta: "See meals",
+                                     enabled: snapshot.metrics.readyNowTotal > 0) { goReadyList = true }
+                        metricColumn(count: snapshot.metrics.almostReady,
+                                     title: "meals almost ready",
+                                     sub: snapshot.metrics.almostReady > 0 ? "Missing only 1–2 items" : "",
+                                     cta: "See meals",
+                                     enabled: snapshot.metrics.almostReady > 0) { goAlmostList = true }
+                    } else {
+                        metricColumn(count: snapshot.metrics.almostReady,
+                                     title: "meals almost ready",
+                                     sub: "Missing only 1–2 items",
+                                     cta: "See meals",
+                                     enabled: true) { goAlmostList = true }
+                        metricColumn(count: snapshot.metrics.readyNowTotal,
+                                     title: "meals ready now",
+                                     sub: "",
+                                     cta: "See meals",
+                                     enabled: false) { }
+                    }
+                }
+
+                if snapshot.needsReview.count > 0 {
+                    Text("\(snapshot.needsReview.count) more possible with swaps to review")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                }
+
+                if snapshot.metrics.morePossibilities > 0 {
+                    Button { goMoreList = true } label: {
+                        HStack {
+                            Text("See more possibilities (3+ missing)")
+                                .font(.system(size: 12.5, weight: .semibold))
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(Color.stockedGold)
+                        .padding(.vertical, 9).padding(.horizontal, 12)
+                        .background(Color.stockedGold.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Text("Based on what's currently logged")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.stockedWhite.opacity(0.45))
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.stockedCharcoal)
+            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+    }
+
+    private func metricColumn(count: Int, title: String, sub: String, cta: String,
+                              enabled: Bool, action: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(count)")
+                .font(.system(size: 34, weight: .bold, design: .serif))
+                .foregroundStyle(enabled ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
+                .contentTransition(.numericText())
+            Text(title)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(Color.stockedWhite)
+                .fixedSize(horizontal: false, vertical: true)
+            if !sub.isEmpty {
+                Text(sub)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.stockedGold.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if enabled {
+                Button(action: action) {
+                    Text(cta)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.stockedCharcoal)
+                        .padding(.horizontal, 14).padding(.vertical, 6)
+                        .background(Color.stockedWhite.opacity(0.9))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(count). \(sub)")
+    }
+
+    // MARK: Adaptive alternate states
+
+    private var emptyInventoryState: some View {
+        VStack(spacing: 14) {
+            Text("🧺").font(.system(size: 52))
+            Text("Your kitchen is waiting to be stocked.")
+                .font(.system(size: 19, weight: .bold, design: .serif))
+                .foregroundStyle(session.themeTextColor)
+                .multilineTextAlignment(.center)
+            Text("Add items to get personalized meal ideas based on what you actually have.")
+                .font(.system(size: 13.5))
+                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            VStack(spacing: 8) {
+                primaryStateButton("Add Items") { quickMenu.onAddItems() }
+                secondaryStateButton("Scan Items") { quickMenu.onScanReceipt() }
+                secondaryStateButton("Browse Recipes") {
+                    NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
+                }
+            }
+            .padding(.horizontal, 40)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .padding(.horizontal, CookStyle.screenHPad)
+    }
+
+    private var buildTowardState: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Let's build toward dinner.")
+                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .foregroundStyle(session.themeTextColor)
+                Text("Your closest matches need a few more ingredients, but you still have options.")
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            primaryStateButton("See Closest Matches") { goMoreList = true }
+            secondaryStateButton("Refresh Kitchen") { goRefresh = true }
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+    }
+
+    private var noMatchesState: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("We couldn't find a match yet.")
+                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .foregroundStyle(session.themeTextColor)
+                Text("Recommendations use your saved inventory. Add ingredients or browse recipes to get started.")
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            primaryStateButton("Add Items") { quickMenu.onAddItems() }
+            secondaryStateButton("Refresh Kitchen") { goRefresh = true }
+            secondaryStateButton("Browse Recipes") {
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
+            }
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+    }
+
+    private func primaryStateButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.stockedWhite)
+                .frame(maxWidth: .infinity).padding(.vertical, 13)
+                .background(dark ? Color.darkSurface : Color.stockedCharcoal)
+                .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(dark ? Color.stockedGold : Color.clear, lineWidth: 1.5))
+                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func secondaryStateButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(session.themeTextColor)
+                .frame(maxWidth: .infinity).padding(.vertical, 11)
+                .background((dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6)))
+                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Ingredient chips
+
+    /// Top in-stock ingredients — expiring soonest first so the most urgent items
+    /// lead. Labeled honestly: this is a real ranking (expiry), so "top" applies.
+    private var chipItems: [LocalInventoryItem] {
+        snapshotChipItems
+    }
+    @State private var snapshotChipItems: [LocalInventoryItem] = []
+
+    private func recomputeChips() {
+        let inStock = store.inventoryItems.filter { $0.effectiveLevel > 0 }
+        let sorted = inStock.sorted {
+            ($0.daysUntilExpiry ?? 999, $0.name) < ($1.daysUntilExpiry ?? 999, $1.name)
+        }
+        snapshotChipItems = Array(sorted.prefix(7))
+    }
+
+    private var ingredientChips: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Top ingredients you can use")
+                .font(.system(size: 15, weight: .bold, design: .serif))
+                .foregroundStyle(session.themeTextColor)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(chipItems) { item in
+                        Button {
+                            chipIngredient = item.name
+                            goChip = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(ImageFallbackService.emoji(for: item.name)).font(.system(size: 13))
+                                Text(item.name.displayNormalized)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .lineLimit(1)
+                                if item.isExpiringSoon {
+                                    Image(systemName: "clock.fill")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(Color.stockedGold)
+                                }
+                            }
+                            .foregroundStyle(session.themeTextColor)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .a11yButton("Cook with \(item.name)")
+                    }
+                    if store.inventoryItems.filter({ $0.effectiveLevel > 0 }).count > chipItems.count {
+                        Button { goBuildFood = true } label: {
+                            Text("+ more")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.stockedGold)
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(Color.stockedGold.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+        .task { recomputeChips() }
+        .onChange(of: store.inventoryRevision) { _, _ in recomputeChips() }
+    }
+
+    // MARK: Refresh Kitchen card
+
+    private var refreshKitchenCard: some View {
+        Button { goRefresh = true } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(Color.stockedGold.opacity(0.14)).frame(width: 38, height: 38)
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Refresh Kitchen")
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor)
+                    Text("Confirm a few items to improve tonight's matches.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+            }
+            .padding(14)
+            .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, CookStyle.screenHPad)
+        .a11yButton("Refresh Kitchen. Confirm a few items to improve tonight's matches.")
+    }
+
+    // MARK: Pathways
+
+    private var pathwaySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("How do you want to cook?")
+                .font(.system(size: 15, weight: .bold, design: .serif))
+                .foregroundStyle(session.themeTextColor)
+            pathwayRow(emoji: "🥩", title: "Build Around Food",
+                       subtitle: "Use what you have or what you love.") { goBuildFood = true }
+            pathwayRow(emoji: "🙂", title: "Match My Mood",
+                       subtitle: "Find recipes that fit how you feel.") { goMood = true }
+            pathwayRow(emoji: "🎁", title: "Surprise Me",
+                       subtitle: "Let us pick the perfect recipe.") { rollSurprise() }
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+    }
+
+    private func pathwayRow(emoji: String, title: String, subtitle: String,
+                            action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            HapticManager.light()
+        } label: {
+            HStack(spacing: 12) {
+                Text(emoji).font(.system(size: 22)).frame(width: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14.5, weight: .semibold, design: .serif))
+                        .foregroundStyle(session.themeTextColor)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+            }
+            .padding(14)
+            .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        }
+        .buttonStyle(.plain)
+        .a11yButton("\(title). \(subtitle)")
+    }
+
+    private func rollSurprise() {
+        if let r = store.surpriseRecipeTuned() {
+            surpriseRecipe = r
+            goSurpriseDetail = true
+        } else {
+            noSurpriseYet = true
         }
     }
 }

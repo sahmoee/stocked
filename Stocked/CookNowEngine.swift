@@ -90,6 +90,9 @@ nonisolated struct IngredientResolution: Identifiable, Sendable, Equatable {
         case substituteNeedsReview(suggestion: String)
         /// Not resolvable — no stock, no in-stock substitute.
         case missing
+        /// The user answered "not sure" in Kitchen Check — visible uncertainty.
+        /// Counts against readiness (conservative) and blocks Kitchen Confirmed.
+        case unconfirmed
         /// Optional ingredient (or a pantry item the recipe marks optional).
         case optional
     }
@@ -101,7 +104,7 @@ nonisolated struct IngredientResolution: Identifiable, Sendable, Equatable {
 
     var isUnresolvedRequired: Bool {
         switch status {
-        case .missing:                    return true
+        case .missing, .unconfirmed:      return true
         case .substituteNeedsReview:      return false // resolvable, just needs a tap
         case .inStock, .substituted, .optional: return false
         }
@@ -131,6 +134,10 @@ nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
     }
     /// Count of unresolved required ingredients (the "missing" number).
     var missingCount: Int { resolutions.filter { if case .missing = $0.status { return true }; return false }.count }
+    /// Count of ingredients the user marked "not sure" — visible uncertainty.
+    var unconfirmedCount: Int {
+        resolutions.filter { if case .unconfirmed = $0.status { return true }; return false }.count
+    }
 
     /// The unresolved required ingredient names, for grocery + missing-item UI.
     var missingNames: [String] {
@@ -145,6 +152,7 @@ nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
         if substitutionCount > 0 { parts.append("\(substitutionCount) substitution\(substitutionCount == 1 ? "" : "s")") }
         if reviewCount > 0 { parts.append("\(reviewCount) to review") }
         if missingCount > 0 { parts.append("\(missingCount) missing") }
+        if unconfirmedCount > 0 { parts.append("\(unconfirmedCount) unconfirmed") }
         return parts.joined(separator: " · ")
     }
 }
@@ -194,6 +202,7 @@ nonisolated struct CookNowEngine: Sendable {
     private let allergens: [String]                // active, non-empty
     private let dislikes: [String]                 // household member dislikes/allergies, non-empty
     private let confirmedSubs: Set<String>         // session-confirmed "ingredient→substitute" keys
+    private let overrides: [String: IngredientOverride]  // meal-only Kitchen Check corrections
 
     /// A precomputed lowercased in-stock set for fast membership.
     private let inStockLower: [String]
@@ -209,13 +218,15 @@ nonisolated struct CookNowEngine: Sendable {
          inStockNames: [String],
          allergens: [String] = [],
          dislikes: [String] = [],
-         confirmedSubstitutions: Set<String> = []) {
+         confirmedSubstitutions: Set<String> = [],
+         overrides: [String: IngredientOverride] = [:]) {
         self.recipes = recipes
         self.inventoryNames = inStockNames
         self.inStockLower = inStockNames.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }
         self.allergens = allergens.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 }
         self.dislikes = dislikes.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 }
         self.confirmedSubs = confirmedSubstitutions
+        self.overrides = overrides
     }
 
     // MARK: Name matching (local copy of the store's loose match, kept private
@@ -284,7 +295,22 @@ nonisolated struct CookNowEngine: Sendable {
                 resolutions.append(.init(name: ing.name, amount: ing.amount, status: .optional))
                 continue
             }
-            if nameInStock(ing.name) {
+            // Meal-only Kitchen Check corrections win over the logged inventory:
+            // "I have this" resolves it, "I'm out"/"not enough" removes the direct
+            // stock claim (substitutes below may still apply), "not sure" surfaces
+            // as visible uncertainty and conservatively counts against readiness.
+            let ov = overrides[ing.name.lowercased().trimmingCharacters(in: .whitespaces)]
+            switch ov {
+            case .haveIt, .enough:
+                resolutions.append(.init(name: ing.name, amount: ing.amount, status: .inStock))
+                continue
+            case .notSure:
+                resolutions.append(.init(name: ing.name, amount: ing.amount, status: .unconfirmed))
+                continue
+            case .out, .notEnough, nil:
+                break   // fall through — substitutes may still resolve it
+            }
+            if ov == nil, nameInStock(ing.name) {
                 resolutions.append(.init(name: ing.name, amount: ing.amount, status: .inStock))
                 continue
             }
@@ -312,7 +338,7 @@ nonisolated struct CookNowEngine: Sendable {
         var substituted = 0
         for r in resolutions {
             switch r.status {
-            case .missing:                missing += 1
+            case .missing, .unconfirmed:  missing += 1
             case .substituteNeedsReview:  review += 1
             case .substituted:            substituted += 1
             case .inStock, .optional:     break
