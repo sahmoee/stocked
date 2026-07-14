@@ -261,7 +261,10 @@ struct CookNowHomeView: View {
 
     // One Cook Now session per visit — rehydrated from a persisted snapshot when
     // its context hasn't expired, otherwise fresh with the household default.
-    @State private var cookSession: CookNowSession? = nil
+    // Non-optional so it can be injected into every downstream destination's
+    // environment; bootstrap() swaps in the rehydrated/household-seeded session.
+    @State private var cookSession = CookNowSession(householdSize: 2)
+    @State private var sessionReady = false
 
     // Classified snapshot — computed off the render path, never in body.
     @State private var snapshot = CookNowCompute.Output.empty
@@ -273,11 +276,9 @@ struct CookNowHomeView: View {
     @State private var goReadyList  = false
     @State private var goAlmostList = false
     @State private var goMoreList   = false
-    @State private var surpriseRecipe: GeneratedRecipe? = nil
     @State private var goSurpriseDetail = false
     @State private var chipIngredient: String? = nil
     @State private var goChip = false
-    @State private var noSurpriseYet = false
 
     var body: some View {
         StockedShell(showBack: true, titleText: "Cook Now") {
@@ -302,32 +303,24 @@ struct CookNowHomeView: View {
 
                 Spacer(minLength: 20)
             }
-            .navigationDestination(isPresented: $goBuildFood)  { BuildAroundFoodView(servings: cookSession?.servings ?? max(1, store.cookingProfile.householdSize)) }
-            .navigationDestination(isPresented: $goMood)       { MatchMyMoodFlowView() }
-            .navigationDestination(isPresented: $goRefresh)    { RefreshKitchenView() }
-            .navigationDestination(isPresented: $goReadyList)  { CookRightNowView() }
-            .navigationDestination(isPresented: $goAlmostList) { RecipeResultsView() }
-            .navigationDestination(isPresented: $goMoreList)   { RecipeResultsView() }
+            .navigationDestination(isPresented: $goBuildFood)  { BuildAroundFoodView(servings: cookSession.servings).environment(cookSession) }
+            .navigationDestination(isPresented: $goMood)       { MatchMyMoodFlowView().environment(cookSession) }
+            .navigationDestination(isPresented: $goRefresh)    { RefreshKitchenView().environment(cookSession) }
+            .navigationDestination(isPresented: $goReadyList)  { CookNowResultsView(focus: .readyFirst).environment(cookSession) }
+            .navigationDestination(isPresented: $goAlmostList) { CookNowResultsView(focus: .almostFirst).environment(cookSession) }
+            .navigationDestination(isPresented: $goMoreList)   { CookNowResultsView(focus: .morePossibilities).environment(cookSession) }
             .navigationDestination(isPresented: $goSurpriseDetail) {
-                if let r = surpriseRecipe { SurpriseRecipeDetailView(recipe: r) }
+                SmartRecommendationView(mode: .surprise).environment(cookSession)
             }
             .navigationDestination(isPresented: $goChip) {
                 if let chipIngredient {
-                    // Batch 3 routes this into Smart Recommendation; until then the
-                    // chip opens Build Around Food scoped by the existing flow.
-                    StarIngredientRecipesView(category: "Protein", selection: chipIngredient,
-                                              servings: cookSession?.servings ?? max(1, store.cookingProfile.householdSize))
+                    SmartRecommendationView(mode: .ingredient(chipIngredient)).environment(cookSession)
                 }
             }
         }
         .task { bootstrap() }
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
-        .alert("No surprise yet", isPresented: $noSurpriseYet) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Add a few ingredients or save some recipes and Surprise Me will have something to work with.")
-        }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             goBuildFood = false; goMood = false; goRefresh = false
             goReadyList = false; goAlmostList = false; goMoreList = false
@@ -338,12 +331,13 @@ struct CookNowHomeView: View {
     // MARK: Bootstrap / recompute
 
     private func bootstrap() {
-        if cookSession == nil {
+        if !sessionReady {
             if let snap = CookNowSession.loadPersisted() {
                 cookSession = CookNowSession(snapshot: snap)
             } else {
                 cookSession = CookNowSession(householdSize: store.cookingProfile.householdSize)
             }
+            sessionReady = true
         }
         recompute()
     }
@@ -379,7 +373,7 @@ struct CookNowHomeView: View {
         HStack(spacing: 10) {
             Image(systemName: "person.2.fill")
                 .font(.system(size: 11, weight: .semibold))
-            Text("Cooking for \(cookSession?.servings ?? max(1, store.cookingProfile.householdSize))")
+            Text("Cooking for \(cookSession.servings)")
                 .font(.system(size: 13, weight: .semibold))
                 .contentTransition(.numericText())
             HStack(spacing: 2) {
@@ -393,7 +387,7 @@ struct CookNowHomeView: View {
         .overlay(Capsule().stroke(Color.stockedGold.opacity(0.35), lineWidth: 1))
         .clipShape(Capsule())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cooking for \(cookSession?.servings ?? 1). Adjust servings for this session.")
+        .accessibilityLabel("Cooking for \(cookSession.servings). Adjust servings for this session.")
     }
 
     private func stepButton(_ icon: String, action: @escaping () -> Void) -> some View {
@@ -411,8 +405,7 @@ struct CookNowHomeView: View {
     }
 
     private func adjustServings(_ delta: Int) {
-        guard let s = cookSession else { return }
-        withAnimation(.spring(response: 0.25)) { s.setServings(s.servings + delta) }
+        withAnimation(.spring(response: 0.25)) { cookSession.setServings(cookSession.servings + delta) }
     }
 
     // MARK: Readiness dashboard (normal + almost-first)
@@ -763,11 +756,6 @@ struct CookNowHomeView: View {
     }
 
     private func rollSurprise() {
-        if let r = store.surpriseRecipeTuned() {
-            surpriseRecipe = r
-            goSurpriseDetail = true
-        } else {
-            noSurpriseYet = true
-        }
+        goSurpriseDetail = true   // Surprise converges on the shared Smart Recommendation
     }
 }

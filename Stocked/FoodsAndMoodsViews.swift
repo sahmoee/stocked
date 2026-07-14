@@ -271,7 +271,10 @@ struct FoodsSubOptionView: View {
         }
         .navigationDestination(isPresented: $gotoRecipe) {
             if let selected {
-                StarIngredientRecipesView(category: category, selection: selected, servings: servings)
+                // Cook Now redesign: selecting an ingredient presents one strong
+                // recommendation first (Smart Recommendation) instead of dropping
+                // straight into a long list. See All remains one tap away inside.
+                SmartRecommendationView(mode: .ingredient(selected))
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
