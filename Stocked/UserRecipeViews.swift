@@ -78,6 +78,15 @@ struct UserRecipeDetailView: View {
     @State private var detailMetrics          = UserRecipeDetailMetrics.empty
     @State private var substitutionIngredientIDs: Set<UUID> = []
 
+    // ── Cook Now integration (Direction B) ────────────────────────
+    // Present only when a CookNowSession is in the environment (the user
+    // arrived through the Cook flow). The vault/browse path renders exactly
+    // as before because cookSession is nil there.
+    @Environment(CookNowSession.self) private var cookSession: CookNowSession?
+    @State private var cookClassification: ClassifiedRecipe? = nil
+    @State private var showKitchenCheck = false
+    @State private var showSubReview = false
+
     // Steps as shown: trimmed, with blank entries dropped so imported or hand-entered
     // recipes never render empty numbered rows (e.g. a bare "2" with no text).
     private var displaySteps: [String] {
@@ -125,6 +134,10 @@ struct UserRecipeDetailView: View {
         detailContent
             .onAppear {
                 session.recordRecipeView(recipe.id)   // #240 — Recently Viewed
+                // Cook Now: the session's serving choice carries into this
+                // screen's existing scaling — set once, user can still adjust.
+                if let cs = cookSession { scaledServings = max(1, cs.servings) }
+                recomputeCookClassification()
                 // #9 — context for step timers surfaced on the Lock Screen / Dynamic Island.
                 timerEngine.recipeTitle = recipe.title
                 timerEngine.totalSteps  = displaySteps.count
@@ -140,6 +153,14 @@ struct UserRecipeDetailView: View {
             .navigationTitle(recipe.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { recipeOptionsToolbar }
+            .onChange(of: session.guestStore.inventoryRevision) { _, _ in recomputeCookClassification() }
+            .navigationDestination(isPresented: $showKitchenCheck) {
+                KitchenCheckView(recipe: recipe)
+            }
+            .sheet(isPresented: $showSubReview, onDismiss: { recomputeCookClassification() }) {
+                SubstitutionReviewSheet(recipe: recipe)
+                    .environment(session)
+            }
             .sheet(item: $planningContext) { context in
                 NavigationStack {
                     CookLaterWorkspaceView(context: context).environment(session)
@@ -282,6 +303,71 @@ struct UserRecipeDetailView: View {
         ToastCenter.shared.success("Ingredients repaired and saved")
     }
 
+    // ── Cook Now readiness header ─────────────────────────────────
+
+    private func recomputeCookClassification() {
+        guard cookSession != nil else { return }
+        cookClassification = CookNowCompute.classify(recipe: recipe,
+                                                     store: session.guestStore,
+                                                     session: cookSession)
+    }
+
+    /// Grouped, honest readiness up top: "9 exact · 1 substitution · 1 missing",
+    /// a state-aware primary CTA, and the missing items consolidated in one
+    /// place with a single grocery action.
+    @ViewBuilder
+    private func cookNowReadinessSection(_ c: ClassifiedRecipe) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: c.readiness.isReadyNow ? "checkmark.circle.fill" : "circle.dashed")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(c.readiness.isReadyNow ? Color.stockedGreen : Color.stockedGold)
+                Text(c.groupedSummary.isEmpty ? c.readiness.statusLabel : c.groupedSummary)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor)
+                Spacer()
+            }
+
+            if c.missingCount > 0 {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Missing: \(c.missingNames.map { $0.displayNormalized }.joined(separator: ", "))")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        for name in c.missingNames { session.guestStore.addGroceryItem(name: name) }
+                        HapticManager.light()
+                    } label: {
+                        Label("Add Missing to Grocery", systemImage: "cart.badge.plus")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.stockedGold)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            // State-aware primary action for the Cook Now path.
+            Button {
+                HapticManager.light()
+                if c.reviewCount > 0 { showSubReview = true }
+                else { showKitchenCheck = true }
+            } label: {
+                Text(c.reviewCount > 0
+                     ? "Review \(c.reviewCount) Substitution\(c.reviewCount == 1 ? "" : "s")"
+                     : "Check Ingredients")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(session.isDarkMode ? Color.stockedGold : Color.stockedCharcoal)
+                    .frame(maxWidth: .infinity).padding(.vertical, 10)
+                    .background((session.isDarkMode ? Color.stockedGold : Color.stockedCharcoal).opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+    }
+
     private var detailContent: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
@@ -307,6 +393,12 @@ struct UserRecipeDetailView: View {
                             }
                         }
                     }.padding(.horizontal, 20)
+
+                    // Cook Now readiness header — only when arriving via Cook Now
+                    if cookSession != nil, let c = cookClassification {
+                        cookNowReadinessSection(c)
+                            .padding(.horizontal, 20)
+                    }
 
                     // Title + meta
                     VStack(alignment: .leading, spacing: 8) {
