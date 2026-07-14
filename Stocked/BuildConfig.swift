@@ -41,7 +41,7 @@ nonisolated enum BuildConfig {
     private static let fallbackVersion     = "0.0"
 
     static let changeCount   = 1
-    static let buildName     = "Build 298 — Wires the API Ninjas v3 recipe endpoint in as a general recipe source seeded by cuisine and pantry, adds the APINinjasKey Info.plist mapping so the key is read from Secrets.xcconfig, and the source appears once configured."
+    static let buildName     = "Build 43 — Cook Now redesign: inventory-first dashboard with live readiness metrics, Tonight\u{2019}s Pick smart recommendation with Try Another, tiered results, Kitchen Check with meal-only overrides, explicit substitution review, staged inventory update review, prep checklist, and session serving continuity from dashboard through cooking."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection

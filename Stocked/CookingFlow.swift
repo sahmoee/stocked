@@ -152,6 +152,11 @@ struct RecipeOverviewView: View {
     let prepTime:    String
 
     @Environment(AppSession.self) var session
+    // Cook Now (Direction B): optional session — when present, its serving
+    // choice seeds the scaler and its confirmed swaps take precedence.
+    @Environment(CookNowSession.self) private var cookSession: CookNowSession?
+    @State private var goPrep          = false
+    @State private var derivedPrepTasks: [CookPrepTask] = []
     @State private var startCooking     = false
     @State private var internetData: InternetRecipeData? = nil
     @State private var isFetchingRecipe  = false
@@ -206,7 +211,11 @@ struct RecipeOverviewView: View {
 
     // MARK: - Serving adjustment
     private var effectiveServings: Int {
-        adjustedServings > 0 ? adjustedServings : max(1, servings)
+        if adjustedServings > 0 { return adjustedServings }
+        // Cook Now session carries the serving choice made on the dashboard /
+        // recommendation; user adjustments here still win via adjustedServings.
+        if let cs = cookSession { return max(1, cs.servings) }
+        return max(1, servings)
     }
     private var baseServings: Int { max(1, servings == 0 ? 4 : servings) }
     private var scaleFactor: Double { Double(effectiveServings) / Double(baseServings) }
@@ -279,11 +288,31 @@ struct RecipeOverviewView: View {
         var substitutes: [String: String] = [:]
         substitutes.reserveCapacity(prepared.missingItems.count)
         for line in prepared.missingItems {
-            if let first = session.guestStore.inStockSubstitutes(for: line).first {
+            let options = session.guestStore.inStockSubstitutes(for: line)
+            // A swap the user explicitly confirmed in Cook Now wins over the
+            // database's first suggestion.
+            if let cs = cookSession,
+               let confirmed = options.first(where: { cs.isSubstitutionConfirmed(ingredient: line, substitute: $0) }) {
+                substitutes[line] = confirmed
+            } else if let first = options.first {
                 substitutes[line] = first
             }
         }
         inStockSubstituteByIngredient = substitutes
+
+        // Derive prep tasks once, off the render path (get-ahead verbs from the
+        // instruction text; ingredient-level prep notes require structured
+        // RecipeIngredient data which the string-based overview doesn't carry).
+        derivedPrepTasks = CookNowPrepDeriver.tasks(for: prepRecipeSnapshot)
+    }
+
+    private var hasPrepTasks: Bool { !derivedPrepTasks.isEmpty }
+
+    /// Synthetic recipe for the prep checklist, built from this overview's data.
+    private var prepRecipeSnapshot: UserRecipe {
+        UserRecipe(title: title,
+                   ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                   instructions: steps.isEmpty ? displaySteps : steps)
     }
 
     private func loadCachedIngredientRepair() async {
@@ -428,6 +457,22 @@ struct RecipeOverviewView: View {
                 // ── Portion check fail-safe ──────────────────────────
                 portionCheckSection
 
+                // ── Prep first (Cook Now) — derived from real recipe data ──
+                if hasPrepTasks {
+                    Button { goPrep = true } label: {
+                        Label("Prep First", systemImage: "list.bullet.clipboard")
+                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .foregroundStyle(session.themeTextColor)
+                            .frame(maxWidth: .infinity).padding(.vertical, 15)
+                            .background(Color.stockedGold.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                                .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 24).padding(.bottom, 10)
+                }
+
                 // ── Start Cooking ─────────────────────────────────────
                 Button { startCooking = true } label: {
                     Text("Start Cooking")
@@ -466,7 +511,12 @@ struct RecipeOverviewView: View {
             }
         }
         .navigationDestination(isPresented: $startCooking) {
-            CookingFlashcardView(recipeTitle: title, ingredients: scaledIngredients, steps: displaySteps, baseServings: effectiveServings)
+            CookingFlashcardView(recipeTitle: title, ingredients: scaledIngredients, steps: displaySteps,
+                                 baseServings: effectiveServings,
+                                 sessionSubs: inStockSubstituteByIngredient)
+        }
+        .navigationDestination(isPresented: $goPrep) {
+            PrepChecklistView(recipe: prepRecipeSnapshot)
         }
         .sheet(item: $planningContext) { context in
             NavigationStack {
@@ -702,6 +752,24 @@ struct CookingFlashcardView: View {
     @State private var sessionEnded = false       // #231 — once finished/stopped, don't let onAppear resurrect the pill
     @State private var liveActivityHint: String?  // #231 — proactive Lock Screen timer warning
 
+    // ── Cook Now substitution guidance (#Direction B) ────────────────
+    /// If this step mentions an ingredient the session swapped, remind the cook
+    /// which swap is in play. Guidance only — the author's step text stands.
+    private func substitutionHint(for step: String) -> String? {
+        guard !sessionSubs.isEmpty else { return nil }
+        let lower = step.lowercased()
+        for (original, sub) in sessionSubs {
+            // Match on the meaningful lead words of the original ingredient line.
+            let key = original.lowercased()
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { $0.count > 3 }
+            if key.contains(where: { lower.contains($0) }) {
+                return "Using \(sub.displayNormalized) instead of \(original.displayNormalized)"
+            }
+        }
+        return nil
+    }
+
     // ── Progress persistence (#11) ──────────────────────────────────
     private var progressKey:  String { "cookProgress_\(recipeTitle.hashValue)" }
     private var timestampKey: String { "cookTimestamp_\(recipeTitle.hashValue)" }
@@ -752,7 +820,13 @@ struct CookingFlashcardView: View {
         "Rest meat 5 min before slicing to keep juices in."
     ]
 
-    init(recipeTitle: String, ingredients: [String] = [], steps: [String] = [], baseServings: Int = 4) {
+    /// Cook Now: ingredient → in-stock substitute chosen for this session.
+    /// Guidance-only — step text is NEVER rewritten (it stays the author's).
+    var sessionSubs: [String: String] = [:]
+
+    init(recipeTitle: String, ingredients: [String] = [], steps: [String] = [], baseServings: Int = 4,
+         sessionSubs: [String: String] = [:]) {
+        self.sessionSubs = sessionSubs
         self.recipeTitle = recipeTitle
         self.ingredients = ingredients.map(\.stockedWrappable)   // #FB3 — wrap-safe
         self.steps = steps.isEmpty ? [
@@ -1013,6 +1087,14 @@ struct CookingFlashcardView: View {
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 24)
                                 .fixedSize(horizontal: false, vertical: true)
+                            if let hint = substitutionHint(for: steps[currentCard]) {
+                                Label(hint, systemImage: "arrow.triangle.swap")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.stockedGold)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 24)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                             // Dot indicators
                             HStack(spacing: 6) {
                                 ForEach(steps.indices, id: \.self) { i in
@@ -1126,6 +1208,7 @@ struct CookingFlashcardView: View {
         }
         .navigationDestination(isPresented: $finishCooking) {
             TimeToPlatView(recipeTitle: recipeTitle, ingredients: ingredients)
+                .onAppear { CookNowSession.clearPersisted() }   // cook complete — session context served
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             finishCooking = false   // collapse cook flow on iPad

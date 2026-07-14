@@ -210,6 +210,47 @@ struct KitchenCheckView: View {
         }
     }
 
+    // MARK: Answer Chip
+
+    private func answerChip(
+        _ title: String,
+        _ systemImage: String,
+        _ color: Color,
+        selected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(selected ? Color.white : color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(selected ? color : color.opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        color.opacity(selected ? 0 : 0.35),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(selected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+    
     // MARK: Footer
 
     private func summaryFooter(_ c: ClassifiedRecipe) -> some View {

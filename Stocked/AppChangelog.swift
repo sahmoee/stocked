@@ -38,12 +38,35 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+        // ── 4.23 (build 43) — Cook Now redesign: inventory-first dashboard ──
+        ChangelogVersion(
+            version: "4.23",
+            buildDate: "Build 43 · July 14, 2026",
+            headline: "What's new in Stocked",
+            isLatest: true,
+            entries: [
+                ChangelogEntry(icon: "gauge.with.dots.needle.67percent", color: Color.stockedGold,
+                               title: "Cook Now leads with your kitchen",
+                               detail: "The Cook tab now opens on a live dashboard: how many meals you can make right now, how many are missing just one or two items, and the top ingredients to build around — all calculated from what's actually logged."),
+                ChangelogEntry(icon: "sparkles", color: Color.stockedGreen,
+                               title: "Tonight's Pick",
+                               detail: "Pick an ingredient (or ask to be surprised) and Stocked recommends one strong recipe first — with real reasons why — plus Try Another and See All Options one tap away."),
+                ChangelogEntry(icon: "arrow.triangle.swap", color: Color.stockedGold,
+                               title: "Honest substitutions",
+                               detail: "Recipes that need a swap now say so up front. Review each substitution, see how to use it, and confirm it — or send the original to your grocery list instead."),
+                ChangelogEntry(icon: "checklist", color: Color.stockedGreen,
+                               title: "Kitchen Check and Prep First",
+                               detail: "Before you cook, quickly confirm what you really have — corrections apply to tonight's meal without touching your inventory unless you say so — and knock out prep tasks pulled straight from the recipe."),
+                ChangelogEntry(icon: "person.2.fill", color: Color.stockedGold,
+                               title: "Serving sizes that follow you",
+                               detail: "Your household size is applied automatically, adjustable right on the dashboard, and the count you choose carries through the recipe, scaling, and cooking — no more retyping it at every step."),
+            ]),
         // ── 4.22 (build 42) — Assistant diagnostics, grocery names, deep lag fixes ──
         ChangelogVersion(
             version: "4.22",
             buildDate: "Build 42 · July 11, 2026",
             headline: "What's new in Stocked",
-            isLatest: true,
+            isLatest: false,
             entries: [
                 ChangelogEntry(icon: "text.alignleft", color: Color.stockedGold,
                                title: "Grocery names finally read right",
