@@ -12,6 +12,7 @@
 // gets: suggested unit/container/quantity, item-name autocomplete, and ingredient pairings.
 
 import Foundation
+import os
 
 nonisolated struct CrowdSuggestion: Codable, Sendable {
     var count: Int
