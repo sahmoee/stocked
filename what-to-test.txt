@@ -33,3 +33,7 @@ STOCKED COOK LATER COMMAND CENTER - TEST PLAN
 16. Run the Stocked test target, including CookLaterPlanningTests, AIResponseDecoderTests, HouseholdMergePolicyTests, FoodIntelligenceTests, ReceiptProcessingServiceTests, and BuildConfigurationGuardTests.
 
 17. Test light/dark appearance, Dynamic Type, iPhone SE-sized layouts, standard iPhone, and iPad. Check that Plan/Shop/Prep controls, meal details, quantity steppers, calendar, and sheet detents remain usable.
+
+CORRECTIVE BUILD / CLEAR DATA
+- Confirm GuestDataStore compiles without saveFlushTask or dirtyKeys scope errors.
+- Edit inventory, immediately run Clear All Data, relaunch, and confirm cleared records do not return.

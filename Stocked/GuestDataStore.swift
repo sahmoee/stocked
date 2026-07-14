@@ -536,9 +536,7 @@ class GuestDataStore {
         // fire its flush AFTER we wipe disk below and write the old data straight back — a
         // silent resurrection. Cancel the pending flush and drop the dirty queue so nothing we
         // are about to clear gets persisted again.
-        saveFlushTask?.cancel()
-        saveFlushTask = nil
-        dirtyKeys.removeAll()
+        persistenceScheduler.cancel()
 
         // ── 1. In-memory state ───────────────────────────────────────
         inventoryItems        = []
@@ -555,6 +553,11 @@ class GuestDataStore {
         groceryDayOfWeek      = 6
         cookingProfile        = UserCookingProfile()
         quizCompleted         = false
+
+        // Resetting the observable collections above intentionally fires their didSet hooks.
+        // Cancel those newly queued empty-state writes before deleting the backing stores so
+        // Clear All leaves no delayed persistence work behind.
+        persistenceScheduler.cancel()
 
         // ── 2. Wipe entire UserDefaults domain — catches every key ───
         if let bundleID = Bundle.main.bundleIdentifier {
@@ -1955,4 +1958,3 @@ class GuestDataStore {
         itemPreferences[key] = pref
     }
 }
-
