@@ -33,7 +33,12 @@ final class AICorrectionStore {
         switch outcome { case .accepted: row.accepted += 1; case .edited: row.edited += 1; case .rejected: row.rejected += 1 }
         records[k] = row
         if records.count > 250 {
-            records = Dictionary(uniqueKeysWithValues: records.sorted { $0.value.updatedAt > $1.value.updatedAt }.prefix(250))
+            let newestRecords = records
+                .sorted { $0.value.updatedAt > $1.value.updatedAt }
+                .prefix(250)
+            records = newestRecords.reduce(into: [String: Record]()) { result, entry in
+                result[entry.key] = entry.value
+            }
         }
         if let data = try? JSONEncoder().encode(records) { UserDefaults.standard.set(data, forKey: key) }
     }

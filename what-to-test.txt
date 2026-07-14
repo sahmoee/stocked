@@ -41,3 +41,9 @@ CORRECTIVE BUILD / CLEAR DATA
 ZONE CLASSIFIER CORRECTIVE BUILD
 - Confirm StockedIntelligence.swift compiles without the incorrect argument-label error at the ZoneClassifier anyMatch helper.
 - Spot-check zone classification for freezer, staples, fridge, and pantry terms to confirm behavior is unchanged.
+
+SWIFT 6 CORRECTIVE BUILD
+- Confirm AICorrectionStore.swift compiles without the uniqueKeysWithValues tuple-type error.
+- Generate more than 250 correction records in a debug fixture and confirm the store retains the 250 newest records.
+- Confirm BarcodeScannerView.swift compiles with Log.net.debug and OSLog privacy interpolation.
+- Trigger a failed barcode AI fallback and verify the debug log is emitted without changing user-facing error handling.

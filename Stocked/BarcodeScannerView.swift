@@ -2,6 +2,7 @@
 import SwiftUI
 import Combine
 import AVFoundation
+import os
 import VisionKit
 import Vision
 

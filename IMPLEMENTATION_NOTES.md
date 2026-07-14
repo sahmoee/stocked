@@ -73,3 +73,8 @@ The current data model stores planned meals as a seven-day `dayIndex` horizon. T
 
 - Corrects the `FoodNameMatcher.anyPhrase` invocation in `StockedIntelligence.swift` to use its declared labels: `anyPhrase(in:phrases:)`.
 - This is a call-site-only correction; classification ordering and keyword behavior are unchanged.
+
+## Corrective build v4
+
+- `Stocked/AICorrectionStore.swift`: replaces `Dictionary(uniqueKeysWithValues:)` over a labeled dictionary-element slice with an explicit `reduce(into:)`, avoiding the Swift 6 tuple-label generic mismatch while retaining the newest 250 records.
+- `Stocked/BarcodeScannerView.swift`: imports `os` so `Log.net.debug`, OSLog string interpolation, privacy annotations, and `.public` compile in the defining module's scope.
