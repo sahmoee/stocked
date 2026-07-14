@@ -1,0 +1,4878 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "—" : {
+
+    },
+    ":" : {
+
+    },
+    "?" : {
+
+    },
+    "·" : {
+
+    },
+    "· %@" : {
+
+    },
+    "· Start timer" : {
+
+    },
+    "\"%@\" is already in your %@. Add another or cancel to update that item instead." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "\"%1$@\" is already in your %2$@. Add another or cancel to update that item instead."
+          }
+        }
+      }
+    },
+    "\"%@\" will be removed from your collection. This can't be undone." : {
+
+    },
+    "(%lld)" : {
+
+    },
+    "(optional)" : {
+
+    },
+    "**%@** %@ **%@**" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "**%1$@** %2$@ **%3$@**"
+          }
+        }
+      }
+    },
+    "% Daily Value per serving · 2000 cal diet" : {
+
+    },
+    "%@  ›  %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@  ›  %2$@"
+          }
+        }
+      }
+    },
+    "%@  %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@  %2$@"
+          }
+        }
+      }
+    },
+    "%@ – %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ – %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ · %lld servings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · %3$lld servings"
+          }
+        }
+      }
+    },
+    "%@ · %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld"
+          }
+        }
+      }
+    },
+    "%@ · %lld ingredients" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld ingredients"
+          }
+        }
+      }
+    },
+    "%@ · %lld%% left" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld%% left"
+          }
+        }
+      }
+    },
+    "%@ · one-time purchase" : {
+
+    },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ %3$@"
+          }
+        }
+      }
+    },
+    "%@ %@ =" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ ="
+          }
+        }
+      }
+    },
+    "%@ all-time" : {
+
+    },
+    "%@ at %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "%@ available" : {
+
+    },
+    "%@ done" : {
+
+    },
+    "%@ in the last 7 days" : {
+
+    },
+    "%@ is expiring soon." : {
+
+    },
+    "%@ of that is expired" : {
+
+    },
+    "%@ planned · %@ unallocated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ planned · %2$@ unallocated"
+          }
+        }
+      }
+    },
+    "%@ recipes" : {
+
+    },
+    "%@ timer" : {
+
+    },
+    "%@ went to waste — what happened?" : {
+
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "%@, %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@. %3$@"
+          }
+        }
+      }
+    },
+    "%@, %lld item%@ expiring" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld item%3$@ expiring"
+          }
+        }
+      }
+    },
+    "%@, %lld items" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld items"
+          }
+        }
+      }
+    },
+    "%@, %lld minutes %lld seconds left" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld minutes %3$lld seconds left"
+          }
+        }
+      }
+    },
+    "%@, %lld recipes available" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld recipes available"
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@: %lld. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$lld. %3$@"
+          }
+        }
+      }
+    },
+    "%@: pantry %@, fridge %@, freezer %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: pantry %2$@, fridge %3$@, freezer %4$@"
+          }
+        }
+      }
+    },
+    "%@." : {
+
+    },
+    "%@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. %2$@"
+          }
+        }
+      }
+    },
+    "%@'s Kitchen" : {
+
+    },
+    "%lld" : {
+
+    },
+    "%lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@"
+          }
+        }
+      }
+    },
+    "%lld %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "%lld available" : {
+
+    },
+    "%lld change%@ need your review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld change%2$@ need your review"
+          }
+        }
+      }
+    },
+    "%lld collection%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld collection%2$@"
+          }
+        }
+      }
+    },
+    "%lld day%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld day%2$@"
+          }
+        }
+      }
+    },
+    "%lld days" : {
+
+    },
+    "%lld duplicate%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld duplicate%2$@"
+          }
+        }
+      }
+    },
+    "%lld entries" : {
+
+    },
+    "%lld in stock" : {
+
+    },
+    "%lld ingredient%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld ingredient%2$@"
+          }
+        }
+      }
+    },
+    "%lld ingredient%@ no recorded price, so the real cost is a bit higher. Prices come from your receipts and item prices." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld ingredient%2$@ no recorded price, so the real cost is a bit higher. Prices come from your receipts and item prices."
+          }
+        }
+      }
+    },
+    "%lld ingredients" : {
+
+    },
+    "%lld ingredients · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld ingredients · %2$@"
+          }
+        }
+      }
+    },
+    "%lld ingredients · Made %lld×" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld ingredients · Made %2$lld×"
+          }
+        }
+      }
+    },
+    "%lld ingredients missing" : {
+
+    },
+    "%lld item(s) appear to be out of stock or very low:" : {
+
+    },
+    "%lld item%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld item%2$@"
+          }
+        }
+      }
+    },
+    "%lld item%@ needed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld item%2$@ needed"
+          }
+        }
+      }
+    },
+    "%lld item%@ scanned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld item%2$@ scanned"
+          }
+        }
+      }
+    },
+    "%lld item%@ to buy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld item%2$@ to buy"
+          }
+        }
+      }
+    },
+    "%lld item%@ wasted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld item%2$@ wasted"
+          }
+        }
+      }
+    },
+    "%lld items" : {
+
+    },
+    "%lld items added to pantry" : {
+
+    },
+    "%lld items needed across %lld planned meals" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld items needed across %2$lld planned meals"
+          }
+        }
+      }
+    },
+    "%lld items ready to add" : {
+
+    },
+    "%lld meal%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld meal%2$@"
+          }
+        }
+      }
+    },
+    "%lld meal%@ planned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld meal%2$@ planned"
+          }
+        }
+      }
+    },
+    "%lld min" : {
+
+    },
+    "%lld missing" : {
+
+    },
+    "%lld missing ingredient%@ added under \"%@\"." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld missing ingredient%2$@ added under \"%3$@\"."
+          }
+        }
+      }
+    },
+    "%lld more possible with swaps to review" : {
+
+    },
+    "%lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "%lld of %lld ingredients on hand" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld ingredients on hand"
+          }
+        }
+      }
+    },
+    "%lld of %lld ingredients stocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld ingredients stocked"
+          }
+        }
+      }
+    },
+    "%lld of %lld selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld selected"
+          }
+        }
+      }
+    },
+    "%lld of %lld tasks done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld tasks done"
+          }
+        }
+      }
+    },
+    "%lld percent of budget used" : {
+
+    },
+    "%lld percent used" : {
+
+    },
+    "%lld planning conflict%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld planning conflict%2$@"
+          }
+        }
+      }
+    },
+    "%lld possible duplicate group%@. Merging combines quantities and keeps the most complete item. Every merge can be undone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld possible duplicate group%2$@. Merging combines quantities and keeps the most complete item. Every merge can be undone."
+          }
+        }
+      }
+    },
+    "%lld ready now · %lld total" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld ready now · %2$lld total"
+          }
+        }
+      }
+    },
+    "%lld recipe%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld recipe%2$@"
+          }
+        }
+      }
+    },
+    "%lld recipe%@ in the pool" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld recipe%2$@ in the pool"
+          }
+        }
+      }
+    },
+    "%lld recipes · %lld qualified sources" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld recipes · %2$lld qualified sources"
+          }
+        }
+      }
+    },
+    "%lld record%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld record%2$@"
+          }
+        }
+      }
+    },
+    "%lld result%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld result%2$@%3$@"
+          }
+        }
+      }
+    },
+    "%lld selected" : {
+
+    },
+    "%lld serving%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld serving%2$@"
+          }
+        }
+      }
+    },
+    "%lld servings" : {
+
+    },
+    "%lld staple%@ selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld staple%2$@ selected"
+          }
+        }
+      }
+    },
+    "%lld staples anchor your Kitchen Health score" : {
+
+    },
+    "%lld step(s) remaining" : {
+
+    },
+    "%lld substitute%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld substitute%2$@"
+          }
+        }
+      }
+    },
+    "%lld suggestion%@ — uncheck anything you don't want. Nutrition and expiry values are AI estimates." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld suggestion%2$@ — uncheck anything you don't want. Nutrition and expiry values are AI estimates."
+          }
+        }
+      }
+    },
+    "%lld total across %lld receipts this session" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld total across %2$lld receipts this session"
+          }
+        }
+      }
+    },
+    "%lld used · %lld wasted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld used · %2$lld wasted"
+          }
+        }
+      }
+    },
+    "%lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld"
+          }
+        }
+      }
+    },
+    "%lld/%lld in stock" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld in stock"
+          }
+        }
+      }
+    },
+    "%lld/%lld on hand%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld on hand%3$@%4$@"
+          }
+        }
+      }
+    },
+    "%lld/%lld prepped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld prepped"
+          }
+        }
+      }
+    },
+    "%lld/%lld stocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld stocked"
+          }
+        }
+      }
+    },
+    "%lld%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld%2$@"
+          }
+        }
+      }
+    },
+    "%lld%%" : {
+
+    },
+    "%lld%% of budget used" : {
+
+    },
+    "%lld%% of tracked items were used, not wasted" : {
+
+    },
+    "%lld%% stocked" : {
+
+    },
+    "%lld%% Stocked" : {
+
+    },
+    "%lld%% Stocked · %lld items" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld%% Stocked · %2$lld items"
+          }
+        }
+      }
+    },
+    "%lld%% stocked across %lld item%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld%% stocked across %2$lld item%3$@"
+          }
+        }
+      }
+    },
+    "%lld×" : {
+
+    },
+    "%lldd" : {
+
+    },
+    "%lldd left" : {
+
+    },
+    "%lldm cook" : {
+
+    },
+    "%lldm prep" : {
+
+    },
+    "•" : {
+
+    },
+    "• %@" : {
+
+    },
+    "← Edit Selection" : {
+
+    },
+    "→" : {
+
+    },
+    "↑ Scaled up" : {
+
+    },
+    "↓ Scaled down" : {
+
+    },
+    "+ %lld more" : {
+
+    },
+    "+ more" : {
+
+    },
+    "+%lld" : {
+
+    },
+    "×%lld" : {
+
+    },
+    "×%lld  ·  %lld servings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "×%1$lld  ·  %2$lld servings"
+          }
+        }
+      }
+    },
+    "~%@" : {
+
+    },
+    "~%@ est. · priced %lld of %lld ingredients from your receipts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "~%1$@ est. · priced %2$lld of %3$lld ingredients from your receipts"
+          }
+        }
+      }
+    },
+    "≈ %@ g of %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "≈ %1$@ g of %2$@"
+          }
+        }
+      }
+    },
+    "⏰" : {
+
+    },
+    "✅ All prepped and ready!" : {
+
+    },
+    "✏️" : {
+
+    },
+    "✓ All ingredients added to grocery list" : {
+
+    },
+    "✓ In stock" : {
+
+    },
+    "✦" : {
+
+    },
+    "➕  Your additions" : {
+
+    },
+    "🍹" : {
+
+    },
+    "🎉" : {
+
+    },
+    "🔍" : {
+
+    },
+    "🥫" : {
+
+    },
+    "🥬 %@" : {
+
+    },
+    "🧑‍🍳" : {
+
+    },
+    "🧺" : {
+
+    },
+    "🛒  %@ isn't in your pantry" : {
+
+    },
+    "$" : {
+
+    },
+    "0" : {
+
+    },
+    "0 items to buy — you're all set!" : {
+
+    },
+    "1 ingredient missing" : {
+
+    },
+    "1 missing" : {
+
+    },
+    "8-character code" : {
+
+    },
+    "15 min" : {
+
+    },
+    "30 min" : {
+
+    },
+    "A backup is a single JSON file with all your data. Keep one before any big update." : {
+
+    },
+    "A few quick questions and we'll personalise everything — recipes, reminders, grocery lists — around *your* life." : {
+
+    },
+    "A few quick taps — pick the staples you like to keep on hand, one group at a time. We’ll track how many you actually have and turn that into your real kitchen stock level." : {
+
+    },
+    "A heads-up when your kitchen drops below 50% stocked" : {
+
+    },
+    "A morning notification summarising expiring items and what you can cook tonight." : {
+
+    },
+    "A private, on-device count of which features you use. Nothing is uploaded or shared." : {
+
+    },
+    "A source is shown only after Stocked has cached 20 complete recipes from it." : {
+
+    },
+    "A surprise from your kitchen" : {
+
+    },
+    "Abbreviation appears on receipt exactly as scanned. It will be auto-resolved next time it's seen." : {
+
+    },
+    "ABCD2345" : {
+
+    },
+    "About %@ this month" : {
+
+    },
+    "Access Level" : {
+
+    },
+    "Achievements" : {
+
+    },
+    "Action Center" : {
+
+    },
+    "Add" : {
+
+    },
+    "Add \"%@\" to list" : {
+
+    },
+    "Add %@ to grocery list" : {
+
+    },
+    "Add %@ to Grocery List" : {
+
+    },
+    "Add %lld Item%@ to Grocery List" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Add %1$lld Item%2$@ to Grocery List"
+          }
+        }
+      }
+    },
+    "Add %lld Item%@ to Pantry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Add %1$lld Item%2$@ to Pantry"
+          }
+        }
+      }
+    },
+    "Add %lld Items to Pantry" : {
+
+    },
+    "Add %lld to list" : {
+
+    },
+    "Add a few items and Stocked instantly shows meals you can cook, what's expiring, and a smarter grocery list. Takes about a minute." : {
+
+    },
+    "Add a few staples to get started — we'll instantly show meals you can cook and recipes worth a look." : {
+
+    },
+    "Add a pantry item" : {
+
+    },
+    "Add a photo" : {
+
+    },
+    "Add a plate photo (optional)" : {
+
+    },
+    "Add a Recipe" : {
+
+    },
+    "Add a Website" : {
+
+    },
+    "Add All" : {
+
+    },
+    "Add all %lld to grocery list" : {
+
+    },
+    "Add all to grocery list" : {
+
+    },
+    "Add an item below, or tap a suggestion to restock." : {
+
+    },
+    "Add an item by hand" : {
+
+    },
+    "Add an item to your Stocked kitchen inventory." : {
+
+    },
+    "Add another (e.g. cilantro)" : {
+
+    },
+    "Add Anyway" : {
+
+    },
+    "Add batch to grocery list" : {
+
+    },
+    "Add Ingredient" : {
+
+    },
+    "Add Item" : {
+
+    },
+    "Add Item to Stocked" : {
+
+    },
+    "Add item…" : {
+
+    },
+    "Add items to get personalized meal ideas based on what you actually have." : {
+
+    },
+    "Add Meal — Day %@" : {
+
+    },
+    "Add Member" : {
+
+    },
+    "Add missing ingredients to list" : {
+
+    },
+    "Add Missing to Grocery" : {
+
+    },
+    "Add missing to grocery list" : {
+
+    },
+    "Add Missing to Grocery List" : {
+
+    },
+    "Add Missing to List" : {
+
+    },
+    "Add or Manage Sources" : {
+
+    },
+    "Add Photo" : {
+
+    },
+    "Add shortages to Grocery after saving" : {
+
+    },
+    "Add Shortages to Grocery List" : {
+
+    },
+    "Add size details" : {
+
+    },
+    "Add something to your grocery list." : {
+
+    },
+    "Add Source" : {
+
+    },
+    "Add Step" : {
+
+    },
+    "Add Substitution" : {
+
+    },
+    "Add to %@" : {
+
+    },
+    "Add to Grocery" : {
+
+    },
+    "Add to Grocery List" : {
+
+    },
+    "Add to list" : {
+
+    },
+    "Add to my kitchen" : {
+
+    },
+    "Add to Stocked Grocery List" : {
+
+    },
+    "Add widgets" : {
+
+    },
+    "Add Widgets" : {
+
+    },
+    "Add your own staple" : {
+
+    },
+    "Add your own staples, then you’re all set." : {
+
+    },
+    "Added" : {
+
+    },
+    "Added %lld items!" : {
+
+    },
+    "Added ✓" : {
+
+    },
+    "Added to Grocery List" : {
+
+    },
+    "Added to grocery list ✓" : {
+
+    },
+    "Added to grocery list!" : {
+
+    },
+    "Added!" : {
+
+    },
+    "Adjust Quantity or Ingredients" : {
+
+    },
+    "AI Inventory Scan" : {
+
+    },
+    "AI recipes need an internet connection and the recipe service set up." : {
+
+    },
+    "All" : {
+
+    },
+    "All caught up" : {
+
+    },
+    "All caught up!" : {
+
+    },
+    "All Done — Finish Cooking" : {
+
+    },
+    "All items in stock!" : {
+
+    },
+    "All items well stocked!" : {
+
+    },
+    "All recent activity in your household" : {
+
+    },
+    "All Sources" : {
+
+    },
+    "All substitutions confirmed." : {
+
+    },
+    "All widgets added" : {
+
+    },
+    "Allergen Warning" : {
+
+    },
+    "Allergens to Avoid" : {
+
+    },
+    "Allow Camera Access" : {
+
+    },
+    "Already have %lld — mark 1 used" : {
+
+    },
+    "Already in Pantry" : {
+
+    },
+    "Already reserved for %@." : {
+
+    },
+    "Also update my inventory" : {
+
+    },
+    "Alternate icons aren't available on this device." : {
+
+    },
+    "Amount" : {
+
+    },
+    "Amount per %@" : {
+
+    },
+    "Amount per container" : {
+
+    },
+    "Amount used: %@. Tap to change." : {
+
+    },
+    "amt" : {
+
+    },
+    "Anchored to your %lld staples · tap to edit" : {
+
+    },
+    "Any" : {
+
+    },
+    "Any day" : {
+
+    },
+    "Any food left over?" : {
+
+    },
+    "Anything we missed?" : {
+
+    },
+    "App Icon" : {
+
+    },
+    "Apple Health" : {
+
+    },
+    "Applies to Cook Now, Cook Later, and the Cook hub buttons — updates live" : {
+
+    },
+    "Apply %lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Apply %1$lld %2$@"
+          }
+        }
+      }
+    },
+    "Apply %lld change%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Apply %1$lld change%2$@"
+          }
+        }
+      }
+    },
+    "Apply %lld Meal%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Apply %1$lld Meal%2$@"
+          }
+        }
+      }
+    },
+    "Are you scanning one item, or multiple items in a row?\nBulk mode keeps the scanner open after each scan." : {
+
+    },
+    "As you use up and remove items, your stats will build here." : {
+
+    },
+    "Ask Stocked what food is expiring soon." : {
+
+    },
+    "Assign to…" : {
+
+    },
+    "At a Glance" : {
+
+    },
+    "At your usual pace, gone by %@" : {
+
+    },
+    "Auto Backup" : {
+
+    },
+    "Auto-Add Missing to Grocery" : {
+
+    },
+    "Auto-added" : {
+
+    },
+    "Auto-added to your list when you drop below %lld." : {
+
+    },
+    "Auto-generated from meal dates, freezer items, and ingredients that can be prepared together." : {
+
+    },
+    "Autofilled from %@" : {
+
+    },
+    "Average fill · tap to set goals" : {
+
+    },
+    "Back" : {
+
+    },
+    "Back to Recipe" : {
+
+    },
+    "Based on how fast you usually go through them: %@" : {
+
+    },
+    "Based on what you have" : {
+
+    },
+    "Based on what's currently logged" : {
+
+    },
+    "Batch Cook Planner" : {
+
+    },
+    "Batches" : {
+
+    },
+    "Below par (%lld/%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Below par (%1$lld/%2$lld)"
+          }
+        }
+      }
+    },
+    "Best pick for you" : {
+
+    },
+    "Both numbers should match once the new store has copied your data. Your existing data is untouched either way." : {
+
+    },
+    "Bought" : {
+
+    },
+    "Brand" : {
+
+    },
+    "Browse" : {
+
+    },
+    "Browse Ingredients" : {
+
+    },
+    "Browse Online Recipes" : {
+
+    },
+    "Browse Recipes" : {
+
+    },
+    "Browse recipes by cuisine" : {
+
+    },
+    "Budget" : {
+
+    },
+    "Build your meal around" : {
+
+    },
+    "Building" : {
+
+    },
+    "Built around %@" : {
+
+    },
+    "Bulk Edit" : {
+
+    },
+    "Bulk Scan" : {
+
+    },
+    "Bulk Scan Complete" : {
+
+    },
+    "Buying smaller amounts of your most-wasted items is the fastest way to cut food waste." : {
+
+    },
+    "by" : {
+
+    },
+    "by %@" : {
+
+    },
+    "Cache is getting large. Deleting it frees space; Stocked will download needed content again." : {
+
+    },
+    "Cached files" : {
+
+    },
+    "Calendar" : {
+
+    },
+    "Camera Access Denied" : {
+
+    },
+    "Camera Access Needed" : {
+
+    },
+    "Camera scanning requires a physical iPhone with iOS 16+" : {
+
+    },
+    "Camera unavailable" : {
+
+    },
+    "Can add items" : {
+
+    },
+    "Can edit items" : {
+
+    },
+    "Can remove items" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Cancel timer" : {
+
+    },
+    "Capture Date" : {
+
+    },
+    "Capture List" : {
+
+    },
+    "Categories" : {
+
+    },
+    "Category" : {
+
+    },
+    "Change" : {
+
+    },
+    "Change Photo" : {
+
+    },
+    "Change view: %@" : {
+
+    },
+    "Cheapest at %@ · $%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Cheapest at %1$@ · $%2$@"
+          }
+        }
+      }
+    },
+    "Check all" : {
+
+    },
+    "Check Ingredients" : {
+
+    },
+    "Check your Inventory tab to see them." : {
+
+    },
+    "Checking the web, your database, and AI for the perfect match" : {
+
+    },
+    "Choose a meal" : {
+
+    },
+    "CHOOSE A STORE" : {
+
+    },
+    "Choose an avatar that represents\nyour cooking personality." : {
+
+    },
+    "Choose an icon for Stocked. It updates on your Home Screen right away." : {
+
+    },
+    "Choose Photo" : {
+
+    },
+    "Choose Screenshot" : {
+
+    },
+    "Choose Store" : {
+
+    },
+    "Choose what you want to be notified about in this household." : {
+
+    },
+    "Claude is reading your receipt" : {
+
+    },
+    "Clean Up with AI" : {
+
+    },
+    "Clear" : {
+
+    },
+    "Clear %lld checked" : {
+
+    },
+    "Close" : {
+
+    },
+    "Code expires in 7 days" : {
+
+    },
+    "Collections" : {
+
+    },
+    "Coming Soon — Learn More" : {
+
+    },
+    "comma separated — chicken, rice, garlic…" : {
+
+    },
+    "Common Questions" : {
+
+    },
+    "common.add" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "common.cancel" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "common.done" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "common.save" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "Configured sources are discovery candidates only. Recipe browsing shows a source after it reaches 20 complete recipes; failed sources with five or fewer are removed from cache." : {
+
+    },
+    "Confirm a few high-impact items to improve tonight's matches." : {
+
+    },
+    "Confirm a few items to improve tonight's matches." : {
+
+    },
+    "Confirm Receipt Items" : {
+
+    },
+    "Confirm what you used" : {
+
+    },
+    "CONTAINER TYPE" : {
+
+    },
+    "Contains: %@" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Continue as Guest" : {
+
+    },
+    "Convert to" : {
+
+    },
+    "Cook" : {
+
+    },
+    "Cook %lldm" : {
+
+    },
+    "Cook again" : {
+
+    },
+    "Cook Buttons" : {
+
+    },
+    "Cook Later" : {
+
+    },
+    "Cook Now" : {
+
+    },
+    "Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead." : {
+
+    },
+    "Cook Right Now" : {
+
+    },
+    "Cook suggestions" : {
+
+    },
+    "Cook these to use them up" : {
+
+    },
+    "Cook This Recipe" : {
+
+    },
+    "Cook Time" : {
+
+    },
+    "Cook your first meal and your story starts here." : {
+
+    },
+    "cook.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cook"
+          }
+        }
+      }
+    },
+    "Cookable" : {
+
+    },
+    "Cooked" : {
+
+    },
+    "COOKED" : {
+
+    },
+    "Cooked %@" : {
+
+    },
+    "Cooked ahead, ready to finish" : {
+
+    },
+    "cooking at home instead of ordering out%@" : {
+
+    },
+    "Cooking for %lld" : {
+
+    },
+    "Cooking for %lld. Adjust servings for this session." : {
+
+    },
+    "COOKING PROFILE" : {
+
+    },
+    "Cooking: %@" : {
+
+    },
+    "Copy CSV to clipboard" : {
+
+    },
+    "Copy to clipboard" : {
+
+    },
+    "Correct name…" : {
+
+    },
+    "Couldn't add that source" : {
+
+    },
+    "Couldn't find a recipe right now." : {
+
+    },
+    "Couldn't find anything to change from that. Try naming an item you have." : {
+
+    },
+    "Couldn't load %@ recipes right now." : {
+
+    },
+    "Couldn't load recipes" : {
+
+    },
+    "Couldn't reach online recipes right now. You're still able to browse anything saved to your kitchen." : {
+
+    },
+    "Create & Share Household" : {
+
+    },
+    "Create Backup File" : {
+
+    },
+    "Create Household" : {
+
+    },
+    "Create with AI" : {
+
+    },
+    "Create your household" : {
+
+    },
+    "Create Your Household" : {
+
+    },
+    "Creating…" : {
+
+    },
+    "Cuisine" : {
+
+    },
+    "Cup-to-gram conversions use each ingredient's density — a cup of flour and a cup of honey weigh very different amounts." : {
+
+    },
+    "Cups → grams (needs an ingredient)" : {
+
+    },
+    "CURRENT AMOUNT" : {
+
+    },
+    "Custom" : {
+
+    },
+    "Custom label (optional)" : {
+
+    },
+    "Daily Brief" : {
+
+    },
+    "Daily Brief Alerts" : {
+
+    },
+    "Daily brief scheduled for %@" : {
+
+    },
+    "Dark Mode" : {
+
+    },
+    "Data & Storage" : {
+
+    },
+    "Databases" : {
+
+    },
+    "Date scanning needs iOS 16+" : {
+
+    },
+    "Day" : {
+
+    },
+    "Days with a dot have items expiring. Tap a day to see them." : {
+
+    },
+    "Decrease quantity" : {
+
+    },
+    "Deduct from Pantry" : {
+
+    },
+    "Define what stocked means to you" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete abbreviation?" : {
+
+    },
+    "Delete Account" : {
+
+    },
+    "Delete Account?" : {
+
+    },
+    "Delete Cache" : {
+
+    },
+    "Delete Cached Files" : {
+
+    },
+    "Delete cached files?" : {
+
+    },
+    "Delete Recipe" : {
+
+    },
+    "Delete this recipe?" : {
+
+    },
+    "Deleting Cached Files…" : {
+
+    },
+    "Describe it and we'll build the recipe." : {
+
+    },
+    "Deselect All" : {
+
+    },
+    "Deselect any items you already have or don't need." : {
+
+    },
+    "Did you mean" : {
+
+    },
+    "Dietary Profile" : {
+
+    },
+    "Dietary Style" : {
+
+    },
+    "Difficulty" : {
+
+    },
+    "Dimmed items aren't in your pantry — you can still select them to plan ahead or shop for ingredients." : {
+
+    },
+    "Dinner is closer than you think." : {
+
+    },
+    "Discover" : {
+
+    },
+    "Discover Recipes" : {
+
+    },
+    "Discovery Candidates" : {
+
+    },
+    "Dismiss timer" : {
+
+    },
+    "Display name (optional)" : {
+
+    },
+    "Done" : {
+
+    },
+    "Done (%lld)" : {
+
+    },
+    "Done ✓" : {
+
+    },
+    "Double-check this one" : {
+
+    },
+    "Downloaded recipes, nutrition responses, product metadata, and images are cached for faster loading and offline reuse. Your pantry, grocery list, saved recipes, and account data are never deleted here." : {
+
+    },
+    "Drag to plan  ·  dots = expiring" : {
+
+    },
+    "Drinks" : {
+
+    },
+    "Duplicate Finder" : {
+
+    },
+    "e.g. \"I finished the milk and used half the rice\"" : {
+
+    },
+    "e.g. 2 cups rice" : {
+
+    },
+    "e.g. 6 cans of 8 oz, half a bag" : {
+
+    },
+    "e.g. 16, 12, 1.5" : {
+
+    },
+    "e.g. 24" : {
+
+    },
+    "e.g. I finished the eggs and used half the butter" : {
+
+    },
+    "e.g. marinated lamb chops, seared then pressure cooked" : {
+
+    },
+    "e.g. Mom, Big Sis" : {
+
+    },
+    "e.g. peanut butter cookies, a cozy soup for a rainy day…" : {
+
+    },
+    "e.g. Snacks, Baking, Drinks" : {
+
+    },
+    "e.g. Weekly staples" : {
+
+    },
+    "Each" : {
+
+    },
+    "Edit" : {
+
+    },
+    "Edit Abbreviation" : {
+
+    },
+    "Edit amounts, remove items, or add what's missing to your grocery list. The recipe updates as you go." : {
+
+    },
+    "Edit Inventory" : {
+
+    },
+    "Edit Meal" : {
+
+    },
+    "Edit Preferences" : {
+
+    },
+    "Edit Profile" : {
+
+    },
+    "Emoji" : {
+
+    },
+    "Empty — sample items shown" : {
+
+    },
+    "Enable daily brief" : {
+
+    },
+    "Enable in Settings → Privacy → Camera" : {
+
+    },
+    "Enter 8-character code" : {
+
+    },
+    "Enter a valid website domain that isn't already in your list." : {
+
+    },
+    "Enter barcode number" : {
+
+    },
+    "Enter the invite code shared by your household member." : {
+
+    },
+    "Enter zip code" : {
+
+    },
+    "Equipment, ingredients to pull, prep tasks, and optional decisions will appear here. Full checklist coming in the next update." : {
+
+    },
+    "Erase & Exit" : {
+
+    },
+    "Erase All Data" : {
+
+    },
+    "Erase All Data?" : {
+
+    },
+    "Erase Everything" : {
+
+    },
+    "est. total" : {
+
+    },
+    "Estimated Nutrition" : {
+
+    },
+    "Estimated total: ~%lld min" : {
+
+    },
+    "Estimates based on ~100g per ingredient · %lld servings" : {
+
+    },
+    "Every %@ at %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Every %1$@ at %2$@"
+          }
+        }
+      }
+    },
+    "Every widget is already on your Home screen." : {
+
+    },
+    "Everything checks out!" : {
+
+    },
+    "Everything's confirmed!" : {
+
+    },
+    "Examples" : {
+
+    },
+    "Exit full screen" : {
+
+    },
+    "Exit Guest Mode?" : {
+
+    },
+    "Expired" : {
+
+    },
+    "Expired %lld day%@ ago" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Expired %1$lld day%2$@ ago"
+          }
+        }
+      }
+    },
+    "Expires %@" : {
+
+    },
+    "Expires in %@" : {
+
+    },
+    "Expires in %lld day%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Expires in %1$lld day%2$@"
+          }
+        }
+      }
+    },
+    "Expires in %lld days" : {
+
+    },
+    "EXPIRES ON (optional)" : {
+
+    },
+    "Expires today" : {
+
+    },
+    "Expires tomorrow" : {
+
+    },
+    "Expiring Soon" : {
+
+    },
+    "Expiring soon · %@" : {
+
+    },
+    "Expiring soon: %@%@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Expiring soon: %1$@%2$@."
+          }
+        }
+      }
+    },
+    "Expiry Calendar" : {
+
+    },
+    "EXPIRY DATE" : {
+
+    },
+    "Expiry reminders" : {
+
+    },
+    "Export inventory & grocery list (CSV)" : {
+
+    },
+    "F" : {
+
+    },
+    "Favorites only" : {
+
+    },
+    "FAVOURITE CUISINES" : {
+
+    },
+    "Fetching…" : {
+
+    },
+    "Fill Level" : {
+
+    },
+    "Filtered for your dietary profile" : {
+
+    },
+    "Find a Recipe Anyway →" : {
+
+    },
+    "Find a substitute" : {
+
+    },
+    "Find in store" : {
+
+    },
+    "Finding %@ recipes…" : {
+
+    },
+    "Finding the best recipe for you…" : {
+
+    },
+    "Finding your %@ recipe…" : {
+
+    },
+    "Fine-tune permissions" : {
+
+    },
+    "Finish & Save Meal" : {
+
+    },
+    "Finish Cooking" : {
+
+    },
+    "Fix ingredients" : {
+
+    },
+    "Fix with AI" : {
+
+    },
+    "Fixing…" : {
+
+    },
+    "Foods" : {
+
+    },
+    "For \"%@\"" : {
+
+    },
+    "For You" : {
+
+    },
+    "For You — Premium" : {
+
+    },
+    "For: %@" : {
+
+    },
+    "Force Sync Now" : {
+
+    },
+    "Found Item" : {
+
+    },
+    "Fresh online recipe ideas are paused" : {
+
+    },
+    "From %lld cooked meal%@ with nutrition data this week" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "From %1$lld cooked meal%2$@ with nutrition data this week"
+          }
+        }
+      }
+    },
+    "FROM THE WEB" : {
+
+    },
+    "From your collection" : {
+
+    },
+    "Full" : {
+
+    },
+    "Full screen cooking mode" : {
+
+    },
+    "Generate Recipe" : {
+
+    },
+    "Generating…" : {
+
+    },
+    "Get a reminder the day before an item expires" : {
+
+    },
+    "Get ahead" : {
+
+    },
+    "Get Ready to Cook" : {
+
+    },
+    "Get ready to cook %@." : {
+
+    },
+    "Getting your kitchen ready" : {
+
+    },
+    "Give the item a name to continue" : {
+
+    },
+    "Got it" : {
+
+    },
+    "Got It" : {
+
+    },
+    "Got it — I'll add %@ to your kitchen in Stocked." : {
+
+    },
+    "Got it — I'll mark %@ as used in Stocked." : {
+
+    },
+    "Grocery Budget" : {
+
+    },
+    "Grocery day" : {
+
+    },
+    "Grocery List" : {
+
+    },
+    "Grocery stores near you" : {
+
+    },
+    "grocery.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grocery List"
+          }
+        }
+      }
+    },
+    "Guest" : {
+
+    },
+    "Half" : {
+
+    },
+    "Have another device running Stocked\nscan this code to import your kitchen." : {
+
+    },
+    "Haven't seen these in a while — still have them?" : {
+
+    },
+    "Heads up: about %@ went to waste — room to save more next season." : {
+
+    },
+    "Help Center" : {
+
+    },
+    "Here is where your kitchen stands today." : {
+
+    },
+    "Here's to many more good meals." : {
+
+    },
+    "Here's what your kitchen got up to." : {
+
+    },
+    "Here's what your kitchen is telling us." : {
+
+    },
+    "Here's what's happening in your kitchen." : {
+
+    },
+    "Hide allergens" : {
+
+    },
+    "Holds" : {
+
+    },
+    "home.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        }
+      }
+    },
+    "Hour" : {
+
+    },
+    "Household" : {
+
+    },
+    "Household Activity" : {
+
+    },
+    "Household created!" : {
+
+    },
+    "Household name" : {
+
+    },
+    "Household Settings" : {
+
+    },
+    "Household Sync" : {
+
+    },
+    "How do you want to add this recipe?" : {
+
+    },
+    "How do you want to cook %@?" : {
+
+    },
+    "How do you want to cook?" : {
+
+    },
+    "How much energy do you have?" : {
+
+    },
+    "How much more are you trying to do?" : {
+
+    },
+    "How to Cook" : {
+
+    },
+    "How was it?" : {
+
+    },
+    "How would you like to import?" : {
+
+    },
+    "https://…" : {
+
+    },
+    "https://www.seriouseats.com/recipe-name" : {
+
+    },
+    "I already know what I'm making" : {
+
+    },
+    "I couldn't find anything to change from that. Try naming specific items." : {
+
+    },
+    "I have an invite code" : {
+
+    },
+    "iCloud Kitchen Sync" : {
+
+    },
+    "Identifying food items…" : {
+
+    },
+    "Import" : {
+
+    },
+    "Import from Screenshot" : {
+
+    },
+    "Import from URL" : {
+
+    },
+    "Import Kitchen" : {
+
+    },
+    "Import Recipe" : {
+
+    },
+    "Import recipes from 20+ trusted cooking sites.\nPaste a URL or search by cuisine." : {
+
+    },
+    "Import Screenshot" : {
+
+    },
+    "Imported recipes are saved locally. A website is added to the source browser only after it has 20 complete recipes." : {
+
+    },
+    "Importing…" : {
+
+    },
+    "Improve Stocked for everyone" : {
+
+    },
+    "Improve Stocked for Everyone" : {
+
+    },
+    "In pantry" : {
+
+    },
+    "In pantry · %@" : {
+
+    },
+    "In stock" : {
+
+    },
+    "In your kitchen" : {
+
+    },
+    "In your pantry" : {
+
+    },
+    "In-season produce is usually cheaper, fresher, and lasts longer at home." : {
+
+    },
+    "Increase quantity" : {
+
+    },
+    "Ingredient" : {
+
+    },
+    "Ingredient (e.g. flour, sugar, butter)" : {
+
+    },
+    "Ingredient Check" : {
+
+    },
+    "Ingredient match unknown" : {
+
+    },
+    "Ingredient Pairings" : {
+
+    },
+    "Ingredients" : {
+
+    },
+    "Ingredients deducted from your inventory." : {
+
+    },
+    "Ingredients not available." : {
+
+    },
+    "Ingredients will be deducted from inventory when you finish cooking." : {
+
+    },
+    "Instructions" : {
+
+    },
+    "Inventory Assistant" : {
+
+    },
+    "Inventory Details" : {
+
+    },
+    "Inventory Scan Results" : {
+
+    },
+    "Inventory Status" : {
+
+    },
+    "inventory.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inventory"
+          }
+        }
+      }
+    },
+    "Invite links and codes expire in 7 days." : {
+
+    },
+    "Invite others to join by sharing this code." : {
+
+    },
+    "Invite people with their own Apple ID. They tap your link to join — no shared account needed." : {
+
+    },
+    "Invite someone to your household" : {
+
+    },
+    "Invite with code or link" : {
+
+    },
+    "Invited %@" : {
+
+    },
+    "Invites you've sent" : {
+
+    },
+    "Item name" : {
+
+    },
+    "ITEM NAME" : {
+
+    },
+    "Items below 20% — restock or plan a meal around them." : {
+
+    },
+    "Items tossed past their expiry show up here." : {
+
+    },
+    "Join" : {
+
+    },
+    "JOIN BY CODE" : {
+
+    },
+    "Join Household" : {
+
+    },
+    "Joining…" : {
+
+    },
+    "Keep" : {
+
+    },
+    "Keep at least" : {
+
+    },
+    "Keep Both" : {
+
+    },
+    "Keep Cooking" : {
+
+    },
+    "Keep Data" : {
+
+    },
+    "Keep It" : {
+
+    },
+    "Keep the original ingredient or edit the meal manually." : {
+
+    },
+    "Keep your existing data?" : {
+
+    },
+    "Key Ingredients" : {
+
+    },
+    "Kitchen Goals" : {
+
+    },
+    "KITCHEN GOALS" : {
+
+    },
+    "Kitchen Health" : {
+
+    },
+    "Kitchen Peace of Mind" : {
+
+    },
+    "Kitchen Report" : {
+
+    },
+    "Kitchen Timers" : {
+
+    },
+    "Kitchen Tip" : {
+
+    },
+    "Kitchen Tips" : {
+
+    },
+    "Kitchen Toolbox" : {
+
+    },
+    "Kitchen Transfer" : {
+
+    },
+    "Knock these out before step 1 and the cook goes smoothly." : {
+
+    },
+    "Label (e.g. Pasta)" : {
+
+    },
+    "last 30 days" : {
+
+    },
+    "Last backup: %@" : {
+
+    },
+    "Last seen %lld day%@ ago · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Last seen %1$lld day%2$@ ago · %3$@"
+          }
+        }
+      }
+    },
+    "Last synced %@" : {
+
+    },
+    "Last synced: %@" : {
+
+    },
+    "Latest: %@" : {
+
+    },
+    "Leave" : {
+
+    },
+    "Leave Household" : {
+
+    },
+    "Leave this household?" : {
+
+    },
+    "Leftover Ideas" : {
+
+    },
+    "Leftover name (e.g. %@ Leftovers)" : {
+
+    },
+    "Let your vibe decide the recipe." : {
+
+    },
+    "Let's build toward dinner." : {
+
+    },
+    "Let's get a feel for tonight." : {
+
+    },
+    "Let's stock your kitchen" : {
+
+    },
+    "Let's Stock your kitchen" : {
+
+    },
+    "Let's use what needs using" : {
+
+    },
+    "Level" : {
+
+    },
+    "Likely out" : {
+
+    },
+    "List" : {
+
+    },
+    "List scanning needs iOS 16+" : {
+
+    },
+    "List Templates" : {
+
+    },
+    "Listening — say \"next\", \"back\", \"repeat\", or \"finish\"" : {
+
+    },
+    "Load Demo Receipt (Simulator)" : {
+
+    },
+    "Load Recipes" : {
+
+    },
+    "Loading collection…" : {
+
+    },
+    "Local only — used to improve the app" : {
+
+    },
+    "Location denied in Settings. Use a zip code instead." : {
+
+    },
+    "Log cooked-meal nutrition to Health" : {
+
+    },
+    "Log Out" : {
+
+    },
+    "Log Out?" : {
+
+    },
+    "Look Up" : {
+
+    },
+    "Looking up product…" : {
+
+    },
+    "Low" : {
+
+    },
+    "Low staples nudge" : {
+
+    },
+    "Low Stock Reminders" : {
+
+    },
+    "Low Stock Report" : {
+
+    },
+    "M" : {
+
+    },
+    "Manual" : {
+
+    },
+    "Mark Complete" : {
+
+    },
+    "Mark cooked" : {
+
+    },
+    "Mark Incomplete" : {
+
+    },
+    "Mark Item Used in Stocked" : {
+
+    },
+    "Mark not cooked" : {
+
+    },
+    "Mark Used" : {
+
+    },
+    "Match My Mood" : {
+
+    },
+    "Matching Recipes" : {
+
+    },
+    "Meal" : {
+
+    },
+    "Meal Cost" : {
+
+    },
+    "Meal name" : {
+
+    },
+    "Meal Photo" : {
+
+    },
+    "Meal Planner" : {
+
+    },
+    "Meal Prep" : {
+
+    },
+    "Meal prep day reminder" : {
+
+    },
+    "Meals cooked per week" : {
+
+    },
+    "Meals per week" : {
+
+    },
+    "Meals you can make with what's on hand. Top picks use what's expiring first." : {
+
+    },
+    "Meals you cooked early will appear here with reheat and finishing steps. Coming with cook-ahead support." : {
+
+    },
+    "Meals/week: %lld" : {
+
+    },
+    "Measurement Unit" : {
+
+    },
+    "Measurements" : {
+
+    },
+    "Member" : {
+
+    },
+    "Merge %lld items" : {
+
+    },
+    "Minute" : {
+
+    },
+    "Missing" : {
+
+    },
+    "Missing · %@" : {
+
+    },
+    "Missing %lld" : {
+
+    },
+    "Missing ingredients" : {
+
+    },
+    "Missing Ingredients" : {
+
+    },
+    "Missing: %@" : {
+
+    },
+    "Month" : {
+
+    },
+    "Monthly budget" : {
+
+    },
+    "Moods" : {
+
+    },
+    "more" : {
+
+    },
+    "More online" : {
+
+    },
+    "More possibilities (%lld)" : {
+
+    },
+    "More ways in" : {
+
+    },
+    "Most cooked" : {
+
+    },
+    "Most used" : {
+
+    },
+    "Move all checked to %@" : {
+
+    },
+    "Move Checked → Pantry" : {
+
+    },
+    "Move It" : {
+
+    },
+    "Move to Active?" : {
+
+    },
+    "Move to day" : {
+
+    },
+    "Move to Grocery List" : {
+
+    },
+    "Move to:" : {
+
+    },
+    "My Kitchen" : {
+
+    },
+    "My Recipes" : {
+
+    },
+    "MY SUBSTITUTIONS" : {
+
+    },
+    "Name" : {
+
+    },
+    "Name (A–Z)" : {
+
+    },
+    "Name this template" : {
+
+    },
+    "NEARBY STORES" : {
+
+    },
+    "Need more help? Reach out from your App Store review or the support link on the product page." : {
+
+    },
+    "Need: %@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Need: %1$@%2$@"
+          }
+        }
+      }
+    },
+    "New Abbreviation" : {
+
+    },
+    "New Recipe" : {
+
+    },
+    "Next" : {
+
+    },
+    "Next Grocery Run · %@" : {
+
+    },
+    "Next month" : {
+
+    },
+    "Next Step" : {
+
+    },
+    "No activity yet" : {
+
+    },
+    "No activity yet." : {
+
+    },
+    "No complete online recipes cached" : {
+
+    },
+    "No drinks yet" : {
+
+    },
+    "No food items found" : {
+
+    },
+    "No ingredients found" : {
+
+    },
+    "No ingredients yet — tap below to add some." : {
+
+    },
+    "No items in %@" : {
+
+    },
+    "No matching qualified sources" : {
+
+    },
+    "No meals logged yet. Cook a recipe and rate it to start your history." : {
+
+    },
+    "No meals planned" : {
+
+    },
+    "No meals planned." : {
+
+    },
+    "No other recipes fit your current ingredients and preferences." : {
+
+    },
+    "No pairing data for this item yet." : {
+
+    },
+    "No pending invites." : {
+
+    },
+    "No prep needed — jump straight in." : {
+
+    },
+    "No purchases logged this month yet." : {
+
+    },
+    "No qualified recipe sources yet" : {
+
+    },
+    "No qualified sources yet" : {
+
+    },
+    "No quantity conflicts" : {
+
+    },
+    "No recent activity — changes will show here" : {
+
+    },
+    "No recipes found." : {
+
+    },
+    "No results for \"%@\"" : {
+
+    },
+    "No saved recipes yet — use Quick Picks below" : {
+
+    },
+    "No scans yet" : {
+
+    },
+    "No Shortages to Add" : {
+
+    },
+    "No source has reached 20 complete recipes yet." : {
+
+    },
+    "No step-by-step instructions available for this recipe. Tap \"View on %@\" to see the full recipe." : {
+
+    },
+    "No substitutions found for this ingredient." : {
+
+    },
+    "No trusted substitute saved" : {
+
+    },
+    "None" : {
+
+    },
+    "Not for me" : {
+
+    },
+    "Not in pantry" : {
+
+    },
+    "Not Now" : {
+
+    },
+    "Not selected" : {
+
+    },
+    "Not synced yet" : {
+
+    },
+    "Notes" : {
+
+    },
+    "Notes (optional)" : {
+
+    },
+    "Nothing expires this day." : {
+
+    },
+    "Nothing expiring in the next few days. Your kitchen's in good shape." : {
+
+    },
+    "Nothing expiring soon — you're in good shape" : {
+
+    },
+    "Nothing expiring soon!" : {
+
+    },
+    "Nothing from %@ yet" : {
+
+    },
+    "Nothing in your kitchen is expiring in the next few days." : {
+
+    },
+    "Nothing selected" : {
+
+    },
+    "Nothing to update" : {
+
+    },
+    "Nothing to update — you're all set." : {
+
+    },
+    "Nothing wasted this month" : {
+
+    },
+    "Nothing’s about to expire — cook anything you like." : {
+
+    },
+    "Nothing's expiring soon — your kitchen's in good shape." : {
+
+    },
+    "Nothing's fully stocked yet — add a few items and these will fill in." : {
+
+    },
+    "Notifications allowed — reminders will arrive even when the app is closed." : {
+
+    },
+    "Notifications are turned off" : {
+
+    },
+    "Notify at" : {
+
+    },
+    "Nutri-Score" : {
+
+    },
+    "Nutrition (%@)" : {
+
+    },
+    "Nutrition from %@" : {
+
+    },
+    "of" : {
+
+    },
+    "Off" : {
+
+    },
+    "Offline — changes save here and sync when you reconnect" : {
+
+    },
+    "OK" : {
+
+    },
+    "One or more ingredients are promised to multiple meals beyond the amount available." : {
+
+    },
+    "Online results for \"%@\"  · %lld recipes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Online results for \"%1$@\"  · %2$lld recipes"
+          }
+        }
+      }
+    },
+    "Online Suggestions" : {
+
+    },
+    "Only the household owner can regenerate the code." : {
+
+    },
+    "Only the household owner needs to buy this. Once you do, everyone you invite gets Household Sync at no extra cost." : {
+
+    },
+    "Open" : {
+
+    },
+    "Open planned meal" : {
+
+    },
+    "Open recipe" : {
+
+    },
+    "Open Recipe Browser" : {
+
+    },
+    "Open Recipes once to refresh qualified sources, then return here." : {
+
+    },
+    "Open Settings" : {
+
+    },
+    "Open Stocked to add an item to your grocery list." : {
+
+    },
+    "Open Stocked to find something to cook." : {
+
+    },
+    "Opens the %@ tab" : {
+
+    },
+    "optional" : {
+
+    },
+    "Optional" : {
+
+    },
+    "Optional ingredient" : {
+
+    },
+    "or" : {
+
+    },
+    "Or add items by hand" : {
+
+    },
+    "or continue anyway" : {
+
+    },
+    "or enter manually" : {
+
+    },
+    "Or scan everything" : {
+
+    },
+    "OR SHARE THIS CODE" : {
+
+    },
+    "Or tap what you usually have:" : {
+
+    },
+    "Original Text" : {
+
+    },
+    "Over budget by %@" : {
+
+    },
+    "Pairs well with %@" : {
+
+    },
+    "Pantry Audit" : {
+
+    },
+    "Pantry Check" : {
+
+    },
+    "Pantry Snapshot" : {
+
+    },
+    "Pantry Value" : {
+
+    },
+    "Past Meals" : {
+
+    },
+    "Paste a direct recipe URL from a site that publishes standard recipe data:" : {
+
+    },
+    "Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review." : {
+
+    },
+    "Paste a recipe URL…" : {
+
+    },
+    "Paste any recipe site's domain. It remains hidden from recipe browsing until Stocked has cached 20 unique complete recipes from it." : {
+
+    },
+    "Paste any recipe URL — we'll extract the title, ingredients and steps automatically." : {
+
+    },
+    "Paste recipe here…" : {
+
+    },
+    "Paste the recipe text — title, ingredients, and steps. We'll structure it; you can fix anything before saving." : {
+
+    },
+    "paused" : {
+
+    },
+    "Pending" : {
+
+    },
+    "Pending changes: %lld" : {
+
+    },
+    "People in your household" : {
+
+    },
+    "per %@" : {
+
+    },
+    "Permanently deletes your pantry, grocery list, meal history, recipes, and settings from this device AND removes every Stocked backup from iCloud. You'll go through setup again next time. Cannot be undone." : {
+
+    },
+    "Personalized AI recipes are coming to Stocked. as part of the Premium tier. We're building a system that reads your taste profile, pantry, and cooking history to suggest recipes you'll actually love — before you even know you want them." : {
+
+    },
+    "Personalized AI recipes built from your cooking personality" : {
+
+    },
+    "Pick %@" : {
+
+    },
+    "Pick a category and we'll show you what's in your kitchen." : {
+
+    },
+    "Pick a different recipe" : {
+
+    },
+    "Pick a screenshot of a recipe. We'll read the text on your device and structure it for you to review." : {
+
+    },
+    "Pick an ingredient, a protein, a leftover — anything. We'll figure out what to do with it next." : {
+
+    },
+    "Pick one and stop there, or build from it — you decide how far to go." : {
+
+    },
+    "Plan" : {
+
+    },
+    "Plan %@" : {
+
+    },
+    "Plan a meal" : {
+
+    },
+    "Plan in Cook Later" : {
+
+    },
+    "Plan it. Shop for it. Prep it. Cook it." : {
+
+    },
+    "Plan Meal" : {
+
+    },
+    "Plan meals for the week." : {
+
+    },
+    "Plan Saved" : {
+
+    },
+    "Plan this" : {
+
+    },
+    "Plan with this ingredient" : {
+
+    },
+    "Plan with this item" : {
+
+    },
+    "planned" : {
+
+    },
+    "Planned" : {
+
+    },
+    "Planned in Cook Later" : {
+
+    },
+    "Planned meals do not over-allocate what is currently on hand." : {
+
+    },
+    "Planning Impact" : {
+
+    },
+    "Point at receipt · Tap anywhere to capture" : {
+
+    },
+    "Point camera at any barcode or QR code" : {
+
+    },
+    "Point your camera at\na grocery receipt" : {
+
+    },
+    "Portions check" : {
+
+    },
+    "Possible Duplicate" : {
+
+    },
+    "Pouring the drinks list…" : {
+
+    },
+    "Preferences" : {
+
+    },
+    "Preferred Store" : {
+
+    },
+    "Premium" : {
+
+    },
+    "PREMIUM" : {
+
+    },
+    "Prep" : {
+
+    },
+    "Prep %lldm" : {
+
+    },
+    "Prep Done — Back to Recipe" : {
+
+    },
+    "Prep First" : {
+
+    },
+    "Prep reminder set!" : {
+
+    },
+    "Prep Time" : {
+
+    },
+    "Prep Timing Advice" : {
+
+    },
+    "Prep Work" : {
+
+    },
+    "Preparing…" : {
+
+    },
+    "PREVIEW" : {
+
+    },
+    "Previous month" : {
+
+    },
+    "Price Lookup" : {
+
+    },
+    "Pricing shown at checkout." : {
+
+    },
+    "Processing…" : {
+
+    },
+    "Product Name" : {
+
+    },
+    "Pull down to fetch cocktails, mocktails, shots, and more from TheCocktailDB, the IBA official list, Open Drinks, and API Ninjas." : {
+
+    },
+    "QR Code Transfer" : {
+
+    },
+    "Qty" : {
+
+    },
+    "Qty +1" : {
+
+    },
+    "Qty −1" : {
+
+    },
+    "Quantity" : {
+
+    },
+    "QUANTITY" : {
+
+    },
+    "Quick Actions" : {
+
+    },
+    "Quick Question" : {
+
+    },
+    "Quick tips" : {
+
+    },
+    "Quick Update" : {
+
+    },
+    "Rate & Finish" : {
+
+    },
+    "Raw meat and seafood prep is listed last." : {
+
+    },
+    "Raw: %@" : {
+
+    },
+    "Re-import" : {
+
+    },
+    "Read step aloud" : {
+
+    },
+    "Reading…" : {
+
+    },
+    "Ready" : {
+
+    },
+    "Ready Now" : {
+
+    },
+    "Ready to Cook" : {
+
+    },
+    "Real recipes starring %@, sorted by what you already have." : {
+
+    },
+    "Receipt %lld · %lld added so far" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Receipt %1$lld · %2$lld added so far"
+          }
+        }
+      }
+    },
+    "Receipt Review" : {
+
+    },
+    "Recent Meals" : {
+
+    },
+    "Recently Viewed" : {
+
+    },
+    "Recipe from %@" : {
+
+    },
+    "Recipe Ingredients" : {
+
+    },
+    "Recipe name" : {
+
+    },
+    "Recipe options" : {
+
+    },
+    "Recipe Roulette" : {
+
+    },
+    "Recipe Sources" : {
+
+    },
+    "Recipe Steps" : {
+
+    },
+    "Recipe Text Size" : {
+
+    },
+    "Recipe Websites" : {
+
+    },
+    "Recipes" : {
+
+    },
+    "Recipes containing these are hidden by default in the recipe browser — the shield button there can show them again for one session." : {
+
+    },
+    "Recipes from this source appear here as they're pulled into Discover or imported. Pull down on the Recipes tab to refresh, or import any recipe by URL." : {
+
+    },
+    "Recipes you've saved or created" : {
+
+    },
+    "Recipes, ingredients, pantry items…" : {
+
+    },
+    "recipes.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recipes"
+          }
+        }
+      }
+    },
+    "Recommendations use your saved inventory. Add ingredients or browse recipes to get started." : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Refresh Kitchen" : {
+
+    },
+    "Refresh Location" : {
+
+    },
+    "Refresh recipe ideas" : {
+
+    },
+    "Refresh recipes" : {
+
+    },
+    "Regenerate Code" : {
+
+    },
+    "Regenerating…" : {
+
+    },
+    "Reminders can't be delivered until you allow notifications in Settings." : {
+
+    },
+    "Remove" : {
+
+    },
+    "Remove \"%@\"?" : {
+
+    },
+    "Remove %@ widget" : {
+
+    },
+    "Remove %lld item%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Remove %1$lld item%2$@"
+          }
+        }
+      }
+    },
+    "Remove all items in %@" : {
+
+    },
+    "Remove from Household" : {
+
+    },
+    "Remove from My Collection" : {
+
+    },
+    "Remove item" : {
+
+    },
+    "Remove Item" : {
+
+    },
+    "Remove one above to choose it again" : {
+
+    },
+    "Remove unchecked items" : {
+
+    },
+    "Removes every item in this group from your list." : {
+
+    },
+    "Rename" : {
+
+    },
+    "Rename recipe" : {
+
+    },
+    "Rename Recipe" : {
+
+    },
+    "Reset" : {
+
+    },
+    "Reset all usage counts?" : {
+
+    },
+    "Reset usage data" : {
+
+    },
+    "Resolve the \"not sure\" items to fully confirm your kitchen — or continue anyway." : {
+
+    },
+    "Restock (+25%)" : {
+
+    },
+    "Restore from Backup…" : {
+
+    },
+    "Restore Purchase" : {
+
+    },
+    "Retake Photo" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Review %lld Meal%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Review %1$lld Meal%2$@"
+          }
+        }
+      }
+    },
+    "Review %lld Substitution%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Review %1$lld Substitution%2$@"
+          }
+        }
+      }
+    },
+    "Review changes" : {
+
+    },
+    "Review Changes" : {
+
+    },
+    "Review Household Changes" : {
+
+    },
+    "Review ingredients" : {
+
+    },
+    "Review substitutions" : {
+
+    },
+    "Review the proposed week. Nothing changes until you confirm." : {
+
+    },
+    "Review, then save it to your vault." : {
+
+    },
+    "Reviews every item and suggests cleaned-up names, the right storage spot, missing nutrition, and expiry estimates. You approve each change." : {
+
+    },
+    "Running low" : {
+
+    },
+    "Running Low Soon" : {
+
+    },
+    "Runs out ~%@" : {
+
+    },
+    "S" : {
+
+    },
+    "Save" : {
+
+    },
+    "Save \"%@\" → \"%@\" as abbreviation?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Save \"%1$@\" → \"%2$@\" as abbreviation?"
+          }
+        }
+      }
+    },
+    "Save Access Level" : {
+
+    },
+    "Save Changes" : {
+
+    },
+    "Save current grocery list as template" : {
+
+    },
+    "Save Meal Plan" : {
+
+    },
+    "Save Plan" : {
+
+    },
+    "Save Preferences" : {
+
+    },
+    "Save Recipe" : {
+
+    },
+    "Save Substitution" : {
+
+    },
+    "Save to My Collection" : {
+
+    },
+    "Save to Photos" : {
+
+    },
+    "Saved" : {
+
+    },
+    "Saved ✓" : {
+
+    },
+    "Saved to My Collection!" : {
+
+    },
+    "Saves the unchecked items on your current grocery list." : {
+
+    },
+    "Saving…" : {
+
+    },
+    "Scale servings" : {
+
+    },
+    "Scan" : {
+
+    },
+    "Scan a List" : {
+
+    },
+    "Scan Again" : {
+
+    },
+    "Scan another page" : {
+
+    },
+    "Scan Another Receipt" : {
+
+    },
+    "Scan Barcode" : {
+
+    },
+    "Scan expiry date (optional)" : {
+
+    },
+    "Scan History" : {
+
+    },
+    "Scan Mode" : {
+
+    },
+    "Scan Receipt" : {
+
+    },
+    "Scanning your inventory…" : {
+
+    },
+    "Scheduled" : {
+
+    },
+    "SCHEDULED" : {
+
+    },
+    "Search" : {
+
+    },
+    "Search a food" : {
+
+    },
+    "Search an item" : {
+
+    },
+    "Search complete recipes" : {
+
+    },
+    "Search ingredients…" : {
+
+    },
+    "Search inventory" : {
+
+    },
+    "Search items" : {
+
+    },
+    "Search Recipes" : {
+
+    },
+    "Search recipes by name or cuisine…" : {
+
+    },
+    "Search recipes or ingredients" : {
+
+    },
+    "Search recipes, cuisines, ingredients…" : {
+
+    },
+    "Search sources" : {
+
+    },
+    "Search tools" : {
+
+    },
+    "Search your kitchen" : {
+
+    },
+    "Search your recipes by name or cuisine." : {
+
+    },
+    "Season in layers as you cook, not just at the end. Taste frequently and adjust salt, acid (lemon/vinegar), and heat to balance the dish." : {
+
+    },
+    "Seasonal Produce" : {
+
+    },
+    "See all activity" : {
+
+    },
+    "See All Matches" : {
+
+    },
+    "See All Options" : {
+
+    },
+    "See more possibilities (3+ missing)" : {
+
+    },
+    "See Prep Order" : {
+
+    },
+    "Select All" : {
+
+    },
+    "Select an item to view details" : {
+
+    },
+    "Select Font" : {
+
+    },
+    "Select meals → review ingredients → get your prep order" : {
+
+    },
+    "Select Photo" : {
+
+    },
+    "Selected" : {
+
+    },
+    "Serves %lld" : {
+
+    },
+    "Serves %lld per batch" : {
+
+    },
+    "Serves %lld. Adjustable for this session." : {
+
+    },
+    "servings" : {
+
+    },
+    "Servings" : {
+
+    },
+    "Servings: %lld" : {
+
+    },
+    "Set" : {
+
+    },
+    "Set a minimum to auto-reorder this item." : {
+
+    },
+    "Set a reminder to start prepping" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Shape picks the Cook page look (Circle, Pill rows, Rounded photo cards); size scales it — updates live" : {
+
+    },
+    "Share / Save Backup" : {
+
+    },
+    "SHARE ACROSS ACCOUNTS" : {
+
+    },
+    "Share anonymized item facts (name, unit, container, quantity) — never your identity, account, or location" : {
+
+    },
+    "Share Code" : {
+
+    },
+    "Share CSV…" : {
+
+    },
+    "Share List" : {
+
+    },
+    "Share one kitchen across your whole family — each person uses their own Apple ID, and everyone sees the same pantry and grocery list in real time." : {
+
+    },
+    "Share snapshot" : {
+
+    },
+    "Share weekly review" : {
+
+    },
+    "Share your pantry and grocery list with family — each person uses their own Apple ID." : {
+
+    },
+    "Share your pantry and grocery list with the people you trust." : {
+
+    },
+    "Shelf Life" : {
+
+    },
+    "SHOPPING AT" : {
+
+    },
+    "Shopping at %@ — change store" : {
+
+    },
+    "Shopping Overview" : {
+
+    },
+    "Short by about %@" : {
+
+    },
+    "Show all %lld stores" : {
+
+    },
+    "Show fewer stores" : {
+
+    },
+    "Show My Recipes" : {
+
+    },
+    "Show original text" : {
+
+    },
+    "Sign in with Apple, or continue as a guest with your name." : {
+
+    },
+    "Simmer for 10 minutes, stirring occasionally." : {
+
+    },
+    "Single Item" : {
+
+    },
+    "SIZE DETAILS" : {
+
+    },
+    "Skill Level" : {
+
+    },
+    "Skip" : {
+
+    },
+    "Skip — Don't Add" : {
+
+    },
+    "Skip — don't deduct" : {
+
+    },
+    "Skip — keep inventory as is" : {
+
+    },
+    "Skip discovery — go straight to prep and cooking." : {
+
+    },
+    "Skip for now" : {
+
+    },
+    "Sort by" : {
+
+    },
+    "Sort: %@" : {
+
+    },
+    "Sorted by most ingredients available" : {
+
+    },
+    "Source: Food Network Ingredient Substitution Guide + common cooking knowledge." : {
+
+    },
+    "Sources appear after at least 20 unique, complete recipes are available. Counts are live." : {
+
+    },
+    "Spending comes from your recorded prices — receipt scans and item prices dated this month." : {
+
+    },
+    "Spin" : {
+
+    },
+    "Spin again" : {
+
+    },
+    "Spin to pick dinner" : {
+
+    },
+    "Split layout: %@" : {
+
+    },
+    "Spot in %@" : {
+
+    },
+    "Start" : {
+
+    },
+    "Start Cooking" : {
+
+    },
+    "Start Cooking with Stocked" : {
+
+    },
+    "Start Fresh" : {
+
+    },
+    "Start Over" : {
+
+    },
+    "Start timer" : {
+
+    },
+    "Start Timer" : {
+
+    },
+    "Start voice control" : {
+
+    },
+    "Start with the longest-cooking items so everything finishes close together." : {
+
+    },
+    "Starting Amount" : {
+
+    },
+    "Step %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Still have this?" : {
+
+    },
+    "Stock %lld common staples" : {
+
+    },
+    "Stocked" : {
+
+    },
+    "Stocked — %@" : {
+
+    },
+    "Stocked combines shortages, avoids duplicate grocery rows, and keeps every meal that needs the item attached." : {
+
+    },
+    "Stocked hasn't seen these touched in a while. One tap each keeps your kitchen honest." : {
+
+    },
+    "Stocked." : {
+
+    },
+    "Stocked. v%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Stocked. v%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Stop" : {
+
+    },
+    "Stop Cooking?" : {
+
+    },
+    "Stop voice control" : {
+
+    },
+    "Storage guideline: freeze within 2 hours of cooking. Best quality within 2–3 months. Label with today's date." : {
+
+    },
+    "Storage guideline: refrigerate within 2 hours of cooking. Eat within 3–4 days. Reheat to 165°F." : {
+
+    },
+    "Storage Tips" : {
+
+    },
+    "Storage Zone" : {
+
+    },
+    "Store covered items in the fridge. Come back to cook when you're ready." : {
+
+    },
+    "STORED IN" : {
+
+    },
+    "Structure Recipe" : {
+
+    },
+    "Sub" : {
+
+    },
+    "Sub ↓" : {
+
+    },
+    "Sub available" : {
+
+    },
+    "Substitutes for %@" : {
+
+    },
+    "Substitution Details" : {
+
+    },
+    "Substitutions" : {
+
+    },
+    "Sync" : {
+
+    },
+    "Sync now" : {
+
+    },
+    "Sync Now" : {
+
+    },
+    "Syncing…" : {
+
+    },
+    "System" : {
+
+    },
+    "T" : {
+
+    },
+    "Tags" : {
+
+    },
+    "Take Plate Photo" : {
+
+    },
+    "Takes about 30 seconds" : {
+
+    },
+    "Tap \"+ Manual\" below to get started" : {
+
+    },
+    "Tap + Add to plan a meal for this day" : {
+
+    },
+    "Tap − to remove, + to add widgets." : {
+
+    },
+    "Tap a vibe — we'll find the recipe." : {
+
+    },
+    "Tap Refresh to build complete source libraries. A website appears only after 20 unique full recipes are cached." : {
+
+    },
+    "Tap the amount to adjust how much gets deducted — All, Half, or None." : {
+
+    },
+    "Tap the ones you usually have on hand." : {
+
+    },
+    "Tap to add your own photo" : {
+
+    },
+    "Tap to change your shopping store. Your preference is saved per-item when you use Find in Store." : {
+
+    },
+    "Tap to see options" : {
+
+    },
+    "Tap to see what's new" : {
+
+    },
+    "Tap your chef icon" : {
+
+    },
+    "Tell me what changed, in plain words." : {
+
+    },
+    "Tell me what you bought, used, or ran out of — in your own words. I'll suggest the changes and you confirm them." : {
+
+    },
+    "Tell Stocked you finished or used up an item." : {
+
+    },
+    "Text Manually" : {
+
+    },
+    "That's the strongest match we found." : {
+
+    },
+    "The %@ is the star. We'll keep the extras light." : {
+
+    },
+    "The app thinks you have these. Anything changed?" : {
+
+    },
+    "The entrée is enough. You can stop after one thing, or keep going — your call." : {
+
+    },
+    "The Stash ✦" : {
+
+    },
+    "There are no changes to review." : {
+
+    },
+    "These changes come from what you told us while cooking. Apply the ones that should stick." : {
+
+    },
+    "These details help diagnose household sync. Nothing here is shared." : {
+
+    },
+    "These items need to be used or added to your shopping list." : {
+
+    },
+    "These two recipes look similar. Keep one, or keep both." : {
+
+    },
+    "This device and iCloud" : {
+
+    },
+    "this month" : {
+
+    },
+    "This name is shown to everyone in your household." : {
+
+    },
+    "This needs an internet connection and the recipe service set up." : {
+
+    },
+    "This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone." : {
+
+    },
+    "This removes downloaded copies only. Stocked will rebuild the cache as you use the app." : {
+
+    },
+    "This source doesn't include step-by-step instructions here. Tap View source below for the full method." : {
+
+    },
+    "This source doesn't include step-by-step instructions." : {
+
+    },
+    "This updates the name everywhere in the app." : {
+
+    },
+    "This will remove \"%@\" → \"%@\" from your catalog." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This will remove \"%1$@\" → \"%2$@\" from your catalog."
+          }
+        }
+      }
+    },
+    "Tidying up the import…" : {
+
+    },
+    "Time to Plate" : {
+
+    },
+    "Timer done — tap to reset" : {
+
+    },
+    "Tip: add prices to items (or scan receipts) to make this more accurate. %lld item%@ no price yet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tip: add prices to items (or scan receipts) to make this more accurate. %1$lld item%2$@ no price yet."
+          }
+        }
+      }
+    },
+    "Tip: the clearer the screenshot, the better the result. You can fix anything on the next screen." : {
+
+    },
+    "Tips & Tricks" : {
+
+    },
+    "To Buy" : {
+
+    },
+    "To list" : {
+
+    },
+    "To scan barcodes, allow camera access." : {
+
+    },
+    "today" : {
+
+    },
+    "Today" : {
+
+    },
+    "Today's Brief" : {
+
+    },
+    "Toggle off any items you don't want. Edit names if the scanner misread them." : {
+
+    },
+    "Tomorrow" : {
+
+    },
+    "Tonight, make" : {
+
+    },
+    "Tonight's matches are as accurate as your kitchen can make them." : {
+
+    },
+    "Top Categories" : {
+
+    },
+    "Top ingredients you can use" : {
+
+    },
+    "total" : {
+
+    },
+    "Total tracked spend" : {
+
+    },
+    "Touch and hold to add widgets back." : {
+
+    },
+    "Track usage on this device" : {
+
+    },
+    "TRY" : {
+
+    },
+    "Try \"quick chicken no dairy\" or \"Italian breakfast\"…" : {
+
+    },
+    "Try a Different Recipe" : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Try Another" : {
+
+    },
+    "Try scanning again with better lighting" : {
+
+    },
+    "Try: \"quick chicken\", \"no dairy pasta\", \"Indian breakfast\"" : {
+
+    },
+    "Two people changed the same thing while offline. Choose which version to keep for each one." : {
+
+    },
+    "Type" : {
+
+    },
+    "Typical times for quality and safety — always trust your eyes and nose first." : {
+
+    },
+    "Unassign" : {
+
+    },
+    "Uncertain — tap to correct" : {
+
+    },
+    "Uncheck all" : {
+
+    },
+    "Undo" : {
+
+    },
+    "Unit" : {
+
+    },
+    "Unit Converter" : {
+
+    },
+    "Unlock Household Sync" : {
+
+    },
+    "Upcoming Prep" : {
+
+    },
+    "Update your inventory?" : {
+
+    },
+    "Update, remove, or clear items by asking" : {
+
+    },
+    "Updated just now" : {
+
+    },
+    "Upload from Library" : {
+
+    },
+    "Usage Insights" : {
+
+    },
+    "Use" : {
+
+    },
+    "Use %@ instead (you have it)" : {
+
+    },
+    "Use It Soon" : {
+
+    },
+    "Use My Location" : {
+
+    },
+    "Use Some (-25%)" : {
+
+    },
+    "Use these first to avoid waste." : {
+
+    },
+    "Use these soon" : {
+
+    },
+    "Use This Swap" : {
+
+    },
+    "Use today" : {
+
+    },
+    "Use your location or enter a zip code" : {
+
+    },
+    "Used %lld×" : {
+
+    },
+    "Uses %@" : {
+
+    },
+    "Usually lasts ~%lld days" : {
+
+    },
+    "v%@" : {
+
+    },
+    "View All" : {
+
+    },
+    "View All %@ Items" : {
+
+    },
+    "View all inventory" : {
+
+    },
+    "View details" : {
+
+    },
+    "View full kitchen report" : {
+
+    },
+    "View Grocery List" : {
+
+    },
+    "View inventory details" : {
+
+    },
+    "View More Possibilities" : {
+
+    },
+    "View on %@" : {
+
+    },
+    "View only" : {
+
+    },
+    "View planned meal" : {
+
+    },
+    "View Recipe" : {
+
+    },
+    "View source" : {
+
+    },
+    "Voice control needs mic + speech access — enable both in Settings → Stocked." : {
+
+    },
+    "W" : {
+
+    },
+    "Was: %@" : {
+
+    },
+    "Waste Insights" : {
+
+    },
+    "Waste Tracker" : {
+
+    },
+    "We couldn't find a match yet." : {
+
+    },
+    "We'll compare the tradeoffs — texture, effort, and time — and check your equipment. Full comparison is coming; for now, continue to get set up." : {
+
+    },
+    "We've set everything up based on your preferences. Update them anytime in Settings." : {
+
+    },
+    "Website domain (e.g. mykitchen.com)" : {
+
+    },
+    "Week Readiness" : {
+
+    },
+    "Weekly Review" : {
+
+    },
+    "Weighted %@" : {
+
+    },
+    "What are you planning?" : {
+
+    },
+    "What are you starting with?" : {
+
+    },
+    "What changed?" : {
+
+    },
+    "What do you want to do with it?" : {
+
+    },
+    "What do you want to start with?" : {
+
+    },
+    "What does “stocked” mean to you?" : {
+
+    },
+    "What it's known for (optional)" : {
+
+    },
+    "What should we call you?" : {
+
+    },
+    "What would you like to add?" : {
+
+    },
+    "WHAT YOU CAN MAKE" : {
+
+    },
+    "What you can make right now" : {
+
+    },
+    "WHAT'S COMING" : {
+
+    },
+    "What's Expiring" : {
+
+    },
+    "What's expiring in Stocked" : {
+
+    },
+    "What's New" : {
+
+    },
+    "What's on the menu tonight?" : {
+
+    },
+    "When items are expiring, suggest a recipe that uses them up" : {
+
+    },
+    "Which item did you use?" : {
+
+    },
+    "Which of these do you keep stocked?" : {
+
+    },
+    "Why we picked this" : {
+
+    },
+    "Widgets added (by type)" : {
+
+    },
+    "Would make again" : {
+
+    },
+    "Wrapped" : {
+
+    },
+    "You" : {
+
+    },
+    "You already have a possible substitute" : {
+
+    },
+    "You already have everything for this recipe." : {
+
+    },
+    "You already have this!" : {
+
+    },
+    "You also planned %@ with %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You also planned %1$@ with %2$@."
+          }
+        }
+      }
+    },
+    "You can make this now" : {
+
+    },
+    "You can still find a recipe and shop for it,\nor add it to your grocery list now." : {
+
+    },
+    "You don't have these exact ingredients, but you have swaps that work. Confirm the ones you want to use." : {
+
+    },
+    "You had items saved before signing in. Keep them in your account, or start fresh with a clean kitchen?" : {
+
+    },
+    "You have %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You have %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "you have: %@" : {
+
+    },
+    "You own this household." : {
+
+    },
+    "YOU SAVED ABOUT" : {
+
+    },
+    "You'll get an invite code to share with family. They join, and your pantry and grocery list sync together." : {
+
+    },
+    "You'll stop seeing the shared pantry and grocery list. You can rejoin with a new invite code." : {
+
+    },
+    "You're all done!" : {
+
+    },
+    "You're close to dinner." : {
+
+    },
+    "You're on a %lld-day cooking streak" : {
+
+    },
+    "You're starting with %@." : {
+
+    },
+    "You've joined a shared household." : {
+
+    },
+    "You've reached today's limit for new online suggestions — they'll refresh tomorrow. Your saved recipes and what's in your kitchen are still fully available." : {
+
+    },
+    "You've tossed %@ %lld× — try buying a smaller amount, or freeze half when you get it home." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You've tossed %1$@ %2$lld× — try buying a smaller amount, or freeze half when you get it home."
+          }
+        }
+      }
+    },
+    "Your answers help us find the perfect recipes for you." : {
+
+    },
+    "Your closest matches need a few more ingredients, but you still have options." : {
+
+    },
+    "Your Configured Candidates" : {
+
+    },
+    "Your Home is empty" : {
+
+    },
+    "Your household access level doesn't allow adding items. Ask the household owner if you need to add things." : {
+
+    },
+    "Your inventory already looks tidy — nothing to suggest." : {
+
+    },
+    "Your inventory matches your real kitchen. Recipe matches and grocery suggestions are as accurate as they can be." : {
+
+    },
+    "Your inventory won't be changed. You can restart this recipe any time." : {
+
+    },
+    "Your Invite Code" : {
+
+    },
+    "Your kitchen data is stored privately\nin your personal iCloud." : {
+
+    },
+    "Your kitchen is empty" : {
+
+    },
+    "Your kitchen is ready!" : {
+
+    },
+    "Your kitchen is waiting to be stocked." : {
+
+    },
+    "Your kitchen story is just getting started." : {
+
+    },
+    "Your Kitchen," : {
+
+    },
+    "Your list is clear" : {
+
+    },
+    "Your meal history" : {
+
+    },
+    "Your meal plan has been saved. Returning to home." : {
+
+    },
+    "Your name" : {
+
+    },
+    "Your Recipe" : {
+
+    },
+    "Your saved diet and allergens filter recipe results automatically and steer AI recipe ideas." : {
+
+    },
+    "Your surplus inventory" : {
+
+    },
+    "Yours" : {
+
+    },
+    "Zone" : {
+
+    }
+  },
+  "version" : "1.0"
+}
