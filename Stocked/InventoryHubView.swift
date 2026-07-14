@@ -132,7 +132,7 @@ struct InventoryHubView: View {
         .sheet(item: Binding(get: { plannerDayIndex.map { PlannerDay(id: $0) } },
                              set: { plannerDayIndex = $0?.id })) { day in
             NavigationStack {
-                MealPlannerView(servings: 2, initialItemName: "", initialDayIndex: day.id)
+                CookLaterWorkspaceView(context: .direct(day: day.id, source: .inventory))
                     .environment(session)
             }
         }

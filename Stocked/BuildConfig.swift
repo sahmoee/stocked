@@ -23,8 +23,8 @@ nonisolated enum BuildConfig {
     // MARK: - Version info
     // Single source of truth = the app bundle (CFBundleVersion / CFBundleShortVersionString),
     // which come from CURRENT_PROJECT_VERSION / MARKETING_VERSION in Build Settings.
-    // The auto-increment build phase bumps CURRENT_PROJECT_VERSION, so these track it
-    // automatically — no manual edits needed here on each build. The literals are only
+    // MARKETING_VERSION and CURRENT_PROJECT_VERSION are set manually in Xcode. These accessors
+    // only read the built bundle; they never mutate or script version numbers. The literals are
     // fallbacks for SwiftUI previews / unit tests where the bundle keys may be absent.
     static var buildNumber: Int {
         Int(bundleString("CFBundleVersion") ?? "") ?? fallbackBuildNumber
@@ -37,15 +37,15 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 54
-    private static let fallbackVersion     = "4.13"
+    private static let fallbackBuildNumber = 0
+    private static let fallbackVersion     = "0.0"
 
     static let changeCount   = 1
     static let buildName     = "Build 298 — Wires the API Ninjas v3 recipe endpoint in as a general recipe source seeded by cuisine and pantry, adds the APINinjasKey Info.plist mapping so the key is read from Secrets.xcconfig, and the source appears once configured."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection
-    enum Environment { case debug, staging, release }
+    nonisolated enum Environment: Sendable { case debug, staging, release }
     static var environment: Environment {
         #if DEBUG
         return .debug
@@ -62,7 +62,7 @@ nonisolated enum BuildConfig {
         bundleString("ClaudeAPIURL") ?? "https://api.anthropic.com/v1/messages"
     }
     static var claudeModel: String {
-        bundleString("ClaudeModel") ?? "claude-sonnet-4-20250514"
+        bundleString("ClaudeModel") ?? "claude-sonnet-5"
     }
     /// Injected via xcconfig CLAUDE_API_KEY → Info.plist ClaudeAPIKey.
     /// Never hardcode this value — leave it blank here and set it in your xcconfig.
@@ -100,10 +100,10 @@ nonisolated enum BuildConfig {
     static var edamamAppID: String  { bundleString("EdamamAppID")  ?? "" }
     static var edamamAppKey: String { bundleString("EdamamAppKey") ?? "" }
     // Tasty (BuzzFeed) via RapidAPI — free tier. Add to xcconfig: RAPIDAPI_KEY = your_key
-    static var rapidAPIKey: String { bundleString("RapidAPIKey") ?? "b9fd04f161msha92809b7e166489p1e48b6jsn5fd89a63749" }
+    static var rapidAPIKey: String { bundleString("RapidAPIKey") ?? "" }
     /// API Ninjas Cocktail API (free tier, 10k/month). Add APINinjasKey to Info.plist via
     /// Secrets.xcconfig to enable; absent -> the source simply no-ops.
-    static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "vW0az1EDsqyUDn6Uwk9aoHq075u6BK7YkKnsnWOx" }
+    static var apiNinjasKey: String { bundleString("APINinjasKey") ?? "" }
     /// Suggestic recipe API token. Read from Info.plist's SuggesticAPIToken key, which maps
     /// to SUGGESTIC_API_TOKEN in Secrets.xcconfig. Empty when unconfigured — SuggesticSource
     /// guards on empty and simply returns no results, so this is never a hard dependency.

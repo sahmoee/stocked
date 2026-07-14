@@ -34,6 +34,8 @@ enum StockedNotificationKey {
 extension Notification.Name {
     /// Posted when the user taps an item-specific reminder; payload is the item's UUID string.
     static let stockedOpenInventoryItem = Notification.Name("stockedOpenInventoryItem")
+    /// Opens the unified Cook Later planning workspace from weekly-plan reminders.
+    static let stockedOpenCookLater = Notification.Name("stockedOpenCookLater")
 }
 
 // MARK: - Category registration

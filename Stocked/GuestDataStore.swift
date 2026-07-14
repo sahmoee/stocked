@@ -12,25 +12,22 @@ class GuestDataStore {
     private let ud = UserDefaults.standard
 
     @ObservationIgnored private var isSyncingLowStock = false   // re-entrancy guard (#1) — internal, not observed
-    @ObservationIgnored private var widgetRefreshWork: DispatchWorkItem?   // #19 — debounce widget reloads
+    @ObservationIgnored private let mutationScheduler = StoreMutationScheduler()
+    @ObservationIgnored private let persistenceScheduler = StorePersistenceScheduler()
 
-    /// #19 — Coalesce rapid mutations into a single widget reload ~0.5s after the last change,
-    /// so a burst of edits (e.g. applying a scanned receipt) reloads widgets once, not N times.
+    /// Coalesce rapid mutations into one widget reload without escaping actor-isolated store
+    /// state into a DispatchWorkItem closure.
     private func refreshWidgetsDebounced() {
-        widgetRefreshWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
+        mutationScheduler.schedule(.widgetRefresh, delay: .milliseconds(500)) { [weak self] in
             guard let self else { return }
             WidgetBridge.refresh(store: self)
         }
-        widgetRefreshWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
     }
 
     // Debounced push to the shared HOUSEHOLD (worker-backed, cross-user). Separate from
     // SharedPantrySync (iCloud KV, same Apple ID only, gated off for guests). Without this, a
     // member adding an item never propagated to the household — it just sat locally. Debounced so
     // a burst of edits results in one push after it settles; only pushes when in a household.
-    private var householdPushWork: DispatchWorkItem? = nil
     // Set true while HouseholdSync.applyHousehold writes remote data into the store, so the
     // resulting didSets don't echo back out as another push (an infinite sync loop).
     var isApplyingHouseholdRemote = false
@@ -39,45 +36,70 @@ class GuestDataStore {
     private var isStamping = false
     private func pushHouseholdDebounced() {
         guard !isApplyingHouseholdRemote else { return }
-        householdPushWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
+        mutationScheduler.schedule(.householdPush, delay: .milliseconds(1_200)) { [weak self] in
             guard let self else { return }
-            let hh = HouseholdSync.shared
-            guard hh.state == .owner || hh.state == .member else { return }
-            Task { await hh.syncNow(store: self) }
+            let household = HouseholdSync.shared
+            guard household.state == .owner || household.state == .member else { return }
+            await household.syncNow(store: self)
         }
-        householdPushWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
     }
 
     // Deletion tombstones for household sync: ids removed locally, sent on the next push so the
-    // delete propagates to other devices. Kept small; cleared as the server confirms. Not synced
-    // via UserDefaults on purpose — they only need to survive until the next push.
+    // delete propagates to other devices. Persisted locally so an offline delete survives relaunch;
+    // only the exact tombstones captured by a confirmed push are removed.
     var pendingInvTombstones: Set<String> = []
     var pendingGroTombstones: Set<String> = []
     var pendingUserRecipeTombstones: Set<String> = []
     var pendingGenRecipeTombstones: Set<String> = []
     var pendingMealTombstones: Set<String> = []
 
+    // Scalar revisions are safe SwiftUI dependencies even though several model arrays contain Data.
+    // They advance for local edits and remote household merges, preventing derived UI/cache staleness.
+    private(set) var inventoryRevision: Int = 0
+    private(set) var groceryRevision: Int = 0
+    private(set) var recipeRevision: Int = 0
+    private(set) var planRevision: Int = 0
+
+    func householdTombstoneSnapshot() -> HouseholdTombstoneState {
+        HouseholdTombstoneState(inventory: pendingInvTombstones,
+                                grocery: pendingGroTombstones,
+                                userRecipes: pendingUserRecipeTombstones,
+                                generatedRecipes: pendingGenRecipeTombstones,
+                                plannedMeals: pendingMealTombstones)
+    }
+
+    func acknowledgeHouseholdTombstones(_ captured: HouseholdTombstoneState) {
+        pendingInvTombstones.subtract(captured.inventory)
+        pendingGroTombstones.subtract(captured.grocery)
+        pendingUserRecipeTombstones.subtract(captured.userRecipes)
+        pendingGenRecipeTombstones.subtract(captured.generatedRecipes)
+        pendingMealTombstones.subtract(captured.plannedMeals)
+        persistHouseholdTombstones()
+    }
+
+    private func persistHouseholdTombstones() {
+        LocalDatabase.shared.save(householdTombstoneSnapshot(), key: DBKey.householdTombstones.rawValue)
+    }
+
     var inventoryItems: [LocalInventoryItem] = [] {
         didSet {
             invalidateStockMatches()   // perf: recipe-match cache follows the inventory
             if isStamping { return }   // re-entrant pass from stampChanged: nothing more to do
+            inventoryRevision &+= 1
             // Stamp updatedAt on locally-changed items (skip while applying remote data, which
             // already carries authoritative timestamps). Record tombstones for removed ids.
             if !isApplyingHouseholdRemote {
                 isStamping = true
                 let changedIDs = stampChanged(&inventoryItems, against: oldValue)
                 isStamping = false
-                let oldIDs = Set(oldValue.map(\.id))
-                let goneIDs = oldIDs.subtracting(inventoryItems.map(\.id))
+                let mutation = StoreMutationRecorder.delta(
+                    oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(inventoryItems.map(\.id)),
+                    changedIDs: changedIDs, entityType: .inventoryItem)
+                let oldIDs = mutation.oldIDs
+                let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingInvTombstones.insert(id.uuidString) }
-                // Durable queue (sync plan Drop 1): record each mutation so offline edits
-                // survive relaunch and retry until a push is confirmed. Batched: one persist.
-                var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
-                for id in changedIDs { ops.append((id, .inventoryItem, oldIDs.contains(id) ? .update : .create)) }
-                for id in goneIDs { ops.append((id, .inventoryItem, .delete)) }
-                HouseholdSync.shared.enqueueBatch(ops)
+                if !goneIDs.isEmpty { persistHouseholdTombstones() }
+                HouseholdSync.shared.enqueueBatch(mutation.operations)
                 // #3 Household activity feed: announce item changes to the household.
                 let newByID = Dictionary(uniqueKeysWithValues: inventoryItems.map { ($0.id, $0) })
                 let oldByID = Dictionary(uniqueKeysWithValues: oldValue.map { ($0.id, $0) })
@@ -108,16 +130,17 @@ class GuestDataStore {
     @discardableResult
     private func stampChanged(_ items: inout [LocalInventoryItem], against old: [LocalInventoryItem]) -> [UUID] {
         let now = Date().timeIntervalSince1970 * 1000
+        let writerID = HouseholdSync.shared.memberId
         let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
         var changed: [UUID] = []
         for i in items.indices {
             if let prev = oldByID[items[i].id] {
                 // Compare ignoring updatedAt itself so a re-stamp doesn't loop.
-                var a = items[i]; a.updatedAt = 0
-                var b = prev;      b.updatedAt = 0
-                if a != b { items[i].updatedAt = now; changed.append(items[i].id) }
+                var a = items[i]; a.updatedAt = 0; a.lastWriterID = ""
+                var b = prev;      b.updatedAt = 0; b.lastWriterID = ""
+                if a != b { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
             } else {
-                items[i].updatedAt = now   // new item
+                items[i].updatedAt = now; items[i].lastWriterID = writerID   // new item
                 changed.append(items[i].id)
             }
         }
@@ -126,15 +149,16 @@ class GuestDataStore {
     @discardableResult
     private func stampChanged(_ items: inout [LocalGroceryItem], against old: [LocalGroceryItem]) -> [UUID] {
         let now = Date().timeIntervalSince1970 * 1000
+        let writerID = HouseholdSync.shared.memberId
         let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
         var changed: [UUID] = []
         for i in items.indices {
             if let prev = oldByID[items[i].id] {
-                var a = items[i]; a.updatedAt = 0
-                var b = prev;      b.updatedAt = 0
-                if a != b { items[i].updatedAt = now; changed.append(items[i].id) }
+                var a = items[i]; a.updatedAt = 0; a.lastWriterID = ""
+                var b = prev;      b.updatedAt = 0; b.lastWriterID = ""
+                if a != b { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
             } else {
-                items[i].updatedAt = now
+                items[i].updatedAt = now; items[i].lastWriterID = writerID
                 changed.append(items[i].id)
             }
         }
@@ -147,15 +171,16 @@ class GuestDataStore {
     // image change still stamps, which is harmless.
     private func stampChanged(_ items: inout [UserRecipe], against old: [UserRecipe]) -> [UUID] {
         let now = Date().timeIntervalSince1970 * 1000
+        let writerID = HouseholdSync.shared.memberId
         let enc = JSONEncoder()
         let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
-        func bytes(_ r: UserRecipe) -> Data? { var x = r; x.updatedAt = 0; return try? enc.encode(x) }
+        func bytes(_ r: UserRecipe) -> Data? { var x = r; x.updatedAt = 0; x.lastWriterID = ""; return try? enc.encode(x) }
         var changed: [UUID] = []
         for i in items.indices {
             if let prev = oldByID[items[i].id] {
-                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; changed.append(items[i].id) }
+                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
             } else {
-                items[i].updatedAt = now
+                items[i].updatedAt = now; items[i].lastWriterID = writerID
                 changed.append(items[i].id)
             }
         }
@@ -163,15 +188,16 @@ class GuestDataStore {
     }
     private func stampChanged(_ items: inout [GeneratedRecipe], against old: [GeneratedRecipe]) -> [UUID] {
         let now = Date().timeIntervalSince1970 * 1000
+        let writerID = HouseholdSync.shared.memberId
         let enc = JSONEncoder()
         let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
-        func bytes(_ r: GeneratedRecipe) -> Data? { var x = r; x.updatedAt = 0; return try? enc.encode(x) }
+        func bytes(_ r: GeneratedRecipe) -> Data? { var x = r; x.updatedAt = 0; x.lastWriterID = ""; return try? enc.encode(x) }
         var changed: [UUID] = []
         for i in items.indices {
             if let prev = oldByID[items[i].id] {
-                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; changed.append(items[i].id) }
+                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
             } else {
-                items[i].updatedAt = now
+                items[i].updatedAt = now; items[i].lastWriterID = writerID
                 changed.append(items[i].id)
             }
         }
@@ -179,15 +205,16 @@ class GuestDataStore {
     }
     private func stampChanged(_ items: inout [PlannedMeal], against old: [PlannedMeal]) -> [UUID] {
         let now = Date().timeIntervalSince1970 * 1000
+        let writerID = HouseholdSync.shared.memberId
         let oldByID = Dictionary(uniqueKeysWithValues: old.map { ($0.id, $0) })
         var changed: [UUID] = []
         for i in items.indices {
             if let prev = oldByID[items[i].id] {
-                var a = items[i]; a.updatedAt = 0
-                var b = prev;      b.updatedAt = 0
-                if a != b { items[i].updatedAt = now; changed.append(items[i].id) }
+                var a = items[i]; a.updatedAt = 0; a.lastWriterID = ""
+                var b = prev;      b.updatedAt = 0; b.lastWriterID = ""
+                if a != b { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
             } else {
-                items[i].updatedAt = now
+                items[i].updatedAt = now; items[i].lastWriterID = writerID
                 changed.append(items[i].id)
             }
         }
@@ -236,17 +263,19 @@ class GuestDataStore {
     }
     var groceryItems:          [LocalGroceryItem]   = [] { didSet {
         if isStamping { return }
+        groceryRevision &+= 1
         if !isApplyingHouseholdRemote {
             isStamping = true
             let changedIDs = stampChanged(&groceryItems, against: oldValue)
             isStamping = false
-            let oldIDs = Set(oldValue.map(\.id))
-            let goneIDs = oldIDs.subtracting(groceryItems.map(\.id))
+            let mutation = StoreMutationRecorder.delta(
+                oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(groceryItems.map(\.id)),
+                changedIDs: changedIDs, entityType: .groceryItem)
+            let oldIDs = mutation.oldIDs
+            let goneIDs = mutation.removedIDs
             for id in goneIDs { pendingGroTombstones.insert(id.uuidString) }
-            var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
-            for id in changedIDs { ops.append((id, .groceryItem, oldIDs.contains(id) ? .update : .create)) }
-            for id in goneIDs { ops.append((id, .groceryItem, .delete)) }
-            HouseholdSync.shared.enqueueBatch(ops)
+            if !goneIDs.isEmpty { persistHouseholdTombstones() }
+            HouseholdSync.shared.enqueueBatch(mutation.operations)
             let gNew = Dictionary(uniqueKeysWithValues: groceryItems.map { ($0.id, $0) })
             let gOld = Dictionary(uniqueKeysWithValues: oldValue.map { ($0.id, $0) })
             for id in changedIDs { if let it = gNew[id] { HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .groceryChecked : .groceryAdded, itemName: it.name) } }
@@ -259,17 +288,18 @@ class GuestDataStore {
         didSet {
             invalidateReservedKeys()   // perf: reserved-ingredient cache follows the planner
             if isStamping { return }
+            planRevision &+= 1
             if !isApplyingHouseholdRemote {
                 isStamping = true
                 let changedIDs = stampChanged(&plannedMeals, against: oldValue)
                 isStamping = false
-                let oldIDs = Set(oldValue.map(\.id))
-                let goneIDs = oldIDs.subtracting(plannedMeals.map(\.id))
+                let mutation = StoreMutationRecorder.delta(
+                    oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(plannedMeals.map(\.id)),
+                    changedIDs: changedIDs, entityType: .plannedMeal)
+                let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingMealTombstones.insert(id.uuidString) }
-                var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
-                for id in changedIDs { ops.append((id, .plannedMeal, oldIDs.contains(id) ? .update : .create)) }
-                for id in goneIDs { ops.append((id, .plannedMeal, .delete)) }
-                HouseholdSync.shared.enqueueBatch(ops)
+                if !goneIDs.isEmpty { persistHouseholdTombstones() }
+                HouseholdSync.shared.enqueueBatch(mutation.operations)
             }
             saveDebounced(DBKey.plannedMeals.rawValue, plannedMeals)
             pushHouseholdDebounced()
@@ -278,17 +308,19 @@ class GuestDataStore {
     var savedGeneratedRecipes: [GeneratedRecipe] = [] {
         didSet {
             if isStamping { return }
+            recipeRevision &+= 1
             if !isApplyingHouseholdRemote {
                 isStamping = true
                 let changedIDs = stampChanged(&savedGeneratedRecipes, against: oldValue)
                 isStamping = false
-                let oldIDs = Set(oldValue.map(\.id))
-                let goneIDs = oldIDs.subtracting(savedGeneratedRecipes.map(\.id))
+                let mutation = StoreMutationRecorder.delta(
+                    oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(savedGeneratedRecipes.map(\.id)),
+                    changedIDs: changedIDs, entityType: .generatedRecipe)
+                let oldIDs = mutation.oldIDs
+                let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingGenRecipeTombstones.insert(id.uuidString) }
-                var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
-                for id in changedIDs { ops.append((id, .generatedRecipe, oldIDs.contains(id) ? .update : .create)) }
-                for id in goneIDs { ops.append((id, .generatedRecipe, .delete)) }
-                HouseholdSync.shared.enqueueBatch(ops)
+                if !goneIDs.isEmpty { persistHouseholdTombstones() }
+                HouseholdSync.shared.enqueueBatch(mutation.operations)
                 let rNew = Dictionary(uniqueKeysWithValues: savedGeneratedRecipes.map { ($0.id, $0) })
                 for id in changedIDs { if let it = rNew[id] { HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .recipeUpdated : .recipeAdded, itemName: it.title) } }
             }
@@ -306,7 +338,17 @@ class GuestDataStore {
     var stockGoalsConfigured: Bool = false { didSet { ud.set(stockGoalsConfigured, forKey: "stockGoalsConfigured") } }
     var stockStaples: [String] = [] { didSet { saveDebounced("stockStaples_v1", stockStaples) } }
 
-    init() { load() }
+    init() {
+        if let tombstones = LocalDatabase.shared.load(HouseholdTombstoneState.self,
+                                                       key: DBKey.householdTombstones.rawValue) {
+            pendingInvTombstones = tombstones.inventory
+            pendingGroTombstones = tombstones.grocery
+            pendingUserRecipeTombstones = tombstones.userRecipes
+            pendingGenRecipeTombstones = tombstones.generatedRecipes
+            pendingMealTombstones = tombstones.plannedMeals
+        }
+        load()
+    }
 
     // #2: encode ONCE and reuse the same Data for both the disk write and the
     //     same-session UserDefaults mirror (was encoding the whole array twice).
@@ -316,25 +358,10 @@ class GuestDataStore {
     private static let udMirrorMaxBytes = 256 * 1024   // 256KB
     // #4 — Debounced batched save. didSet handlers mark a key dirty and schedule a flush
     // instead of re-encoding the whole array on every single mutation. A 30-item receipt
-    // import now encodes+writes once after the batch settles, not 30×. Each scheduled
-    // closure captures the value as of its mutation; the last write for a key wins.
-    private var dirtyKeys: [String: () -> Void] = [:]
-    private var saveFlushTask: Task<Void, Never>? = nil
-    private func scheduleSave(_ key: String, _ persist: @escaping () -> Void) {
-        dirtyKeys[key] = persist
-        saveFlushTask?.cancel()
-        saveFlushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 250_000_000)   // coalesce window
-            guard let self, !Task.isCancelled else { return }
-            self.flushPendingSaves()
-        }
-    }
+    // Collection writes are coalesced by a dedicated collaborator so GuestDataStore owns
+    // business state, not debounce-task bookkeeping. The final value for each key wins.
     /// Force any pending debounced saves to disk immediately (called on background/terminate).
-    func flushPendingSaves() {
-        let work = dirtyKeys
-        dirtyKeys.removeAll()
-        for (_, persist) in work { persist() }
-    }
+    func flushPendingSaves() { persistenceScheduler.flush() }
     private func save<T: Encodable>(_ key: String, value: T) {
         guard let data = try? JSONEncoder().encode(value) else {
             LocalDatabase.shared.save(value, key: key)   // still attempt disk write
@@ -353,7 +380,7 @@ class GuestDataStore {
     /// the registration closure then only touches `self` via [weak self], which avoids the
     /// "reference to property … requires explicit 'self'" escaping-closure error.
     private func saveDebounced<T: Encodable>(_ key: String, _ value: T) {
-        scheduleSave(key) { [weak self] in self?.save(key, value: value) }
+        persistenceScheduler.schedule(key: key) { [weak self] in self?.save(key, value: value) }
     }
     private func loadDecoded<T: Decodable>(_ key: String, as type: T.Type) -> T? {
         // Prefer the UD mirror (fast); fall back to the disk file for large values
@@ -755,6 +782,8 @@ class GuestDataStore {
         }
         saved.instructions = r.steps
         addUserRecipe(saved)
+        RecipeInterest.shared.record(category: "generated", area: saved.cuisine,
+                                     ingredients: saved.ingredients.map(\.name), event: .saved)
         return saved.id
     }
 
@@ -786,6 +815,8 @@ class GuestDataStore {
         saved.cuisine  = recipe.area
         saved.notes    = [recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · ")
         addUserRecipe(saved)
+        RecipeInterest.shared.record(category: recipe.category, area: recipe.area,
+                                     ingredients: saved.ingredients.map(\.name), event: .saved)
         return saved.id
     }
 
@@ -864,13 +895,21 @@ class GuestDataStore {
         if stamped.expirationDate == nil {
             let newID = stamped.id
             Task { @MainActor [weak self] in
-                guard let suggestion = await CrowdDB.suggest(name: stamped.name),
-                      let days = suggestion.avgShelfLifeDays, days > 0, days < 720,
-                      let self,
+                guard let self,
                       let i = self.inventoryIndex(of: newID),
                       self.inventoryItems[i].expirationDate == nil else { return }
-                self.inventoryItems[i].expirationDate =
-                    Calendar.current.date(byAdding: .day, value: Int(days.rounded()), to: Date())
+                let suggestion = await CrowdDB.suggest(name: stamped.name)
+                let estimate = ShelfLifeEstimator.estimate(
+                    name: stamped.name,
+                    zone: stamped.storageCategory,
+                    from: stamped.purchaseDate ?? Date(),
+                    crowdDays: suggestion?.avgShelfLifeDays
+                )
+                if let date = estimate.date,
+                   let currentIndex = self.inventoryIndex(of: newID),
+                   self.inventoryItems[currentIndex].expirationDate == nil {
+                    self.inventoryItems[currentIndex].expirationDate = date
+                }
             }
         } else if let exp = stamped.expirationDate {
             // Contribute this item's real shelf window back to the crowd (opt-out honored
@@ -1166,23 +1205,23 @@ class GuestDataStore {
     /// keyed by name keyword then storage zone. Returns nil for shelf-stable staples so we don't
     /// invent expiry where none applies. Callers apply it only when the user left the field empty.
     func estimatedUseBy(forName name: String, zone: String, from date: Date = Date()) -> Date? {
-        let n = name.lowercased()
-        // Keyword table (days). Most specific wins.
-        let keywordDays: [(String, Int)] = [
-            ("milk", 7), ("cream", 7), ("yogurt", 14), ("cheese", 21), ("eggs", 28),
-            ("chicken", 2), ("beef", 3), ("pork", 3), ("fish", 2), ("seafood", 2),
-            ("lettuce", 5), ("spinach", 5), ("berries", 4), ("strawberr", 4), ("banana", 5),
-            ("bread", 5), ("tortilla", 10), ("leftover", 4),
-        ]
-        for (kw, days) in keywordDays where n.contains(kw) {
-            return Calendar.current.date(byAdding: .day, value: days, to: date)
+        let canonical = IngredientMatcher.canonical(name)
+        let learned = consumptionLog.compactMap { record -> Double? in
+            guard !record.wasted,
+                  FoodNameMatcher.matches(canonical, record.itemName).score >= 0.78 else { return nil }
+            return record.daysLasted
         }
-        // Zone fallback for anything perishable.
-        let zoneDays: [String: Int] = ["Fridge": 10, "Freezer": 120]
-        if let days = zoneDays[zone] {
-            return Calendar.current.date(byAdding: .day, value: days, to: date)
-        }
-        return nil   // Pantry/Staples: shelf-stable, no invented expiry
+        let learnedDays: Double? = {
+            guard learned.count >= 2 else { return nil }
+            let sorted = learned.sorted()
+            return sorted[sorted.count / 2]   // median resists one unusually short/long cycle
+        }()
+        return ShelfLifeEstimator.estimate(
+            name: name,
+            zone: StorageCategory(rawValue: zone) ?? .pantry,
+            from: date,
+            learnedDays: learnedDays
+        ).date
     }
 
     /// #14 Turn a cooked recipe's output into a tracked leftover in the Fridge, with a short
@@ -1653,17 +1692,19 @@ class GuestDataStore {
         didSet {
             invalidateStockMatches()   // perf: recipe edits change their own match
             if isStamping { return }
+            recipeRevision &+= 1
             if !isApplyingHouseholdRemote {
                 isStamping = true
                 let changedIDs = stampChanged(&userRecipes, against: oldValue)
                 isStamping = false
-                let oldIDs = Set(oldValue.map(\.id))
-                let goneIDs = oldIDs.subtracting(userRecipes.map(\.id))
+                let mutation = StoreMutationRecorder.delta(
+                    oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(userRecipes.map(\.id)),
+                    changedIDs: changedIDs, entityType: .userRecipe)
+                let oldIDs = mutation.oldIDs
+                let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingUserRecipeTombstones.insert(id.uuidString) }
-                var ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)] = []
-                for id in changedIDs { ops.append((id, .userRecipe, oldIDs.contains(id) ? .update : .create)) }
-                for id in goneIDs { ops.append((id, .userRecipe, .delete)) }
-                HouseholdSync.shared.enqueueBatch(ops)
+                if !goneIDs.isEmpty { persistHouseholdTombstones() }
+                HouseholdSync.shared.enqueueBatch(mutation.operations)
                 let urNew = Dictionary(uniqueKeysWithValues: userRecipes.map { ($0.id, $0) })
                 for id in changedIDs { if let it = urNew[id] { HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .recipeUpdated : .recipeAdded, itemName: it.title) } }
             }
@@ -1765,6 +1806,8 @@ class GuestDataStore {
         l[idx].cookCount += 1
         l[idx].lastCooked = Date()
         userRecipes = l
+        RecipeInterest.shared.record(category: "saved", area: l[idx].cuisine,
+                                     ingredients: l[idx].ingredients.map(\.name), event: .completed)
         return l[idx].id
     }
     /// Audit fix — when a meal is cooked, mark the soonest matching *uncooked* planned meal as

@@ -36,9 +36,17 @@ struct StockedUndoToast: View {
 // Single enum drives one .sheet(item:) — avoids the SwiftUI stacked-.sheet bug
 // (multiple .sheet(isPresented:) on one view → only one fires reliably).
 enum GrocerySheet: Identifiable {
-    case storePicker, share, scanList
-    var id: Int {
-        switch self { case .storePicker: return 0; case .share: return 1; case .scanList: return 2 }
+    case storePicker
+    case share
+    case scanList
+    case cookLater(CookLaterContext)
+    var id: String {
+        switch self {
+        case .storePicker: return "store-picker"
+        case .share: return "share"
+        case .scanList: return "scan-list"
+        case .cookLater(let context): return "cook-later-\(context.id.uuidString)"
+        }
     }
 }
 
@@ -557,6 +565,10 @@ struct GroceryListView: View {
                     loopMessage = "Added \(n) item\(n == 1 ? "" : "s") from your list"
                     grocerySheet = nil
                 }.environment(session)
+            case .cookLater(let context):
+                NavigationStack {
+                    CookLaterWorkspaceView(context: context).environment(session)
+                }
             }
         }
         .onAppear { rebuildSections() }
@@ -568,7 +580,7 @@ struct GroceryListView: View {
                 householdMemberNames = members.map(\.name).filter { !$0.isEmpty }
             }
         }
-        .onChange(of: store.groceryItems) { _, _ in rebuildSections() }
+        .onChange(of: store.groceryRevision) { _, _ in rebuildSections() }
         .onChange(of: searchText) { _, _ in rebuildSections() }
         .onChange(of: showBought) { _, _ in rebuildSections() }   // #235 — segment filter
         .onChange(of: showMineOnly) { _, _ in rebuildSections() } // #E2 — Mine filter
@@ -862,6 +874,19 @@ struct GroceryListView: View {
             .layoutPriority(1)
 
             VStack(spacing: 8) {
+                Button {
+                    grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
+                } label: {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.stockedGreen)
+                        .frame(width: 30, height: 30)
+                        .background(Color.stockedGreen.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(item.recipeSource.isEmpty ? "Plan with this item" : "View planned meal")
+
                 Button { openInStore(item.name) } label: {
                     Image(systemName: "cart.fill")
                         .font(.system(size: 11))
@@ -895,6 +920,11 @@ struct GroceryListView: View {
         // #E2 assignable items — long-press to ask a household member to grab it.
         // Members come from the household roster; solo users just see Unassign/me.
         .contextMenu {
+            Button {
+                grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
+            } label: {
+                Label(item.recipeSource.isEmpty ? "Plan with this item" : "View planned meal", systemImage: "calendar.badge.plus")
+            }
             if HouseholdSync.shared.state == .owner || HouseholdSync.shared.state == .member {
                 Menu {
                     ForEach(assignableMembers, id: \.self) { name in

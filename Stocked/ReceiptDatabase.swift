@@ -9,7 +9,7 @@
 import Foundation
 
 // MARK: - Learned Item
-struct LearnedReceiptItem: Codable {
+nonisolated struct LearnedReceiptItem: Codable, Sendable {
     var rawName:       String         // original text from receipt
     var resolvedName:  String         // cleaned, human-readable name
     var zone:          String         // last assigned zone
@@ -19,7 +19,7 @@ struct LearnedReceiptItem: Codable {
 }
 
 // MARK: - Receipt Record
-struct ReceiptRecord: Codable, Identifiable {
+nonisolated struct ReceiptRecord: Codable, Identifiable, Sendable {
     var id         = UUID()
     var date       = Date()
     var storeName: String   = ""
@@ -90,13 +90,15 @@ final class ReceiptDatabase {
 
     // MARK: - Lookup: best zone for an item name
     func bestZone(for name: String) -> String {
-        let key = name.lowercased()
+        let key = FoodNameMatcher.normalized(name)
         if let learned = learnedItems[key] { return learned.zone }
-        // Fuzzy match — find closest learned item
-        for (k, item) in learnedItems where k.contains(key) || key.contains(k) {
-            return item.zone
+        if let learned = FoodNameMatcher.bestMatch(for: name,
+                                                   in: Array(learnedItems.values),
+                                                   name: \.resolvedName,
+                                                   minimumScore: 0.8) {
+            return learned.zone
         }
-        return guessZone(for: name)
+        return ZoneClassifier.classify(name).rawValue
     }
 
     // MARK: - Top items (for suggestions)
@@ -163,70 +165,7 @@ final class ReceiptDatabase {
 
     // MARK: - Heuristic zone guesser
     func guessZone(for name: String) -> String {
-        let lower = name.lowercased()
-
-        // ── FREEZER ──────────────────────────────────────────────────
-        let freezerWords  = ["frozen","ice cream","gelato","sorbet","popsicle","ice cube","frost",
-                             "ice pop","frozen pizza","frozen meal","frozen veg","frozen fruit",
-                             "tv dinner","freezer","waffle fries","tater tot","ice","frozen yogurt"]
-        if freezerWords.contains(where: { lower.contains($0) }) { return "Freezer" }
-
-        // ── FRIDGE ───────────────────────────────────────────────────
-        // Brand-name refrigerated drinks first (these would otherwise be caught by the
-        // generic "tea"/"juice" pantry rules below — e.g. Arizona tea belongs in the fridge).
-        let fridgeBrands  = ["arizona","snapple","gold peak","pure leaf","brisk","lipton tea",
-                             "tropicana","simply orange","minute maid","naked juice","bolthouse",
-                             "horizon","fairlife","silk","oatly","chobani","yakult","gt's","health-ade",
-                             "vitaminwater","bodyarmor","red bull","monster","celsius","starbucks",
-                             "la croix","spindrift","topo chico","perrier","san pellegrino","poppi","olipop"]
-        if fridgeBrands.contains(where: { lower.contains($0) }) { return "Fridge" }
-
-        // Refrigerated drink TYPES (bottled/canned teas, fresh juices, cold drinks)
-        let fridgeDrinks  = ["iced tea","bottled tea","canned tea","sweet tea","green tea drink",
-                             "orange juice","apple juice","fresh juice","cold-pressed","lemonade",
-                             "smoothie","kombucha","cold brew","iced coffee","kefir","horchata",
-                             "coconut water","energy drink","sports drink","probiotic drink",
-                             "almond milk","oat milk","soy milk","rice milk","cashew milk","creamer"]
-        if fridgeDrinks.contains(where: { lower.contains($0) }) { return "Fridge" }
-
-        // Dairy, eggs, fresh meat/seafood, fresh produce, deli, refrigerated staples
-        let fridgeWords   = ["milk","cheese","butter","yogurt","yoghurt","cream","egg","sour cream",
-                             "cottage cheese","cream cheese","half and half","heavy cream","whipped",
-                             "chicken","beef","pork","turkey","bacon","sausage","ham","steak","ground",
-                             "fish","salmon","shrimp","tuna steak","cod","tilapia","crab","scallop",
-                             "lettuce","spinach","kale","celery","carrot","cucumber","zucchini","squash",
-                             "bell pepper","broccoli","cauliflower","tomato","strawberr","blueberr",
-                             "raspberry","blackberr","grape","mushroom","tofu","tempeh","hummus","salsa",
-                             "guacamole","deli","lunch meat","cold cut","hot dog","tortellini","gnocchi",
-                             "fresh pasta","pico","dressing","refrigerated","pickle","kimchi","sauerkraut",
-                             "beer","wine","cider","hard seltzer","sparkling water","mineral water",
-                             "sparkling","seltzer","tonic","club soda","prosecco","champagne"]
-        if fridgeWords.contains(where: { lower.contains($0) }) { return "Fridge" }
-
-        // ── STAPLES — spices, oils, condiments, baking ───────────────
-        let staplesWords  = ["salt","pepper","garlic powder","onion powder","cumin","oregano",
-                             "paprika","cinnamon","turmeric","vanilla","baking soda","baking powder",
-                             "yeast","spice","herb","seasoning","vinegar","mustard","ketchup",
-                             "soy sauce","fish sauce","hot sauce","worcestershire","tahini","miso",
-                             "olive oil","vegetable oil","coconut oil","canola oil","avocado oil",
-                             "sesame oil","cooking spray","sugar","brown sugar","powdered sugar",
-                             "honey","maple syrup","syrup","molasses","cornstarch","corn starch",
-                             "bouillon","extract","food coloring","sprinkles","cocoa powder"]
-        if staplesWords.contains(where: { lower.contains($0) }) { return "Staples" }
-
-        // ── PANTRY — shelf-stable dry goods + drinks ─────────────────
-        let pantryWords   = ["pasta","rice","bread","can","flour","cereal","oat","bean","lentil",
-                             "broth","stock","jam","jelly","peanut butter","chip","cracker","cookie",
-                             "soup","nut","seed","quinoa","couscous","tortilla","wrap","bagel","pita",
-                             "noodle","ramen","granola","raisin","dried","trail mix","popcorn","pretzel",
-                             "candy","chocolate bar","instant","mac and cheese","stuffing","crouton",
-                             // shelf-stable drinks
-                             "soda","cola","pepsi","sprite","7up","dr pepper","gatorade","powerade",
-                             "coffee","tea","hot chocolate","cocoa","protein powder","drink mix",
-                             "juice box","juice pouch","coconut milk","evaporated milk","condensed milk"]
-        if pantryWords.contains(where: { lower.contains($0) }) { return "Pantry" }
-
-        return "Pantry"
+        ZoneClassifier.classify(name).rawValue
     }
 
     // MARK: - Clear history (manual only)

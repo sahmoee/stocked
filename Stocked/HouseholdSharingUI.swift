@@ -101,6 +101,11 @@ extension HouseholdAppDelegate: UNUserNotificationCenterDelegate {
                 NotificationCenter.default.post(name: .stockedOpenCookRightNow, object: nil)
             case "openInventory":
                 NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.inventory)
+            case "openMealPlanner":
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.cook)
+                // Let the tab switch mount CookHubView before delivering the destination event.
+                await Task.yield()
+                NotificationCenter.default.post(name: .stockedOpenCookLater, object: nil)
             case "openBrief":
                 NotificationCenter.default.post(name: .stockedShowBrief, object: nil)
             default:

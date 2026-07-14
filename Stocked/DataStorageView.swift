@@ -88,6 +88,7 @@ struct DataStorageView: View {
 
                     cacheRow("Recipe and data responses", value: cacheUsage.dataString)
                     cacheRow("Nutrition API responses", value: cacheUsage.apiString)
+                    cacheRow("AI result reuse", value: cacheUsage.aiString)
                     cacheRow("Recipe and product images", value: cacheUsage.imageString)
                     cacheRow("System network cache", value: cacheUsage.networkString)
 
@@ -256,17 +257,19 @@ struct DataStorageView: View {
 
 @MainActor
 private enum AppCacheManager {
-    struct Usage: Sendable {
+    nonisolated struct Usage: Sendable {
         let dataBytes: Int
         let apiBytes: Int
+        let aiBytes: Int
         let imageBytes: Int
         let networkBytes: Int
 
-        static let empty = Usage(dataBytes: 0, apiBytes: 0, imageBytes: 0, networkBytes: 0)
-        var totalBytes: Int { dataBytes + apiBytes + imageBytes + networkBytes }
+        static let empty = Usage(dataBytes: 0, apiBytes: 0, aiBytes: 0, imageBytes: 0, networkBytes: 0)
+        var totalBytes: Int { dataBytes + apiBytes + aiBytes + imageBytes + networkBytes }
         var isLarge: Bool { totalBytes >= 300 * 1_048_576 }
         var dataString: String { Self.format(dataBytes) }
         var apiString: String { Self.format(apiBytes) }
+        var aiString: String { Self.format(aiBytes) }
         var imageString: String { Self.format(imageBytes) }
         var networkString: String { Self.format(networkBytes) }
         var totalString: String { Self.format(totalBytes) }
@@ -278,11 +281,13 @@ private enum AppCacheManager {
 
     static func usage() async -> Usage {
         let apiBytes = await APIResponseCache.shared.diskSizeBytes()
+        let aiBytes = Int(await AIResultCache.shared.sizeBytes())
         let dataBytes = LocalDatabase.shared.dataCacheSizeBytes
             + BarcodeCache.shared.sizeBytes
         return Usage(
             dataBytes: dataBytes,
             apiBytes: apiBytes,
+            aiBytes: aiBytes,
             imageBytes: ImageCache.shared.diskCacheSizeBytes,
             networkBytes: URLCache.shared.currentDiskUsage
         )
@@ -296,6 +301,7 @@ private enum AppCacheManager {
         LocalDatabase.shared.clearDataCache()
         ImageCache.shared.clearAll()
         await APIResponseCache.shared.clear()
+        await AIResultCache.shared.clear()
         URLCache.shared.removeAllCachedResponses()
         UserDefaults.standard.removeObject(forKey: "onlineRecipesCache_v3")
         UserDefaults.standard.removeObject(forKey: "onlineRecipesCacheTimestamp_v3")

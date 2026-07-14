@@ -10,7 +10,7 @@
 import Foundation
 import os
 
-enum RecipeSourcesPlus {
+nonisolated enum RecipeSourcesPlus {
 
     private static let session: URLSession = {
         let cfg = URLSessionConfiguration.default
@@ -346,7 +346,7 @@ enum RecipeSourcesPlus {
 }
 
 // Shared: a browser-like User-Agent so community APIs don't reject the request.
-private extension URLSessionConfiguration {
+nonisolated private extension URLSessionConfiguration {
     func copyWithUA() -> URLSession {
         httpAdditionalHeaders = [
             "User-Agent": "Stocked/1.0 (iOS; recipe app) URLSession",

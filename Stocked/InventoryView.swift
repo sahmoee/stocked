@@ -41,11 +41,13 @@ enum InventorySheet: Identifiable {
     case add
     case barcode
     case receipt
-    case mealPlanner(itemName: String, dayIndex: Int)
-    var id: Int {
+    case cookLater(CookLaterContext)
+    var id: String {
         switch self {
-        case .add: return 0; case .barcode: return 1
-        case .receipt: return 2; case .mealPlanner: return 3
+        case .add: return "add"
+        case .barcode: return "barcode"
+        case .receipt: return "receipt"
+        case .cookLater(let context): return "cook-later-\(context.id.uuidString)"
         }
     }
 }
@@ -156,10 +158,14 @@ struct InventoryView: View {
                 // ── Combined expiry + drag-to-plan strip ─────────────
                 WeeklyPlanStrip(
                     onDrop: { itemName, dayIndex in
-                        addToBuildingMeal(itemName: itemName, dayIndex: dayIndex)
+                        activeSheet = .cookLater(.inventory(
+                            name: itemName,
+                            day: dayIndex,
+                            servings: max(1, session.guestStore.cookingProfile.householdSize)
+                        ))
                     },
                     onTap: { dayIndex in
-                        activeSheet = .mealPlanner(itemName: "", dayIndex: dayIndex)
+                        activeSheet = .cookLater(.direct(day: dayIndex, source: .inventory))
                     }
                 )
                 .padding(.horizontal, 20).padding(.bottom, 8)
@@ -340,14 +346,9 @@ struct InventoryView: View {
                 BarcodeScannerView { _, _ in }.environment(session)
             case .receipt:
                 ReceiptScannerView().environment(session)
-            case let .mealPlanner(itemName, dayIndex):
-                // Day + item come from the enum case (not separate @State) so they can
-                // never be stale when SwiftUI builds the sheet — that timing gap was why
-                // a drop on Friday opened the planner on Today.
+            case .cookLater(let context):
                 NavigationStack {
-                    MealPlannerView(servings: 2,
-                                    initialItemName: itemName,
-                                    initialDayIndex: dayIndex)
+                    CookLaterWorkspaceView(context: context)
                         .environment(session)
                 }
             }
@@ -1132,9 +1133,17 @@ struct InventoryItemRow: View {
     @State private var showUndo = false
     @State private var undoItem: LocalInventoryItem? = nil
     // Single .sheet(item:) — stacked .sheet(isPresented:) made these need a second tap.
-    private enum RowSheet: Int, Identifiable {
-        case edit, pairings
-        var id: Int { rawValue }
+    private enum RowSheet: Identifiable {
+        case edit
+        case pairings
+        case cookLater(CookLaterContext)
+        var id: String {
+            switch self {
+            case .edit: return "edit"
+            case .pairings: return "pairings"
+            case .cookLater(let context): return "cook-later-\(context.id.uuidString)"
+            }
+        }
     }
     @State private var activeRowSheet: RowSheet? = nil
 
@@ -1250,6 +1259,15 @@ struct InventoryItemRow: View {
             Button { session.guestStore.updateInventoryLevel(id: item.id, level: max(0.1, item.level - 0.25)) } label: {
                 Label("Use Some (-25%)", systemImage: "minus.circle")
             }
+            Button {
+                activeRowSheet = .cookLater(.inventory(
+                    name: item.name,
+                    day: item.isExpiringSoon ? 0 : 1,
+                    servings: max(1, session.guestStore.cookingProfile.householdSize)
+                ))
+            } label: {
+                Label("Plan in Cook Later", systemImage: "calendar.badge.plus")
+            }
             Button { activeRowSheet = .pairings } label: {
                 Label("Ingredient Pairings", systemImage: "link.circle")
             }
@@ -1279,8 +1297,14 @@ struct InventoryItemRow: View {
         }
         .sheet(item: $activeRowSheet) { sheet in
             switch sheet {
-            case .edit:     EditItemSheet(item: item).environment(session)
-            case .pairings: IngredientPairingsSheet(itemName: item.name).environment(session)
+            case .edit:
+                EditItemSheet(item: item).environment(session)
+            case .pairings:
+                IngredientPairingsSheet(itemName: item.name).environment(session)
+            case .cookLater(let context):
+                NavigationStack {
+                    CookLaterWorkspaceView(context: context).environment(session)
+                }
             }
         }
         // Drag to meal calendar — transfers item name as plain text

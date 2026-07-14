@@ -73,6 +73,7 @@ final class HouseholdSync {
         syncStatus = LocalDatabase.shared.load(HouseholdSyncStatus.self,
                                                key: DBKey.householdSyncStatus.rawValue) ?? HouseholdSyncStatus()
         syncStatus.pendingOperationCount = pendingOps.count
+        nextRetryAllowedAt = syncStatus.nextRetryAllowedAt ?? .distantPast
     }
     private func persistQueue() {
         LocalDatabase.shared.save(pendingOps, key: DBKey.householdOpQueue.rawValue)
@@ -103,24 +104,34 @@ final class HouseholdSync {
         persistQueue()
     }
 
-    /// A push confirmed by the server satisfies everything queued at that moment.
-    private func markQueueCompleted(route: HouseholdSyncRoute) {
-        pendingOps.removeAll()
+    /// A push only acknowledges operations captured in that request. Mutations created while the
+    /// request was in flight stay queued for the next pass instead of being silently discarded.
+    private func markQueueCompleted(operationIDs: Set<UUID>, route: HouseholdSyncRoute) {
+        pendingOps.removeAll { operationIDs.contains($0.id) }
         syncStatus.lastSuccessfulPush = Date()
         syncStatus.lastError = nil
         syncStatus.activeRoute = route
-        nextRetryAllowedAt = .distantPast          // #6 clear backoff on success
-        syncStatus.hasStuckOperations = false
+        nextRetryAllowedAt = .distantPast
+        syncStatus.nextRetryAllowedAt = nil
+        syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
     }
-    private func markQueueFailed(_ message: String) {
+    private func markQueueFailed(_ message: String, failure: StockedServiceError?) {
         for i in pendingOps.indices { pendingOps[i].retryCount += 1; pendingOps[i].lastError = message }
         syncStatus.lastError = message
-        // #6 exponential backoff: wait longer after each failure (2,4,8,16… capped at 5 min) so a
-        // persistently failing push doesn't hammer the server. Also flag ops stuck past 8 tries.
+        // Persisted exponential backoff with jitter. Honor server Retry-After, and pause longer
+        // after a KV quota response so a client loop cannot keep spending the remaining quota.
         let maxRetry = pendingOps.map(\.retryCount).max() ?? 0
-        let delay = min(pow(2.0, Double(maxRetry)), 300)
-        nextRetryAllowedAt = Date().addingTimeInterval(delay)
+        let exponential = min(pow(2.0, Double(maxRetry)), 300)
+        let serverDelay: TimeInterval
+        switch failure {
+        case .rateLimited(let retryAfter): serverDelay = retryAfter ?? 60
+        case .quotaExhausted: serverDelay = 60 * 60
+        default: serverDelay = exponential
+        }
+        let jitter = Double.random(in: 0.8...1.2)
+        nextRetryAllowedAt = Date().addingTimeInterval(max(exponential, serverDelay) * jitter)
+        syncStatus.nextRetryAllowedAt = nextRetryAllowedAt
         syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
     }
@@ -300,13 +311,22 @@ final class HouseholdSync {
         // #1 changed-since: send the last updatedAt we applied; the server returns a tiny
         // "unchanged" reply when nothing is new, so frequent polling stays cheap.
         guard let resp = await post("/household/pull", ["code": code, "since": lastAppliedUpdatedAt,
+                                                        "sinceRevision": syncStatus.lastServerRevision,
                                                         "memberId": memberId, "memberName": myDisplayName]) else { return }
-        if (resp["unchanged"] as? Bool) == true { markPullSucceeded(route: .workerPull); return }
+        if (resp["unchanged"] as? Bool) == true {
+            if let revision = (resp["revision"] as? NSNumber)?.intValue {
+                syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
+            }
+            markPullSucceeded(route: .workerPull); return
+        }
         guard let hh = resp["household"] as? [String: Any] else { return }
         detectConflictsOnApply = true          // pull path: guard local unsynced edits
         _ = applyHousehold(hh, into: store)
         detectConflictsOnApply = false
         if let u = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = u }
+        if let revision = (hh["revision"] as? NSNumber)?.intValue {
+            syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
+        }
         markPullSucceeded(route: .workerPull)
     }
 
@@ -356,44 +376,65 @@ final class HouseholdSync {
         startAutoSync(store: store)
     }
 
+    @ObservationIgnored private var syncInFlight = false
+    @ObservationIgnored private var syncRequestedWhileInFlight = false
+
     /// Manual two-way sync for an existing owner/member: push local collaborative data, pull merged.
+    /// Single-flight prevents overlapping poll/foreground/manual pushes from acknowledging edits
+    /// that were not present in the request body.
     func syncNow(store: GuestDataStore) async {
         guard let code = joinCode, state == .owner || state == .member else { return }
-        // Do NOT overwrite `state` here. `state` carries the device ROLE (owner/member); the old
-        // code set it to .syncing, which made every role guard (the poller, pushHouseholdDebounced,
-        // pullNow) fail while a sync was in flight, and the restore line read the already-clobbered
-        // state and demoted the owner to member. A failed sync left state stuck at .syncing, which
-        // permanently blocked all future syncs and pulls. Progress is tracked via syncStage only.
+        if syncInFlight {
+            syncRequestedWhileInFlight = true
+            return
+        }
+        syncInFlight = true
+        defer {
+            syncInFlight = false
+            if syncRequestedWhileInFlight || !pendingOps.isEmpty {
+                syncRequestedWhileInFlight = false
+                Task { @MainActor [weak self, weak store] in
+                    guard let self, let store else { return }
+                    await self.syncNow(store: store)
+                }
+            }
+        }
+
+        let capturedOps = pendingOps
+        let capturedOperationIDs = Set(capturedOps.map(\.id))
+        let capturedTombstones = store.householdTombstoneSnapshot()
         syncStage = .uploading(store.groceryItems.count)
         let body: [String: Any] = [
             "code": code,
-            "actorId": memberId,          // #5 server validates this member's permissions
+            "actorId": memberId,
             "grocery": store.groceryItems.map { groceryDict($0) },
             "inventory": store.inventoryItems.map { inventoryDict($0) },
             "userRecipes": store.userRecipes.map { userRecipeDict($0) },
             "genRecipes": store.savedGeneratedRecipes.map { genRecipeDict($0) },
             "plannedMeals": store.plannedMeals.map { plannedMealDict($0) },
-            "invDeleted": Array(store.pendingInvTombstones),
-            "groDeleted": Array(store.pendingGroTombstones),
-            "userRecipeDeleted": Array(store.pendingUserRecipeTombstones),
-            "genRecipeDeleted": Array(store.pendingGenRecipeTombstones),
-            "mealDeleted": Array(store.pendingMealTombstones),
+            "invDeleted": Array(capturedTombstones.inventory),
+            "groDeleted": Array(capturedTombstones.grocery),
+            "userRecipeDeleted": Array(capturedTombstones.userRecipes),
+            "genRecipeDeleted": Array(capturedTombstones.generatedRecipes),
+            "mealDeleted": Array(capturedTombstones.plannedMeals),
         ]
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
-            fail("Sync didn't finish. Check your connection and try again.")
-            markQueueFailed("Push failed; will retry.")   // ops persist for the next attempt
+            let message = lastPostFailure?.localizedDescription
+                ?? "Sync didn't finish. Check your connection and try again."
+            fail(message)
+            markQueueFailed(message, failure: lastPostFailure)
             return
         }
-        // Server accepted our deletions; clear the local pending set.
-        store.pendingInvTombstones.removeAll()
-        store.pendingGroTombstones.removeAll()
-        store.pendingUserRecipeTombstones.removeAll()
-        store.pendingGenRecipeTombstones.removeAll()
-        store.pendingMealTombstones.removeAll()
-        markQueueCompleted(route: .workerPush)   // full-state push satisfies every pending op
+
+        store.acknowledgeHouseholdTombstones(capturedTombstones)
+        markQueueCompleted(operationIDs: capturedOperationIDs, route: .workerPush)
         let counts = applyHousehold(hh, into: store)
-        markPullSucceeded(route: .workerPush)    // push response carries the merged state back
+        if let updated = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = updated }
+        if let revision = (hh["revision"] as? NSNumber)?.intValue {
+            syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
+        }
+        markPullSucceeded(route: .workerPush)
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
         lastError = nil
     }
@@ -526,21 +567,53 @@ final class HouseholdSync {
 
     // MARK: - Networking
 
+    @ObservationIgnored private var lastPostFailure: StockedServiceError? = nil
+
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
-        guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else { return nil }
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        BuildConfig.authorizeWorkerRequest(&req)   // X-Stocked-Key shared secret
-        req.timeoutInterval = 12
-        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        guard let (data, resp) = try? await URLSession.shared.data(for: req),
-              let http = resp as? HTTPURLResponse else { return nil }
-        guard (200...299).contains(http.statusCode) else {
-            Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
+        lastPostFailure = nil
+        guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else {
+            lastPostFailure = .notConfigured("Household sync")
             return nil
         }
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        BuildConfig.authorizeWorkerRequest(&request)
+        request.timeoutInterval = 12
+        guard let encoded = try? JSONSerialization.data(withJSONObject: body) else {
+            lastPostFailure = .invalidRequest("Household sync couldn't encode the local snapshot.")
+            return nil
+        }
+        request.httpBody = encoded
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                lastPostFailure = .malformedResponse("Household sync returned no HTTP response.")
+                return nil
+            }
+            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            guard (200...299).contains(http.statusCode) else {
+                let detail = object?["error"] as? String
+                let code = object?["code"] as? String
+                if code == "kvQuota" || http.statusCode == 503 {
+                    lastPostFailure = .quotaExhausted(detail ?? "Household sync storage is temporarily unavailable.")
+                } else if http.statusCode == 429 {
+                    let retry = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+                    lastPostFailure = .rateLimited(retryAfter: retry)
+                } else {
+                    lastPostFailure = .httpStatus(http.statusCode, detail)
+                }
+                Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
+                return nil
+            }
+            return object
+        } catch is CancellationError {
+            lastPostFailure = .cancelled
+            return nil
+        } catch {
+            lastPostFailure = .transport(error.localizedDescription)
+            return nil
+        }
     }
 
     private func fail(_ message: String) {
@@ -554,7 +627,7 @@ final class HouseholdSync {
         [
             "id": item.id.uuidString, "name": item.name, "quantity": item.quantity,
             "zone": item.zone, "level": item.effectiveLevel, "brand": item.brand ?? "",
-            "updatedAt": item.updatedAt,
+            "updatedAt": item.updatedAt, "lastWriterID": item.lastWriterID,
         ]
     }
     private func groceryDict(_ item: LocalGroceryItem) -> [String: Any] {
@@ -562,6 +635,7 @@ final class HouseholdSync {
             "id": item.id.uuidString, "name": item.name, "quantity": item.quantity,
             "isChecked": item.isChecked, "recipeSource": item.recipeSource,
             "addedByName": item.addedByName, "updatedAt": item.updatedAt,
+            "lastWriterID": item.lastWriterID,
             "assignedTo": item.assignedTo, "sizeText": item.sizeText,
         ]
     }
@@ -575,6 +649,7 @@ final class HouseholdSync {
         item.assignedTo = (d["assignedTo"] as? String) ?? ""
         item.sizeText = (d["sizeText"] as? String) ?? ""
         item.updatedAt = (d["updatedAt"] as? Double) ?? 0
+        item.lastWriterID = (d["lastWriterID"] as? String) ?? ""
         return item
     }
     private func parseInventory(_ d: [String: Any]) -> LocalInventoryItem? {
@@ -586,6 +661,7 @@ final class HouseholdSync {
         if let brand = d["brand"] as? String, !brand.isEmpty { item.brand = brand }
         item.storageCategory = StorageCategory(rawValue: zone) ?? .pantry
         item.updatedAt = (d["updatedAt"] as? Double) ?? 0
+        item.lastWriterID = (d["lastWriterID"] as? String) ?? ""
         return item
     }
 
@@ -598,15 +674,17 @@ final class HouseholdSync {
         if let d = x.imageData, d.count > Self.maxSyncedImageBytes { x.imageData = nil }
         guard let data = try? JSONEncoder().encode(x),
               var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt]
+            return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt, "lastWriterID": r.lastWriterID]
         }
         obj["updatedAt"] = r.updatedAt
+        obj["lastWriterID"] = r.lastWriterID
         return obj
     }
     private func parseUserRecipe(_ d: [String: Any]) -> UserRecipe? {
         guard let data = try? JSONSerialization.data(withJSONObject: d),
               var r = try? JSONDecoder().decode(UserRecipe.self, from: data) else { return nil }
         r.updatedAt = (d["updatedAt"] as? Double) ?? 0
+        r.lastWriterID = (d["lastWriterID"] as? String) ?? ""
         return r
     }
     private func genRecipeDict(_ r: GeneratedRecipe) -> [String: Any] {
@@ -614,29 +692,33 @@ final class HouseholdSync {
         if let d = x.imageData, d.count > Self.maxSyncedImageBytes { x.imageData = nil }
         guard let data = try? JSONEncoder().encode(x),
               var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt]
+            return ["id": r.id.uuidString, "title": r.title, "updatedAt": r.updatedAt, "lastWriterID": r.lastWriterID]
         }
         obj["updatedAt"] = r.updatedAt
+        obj["lastWriterID"] = r.lastWriterID
         return obj
     }
     private func parseGenRecipe(_ d: [String: Any]) -> GeneratedRecipe? {
         guard let data = try? JSONSerialization.data(withJSONObject: d),
               var r = try? JSONDecoder().decode(GeneratedRecipe.self, from: data) else { return nil }
         r.updatedAt = (d["updatedAt"] as? Double) ?? 0
+        r.lastWriterID = (d["lastWriterID"] as? String) ?? ""
         return r
     }
     private func plannedMealDict(_ m: PlannedMeal) -> [String: Any] {
         guard let data = try? JSONEncoder().encode(m),
               var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            return ["id": m.id.uuidString, "title": m.title, "updatedAt": m.updatedAt]
+            return ["id": m.id.uuidString, "title": m.title, "updatedAt": m.updatedAt, "lastWriterID": m.lastWriterID]
         }
         obj["updatedAt"] = m.updatedAt
+        obj["lastWriterID"] = m.lastWriterID
         return obj
     }
     private func parsePlannedMeal(_ d: [String: Any]) -> PlannedMeal? {
         guard let data = try? JSONSerialization.data(withJSONObject: d),
               var m = try? JSONDecoder().decode(PlannedMeal.self, from: data) else { return nil }
         m.updatedAt = (d["updatedAt"] as? Double) ?? 0
+        m.lastWriterID = (d["lastWriterID"] as? String) ?? ""
         return m
     }
     private func parseActivity(_ d: [String: Any]) -> HouseholdActivity? {
@@ -678,7 +760,7 @@ final class HouseholdSync {
                 if let local = byID[r.id] {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordGroceryConflict(mine: local, theirs: r)   // divert, keep local for now
-                    } else if r.updatedAt >= local.updatedAt {
+                    } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
                         byID[r.id] = r   // newer wins
                     }
                 } else if !groTombstones.contains(r.id.uuidString) {
@@ -705,7 +787,7 @@ final class HouseholdSync {
                 if let local = byID[r.id] {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordInventoryConflict(mine: local, theirs: r)
-                    } else if r.updatedAt >= local.updatedAt {
+                    } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
                         byID[r.id] = r
                     }
                 } else if !invTombstones.contains(r.id.uuidString) {
@@ -737,6 +819,7 @@ final class HouseholdSync {
                         var copy = old
                         copy.id = UUID()
                         copy.updatedAt = Date().timeIntervalSince1970 * 1000
+                        copy.lastWriterID = HouseholdSync.shared.memberId
                         store.inventoryItems.append(copy)
                     }
                 }
@@ -756,7 +839,7 @@ final class HouseholdSync {
                 if let local = byID[r.id] {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordUserRecipeConflict(mine: local, theirs: r)
-                    } else if r.updatedAt >= local.updatedAt {
+                    } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
                         byID[r.id] = r; touched = true
                     }
                 } else if !userRecipeTombstones.contains(r.id.uuidString) {
@@ -775,7 +858,7 @@ final class HouseholdSync {
                 if let local = byID[r.id] {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordGenRecipeConflict(mine: local, theirs: r)
-                    } else if r.updatedAt >= local.updatedAt {
+                    } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
                         byID[r.id] = r; touched = true
                     }
                 } else if !genRecipeTombstones.contains(r.id.uuidString) {
@@ -793,7 +876,7 @@ final class HouseholdSync {
             var touched = false
             for r in remote {
                 if let local = byID[r.id] {
-                    if r.updatedAt >= local.updatedAt { byID[r.id] = r; touched = true }
+                    if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) { byID[r.id] = r; touched = true }
                 } else if !mealTombstones.contains(r.id.uuidString) {
                     byID[r.id] = r; touched = true
                 }

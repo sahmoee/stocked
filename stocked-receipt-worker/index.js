@@ -9,7 +9,7 @@
  *
  * HARDENING added here (was a bare proxy before):
  *   1. Shared-secret header check  — rejects callers that don't present X-Stocked-Key.
- *   2. Per-IP rate limiting (KV)    — caps requests/min and requests/day per IP so a
+ *   2. Per-IP rate limiting (Cache API)    — caps requests/min and requests/day per IP so a
  *                                     leaked URL can't burn the Anthropic budget.
  *   3. Method/size guards           — only POST, capped body size, JSON only.
  *   4. CORS preflight handling      — so the app (and future web) can call it.
@@ -25,15 +25,18 @@
  * REQUIRED Worker config (see README.md):
  *   Secret  : ANTHROPIC_API_KEY   (wrangler secret put ANTHROPIC_API_KEY)
  *   Secret  : STOCKED_SHARED_KEY  (wrangler secret put STOCKED_SHARED_KEY) — must match the app
- *   KV bind : RATE_KV             (a KV namespace for the rate-limit counters)
+ *   KV bind : RATE_KV             (household snapshots only; counters use Cache API)
  *   Var     : ANTHROPIC_MODEL     (optional; defaults below)
  */
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const WORKER_VERSION = "2026-07-12.5"; // bump on every route/prompt change
+const WORKER_VERSION = "2026-07-13.2"; // bump on every route/prompt change
 const DEFAULT_MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 1500;
+const ROUTE_SCHEMA = Object.freeze({
+  receiptText: 2, receiptImage: 2, barcode: 1, recipeImport: 2,
+  recipeGeneration: 2, inventoryIntent: 2, inventoryScan: 2,
+});
 
 // Rate limits per IP.
 const PER_MINUTE_LIMIT = 12;     // burst protection
@@ -45,9 +48,11 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2 MB — text is tiny; a base64 recei
 const RECEIPT_SYSTEM =
   "You parse grocery receipts into structured items. Respond ONLY with a JSON array, no " +
   "prose, no markdown fences. Each element: " +
-  '{"raw": string, "resolved": string, "quantity": number, "zone": "Fridge"|"Freezer"|"Pantry"|"Other", ' +
+  '{"raw": string, "resolved": string, "quantity": number, "zone": "Fridge"|"Freezer"|"Pantry"|"Staples", ' +
   '"brand": string|null, "unitPrice": number|null, "totalPrice": number|null}. ' +
-  "Resolve abbreviations to real product names. Skip totals, tax, and non-items.";
+  "Resolve abbreviations to real product names, separate brand from the product, and preserve uncertainty by using the safest shelf-stable zone rather than guessing refrigeration. " +
+  "Do not classify snack phrases such as cheddar chips as dairy or cayenne pepper as fresh produce. Skip totals, tax, discounts, and non-items. " +
+  "Example: HCF CHED CHPS 2 @ 3.00 becomes raw HCF CHED CHPS, resolved Cheddar Chips, quantity 2, zone Pantry, brand Hill Country Fare.";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -102,6 +107,9 @@ export default {
       try {
         return await handleHousehold(url.pathname, request, env);
       } catch (e) {
+        if (e && e.code === "kvQuota") {
+          return json({ error: "Household sync storage quota is temporarily unavailable", code: "kvQuota" }, 503, { "Retry-After": "60" });
+        }
         return json({ error: "household handler threw: " + String((e && e.message) || e), code: "householdCrash" }, 500);
       }
     }
@@ -151,10 +159,23 @@ export default {
     if (!prompt) {
       return json({ error: "Unrecognized request" }, 422);
     }
+    if (typeof payload.route === "string" && payload.route !== prompt.route) {
+      return json({ error: "Route does not match payload", code: "schemaMismatch" }, 409);
+    }
+    if (payload.schemaVersion != null && Number(payload.schemaVersion) !== prompt.schemaVersion) {
+      return json({ error: "Unsupported request schema", code: "schemaMismatch", expected: prompt.schemaVersion }, 409);
+    }
 
     if (!env.ANTHROPIC_API_KEY) {
-      // Explicit so the client can tell the user the real problem.
       return json({ error: "Worker is missing the ANTHROPIC_API_KEY secret. Run: wrangler secret put ANTHROPIC_API_KEY" }, 500);
+    }
+
+    // Cache only explicitly safe deterministic routes. Never cache receipt images/text or a
+    // household-specific inventory snapshot at the edge.
+    const aiCacheKey = prompt.cacheKey ? aiResultURL(prompt.cacheKey) : null;
+    if (aiCacheKey) {
+      const hit = await caches.default.match(aiCacheKey);
+      if (hit) return withCors(hit);
     }
 
     // ── Call Anthropic ──
@@ -170,7 +191,7 @@ export default {
         },
         body: JSON.stringify({
           model,
-          max_tokens: MAX_TOKENS,
+          max_tokens: prompt.maxTokens || 1500,
           system: prompt.system,
           messages: [{ role: "user", content: prompt.user }],
         }),
@@ -185,10 +206,14 @@ export default {
     // the app as a 401 and masquerade as an X-Stocked-Key mismatch.
     const text = await upstream.text();
     if (upstream.ok) {
-      return new Response(text, {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
-      });
+      let envelope;
+      try { envelope = JSON.parse(text); } catch { return json({ error: "Assistant returned invalid JSON envelope" }, 502); }
+      envelope.schemaVersion = prompt.schemaVersion;
+      envelope.route = prompt.route;
+      envelope.workerVersion = WORKER_VERSION;
+      const response = json(envelope, 200, prompt.cacheTTL ? { "Cache-Control": `max-age=${prompt.cacheTTL}` } : {});
+      if (aiCacheKey && prompt.cacheTTL) await caches.default.put(aiCacheKey, response.clone());
+      return response;
     }
     let detail = "";
     try { detail = (JSON.parse(text).error || {}).message || ""; } catch {}
@@ -209,6 +234,11 @@ export default {
  * Returns null for anything unrecognized. Keep these in sync with what each app caller
  * expects to parse back out of content[0].text.
  */
+function routePrompt(route, system, user, maxTokens, options = {}) {
+  return { route, schemaVersion: ROUTE_SCHEMA[route], system, user, maxTokens,
+           cacheKey: options.cacheKey || null, cacheTTL: options.cacheTTL || 0 };
+}
+
 function buildPrompt(p) {
   // Image-based receipt (vision) → JSON array of items. The app sends a downscaled JPEG.
   if (typeof p.imageBase64 === "string" && p.imageBase64) {
@@ -216,10 +246,8 @@ function buildPrompt(p) {
     const corrections = p.corrections
       ? `\nKnown corrections (raw → resolved): ${JSON.stringify(p.corrections)}`
       : "";
-    return {
-      system: RECEIPT_SYSTEM,
-      // Vision: an image block + a text instruction block.
-      user: [
+    return routePrompt("receiptImage", RECEIPT_SYSTEM, [
+
         {
           type: "image",
           source: {
@@ -229,8 +257,7 @@ function buildPrompt(p) {
           },
         },
         { type: "text", text: `Parse this receipt into the JSON array described.${store}${corrections}` },
-      ],
-    };
+      ], 3000);
   }
 
   // Receipt OCR parse → JSON array of items.
@@ -239,47 +266,43 @@ function buildPrompt(p) {
     const corrections = p.corrections
       ? `\nKnown corrections (raw → resolved): ${JSON.stringify(p.corrections)}`
       : "";
-    return {
-      system: RECEIPT_SYSTEM,
-      user: `Receipt OCR text:${store}${corrections}\n\n${p.receipt}`,
-    };
+    return routePrompt("receiptText", RECEIPT_SYSTEM,
+      `Receipt OCR text:${store}${corrections}\n\n${p.receipt}`, 3000);
   }
 
   // Barcode → product name (plain text, short).
   if (typeof p.barcode === "string" && p.barcode.trim()) {
-    return {
-      system:
-        "You identify a grocery product from its barcode (UPC/EAN). Respond with ONLY the " +
-        "product name in plain text (brand + product, under 60 characters). If you cannot " +
-        'identify it confidently, respond with exactly "unknown".',
-      user: `Barcode: ${p.barcode}`,
-    };
+    return routePrompt("barcode",
+      "You identify a grocery product from its barcode (UPC/EAN). Respond with ONLY the product name in plain text (brand + product, under 60 characters). If you cannot identify it confidently, respond with exactly \"unknown\".",
+      `Barcode: ${p.barcode}`, 120, { cacheKey: `barcode:v${ROUTE_SCHEMA.barcode}:${WORKER_VERSION}:${p.barcode.trim()}`, cacheTTL: 2592000 });
   }
 
   // Recipe import → structured recipe JSON.
   if (typeof p.recipeText === "string" && p.recipeText.trim()) {
-    return {
-      system:
-        "You convert pasted recipe text into a single JSON object, no prose, no markdown fences: " +
-        '{"title": string, "description": string, "cookTime": string, "prepTime": string, ' +
-        '"servings": number, "difficulty": "Easy"|"Medium"|"Hard", "cuisine": string, ' +
-        '"tags": string[], "ingredients": [{"name": string, "amount": string}], ' +
-        '"instructions": string[]}.',
-      user: p.recipeText,
-    };
+    return routePrompt("recipeImport",
+      "Convert pasted recipe text into one JSON object. Output JSON only. Schema: " +
+      '{"schemaVersion":2,"title":string,"description":string,"cookTime":string,"prepTime":string,' +
+      '"servings":number,"difficulty":"Easy"|"Medium"|"Hard","cuisine":string,"tags":string[],' +
+      '"ingredients":[{"name":string,"amount":string}],"instructions":string[]}. ' +
+      "Do not invent missing facts. When a step is genuinely implied but absent, prefix that instruction with [Inferred]. " +
+      "Keep ingredient names separate from amounts and preparation notes. Ignore navigation, ads, author biography, and comments. " +
+      "Example input: Ingredients: 2 eggs. Mix and bake 20 min. Example output has one egg ingredient and two concise instructions, not one giant blob.",
+      p.recipeText, 3500);
   }
 
-  // Inventory change proposal → structured changes JSON.
+  // Inventory change proposal → versioned structured changes JSON.
   if (typeof p.intent === "string" && p.intent.trim()) {
     const inv = p.inventory ? JSON.stringify(p.inventory) : "[]";
-    return {
-      system:
-        "You translate a natural-language kitchen update into inventory changes. Respond ONLY " +
-        "with a JSON object, no prose, no markdown fences: " +
-        '{"changes": [{"name": string, "action": "add"|"remove"|"setLevel", "level": number|null, ' +
-        '"quantity": number|null}]}. Match against the provided current inventory where possible.',
-      user: `Current inventory: ${inv}\n\nUser request: ${p.intent}`,
-    };
+    const corrections = p.corrections ? `\nKnown corrections: ${JSON.stringify(p.corrections)}` : "";
+    return routePrompt("inventoryIntent",
+      "Translate a natural-language kitchen update into changes. Output JSON only. Exact schema: " +
+      '{"schemaVersion":2,"changes":[{"id":string|null,"name":string,"action":"add"|"remove"|"setLevel"|"adjustQuantity"|"clearAll",' +
+      '"level":number|null,"quantity":number|null,"delta":number|null,"containerType":string|null,"sizeAmount":number|null,"sizeUnit":string|null}]}. ' +
+      "Use stable ids for existing items. 'used two cans of beans' means adjustQuantity delta -2, not remove, unless quantity reaches zero. " +
+      "'finished the milk' means remove. 'bought 3 14 oz cans of tomatoes' means add quantity 3, containerType can, sizeAmount 14, sizeUnit oz. " +
+      "If uncertain, omit the change rather than targeting the wrong item. Never match by substring alone: ham must not target graham crackers. " +
+      "Example: 'put milk at half' -> setLevel 0.5 for the stable milk id. Example: 'I used cayenne pepper' must target the spice, not a fresh pepper item.",
+      `Current inventory: ${inv}${corrections}\n\nUser request: ${p.intent}`, 2200);
   }
 
   // Recipe generation from a description → structured recipe JSON (SAME shape as recipeText,
@@ -296,20 +319,18 @@ function buildPrompt(p) {
     const time = typeof p.maxTime === "string" && p.maxTime.trim()
       ? `\nThe recipe should fit roughly within ${p.maxTime} of total time.`
       : "";
-    return {
-      system:
+    return routePrompt("recipeGeneration",
         "You are a recipe developer. Create ONE complete, realistic, cookable recipe from the " +
         "user's description. Invent a sensible recipe with real quantities and clear steps; do " +
         "not refuse and do not ask questions. Respond with ONLY a single JSON object, no prose, " +
         "no markdown fences: " +
-        '{"title": string, "description": string, "cookTime": string, "prepTime": string, ' +
+        '{"schemaVersion": 2, "title": string, "description": string, "cookTime": string, "prepTime": string, ' +
         '"servings": number, "difficulty": "Easy"|"Medium"|"Hard", "cuisine": string, ' +
         '"tags": string[], "ingredients": [{"name": string, "amount": string}], ' +
         '"steps": string[]}. Each step is one clear instruction. Include any cooking or ' +
         "resting time inside the relevant step text (e.g. \"Bake for 12 minutes\") so timers can " +
-        "be derived. Keep cookTime and prepTime as short human strings like \"20 minutes\".",
-      user: `Recipe request: ${p.recipeIdea}${have}${diet}${time}`,
-    };
+        "be derived. Include schemaVersion: 2. Keep cookTime and prepTime as short human strings like \"20 minutes\".",
+      `Recipe request: ${p.recipeIdea}${have}${diet}${time}`, 4500);
   }
 
   // ── Inventory tidy-up scan (AI Inventory Scan feature) ──────────────────
@@ -326,8 +347,7 @@ function buildPrompt(p) {
       const brand = it && it.brand ? ` brand=${it.brand}` : "";
       return `- id=${it && it.id} name=${it && it.name} zone=${it && it.zone}${brand}${flags.length ? " (" + flags.join(",") + ")" : ""}`;
     }).join("\n");
-    return {
-      system:
+    return routePrompt("inventoryScan",
         "You tidy up a kitchen inventory. You are given a list of items with an id, name, " +
         "storage zone, and flags. Propose ONLY genuinely helpful cleanups, and return the id " +
         "of each item you change. Rules: correct obvious misspellings or normalize a messy name " +
@@ -346,20 +366,19 @@ function buildPrompt(p) {
         "add expiryDays, an integer estimate of typical shelf life from today (1 to 730); NEVER add " +
         "expiry for an item that already has hasExpiry. Give a short reason for each change. Do NOT " +
         "invent items, do NOT propose deletions, and skip items that are already fine. Respond with " +
-        'ONLY a JSON object, no prose and no markdown fences: {"updates": [{"id": string, ' +
+        'ONLY a JSON object, no prose and no markdown fences: {"schemaVersion": 2, "updates": [{"id": string, ' +
         '"newName"?: string, "newZone"?: string, "calories"?: number, "protein"?: number, ' +
         '"servingSize"?: string, "expiryDays"?: number, "reason": string}]}. If nothing needs ' +
-        'changing, return {"updates": []}.',
-      user: `Inventory to review:\n${rows}`,
-    };
+        'changing, return {"schemaVersion":2,"updates": []}. Include schemaVersion: 2 in every response.',
+      `Inventory to review:\n${rows}`, 4200);
   }
 
   return null;
 }
 
 /**
- * Per-IP rate limiting using a KV namespace. Two windows: a per-minute burst cap
- * and a per-day cap. Counters auto-expire via KV TTL so there's no cleanup.
+ * Per-IP rate limiting using the Cache API. Two windows: a per-minute burst cap
+ * and a per-day cap. Cache-Control expiry handles cleanup without spending KV writes.
  */
 async function isRateLimited(kv, ip) {
   // Counters live in the Cache API instead of KV. KV has a hard 1000 writes/day
@@ -424,11 +443,26 @@ function timingSafeEqual(a, b) {
   return result === 0;
 }
 
-function json(obj, status = 200) {
+function json(obj, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS, ...extraHeaders },
   });
+}
+function withCors(response) {
+  const headers = new Headers(response.headers);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
+  return new Response(response.body, { status: response.status, headers });
+}
+function aiResultURL(key) { return "https://ai-cache.internal/" + encodeURIComponent(key); }
+function presenceURL(code) { return "https://presence.internal/" + encodeURIComponent(code); }
+async function readPresence(code) {
+  try { const hit = await caches.default.match(presenceURL(code)); return hit ? await hit.json() : {}; }
+  catch { return {}; }
+}
+async function writePresence(code, presence) {
+  try { await caches.default.put(presenceURL(code), new Response(JSON.stringify(presence), { headers: { "Cache-Control": "max-age=86400", "Content-Type": "application/json" } })); }
+  catch { /* best effort */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -486,9 +520,10 @@ async function handleHousehold(pathname, request, env) {
       genRecipes: [],
       plannedMeals: [],
       activity: [{ kind: "householdCreated", itemName: "", actorName: ownerName, date: Date.now() }],
-      updatedAt: Date.now(),
+      updatedAt: 0,
+      revision: 0,
     };
-    await kv.put(hhKey(code), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
+    await writeHousehold(kv, code, household);
     return json({ code, household });
   }
 
@@ -508,8 +543,9 @@ async function handleHousehold(pathname, request, env) {
     }
     if (!newCode) return json({ error: "Could not allocate a new code, try again" }, 503);
     household.code = newCode;
-    household.updatedAt = Date.now();
-    await kv.put(hhKey(newCode), JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
+    household.updatedAt = 0;
+    household.revision = 0;
+    await writeHousehold(kv, newCode, household);
     await kv.delete(hhKey(oldCode));
     return json({ code: newCode, household });
   }
@@ -555,18 +591,20 @@ async function handleHousehold(pathname, request, env) {
     const mid = sanitizeId(body.memberId);
     if (mid) {
       try {
-        const pRaw = await kv.get("hh:presence:" + code);
-        const presence = pRaw ? JSON.parse(pRaw) : {};
+        const presence = await readPresence(code);
         presence[mid] = { name: sanitizeName(body.memberName), ts: Date.now() };
-        await kv.put("hh:presence:" + code, JSON.stringify(presence), { expirationTtl: 60 * 60 * 24 * 30 });
+        await writePresence(code, presence);
       } catch (e) { /* presence is best-effort; never block a pull */ }
     }
     // #1 changed-since: if the caller passes the updatedAt it last saw and nothing changed,
     // return a tiny "unchanged" response instead of the full document. Lets the client poll
     // frequently and cheaply for near-instant sync without shipping the whole pantry each time.
     const since = Number(body.since || 0);
-    if (since > 0 && Number(household.updatedAt || 0) <= since) {
-      return json({ unchanged: true, updatedAt: household.updatedAt || 0 });
+    const sinceRevision = Number(body.sinceRevision || 0);
+    const unchangedByRevision = sinceRevision > 0 && Number(household.revision || 0) <= sinceRevision;
+    const unchangedByTime = sinceRevision <= 0 && since > 0 && Number(household.updatedAt || 0) <= since;
+    if (unchangedByRevision || unchangedByTime) {
+      return json({ unchanged: true, updatedAt: household.updatedAt || 0, revision: household.revision || 0 });
     }
     return json({ household });
   }
@@ -576,8 +614,7 @@ async function handleHousehold(pathname, request, env) {
     const code = normalizeCode(body.code);
     const household = await readHousehold(kv, code);
     if (!household) return json({ error: "share not found", code: "notFound" }, 404);
-    const pRaw = await kv.get("hh:presence:" + code);
-    return json({ presence: pRaw ? JSON.parse(pRaw) : {} });
+    return json({ presence: await readPresence(code) });
   }
 
   if (action === "push") {
@@ -754,11 +791,12 @@ function mergeLWW(existing, incoming, deleted) {
     const prev = byId.get(key);
     if (!prev) { byId.set(key, item); return; }
     const a = Number(item.updatedAt || 0), b = Number(prev.updatedAt || 0);
-    if (a >= b) byId.set(key, item);            // newer (or equal) wins
+    const aw = String(item.lastWriterID || ""), bw = String(prev.lastWriterID || "");
+    if (a > b || (a === b && aw > bw)) byId.set(key, item);
   };
   for (const it of Array.isArray(existing) ? existing : []) put(it);
   for (const it of Array.isArray(incoming) ? incoming : []) put(it);
-  return Array.from(byId.values());
+  return Array.from(byId.values()).sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")));
 }
 
 // Dedupe a string array and cap its length, keeping the most recent entries.
@@ -780,15 +818,43 @@ async function readHousehold(kv, code) {
 }
 
 async function writeHousehold(kv, code, household) {
-  // Skip the KV write when the document is byte-identical to what is already
-  // stored. Most pushes are no-ops (a member polling with no real change), and
-  // every avoided put() is one saved against the daily write quota.
-  const next = JSON.stringify(household);
+  const key = hhKey(code);
+  let previous = null;
   try {
-    const prev = await kv.get(hhKey(code));
-    if (prev === next) return;
-  } catch { /* fall through and write */ }
-  await kv.put(hhKey(code), next, { expirationTtl: HH_TTL_SECONDS });
+    const raw = await kv.get(key);
+    previous = raw ? JSON.parse(raw) : null;
+  } catch { /* continue; a write attempt may still succeed */ }
+
+  if (previous && JSON.stringify(semanticHousehold(previous)) === JSON.stringify(semanticHousehold(household))) {
+    household.updatedAt = previous.updatedAt || 0;
+    household.revision = previous.revision || 0;
+    return false;
+  }
+  household.updatedAt = Date.now();
+  household.revision = Number(previous && previous.revision || 0) + 1;
+  try {
+    await kv.put(key, JSON.stringify(household), { expirationTtl: HH_TTL_SECONDS });
+    return true;
+  } catch (error) {
+    const message = String(error && error.message || error);
+    if (/limit|quota|daily/i.test(message)) {
+      const wrapped = new Error(message); wrapped.code = "kvQuota"; throw wrapped;
+    }
+    throw error;
+  }
+}
+function semanticHousehold(household) {
+  const copy = JSON.parse(JSON.stringify(household || {}));
+  delete copy.updatedAt;
+  delete copy.revision;
+  for (const key of ["inventory", "grocery", "userRecipes", "genRecipes", "plannedMeals", "members"]) {
+    if (Array.isArray(copy[key])) copy[key].sort((a, b) => String((a && (a.id || a.memberId)) || "").localeCompare(String((b && (b.id || b.memberId)) || "")));
+  }
+  for (const key of ["invDeleted", "groDeleted", "userRecipeDeleted", "genRecipeDeleted", "mealDeleted"]) {
+    if (Array.isArray(copy[key])) copy[key] = Array.from(new Set(copy[key].map(String))).sort();
+  }
+  if (Array.isArray(copy.activity)) copy.activity = appendActivity(copy.activity, null);
+  return copy;
 }
 
 function makeHouseholdCode() {
@@ -821,6 +887,12 @@ function sanitizeId(raw) {
 function appendActivity(list, newEvent) {
   let arr = Array.isArray(list) ? list.slice() : [];
   if (newEvent) arr.push(newEvent);
+  const seen = new Set();
+  arr = arr.filter((event) => {
+    const key = [event.kind, event.itemName, event.oldName, event.actorName, event.date].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
   arr.sort((a, b) => (b.date || 0) - (a.date || 0));
   return arr.slice(0, HH_MAX_ACTIVITY);
 }

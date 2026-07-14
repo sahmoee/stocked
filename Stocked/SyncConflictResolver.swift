@@ -16,12 +16,15 @@
 import Foundation
 
 /// Anything mergeable by this resolver. Conform your synced models to it when wiring sync.
-protocol SyncMergeable: Identifiable where ID: Hashable {
+nonisolated protocol SyncMergeable: Identifiable where ID: Hashable {
     var modifiedAt: Date { get }
     var isDeleted: Bool { get }
 }
 
-enum SyncConflictResolver {
+/// Legacy generic resolver retained for CloudKit fixtures and unit tests. The shipping Worker
+/// household path uses `HouseholdMergePolicy`, whose timestamp + writer-id tie break mirrors the
+/// Worker exactly. Do not use this type for new Worker-backed entities.
+nonisolated enum SyncConflictResolver {
 
     /// Merge two sets of records (e.g. local vs. remote) into the winning set.
     /// - For each id present in either side, the record with the newer `modifiedAt` wins.

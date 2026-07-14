@@ -3,7 +3,7 @@ import Foundation
 
 // Normalizes brand tokens for display — e.g. any casing of "HEB" becomes "H-E-B".
 // Matches whole words only (so it won't touch substrings inside other words).
-private let _hebDisplayRegex: NSRegularExpression? = {
+nonisolated private let _hebDisplayRegex: NSRegularExpression? = {
     // Compiled ONCE and reused. Previously this regex was rebuilt on EVERY call to
     // displayNormalized — and displayNormalized is called per row in Grocery, Inventory,
     // and the recipe lists. Each NSRegularExpression(pattern:) allocates ICU regex/pattern/
@@ -12,7 +12,7 @@ private let _hebDisplayRegex: NSRegularExpression? = {
     try? NSRegularExpression(pattern: #"(?i)\bH[\-\s]?E[\-\s]?B\b"#)
 }()
 
-extension String {
+nonisolated extension String {
     var displayNormalized: String {
         guard !isEmpty else { return self }
         // Fast path: only run the (now-cached) regex if the string could possibly contain
@@ -24,11 +24,11 @@ extension String {
     }
 }
 
-enum AccountType: String, Codable { case registered; case guest }
+nonisolated enum AccountType: String, Codable, Sendable { case registered; case guest }
 
 // MARK: - Inventory Item
 // MARK: - Storage Category
-enum StorageCategory: String, Codable, CaseIterable {
+nonisolated enum StorageCategory: String, Codable, CaseIterable, Sendable {
     case fridge   = "Fridge"
     case freezer  = "Freezer"
     case pantry   = "Pantry"
@@ -55,6 +55,7 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
     // to 0 so legacy items decode; any real edit stamps it via touch(). Older data with 0 always
     // loses to a real edit, which is the safe direction.
     var updatedAt:      Double = 0
+    var lastWriterID:   String = ""   // deterministic tie-breaker for equal LWW timestamps
 
     // ── Structured quantity ───────────────────────────────────────
     var quantity:       Int    = 1           // how many containers
@@ -222,6 +223,7 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var cookCount:    Int      = 0          // how many times this recipe has been cooked
     var lastCooked:   Date?                 // date of most recent cook
     var updatedAt:    Double   = 0          // last-modified ms since epoch, for household last-write-wins
+    var lastWriterID: String   = ""         // deterministic tie-breaker when timestamps tie
 
     var ingredientNames: [String] { ingredients.map(\.name) }
     var estimatedCalories: Int? {
@@ -255,17 +257,18 @@ nonisolated struct LocalGroceryItem: Identifiable, Codable, Sendable, Equatable 
     var assignedTo:    String = ""   // #E2 household: member asked to buy this ("" = unassigned)
     var sizeText:      String = ""   // measured size for display, e.g. "14 oz" ("" = none)
     var updatedAt:     Double = 0    // last-modified ms since epoch, for household last-write-wins
+    var lastWriterID:  String = ""   // deterministic tie-breaker when timestamps tie
 }
 
 // MARK: - User-added substitution entry
-struct UserSubstitutionEntry: Identifiable, Codable, Sendable {
+nonisolated struct UserSubstitutionEntry: Identifiable, Codable, Sendable {
     var id          = UUID()
     var ingredient: String       // e.g. "oat milk"
     var substitute: String       // e.g. "almond milk"
     var notes:      String = ""
     var dateAdded:  Date   = Date()
 }
-struct OCRTranslation: Identifiable, Codable, Sendable {
+nonisolated struct OCRTranslation: Identifiable, Codable, Sendable {
     var id         = UUID()
     var rawText:   String    // e.g. "Org. Chkn Brst"
     var resolved:  String   // e.g. "Chicken Breast"
@@ -273,7 +276,7 @@ struct OCRTranslation: Identifiable, Codable, Sendable {
 }
 
 // MARK: - User Cooking Profile (from onboarding quiz)
-struct UserCookingProfile: Codable {
+nonisolated struct UserCookingProfile: Codable, Sendable {
     var householdSize:    Int      = 2
     var cookingGoal:      String   = ""        // e.g. "Eat Healthier"
     var dietaryStyle:     String   = ""        // e.g. "Omnivore"
@@ -293,7 +296,7 @@ struct UserCookingProfile: Codable {
 }
 
 // MARK: - Price Record (tracks purchase price history per item)
-struct PriceRecord: Identifiable, Codable, Sendable {
+nonisolated struct PriceRecord: Identifiable, Codable, Sendable {
     var id        = UUID()
     var itemName: String
     var price:    Double
@@ -303,10 +306,10 @@ struct PriceRecord: Identifiable, Codable, Sendable {
 }
 
 // MARK: - Inventory constants
-enum ContainerType {
+nonisolated enum ContainerType {
     static let all = ["item","package","bag","box","can","bottle","jar","carton","case","bunch","dozen","loaf","roll","tube","tray"]
 }
-enum MeasurementUnit {
+nonisolated enum MeasurementUnit {
     static let all = ["oz","lb","g","kg","ml","L","fl oz","count","pieces","slices","cans","cups","tbsp","tsp"]
 }
 
@@ -333,7 +336,7 @@ nonisolated struct LocalRecipe: Identifiable, Codable, Sendable {
 }
 
 // MARK: - Generated Recipe (AI / Surprise Me)
-struct GeneratedRecipe: Identifiable, Codable, Sendable {
+nonisolated struct GeneratedRecipe: Identifiable, Codable, Sendable, Equatable {
     var id            = UUID()
     var title:        String
     var cookTime:     String
@@ -350,11 +353,12 @@ struct GeneratedRecipe: Identifiable, Codable, Sendable {
     var imageData:          Data?
     var source:             RecipeSource = .generated
     var updatedAt:          Double = 0    // last-modified ms since epoch, for household last-write-wins
+    var lastWriterID:       String = ""  // deterministic tie-breaker when timestamps tie
 
-    enum RecipeSource: String, Codable { case generated, manual, surprise }
+    nonisolated enum RecipeSource: String, Codable, Sendable { case generated, manual, surprise }
 }
 
-struct RecipeIngredientLine: Identifiable, Codable, Sendable {
+nonisolated struct RecipeIngredientLine: Identifiable, Codable, Sendable, Equatable {
     var id      = UUID()
     var amount:  String
     var name:    String
@@ -405,7 +409,7 @@ struct RecipeIngredientLine: Identifiable, Codable, Sendable {
 // MARK: - Planned Meal (persisted via GuestDataStore)
 // Close-the-loop #1 — one record each time an item is fully used up, so we can
 // learn how fast a given item depletes and predict the next run-out.
-struct ConsumptionRecord: Identifiable, Codable, Sendable, Equatable {
+nonisolated struct ConsumptionRecord: Identifiable, Codable, Sendable, Equatable {
     var id = UUID()
     var itemName: String        // normalized lowercase name
     var purchasedAt: Date?      // when it was last added (if known)
@@ -423,7 +427,7 @@ struct ConsumptionRecord: Identifiable, Codable, Sendable, Equatable {
     }
 }
 
-struct PlannedMeal: Identifiable, Codable, Sendable, Equatable {
+nonisolated struct PlannedMeal: Identifiable, Codable, Sendable, Equatable {
     var id        = UUID()
     var dayIndex: Int          // 0 = today, 1 = tomorrow …
     var title:    String
@@ -433,4 +437,5 @@ struct PlannedMeal: Identifiable, Codable, Sendable, Equatable {
     var isCooked: Bool = false
     var isBuilding: Bool = false   // true while accumulating dragged inventory items
     var updatedAt: Double = 0      // #13 last-modified ms, for household last-write-wins
+    var lastWriterID: String = "" // deterministic tie-breaker when timestamps tie
 }

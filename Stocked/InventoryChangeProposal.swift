@@ -15,7 +15,7 @@ import SwiftUI
 
 // MARK: - Model
 
-enum InventoryChangeAction: Equatable {
+nonisolated enum InventoryChangeAction: Equatable, Sendable {
     case remove                 // set to empty / remove the row
     case setLevel(Double)       // reduce (or set) the fill level 0.0–1.0
     // New item the user bought. Carries the parsed quantity (number of containers) plus the
@@ -27,7 +27,7 @@ enum InventoryChangeAction: Equatable {
     case clearAll               // remove every inventory item (destructive; always needs confirm)
 }
 
-struct ProposedChange: Identifiable, Equatable {
+nonisolated struct ProposedChange: Identifiable, Equatable, Sendable {
     let id = UUID()
     var itemID: UUID?           // existing inventory item (nil for .add)
     var displayName: String     // what to show the user
@@ -142,7 +142,7 @@ extension GuestDataStore {
 
 // Dependency-free "all ranges of a substring" — avoids relying on the regex-backed
 // String.ranges(of:) overload, so behavior is identical across OS versions.
-private extension String {
+nonisolated private extension String {
     func allRanges(of needle: String) -> [Range<String.Index>] {
         guard !needle.isEmpty else { return [] }
         var result: [Range<String.Index>] = []
@@ -172,78 +172,48 @@ final class InventoryIntentParser {
         let trimmed = utterance.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
-        // Local-first: clear-all and other common phrasings are handled entirely on-device, so
-        // they work instantly, offline, and even if the Worker is unconfigured. If the local
-        // pass already fully covers the request (e.g. "clear all inventory"), skip the network.
         let localChanges = Self.localFallback(trimmed, store: store)
         if localChanges.contains(where: { if case .clearAll = $0.action { return true } else { return false } }) {
             return localChanges
         }
-
-        guard ConnectivityMonitor.isOnlineFlag else {
-            // Offline: return whatever the local pass found rather than a hard error.
+        guard StockedWorkerClient.isConfigured, ConnectivityMonitor.isOnlineFlag else {
             if !localChanges.isEmpty { return localChanges }
-            lastError = "You're offline — try again with a connection."; return nil
+            lastError = ConnectivityMonitor.isOnlineFlag
+                ? "Natural-language updates need the Stocked Worker configured."
+                : "You're offline — try again with a connection."
+            return nil
         }
 
-        let urlString = BuildConfig.receiptWorkerURL
-        guard !urlString.contains("REPLACE-WITH-YOUR-WORKER"), let url = URL(string: urlString) else {
-            if !localChanges.isEmpty { return localChanges }
-            lastError = "Natural-language updates need the receipt Worker configured."; return nil
+        let inv = store.inventoryItems.map {
+            ["id": $0.id.uuidString, "name": $0.name, "quantity": $0.quantity,
+             "level": $0.level, "zone": $0.zone] as [String: Any]
         }
-
-        let inv = store.inventoryItems.map { ["id": $0.id.uuidString, "name": $0.name] }
-        let payload: [String: Any] = ["intent": trimmed, "inventory": inv]
-        guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
-            if !localChanges.isEmpty { return localChanges }
-            lastError = "Couldn't build request."; return nil
-        }
-
-        var req = URLRequest(url: url); req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        BuildConfig.authorizeWorkerRequest(&req)   // X-Stocked-Key shared secret
-        req.httpBody = body; req.timeoutInterval = 30
+        let payload: [String: Any] = [
+            "intent": trimmed,
+            "inventory": inv,
+            "inventoryRevision": store.inventoryRevision,
+            "corrections": AICorrectionStore.shared.promptCorrections()
+        ]
 
         isParsing = true
         defer { isParsing = false }
         do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            guard status == 200 else {
-                if !localChanges.isEmpty { return localChanges }
-                // Prefer the Worker's own error text (it now says exactly what's wrong —
-                // missing secret, upstream failure with status, etc.), else map the code.
-                if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let serverError = obj["error"] as? String, !serverError.isEmpty {
-                    let upstream = obj["upstreamStatus"] as? Int
-                    lastError = upstream != nil ? "\(serverError) (upstream \(upstream!))" : serverError
-                    return nil
-                }
-                switch status {
-                case 401:      lastError = "The kitchen assistant rejected the app key — check the Worker's shared key."
-                case 422:      lastError = "The kitchen assistant server is out of date — redeploy the Worker."
-                case 429:      lastError = "Too many requests right now — try again in a minute."
-                case 500...599: lastError = "The kitchen assistant had a server problem. Try again shortly."
-                default:       lastError = "The assistant couldn't process that. Try rephrasing."
-                }
-                return nil
-            }
+            let data = try await StockedWorkerClient.requestData(route: .inventoryIntent,
+                                                                 payload: payload,
+                                                                 timeout: 30)
             let changes = Self.decodeChanges(from: data, store: store)
-            // If the Worker found nothing, fall back to the local pass (branded-name matching
-            // catches things the Worker missed, like "lemon pepper" → the branded row).
             if changes.isEmpty && !localChanges.isEmpty { return localChanges }
-            // Merge: keep Worker results, add any local changes it didn't already cover —
-            // both removals/level-sets on items the Worker missed (matched by id) and new
-            // additions the Worker didn't propose (matched by normalized name).
             if !localChanges.isEmpty {
                 let coveredIDs = Set(changes.compactMap { $0.itemID })
                 let coveredAddNames = Set(changes.compactMap { change -> String? in
                     if case .add(let name, _, _, _, _) = change.action { return Self.normalize(name) }
                     return nil
                 })
-                let extra = localChanges.filter { c in
-                    if let id = c.itemID { return !coveredIDs.contains(id) }
-                    if case .add(let name, _, _, _, _) = c.action { return !coveredAddNames.contains(Self.normalize(name)) }
+                let extra = localChanges.filter { change in
+                    if let id = change.itemID { return !coveredIDs.contains(id) }
+                    if case .add(let name, _, _, _, _) = change.action {
+                        return !coveredAddNames.contains(Self.normalize(name))
+                    }
                     return false
                 }
                 return changes + extra
@@ -251,23 +221,24 @@ final class InventoryIntentParser {
             return changes
         } catch {
             if !localChanges.isEmpty { return localChanges }
-            lastError = "Something went wrong. Try again."; return nil
+            lastError = error.localizedDescription
+            return nil
         }
     }
 
     /// Parses the Worker's JSON array (possibly wrapped in a content envelope) into ProposedChanges.
     static func decodeChanges(from data: Data, store: GuestDataStore) -> [ProposedChange] {
-        // The Worker may return either the raw array or {content:[{type:text,text:"..."}]}.
-        var jsonText: String = String(data: data, encoding: .utf8) ?? ""
-        if let env = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let content = env["content"] as? [[String: Any]] {
-            jsonText = content.compactMap { $0["text"] as? String }.joined()
+        guard let response = try? AIResponseDecoder.textResponse(from: data),
+              let jsonData = try? AIResponseDecoder.jsonData(from: response.text),
+              let root = try? JSONSerialization.jsonObject(with: jsonData) else { return [] }
+        let arr: [[String: Any]]
+        if let object = root as? [String: Any] {
+            let schema = object["schemaVersion"] as? Int
+            if let schema, schema != StockedWorkerRoute.inventoryIntent.schemaVersion { return [] }
+            arr = object["changes"] as? [[String: Any]] ?? []
+        } else {
+            arr = root as? [[String: Any]] ?? []   // backwards compatibility with older Worker
         }
-        let clean = jsonText
-            .replacingOccurrences(of: "```json", with: "")
-            .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let arr = try? JSONSerialization.jsonObject(with: Data(clean.utf8)) as? [[String: Any]] else { return [] }
 
         return arr.compactMap { obj -> ProposedChange? in
             let action = (obj["action"] as? String ?? "").lowercased()
@@ -333,33 +304,7 @@ final class InventoryIntentParser {
     /// extra words. "lemon pepper" → "Hill Country Fare Lemon Pepper"; "minced onion" →
     /// "Great Value Kosher Minced Onion". Returns nil if nothing is a confident match.
     static func bestInventoryMatch(for spoken: String, in items: [LocalInventoryItem]) -> LocalInventoryItem? {
-        let q = normalize(spoken)
-        guard !q.isEmpty else { return nil }
-        let qWords = Set(q.split(separator: " ").map(String.init))
-
-        var best: (item: LocalInventoryItem, score: Double)?
-        for item in items {
-            let cand = normalize(item.name)
-            guard !cand.isEmpty else { continue }
-            let candWords = Set(cand.split(separator: " ").map(String.init))
-
-            var score = 0.0
-            // Whole spoken phrase appears in the item name (strongest signal).
-            if cand.contains(q) { score = 0.95 }
-            // Or every spoken word appears somewhere in the item name (brand words extra).
-            else if !qWords.isEmpty && qWords.isSubset(of: candWords) { score = 0.9 }
-            else {
-                // Word overlap ratio, with fuzzy word matching for typos/plurals.
-                let overlap = qWords.filter { qw in
-                    candWords.contains(where: { FuzzyMatch.matches(qw, $0) || $0.contains(qw) || qw.contains($0) })
-                }.count
-                if !qWords.isEmpty { score = Double(overlap) / Double(qWords.count) * 0.85 }
-            }
-            if score > (best?.score ?? 0) { best = (item, score) }
-        }
-        // Require a reasonably confident match so we never remove the wrong thing.
-        if let best, best.score >= 0.6 { return best.item }
-        return nil
+        FoodNameMatcher.bestMatch(for: spoken, in: items, name: \.name, minimumScore: 0.66)
     }
 
     /// Lowercased, punctuation-stripped, whitespace-collapsed.

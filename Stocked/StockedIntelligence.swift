@@ -144,7 +144,7 @@ final class IngredientCooccurrence {
 
 // MARK: - Zone Auto-Categoriser (NLP-based)
 // Called from AddItemSheet.onChange(of: itemName) to suggest a zone before the user picks.
-struct ZoneClassifier {
+nonisolated struct ZoneClassifier {
 
     // Returns best-guess StorageCategory for a typed ingredient name
     static func classify(_ name: String) -> StorageCategory {
@@ -152,6 +152,12 @@ struct ZoneClassifier {
 
         // Freezer
         if anyMatch(t, ["frozen","ice cream","gelato","sorbet","popsicle"]) { return .freezer }
+
+        // Named/flavored shelf-stable snacks must not inherit a dairy/produce zone from a flavor word.
+        if anyMatch(t, ["cheddar chips", "cheese crackers", "sour cream and onion chips",
+                        "ranch crackers", "cayenne pepper", "lemon pepper", "black pepper"]) {
+            return anyMatch(t, ["chips", "crackers"]) ? .pantry : .staples
+        }
 
         // Staples — spices, condiments, oils, baking. Checked BEFORE Fridge so seasoning
         // peppers ("black pepper", "cayenne pepper", "lemon pepper") aren't swallowed by
@@ -198,7 +204,7 @@ struct ZoneClassifier {
     }
 
     private static func anyMatch(_ text: String, _ keywords: [String]) -> Bool {
-        keywords.contains(where: { text.contains($0) })
+        FoodNameMatcher.anyPhrase(keywords, in: text)
     }
 
     private static func tagWithNL(_ text: String) -> StorageCategory {
@@ -212,7 +218,7 @@ struct ZoneClassifier {
 
 // MARK: - Cook Time Estimator
 // Parses recipe instruction steps and sums detected durations.
-struct CookTimeEstimator {
+nonisolated struct CookTimeEstimator {
 
     /// Returns a formatted cook time string like "35 min" or "1 hr 10 min"
     /// by summing all time mentions found in the instruction steps.
@@ -234,9 +240,9 @@ struct CookTimeEstimator {
 
 // MARK: - USDA Dietary Reference Intake (DRI) Tables
 // Adult (19–50 years) daily values — used to compute % Daily Value labels.
-struct DRITable {
+nonisolated struct DRITable {
 
-    struct DRI {
+    nonisolated struct DRI: Sendable {
         let calories:    Int     // kcal
         let protein:     Double  // g
         let totalFat:    Double  // g
@@ -278,7 +284,7 @@ struct DRITable {
 
 // MARK: - Import Format Detector
 // Identifies third-party export schemas from JSON keys.
-enum ImportFormat {
+nonisolated enum ImportFormat: Sendable {
     case stocked        // native — KitchenSnapshot
     case anyList        // AnyList JSON export
     case paprika        // Paprika Recipe Manager export
@@ -446,7 +452,7 @@ nonisolated func smartFraction(_ value: Double) -> String {
 
 // MARK: - Grocery Consolidator
 // Merges duplicate ingredient names across recipe pushes.
-struct GroceryConsolidator {
+nonisolated struct GroceryConsolidator {
 
     // Normalize a grocery item name for comparison
     static func normalizeKey(_ name: String) -> String {

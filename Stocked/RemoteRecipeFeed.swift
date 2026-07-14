@@ -11,7 +11,7 @@
 
 import Foundation
 
-enum RemoteRecipeFeed {
+nonisolated enum RemoteRecipeFeed {
     static let feedURLString = "https://raw.githubusercontent.com/sahmoee/stocked-recipes/refs/heads/main/recipes.json"
     private static let cacheKey = "remoteRecipeFeed_v2"   // bumped: capped payload
     private static let defaultHours: Double = 6

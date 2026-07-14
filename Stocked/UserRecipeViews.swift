@@ -68,6 +68,7 @@ struct UserRecipeDetailView: View {
     @State private var showRenameAlert        = false
     @State private var renameText             = ""
     @State private var showDeleteConfirm      = false
+    @State private var planningContext: CookLaterContext? = nil
     // #9 live cooking — per-recipe step timers (notification + Live Activity backed).
     @State private var timerEngine            = StepTimerEngine()
     // AI instruction cleanup — sends the recipe through the Worker's recipe branch
@@ -139,6 +140,11 @@ struct UserRecipeDetailView: View {
             .navigationTitle(recipe.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { recipeOptionsToolbar }
+            .sheet(item: $planningContext) { context in
+                NavigationStack {
+                    CookLaterWorkspaceView(context: context).environment(session)
+                }
+            }
             .alert("Rename Recipe", isPresented: $showRenameAlert) {
                 TextField("Recipe name", text: $renameText)
                 Button("Cancel", role: .cancel) { }
@@ -621,6 +627,28 @@ struct UserRecipeDetailView: View {
 
                     // Kitchen Tips
                     RecipeKitchenTipsSection()
+
+                    Button {
+                        planningContext = .recipe(
+                            title: recipe.title,
+                            ingredients: recipe.ingredients.map {
+                                [$0.amount, $0.name].filter { !$0.isEmpty }.joined(separator: " ")
+                            },
+                            servings: scaledServings,
+                            imageURL: recipe.imageURL,
+                            suggestedDay: 1
+                        )
+                    } label: {
+                        Label("Plan in Cook Later", systemImage: "calendar.badge.plus")
+                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .foregroundStyle(session.themeTextColor)
+                            .frame(maxWidth: .infinity).padding(.vertical, 15)
+                            .background(Color.stockedGold.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                                .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain).padding(.horizontal, 24)
 
                     // Start Cooking
                     NavigationLink(destination: RecipeOverviewView(

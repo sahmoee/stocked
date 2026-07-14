@@ -9,8 +9,8 @@ import Foundation
 // MARK: - Activity feed
 
 /// A single entry in the household activity feed ("Alex added Chicken Breast to Grocery List").
-struct HouseholdActivity: Identifiable, Codable, Hashable {
-    enum Kind: String, Codable, CaseIterable {
+nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable {
+    nonisolated enum Kind: String, Codable, CaseIterable, Sendable {
         case groceryAdded, groceryRemoved, groceryChecked
         case inventoryAdded, inventoryUpdated, inventoryRemoved
         case recipeAdded, recipeUpdated
@@ -55,7 +55,7 @@ struct HouseholdActivity: Identifiable, Codable, Hashable {
         }
     }
 
-    enum Category: String, CaseIterable { case all, lists, inventory, recipes
+    nonisolated enum Category: String, CaseIterable, Sendable { case all, lists, inventory, recipes
         var label: String {
             switch self { case .all: return "All"; case .lists: return "Lists"
             case .inventory: return "Inventory"; case .recipes: return "Recipes" }
@@ -84,10 +84,10 @@ struct HouseholdActivity: Identifiable, Codable, Hashable {
 // MARK: - Member
 
 /// A person in the household.
-struct HouseholdMember: Identifiable, Hashable {
+nonisolated struct HouseholdMember: Identifiable, Hashable, Sendable {
     /// Access level. The owner assigns these to control what each person can do. Ordered from
     /// most to least privileged; the raw values are what the server stores.
-    enum Role: String, CaseIterable {
+    nonisolated enum Role: String, CaseIterable, Sendable {
         case owner, manager, adult, teen, kid, member
 
         /// Default display label for the level (the owner can override with a custom label).
@@ -142,7 +142,7 @@ struct HouseholdMember: Identifiable, Hashable {
 
 // MARK: - Pending invite (mockup's Pending Invites screen)
 
-struct HouseholdInvite: Identifiable, Codable, Hashable {
+nonisolated struct HouseholdInvite: Identifiable, Codable, Hashable, Sendable {
     var id = UUID()
     var inviteeName: String
     var sentAt: Date
@@ -154,7 +154,7 @@ struct HouseholdInvite: Identifiable, Codable, Hashable {
 
 // MARK: - Per-household notification preferences (mockup's Customize Notifications screen)
 
-struct HouseholdNotificationPrefs: Codable, Equatable {
+nonisolated struct HouseholdNotificationPrefs: Codable, Equatable, Sendable {
     var groceryAdded   = true
     var groceryRemoved = false
     var inventoryAdded = true
@@ -181,7 +181,7 @@ struct HouseholdNotificationPrefs: Codable, Equatable {
 // survive relaunch and retry) and leave room for future routes without model changes.
 
 /// What kind of household data an operation touches.
-enum HouseholdEntityType: String, Codable, Sendable {
+nonisolated enum HouseholdEntityType: String, Codable, Sendable {
     case inventoryItem
     case groceryItem
     case userRecipe
@@ -192,7 +192,7 @@ enum HouseholdEntityType: String, Codable, Sendable {
 }
 
 /// What happened to the entity.
-enum HouseholdOperationType: String, Codable, Sendable {
+nonisolated enum HouseholdOperationType: String, Codable, Sendable {
     case create
     case update
     case delete
@@ -200,7 +200,7 @@ enum HouseholdOperationType: String, Codable, Sendable {
 }
 
 /// Which path moved (or will move) data. Worker routes are primary by design.
-enum HouseholdSyncRoute: String, Codable, Sendable {
+nonisolated enum HouseholdSyncRoute: String, Codable, Sendable {
     case workerPush
     case workerPull
     case iCloudKVNudge
@@ -214,7 +214,7 @@ enum HouseholdSyncRoute: String, Codable, Sendable {
 /// pushed. Because the Worker push sends FULL inventory/grocery state plus tombstones, one
 /// successful push satisfies every pending operation at once — so payloadJSON stays nil for
 /// inventory and grocery; the queue's job is durability and retry, not payload transport.
-struct PendingHouseholdOperation: Codable, Identifiable, Sendable {
+nonisolated struct PendingHouseholdOperation: Codable, Identifiable, Sendable {
     var id: UUID = UUID()
     var entityID: UUID
     var entityType: HouseholdEntityType
@@ -226,13 +226,26 @@ struct PendingHouseholdOperation: Codable, Identifiable, Sendable {
 }
 
 /// Snapshot of sync health, persisted so diagnostics survive relaunch.
-struct HouseholdSyncStatus: Codable, Sendable {
+nonisolated struct HouseholdSyncStatus: Codable, Sendable {
     var lastSuccessfulPush: Date? = nil
     var lastSuccessfulPull: Date? = nil
     var pendingOperationCount: Int = 0
     var lastError: String? = nil
     var activeRoute: HouseholdSyncRoute? = nil
     var hasStuckOperations: Bool = false          // #6 an op has failed 8+ times; surface to user
+    var nextRetryAllowedAt: Date? = nil           // persisted exponential-backoff gate
+    var lastServerRevision: Int = 0               // monotonic Worker document revision
+}
+
+
+/// Durable deletion state. A tombstone is removed only after the exact captured push that
+/// included it is acknowledged, so an offline delete cannot resurrect after app relaunch.
+nonisolated struct HouseholdTombstoneState: Codable, Sendable, Equatable {
+    var inventory: Set<String> = []
+    var grocery: Set<String> = []
+    var userRecipes: Set<String> = []
+    var generatedRecipes: Set<String> = []
+    var plannedMeals: Set<String> = []
 }
 
 // MARK: - Conflict Review (sync plan Drop 5, Option B: safety net over LWW)
@@ -241,7 +254,7 @@ struct HouseholdSyncStatus: Codable, Sendable {
 // wins. Instead we capture both sides here and let the user choose in a review sheet. This
 // catches the painful case (your just-made edit clobbered) without a full revision system.
 
-struct HouseholdConflict: Identifiable, Sendable {
+nonisolated struct HouseholdConflict: Identifiable, Sendable {
     var id: UUID                          // the entity id in conflict
     var entityType: HouseholdEntityType
     var mineTitle: String                 // human label for the local version

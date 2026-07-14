@@ -23,7 +23,7 @@ import Combine
 
 // MARK: - RecipeDatabaseEntry
 // Flat, serialisable record that every source maps into.
-struct RecipeDatabaseEntry: Identifiable, Codable, Hashable, @unchecked Sendable {
+nonisolated struct RecipeDatabaseEntry: Identifiable, Codable, Hashable, Sendable {
     var id           = UUID()
     var title:       String
     var description: String
@@ -57,7 +57,7 @@ struct RecipeDatabaseEntry: Identifiable, Codable, Hashable, @unchecked Sendable
 // MARK: - AddRecipeForm
 // A simple struct that the predictive field fills when a user selects a suggestion.
 // Bind this in any View that has a recipe form.
-struct AddRecipeForm {
+nonisolated struct AddRecipeForm: Sendable {
     var title        = ""
     var description  = ""
     var prepTime     = ""

@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - Safe collection access (#1)
 
-extension Collection {
+nonisolated extension Collection {
     /// Returns the element at `index` only if it is in bounds — otherwise nil.
     /// Use anywhere the index is computed rather than produced by `firstIndex`/`indices`.
     /// `if let item = items[safe: idx] { … }`
@@ -25,14 +25,14 @@ extension Collection {
 // yields nan/inf, which then crashes the moment it's turned into an Int (e.g. percentages,
 // progress, scaled nutrition). These helpers make that conversion impossible to crash.
 
-extension Int {
+nonisolated extension Int {
     /// Crash-proof Int from a Double. Non-finite values (nan/±inf) map to `fallback`.
     init(finite value: Double, fallback: Int = 0) {
         self = value.isFinite ? Int(value) : fallback
     }
 }
 
-extension Double {
+nonisolated extension Double {
     /// Self if finite, otherwise the supplied fallback (default 0).
     func orZeroIfNotFinite(_ fallback: Double = 0) -> Double {
         isFinite ? self : fallback
@@ -41,7 +41,7 @@ extension Double {
 
 /// Divide-by-zero-proof ratio. Returns `fallback` when the denominator is zero or the
 /// result is non-finite. Keeps percentage / average / progress math from producing nan.
-func safeDivide(_ numerator: Double, by denominator: Double, fallback: Double = 0) -> Double {
+nonisolated func safeDivide(_ numerator: Double, by denominator: Double, fallback: Double = 0) -> Double {
     guard denominator != 0 else { return fallback }
     let result = numerator / denominator
     return result.isFinite ? result : fallback
@@ -55,7 +55,7 @@ func safeDivide(_ numerator: Double, by denominator: Double, fallback: Double = 
 
 /// Wraps a Decodable so a per-element decode failure yields `value == nil` instead of
 /// throwing out of the array decode.
-struct FailableDecodable<Wrapped: Decodable>: Decodable {
+nonisolated struct FailableDecodable<Wrapped: Decodable>: Decodable {
     let value: Wrapped?
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -63,7 +63,7 @@ struct FailableDecodable<Wrapped: Decodable>: Decodable {
     }
 }
 
-enum SafeDecode {
+nonisolated enum SafeDecode {
     /// Decode an array, skipping any element that fails to decode. Returns nil only when the
     /// top-level data is not a JSON array at all (so callers can distinguish "absent/garbage
     /// file" from "array with some bad rows").

@@ -13,7 +13,7 @@
 
 import Foundation
 
-struct CrowdSuggestion: Codable {
+nonisolated struct CrowdSuggestion: Codable, Sendable {
     var count: Int
     var topUnit: String?
     var topContainer: String?
@@ -22,7 +22,7 @@ struct CrowdSuggestion: Codable {
     var avgShelfLifeDays: Double?   // #B4 — crowd-learned typical days until expiry
 }
 
-enum CrowdDB {
+nonisolated enum CrowdDB {
 
     // Reuse the app's already-configured worker + shared key. No separate URL/key needed.
     static var baseURL: String { BuildConfig.receiptWorkerURL }
@@ -91,25 +91,58 @@ enum CrowdDB {
 
     // MARK: - Plumbing (POST + X-Stocked-Key, matching the worker)
 
-    private struct DummyOK: Codable {}
+    nonisolated private struct DummyOK: Codable, Sendable {}
 
-    private static func post<T: Decodable>(_ path: String, _ payload: [String: Any], as: T.Type) async -> T? {
-        guard !key.isEmpty, let url = URL(string: baseURL + path),
-              let body = try? JSONSerialization.data(withJSONObject: payload) else { return nil }
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(key, forHTTPHeaderField: "X-Stocked-Key")
-        req.httpBody = body
-        guard let (data, resp) = try? await session.data(for: req),
-              let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return nil }
-        if T.self == DummyOK.self { return DummyOK() as? T }
-        return try? JSONDecoder().decode(T.self, from: data)
+    private static func post<T: Decodable & Sendable>(_ path: String, _ payload: [String: Any], as: T.Type) async -> T? {
+        do { return try await postResult(path, payload, as: T.self).get() }
+        catch {
+            Log.net.debug("CrowdDB \(path, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private static func postResult<T: Decodable & Sendable>(
+        _ path: String, _ payload: [String: Any], as: T.Type
+    ) async throws -> Result<T, StockedServiceError> {
+        guard !key.isEmpty else { return .failure(.notConfigured("Crowd intelligence")) }
+        guard ConnectivityMonitor.isOnlineFlag else { return .failure(.offline) }
+        guard let url = URL(string: baseURL + path), JSONSerialization.isValidJSONObject(payload) else {
+            return .failure(.invalidRequest("The crowd request could not be encoded."))
+        }
+        let body: Data
+        do { body = try JSONSerialization.data(withJSONObject: payload) }
+        catch { return .failure(.invalidRequest(error.localizedDescription)) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(key, forHTTPHeaderField: "X-Stocked-Key")
+        request.httpBody = body
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                return .failure(.malformedResponse("CrowdDB returned no HTTP response."))
+            }
+            if http.statusCode == 429 {
+                let retry = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+                return .failure(.rateLimited(retryAfter: retry))
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                let detail = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["error"] as? String
+                return .failure(.httpStatus(http.statusCode, detail))
+            }
+            if T.self == DummyOK.self, let ok = DummyOK() as? T { return .success(ok) }
+            do { return .success(try JSONDecoder().decode(T.self, from: data)) }
+            catch { return .failure(.malformedResponse(error.localizedDescription)) }
+        } catch is CancellationError {
+            return .failure(.cancelled)
+        } catch {
+            return .failure(.transport(error.localizedDescription))
+        }
     }
 }
 
 /// Minimal JSON value so pairings ([["tomato", 210], ...]) decode with mixed types.
-enum JSONValue: Codable {
+nonisolated enum JSONValue: Codable, Sendable {
     case string(String), number(Double), other
     init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()

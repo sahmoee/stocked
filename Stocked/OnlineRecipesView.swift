@@ -27,7 +27,7 @@ nonisolated struct OnlineRecipe: Identifiable, Codable, Hashable, Sendable {
 private actor OnlineRecipesPersistentCache {
     static let shared = OnlineRecipesPersistentCache()
 
-    private struct Snapshot: Codable, Sendable {
+    nonisolated private struct Snapshot: Codable, Sendable {
         let recipes: [OnlineRecipe]
         let savedAt: Date
     }
@@ -218,35 +218,25 @@ class OnlineRecipesLoader {
 
             var fetched: [OnlineRecipe] = []
 
-            // All MealDB phases share ONE bounded runner. Firing every phase's requests at
-            // once was what triggered the 429 rate-limiting seen in logs. This caps how many
-            // MealDB calls are in flight simultaneously while still pulling a large volume.
-            func boundedGather(_ tasks: [() async -> [OnlineRecipe]], maxConcurrent: Int = 4) async -> [OnlineRecipe] {
-                var results: [OnlineRecipe] = []
-                var index = 0
-                while index < tasks.count {
-                    let slice = tasks[index..<min(index + maxConcurrent, tasks.count)]
-                    await withTaskGroup(of: [OnlineRecipe].self) { group in
-                        for t in slice { group.addTask { await t() } }
-                        for await r in group { results += r }
-                    }
-                    index += maxConcurrent
-                }
-                return results
-            }
+            let sourcePlan = RecipeDiscoveryPlan.make(
+                cacheCount: self.recipes.count,
+                spoonacularRemainingPoints: SpoonacularClient.shared.remainingPointsToday,
+                mealDBHealth: SourceHealth.shared.score("TheMealDB"),
+                isForced: false
+            )
 
             // Phase 1: pull from ALL DB categories (was 11 of 11 — now the full list every
             // refresh for maximum fill), bounded so we don't hammer MealDB.
-            let catTasks: [() async -> [OnlineRecipe]] = self.dbCategories.map { cat in
-                { await self.fetchByCategory(cat, session: session) }
+            let catTasks: [RecipeDiscoveryCoordinator.RecipeTask] = Array(self.dbCategories.prefix(sourcePlan.mealDBCategories)).map { category in
+                { await Self.fetchByCategory(category, session: session) }
             }
-            fetched += await boundedGather(catTasks)
+            fetched += await RecipeDiscoveryCoordinator.boundedGather(catTasks)
 
             // Phase 2: random MealDB recipes for freshness (24, up from 14), bounded.
-            let randomTasks: [() async -> [OnlineRecipe]] = (0..<24).map { _ in
-                { if let r = await self.fetchOne(session: session) { return [r] } else { return [] } }
+            let randomTasks: [RecipeDiscoveryCoordinator.RecipeTask] = (0..<sourcePlan.randomMealDB).map { _ in
+                { if let recipe = await Self.fetchOne(session: session) { return [recipe] } else { return [] } }
             }
-            fetched += await boundedGather(randomTasks)
+            fetched += await RecipeDiscoveryCoordinator.boundedGather(randomTasks)
 
             // Phase 3: Pull from local RecipeDatabase (Spoonacular/CocktailDB already synced there)
             let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
@@ -272,17 +262,17 @@ class OnlineRecipesLoader {
 
             // Phase 5: MealDB by first letter — 6 letters per refresh (was 3), bounded.
             let letters = ["a","b","c","d","e","f","g","h","l","m","p","r","s","t"]
-            let letterTasks: [() async -> [OnlineRecipe]] = Array(letters.shuffled().prefix(6)).map { l in
-                { await self.fetchByLetter(l, session: session) }
+            let letterTasks: [RecipeDiscoveryCoordinator.RecipeTask] = Array(letters.shuffled().prefix(sourcePlan.firstLetters)).map { letter in
+                { await Self.fetchByLetter(letter, session: session) }
             }
-            fetched += await boundedGather(letterTasks)
+            fetched += await RecipeDiscoveryCoordinator.boundedGather(letterTasks)
 
             // Phase 6: Area-based MealDB — 7 cuisines per refresh (was 4), bounded.
             let areas = ["Italian","French","Japanese","Indian","Mexican","Thai","Greek","Moroccan","Chinese","Spanish","Vietnamese","Turkish","British","American"]
-            let areaTasks: [() async -> [OnlineRecipe]] = Array(areas.shuffled().prefix(7)).map { a in
-                { await self.fetchByArea(a, session: session) }
+            let areaTasks: [RecipeDiscoveryCoordinator.RecipeTask] = Array(areas.shuffled().prefix(sourcePlan.areas)).map { area in
+                { await Self.fetchByArea(area, session: session) }
             }
-            fetched += await boundedGather(areaTasks)
+            fetched += await RecipeDiscoveryCoordinator.boundedGather(areaTasks)
 
             // Phase 7: Forkify removed — Heroku free tier endpoint, frequently down, no ingredients
 
@@ -317,15 +307,6 @@ class OnlineRecipesLoader {
                 for ingredient in pantrySeeds {
                     group.addTask { await RecipeSourcesPlus.mealDBByIngredient(ingredient, limit: 5) }
                 }
-                // Spoonacular: use the BULK random call (one request returns ~20 full recipes
-                // with steps), plus a cuisine-seeded bulk call — far more variety per quota
-                // point than the old detail-per-recipe path.
-                if SpoonacularClient.shared.isConfigured {
-                    group.addTask { await SpoonacularClient.shared.discoverRecipesBulk(number: 20) }
-                    if let firstTerm = seedTerms.first {
-                        group.addTask { await SpoonacularClient.shared.discoverRecipesBulk(number: 10, tags: [firstTerm.lowercased()]) }
-                    }
-                }
                 // Tasty (RapidAPI) — fires per seed term for broad coverage. No-ops until
                 // a RAPIDAPI_KEY is added to Secrets.xcconfig; activates automatically once it is.
                 if !BuildConfig.rapidAPIKey.isEmpty {
@@ -352,6 +333,16 @@ class OnlineRecipesLoader {
                 // RemoteRecipeFeed.feedURLString is set.
                 group.addTask { await RemoteRecipeFeed.fetch() }
                 for await results in group { fetched += results }
+            }
+
+            // Spoonacular is intentionally last: free/cached sources get first chance and the
+            // local daily ledger prevents Discover from burning the 150-point provider budget.
+            if sourcePlan.useSpoonacular, SpoonacularClient.shared.isConfigured {
+                let spoonacular = await SpoonacularClient.shared.discoverRecipesBulk(
+                    number: sourcePlan.spoonacularCount,
+                    tags: seedTerms.first.map { [$0.lowercased()] } ?? []
+                )
+                fetched += spoonacular
             }
 
             // Publisher search previously issued a dozen one-recipe website requests on every
@@ -393,7 +384,7 @@ class OnlineRecipesLoader {
     }
 
     // Fetch 2 recipes from a specific category (DB-style)
-    nonisolated private func fetchByCategory(_ category: String, session: URLSession) async -> [OnlineRecipe] {
+    nonisolated private static func fetchByCategory(_ category: String, session: URLSession) async -> [OnlineRecipe] {
         let enc = category.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? category
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?c=\(enc)") else { return [] }
         guard let (data, _) = try? await session.data(from: url),
@@ -405,7 +396,7 @@ class OnlineRecipesLoader {
         var results: [OnlineRecipe] = []
         for m in picked {
             guard let id = m["idMeal"] as? String else { continue }
-            if var recipe = await fetchById(id, session: session) {
+            if var recipe = await Self.fetchById(id, session: session) {
                 recipe.source = "TheMealDB Database"
                 results.append(recipe)
             }
@@ -413,26 +404,28 @@ class OnlineRecipesLoader {
         return results
     }
 
-    nonisolated private func fetchById(_ id: String, session: URLSession) async -> OnlineRecipe? {
+    nonisolated private static func fetchById(_ id: String, session: URLSession) async -> OnlineRecipe? {
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/lookup.php?i=\(id)"),
               let (data, _) = try? await session.data(from: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let meals = json["meals"] as? [[String: Any]],
               let meal = meals.first else { return nil }
-        return parseMealPublic(meal)
+        return Self.parseMeal(meal)
     }
 
-    nonisolated private func fetchOne(session: URLSession) async -> OnlineRecipe? {
+    nonisolated private static func fetchOne(session: URLSession) async -> OnlineRecipe? {
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/random.php"),
               !Task.isCancelled else { return nil }
         guard let (data, _) = try? await session.data(from: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let meals = json["meals"] as? [[String: Any]],
               let meal = meals.first else { return nil }
-        return parseMealPublic(meal)
+        return Self.parseMeal(meal)
     }
 
-    nonisolated func parseMealPublic(_ m: [String: Any]) -> OnlineRecipe? {
+    nonisolated func parseMealPublic(_ m: [String: Any]) -> OnlineRecipe? { Self.parseMeal(m) }
+
+    nonisolated private static func parseMeal(_ m: [String: Any]) -> OnlineRecipe? {
         guard let id    = m["idMeal"]  as? String,
               let title = m["strMeal"] as? String else { return nil }
         var ingredients: [String] = []; var measures: [String] = []
@@ -454,19 +447,19 @@ class OnlineRecipesLoader {
 
     // MARK: - Source 3: Open Meals (free community recipe API)
     // https://www.themealdb.com/api/json/v1/1/search.php?f=X — fetch by first letter
-    nonisolated private func fetchByLetter(_ letter: String, session: URLSession) async -> [OnlineRecipe] {
+    nonisolated private static func fetchByLetter(_ letter: String, session: URLSession) async -> [OnlineRecipe] {
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?f=\(letter)"),
               !Task.isCancelled else { return [] }
         guard let (data, _) = try? await session.data(from: url),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let meals = json["meals"] as? [[String: Any]] else { return [] }
-        return meals.shuffled().prefix(5).compactMap { parseMealPublic($0) }
+        return meals.shuffled().prefix(5).compactMap { Self.parseMeal($0) }
                     .map { var r = $0; r.source = "MealDB Search"; return r }
     }
 
     // MARK: - Source 6: Wger Nutritional Plan (free workout/nutrition API — recipe section)
     // Uses TheMealDB area filter to pull country-specific recipes (more variety)
-    nonisolated private func fetchByArea(_ area: String, session: URLSession) async -> [OnlineRecipe] {
+    nonisolated private static func fetchByArea(_ area: String, session: URLSession) async -> [OnlineRecipe] {
         let enc = area.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? area
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?a=\(enc)"),
               !Task.isCancelled else { return [] }
@@ -479,7 +472,7 @@ class OnlineRecipesLoader {
         let s = URLSession(configuration: config)
         for m in picked {
             guard let id = m["idMeal"] as? String else { continue }
-            if var recipe = await fetchById(id, session: s) {
+            if var recipe = await Self.fetchById(id, session: s) {
                 recipe.source = "\(area) Kitchen"
                 results.append(recipe)
             }
@@ -1164,6 +1157,7 @@ struct OnlineRecipeDetailView: View {
     let recipe: OnlineRecipe
     @State private var addedIngredients = false
     @State private var addedToCalendar  = false
+    @State private var planningContext: CookLaterContext? = nil
     @State private var savedRecipeID: UUID? = nil   // set when saved to My Collection (heart)
     // #9 live cooking — per-recipe step timers (notification + Live Activity backed).
     @State private var timerEngine = StepTimerEngine()
@@ -1299,6 +1293,9 @@ struct OnlineRecipeDetailView: View {
                         VStack(spacing: 10) {
                             Button {
                                 autoFillIngredients()
+                                RecipeInterest.shared.record(category: recipe.category, area: recipe.area,
+                                                             ingredients: displayedIngredientLines.map(\.ingredient),
+                                                             event: .groceryAdded)
                                 withAnimation(.spring(response: 0.3)) { addedIngredients = true }
                             } label: {
                                 HStack(spacing: 10) {
@@ -1312,10 +1309,22 @@ struct OnlineRecipeDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                             }.disabled(addedIngredients)
 
-                            Button { saveToCalendar() } label: {
+                            Button {
+                                StockedKnowledgeBase.shared.learnFromOnlineRecipe(displayedRecipe)
+                                let ingredients = displayedRecipe.ingredientLines.map {
+                                    [ $0.measure, $0.ingredient ].filter { !$0.isEmpty }.joined(separator: " ")
+                                }
+                                planningContext = .recipe(
+                                    title: recipe.title,
+                                    ingredients: ingredients,
+                                    servings: max(1, session.guestStore.cookingProfile.householdSize),
+                                    imageURL: recipe.imageURL,
+                                    suggestedDay: 1
+                                )
+                            } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: addedToCalendar ? "checkmark.circle.fill" : "calendar.badge.plus")
-                                    Text(addedToCalendar ? "Added to meal planner!" : "Add to Cook Later Calendar")
+                                    Text(addedToCalendar ? "Planned in Cook Later" : "Plan in Cook Later")
                                         .font(.system(size: 14, weight: .semibold))
                                 }
                                 .foregroundStyle(addedToCalendar ? Color.stockedGold : Color.stockedCharcoal)
@@ -1323,7 +1332,7 @@ struct OnlineRecipeDetailView: View {
                                 .background(Color.stockedGold.opacity(addedToCalendar ? 0.18 : 0.10))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                                 .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))
-                            }.disabled(addedToCalendar)
+                            }
                         }.padding(.horizontal, 24)
 
                         VStack(alignment: .leading, spacing: 10) {
@@ -1455,6 +1464,14 @@ struct OnlineRecipeDetailView: View {
             }
             .task { await prepareDetail() }
         }
+        .sheet(item: $planningContext) { context in
+            NavigationStack {
+                CookLaterWorkspaceView(context: context) {
+                    withAnimation(.spring(response: 0.3)) { addedToCalendar = true }
+                }
+                .environment(session)
+            }
+        }
     }
 
     private func prepareDetail() async {
@@ -1503,20 +1520,13 @@ struct OnlineRecipeDetailView: View {
         ToastCenter.shared.success("Ingredients repaired and cached")
     }
 
-    private func saveToCalendar() {
-        StockedKnowledgeBase.shared.learnFromOnlineRecipe(displayedRecipe)
-        let ings = displayedRecipe.ingredientLines.map { "\($0.measure) \($0.ingredient)".trimmingCharacters(in: .whitespaces) }
-        let meal = PlannedMeal(dayIndex: 1, title: recipe.title, servings: 2, ingredients: ings, mealType: "Dinner")
-        _ = meal
-        session.guestStore.pastMeals.append(LocalPastMeal(title: "Planned: \(recipe.title)", date: "Pending"))
-        withAnimation(.spring(response: 0.3)) { addedToCalendar = true }
-    }
-
     // Heart toggle — save this online recipe to My Collection, or remove it if already saved.
     private func toggleSaveToCollection() {
         HapticManager.select()
         if let id = savedRecipeID {
             session.guestStore.deleteUserRecipe(id: id)
+            RecipeInterest.shared.record(category: recipe.category, area: recipe.area,
+                                         ingredients: displayedIngredientLines.map(\.ingredient), event: .dismissed)
             withAnimation(.spring(response: 0.3)) { savedRecipeID = nil }
             return
         }

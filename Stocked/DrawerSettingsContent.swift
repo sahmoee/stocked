@@ -1122,7 +1122,7 @@ struct HelpCenterSheet: View {
                     helpRow(icon: "globe", title: "Recipe & drink sources",
                             detail: "Turn sources on or off in Recipe Sources, add your own websites, and explore the Drinks section. Keyed sources (like Spoonacular or Suggestic) appear once configured.")
                     helpRow(icon: "flame", title: "Cook tab",
-                            detail: "Cook Now, Cook Later, Build Around Food, and Match My Mood help you decide what to make from what you already have. Finishing a cook updates your inventory.")
+                            detail: "Cook Now solves tonight. Cook Later gets the household ahead with Plan, Shop, and Prep views, a week and calendar overview, ingredient allocation and shortage checks, substitutions, and auto-generated prep. Finishing a cook updates inventory.")
                     helpRow(icon: "wrench.and.screwdriver", title: "Kitchen Toolbox",
                             detail: "A hub of tools for planning, conversions, cooking, and reference — reachable from the drawer under Kitchen Tools.")
                     helpRow(icon: "heart", title: "Apple Health",
@@ -1130,7 +1130,7 @@ struct HelpCenterSheet: View {
 
                     helpSection("Sharing & backup")
                     helpRow(icon: "person.2", title: "Household Sync",
-                            detail: "Share your kitchen with the people you live with — inventory, the weekly meal planner, and leftovers stay in step across everyone's devices, even after going offline. Set per-member permissions.")
+                            detail: "Share your kitchen with the people you live with — inventory, Cook Later plans, and leftovers stay in step across everyone's devices, even after going offline. Set per-member permissions.")
                     helpRow(icon: "icloud", title: "iCloud & Auto Backup",
                             detail: "Your kitchen syncs through your own private iCloud. Storage & Auto Backup lets you back up on demand and choose how often auto-backup runs.")
                     helpRow(icon: "arrow.left.arrow.right.square", title: "Transfer Kitchen",

@@ -13,10 +13,10 @@
 import Foundation
 import os
 
-enum SuggesticSource {
+nonisolated enum SuggesticSource {
 
     /// Diet filter passed through to Suggestic.
-    enum Diet: String {
+    nonisolated enum Diet: String, Sendable {
         case any, vegan, vegetarian
     }
 

@@ -7,7 +7,7 @@ import PhotosUI
 import Combine
 
 // MARK: - Data model
-struct ReceiptLineItem: Identifiable {
+nonisolated struct ReceiptLineItem: Identifiable, Sendable {
     let id       = UUID()
     var rawText:  String
     var resolved: String
@@ -31,7 +31,7 @@ struct ReceiptLineItem: Identifiable {
 }
 
 // MARK: - Receipt Archive Entry
-struct ReceiptArchiveEntry: Identifiable, Codable {
+nonisolated struct ReceiptArchiveEntry: Identifiable, Codable, Sendable {
     var id        = UUID()
     var date:     Date     = Date()
     var storeName: String  = ""
@@ -42,7 +42,7 @@ struct ReceiptArchiveEntry: Identifiable, Codable {
 
 // MARK: - ReceiptScannerView
 // #18: Replaces hasFiredCapture + isProcessing + guard logic with a single state machine
-enum ScanState: Equatable {
+nonisolated enum ScanState: Equatable, Sendable {
     case idle
     case scanning
     case processing
@@ -88,7 +88,7 @@ struct ReceiptScannerView: View {
     @State private var showPhotoPicker = false
     @State private var photoPickerItems: [PhotosPickerItem] = []
 
-    enum Phase { case instructions, scanning, review, done }
+    nonisolated enum Phase: Sendable { case instructions, scanning, review, done }
 
     var scannerAvailable: Bool {
         if #available(iOS 16.0, *) {
@@ -543,10 +543,21 @@ struct ReceiptScannerView: View {
             onCorrect: { corrected in
                 ReceiptAbbreviationDatabase.shared.recordCorrection(raw: item.rawText, corrected: corrected)
                 session.guestStore.learnOCRCorrection(raw: item.rawText, resolved: corrected)
+                AICorrectionStore.shared.record(kind: .itemName, original: item.rawText,
+                                                predicted: item.resolved, final: corrected,
+                                                outcome: corrected == item.resolved ? .accepted : .edited)
                 lineItems[index].resolved = corrected
             },
-            onZoneChange: { lineItems[index].zone = $0 },
+            onZoneChange: { newZone in
+                AICorrectionStore.shared.record(kind: .zone, original: item.rawText,
+                                                predicted: item.zone, final: newZone,
+                                                outcome: newZone == item.zone ? .accepted : .edited)
+                lineItems[index].zone = newZone
+            },
             onQuantityChange: { newQty in
+                AICorrectionStore.shared.record(kind: .quantity, original: item.rawText,
+                                                predicted: String(item.quantity), final: String(max(1, newQty)),
+                                                outcome: newQty == item.quantity ? .accepted : .edited)
                 lineItems[index].quantity = max(1, newQty)
             }
         )
@@ -829,6 +840,11 @@ extension ReceiptScannerView {
         let who = session.householdMemberName
 
         for item in toAdd {
+            // Confirmation itself is a useful calibration signal, even when the user made no edit.
+            AICorrectionStore.shared.record(kind: .itemName, original: item.rawText,
+                                            predicted: item.resolved, final: item.resolved, outcome: .accepted)
+            AICorrectionStore.shared.record(kind: .zone, original: item.rawText,
+                                            predicted: item.zone, final: item.zone, outcome: .accepted)
             // No duplicate-skip here: addInventoryItem() now MERGES equivalent items
             // (bumps quantity) instead of creating duplicates (#2/#18).
             var inv = LocalInventoryItem(
@@ -1004,43 +1020,34 @@ extension ReceiptScannerView {
             .sorted { $0.useCount > $1.useCount }.prefix(40)
             .map { ["raw": $0.rawText, "name": $0.resolved] }
     }
-    private func workerURLOrNil() -> URL? {
-        let s = BuildConfig.receiptWorkerURL
-        guard !s.contains("REPLACE-WITH-YOUR-WORKER"), let u = URL(string: s) else { return nil }
-        return u
-    }
+
 
     /// PRIMARY — send the receipt photo to Claude via the Worker.
     func parseReceipt(image: UIImage) {
         phase = .review; isProcessing = true; lineItems = []; errorMsg = ""
-        // #19 — if we're offline, don't wait on a doomed 45s network call; go straight
-        // to on-device OCR (which already feeds the offline regex fallback).
         guard ConnectivityMonitor.isOnlineFlag else { runOCROnImage(image); return }
         guard let jpeg = Self.downscaledJPEG(image, maxDimension: 1600, quality: 0.7),
-              let url  = workerURLOrNil() else { runOCROnImage(image); return }
+              StockedWorkerClient.isConfigured else { runOCROnImage(image); return }
         var payload: [String: Any] = ["imageBase64": jpeg.base64EncodedString(),
                                       "imageMediaType": "image/jpeg"]
-        // Store context helps the model expand store-specific abbreviations (e.g. Walmart "GV"
-        // → Great Value). Use the detected store if we have one, else the user's preferred store.
         let storeHint = detectedStore.isEmpty ? session.preferredStore : detectedStore
         if !storeHint.isEmpty { payload["storeName"] = storeHint }
-        let corr = learnedCorrectionsPayload(); if !corr.isEmpty { payload["corrections"] = corr }
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
-            runOCROnImage(image); return
-        }
-        var request = URLRequest(url: url); request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        BuildConfig.authorizeWorkerRequest(&request)   // X-Stocked-Key shared secret
-        request.httpBody = bodyData; request.timeoutInterval = 45
+        let corrections = learnedCorrectionsPayload()
+        if !corrections.isEmpty { payload["corrections"] = corrections }
         Task { @MainActor in
             do {
-                let (data, resp) = try await URLSession.shared.data(for: request)
-                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-                let items = self.decodeItems(from: data)
-                if code == 200, let items, !items.isEmpty {
+                // Image requests deliberately bypass persistent result caching.
+                let data = try await StockedWorkerClient.requestData(route: .receiptImage,
+                                                                     payload: payload,
+                                                                     timeout: 50,
+                                                                     cacheTTL: 0)
+                if let items = self.decodeItems(from: data), !items.isEmpty {
                     self.applyParsed(items, from: data)
                 } else { self.runOCROnImage(image) }
-            } catch { self.runOCROnImage(image) }
+            } catch {
+                self.errorMsg = error.localizedDescription
+                self.runOCROnImage(image)
+            }
         }
     }
 
@@ -1050,28 +1057,23 @@ extension ReceiptScannerView {
         var payload: [String: Any] = ["receipt": receiptText]
         let storeHint = detectedStore.isEmpty ? session.preferredStore : detectedStore
         if !storeHint.isEmpty { payload["storeName"] = storeHint }
-        let corr = learnedCorrectionsPayload(); if !corr.isEmpty { payload["corrections"] = corr }
-        guard let url = workerURLOrNil(),
-              let bodyData = try? JSONSerialization.data(withJSONObject: payload) else {
+        let corrections = learnedCorrectionsPayload()
+        if !corrections.isEmpty { payload["corrections"] = corrections }
+        guard StockedWorkerClient.isConfigured else {
             isProcessing = false; lineItems = fallbackParse(receiptText); return
         }
-        var request = URLRequest(url: url); request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        BuildConfig.authorizeWorkerRequest(&request)   // X-Stocked-Key shared secret
-        request.httpBody = bodyData; request.timeoutInterval = 45
         Task { @MainActor in
             do {
-                let (data, _) = try await URLSession.shared.data(for: request)
+                let data = try await StockedWorkerClient.requestData(route: .receiptText,
+                                                                     payload: payload,
+                                                                     timeout: 45,
+                                                                     cacheTTL: 0)
                 if let items = self.decodeItems(from: data), !items.isEmpty {
                     self.applyParsed(items, from: data)
                 } else {
-                    // Reached the AI but it returned nothing usable — fall back to local parse.
                     self.lineItems = fallbackParse(receiptText); self.isProcessing = false
                 }
             } catch {
-                // Distinct network/AI failure (offline, timeout): note it so we can show a
-                // retryable banner (#12), while still falling back to a local OCR parse so the
-                // user is never left empty-handed.
                 self.errorMsg = "Smart reading was unavailable — showing a basic scan instead."
                 self.lineItems = fallbackParse(receiptText)
                 self.isProcessing = false
@@ -1106,38 +1108,56 @@ extension ReceiptScannerView {
 
     /// Shared decoder: Anthropic response → [ReceiptLineItem] (brand/price/qty aware).
     private func decodeItems(from data: Data) -> [ReceiptLineItem]? {
-        guard let json    = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let content = json["content"] as? [[String: Any]],
-              let text    = content.first?["text"] as? String else { return nil }
-        let clean = text.replacingOccurrences(of: "```json", with: "")
-                        .replacingOccurrences(of: "```", with: "")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let arr = try? JSONSerialization.jsonObject(with: Data(clean.utf8)) as? [[String: Any]] else { return nil }
-        let rdb = ReceiptDatabase.shared, abbrevDB = ReceiptAbbreviationDatabase.shared
-        return arr.compactMap { obj -> ReceiptLineItem? in
-            guard let name = obj["name"] as? String, !name.isEmpty else { return nil }
-            let aiZone    = obj["zone"]      as? String ?? "Pantry"
-            let aiCategory = obj["category"] as? String
-            let aiIsFood   = (obj["isFood"] as? Bool) ?? (obj["isFood"] as? NSNumber)?.boolValue
-            // Food-only whitelist: Stocked. tracks food/consumables, so drop cleaning supplies,
-            // paper goods, pet items, medicine, household goods, personal care, kitchen tools,
-            // storage containers, and stray number strings before they reach the review list.
-            guard FoodWhitelist.isAllowed(name, aiSaysFood: aiIsFood, aiCategory: aiCategory) else { return nil }
-            let shelfDays = obj["shelfDays"] as? Int
-            let brand     = (obj["brand"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-            let unitPrice  = (obj["unitPrice"]  as? NSNumber)?.doubleValue ?? (obj["unitPrice"] as? Double)
-            let totalPrice = (obj["totalPrice"] as? NSNumber)?.doubleValue ?? (obj["totalPrice"] as? Double)
-            let qtyFromAI  = (obj["quantity"]   as? NSNumber)?.intValue ?? (obj["quantity"] as? Int)
-            let resolved  = session.guestStore.translateOCR(name) ?? abbrevDB.lookup(name) ?? name
-            let zone      = rdb.learnedItems[resolved.lowercased()] != nil ? rdb.bestZone(for: resolved) : aiZone
-            let expiry: Date? = shelfDays.map { Date().addingTimeInterval(Double($0) * 86400) }
-            let qty     = qtyFromAI ?? parseQuantity(from: name)
-            let scanCt  = rdb.learnedItems[resolved.lowercased()]?.scanCount ?? 0
-            let conf    = scanCt == 0 ? 70 : min(100, 70 + scanCt * 6)
-            return ReceiptLineItem(rawText: name, resolved: resolved, isFood: true,
-                                   zone: zone, suggestedExpiry: expiry, quantity: max(1, qty),
-                                   confidence: conf, brand: brand,
+        guard let response = try? AIResponseDecoder.textResponse(from: data),
+              let jsonData = try? AIResponseDecoder.jsonData(from: response.text, root: "["),
+              let array = try? JSONSerialization.jsonObject(with: jsonData) as? [[String: Any]] else { return nil }
+        let receiptDB = ReceiptDatabase.shared
+        let abbreviationDB = ReceiptAbbreviationDatabase.shared
+        let storeHint = detectedStore.isEmpty ? session.preferredStore : detectedStore
+
+        let parsed: [ReceiptLineItem] = array.compactMap { object in
+            let raw = (object["raw"] as? String) ?? (object["name"] as? String) ?? ""
+            let aiResolved = object["resolved"] as? String ?? object["name"] as? String
+            guard !raw.isEmpty else { return nil }
+            let aiCategory = object["category"] as? String
+            let aiIsFood = (object["isFood"] as? Bool) ?? (object["isFood"] as? NSNumber)?.boolValue
+            guard FoodWhitelist.isAllowed(aiResolved ?? raw, aiSaysFood: aiIsFood, aiCategory: aiCategory) else { return nil }
+
+            let learned = receiptDB.learnedItems[FoodNameMatcher.normalized(aiResolved ?? raw)]
+            guard let normalized = ReceiptProcessingService.normalize(
+                raw: raw,
+                aiResolved: aiResolved,
+                storeName: storeHint,
+                learnedTranslation: session.guestStore.translateOCR(raw),
+                abbreviationTranslation: abbreviationDB.lookup(raw)
+            ) else { return nil }
+
+            let aiZone = (object["zone"] as? String).flatMap(StorageCategory.init(rawValue:))
+            let learnedZone = learned.flatMap { StorageCategory(rawValue: $0.zone) }
+            let decision = ZoneDecisionEngine.decide(name: normalized.resolved,
+                                                     learnedZone: learnedZone,
+                                                     learnedCount: learned?.scanCount ?? 0,
+                                                     aiZone: aiZone)
+            let shelfDays = (object["shelfDays"] as? NSNumber)?.intValue
+            let expiry = ShelfLifeEstimator.estimate(name: normalized.resolved,
+                                                     zone: decision.zone,
+                                                     aiDays: shelfDays).date
+            let unitPrice = (object["unitPrice"] as? NSNumber)?.doubleValue
+            let totalPrice = (object["totalPrice"] as? NSNumber)?.doubleValue
+            let aiQuantity = (object["quantity"] as? NSNumber)?.intValue
+            let quantity = max(normalized.quantity, aiQuantity ?? 1)
+            let baseConfidence = learned == nil ? decision.confidence : min(0.99, decision.confidence + 0.1)
+            let confidence = Int(AICorrectionStore.shared.adjustedConfidence(
+                kind: .itemName, original: raw, predicted: normalized.resolved, base: baseConfidence
+            ) * 100)
+            return ReceiptLineItem(rawText: raw, resolved: normalized.resolved, isFood: true,
+                                   zone: decision.zone.rawValue, suggestedExpiry: expiry,
+                                   quantity: max(1, quantity), confidence: confidence,
+                                   brand: (object["brand"] as? String) ?? normalized.brand,
                                    unitPrice: unitPrice, totalPrice: totalPrice)
+        }
+        return ReceiptProcessingService.consolidate(parsed, key: \.resolved, quantity: \.quantity) { item, total in
+            var copy = item; copy.quantity = total; return copy
         }
     }
 
@@ -1171,16 +1191,23 @@ extension ReceiptScannerView {
             }
             .prefix(25)
             .map { raw in
-                // Check abbreviation database first, then fall through to ReceiptDatabase
-                let resolved = abbrevDB.lookup(raw) ?? rdb.normalize(raw)
-                let zone     = rdb.bestZone(for: resolved)
-                return ReceiptLineItem(rawText: raw, resolved: resolved, isFood: true, zone: zone)
+                let learned = session.guestStore.translateOCR(raw)
+                let normalized = ReceiptProcessingService.normalize(raw: raw,
+                    aiResolved: nil, storeName: detectedStore,
+                    learnedTranslation: learned, abbreviationTranslation: abbrevDB.lookup(raw))
+                let resolved = normalized?.resolved ?? rdb.normalize(raw)
+                let zone = StorageCategory(rawValue: rdb.bestZone(for: resolved)) ?? ZoneClassifier.classify(resolved)
+                let expiry = ShelfLifeEstimator.estimate(name: resolved, zone: zone).date
+                return ReceiptLineItem(rawText: raw, resolved: resolved, isFood: true,
+                                       zone: zone.rawValue, suggestedExpiry: expiry,
+                                       quantity: normalized?.quantity ?? 1,
+                                       brand: normalized?.brand)
             }
     }
 }
 
 // MARK: - Shutter notification
-extension Notification.Name {
+nonisolated extension Notification.Name {
     static let captureReceiptShutter = Notification.Name("captureReceiptShutter")
 }
 

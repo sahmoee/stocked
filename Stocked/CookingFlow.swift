@@ -158,6 +158,7 @@ struct RecipeOverviewView: View {
     @State private var showPortionEdit   = false
     @State private var adjustedServings  = 0   // 0 = use passed-in servings
     @State private var showCancelAlert   = false
+    @State private var planningContext: CookLaterContext? = nil
     @State private var addedToGrocery: Set<String> = []   // #FB — per-ingredient "Added ✓" feedback
     @State private var repairedIngredients: [AIRecipe.Ingredient] = []
     @State private var aiFixingIngredients = false
@@ -435,6 +436,27 @@ struct RecipeOverviewView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 18)
                         .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                 }
+                .padding(.horizontal, 24).padding(.bottom, 10)
+
+                Button {
+                    planningContext = .recipe(
+                        title: title,
+                        ingredients: scaledIngredients,
+                        servings: effectiveServings,
+                        imageURL: displayImageURL,
+                        suggestedDay: 1
+                    )
+                } label: {
+                    Label("Plan in Cook Later", systemImage: "calendar.badge.plus")
+                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .foregroundStyle(session.themeTextColor)
+                        .frame(maxWidth: .infinity).padding(.vertical, 15)
+                        .background(Color.stockedGold.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                        .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                            .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 24).padding(.bottom, 12)
 
                 Text("Ingredients will be deducted from inventory when you finish cooking.")
@@ -445,6 +467,11 @@ struct RecipeOverviewView: View {
         }
         .navigationDestination(isPresented: $startCooking) {
             CookingFlashcardView(recipeTitle: title, ingredients: scaledIngredients, steps: displaySteps, baseServings: effectiveServings)
+        }
+        .sheet(item: $planningContext) { context in
+            NavigationStack {
+                CookLaterWorkspaceView(context: context).environment(session)
+            }
         }
         .sheet(isPresented: $showPortionEdit) {
             // #FB — pop-up lists the recipe's ingredients with live inventory editing;

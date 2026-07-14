@@ -8,7 +8,7 @@
 import Foundation
 import NaturalLanguage
 
-struct ParsedQuery {
+nonisolated struct ParsedQuery: Sendable {
     var keywords:    [String] = []
     var ingredients: [String] = []
     var exclude:     [String] = []
@@ -27,9 +27,16 @@ struct ParsedQuery {
     }
 }
 
-struct NLQueryParser {
+nonisolated struct NLQueryParser {
 
+    /// Main-actor adapter for the live knowledge base. The actual parser below receives an
+    /// immutable string list, so NaturalLanguage work can remain deterministic and testable.
+    @MainActor
     static func parse(_ raw: String) -> ParsedQuery {
+        parse(raw, knownIngredients: StockedKnowledgeBase.shared.ingredients.map { $0.name.lowercased() })
+    }
+
+    nonisolated static func parse(_ raw: String, knownIngredients: [String]) -> ParsedQuery {
         let text = raw.trimmingCharacters(in: .whitespaces).lowercased()
         var q    = ParsedQuery()
 
@@ -73,7 +80,6 @@ struct NLQueryParser {
         q.cuisine = cuisines.first { text.contains($0) }
 
         // ── Ingredient extraction using NaturalLanguage ─────────────────
-        let knownIngredients = StockedKnowledgeBase.shared.ingredients.map { $0.name.lowercased() }
         let tagger = NLTagger(tagSchemes: [.lexicalClass])
         tagger.string = text
         tagger.enumerateTags(in: text.startIndex..<text.endIndex,

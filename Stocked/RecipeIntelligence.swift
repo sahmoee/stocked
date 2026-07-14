@@ -13,7 +13,7 @@ import Foundation
 
 // MARK: - Online recipe → pantry match
 
-enum OnlineRecipeMatch {
+nonisolated enum OnlineRecipeMatch {
     /// (have, total) over an online recipe's ingredient names, using the same loose,
     /// two-way name match the rest of the app uses for inventory. `inStock` is the
     /// caller's set of lowercased in-stock item names (GuestDataStore.inStockNameSet).
@@ -23,7 +23,7 @@ enum OnlineRecipeMatch {
             .filter { !$0.isEmpty }
         guard !names.isEmpty else { return (0, 0) }
         var have = 0
-        for n in names where inStock.contains(where: { $0.contains(n) || n.contains($0) }) { have += 1 }
+        for n in names where inStock.contains(where: { FoodNameMatcher.matches(n, $0).score >= 0.72 }) { have += 1 }
         return (have, names.count)
     }
 
@@ -50,7 +50,7 @@ enum OnlineRecipeMatch {
 
 // MARK: - Saved-state + allergen helpers for online recipes
 
-enum OnlineRecipeFacts {
+nonisolated enum OnlineRecipeFacts {
     /// True when an online recipe is already in the user's saved collection, matched by
     /// normalized title — mirrors the cookCatalog dedupe so users don't re-import.
     nonisolated static func isSaved(_ recipe: OnlineRecipe, savedTitles: Set<String>) -> Bool {
@@ -87,7 +87,7 @@ enum OnlineRecipeFacts {
         let names = RecipeIngredients.names(recipe.ingredients).map { $0.lowercased() }
         let haystack = (names + [recipe.title.lowercased()])
         var hits: Set<String> = []
-        for a in active where haystack.contains(where: { $0.contains(a) || a.contains($0) }) {
+        for a in active where haystack.contains(where: { FoodNameMatcher.containsPhrase(a, in: $0) }) {
             hits.insert(a)
         }
         return Array(hits).sorted()
@@ -102,55 +102,83 @@ enum OnlineRecipeFacts {
 @MainActor
 final class RecipeInterest {
     static let shared = RecipeInterest()
-    private init() { load() }
 
-    private let key = "stocked.onlineRecipeInterest_v1"
-    // term (lowercased category or area) → weight
-    private(set) var weights: [String: Double] = [:]
-
-    func record(category: String, area: String) {
-        bump(category); bump(area)
-        save()
-    }
-
-    private func bump(_ raw: String) {
-        let t = raw.lowercased().trimmingCharacters(in: .whitespaces)
-        guard t.count > 1 else { return }
-        // Gentle decay on every record so the profile tracks recent taste.
-        for k in weights.keys { weights[k]? *= 0.98 }
-        weights[t, default: 0] += 1
-        // Keep the table small.
-        if weights.count > 40 {
-            let survivors = weights.sorted { $0.value > $1.value }.prefix(40)
-            weights = Dictionary(uniqueKeysWithValues: survivors.map { ($0.key, $0.value) })
+    nonisolated enum Event: String, Sendable {
+        case opened, saved, cooked, completed, groceryAdded, dismissed
+        var multiplier: Double {
+            switch self {
+            case .opened: return 0.5
+            case .saved: return 1.5
+            case .cooked: return 2.5
+            case .completed: return 3.0
+            case .groceryAdded: return 0.8
+            case .dismissed: return -0.5
+            }
         }
     }
 
-    /// Additive interest score for one recipe (0 when we know nothing about the user).
-    func score(category: String, area: String) -> Double {
-        let c = category.lowercased().trimmingCharacters(in: .whitespaces)
-        let a = area.lowercased().trimmingCharacters(in: .whitespaces)
-        return (weights[c] ?? 0) + (weights[a] ?? 0)
+    private let key = "stocked.onlineRecipeInterest_v2"
+    private(set) var weights: [String: Double] = [:]
+    private init() { load() }
+
+    func record(category: String, area: String, ingredients: [String] = [], event: Event = .opened) {
+        decay()
+        bump(category, by: event.multiplier)
+        bump(area, by: event.multiplier)
+        for ingredient in ingredients.prefix(6) {
+            bump("ingredient:" + IngredientMatcher.canonical(ingredient), by: event.multiplier * 0.25)
+        }
+        compactAndSave()
+    }
+
+    func score(category: String, area: String, ingredients: [String] = []) -> Double {
+        let categoryKey = normalized(category)
+        let areaKey = normalized(area)
+        let ingredientScore = ingredients.prefix(8).reduce(0.0) {
+            $0 + (weights["ingredient:" + IngredientMatcher.canonical($1)] ?? 0)
+        }
+        return (weights[categoryKey] ?? 0) + (weights[areaKey] ?? 0) + ingredientScore * 0.2
+    }
+
+    private func decay() {
+        for key in Array(weights.keys) { weights[key, default: 0] *= 0.985 }
+    }
+
+    private func bump(_ raw: String, by amount: Double) {
+        let key = normalized(raw)
+        guard key.count > 1 else { return }
+        weights[key, default: 0] += amount
+    }
+
+    private func normalized(_ value: String) -> String {
+        value.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func compactAndSave() {
+        if weights.count > 80 {
+            weights = Dictionary(uniqueKeysWithValues: weights.sorted { abs($0.value) > abs($1.value) }.prefix(80))
+        }
+        UserDefaults.standard.set(weights, forKey: key)
     }
 
     private func load() {
-        if let raw = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] {
-            weights = raw
+        if let current = UserDefaults.standard.dictionary(forKey: key) as? [String: Double] {
+            weights = current
+        } else if let legacy = UserDefaults.standard.dictionary(forKey: "stocked.onlineRecipeInterest_v1") as? [String: Double] {
+            weights = legacy
+            UserDefaults.standard.set(legacy, forKey: key)
         }
-    }
-    private func save() {
-        UserDefaults.standard.set(weights, forKey: key)
     }
 }
 
 // MARK: - Starter staples (empty-state onboarding seed, App #3)
 
-enum StarterStaples {
+nonisolated enum StarterStaples {
     /// A small, broadly-useful set of pantry/fridge basics. Adding these makes the Cook
     /// catalog's starter meals match (so Cook Now / Cook Later populate) and lights up the
     /// Discover "can I make this?" badges. Names match how StarterMeals + the matcher expect
     /// them. Each is created at a healthy level with no hard expiry (staples keep).
-    struct Seed { let name: String; let zone: String }
+    nonisolated struct Seed: Sendable { let name: String; let zone: String }
 
     static let all: [Seed] = [
         Seed(name: "Eggs",        zone: "Fridge"),

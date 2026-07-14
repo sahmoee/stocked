@@ -238,7 +238,7 @@
 	<key>HomeBaseAPIKey</key>
 	<string>$(HOMEBASE_API_KEY)</string>
 	<key>HomeBaseURL</key>
-	<string>$(HOMEBASE_URL</string>
+	<string>$(HOMEBASE_URL)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

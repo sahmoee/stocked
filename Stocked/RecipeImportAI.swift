@@ -38,7 +38,7 @@ nonisolated struct AIRecipe: Codable, Sendable {
     var isUsable: Bool { !title.isEmpty || !ingredients.isEmpty || steps.count >= 1 }
 }
 
-enum RecipeImportAI {
+nonisolated enum RecipeImportAI {
 
     /// Whether the Worker is configured (shares the receipt Worker endpoint).
     nonisolated static var isAvailable: Bool { StockedWorkerClient.isConfigured }
@@ -91,7 +91,13 @@ enum RecipeImportAI {
     }
 
     private static func callWorker(text: String) async -> AIRecipe? {
-        guard let responseText = await StockedWorkerClient.completionText(payload: ["recipeText": text]) else {
+        let responseText: String
+        do {
+            responseText = try await StockedWorkerClient.completionResponse(
+                route: .recipeImport, payload: ["recipeText": text]
+            ).text
+        } catch {
+            Log.app.error("RecipeImportAI: worker failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
         guard let parsed = recipe(fromText: responseText) else {
@@ -106,7 +112,7 @@ enum RecipeImportAI {
     private static let cacheCap = 80
     private static let cacheTTL: TimeInterval = 60 * 60 * 24 * 30   // 30 days
 
-    private struct Cached: Codable { let recipe: AIRecipe; let savedAt: Date }
+    nonisolated private struct Cached: Codable, Sendable { let recipe: AIRecipe; let savedAt: Date }
 
     private static func cacheKey(for rawText: String) -> String { DefaultsKey.recipeImportCacheTextPrefix + sha(rawText) }
     private static func urlCacheKey(_ url: String) -> String? {
@@ -180,8 +186,9 @@ enum RecipeImportAI {
                 .map { AIRecipe.Ingredient(name: $0, amount: "") }
         }
 
-        if let steps = obj["steps"] as? [String] {
-            recipe.steps = steps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        let decodedSteps = (obj["steps"] as? [String]) ?? (obj["instructions"] as? [String])
+        if let decodedSteps {
+            recipe.steps = decodedSteps.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         }
         return recipe.isUsable ? recipe : nil
     }
@@ -189,16 +196,7 @@ enum RecipeImportAI {
     /// Tolerant JSON parse (#4): strip code fences, then if needed isolate the outermost
     /// {…} object and drop trailing commas before a repair attempt.
     private static func parseLenient(_ text: String) -> [String: Any]? {
-        let stripped = text.replacingOccurrences(of: "```json", with: "")
-                           .replacingOccurrences(of: "```", with: "")
-                           .trimmingCharacters(in: .whitespacesAndNewlines)
-        if let o = try? JSONSerialization.jsonObject(with: Data(stripped.utf8)) as? [String: Any] { return o }
-        guard let first = stripped.firstIndex(of: "{"),
-              let last  = stripped.lastIndex(of: "}"), first < last else { return nil }
-        var candidate = String(stripped[first...last])
-        candidate = candidate.replacingOccurrences(of: ",\\s*([}\\]])", with: "$1",
-                                                   options: .regularExpression)
-        return try? JSONSerialization.jsonObject(with: Data(candidate.utf8)) as? [String: Any]
+        try? AIResponseDecoder.jsonObject(from: text)
     }
 }
 
@@ -211,7 +209,7 @@ enum RecipeImportAI {
 actor RecipeIngredientRepairCache {
     static let shared = RecipeIngredientRepairCache()
 
-    private struct Entry: Codable, Sendable {
+    nonisolated private struct Entry: Codable, Sendable {
         let ingredients: [AIRecipe.Ingredient]
         let savedAt: Date
     }
@@ -269,7 +267,7 @@ actor RecipeIngredientRepairCache {
     }
 }
 
-extension AIRecipe.Ingredient {
+nonisolated extension AIRecipe.Ingredient {
     /// Clean display line used by recipe detail, grocery, and cook views.
     nonisolated var displayLine: String {
         let amountText = amount.trimmingCharacters(in: .whitespacesAndNewlines)

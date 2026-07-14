@@ -43,6 +43,9 @@ struct StockedApp: App {
     @UIApplicationDelegateAdaptor(HouseholdAppDelegate.self) private var appDelegate
 
     init() {
+        #if DEBUG
+        BuildConfigurationGuard.logIssues()
+        #endif
         // #15 perf: a roomy shared URLCache lets cacheable API responses (recipe sources,
         // etc.) return from cache / revalidate with 304s instead of re-downloading.
         URLCache.shared = URLCache(memoryCapacity: 16 * 1024 * 1024,

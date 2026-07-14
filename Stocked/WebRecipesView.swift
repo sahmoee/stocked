@@ -421,6 +421,7 @@ struct WebRecipeDetailView: View {
 
     @State private var addedIngredients   = false
     @State private var addedToCalendar    = false
+    @State private var planningContext: CookLaterContext? = nil
     @State private var savedToCollection  = false
     @State private var activeTab: DetailTab = .steps
     @State private var startCooking       = false   // #15: Cook from WebRecipe
@@ -539,10 +540,19 @@ struct WebRecipeDetailView: View {
                                 ).environment(session)
                             }
 
-                            Button { saveToCalendar() } label: {
+                            Button {
+                                let digits = recipe.servings.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+                                planningContext = .recipe(
+                                    title: recipe.title,
+                                    ingredients: recipe.ingredients,
+                                    servings: Int(digits) ?? max(1, session.guestStore.cookingProfile.householdSize),
+                                    imageURL: recipe.imageURL,
+                                    suggestedDay: 1
+                                )
+                            } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: addedToCalendar ? "checkmark.circle.fill" : "calendar.badge.plus")
-                                    Text(addedToCalendar ? "Added to meal planner!" : "Add to Cook Later Calendar")
+                                    Text(addedToCalendar ? "Planned in Cook Later" : "Plan in Cook Later")
                                         .font(.system(size: 14, weight: .semibold))
                                 }
                                 .foregroundStyle(addedToCalendar ? Color.stockedGold : session.themeTextColor)
@@ -551,7 +561,7 @@ struct WebRecipeDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                                 .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
                                     .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))
-                            }.disabled(addedToCalendar)
+                            }
 
                             // Save offline to My Collection
                             Button {
@@ -637,6 +647,14 @@ struct WebRecipeDetailView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
                 }
+            }
+        }
+        .sheet(item: $planningContext) { context in
+            NavigationStack {
+                CookLaterWorkspaceView(context: context) {
+                    withAnimation(.spring(response: 0.3)) { addedToCalendar = true }
+                }
+                .environment(session)
             }
         }
     }
@@ -731,12 +749,6 @@ struct WebRecipeDetailView: View {
         }
     }
 
-    private func saveToCalendar() {
-        session.guestStore.pastMeals.append(
-            LocalPastMeal(title: "Planned: \(recipe.title)", date: "Pending")
-        )
-        withAnimation(.spring(response: 0.3)) { addedToCalendar = true }
-    }
 }
 
 // MARK: - Supporting sub-views

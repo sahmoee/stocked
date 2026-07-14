@@ -17,7 +17,7 @@
 import Foundation
 import os
 
-enum DrinkSourcesPlus {
+nonisolated enum DrinkSourcesPlus {
 
     // copyWithUA in RecipeSourcesPlus.swift is fileprivate to that file, so build the
     // browser-like session locally here with the same headers.
@@ -278,7 +278,7 @@ enum DrinkSourcesPlus {
 
     // MARK: - Cache model
 
-    private struct CachedDrink: Codable {
+    nonisolated private struct CachedDrink: Codable, Sendable {
         let name: String
         let category: String
         let ingredients: [String]

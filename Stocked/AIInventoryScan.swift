@@ -14,7 +14,7 @@ import SwiftUI
 
 // MARK: - Model
 
-struct InventoryScanUpdate: Identifiable, Equatable {
+nonisolated struct InventoryScanUpdate: Identifiable, Equatable, Sendable {
     let id = UUID()
     let itemID: UUID
     let currentName: String
@@ -65,50 +65,37 @@ final class AIInventoryScanner {
         lastError = nil
         let items = store.inventoryItems
         guard !items.isEmpty else { lastError = "Your inventory is empty — nothing to scan."; return nil }
-        guard ConnectivityMonitor.isOnlineFlag else {
-            lastError = "You're offline — try again with a connection."; return nil
-        }
-        let urlString = BuildConfig.receiptWorkerURL
-        guard !urlString.contains("REPLACE-WITH-YOUR-WORKER"), let url = URL(string: urlString) else {
-            lastError = "The AI scan needs the recipe service configured."; return nil
-        }
+        guard StockedWorkerClient.isConfigured else { lastError = "The AI scan needs the Stocked Worker configured."; return nil }
+        guard ConnectivityMonitor.isOnlineFlag else { lastError = "You're offline — try again with a connection."; return nil }
 
-        // Cap the snapshot so huge inventories stay under the model's output budget;
-        // the scan can be run again to cover the rest (we send least-recently-clean first
-        // is overkill — a simple cap is fine at kitchen scale).
-        let snapshot = items.prefix(120).map { item -> [String: Any] in
-            [
-                "id": item.id.uuidString,
-                "name": item.name,
-                "zone": item.zone,
-                "quantity": item.quantity,
-                "brand": item.brand ?? "",
-                "hasNutrition": item.nutrition != nil,
-                "hasExpiry": item.expirationDate != nil,
-            ]
+        // Chunking prevents max-token truncation on large pantries and lets each result be cached
+        // against the exact inventory revision + item subset.
+        let chunks = stride(from: 0, to: items.count, by: 40).map {
+            Array(items[$0..<min($0 + 40, items.count)])
         }
-        let payload: [String: Any] = ["inventoryScan": true, "inventory": snapshot]
-        guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
-            lastError = "Couldn't build the request."; return nil
-        }
-
-        var req = URLRequest(url: url); req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        BuildConfig.authorizeWorkerRequest(&req)
-        req.httpBody = body; req.timeoutInterval = 45
-
         isScanning = true
         defer { isScanning = false }
+        var allUpdates: [InventoryScanUpdate] = []
         do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-                let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
-                lastError = "The scan couldn't complete (HTTP \(status)). Try again in a moment."
-                return nil
+            for (index, chunk) in chunks.enumerated() {
+                let snapshot = chunk.map { item -> [String: Any] in
+                    ["id": item.id.uuidString, "name": item.name, "zone": item.zone,
+                     "quantity": item.quantity, "brand": item.brand ?? "",
+                     "hasNutrition": item.nutrition != nil, "hasExpiry": item.expirationDate != nil]
+                }
+                let payload: [String: Any] = [
+                    "inventoryScan": true, "inventory": snapshot,
+                    "inventoryRevision": store.inventoryRevision, "chunk": index,
+                    "corrections": AICorrectionStore.shared.promptCorrections()
+                ]
+                let data = try await StockedWorkerClient.requestData(route: .inventoryScan,
+                                                                     payload: payload,
+                                                                     timeout: 50)
+                allUpdates.append(contentsOf: Self.decode(data, items: chunk))
             }
-            return Self.decode(data, items: items)
+            return allUpdates
         } catch {
-            lastError = "The scan couldn't reach the server. Check your connection and try again."
+            lastError = error.localizedDescription
             return nil
         }
     }
@@ -116,18 +103,13 @@ final class AIInventoryScanner {
     /// Parses the Worker's response ({updates:[…]} — possibly inside an Anthropic
     /// content envelope, possibly fenced) into typed updates, dropping anything that
     /// no longer matches an inventory row or that proposes nothing.
-    static func decode(_ data: Data, items: [LocalInventoryItem]) -> [InventoryScanUpdate] {
-        var jsonText = String(data: data, encoding: .utf8) ?? ""
-        if let env = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let content = env["content"] as? [[String: Any]] {
-            jsonText = content.compactMap { $0["text"] as? String }.joined()
-        }
-        let clean = jsonText
-            .replacingOccurrences(of: "```json", with: "")
-            .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let obj = try? JSONSerialization.jsonObject(with: Data(clean.utf8)) as? [String: Any],
+    nonisolated static func decode(_ data: Data, items: [LocalInventoryItem]) -> [InventoryScanUpdate] {
+        guard let response = try? AIResponseDecoder.textResponse(from: data),
+              let json = try? AIResponseDecoder.jsonData(from: response.text),
+              let obj = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
               let arr = obj["updates"] as? [[String: Any]] else { return [] }
+        if let schema = obj["schemaVersion"] as? Int,
+           schema != StockedWorkerRoute.inventoryScan.schemaVersion { return [] }
 
         let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
 
@@ -143,21 +125,11 @@ final class AIInventoryScanner {
             var newZone: StorageCategory? = nil
             if let z = u["newZone"] as? String, let cat = StorageCategory(rawValue: z),
                cat.rawValue != item.zone {
-                // Cross-reference the on-device classifier before trusting the model's zone.
-                // ZoneClassifier.classify already knows that dried seasonings ("cayenne
-                // pepper", "lemon pepper") are Staples and flavored snacks ("cheddar chips")
-                // are Pantry — NOT Fridge. If the model wants to move an item INTO Fridge or
-                // Freezer but the local classifier keeps it shelf-stable (Pantry/Staples),
-                // distrust the model and drop the zone change. This stops the classic
-                // misfires (cayenne pepper -> Fridge, cheddar chips -> dairy/Fridge).
-                let localZone = ZoneClassifier.classify(item.name)
-                let modelWantsCold = (cat == .fridge || cat == .freezer)
-                let localSaysShelfStable = (localZone == .pantry || localZone == .staples)
-                if modelWantsCold && localSaysShelfStable {
-                    newZone = nil   // reject the naive cold-storage move
-                } else {
-                    newZone = cat
-                }
+                let decision = ZoneDecisionEngine.decide(name: item.name,
+                                                         current: item.storageCategory,
+                                                         aiZone: cat)
+                newZone = decision.needsConfirmation || decision.zone == item.storageCategory
+                    ? nil : decision.zone
             }
             // Nutrition only when the item genuinely has none (the model is told this,
             // but enforce it here too).

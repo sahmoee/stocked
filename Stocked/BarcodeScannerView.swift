@@ -104,7 +104,11 @@ struct BarcodeScannerView: View {
                     zone: $zone, level: $level, zones: zones
                 ) { name, z, lv, sizeStr, expiry, qty, container in
                     var item = LocalInventoryItem(name: name, level: lv, zone: z)
-                    item.expirationDate = expiry                    // #12
+                    item.expirationDate = expiry ?? ShelfLifeEstimator.estimate(
+                        name: name,
+                        zone: StorageCategory(rawValue: z) ?? .pantry,
+                        aiDays: resolvedProduct?.estimatedShelfDays
+                    ).date                                             // #12
                     item.brand = resolvedProduct?.brand.nilIfBlank
                     item.nutrition = resolvedProduct?.nutrition
                     item.barcode = lastScanned.nilIfBlank
@@ -366,7 +370,15 @@ struct BarcodeScannerView: View {
                 // If this household previously corrected this product's name, honor that.
                 resolvedName    = UserCorrections.shared.apply(.productName, to: resolvedName)
                 resolvedProduct = p
-                zone = p.suggestedZone
+                let learned = ReceiptDatabase.shared.learnedItems[FoodNameMatcher.normalized(resolvedName)]
+                let decision = ZoneDecisionEngine.decide(
+                    name: resolvedName,
+                    current: StorageCategory(rawValue: p.suggestedZone),
+                    learnedZone: learned.flatMap { StorageCategory(rawValue: $0.zone) },
+                    learnedCount: learned?.scanCount ?? 0,
+                    productCategories: p.categories?.split(separator: ",").map(String.init) ?? []
+                )
+                zone = decision.zone.rawValue
                 BarcodeCache.shared.save(code, name: resolvedName)         // #9 cache
                 isLooking = false; activeSheet = .confirm; return
             }
@@ -398,25 +410,19 @@ struct BarcodeScannerView: View {
 
     /// #10 — last-resort product guess from a barcode via the Worker (Claude).
     private func lookupViaAI(_ code: String) async -> String? {
-        guard ConnectivityMonitor.isOnlineFlag else { return nil }   // #19 skip network when offline
-        let s = BuildConfig.receiptWorkerURL
-        guard !s.contains("REPLACE-WITH-YOUR-WORKER"),
-              let url = URL(string: s),
-              let body = try? JSONSerialization.data(withJSONObject: ["barcode": code]) else { return nil }
-        var req = URLRequest(url: url); req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        BuildConfig.authorizeWorkerRequest(&req)   // X-Stocked-Key shared secret
-        req.httpBody = body; req.timeoutInterval = 8
-        guard let (data, resp) = try? await URLSession.shared.data(for: req),
-              (resp as? HTTPURLResponse)?.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let content = json["content"] as? [[String: Any]],
-              let text = content.first?["text"] as? String else { return nil }
-        let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Guard against the model saying it doesn't know.
-        if name.isEmpty || name.count > 60 || name.lowercased().contains("unknown")
-            || name.lowercased().contains("cannot") || name.lowercased().contains("don't") { return nil }
-        return name
+        do {
+            let response = try await StockedWorkerClient.completionResponse(
+                route: .barcode, payload: ["barcode": code], timeout: 8
+            )
+            let name = response.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, name.count <= 60,
+                  !FoodNameMatcher.anyPhrase(in: name, phrases: ["unknown", "cannot identify", "do not know", "don't know"])
+            else { return nil }
+            return name
+        } catch {
+            Log.net.debug("Barcode AI fallback failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     private func lookupUPCItemDB(_ upc: String) async -> String? {
@@ -495,8 +501,7 @@ struct BarcodeConfirmSheet: View {
         let n = productName.trimmingCharacters(in: .whitespaces).lowercased()
         guard !n.isEmpty else { return nil }
         return session.guestStore.inventoryItems.first {
-            let e = $0.name.lowercased()
-            return e == n || e.contains(n) || n.contains(e)
+            FoodNameMatcher.matches(n, $0.name).score >= 0.78
         }
     }
 
@@ -968,7 +973,7 @@ final class BarcodeCache {
 }
 
 
-private extension String {
+nonisolated private extension String {
     var nilIfBlank: String? {
         let cleaned = trimmingCharacters(in: .whitespacesAndNewlines)
         return cleaned.isEmpty ? nil : cleaned

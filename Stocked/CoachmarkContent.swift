@@ -77,7 +77,7 @@ enum CookCoachmarks {
                    body: "Solve dinner tonight. The app builds suggestions around what you already have, so you can cook without a grocery run."),
         .spotlight("cook.later",
                    title: "Cook Later",
-                   body: "Plan meals for the week ahead with the weekly planner, build a prep list, and turn your plan into a grocery list in a couple of taps."),
+                   body: "Use Plan, Shop, and Prep in one workspace. Add meals to the week, open ingredient checks, catch over-allocation, review combined shopping needs, and complete prep before cooking."),
         .card(title: "Three ways to find a meal",
               body: "Inside Cook Now you can Build Around Food you choose, Match My Mood with a few quick questions, or hit Surprise Me to let the app pick for you. Match My Mood always lands on a recipe, checking the web, your database, and AI in turn."),
     ]

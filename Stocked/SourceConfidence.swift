@@ -11,7 +11,7 @@
 import SwiftUI
 
 /// Where a piece of data came from and how much it should be trusted, in plain user-facing terms.
-nonisolated enum SourceBadge: String, Codable, CaseIterable {
+nonisolated enum SourceBadge: String, Codable, CaseIterable, Sendable {
     /// Confirmed against an authoritative source (e.g. USDA nutrition, a barcode-matched product).
     case verified   = "Verified"
     /// A reasonable approximation (e.g. nutrition estimated from a similar item).
@@ -84,7 +84,7 @@ nonisolated enum SourceBadge: String, Codable, CaseIterable {
 /// Sections for any confirm-before-apply review screen (receipt scan, AI inventory edits,
 /// recipe import, grocery reconciliation). Giving every AI-touches-data flow the same three
 /// buckets is what makes them feel like one system. Ordered for display.
-nonisolated enum ReviewGroup: Int, CaseIterable, Comparable {
+nonisolated enum ReviewGroup: Int, CaseIterable, Comparable, Sendable {
     case confident = 0     // high-confidence, pre-checked, safe to apply
     case needsReview = 1   // low-confidence, surfaced for a second look
     case ignored = 2       // filtered out (non-food, duplicates); shown so nothing feels lost
@@ -116,7 +116,7 @@ nonisolated enum ReviewGroup: Int, CaseIterable, Comparable {
 
 /// A value paired with its provenance. Use for data the app may want to reconcile or badge later,
 /// e.g. a nutrition number that might come from USDA (verified) or an estimate.
-nonisolated struct Sourced<Value: Codable & Equatable>: Codable, Equatable {
+nonisolated struct Sourced<Value: Codable & Equatable & Sendable>: Codable, Equatable, Sendable {
     var value: Value
     var badge: SourceBadge
 

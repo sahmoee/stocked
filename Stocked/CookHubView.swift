@@ -62,7 +62,7 @@ struct CookHubView: View {
                     Text("What's on the menu tonight?")
                         .font(.system(size: 24, weight: .bold, design: .serif))
                         .foregroundStyle(session.themeTextColor)
-                    Text("Cook now, or plan ahead for the week.")
+                    Text("Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead.")
                         .font(.system(size: 14))
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
@@ -90,6 +90,10 @@ struct CookHubView: View {
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
         .navigationDestination(isPresented: $goCookLater) { CookLaterHomeView() }
+        .onReceive(NotificationCenter.default.publisher(for: .stockedOpenCookLater)) { _ in
+            goCookNow = false
+            goCookLater = true
+        }
         .coachmarks(page: .cook, steps: CookCoachmarks.steps)
     }
 
@@ -113,13 +117,13 @@ struct CookHubView: View {
     private func circleStack(diameter: CGFloat, spacing: CGFloat, showSubtitles: Bool) -> some View {
         VStack(spacing: spacing) {
             hubCircle(title: "Cook Now",
-                      subtitle: showSubtitles ? "Dinner is solved. Build around what you have." : "",
+                      subtitle: showSubtitles ? "Solve tonight with what you already have." : "",
                       emoji: "🍳",
                       tint: Color.stockedCharcoal,
                       diameter: diameter) { goCookNow = true }
                 .coachmarkAnchor("cook.now")
             hubCircle(title: "Cook Later",
-                      subtitle: showSubtitles ? "The week is handled. Plan meals ahead." : "",
+                      subtitle: showSubtitles ? "Plan it. Shop for it. Prep it. Cook it." : "",
                       emoji: "📅",
                       tint: Color.stockedGold,
                       diameter: diameter) { goCookLater = true }
@@ -163,7 +167,7 @@ struct CookHubView: View {
         VStack(spacing: CookStyle.sectionSpacing) {
             CookHeroCard(
                 title: "Cook Now",
-                subtitle: "Dinner is solved. Build around what you have.",
+                subtitle: "Solve tonight with what you already have.",
                 emoji: "🍳",
                 assetName: "cook_now_hero",
                 tint: Color.stockedCharcoal,
@@ -174,7 +178,7 @@ struct CookHubView: View {
 
             CookHeroCard(
                 title: "Cook Later",
-                subtitle: "The week is handled. Plan meals ahead.",
+                subtitle: "Plan it. Shop for it. Prep it. Cook it.",
                 icon: "calendar",
                 assetName: "cook_later_hero",
                 tint: Color.stockedGold,
@@ -188,10 +192,10 @@ struct CookHubView: View {
     // ── Style 3: compact rows ─────────────────────────────────────────────
     private var rowOptions: some View {
         VStack(spacing: 14) {
-            hubRow(title: "Cook Now", subtitle: "Dinner is solved. Build around what you have.",
+            hubRow(title: "Cook Now", subtitle: "Solve tonight with what you already have.",
                    emoji: "🍳", tint: Color.stockedCharcoal) { goCookNow = true }
                 .coachmarkAnchor("cook.now")
-            hubRow(title: "Cook Later", subtitle: "The week is handled. Plan meals ahead.",
+            hubRow(title: "Cook Later", subtitle: "Plan it. Shop for it. Prep it. Cook it.",
                    emoji: "📅", tint: Color.stockedGold) { goCookLater = true }
                 .coachmarkAnchor("cook.later")
         }
@@ -274,8 +278,8 @@ struct CookNowHomeView: View {
             // Perf hook: recompute the heavy insights off the render path.
             Color.clear.frame(height: 0)
                 .task { recomputeInsights() }
-                .onChange(of: store.inventoryItems) { _, _ in recomputeInsights() }
-                .onChange(of: store.userRecipes)    { _, _ in recomputeInsights() }
+                .onChange(of: store.inventoryRevision) { _, _ in recomputeInsights() }
+                .onChange(of: store.recipeRevision) { _, _ in recomputeInsights() }
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("How do you want to find dinner?")

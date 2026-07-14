@@ -22,7 +22,7 @@ nonisolated enum RecipeGeneratorAI {
     nonisolated static var isAvailable: Bool { StockedWorkerClient.isConfigured }
 
     /// Constraints the user can attach to a request. All optional.
-    struct Options {
+    nonisolated struct Options: Sendable {
         var haveItems: [String] = []      // ingredients the user already has
         var dietary: String? = nil        // e.g. "vegetarian", "gluten-free"
         var maxTime: String? = nil        // e.g. "30 minutes"
@@ -46,8 +46,13 @@ nonisolated enum RecipeGeneratorAI {
         if let d = options.dietary?.trimmingCharacters(in: .whitespaces), !d.isEmpty { payload["dietary"] = d }
         if let t = options.maxTime?.trimmingCharacters(in: .whitespaces), !t.isEmpty { payload["maxTime"] = t }
 
-        guard let responseText = await StockedWorkerClient.completionText(payload: payload, timeout: 40) else {
-            Log.app.error("RecipeGeneratorAI: worker returned nothing.")
+        let responseText: String
+        do {
+            responseText = try await StockedWorkerClient.completionResponse(
+                route: .recipeGeneration, payload: payload, timeout: 40
+            ).text
+        } catch {
+            Log.app.error("RecipeGeneratorAI: worker failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }
         guard let recipe = parse(responseText) else {
@@ -119,18 +124,9 @@ nonisolated enum RecipeGeneratorAI {
         // source defaults to .generated, which is correct for an AI-generated recipe.
     }
 
-    /// Tolerant JSON object parse: strip code fences, then isolate the outermost {…} and drop
-    /// trailing commas before a repair attempt.
+    /// Centralized, bounded JSON extraction handles fences, prose, and a trailing comma.
     private static func lenientObject(_ text: String) -> [String: Any]? {
-        let stripped = text.replacingOccurrences(of: "```json", with: "")
-                           .replacingOccurrences(of: "```", with: "")
-                           .trimmingCharacters(in: .whitespacesAndNewlines)
-        if let o = try? JSONSerialization.jsonObject(with: Data(stripped.utf8)) as? [String: Any] { return o }
-        guard let start = stripped.firstIndex(of: "{"),
-              let end = stripped.lastIndex(of: "}"), start < end else { return nil }
-        var slice = String(stripped[start...end])
-        // Drop trailing commas before } or ]
-        slice = slice.replacingOccurrences(of: ",\\s*([}\\]])", with: "$1", options: .regularExpression)
-        return try? JSONSerialization.jsonObject(with: Data(slice.utf8)) as? [String: Any]
+        try? AIResponseDecoder.jsonObject(from: text)
     }
+
 }

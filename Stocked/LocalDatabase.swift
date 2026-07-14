@@ -25,7 +25,7 @@ import Combine
 import os
 
 // MARK: - File paths
-private enum DBFile {
+nonisolated private enum DBFile {
     static let dir: URL = {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
         let db   = docs.appendingPathComponent("StockedDB", isDirectory: true)
@@ -43,17 +43,35 @@ private enum DBFile {
 }
 
 // Wrapper marking a pending write as already-encoded Data (skips re-encode in flush).
-private struct PreEncoded { let data: Data }
+nonisolated private struct PreEncoded: Sendable { let data: Data }
 
 // MARK: - LocalDatabase
-final class LocalDatabase {
+/// Thread-safe file persistence usable from actors and the default main actor. The class is
+/// explicitly nonisolated; its only mutable state is protected by `stateLock`, and disk writes
+/// are serialized on `queue`. This keeps large cache encode/decode work off the UI actor without
+/// weakening Swift 6 checking at call sites.
+nonisolated final class LocalDatabase: @unchecked Sendable {
     static let shared = LocalDatabase()
-    private init() {}
 
-    // #13: Single coalescing write queue — prevents N simultaneous disk writes
-    private let queue         = DispatchQueue(label: "com.stocked.db", qos: .utility)
-    private var pendingWrites: [String: Any]        = [:]
-    private var writeWorkItem: DispatchWorkItem?    = nil
+    private let queue = DispatchQueue(label: "com.stocked.db", qos: .utility)
+    private let queueIdentity = DispatchSpecificKey<UInt8>()
+    private let stateLock = NSLock()
+    private var pendingWrites: [String: Any] = [:]
+    private var writeWorkItem: DispatchWorkItem?
+    private var writeGeneration: UInt64 = 0
+
+    private init() { queue.setSpecific(key: queueIdentity, value: 1) }
+
+    private func withStateLock<T>(_ body: () -> T) -> T {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return body()
+    }
+
+    private func syncOnWriteQueue(_ body: () -> Void) {
+        if DispatchQueue.getSpecific(key: queueIdentity) == 1 { body() }
+        else { queue.sync(execute: body) }
+    }
 
     // MARK: Read
     func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
@@ -62,7 +80,6 @@ final class LocalDatabase {
            let decoded = try? JSONDecoder().decode(type, from: data) {
             return decoded
         }
-        // Primary file missing or corrupt — try the one-generation backup (#7).
         let bak = DBFile.backupURL(for: key)
         if let data = try? Data(contentsOf: bak),
            let decoded = try? JSONDecoder().decode(type, from: data) {
@@ -72,8 +89,7 @@ final class LocalDatabase {
         return nil
     }
 
-    /// Corruption-tolerant array read (#6/#7): decodes each element independently and falls
-    /// back to the backup file if the primary is unreadable. One bad row costs one row.
+    /// Corruption-tolerant array read: one malformed row does not discard the collection.
     func loadArray<Element: Decodable>(_ type: Element.Type, key: String) -> [Element]? {
         let url = DBFile.url(for: key)
         if let data = try? Data(contentsOf: url), let arr = SafeDecode.array(Element.self, from: data) {
@@ -87,63 +103,77 @@ final class LocalDatabase {
         return nil
     }
 
-    // MARK: Write — single coalescing flush #13
-    // All pending writes are batched into one disk pass every 0.15s.
-    // Prevents N simultaneous JSONEncoder + disk-write calls on bulk inventory changes.
+    // MARK: Write — one coalescing, serialized file queue
     func save<T: Encodable>(_ value: T, key: String) {
-        pendingWrites[key] = value
-        scheduleFlush()
-    }
-
-    // Batch a value that is ALREADY encoded — avoids re-encoding in the flush (#2).
-    // Stored under a distinct wrapper so the flush writes the raw Data directly.
-    func saveData(_ data: Data, key: String) {
-        pendingWrites[key] = PreEncoded(data: data)
-        scheduleFlush()
-    }
-
-    private func scheduleFlush() {
-        writeWorkItem?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            let snapshot = self.pendingWrites
-            self.pendingWrites.removeAll()
-            for (k, v) in snapshot {
-                let url = DBFile.url(for: k)
-                // Keep a one-generation backup: copy the current good file aside before we
-                // overwrite it, so a crash mid-write (or a future corrupt write) can recover (#7).
-                if let existing = try? Data(contentsOf: url), !existing.isEmpty {
-                    do { try existing.write(to: DBFile.backupURL(for: k), options: .atomic) }
-                    catch { Log.data.error("Backup write failed for key \(k, privacy: .public): \(error.localizedDescription, privacy: .public)") }
-                }
-                do {
-                    if let pre = v as? PreEncoded {
-                        try pre.data.write(to: url, options: .atomic)
-                    } else if let enc = v as? (any Encodable) {
-                        let data = try JSONEncoder().encode(enc)
-                        try data.write(to: url, options: .atomic)
-                    }
-                } catch {
-                    Log.data.error("Disk write failed for key \(k, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                }
-            }
+        withStateLock {
+            pendingWrites[key] = value
+            scheduleFlushLocked()
         }
+    }
+
+    func saveData(_ data: Data, key: String) {
+        withStateLock {
+            pendingWrites[key] = PreEncoded(data: data)
+            scheduleFlushLocked()
+        }
+    }
+
+    /// Must be called while `stateLock` is held.
+    private func scheduleFlushLocked() {
+        writeWorkItem?.cancel()
+        writeGeneration &+= 1
+        let generation = writeGeneration
+        let item = DispatchWorkItem { [weak self] in self?.flushPendingWrites(generation: generation) }
         writeWorkItem = item
         queue.asyncAfter(deadline: .now() + 0.15, execute: item)
     }
 
-    // MARK: Delete
-    func delete(key: String) {
-        pendingWrites.removeValue(forKey: key)
-        queue.async {
-            try? FileManager.default.removeItem(at: DBFile.url(for: key))
+    private func flushPendingWrites(generation: UInt64) {
+        let snapshot: [String: Any]? = withStateLock {
+            guard generation == writeGeneration else { return nil }
+            let snapshot = pendingWrites
+            pendingWrites.removeAll()
+            writeWorkItem = nil
+            return snapshot
+        }
+        guard let snapshot, !snapshot.isEmpty else { return }
+        for (key, value) in snapshot { write(value, key: key) }
+    }
+
+    private func write(_ value: Any, key: String) {
+        let url = DBFile.url(for: key)
+        if let existing = try? Data(contentsOf: url), !existing.isEmpty {
+            do { try existing.write(to: DBFile.backupURL(for: key), options: .atomic) }
+            catch { Log.data.error("Backup write failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)") }
+        }
+        do {
+            if let pre = value as? PreEncoded {
+                try pre.data.write(to: url, options: .atomic)
+            } else if let encodable = value as? any Encodable {
+                let data = try JSONEncoder().encode(encodable)
+                try data.write(to: url, options: .atomic)
+            }
+        } catch {
+            Log.data.error("Disk write failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    // MARK: Nuke everything (sign-out with clear data)
+    // MARK: Delete
+    func delete(key: String) {
+        _ = withStateLock { pendingWrites.removeValue(forKey: key) }
+        queue.async {
+            try? FileManager.default.removeItem(at: DBFile.url(for: key))
+            try? FileManager.default.removeItem(at: DBFile.backupURL(for: key))
+        }
+    }
+
     func deleteAll() {
-        pendingWrites.removeAll()
-        writeWorkItem?.cancel()
+        withStateLock {
+            pendingWrites.removeAll()
+            writeGeneration &+= 1
+            writeWorkItem?.cancel()
+            writeWorkItem = nil
+        }
         queue.async {
             let files = (try? FileManager.default.contentsOfDirectory(
                 at: DBFile.dir, includingPropertiesForKeys: nil)) ?? []
@@ -154,11 +184,12 @@ final class LocalDatabase {
 
 // MARK: - DBKey — compile-time safe storage keys #14
 // Use DBKey.inventoryItems.rawValue everywhere — typos are compile errors, not silent data loss.
-enum DBKey: String, CaseIterable {
+nonisolated enum DBKey: String, CaseIterable, Sendable {
     case inventoryItems        = "inventory_items"
     case groceryItems          = "grocery_items"
     case householdOpQueue      = "household_op_queue_v1"    // durable pending household operations
     case householdSyncStatus   = "household_sync_status_v1" // last push/pull, pending count, last error
+    case householdTombstones   = "household_tombstones_v1"  // durable offline deletions
     case pastMeals             = "past_meals"
     case plannedMeals          = "planned_meals"
     case savedRecipes          = "saved_recipes"
@@ -235,7 +266,7 @@ enum DBKey: String, CaseIterable {
 // MARK: - AppDataCache
 // General-purpose cache for any fetched data (recipe lookups, ingredient info, etc).
 // Persists to disk — only cleared manually. Never expires automatically.
-extension LocalDatabase {
+nonisolated extension LocalDatabase {
     // Cache any Codable value with a string key (e.g. URL string, query string)
     func cacheData<T: Encodable>(_ value: T, forKey cacheKey: String) {
         // Use a sanitised filename derived from the key
@@ -295,25 +326,31 @@ extension LocalDatabase {
     // Clear fetched data only. Pantry, grocery, saved recipes, settings, and backups remain.
     func clearDataCache() {
         // Cancel the current coalesced flush so cache entries queued moments before the
-        // clear action cannot immediately recreate the deleted files. Preserve any pending
-        // user-data writes and schedule a fresh flush for those values only.
-        writeWorkItem?.cancel()
-        writeWorkItem = nil
-        pendingWrites = pendingWrites.filter { key, _ in
-            let filename = "\(key).json"
-            return !filename.hasPrefix("cache_") && !cacheFileNames.contains(filename)
+        // clear action cannot immediately recreate deleted files. All state mutation stays
+        // under the same lock used by save/delete; remaining user-data writes are rescheduled.
+        withStateLock {
+            writeGeneration &+= 1
+            writeWorkItem?.cancel()
+            writeWorkItem = nil
+            pendingWrites = pendingWrites.filter { key, _ in
+                let filename = "\(key).json"
+                return !filename.hasPrefix("cache_") && !cacheFileNames.contains(filename)
+            }
+            if !pendingWrites.isEmpty { scheduleFlushLocked() }
         }
-        if !pendingWrites.isEmpty { scheduleFlush() }
 
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: DBFile.dir, includingPropertiesForKeys: nil) else { return }
-        files.filter(isCacheFile).forEach { try? FileManager.default.removeItem(at: $0) }
+        // Wait behind any write already executing, then remove only recognized cache files.
+        syncOnWriteQueue {
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: DBFile.dir, includingPropertiesForKeys: nil) else { return }
+            files.filter(isCacheFile).forEach { try? FileManager.default.removeItem(at: $0) }
+        }
     }
 
 }
 
 
-private extension String {
+nonisolated private extension String {
     var stableCacheKey: String {
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in utf8 {
