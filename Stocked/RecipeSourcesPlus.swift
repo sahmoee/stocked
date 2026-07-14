@@ -215,7 +215,7 @@ nonisolated enum RecipeSourcesPlus {
     // like the other sources. Self-gates: returns [] when no key is configured, so it's a safe
     // no-op without a key and never throws. Keep `number` small — each call costs ~1 point.
     static func spoonacularByIngredient(_ ingredient: String, limit: Int = 4) async -> [OnlineRecipe] {
-        guard SpoonacularClient.shared.isConfigured else { return [] }
+        guard await SpoonacularClient.shared.isConfigured else { return [] }
         let hits = await SpoonacularClient.shared.findByIngredients([ingredient], number: limit)
         return hits.map { h in
             OnlineRecipe(
