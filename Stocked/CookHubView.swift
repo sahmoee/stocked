@@ -349,9 +349,9 @@ struct CookNowHomeView: View {
 
                 Spacer(minLength: 20)
             }
+            .navigationDestination(isPresented: $goBuildFood) { BuildAroundFoodView(servings: 4) }
+            .navigationDestination(isPresented: $goMood) { MatchMyMoodFlowView() }
+            .navigationDestination(isPresented: $goSurprise) { ServingSizeView(isCookNow: true) }
         }
-        .navigationDestination(isPresented: $goBuildFood) { BuildAroundFoodView(servings: 4) }
-        .navigationDestination(isPresented: $goMood) { MatchMyMoodFlowView() }
-        .navigationDestination(isPresented: $goSurprise) { ServingSizeView(isCookNow: true) }
     }
 }

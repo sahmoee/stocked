@@ -74,12 +74,52 @@
         }
       }
     },
+    "%@ – %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ – %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ · %lld servings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ · %3$lld servings"
+          }
+        }
+      }
+    },
     "%@ · %lld" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@ · %2$lld"
+          }
+        }
+      }
+    },
+    "%@ · %lld ingredients" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld ingredients"
           }
         }
       }
@@ -143,6 +183,9 @@
         }
       }
     },
+    "%@ available" : {
+
+    },
     "%@ done" : {
 
     },
@@ -154,6 +197,16 @@
     },
     "%@ of that is expired" : {
 
+    },
+    "%@ planned · %@ unallocated" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ planned · %2$@ unallocated"
+          }
+        }
+      }
     },
     "%@ recipes" : {
 
@@ -170,6 +223,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@ · %3$@"
           }
         }
       }
@@ -440,6 +503,16 @@
     "%lld items added to pantry" : {
 
     },
+    "%lld items needed across %lld planned meals" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld items needed across %2$lld planned meals"
+          }
+        }
+      }
+    },
     "%lld items ready to add" : {
 
     },
@@ -519,6 +592,16 @@
         }
       }
     },
+    "%lld of %lld ingredients stocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld ingredients stocked"
+          }
+        }
+      }
+    },
     "%lld of %lld selected" : {
       "localizations" : {
         "en" : {
@@ -544,6 +627,16 @@
     },
     "%lld percent used" : {
 
+    },
+    "%lld planning conflict%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld planning conflict%2$@"
+          }
+        }
+      }
     },
     "%lld possible duplicate group%@. Merging combines quantities and keeps the most complete item. Every merge can be undone." : {
       "localizations" : {
@@ -707,12 +800,32 @@
         }
       }
     },
+    "%lld/%lld on hand%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld on hand%3$@%4$@"
+          }
+        }
+      }
+    },
     "%lld/%lld prepped" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld/%2$lld prepped"
+          }
+        }
+      }
+    },
+    "%lld/%lld stocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld stocked"
           }
         }
       }
@@ -1007,6 +1120,9 @@
     "Add a Website" : {
 
     },
+    "Add All" : {
+
+    },
     "Add all %lld to grocery list" : {
 
     },
@@ -1070,6 +1186,12 @@
     "Add Photo" : {
 
     },
+    "Add shortages to Grocery after saving" : {
+
+    },
+    "Add Shortages to Grocery List" : {
+
+    },
     "Add size details" : {
 
     },
@@ -1086,9 +1208,6 @@
 
     },
     "Add to %@" : {
-
-    },
-    "Add to Cook Later Calendar" : {
 
     },
     "Add to Grocery List" : {
@@ -1130,10 +1249,10 @@
     "Added to grocery list!" : {
 
     },
-    "Added to meal planner!" : {
+    "Added!" : {
 
     },
-    "Added!" : {
+    "Adjust Quantity or Ingredients" : {
 
     },
     "AI Inventory Scan" : {
@@ -1188,6 +1307,9 @@
 
     },
     "Already in Pantry" : {
+
+    },
+    "Already reserved for %@." : {
 
     },
     "Alternate icons aren't available on this device." : {
@@ -1252,6 +1374,16 @@
         }
       }
     },
+    "Apply %lld Meal%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Apply %1$lld Meal%2$@"
+          }
+        }
+      }
+    },
     "Are you scanning one item, or multiple items in a row?\nBulk mode keeps the scanner open after each scan." : {
 
     },
@@ -1280,6 +1412,9 @@
 
     },
     "Auto-added to your list when you drop below %lld." : {
+
+    },
+    "Auto-generated from meal dates, freezer items, and ingredients that can be prepared together." : {
 
     },
     "Autofilled from %@" : {
@@ -1440,6 +1575,9 @@
     "Checking the web, your database, and AI for the perfect match" : {
 
     },
+    "Choose a meal" : {
+
+    },
     "CHOOSE A STORE" : {
 
     },
@@ -1565,6 +1703,9 @@
     "Cook %lldm" : {
 
     },
+    "Cook again" : {
+
+    },
     "Cook Buttons" : {
 
     },
@@ -1574,7 +1715,7 @@
     "Cook Now" : {
 
     },
-    "Cook now, or plan ahead for the week." : {
+    "Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead." : {
 
     },
     "Cook Right Now" : {
@@ -1613,6 +1754,12 @@
 
     },
     "Cooked" : {
+
+    },
+    "COOKED" : {
+
+    },
+    "Cooked %@" : {
 
     },
     "cooking at home instead of ordering out%@" : {
@@ -1712,6 +1859,9 @@
 
     },
     "Date scanning needs iOS 16+" : {
+
+    },
+    "Day" : {
 
     },
     "Days with a dot have items expiring. Tap a day to see them." : {
@@ -1822,6 +1972,9 @@
     "e.g. \"I finished the milk and used half the rice\"" : {
 
     },
+    "e.g. 2 cups rice" : {
+
+    },
     "e.g. 6 cans of 8 oz, half a bag" : {
 
     },
@@ -1859,6 +2012,9 @@
 
     },
     "Edit Inventory" : {
+
+    },
+    "Edit Meal" : {
 
     },
     "Edit Preferences" : {
@@ -2028,6 +2184,9 @@
 
     },
     "Find a Recipe Anyway →" : {
+
+    },
+    "Find a substitute" : {
 
     },
     "Find in store" : {
@@ -2317,6 +2476,9 @@
     "Ingredient (e.g. flour, sugar, butter)" : {
 
     },
+    "Ingredient Check" : {
+
+    },
     "Ingredient match unknown" : {
 
     },
@@ -2425,6 +2587,9 @@
 
     },
     "Keep It" : {
+
+    },
+    "Keep the original ingredient or edit the meal manually." : {
 
     },
     "Keep your existing data?" : {
@@ -2597,16 +2762,25 @@
     "Mark Complete" : {
 
     },
+    "Mark cooked" : {
+
+    },
     "Mark Incomplete" : {
 
     },
     "Mark Item Used in Stocked" : {
 
     },
+    "Mark not cooked" : {
+
+    },
     "Mark Used" : {
 
     },
     "Matching Recipes" : {
+
+    },
+    "Meal" : {
 
     },
     "Meal Cost" : {
@@ -2663,6 +2837,9 @@
     "Missing" : {
 
     },
+    "Missing · %@" : {
+
+    },
     "Missing %lld" : {
 
     },
@@ -2703,6 +2880,9 @@
 
     },
     "Move to Active?" : {
+
+    },
+    "Move to day" : {
 
     },
     "Move to Grocery List" : {
@@ -2769,6 +2949,9 @@
     "No activity yet." : {
 
     },
+    "No complete online recipes cached" : {
+
+    },
     "No drinks yet" : {
 
     },
@@ -2793,6 +2976,9 @@
     "No meals planned" : {
 
     },
+    "No meals planned." : {
+
+    },
     "No pairing data for this item yet." : {
 
     },
@@ -2806,6 +2992,9 @@
 
     },
     "No qualified sources yet" : {
+
+    },
+    "No quantity conflicts" : {
 
     },
     "No recent activity — changes will show here" : {
@@ -2823,6 +3012,9 @@
     "No scans yet" : {
 
     },
+    "No Shortages to Add" : {
+
+    },
     "No source has reached 20 complete recipes yet." : {
 
     },
@@ -2830,6 +3022,9 @@
 
     },
     "No substitutions found for this ingredient." : {
+
+    },
+    "No trusted substitute saved" : {
 
     },
     "None" : {
@@ -2916,6 +3111,9 @@
     "OK" : {
 
     },
+    "One or more ingredients are promised to multiple meals beyond the amount available." : {
+
+    },
     "Online results for \"%@\"  · %lld recipes" : {
       "localizations" : {
         "en" : {
@@ -2926,6 +3124,9 @@
         }
       }
     },
+    "Online Suggestions" : {
+
+    },
     "Only the household owner can regenerate the code." : {
 
     },
@@ -2935,10 +3136,16 @@
     "Open" : {
 
     },
+    "Open planned meal" : {
+
+    },
     "Open recipe" : {
 
     },
     "Open Recipe Browser" : {
+
+    },
+    "Open Recipes once to refresh qualified sources, then return here." : {
 
     },
     "Open Settings" : {
@@ -3070,10 +3277,25 @@
     "Pick a screenshot of a recipe. We'll read the text on your device and structure it for you to review." : {
 
     },
+    "Plan" : {
+
+    },
+    "Plan %@" : {
+
+    },
+    "Plan a meal" : {
+
+    },
     "Plan for later or save for the week" : {
 
     },
-    "Plan meals ahead and prep with confidence." : {
+    "Plan in Cook Later" : {
+
+    },
+    "Plan it. Shop for it. Prep it. Cook it." : {
+
+    },
+    "Plan Meal" : {
 
     },
     "Plan meals for the week." : {
@@ -3082,10 +3304,28 @@
     "Plan Saved" : {
 
     },
+    "Plan this" : {
+
+    },
+    "Plan with this ingredient" : {
+
+    },
+    "Plan with this item" : {
+
+    },
     "planned" : {
 
     },
     "Planned" : {
+
+    },
+    "Planned in Cook Later" : {
+
+    },
+    "Planned meals do not over-allocate what is currently on hand." : {
+
+    },
+    "Planning Impact" : {
 
     },
     "Point at receipt · Tap anywhere to capture" : {
@@ -3228,6 +3468,9 @@
       }
     },
     "Receipt Review" : {
+
+    },
+    "Recent Meals" : {
 
     },
     "Recently Viewed" : {
@@ -3402,6 +3645,12 @@
     "Review Household Changes" : {
 
     },
+    "Review ingredients" : {
+
+    },
+    "Review the proposed week. Nothing changes until you confirm." : {
+
+    },
     "Review, then save it to your vault." : {
 
     },
@@ -3440,6 +3689,9 @@
 
     },
     "Save current grocery list as template" : {
+
+    },
+    "Save Meal Plan" : {
 
     },
     "Save Plan" : {
@@ -3526,6 +3778,9 @@
     "Search an item" : {
 
     },
+    "Search complete recipes" : {
+
+    },
     "Search ingredients…" : {
 
     },
@@ -3539,6 +3794,9 @@
 
     },
     "Search recipes by name or cuisine…" : {
+
+    },
+    "Search recipes or ingredients" : {
 
     },
     "Search recipes, cuisines, ingredients…" : {
@@ -3593,6 +3851,9 @@
 
     },
     "Servings" : {
+
+    },
+    "Servings: %lld" : {
 
     },
     "Set" : {
@@ -3650,6 +3911,12 @@
 
     },
     "Shopping at %@ — change store" : {
+
+    },
+    "Shopping Overview" : {
+
+    },
+    "Short by about %@" : {
 
     },
     "Show all %lld stores" : {
@@ -3777,6 +4044,9 @@
 
     },
     "Stocked — %@" : {
+
+    },
+    "Stocked combines shortages, avoids duplicate grocery rows, and keeps every meal that needs the item attached." : {
 
     },
     "Stocked hasn't seen these touched in a while. One tap each keeps your kitchen honest." : {
@@ -3925,9 +4195,6 @@
 
     },
     "The Stash ✦" : {
-
-    },
-    "The week, handled." : {
 
     },
     "There are no changes to review." : {
@@ -4094,7 +4361,7 @@
     "Unlock Household Sync" : {
 
     },
-    "Upcoming Plans" : {
+    "Upcoming Prep" : {
 
     },
     "Update, remove, or clear items by asking" : {
@@ -4107,6 +4374,9 @@
 
     },
     "Usage Insights" : {
+
+    },
+    "Use" : {
 
     },
     "Use %@ instead (you have it)" : {
@@ -4169,6 +4439,9 @@
     "View only" : {
 
     },
+    "View planned meal" : {
+
+    },
     "View source" : {
 
     },
@@ -4191,6 +4464,9 @@
 
     },
     "Website domain (e.g. mykitchen.com)" : {
+
+    },
+    "Week Readiness" : {
 
     },
     "Weekly Review" : {
@@ -4259,8 +4535,24 @@
     "You" : {
 
     },
+    "You already have a possible substitute" : {
+
+    },
     "You already have everything for this recipe." : {
 
+    },
+    "You already have this!" : {
+
+    },
+    "You also planned %@ with %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You also planned %1$@ with %2$@."
+          }
+        }
+      }
     },
     "You can make this now" : {
 

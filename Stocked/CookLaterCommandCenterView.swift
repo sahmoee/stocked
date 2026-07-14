@@ -1262,7 +1262,7 @@ struct CookLaterCommandCenterView: View {
       shoppingOverview
       if shoppingNeeds.isEmpty {
         CookEmptyState(
-          icon: "cart.badge.checkmark", title: "The week is covered",
+          icon: "checkmark.circle.fill", title: "The week is covered",
           message: "Inventory already covers the ingredients in the current plan.",
           ctaTitle: "Review Plan"
         ) {
