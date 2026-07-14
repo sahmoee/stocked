@@ -279,6 +279,11 @@ struct CookNowHomeView: View {
     @State private var goSurpriseDetail = false
     @State private var chipIngredient: String? = nil
     @State private var goChip = false
+    // Adaptive workspace entry points
+    @State private var goStartWith    = false
+    @State private var goMakeableNow  = false
+    @State private var goUseItUp      = false
+    @State private var goFinishServe  = false
 
     var body: some View {
         StockedShell(showBack: true, titleText: "Cook Now") {
@@ -301,8 +306,14 @@ struct CookNowHomeView: View {
 
                 pathwaySection
 
+                workspaceHubSection
+
                 Spacer(minLength: 20)
             }
+            .navigationDestination(isPresented: $goStartWith)   { StartWithSomethingView().environment(cookSession) }
+            .navigationDestination(isPresented: $goMakeableNow) { MakeableNowView().environment(cookSession) }
+            .navigationDestination(isPresented: $goUseItUp)     { UseSomethingUpView().environment(cookSession) }
+            .navigationDestination(isPresented: $goFinishServe) { FinishAndServeView() }
             .navigationDestination(isPresented: $goBuildFood)  { BuildAroundFoodView(servings: cookSession.servings).environment(cookSession) }
             .navigationDestination(isPresented: $goMood)       { MatchMyMoodFlowView().environment(cookSession) }
             .navigationDestination(isPresented: $goRefresh)    { RefreshKitchenView().environment(cookSession) }
@@ -322,6 +333,7 @@ struct CookNowHomeView: View {
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
+            goStartWith = false; goMakeableNow = false; goUseItUp = false; goFinishServe = false
             goBuildFood = false; goMood = false; goRefresh = false
             goReadyList = false; goAlmostList = false; goMoreList = false
             goSurpriseDetail = false; goChip = false
@@ -716,12 +728,32 @@ struct CookNowHomeView: View {
             Text("How do you want to cook?")
                 .font(.system(size: 15, weight: .bold, design: .serif))
                 .foregroundStyle(session.themeTextColor)
+
+            // Broadest entry: begin with any item and decide what to do with it.
+            pathwayRow(emoji: "🧑\u{200d}🍳", title: "Start With Something",
+                       subtitle: "Pick an ingredient and choose what to do — from one item to a full meal.") { goStartWith = true }
             pathwayRow(emoji: "🥩", title: "Build Around Food",
                        subtitle: "Use what you have or what you love.") { goBuildFood = true }
             pathwayRow(emoji: "🙂", title: "Match My Mood",
                        subtitle: "Find recipes that fit how you feel.") { goMood = true }
             pathwayRow(emoji: "🎁", title: "Surprise Me",
                        subtitle: "Let us pick the perfect recipe.") { rollSurprise() }
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+    }
+
+    /// Secondary workspace entry points — browse makeable, use-it-up, finish & serve.
+    private var workspaceHubSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("More ways in")
+                .font(.system(size: 15, weight: .bold, design: .serif))
+                .foregroundStyle(session.themeTextColor)
+            pathwayRow(emoji: "✅", title: "Makeable Now",
+                       subtitle: "Browse entrées, sides, and meals you can make right now.") { goMakeableNow = true }
+            pathwayRow(emoji: "⏳", title: "Use Something Up",
+                       subtitle: "Cook around what's expiring or already open.") { goUseItUp = true }
+            pathwayRow(emoji: "🍽️", title: "Finish & Serve",
+                       subtitle: "Reheat and finish anything you cooked ahead.") { goFinishServe = true }
         }
         .padding(.horizontal, CookStyle.screenHPad)
     }
