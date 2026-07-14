@@ -745,6 +745,9 @@ struct CookingFlashcardView: View {
     let recipeTitle:  String
     let ingredients:  [String]
     let steps:        [String]
+    /// Servings the recipe/session was scaled to; carried in so the flashcard
+    /// flow deducts inventory at the same portion the cook actually made.
+    var baseServings: Int = 4
     @State private var expandedStep:        Int?    = 0
     @State private var completedSteps:      Set<Int> = []
     @State private var showResumePrompt:    Bool = false
