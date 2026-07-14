@@ -286,16 +286,6 @@
     "%lld available" : {
 
     },
-    "%lld built-in sources plus %lld of your own." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$lld built-in sources plus %2$lld of your own."
-          }
-        }
-      }
-    },
     "%lld change%@ need your review" : {
       "localizations" : {
         "en" : {
@@ -595,12 +585,12 @@
         }
       }
     },
-    "%lld recipes · %lld sources" : {
+    "%lld recipes · %lld qualified sources" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$lld recipes · %2$lld sources"
+            "value" : "%1$lld recipes · %2$lld qualified sources"
           }
         }
       }
@@ -935,6 +925,9 @@
 
     },
     "A private, on-device count of which features you use. Nothing is uploaded or shared." : {
+
+    },
+    "A source is shown only after Stocked has cached 20 complete recipes from it." : {
 
     },
     "Abbreviation appears on receipt exactly as scanned. It will be auto-resolved next time it's seen." : {
@@ -1371,6 +1364,12 @@
     "by %@" : {
 
     },
+    "Cache is getting large. Deleting it frees space; Stocked will download needed content again." : {
+
+    },
+    "Cached files" : {
+
+    },
     "Calendar" : {
 
     },
@@ -1535,6 +1534,9 @@
           }
         }
       }
+    },
+    "Configured sources are discovery candidates only. Recipe browsing shows a source after it reaches 20 complete recipes; failed sources with five or fewer are removed from cache." : {
+
     },
     "Confirm Receipt Items" : {
 
@@ -1736,10 +1738,22 @@
     "Delete Account?" : {
 
     },
+    "Delete Cache" : {
+
+    },
+    "Delete Cached Files" : {
+
+    },
+    "Delete cached files?" : {
+
+    },
     "Delete Recipe" : {
 
     },
     "Delete this recipe?" : {
+
+    },
+    "Deleting Cached Files…" : {
 
     },
     "Describe it and we'll build the recipe." : {
@@ -1772,6 +1786,9 @@
     "Discover Recipes" : {
 
     },
+    "Discovery Candidates" : {
+
+    },
     "Dismiss timer" : {
 
     },
@@ -1788,6 +1805,9 @@
 
     },
     "Double-check this one" : {
+
+    },
+    "Downloaded recipes, nutrition responses, product metadata, and images are cached for faster loading and offline reuse. Your pantry, grocery list, saved recipes, and account data are never deleted here." : {
 
     },
     "Drag to plan  ·  dots = expiring" : {
@@ -2256,6 +2276,9 @@
 
     },
     "Import Screenshot" : {
+
+    },
+    "Imported recipes are saved locally. A website is added to the source browser only after it has 20 complete recipes." : {
 
     },
     "Importing…" : {
@@ -2761,6 +2784,9 @@
     "No items in %@" : {
 
     },
+    "No matching qualified sources" : {
+
+    },
     "No meals logged yet. Cook a recipe and rate it to start your history." : {
 
     },
@@ -2776,13 +2802,16 @@
     "No purchases logged this month yet." : {
 
     },
+    "No qualified recipe sources yet" : {
+
+    },
+    "No qualified sources yet" : {
+
+    },
     "No recent activity — changes will show here" : {
 
     },
     "No recipes found." : {
-
-    },
-    "No recipes yet" : {
 
     },
     "No results for \"%@\"" : {
@@ -2792,6 +2821,9 @@
 
     },
     "No scans yet" : {
+
+    },
+    "No source has reached 20 complete recipes yet." : {
 
     },
     "No step-by-step instructions available for this recipe. Tap \"View on %@\" to see the full recipe." : {
@@ -2869,6 +2901,9 @@
     "Nutrition (%@)" : {
 
     },
+    "Nutrition from %@" : {
+
+    },
     "of" : {
 
     },
@@ -2890,9 +2925,6 @@
           }
         }
       }
-    },
-    "Only sources with recipes on your device are shown. Counts are live." : {
-
     },
     "Only the household owner can regenerate the code." : {
 
@@ -2978,16 +3010,16 @@
     "Past Meals" : {
 
     },
-    "Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review." : {
+    "Paste a direct recipe URL from a site that publishes standard recipe data:" : {
 
     },
-    "Paste a recipe URL from any of the %lld supported websites:" : {
+    "Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review." : {
 
     },
     "Paste a recipe URL…" : {
 
     },
-    "Paste any recipe site's domain. Stocked can pull recipes from most sites that publish standard recipe data." : {
+    "Paste any recipe site's domain. It remains hidden from recipe browsing until Stocked has cached 20 unique complete recipes from it." : {
 
     },
     "Paste any recipe URL — we'll extract the title, ingredients and steps automatically." : {
@@ -3674,6 +3706,9 @@
     "Source: Food Network Ingredient Substitution Guide + common cooking knowledge." : {
 
     },
+    "Sources appear after at least 20 unique, complete recipes are available. Counts are live." : {
+
+    },
     "Spending comes from your recorded prices — receipt scans and item prices dated this month." : {
 
     },
@@ -3808,9 +3843,6 @@
     "Substitutions" : {
 
     },
-    "Suggested Sources" : {
-
-    },
     "SURPRISE\nME" : {
 
     },
@@ -3856,7 +3888,7 @@
     "Tap a vibe — we'll find the recipe." : {
 
     },
-    "Tap Refresh to pull recipes from\n%lld top cooking websites" : {
+    "Tap Refresh to build complete source libraries. A website appears only after 20 unique full recipes are cached." : {
 
     },
     "Tap the amount to adjust how much gets deducted — All, Half, or None." : {
@@ -3923,6 +3955,9 @@
 
     },
     "This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone." : {
+
+    },
+    "This removes downloaded copies only. Stocked will rebuild the cache as you use the app." : {
 
     },
     "This source doesn't include step-by-step instructions here. Tap View source below for the full method." : {
@@ -4283,6 +4318,9 @@
     "Your answers help us find the perfect recipes for you." : {
 
     },
+    "Your Configured Candidates" : {
+
+    },
     "Your Home is empty" : {
 
     },
@@ -4332,9 +4370,6 @@
 
     },
     "Your saved diet and allergens filter recipe results automatically and steer AI recipe ideas." : {
-
-    },
-    "Your Sources" : {
 
     },
     "Your surplus inventory" : {
