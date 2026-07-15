@@ -74,6 +74,16 @@
         }
       }
     },
+    "%@ - %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ - %2$@"
+          }
+        }
+      }
+    },
     "%@ – %@" : {
       "localizations" : {
         "en" : {
@@ -134,6 +144,16 @@
         }
       }
     },
+    "%@ · for %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · for %2$@ %3$@"
+          }
+        }
+      }
+    },
     "%@ · one-time purchase" : {
 
     },
@@ -187,6 +207,9 @@
 
     },
     "%@ in the last 7 days" : {
+
+    },
+    "%@ is cooking" : {
 
     },
     "%@ is expiring soon." : {
@@ -555,6 +578,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld missing ingredient%2$@ added under \"%3$@\"."
+          }
+        }
+      }
+    },
+    "%lld more meal%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld more meal%2$@"
           }
         }
       }
@@ -1003,6 +1036,9 @@
     "1 missing" : {
 
     },
+    "2-step" : {
+
+    },
     "8-character code" : {
 
     },
@@ -1043,6 +1079,9 @@
 
     },
     "About %@ this month" : {
+
+    },
+    "About %lld minutes hands-off remaining." : {
 
     },
     "Access Level" : {
@@ -1941,6 +1980,9 @@
     "Deselect any items you already have or don't need." : {
 
     },
+    "Details" : {
+
+    },
     "Did you mean" : {
 
     },
@@ -2034,6 +2076,9 @@
     "Each" : {
 
     },
+    "Each method gives you a different result. Pick the tradeoffs you want." : {
+
+    },
     "Edit" : {
 
     },
@@ -2082,7 +2127,7 @@
     "Enter zip code" : {
 
     },
-    "Equipment, ingredients to pull, prep tasks, and optional decisions will appear here. Full checklist coming in the next update." : {
+    "Equipment not available" : {
 
     },
     "Erase & Exit" : {
@@ -2118,6 +2163,9 @@
           }
         }
       }
+    },
+    "Every one of these is a complete cook on its own. Add more only if you want to." : {
+
     },
     "Every widget is already on your Home screen." : {
 
@@ -2251,6 +2299,9 @@
     "Finish Cooking" : {
 
     },
+    "Fits your remaining window and uses what you have." : {
+
+    },
     "Fix ingredients" : {
 
     },
@@ -2264,6 +2315,9 @@
 
     },
     "For \"%@\"" : {
+
+    },
+    "For best results" : {
 
     },
     "For You" : {
@@ -2318,13 +2372,13 @@
     "Get ahead" : {
 
     },
-    "Get Ready to Cook" : {
+    "Get ahead while you're at it" : {
+
+    },
+    "Get everything ready before any heat. Check items off as you go." : {
 
     },
     "Get ready to cook %@." : {
-
-    },
-    "Getting your kitchen ready" : {
 
     },
     "Give the item a name to continue" : {
@@ -2378,6 +2432,9 @@
 
     },
     "Heads up: about %@ went to waste — room to save more next season." : {
+
+    },
+    "Heads up: different meals may want different cuts - check before prepping one way." : {
 
     },
     "Help Center" : {
@@ -2458,6 +2515,9 @@
 
     },
     "How would you like to import?" : {
+
+    },
+    "However you cook it, the meal keeps its place on your plan until you serve it." : {
 
     },
     "https://…" : {
@@ -2657,6 +2717,9 @@
     "Keep your existing data?" : {
 
     },
+    "Keeping it minimal" : {
+
+    },
     "Key Ingredients" : {
 
     },
@@ -2736,6 +2799,9 @@
     "Leftover name (e.g. %@ Leftovers)" : {
 
     },
+    "Less" : {
+
+    },
     "Let your vibe decide the recipe." : {
 
     },
@@ -2743,6 +2809,9 @@
 
     },
     "Let's get a feel for tonight." : {
+
+    },
+    "Let's get set up" : {
 
     },
     "Let's stock your kitchen" : {
@@ -2820,6 +2889,9 @@
     "Manual" : {
 
     },
+    "Mark %@" : {
+
+    },
     "Mark Complete" : {
 
     },
@@ -2872,9 +2944,6 @@
 
     },
     "Meals you can make with what's on hand. Top picks use what's expiring first." : {
-
-    },
-    "Meals you cooked early will appear here with reheat and finishing steps. Coming with cook-ahead support." : {
 
     },
     "Meals/week: %lld" : {
@@ -2995,6 +3064,9 @@
         }
       }
     },
+    "Needs: %@" : {
+
+    },
     "New Abbreviation" : {
 
     },
@@ -3011,6 +3083,9 @@
 
     },
     "Next Step" : {
+
+    },
+    "No %@ preparations yet" : {
 
     },
     "No activity yet" : {
@@ -3050,6 +3125,9 @@
 
     },
     "No other recipes fit your current ingredients and preferences." : {
+
+    },
+    "No overlap to prep ahead" : {
 
     },
     "No pairing data for this item yet." : {
@@ -3112,6 +3190,9 @@
     "Not in pantry" : {
 
     },
+    "not logged" : {
+
+    },
     "Not Now" : {
 
     },
@@ -3145,6 +3226,9 @@
     "Nothing in your kitchen is expiring in the next few days." : {
 
     },
+    "Nothing matches yet" : {
+
+    },
     "Nothing selected" : {
 
     },
@@ -3154,7 +3238,13 @@
     "Nothing to update — you're all set." : {
 
     },
+    "Nothing waiting to finish" : {
+
+    },
     "Nothing wasted this month" : {
+
+    },
+    "Nothing you're prepping now shows up in your upcoming meals." : {
 
     },
     "Nothing’s about to expire — cook anything you like." : {
@@ -3359,9 +3449,6 @@
     "Pick an ingredient, a protein, a leftover — anything. We'll figure out what to do with it next." : {
 
     },
-    "Pick one and stop there, or build from it — you decide how far to go." : {
-
-    },
     "Plan" : {
 
     },
@@ -3400,6 +3487,16 @@
     },
     "Planned" : {
 
+    },
+    "Planned for %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Planned for %1$@ · %2$@"
+          }
+        }
+      }
     },
     "Planned in Cook Later" : {
 
@@ -3449,6 +3546,9 @@
     "Prep Done — Back to Recipe" : {
 
     },
+    "Prep extra now" : {
+
+    },
     "Prep First" : {
 
     },
@@ -3465,6 +3565,9 @@
 
     },
     "Preparing…" : {
+
+    },
+    "Prepping extra" : {
 
     },
     "PREVIEW" : {
@@ -3966,6 +4069,12 @@
     "Selected" : {
 
     },
+    "Serve Now" : {
+
+    },
+    "Served — enjoy!" : {
+
+    },
     "Serves %lld" : {
 
     },
@@ -3991,6 +4100,9 @@
 
     },
     "Set a reminder to start prepping" : {
+
+    },
+    "Set your equipment in your cooking profile to get tailored methods." : {
 
     },
     "Settings" : {
@@ -4168,6 +4280,16 @@
     "Still have this?" : {
 
     },
+    "Still planned for %@ · %@. Cooking early only changes the cook time." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Still planned for %1$@ · %2$@. Cooking early only changes the cook time."
+          }
+        }
+      }
+    },
     "Stock %lld common staples" : {
 
     },
@@ -4233,6 +4355,9 @@
 
     },
     "Sub available" : {
+
+    },
+    "sub: %@" : {
 
     },
     "Substitutes for %@" : {
@@ -4465,6 +4590,9 @@
     "Try \"quick chicken no dairy\" or \"Italian breakfast\"…" : {
 
     },
+    "Try a different intent, or start with another item." : {
+
+    },
     "Try a Different Recipe" : {
 
     },
@@ -4534,6 +4662,12 @@
     "Use %@ instead (you have it)" : {
 
     },
+    "Use a different method" : {
+
+    },
+    "Use Anyway" : {
+
+    },
     "Use It Soon" : {
 
     },
@@ -4547,6 +4681,9 @@
 
     },
     "Use these soon" : {
+
+    },
+    "Use This Method" : {
 
     },
     "Use This Swap" : {
@@ -4627,9 +4764,6 @@
     "We couldn't find a match yet." : {
 
     },
-    "We'll compare the tradeoffs — texture, effort, and time — and check your equipment. Full comparison is coming; for now, continue to get set up." : {
-
-    },
     "We've set everything up based on your preferences. Update them anytime in Settings." : {
 
     },
@@ -4672,6 +4806,9 @@
     "What would you like to add?" : {
 
     },
+    "What would you like to do?" : {
+
+    },
     "WHAT YOU CAN MAKE" : {
 
     },
@@ -4694,6 +4831,9 @@
 
     },
     "When items are expiring, suggest a recipe that uses them up" : {
+
+    },
+    "When you cook a planned meal early, it'll appear here with reheat and finishing steps." : {
 
     },
     "Which item did you use?" : {
@@ -4739,6 +4879,9 @@
     "You can make this now" : {
 
     },
+    "You can start even with items unchecked — this is your call." : {
+
+    },
     "You can still find a recipe and shop for it,\nor add it to your grocery list now." : {
 
     },
@@ -4764,6 +4907,9 @@
     "You own this household." : {
 
     },
+    "You picked bare minimum - no extra prep suggested." : {
+
+    },
     "YOU SAVED ABOUT" : {
 
     },
@@ -4774,6 +4920,9 @@
 
     },
     "You're all done!" : {
+
+    },
+    "You're already prepping these. Upcoming meals need them too - prep extra now to save a step later." : {
 
     },
     "You're close to dinner." : {
@@ -4808,6 +4957,9 @@
 
     },
     "Your Configured Candidates" : {
+
+    },
+    "Your equipment right now" : {
 
     },
     "Your Home is empty" : {
