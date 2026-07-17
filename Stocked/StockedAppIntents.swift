@@ -13,10 +13,10 @@ import Foundation
 // MARK: - Open the grocery list (to add an item)
 
 @available(iOS 16.0, *)
-struct OpenGroceryListIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add to Stocked Grocery List"
-    static var description = IntentDescription("Open Stocked to add an item to your grocery list.")
-    static var openAppWhenRun: Bool = true
+nonisolated struct OpenGroceryListIntent: AppIntent {
+    nonisolated static var title: LocalizedStringResource { "Add to Stocked Grocery List" }
+    nonisolated static var description: IntentDescription { IntentDescription("Open Stocked to add an item to your grocery list.") }
+    nonisolated static var openAppWhenRun: Bool { true }
 
     func perform() async throws -> some IntentResult {
         // Flag so the app can route to the Grocery tab on next foreground.
@@ -28,10 +28,10 @@ struct OpenGroceryListIntent: AppIntent {
 // MARK: - Start cooking (opens the app)
 
 @available(iOS 16.0, *)
-struct StartCookingIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Cooking with Stocked"
-    static var description = IntentDescription("Open Stocked to find something to cook.")
-    static var openAppWhenRun: Bool = true
+nonisolated struct StartCookingIntent: AppIntent {
+    nonisolated static var title: LocalizedStringResource { "Start Cooking with Stocked" }
+    nonisolated static var description: IntentDescription { IntentDescription("Open Stocked to find something to cook.") }
+    nonisolated static var openAppWhenRun: Bool { true }
 
     func perform() async throws -> some IntentResult {
         // Flag the launch intent so the app can route to Cook Now on next foreground.
@@ -50,10 +50,10 @@ struct StartCookingIntent: AppIntent {
 /// consumption logged, auto-restock honored). Queue-and-drain because the intent
 /// can run outside the app's live data layer — writing the store's full item JSON
 /// from here would risk clobbering fields this lightweight context doesn't decode.
-struct MarkItemUsedIntent: AppIntent {
-    static var title: LocalizedStringResource = "Mark Item Used in Stocked"
-    static var description = IntentDescription("Tell Stocked you finished or used up an item.")
-    static var openAppWhenRun: Bool = false
+nonisolated struct MarkItemUsedIntent: AppIntent {
+    nonisolated static var title: LocalizedStringResource { "Mark Item Used in Stocked" }
+    nonisolated static var description: IntentDescription { IntentDescription("Tell Stocked you finished or used up an item.") }
+    nonisolated static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "Item name") var itemName: String
 
@@ -73,10 +73,10 @@ struct MarkItemUsedIntent: AppIntent {
 /// #drift — "Hey Siri, add milk to Stocked." Same queue-and-drain pattern as
 /// MarkItemUsedIntent: queue the name, apply through the store on next foreground
 /// (smart merge, crowd defaults, and household sync all honored).
-struct AddItemIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Item to Stocked"
-    static var description = IntentDescription("Add an item to your Stocked kitchen inventory.")
-    static var openAppWhenRun: Bool = false
+nonisolated struct AddItemIntent: AppIntent {
+    nonisolated static var title: LocalizedStringResource { "Add Item to Stocked" }
+    nonisolated static var description: IntentDescription { IntentDescription("Add an item to your Stocked kitchen inventory.") }
+    nonisolated static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "Item name") var itemName: String
 
@@ -93,10 +93,10 @@ struct AddItemIntent: AppIntent {
     }
 }
 
-struct WhatsExpiringIntent: AppIntent {
-    static var title: LocalizedStringResource = "What's expiring in Stocked"
-    static var description = IntentDescription("Ask Stocked what food is expiring soon.")
-    static var openAppWhenRun: Bool = false
+nonisolated struct WhatsExpiringIntent: AppIntent {
+    nonisolated static var title: LocalizedStringResource { "What's expiring in Stocked" }
+    nonisolated static var description: IntentDescription { IntentDescription("Ask Stocked what food is expiring soon.") }
+    nonisolated static var openAppWhenRun: Bool { false }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let names = StockedInventoryReader.expiringSoon(withinDays: 3)
@@ -143,7 +143,7 @@ nonisolated enum StockedInventoryReader {
 // MARK: - Shortcut phrases (no parameters — fully SDK-safe)
 
 @available(iOS 16.0, *)
-struct StockedShortcuts: AppShortcutsProvider {
+nonisolated struct StockedShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: OpenGroceryListIntent(),
@@ -198,7 +198,7 @@ struct StockedShortcuts: AppShortcutsProvider {
 // Codable shape, so it stays in sync with the app's store without needing the
 // live session. Not used by the parameter-free shortcuts above, but available.
 
-enum StockedGroceryWriter {
+nonisolated enum StockedGroceryWriter {
     private static let key = "grocery_items"   // DBKey.groceryItems.rawValue
 
     private struct GroceryItemDTO: Codable {

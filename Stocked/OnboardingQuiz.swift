@@ -635,7 +635,7 @@ struct OnboardingQuiz: View {
 
 // MARK: - Chef icon anchor preference key
 private struct ChefIconAnchorKey: PreferenceKey {
-    static var defaultValue: Anchor<CGRect>? = nil
+    static let defaultValue: Anchor<CGRect>? = nil
     static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
         value = value ?? nextValue()
     }

@@ -31,7 +31,7 @@ import os.log
 
 // MARK: - Schema version
 
-enum StockedSchema {
+nonisolated enum StockedSchema {
     /// Bump when a @Model's stored shape changes in a way that needs migration.
     static let version = 1
 }
