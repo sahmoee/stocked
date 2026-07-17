@@ -525,8 +525,6 @@ final class HouseholdSync {
         // #3 — carry the household name so it syncs, but only once this user has set one
         // (avoids a member who never renamed it clobbering the owner's name with the default).
         if householdNameIsCustom { body["householdName"] = householdName }
-        // Hidden QA Workbook results sync within the household (last-writer-wins by updatedAt).
-        if let qa = QAWorkbookStore.shared.serialized() { body["qa"] = qa }
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             let message = lastPostFailure?.localizedDescription
@@ -877,8 +875,6 @@ final class HouseholdSync {
            !remoteName.isEmpty, !householdNameIsCustom, householdName != remoteName {
             householdName = remoteName
         }
-        // Adopt a newer QA Workbook blob from the household.
-        if let qaObj = hh["qa"] as? [String: Any] { QAWorkbookStore.shared.applyRemote(qaObj) }
 
         var groAdded = 0
         if syncGrocery, let groRaw = hh["grocery"] as? [[String: Any]] {

@@ -181,11 +181,6 @@ struct RootView: View {
                 .environment(session)
                 .zIndex(2000)
 
-            // Hidden QA Workbook — renders nothing until unlocked ("QA" in Settings) and
-            // opened. Sits above everything so its floating bubble is always reachable.
-            QAFloatingOverlay()
-                .environment(session)
-                .zIndex(3000)
         }
         // No .animation(value:) — causes CATransaction fence timeout on iPad
         // when splashDone + quizCompleted + isLoggedIn all change together.
@@ -220,10 +215,7 @@ struct RootView: View {
             // runs once). UserDefaults remains the source of truth until the Checkpoint 2
             // cutover; this just builds and keeps a verified parallel mirror.
             Task { @MainActor in
-                // First render wins. A one-time SwiftData checkpoint can involve hundreds or
-                // thousands of rows after an update, so never start it in the launch frame.
-                try? await Task.sleep(for: .seconds(3))
-                _ = await DataMigration.runIfNeeded(from: session.guestStore)
+                DataMigration.runIfNeeded(from: session.guestStore)
             }
         }
         .onChange(of: session.isDarkMode) { _, dark in

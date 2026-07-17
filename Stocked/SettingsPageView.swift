@@ -38,8 +38,6 @@ struct SettingsPageView: View {
     @State private var showLogoutConfirm = false
 
     // ── Hidden QA unlock ────────────────────────────────────────────
-    @State private var showQACodePrompt = false
-    @State private var qaCode = ""
 
     var body: some View {
         ZStack {
@@ -70,19 +68,6 @@ struct SettingsPageView: View {
                     accordion(.help, icon: "questionmark.circle.fill", tint: Color.stockedGold,
                               title: "Help & Support", subtitle: "Guides and getting unstuck") {
                         helpContent
-                    }
-
-                    // Hidden QA entry. Tapping prompts for the access code; once unlocked it
-                    // opens the QA Workbook (a floating, always-accessible panel).
-                    settingsSectionRow(icon: "checkmark.seal.fill", tint: Color.stockedCharcoal,
-                                       title: "QA",
-                                       subtitle: QAWorkbookStore.shared.unlocked ? "Open workbook" : "Restricted") {
-                        if QAWorkbookStore.shared.unlocked {
-                            QAWorkbookStore.shared.open()
-                            dismiss()
-                        } else {
-                            showQACodePrompt = true
-                        }
                     }
 
                     BuildInfoFooter()
@@ -117,22 +102,6 @@ struct SettingsPageView: View {
             case .editProfile:   EditProfileView().environment(session)
             }
         }
-        .alert("QA", isPresented: $showQACodePrompt) {
-            TextField("Access code", text: $qaCode)
-            Button("Unlock") {
-                if qaCode.trimmingCharacters(in: .whitespaces).lowercased() == "joo" {
-                    QAWorkbookStore.shared.unlocked = true
-                    QAWorkbookStore.shared.open()
-                    QAWorkbookStore.shared.minimize()   // appears as the floating bubble
-                    HapticManager.success()
-                    dismiss()
-                } else {
-                    HapticManager.warning()
-                }
-                qaCode = ""
-            }
-            Button("Cancel", role: .cancel) { qaCode = "" }
-        } message: { Text("Enter the QA access code.") }
         .alert("Erase All Data?", isPresented: $showClearAlert) {
             Button("Erase Everything", role: .destructive) { session.signOut(clearData: true) }
             Button("Cancel", role: .cancel) {}
@@ -376,7 +345,7 @@ struct SettingsPageView: View {
     // MARK: - Notifications
 
     @ViewBuilder private var notificationsContent: some View {
-        Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.updateNotificationsEnabledFromUser($0) })) {
+        Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.notificationsEnabled = $0 })) {
             Label("Low Stock Reminders", systemImage: "exclamationmark.bubble.fill")
                 .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
         }.tint(Color.stockedGold)
