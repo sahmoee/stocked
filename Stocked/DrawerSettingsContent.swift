@@ -190,7 +190,7 @@ struct SettingsContent: View {
             Section {
                 DisclosureGroup(isExpanded: $expandNotifications) {
                     // Low Stock reminders.
-                    Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.notificationsEnabled = $0 })) {
+                    Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.updateNotificationsEnabledFromUser($0) })) {
                         Label("Low Stock Reminders", systemImage: "exclamationmark.bubble.fill")
                             .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
                     }.tint(Color.stockedGold).listRowBackground(Color.clear)

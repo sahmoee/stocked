@@ -34,11 +34,10 @@ enum DataMigration {
     /// Safe to call on every launch — it no-ops once complete. Returns the resulting row
     /// counts so the caller can show a verification summary.
     @discardableResult
-    static func runIfNeeded(from session: GuestDataStore, force: Bool = false) -> [String: Int] {
+    static func runIfNeeded(from session: GuestDataStore,
+                            force: Bool = false) async -> [String: Int] {
         let store = StockedDataStore.shared
 
-        // Don't claim success if we're on the in-memory fallback — a non-persistent copy
-        // would mislead the user into thinking their data is safely migrated.
         guard store.isPersistent else {
             migrationLog.error("Skipping migration: store is in-memory (non-persistent).")
             return store.counts()
@@ -53,121 +52,156 @@ enum DataMigration {
             migrationLog.error("Migration skipped: no SwiftData context available.")
             return store.counts()
         }
+
+        // Fetch each table ONCE. The previous implementation fetched the entire table for
+        // every source record (O(n²)) on the main actor, which could leave the first launch
+        // after an update blank until the migration flag was finally written.
+        var existingInventory    = existingRows(ctx, as: SDInventoryItem.self)
+        var existingGrocery      = existingRows(ctx, as: SDGroceryItem.self)
+        var existingUserRecipes  = existingRows(ctx, as: SDUserRecipe.self)
+        var existingGenerated    = existingRows(ctx, as: SDGeneratedRecipe.self)
+        var existingPastMeals    = existingRows(ctx, as: SDPastMeal.self)
+        var existingPlannedMeals = existingRows(ctx, as: SDPlannedMeal.self)
+        var existingPrices       = existingRows(ctx, as: SDPriceRecord.self)
+        var existingConsumption  = existingRows(ctx, as: SDConsumptionRecord.self)
+        var existingSubs         = existingRows(ctx, as: SDSubstitution.self)
+
         var migrated = 0
 
-        // ── Inventory ──────────────────────────────────────────────
         for item in session.inventoryItems {
             guard let data = try? StockedCoders.encoder.encode(item) else { continue }
             let id = item.id.uuidString
-            upsert(ctx, id: id, make: {
+            upsert(ctx, id: id, existing: &existingInventory, make: {
                 SDInventoryItem(recordID: id, name: item.name,
                                 zoneRaw: item.storageCategory.rawValue,
                                 expirationDate: item.expirationDate, payload: data)
-            }, update: { (row: SDInventoryItem) in
-                row.name = item.name; row.zoneRaw = item.storageCategory.rawValue
-                row.expirationDate = item.expirationDate; row.payload = data; row.updatedAt = .now
+            }, update: { row in
+                row.name = item.name
+                row.zoneRaw = item.storageCategory.rawValue
+                row.expirationDate = item.expirationDate
+                row.payload = data
+                row.updatedAt = .now
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── Grocery ────────────────────────────────────────────────
         for g in session.groceryItems {
             guard let data = try? StockedCoders.encoder.encode(g) else { continue }
             let id = g.id.uuidString
-            upsert(ctx, id: id, make: {
+            upsert(ctx, id: id, existing: &existingGrocery, make: {
                 SDGroceryItem(recordID: id, name: g.name, isPurchased: g.isChecked, payload: data)
-            }, update: { (row: SDGroceryItem) in
-                row.name = g.name; row.isPurchased = g.isChecked; row.payload = data; row.updatedAt = .now
+            }, update: { row in
+                row.name = g.name
+                row.isPurchased = g.isChecked
+                row.payload = data
+                row.updatedAt = .now
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── My Recipes ─────────────────────────────────────────────
         for r in session.userRecipes {
             guard let data = try? StockedCoders.encoder.encode(r) else { continue }
             let id = r.id.uuidString
             let norm = normalize(r.title)
-            upsert(ctx, id: id, make: {
+            upsert(ctx, id: id, existing: &existingUserRecipes, make: {
                 SDUserRecipe(recordID: id, title: r.title, normalizedTitle: norm, payload: data)
-            }, update: { (row: SDUserRecipe) in
-                row.title = r.title; row.normalizedTitle = norm; row.payload = data; row.updatedAt = .now
+            }, update: { row in
+                row.title = r.title
+                row.normalizedTitle = norm
+                row.payload = data
+                row.updatedAt = .now
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── Generated / saved recipes ──────────────────────────────
         for r in session.savedGeneratedRecipes {
             guard let data = try? StockedCoders.encoder.encode(r) else { continue }
             let id = r.id.uuidString
-            upsert(ctx, id: id, make: {
-                SDGeneratedRecipe(recordID: id, title: r.title, isFavorited: r.isFavorited, payload: data)
-            }, update: { (row: SDGeneratedRecipe) in
-                row.title = r.title; row.isFavorited = r.isFavorited; row.payload = data; row.updatedAt = .now
+            upsert(ctx, id: id, existing: &existingGenerated, make: {
+                SDGeneratedRecipe(recordID: id, title: r.title,
+                                  isFavorited: r.isFavorited, payload: data)
+            }, update: { row in
+                row.title = r.title
+                row.isFavorited = r.isFavorited
+                row.payload = data
+                row.updatedAt = .now
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── Past meals ─────────────────────────────────────────────
         for m in session.pastMeals {
             guard let data = try? StockedCoders.encoder.encode(m) else { continue }
             let id = m.id.uuidString
-            // LocalPastMeal.date is a String; we don't rely on it for ordering here.
-            upsert(ctx, id: id, make: {
+            upsert(ctx, id: id, existing: &existingPastMeals, make: {
                 SDPastMeal(recordID: id, title: m.title, date: .now, payload: data)
-            }, update: { (row: SDPastMeal) in
-                row.title = m.title; row.payload = data
+            }, update: { row in
+                row.title = m.title
+                row.payload = data
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── Planned meals ──────────────────────────────────────────
         for m in session.plannedMeals {
             guard let data = try? StockedCoders.encoder.encode(m) else { continue }
             let id = m.id.uuidString
-            upsert(ctx, id: id, make: {
+            upsert(ctx, id: id, existing: &existingPlannedMeals, make: {
                 SDPlannedMeal(recordID: id, title: m.title, date: .now, payload: data)
-            }, update: { (row: SDPlannedMeal) in
-                row.title = m.title; row.payload = data
+            }, update: { row in
+                row.title = m.title
+                row.payload = data
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── Price history (time-series) ────────────────────────────
-        for p in session.priceHistory {
-            guard let data = try? StockedCoders.encoder.encode(p) else { continue }
-            let id = p.id.uuidString
-            upsert(ctx, id: id, make: {
-                SDPriceRecord(recordID: id, itemName: p.itemName, store: p.store,
-                              date: p.date, price: p.price, payload: data)
-            }, update: { (row: SDPriceRecord) in
-                row.itemName = p.itemName; row.store = p.store
-                row.date = p.date; row.price = p.price; row.payload = data
+        for price in session.priceHistory {
+            guard let data = try? StockedCoders.encoder.encode(price) else { continue }
+            let id = price.id.uuidString
+            upsert(ctx, id: id, existing: &existingPrices, make: {
+                SDPriceRecord(recordID: id, itemName: price.itemName, store: price.store,
+                              date: price.date, price: price.price, payload: data)
+            }, update: { row in
+                row.itemName = price.itemName
+                row.store = price.store
+                row.date = price.date
+                row.price = price.price
+                row.payload = data
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── Consumption log ────────────────────────────────────────
-        for c in session.consumptionLog {
-            guard let data = try? StockedCoders.encoder.encode(c) else { continue }
-            let id = c.id.uuidString
-            upsert(ctx, id: id, make: {
-                SDConsumptionRecord(recordID: id, itemName: c.itemName, date: c.depletedAt, payload: data)
-            }, update: { (row: SDConsumptionRecord) in
-                row.itemName = c.itemName; row.date = c.depletedAt; row.payload = data
+        for consumption in session.consumptionLog {
+            guard let data = try? StockedCoders.encoder.encode(consumption) else { continue }
+            let id = consumption.id.uuidString
+            upsert(ctx, id: id, existing: &existingConsumption, make: {
+                SDConsumptionRecord(recordID: id, itemName: consumption.itemName,
+                                    date: consumption.depletedAt, payload: data)
+            }, update: { row in
+                row.itemName = consumption.itemName
+                row.date = consumption.depletedAt
+                row.payload = data
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
-        // ── Substitutions ──────────────────────────────────────────
-        for s in session.userSubstitutions {
-            guard let data = try? StockedCoders.encoder.encode(s) else { continue }
-            let id = s.id.uuidString
-            upsert(ctx, id: id, make: {
-                SDSubstitution(recordID: id, fromIngredient: s.ingredient, payload: data)
-            }, update: { (row: SDSubstitution) in
-                row.fromIngredient = s.ingredient; row.payload = data
+        for substitution in session.userSubstitutions {
+            guard let data = try? StockedCoders.encoder.encode(substitution) else { continue }
+            let id = substitution.id.uuidString
+            upsert(ctx, id: id, existing: &existingSubs, make: {
+                SDSubstitution(recordID: id, fromIngredient: substitution.ingredient, payload: data)
+            }, update: { row in
+                row.fromIngredient = substitution.ingredient
+                row.payload = data
             })
             migrated += 1
+            await yieldIfNeeded(migrated)
         }
 
         do {
@@ -175,28 +209,41 @@ enum DataMigration {
             UserDefaults.standard.set(true, forKey: migrationFlagKey)
             migrationLog.info("Migration complete: \(migrated) records copied into SwiftData.")
         } catch {
-            // Don't set the flag — we'll retry next launch. UserDefaults data is untouched.
             migrationLog.error("Migration save failed: \(error.localizedDescription). Will retry next launch.")
         }
 
         return store.counts()
     }
 
-    // MARK: - Upsert helper (idempotent by recordID)
+    // MARK: - O(1) upsert helpers
 
-    private static func upsert<T: PersistentModel>(
+    private static func existingRows<T: PersistentModel & RecordIdentified>(
+        _ ctx: ModelContext,
+        as type: T.Type
+    ) -> [String: T] {
+        let rows = (try? ctx.fetch(FetchDescriptor<T>())) ?? []
+        return Dictionary(rows.map { ($0.recordID, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private static func upsert<T: PersistentModel & RecordIdentified>(
         _ ctx: ModelContext,
         id: String,
+        existing: inout [String: T],
         make: () -> T,
         update: (T) -> Void
     ) {
-        // Match an existing row by recordID via its String column. We fetch all and match
-        // in memory to avoid per-type predicate boilerplate; collections here are small.
-        let descriptor = FetchDescriptor<T>()
-        if let existing = (try? ctx.fetch(descriptor))?.first(where: { ($0 as? any RecordIdentified)?.recordID == id }) {
-            update(existing)
+        if let row = existing[id] {
+            update(row)
         } else {
-            ctx.insert(make())
+            let row = make()
+            ctx.insert(row)
+            existing[id] = row
+        }
+    }
+
+    private static func yieldIfNeeded(_ processed: Int) async {
+        if processed.isMultiple(of: 40) {
+            await Task.yield()
         }
     }
 

@@ -888,28 +888,47 @@ class KitchenTransferManager {
     static func autoRestoreOnNewDeviceIfNeeded(into session: AppSession) {
         let flagKey = "didAutoRestoreFromiCloud_v1"
         guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+
+        let store = session.guestStore
+        let hasLocalKitchenState = store.quizCompleted
+            || !store.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !store.inventoryItems.isEmpty
+            || !store.groceryItems.isEmpty
+            || !store.pastMeals.isEmpty
+            || !store.userRecipes.isEmpty
+            || UserDefaults.standard.bool(forKey: "wasGuest")
+            || !session.appleUserID.isEmpty
+
+        // This is a new-device recovery feature, not an app-update migration. Earlier builds
+        // ran it whenever the marker was absent, including after installing over an existing
+        // app. That launched a large CloudKit merge + synchronous save on the main actor and
+        // reapplied notification preferences before the first window was ready. Skip and seal
+        // the marker whenever a usable local kitchen already exists.
+        guard !hasLocalKitchenState else {
+            UserDefaults.standard.set(true, forKey: flagKey)
+            Log.transfer.notice("Auto-restore skipped: existing local kitchen detected")
+            return
+        }
+
         let mgr = session.transferManager   // retained — async task won't be orphaned
-        mgr.isCheckingForExistingAccount = true   // RootView shows splash while this runs
+        mgr.isCheckingForExistingAccount = true
         Task { @MainActor in
             defer { mgr.isCheckingForExistingAccount = false }
             guard let status = try? await mgr.cloudContainer.accountStatus(),
                   status == .available else {
                 Log.transfer.notice("Auto-restore deferred: iCloud not available yet")
-                return   // leave flag unset so we retry on a later launch
+                return   // leave flag unset so a genuinely empty install can retry later
             }
             switch await mgr.fetchLatestICloudBackupResult() {
             case .success(.some(let data)):
-                let ok = mgr.importFromData(data, into: session.guestStore, merge: true)
-                Log.transfer.notice("Auto-restored kitchen from iCloud on new device")
+                let ok = mgr.importFromData(data, into: store, merge: true)
                 UserDefaults.standard.set(true, forKey: flagKey)
-                // This Apple ID has used Stocked before — restore their data AND skip onboarding.
-                // Returning users shouldn't have to retake the setup quiz.
-                if ok { session.guestStore.quizCompleted = true }
+                Log.transfer.notice("Auto-restored kitchen from iCloud on new device")
+                if ok { store.quizCompleted = true }
             case .success(nil):
                 Log.transfer.notice("Auto-restore: no iCloud backup to restore")
                 UserDefaults.standard.set(true, forKey: flagKey)
             case .failure(let error):
-                // Don't set the flag — a transient/query error should let us retry next launch.
                 Log.transfer.notice("Auto-restore query failed — \(error.localizedDescription, privacy: .public); will retry next launch")
             }
         }

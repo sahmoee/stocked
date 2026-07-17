@@ -1,55 +1,85 @@
-// NotificationPermissionCoordinator.swift — single, polite notification permission ask.
+// NotificationPermissionCoordinator.swift — single, presentation-safe permission ask.
 //
-// WHY: the app previously called UNUserNotificationCenter.requestAuthorization from
-// enterKitchen(), signIn(), the notifications toggle, and several scheduler paths. On a
-// fresh install (or after an update that re-ran the login gate) the iOS permission dialog
-// popped over the app during first launch — while migrations, household sync, image
-// backfill and widget refresh were all running — which read as "the app froze with a
-// notification stuck on screen".
-//
-// POLICY (decided 2026-07): ask exactly ONCE, shortly AFTER onboarding completes, once the
-// main UI has had a moment to settle. Never ask again at launch. Explicit user actions in
-// Settings (enabling a specific reminder) may still surface the system dialog via
-// requestAuthorization if — and only if — the status is still .notDetermined.
+// System permission UI must never be requested from launch restoration, migrations, or a
+// property observer. iOS can queue a request made before the first active key window; the app
+// then appears blank while the dialog does not become visible until a later activation.
 
 import Foundation
+import UIKit
 @preconcurrency import UserNotifications
 
 @MainActor
 enum NotificationPermissionCoordinator {
 
     private static let promptedKey = "didPromptNotificationsOnce_v1"
+    private static var promptTask: Task<Void, Never>?
 
-    /// True once the one-time post-onboarding prompt has been shown (or the user has
-    /// already made a decision through any other path).
     static var hasPromptedOnce: Bool {
         UserDefaults.standard.bool(forKey: promptedKey)
     }
 
-    /// Call after onboarding completes (enterKitchen / signIn). Shows the system dialog at
-    /// most once per install, ~1.5s after the main UI appears so it never competes with
-    /// launch work. Safe to call repeatedly — every subsequent call is a no-op.
+    /// Called only after onboarding/sign-in completes. The request waits for an active scene
+    /// and key window, then gives SwiftUI one additional beat to finish mounting MainTabView.
     static func promptOnceAfterOnboarding() {
         guard !hasPromptedOnce else { return }
-        Task { @MainActor in
-            // Let the first frame of the main app render before the dialog appears.
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+        schedulePrompt(initialDelay: 1.5, markOneTimeDecision: true)
+    }
+
+    /// Called from an explicit Settings toggle. It still waits for a presentation-ready scene,
+    /// but does not add the longer onboarding delay.
+    static func promptFromUserAction() {
+        schedulePrompt(initialDelay: 0.15, markOneTimeDecision: true)
+    }
+
+    private static func schedulePrompt(initialDelay: TimeInterval,
+                                       markOneTimeDecision: Bool) {
+        promptTask?.cancel()
+        promptTask = Task { @MainActor in
+            if initialDelay > 0 {
+                try? await Task.sleep(for: .seconds(initialDelay))
+            }
+            guard !Task.isCancelled else { return }
+
+            // Do not ask until UIKit has an active scene and a key window. Retry briefly rather
+            // than issuing a request that iOS may park behind launch. If readiness never arrives,
+            // leave the marker unset so a later explicit call can retry safely.
+            for _ in 0..<40 {
+                if canPresentSystemPrompt { break }
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+            }
+            guard canPresentSystemPrompt else { return }
+
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
-            // If the user already decided (via a Settings toggle or an earlier build),
-            // record that and never ask again.
             guard settings.authorizationStatus == .notDetermined else {
-                UserDefaults.standard.set(true, forKey: promptedKey)
+                if markOneTimeDecision {
+                    UserDefaults.standard.set(true, forKey: promptedKey)
+                }
                 return
             }
-            UserDefaults.standard.set(true, forKey: promptedKey)
+
+            // Mark immediately before presenting so repeated state changes cannot enqueue two
+            // overlapping system requests. A denied or dismissed system decision still counts
+            // as the one automatic onboarding ask.
+            if markOneTimeDecision {
+                UserDefaults.standard.set(true, forKey: promptedKey)
+            }
             _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         }
     }
 
-    /// Runs `body` only when notifications are already authorized (or provisional) —
-    /// never triggers the system dialog. Schedulers use this so background rescheduling
-    /// can never pop UI.
+    private static var canPresentSystemPrompt: Bool {
+        guard UIApplication.shared.applicationState == .active else { return false }
+        return UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(\.windows)
+            .contains(where: \.isKeyWindow)
+    }
+
+    /// Runs body only when notifications are already authorized (or provisional). It never
+    /// requests permission and is therefore safe for launch/background rescheduling.
     static func ifAuthorized(_ body: @escaping @MainActor () -> Void) {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             switch settings.authorizationStatus {

@@ -42,7 +42,9 @@ final class StockedRemoteConfig {
 
     @ObservationIgnored private var etag: String? = nil
     @ObservationIgnored private var inFlight = false
+    @ObservationIgnored private var lastAttempt: Date? = nil
     @ObservationIgnored private let minRefreshInterval: TimeInterval = 15 * 60
+    @ObservationIgnored private let failedAttemptBackoff: TimeInterval = 60
 
     private static let cacheKey = "remoteConfig_v1"
     private static let etagKey  = "remoteConfigETag_v1"
@@ -107,7 +109,9 @@ final class StockedRemoteConfig {
 
     /// Refresh on foreground, throttled to `minRefreshInterval`.
     func refreshIfStale() async {
-        if let last = lastFetched, Date().timeIntervalSince(last) < minRefreshInterval { return }
+        let now = Date()
+        if let last = lastFetched, now.timeIntervalSince(last) < minRefreshInterval { return }
+        if let attempt = lastAttempt, now.timeIntervalSince(attempt) < failedAttemptBackoff { return }
         await refresh()
     }
 
@@ -115,6 +119,7 @@ final class StockedRemoteConfig {
         guard !inFlight, StockedWorkerClient.isConfigured,
               let base = StockedWorkerClient.url() else { return }
         inFlight = true
+        lastAttempt = Date()
         defer { inFlight = false }
 
         var request = URLRequest(url: base.appendingPathComponent("configuration"))
@@ -128,14 +133,26 @@ final class StockedRemoteConfig {
             guard let http = response as? HTTPURLResponse else { return }
             if http.statusCode == 304 { lastFetched = Date(); return }
             guard http.statusCode == 200 else { return }
-            let decoded = try JSONDecoder().decode(RemoteAppConfig.self, from: data)
+
+            // The Worker returns { config, sig, servedAt }. Accept the envelope used by the
+            // current Worker and the direct object used by older deployments.
+            struct Envelope: Decodable { let config: RemoteAppConfig }
+            let decoded: RemoteAppConfig
+            if let envelope = try? JSONDecoder().decode(Envelope.self, from: data) {
+                decoded = envelope.config
+            } else {
+                decoded = try JSONDecoder().decode(RemoteAppConfig.self, from: data)
+            }
+
             config = decoded
             lastFetched = Date()
             if let tag = http.value(forHTTPHeaderField: "ETag") {
                 etag = tag
                 UserDefaults.standard.set(tag, forKey: Self.etagKey)
             }
-            UserDefaults.standard.set(data, forKey: Self.cacheKey)
+            if let cached = try? JSONEncoder().encode(decoded) {
+                UserDefaults.standard.set(cached, forKey: Self.cacheKey)
+            }
         } catch {
             // Fail open — keep whatever config we already have.
             Log.app.debug("RemoteConfig fetch failed: \(error.localizedDescription, privacy: .public)")

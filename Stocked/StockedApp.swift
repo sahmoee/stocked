@@ -220,7 +220,10 @@ struct RootView: View {
             // runs once). UserDefaults remains the source of truth until the Checkpoint 2
             // cutover; this just builds and keeps a verified parallel mirror.
             Task { @MainActor in
-                DataMigration.runIfNeeded(from: session.guestStore)
+                // First render wins. A one-time SwiftData checkpoint can involve hundreds or
+                // thousands of rows after an update, so never start it in the launch frame.
+                try? await Task.sleep(for: .seconds(3))
+                _ = await DataMigration.runIfNeeded(from: session.guestStore)
             }
         }
         .onChange(of: session.isDarkMode) { _, dark in

@@ -542,13 +542,10 @@ class GuestDataStore {
     }
 
     func requestNotificationPermission() {
-        // NOTIF FIX: never re-prompt users who already decided. Only .notDetermined shows
-        // the system dialog; everything else is a no-op (Settings deep-link handles denial).
-        let center = UNUserNotificationCenter.current()
-        center.getNotificationSettings { settings in
-            guard settings.authorizationStatus == .notDetermined else { return }
-            center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
-        }
+        // Permission UI is coordinated centrally so it is never requested before an active,
+        // visible scene exists. This method remains for older call sites, but behaves like an
+        // explicit user action rather than a launch-time side effect.
+        NotificationPermissionCoordinator.promptFromUserAction()
     }
 
     // MARK: - Nuclear clear — wipes every byte of stored data

@@ -111,8 +111,10 @@ class AppSession {
     }
     var notificationsEnabled: Bool {
         didSet {
+            // Persist only. Restores and migrations also assign this property, and those
+            // background assignments must never surface a system permission dialog during
+            // launch. Explicit Settings actions call updateNotificationsEnabledFromUser(_:).
             UserDefaults.standard.set(notificationsEnabled, forKey: DBKey.notifications.rawValue)
-            if notificationsEnabled { guestStore.requestNotificationPermission() }
         }
     }
     var homeButtonLayout: HomeButtonLayout {
@@ -431,6 +433,16 @@ class AppSession {
         NotificationPermissionCoordinator.promptOnceAfterOnboarding()
     }
     func continueAsGuest() { enterKitchen() }
+
+    /// Settings-only notification toggle. Keeping the permission request out of the
+    /// notificationsEnabled didSet is critical: backup restores and migrations apply saved
+    /// preferences during launch, and a system dialog requested from that path can be queued
+    /// behind the first scene, leaving the app apparently blank until the next launch.
+    func updateNotificationsEnabledFromUser(_ enabled: Bool) {
+        notificationsEnabled = enabled
+        guard enabled else { return }
+        NotificationPermissionCoordinator.promptFromUserAction()
+    }
 
     /// Sign in with an Apple ID. THIS is what actually registers the account — the previous
     /// path routed Apple sign-in through enterKitchen(), which hard-set accountType to .guest
