@@ -37,9 +37,9 @@ enum StockedTab: String, CaseIterable {
 // MARK: - Cook (chef's toque)
 // Drawn in a raw 24×24 design space, then uniformly scaled + centred so it reads at the
 // same optical size as the SF Symbol icons and sits on the same baseline.
-private func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
+nonisolated private func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x, y: y) }
 
-private func addRRect(_ path: inout Path, _ x0: CGFloat, _ x1: CGFloat,
+nonisolated private func addRRect(_ path: inout Path, _ x0: CGFloat, _ x1: CGFloat,
                       _ y0: CGFloat, _ y1: CGFloat, _ r: CGFloat) {
     path.move(to: p(x0 + r, y0)); path.addLine(to: p(x1 - r, y0))
     path.addQuadCurve(to: p(x1, y0 + r), control: p(x1, y0))
