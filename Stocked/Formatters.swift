@@ -5,6 +5,26 @@
 
 import Foundation
 
+/// `ISO8601DateFormatter` is mutable and does not conform to `Sendable`. Keep the
+/// cached formatter private and serialize its use so callers can safely format
+/// dates from any actor without recreating the formatter for every conversion.
+nonisolated final class StockedISO8601Formatter: @unchecked Sendable {
+    private let lock = NSLock()
+    private let formatter = ISO8601DateFormatter()
+
+    func string(from date: Date) -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        return formatter.string(from: date)
+    }
+
+    func date(from string: String) -> Date? {
+        lock.lock()
+        defer { lock.unlock() }
+        return formatter.date(from: string)
+    }
+}
+
 nonisolated enum StockedFormatters {
     /// Weekday name, e.g. "Monday".
     static let weekday: DateFormatter = {
@@ -32,7 +52,7 @@ nonisolated enum StockedFormatters {
     }()
 
     /// Shared ISO-8601 formatter for backup/transfer encoding.
-    static let iso8601 = ISO8601DateFormatter()
+    static let iso8601 = StockedISO8601Formatter()
 
     /// Time-of-day greeting ("Good Morning" / "Good Afternoon" / "Good Evening"), based on the
     /// current hour. Single source of truth — previously duplicated as a private computed

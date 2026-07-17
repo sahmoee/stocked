@@ -1,18 +1,24 @@
 # HANDOFF REPORT
 
-## Scope
-Resolved the 27 Swift 6 actor-isolation compiler errors in `Stocked/TabBarView.swift`.
+## Summary
 
-## Root cause
-The project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. That implicitly isolated the file-level drawing helpers `p` and `addRRect` to the main actor. `Shape.path(in:)` is a synchronous nonisolated requirement, so every helper call inside `ChefHatShape.path(in:)` failed in Swift 6.
+Fixed the Swift 6 concurrency error in `Stocked/Formatters.swift`:
 
-## File changed
-- `Stocked/TabBarView.swift`
-  - Marked `p` as `nonisolated`.
-  - Marked `addRRect` as `nonisolated`.
-  - No drawing geometry, layout, navigation, or visual behavior changed.
+`Static property 'iso8601' is not concurrency-safe because non-'Sendable' type 'ISO8601DateFormatter' may have shared mutable state.`
+
+## File Changed
+
+### Stocked/Formatters.swift
+- Replaced the directly shared `ISO8601DateFormatter` with a cached `StockedISO8601Formatter` wrapper.
+- The wrapper conforms to `@unchecked Sendable` only because all access to its private mutable formatter is serialized with `NSLock`.
+- Preserves the existing call-site API:
+  - `StockedFormatters.iso8601.string(from:)`
+  - `StockedFormatters.iso8601.date(from:)`
+- Avoids creating a new formatter on every call.
+- No date formatting behavior or output format changed.
 
 ## Validation
-- `swiftc -parse Stocked/TabBarView.swift` passed with Swift 6.2.1.
-- The 27 reported calls now target explicitly nonisolated pure drawing helpers.
-- No Xcode project registration changes are required.
+
+- `Formatters.swift` passed Swift 6.2 type checking with Foundation.
+- Existing `StockedFormatters.iso8601` call sites remain source-compatible.
+- No project-file registration changes were required.
