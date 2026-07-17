@@ -69,6 +69,7 @@ struct EditableProfileAvatar: View {
     @State private var showOptions = false
     @State private var showSkinTones = false
     @State private var photoItem: PhotosPickerItem? = nil
+    @State private var showPhotoPicker = false
 
     // Same chef-emoji matrix used by onboarding: three styles, six skin tones each.
     private let chefGrid: [[String]] = [
@@ -136,10 +137,17 @@ struct EditableProfileAvatar: View {
                         .transition(.scale(scale: 0.95).combined(with: .opacity))
                     }
 
-                    // Choice 2: add / replace your own photo.
-                    PhotosPicker(selection: $photoItem, matching: .images) {
+                    // Choice 2: add / replace your own photo. Presented via the
+                    // .photosPicker modifier instead of the PhotosPicker label initializer:
+                    // that initializer's label closure is nonisolated in the current SDK, so
+                    // returning the main-actor `optionRow` view from it fails to compile
+                    // under Swift 6 default main-actor isolation. A plain Button label is
+                    // main-actor and works everywhere else optionRow is used.
+                    Button {
+                        showPhotoPicker = true
+                    } label: {
                         optionRow(icon: "photo.on.rectangle", title: hasPhoto ? "Replace Photo" : "Add Your Own Photo")
-                    }
+                    }.buttonStyle(.plain)
 
                     // Remove photo (only when one is set), reverting to the chef emoji.
                     if hasPhoto {
@@ -157,6 +165,7 @@ struct EditableProfileAvatar: View {
                 .transition(.scale(scale: 0.95).combined(with: .opacity))
             }
         }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
         .onChange(of: photoItem) { _, newItem in
             guard let newItem else { return }
             Task {

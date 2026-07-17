@@ -8,6 +8,10 @@
 
 import Foundation
 
+// nonisolated: pure string functions with no shared state, callable from any context —
+// main-actor views AND nonisolated engines (PurchaseDedupEngine builds comparison keys
+// off the main actor). Without this, the app's default main-actor isolation makes
+// `fold` main-actor-isolated and every nonisolated caller fails to compile.
 nonisolated enum SearchNormalization {
 
     /// Fold a string to a comparable form: lowercased, diacritic-stripped, whitespace-trimmed.
@@ -27,7 +31,7 @@ nonisolated enum SearchNormalization {
     }
 }
 
-nonisolated extension String {
+extension String {
     /// Convenience: `item.name.searchMatches(query)`.
     func searchMatches(_ query: String) -> Bool {
         SearchNormalization.matches(self, query: query)
