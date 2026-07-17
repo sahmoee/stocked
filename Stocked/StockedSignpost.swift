@@ -8,13 +8,19 @@
 //    launch time, hang rate, memory, and disk metrics from the FIELD, plus crash/
 //    hang diagnostics — so regressions are caught before users report freezing.
 //
-// Nothing here changes behavior; call sites opt in by wrapping work in `measure`.
+// CONCURRENCY (crash fix, TestFlight 4.13/62): MetricKit calls didReceive(_:) on its
+// OWN background queue. Under the project's default main-actor isolation these types
+// were implicitly @MainActor, so the delivery thunk failed the runtime executor check
+// (EXC_BREAKPOINT in dispatch_assert_queue_fail → @objc StockedMetrics.didReceive).
+// Everything here is therefore explicitly `nonisolated`: it only logs and emits
+// signposts (Logger/OSSignposter are Sendable and thread-safe), so it is safe from
+// any queue and must never assume the main actor.
 
 import Foundation
 import os
 import MetricKit
 
-enum StockedSignpost {
+nonisolated enum StockedSignpost {
     static let subsystem = "com.sowens.Stocked"
 
     // Separate categories keep Instruments tracks readable.
@@ -59,10 +65,13 @@ enum StockedSignpost {
 }
 
 /// MetricKit subscriber. Register once at launch via `StockedMetrics.shared.start()`.
-final class StockedMetrics: NSObject, MXMetricManagerSubscriber {
+/// nonisolated: MetricKit delivers payloads on a background queue (see header comment).
+nonisolated final class StockedMetrics: NSObject, MXMetricManagerSubscriber {
     static let shared = StockedMetrics()
     private let log = Logger(subsystem: StockedSignpost.subsystem, category: "metrics")
-    private var started = false
+    // Written only from start(), which the app calls exactly once from StockedApp.init
+    // on the main thread before any other use — hence the unchecked marker is safe.
+    nonisolated(unsafe) private var started = false
 
     func start() {
         guard !started else { return }
