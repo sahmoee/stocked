@@ -25,3 +25,6 @@ _to_delete/
 ._*
 **/._*
 *.tgz
+
+# Local Claude session settings
+.claude/settings.local.json
