@@ -53,6 +53,19 @@ if ! grep -qE '^nonisolated[[:space:]]+enum[[:space:]]+StockedSchema' "$ROOT/Sto
   fail=1
 fi
 
+# Search normalization is pure comparison logic used by nonisolated engines. Keep
+# both the namespace and String conveniences outside the app target's MainActor default.
+if ! grep -qE '^nonisolated[[:space:]]+enum[[:space:]]+SearchNormalization' "$ROOT/Stocked/SearchNormalization.swift"; then
+  echo "SWIFT 6 CONCURRENCY GUARD FAILED: SearchNormalization must remain nonisolated"
+  echo
+  fail=1
+fi
+if ! grep -qE '^nonisolated[[:space:]]+extension[[:space:]]+String' "$ROOT/Stocked/SearchNormalization.swift"; then
+  echo "SWIFT 6 CONCURRENCY GUARD FAILED: SearchNormalization String helpers must remain nonisolated"
+  echo
+  fail=1
+fi
+
 # Flag stored static vars with explicit initializers. The only intentional mutable
 # static state in production is promptTask inside @MainActor NotificationPermissionCoordinator,
 # which has no explicit initializer and is actor protected.

@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum SearchNormalization {
+nonisolated enum SearchNormalization {
 
     /// Fold a string to a comparable form: lowercased, diacritic-stripped, whitespace-trimmed.
     /// Uses the current locale for correct case folding (e.g. Turkish İ/i).
@@ -27,7 +27,7 @@ enum SearchNormalization {
     }
 }
 
-extension String {
+nonisolated extension String {
     /// Convenience: `item.name.searchMatches(query)`.
     func searchMatches(_ query: String) -> Bool {
         SearchNormalization.matches(self, query: query)
