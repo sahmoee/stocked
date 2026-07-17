@@ -62,7 +62,7 @@ nonisolated enum BuildConfig {
     // rate-limits, validates output, and caches. No AI vendor key ships in the app.
     /// Receipt parsing proxied through a Cloudflare Worker that holds the Anthropic
     /// key server-side (no key in the app). See _worker/stocked-receipt-worker/README.md.
-    static let receiptWorkerURL = "https://stocked-receipt-worker.stocked.workers.dev"
+    static let receiptWorkerURL = "https://api.sowensstudios.com"
     /// Custom API domain via a Cloudflare Worker custom-domain route. Once
     /// `api.sowensstudios.com` is verified in Cloudflare (see SOWENS_STUDIOS.md), change
     /// `receiptWorkerURL` above to this value and ship — both URLs hit the same Worker.

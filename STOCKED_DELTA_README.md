@@ -190,3 +190,13 @@ You may delete `CLAUDE_API_KEY` from your local `Secrets.xcconfig`.
 10. Airplane mode: edit inventory/grocery → "Pending changes · will sync" badge; back
     online → one sync, no duplicates on the other household device.
 11. Worker: `GET /health` shows `contentOrigin`; `node --test tests/*.mjs` green.
+
+---
+## Addendum — Fix 1 (applied) & repo cleanup (2026-07-17)
+- Fix 1: SearchNormalization made `nonisolated`; ProfileAvatar photo option moved to
+  `.photosPicker` — resolved all 5 Swift 6 compile errors.
+- QA Workbook fully removed; its 7 source files moved to `_to_delete/QA/`.
+- Removed duplicates: root `stocked_recipes.sqlite` and root `Nutrition/` (byte-identical
+  to the copies inside `Stocked/`), the empty `Stocked_Runtime_Log_Fixes` husk
+  (AppleDouble metadata only), and stray `._*` files. All parked in `_to_delete/` —
+  delete that folder in Finder when convenient.

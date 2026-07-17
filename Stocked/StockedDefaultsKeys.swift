@@ -10,7 +10,7 @@
 
 import Foundation
 
-enum DefaultsKey {
+nonisolated enum DefaultsKey {
     /// Index of cached AI recipe-import results (most-recent-first).
     static let recipeImportCacheIndex = "recipeImportAICacheIndex"
     /// Prefix for text-hash-keyed cached imports.

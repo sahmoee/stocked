@@ -9,13 +9,13 @@
 import Foundation
 
 // Wire format published to cPanel: /content/recipes.json
-struct RemoteCatalog: Codable {
+nonisolated struct RemoteCatalog: Codable, Sendable {
     var version: Int? = nil
     var updated: String? = nil
     var recipes: [RemoteRecipe] = []
 }
 
-struct RemoteRecipe: Codable {
+nonisolated struct RemoteRecipe: Codable, Sendable {
     var id: String
     var title: String
     var category: String? = nil
@@ -28,7 +28,7 @@ struct RemoteRecipe: Codable {
     var tags: [String]? = nil
     var source: String? = nil
 
-    func toOnlineRecipe(base: String) -> OnlineRecipe {
+    nonisolated func toOnlineRecipe(base: String) -> OnlineRecipe {
         let resolvedImage: String = {
             guard let im = (image ?? imageURL), !im.isEmpty else { return "" }
             if im.hasPrefix("http") { return im }

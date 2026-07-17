@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild -list)",
+      "Bash(xcrun --find swiftc)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -list)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -scheme Stocked -destination 'generic/platform=iOS Simulator' -configuration Debug build)"
+    ]
+  }
+}
