@@ -1,0 +1,5 @@
+# Smart links (fill in the real App Store id after release)
+/app          https://apps.apple.com/app/idXXXXXXXXX   302
+/privacy      /privacy.html                            200
+/terms        /terms.html                              200
+/support      /support.html                            200
