@@ -1,0 +1,2779 @@
+{
+  "sections": [
+    {
+      "name": "LAUNCH",
+      "description": "The app should open cleanly and establish trust immediately.",
+      "eli5": "What: the app opening — splash screen into the first real screen. Why it matters: it's the first impression and a crash here blocks everything else. Skip if: your change can't possibly affect startup."
+    },
+    {
+      "name": "AUTHENTICATION",
+      "description": "Account access should feel clear, secure, and recoverable.",
+      "eli5": "What: signing in and staying signed in. Why it matters: if login breaks nobody gets in, and account mix-ups are serious. Skip if: you didn't touch sign-in or accounts."
+    },
+    {
+      "name": "ONBOARDING",
+      "description": "First-time setup should teach without overwhelming.",
+      "eli5": "What: the first-run setup quiz new users see. Why it matters: it shapes everyone's first few minutes. Skip if: onboarding wasn't changed."
+    },
+    {
+      "name": "DAILY BRIEF",
+      "description": "Show the user what matters in their kitchen today.",
+      "eli5": "What: the morning summary card. Why it matters: it's the daily hook, so wrong info erodes trust fast. Skip if: brief content and logic are unchanged."
+    },
+    {
+      "name": "SIDE DRAWER",
+      "description": "Utility and account tools should be easy to find and exit.",
+      "eli5": "What: the slide-out menu. Why it matters: it's the map to everything; a broken link strands people. Skip if: you didn't touch the drawer."
+    },
+    {
+      "name": "HOME HUB",
+      "description": "Answer: What do I need to know about my kitchen right now?",
+      "eli5": "What: the Home tab. Why it matters: it's the launchpad users see most. Skip if: Home layout and cards are unchanged."
+    },
+    {
+      "name": "COOK HUB",
+      "description": "Reduce decision fatigue and guide the user from idea to completed meal.",
+      "eli5": "What: the cooking flows (Cook Now / Cook Later). Why it matters: it's the app's core value and a stall mid-cook is painful. Skip if: nothing cooking-related changed."
+    },
+    {
+      "name": "INVENTORY HUB",
+      "description": "Maintain a trustworthy record of what is available and usable.",
+      "eli5": "What: what's in your kitchen. Why it matters: grocery and cooking both key off stock accuracy. Skip if: inventory was untouched."
+    },
+    {
+      "name": "RECIPES HUB",
+      "description": "Organize recipes and connect them intelligently to inventory.",
+      "eli5": "What: browsing and saving recipes. Why it matters: it feeds both cooking and the grocery list. Skip if: recipe screens are unchanged."
+    },
+    {
+      "name": "GROCERY HUB",
+      "description": "Turn real needs into an accurate, efficient shopping plan.",
+      "eli5": "What: the shopping list. Why it matters: wrong quantities cost real money at the store. Skip if: grocery logic is unchanged."
+    },
+    {
+      "name": "INTERHUB DEPENDENCIES",
+      "description": "Every change should travel to every system that depends on it.",
+      "eli5": "What: the tabs working together — cook a meal, inventory drops, grocery updates. Why it matters: bugs hide in the handoffs, not on single screens. Don't fully skip before a release."
+    },
+    {
+      "name": "WORKFLOW CERTIFICATION",
+      "description": "Verify complete user journeys from entry to outcome - not just isolated screens.",
+      "eli5": "What: full end-to-end journeys, not single buttons. Why it matters: it proves the app works the way a real person actually uses it. Skip if: you're only doing a quick spot-check."
+    },
+    {
+      "name": "STRESS TESTING",
+      "description": "Find the limits before users do.",
+      "eli5": "What: pushing limits — huge lists, no network, rapid taps. Why it matters: it finds freezes and crashes that normal use won't. Skip if: it's a tiny, low-risk change."
+    },
+    {
+      "name": "REGRESSION",
+      "description": "Confirm critical promises still work after changes.",
+      "eli5": "What: re-checking old features after a fix. Why it matters: fixes often quietly break something nearby. Don't skip after any real change."
+    },
+    {
+      "name": "RELEASE SIGN-OFF",
+      "description": "Make a clear, documented go or no-go decision.",
+      "eli5": "What: the final go / no-go checklist. Why it matters: it's the last gate before TestFlight or the App Store. Never skip before shipping."
+    },
+    {
+      "name": "APPENDICES",
+      "description": "Capture sessions, tickets, and release evidence.",
+      "eli5": "What: reference notes and the device matrix. Why it matters: context for testing consistently. Skip anytime — it's reference, not tests."
+    }
+  ],
+  "tests": [
+    {
+      "id": "LAUNCH-001",
+      "section": "LAUNCH",
+      "title": "Splash Screen",
+      "purpose": "Verify the first impression and transition into the app.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "App launches successfully",
+        "Logo centered",
+        "No distortion or pixelation",
+        "Animation is smooth",
+        "Transition to next screen is seamless",
+        "No flicker or blank screen"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "AUTH-001",
+      "section": "AUTHENTICATION",
+      "title": "Login Screen",
+      "purpose": "Verify returning users can log in successfully.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Email field functions",
+        "Password field functions",
+        "Show/Hide password works",
+        "Login button enables appropriately",
+        "Successful login",
+        "Invalid credentials handled clearly"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "AUTH-002",
+      "section": "AUTHENTICATION",
+      "title": "Create Account",
+      "purpose": "Verify new users can create an account.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "All required fields accept input",
+        "Validation messages are clear",
+        "Password requirements enforced",
+        "Create Account completes successfully",
+        "New user enters onboarding"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "AUTH-003",
+      "section": "AUTHENTICATION",
+      "title": "Password Recovery",
+      "purpose": "Verify users can successfully recover access to their account.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Forgot Password opens",
+        "Email validation works",
+        "Recovery request submits",
+        "Confirmation message is clear",
+        "Return to Login works"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "ONBOARD-001",
+      "section": "ONBOARDING",
+      "title": "Personality Assessment",
+      "purpose": "Verify onboarding questions are intuitive and responses save correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Introduction explains purpose",
+        "Progress indicator updates",
+        "Questions display correctly",
+        "Selections save",
+        "Back button preserves answers",
+        "Required questions enforced"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "ONBOARD-002",
+      "section": "ONBOARDING",
+      "title": "Permissions & First-Time Tips",
+      "purpose": "Verify permissions and educational prompts behave correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Camera permission prompt",
+        "Notification permission prompt",
+        "Tips appear in correct order",
+        "Skip option behaves correctly",
+        "Prompts do not repeat unexpectedly",
+        "User reaches Home Hub successfully"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "BRIEF-001",
+      "section": "DAILY BRIEF",
+      "title": "Daily Brief Overview",
+      "purpose": "Verify the Daily Brief opens correctly and presents an accurate summary.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Daily Brief opens from Home",
+        "Greeting is correct",
+        "Date is correct",
+        "All summary cards load",
+        "No empty placeholders",
+        "Scrolling is smooth"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "BRIEF-002",
+      "section": "DAILY BRIEF",
+      "title": "Daily Brief Cards",
+      "purpose": "Verify each Daily Brief card displays accurate information and navigation.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Stock summary is accurate",
+        "Expiring items are accurate",
+        "Meal suggestions are accurate",
+        "Grocery reminders are accurate",
+        "Card tap opens correct destination",
+        "Completed items update appropriately"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "BRIEF-003",
+      "section": "DAILY BRIEF",
+      "title": "Daily Brief States",
+      "purpose": "Verify all common states render correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "First-time user state",
+        "Empty state",
+        "Fully populated state",
+        "Loading state",
+        "Error state",
+        "Return after app relaunch"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "DRAWER-001",
+      "section": "SIDE DRAWER",
+      "title": "Open & Close Side Drawer",
+      "purpose": "Verify the side drawer opens, closes, and behaves consistently.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Opens from Home",
+        "Swipe gesture works",
+        "Tap outside closes drawer",
+        "Animation is smooth",
+        "No clipped content",
+        "State preserved after reopening"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "DRAWER-002",
+      "section": "SIDE DRAWER",
+      "title": "Profile & Household",
+      "purpose": "Verify profile and household management pages.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Profile opens",
+        "Profile information is accurate",
+        "Edit profile saves",
+        "Household page opens",
+        "Invite flow works",
+        "Member list is accurate"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "DRAWER-003",
+      "section": "SIDE DRAWER",
+      "title": "Settings & Utilities",
+      "purpose": "Verify all utility pages available from the drawer.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Settings opens",
+        "Notifications page",
+        "Preferences page",
+        "Help/Support page",
+        "Feedback page (if available)",
+        "Logout confirmation"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "HOME-001",
+      "section": "HOME HUB",
+      "title": "Home Hub Overview",
+      "purpose": "Verify the Home Hub loads correctly and presents the primary dashboard.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Home Hub opens from navigation",
+        "Correct tab is highlighted",
+        "Greeting displays correctly",
+        "All cards load",
+        "No overlapping content",
+        "Scrolling is smooth"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "HOME-002",
+      "section": "HOME HUB",
+      "title": "Stock Level Card",
+      "purpose": "Verify the Stock Level summary accurately reflects inventory.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Stock counts are accurate",
+        "Percentages update correctly",
+        "Tap opens destination",
+        "Low-stock warnings display",
+        "Visual indicators are correct",
+        "Updates after inventory changes"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "HOME-003",
+      "section": "HOME HUB",
+      "title": "Action Center",
+      "purpose": "Verify Action Center surfaces actionable items correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Cards populate correctly",
+        "Priority order is logical",
+        "Buttons navigate correctly",
+        "Completed actions disappear/update",
+        "Animations are smooth",
+        "Empty state displays appropriately"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "HOME-004",
+      "section": "HOME HUB",
+      "title": "Use It Soon Card",
+      "purpose": "Verify expiring inventory recommendations are accurate and actionable.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Items match inventory",
+        "Expiration order is correct",
+        "Tap opens item details",
+        "Completed items update",
+        "Empty state is helpful",
+        "Refresh reflects changes"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "HOME-005",
+      "section": "HOME HUB",
+      "title": "Kitchen Tip Card",
+      "purpose": "Verify Kitchen Tips display useful, relevant content.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Tip loads successfully",
+        "Tip text is readable",
+        "Content is relevant",
+        "Refresh/new tip behaves correctly",
+        "No duplicate tips unexpectedly",
+        "Links/actions work if present"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "HOME-006",
+      "section": "HOME HUB",
+      "title": "Home Hub States",
+      "purpose": "Verify all Home Hub display states.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "First-time user",
+        "Returning user",
+        "Empty inventory",
+        "Fully populated inventory",
+        "Loading state",
+        "Offline/error state"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-001",
+      "section": "COOK HUB",
+      "title": "Cook Hub Overview",
+      "purpose": "Verify the Cook Hub loads correctly and presents all cooking pathways.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Cook Hub opens from navigation",
+        "Cook Now is visible",
+        "Cook Later is visible",
+        "Search is available",
+        "Saved filters persist",
+        "Scrolling is smooth"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-002",
+      "section": "COOK HUB",
+      "title": "Cook Now Entry",
+      "purpose": "Verify users can begin the Cook Now workflow.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Cook Now opens",
+        "Serving selector works",
+        "Inventory scan begins",
+        "Recipe generation loads",
+        "Back navigation works",
+        "No duplicate loading"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-003",
+      "section": "COOK HUB",
+      "title": "Recipe Suggestions",
+      "purpose": "Verify recipe recommendations are relevant and interactive.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Suggested recipes load",
+        "Makeable meals identified correctly",
+        "Refresh suggestions works",
+        "Recipe cards display correctly",
+        "Recipe preview opens",
+        "Unavailable recipes are labeled appropriately"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-004",
+      "section": "COOK HUB",
+      "title": "Makeable Meals",
+      "purpose": "Verify makeable meal calculations are accurate.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Inventory is analyzed correctly",
+        "Ingredient shortages identified",
+        "Serving adjustments update results",
+        "Recipe availability refreshes after inventory changes",
+        "Sorting works",
+        "Empty state behaves correctly"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-005",
+      "section": "COOK HUB",
+      "title": "Meal Selection",
+      "purpose": "Verify recipe selection behaves correctly before cooking begins.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Recipe details open",
+        "Serving count updates ingredients",
+        "Recipe can be favorited",
+        "Recipe can be scheduled",
+        "Recipe can be added to grocery planning",
+        "Back navigation preserves state"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-006",
+      "section": "COOK HUB",
+      "title": "Ingredient Substitutions",
+      "purpose": "Verify substitutions are intelligent and update the cooking plan.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Available substitutions appear",
+        "Unavailable ingredients identified",
+        "Substitution updates recipe",
+        "Inventory quantities recalculate",
+        "Nutrition updates if applicable",
+        "User can revert substitution"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-007",
+      "section": "COOK HUB",
+      "title": "Cook Now Workflow",
+      "purpose": "Verify the guided cooking experience.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Preparation instructions load",
+        "Steps advance correctly",
+        "Timers function",
+        "Media/images display",
+        "Back/forward navigation works",
+        "Progress is saved if app closes"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-008",
+      "section": "COOK HUB",
+      "title": "Cooking Completion",
+      "purpose": "Verify meal completion updates all connected systems.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Meal completes successfully",
+        "Inventory deducts correct quantities",
+        "Partial package logic is correct",
+        "Meal history records correctly",
+        "Daily Brief reflects completion",
+        "Home Hub updates immediately"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-009",
+      "section": "COOK HUB",
+      "title": "Meal Rating & History",
+      "purpose": "Verify completed meals can be reviewed and rated.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Meal saved to history",
+        "Rating can be added",
+        "Notes save correctly",
+        "Cook date/time accurate",
+        "Recipe reopen works",
+        "History search/filter works"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-010",
+      "section": "COOK HUB",
+      "title": "Cook Later & Meal Planning",
+      "purpose": "Verify planned meals and scheduling workflows.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Meal added to calendar",
+        "Date changes save",
+        "Multiple planned meals supported",
+        "Removing meal updates planner",
+        "Planned meal syncs correctly",
+        "Shopping impact calculated"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "COOK-011",
+      "section": "COOK HUB",
+      "title": "Meal Prep & Batch Prep",
+      "purpose": "Verify meal prep planning across multiple meals.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Shared ingredients detected",
+        "Prep tasks combined logically",
+        "Duplicate chopping avoided",
+        "Combined marinating supported",
+        "Prep schedule updates after edits",
+        "Removing one meal recalculates prep"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-001",
+      "section": "INVENTORY HUB",
+      "title": "Inventory Hub Overview",
+      "purpose": "Verify the Inventory Hub loads correctly and all primary inventory sections are accessible.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Inventory Hub opens",
+        "Correct inventory counts displayed",
+        "Search bar visible",
+        "Categories load",
+        "Navigation is responsive",
+        "Scrolling is smooth"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-002",
+      "section": "INVENTORY HUB",
+      "title": "Manual Item Entry",
+      "purpose": "Verify users can manually add inventory items.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Add Item screen opens",
+        "Category selection works",
+        "Quantity entry works",
+        "Package size entry works",
+        "Expiration date selection works",
+        "Save succeeds"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-003",
+      "section": "INVENTORY HUB",
+      "title": "Barcode Scanning",
+      "purpose": "Verify barcode scanning identifies products accurately.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Camera opens",
+        "Barcode recognized",
+        "Correct product returned",
+        "Unknown barcode handled",
+        "Manual override available",
+        "Inventory saves correctly"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-004",
+      "section": "INVENTORY HUB",
+      "title": "Receipt Scanning",
+      "purpose": "Verify receipt scanning imports purchased items correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Receipt scan starts",
+        "Receipt image processed",
+        "Items recognized accurately",
+        "Duplicate detection works",
+        "Manual corrections possible",
+        "Import completes successfully"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-005",
+      "section": "INVENTORY HUB",
+      "title": "AI Item Recognition",
+      "purpose": "Verify AI correctly identifies and categorizes food items.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Image capture/import works",
+        "AI identifies product correctly",
+        "Suggested category is appropriate",
+        "Package size inferred correctly",
+        "Confidence shown if applicable",
+        "Manual correction updates successfully"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-006",
+      "section": "INVENTORY HUB",
+      "title": "Edit Inventory Item",
+      "purpose": "Verify editing existing inventory records.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Item details open",
+        "Quantity edits save",
+        "Package size edits save",
+        "Expiration edits save",
+        "Location/category edits save",
+        "Changes immediately reflected throughout app"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-007",
+      "section": "INVENTORY HUB",
+      "title": "Delete & Restore Items",
+      "purpose": "Verify removal and recovery workflows.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Delete confirmation appears",
+        "Item removed correctly",
+        "Undo/restore works",
+        "Dependent systems update",
+        "Deleted item no longer searchable",
+        "Activity history records deletion"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-008",
+      "section": "INVENTORY HUB",
+      "title": "Search & Filters",
+      "purpose": "Verify inventory search and filtering.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Search returns correct items",
+        "Partial matches work",
+        "Category filters work",
+        "Multiple filters combine correctly",
+        "Clear filters resets results",
+        "No-result state displays appropriately"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-009",
+      "section": "INVENTORY HUB",
+      "title": "Inventory Categories",
+      "purpose": "Verify category organization and movement between categories.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "All categories visible",
+        "Move item between categories",
+        "Category counts update",
+        "Empty category state",
+        "Custom categories (if applicable)",
+        "Sorting within category"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-010",
+      "section": "INVENTORY HUB",
+      "title": "Expiration Tracking",
+      "purpose": "Verify expiration dates drive recommendations correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Expiration dates save",
+        "Items sort by expiration",
+        "'Use It Soon' updates",
+        "Expired items identified",
+        "Editing expiration refreshes app",
+        "Removing expiration handled"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-011",
+      "section": "INVENTORY HUB",
+      "title": "Quantity & Package Logic",
+      "purpose": "Verify quantities and package calculations remain accurate.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Increase quantity",
+        "Decrease quantity",
+        "Fractional quantities",
+        "Package size calculations",
+        "Partial package usage",
+        "Negative values prevented"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "INV-012",
+      "section": "INVENTORY HUB",
+      "title": "Low Stock & Inventory Sync",
+      "purpose": "Verify low-stock detection and synchronization.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Low stock threshold triggers",
+        "Notifications (if enabled)",
+        "Home Hub updates",
+        "Daily Brief updates",
+        "Makeable Meals refresh",
+        "Grocery suggestions refresh"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-001",
+      "section": "RECIPES HUB",
+      "title": "Recipes Hub Overview",
+      "purpose": "Verify the Recipes Hub loads correctly and all recipe collections are accessible.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Recipes Hub opens",
+        "My Collection loads",
+        "Search is available",
+        "Filters display correctly",
+        "Recipe cards populate",
+        "Scrolling is smooth"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-002",
+      "section": "RECIPES HUB",
+      "title": "My Collection",
+      "purpose": "Verify user-created and saved recipes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Saved recipes display",
+        "Recipe folders/categories work",
+        "Sort options function",
+        "Recipe search works",
+        "Recipe opens correctly",
+        "Delete/archive behaves correctly"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-003",
+      "section": "RECIPES HUB",
+      "title": "Recipe Details",
+      "purpose": "Verify individual recipe pages.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Ingredients display",
+        "Instructions display",
+        "Servings adjust correctly",
+        "Nutrition updates if applicable",
+        "Required inventory shown",
+        "Cook Now launches successfully"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-004",
+      "section": "RECIPES HUB",
+      "title": "Favorites & Saved Recipes",
+      "purpose": "Verify favorites and bookmarking workflows.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Favorite toggles correctly",
+        "Saved recipes update immediately",
+        "Favorites filter works",
+        "Duplicate saves prevented",
+        "Removing favorite updates list",
+        "Sync across app verified"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-005",
+      "section": "RECIPES HUB",
+      "title": "Recipe Import",
+      "purpose": "Verify recipe import from URL, manual entry, and AI.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Manual recipe creation works",
+        "URL import succeeds",
+        "AI import generates usable recipe",
+        "Ingredient parsing is accurate",
+        "Duplicate recipes handled",
+        "Imported recipe saves correctly"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-006",
+      "section": "RECIPES HUB",
+      "title": "AI Recipe Generation",
+      "purpose": "Verify AI-generated recipes meet expectations.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Generation starts",
+        "Recipe is relevant",
+        "Inventory-aware suggestions used",
+        "Missing ingredients identified",
+        "Serving adjustment works",
+        "Recipe can be saved"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-007",
+      "section": "RECIPES HUB",
+      "title": "Recipe Editing & Organization",
+      "purpose": "Verify editing and organizing recipes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Edit title",
+        "Edit ingredients",
+        "Edit instructions",
+        "Move to collection/folder",
+        "Rename collection",
+        "Delete collection safely"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REC-008",
+      "section": "RECIPES HUB",
+      "title": "Recipe Search & Filters",
+      "purpose": "Verify finding recipes quickly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Keyword search",
+        "Ingredient search",
+        "Cuisine filter",
+        "Meal type filter",
+        "Favorites filter",
+        "Multiple filters together"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-001",
+      "section": "GROCERY HUB",
+      "title": "Grocery Hub Overview",
+      "purpose": "Verify the Grocery Hub loads and shopping lists are accessible.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Hub opens",
+        "Lists load",
+        "Search visible",
+        "Categories load",
+        "Scrolling smooth",
+        "No missing UI"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-002",
+      "section": "GROCERY HUB",
+      "title": "Add Grocery Items",
+      "purpose": "Verify manual and suggested grocery item creation.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Manual add works",
+        "Autocomplete works",
+        "Quantity entry",
+        "Category assignment",
+        "Duplicate handling",
+        "Item saves"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-003",
+      "section": "GROCERY HUB",
+      "title": "Smart Grocery Suggestions",
+      "purpose": "Verify inventory and meal plans generate grocery suggestions.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Missing ingredients detected",
+        "Existing inventory excluded",
+        "Serving changes update",
+        "Meal plan sync",
+        "Suggestion dismissal",
+        "Refresh works"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-004",
+      "section": "GROCERY HUB",
+      "title": "Purchased Items & Shopping Mode",
+      "purpose": "Verify shopping workflow updates inventory correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Mark purchased",
+        "Bulk purchase",
+        "Undo purchase",
+        "Inventory updates",
+        "Cross-off animation",
+        "Shopping mode persists"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-005",
+      "section": "GROCERY HUB",
+      "title": "List Organization",
+      "purpose": "Verify grocery list organization and sorting.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Lists can be renamed",
+        "Multiple lists supported",
+        "Items move between lists",
+        "Sort by category",
+        "Sort manually",
+        "Completed items hidden/restored"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-006",
+      "section": "GROCERY HUB",
+      "title": "Store Organization",
+      "purpose": "Verify shopping by store.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Assign preferred store",
+        "Items grouped by store",
+        "Multiple stores supported",
+        "Store changes save",
+        "Unknown stores handled",
+        "Shopping order preserved"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-007",
+      "section": "GROCERY HUB",
+      "title": "Shared Household Grocery",
+      "purpose": "Verify shared grocery list synchronization.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Household changes sync",
+        "Conflicting edits handled",
+        "Purchased items sync",
+        "Real-time updates",
+        "Offline recovery",
+        "Activity history accurate"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "GROC-008",
+      "section": "GROCERY HUB",
+      "title": "Grocery History & Settings",
+      "purpose": "Verify grocery history and user settings.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Shopping history available",
+        "Past lists reopen",
+        "History searchable",
+        "Notification preferences",
+        "Default settings save",
+        "Reset options work"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-001",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Inventory → Home",
+      "purpose": "Verify Home updates immediately after inventory changes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Add inventory item updates Home",
+        "Edit quantity updates Home",
+        "Delete item updates Home",
+        "Stock level recalculates",
+        "Use It Soon refreshes",
+        "Action Center refreshes"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-002",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Inventory → Daily Brief",
+      "purpose": "Verify Daily Brief reflects inventory changes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "New items reflected",
+        "Expired items reflected",
+        "Low stock reflected",
+        "Removed items disappear",
+        "Brief updates after relaunch",
+        "No stale information remains"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-003",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Inventory → Makeable Meals",
+      "purpose": "Verify inventory changes recalculate recipe availability.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Adding ingredient unlocks recipes",
+        "Removing ingredient hides recipes",
+        "Serving counts update",
+        "Substitutions recalculate",
+        "Recipe availability refreshes instantly",
+        "Empty state accurate"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-004",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Inventory → Grocery Suggestions",
+      "purpose": "Verify grocery suggestions react to inventory changes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Low stock creates suggestion",
+        "Deleting item creates suggestion",
+        "Adding purchased item removes suggestion",
+        "Serving changes affect quantities",
+        "Manual grocery items preserved",
+        "No duplicate suggestions"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-005",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Inventory → Recipes",
+      "purpose": "Verify recipe collections and availability respond to inventory updates.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Recipe ingredient availability updates",
+        "Recipe badges refresh",
+        "Collections remain accurate",
+        "Recipe details reflect inventory",
+        "Favorite recipes update",
+        "Recipe search remains accurate"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-006",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Cook → Inventory",
+      "purpose": "Verify completing a meal updates inventory correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Ingredients deducted",
+        "Partial packages calculated",
+        "Servings affect deduction",
+        "Canceled cook does not deduct",
+        "Undo behavior correct",
+        "Inventory totals remain accurate"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-007",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Cook → Meal History & Home",
+      "purpose": "Verify completed meals propagate through the app.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Meal added to history",
+        "Home Hub updates",
+        "Daily Brief reflects completion",
+        "Recent activity updated",
+        "Streaks/achievements update if applicable",
+        "Duplicate completion prevented"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-008",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Meal Planning → Grocery",
+      "purpose": "Verify meal planning drives grocery automation.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Planning meals adds missing items",
+        "Existing inventory excluded",
+        "Removing meal removes suggestions",
+        "Serving changes adjust quantities",
+        "Duplicate ingredients consolidated",
+        "Manual grocery items preserved"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-009",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Meal Prep → Inventory",
+      "purpose": "Verify meal prep updates inventory and prep tasks correctly.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Prep tasks generated",
+        "Shared ingredients consolidated",
+        "Prep completion updates inventory",
+        "Batch prep recalculates after meal edits",
+        "Prep status persists after relaunch",
+        "No duplicate prep tasks"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-010",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Household Synchronization",
+      "purpose": "Verify multiple household members stay synchronized.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Inventory changes sync",
+        "Grocery changes sync",
+        "Meal planning syncs",
+        "Conflict resolution works",
+        "Offline edits reconcile",
+        "Activity feed accurate"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-011",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "Notifications & Daily Brief",
+      "purpose": "Verify notifications and Daily Brief react to system changes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Low-stock notification",
+        "Expiration notification",
+        "Meal reminder",
+        "Daily Brief refreshes",
+        "Dismissed notifications stay dismissed",
+        "Notification tap opens correct screen"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-012",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "AI Recommendation Engine",
+      "purpose": "Verify AI recommendations stay current.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Recommendations reflect inventory",
+        "Recommendations reflect meal plan",
+        "Suggestions refresh after edits",
+        "No stale recommendations",
+        "Personalization honored",
+        "Recommendation quality acceptable"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SYNC-013",
+      "section": "INTERHUB DEPENDENCIES",
+      "title": "End-to-End Kitchen Workflow",
+      "purpose": "Verify the complete kitchen lifecycle.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Plan meals",
+        "Generate grocery list",
+        "Purchase groceries",
+        "Inventory updates",
+        "Cook meal",
+        "Inventory deducts correctly"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "WF-001",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "First-Time Account Setup",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Splash",
+        "Sign in with Apple or Continue as Guest",
+        "Name",
+        "Personality Assessment",
+        "Permissions",
+        "Home"
+      ],
+      "checklist": [
+        "Start with no existing Stocked profile and launch from TestFlight.",
+        "Complete Sign in with Apple and confirm the Apple-authenticated profile is created",
+        "correctly.",
+        "Repeat with Continue as Guest and enter a name for personalization.",
+        "Complete every required personality assessment question.",
+        "Accept or decline each permission and verify the app responds appropriately.",
+        "Confirm first-time guidance appears in the intended order.",
+        "Confirm the user lands on the correct Home state and onboarding does not restart",
+        "after relaunch."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-002",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Returning User Access",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Splash",
+        "Apple Session or Guest Profile",
+        "Home",
+        "Daily Brief"
+      ],
+      "checklist": [
+        "Reopen Stocked with an existing Sign in with Apple account and confirm the session",
+        "persists.",
+        "Reopen an existing guest profile and confirm the personalized name remains",
+        "available on that device.",
+        "Confirm Daily Brief appears only when expected.",
+        "Confirm Home, inventory totals, profile, and household data are current.",
+        "Background the app and return; session should remain intact.",
+        "Sign out where supported and confirm no household or inventory data is lost."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-003",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Create and Invite a Household",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Profile",
+        "Household",
+        "Create",
+        "Invite",
+        "Member Joins",
+        "Sync"
+      ],
+      "checklist": [
+        "Create a household from the profile or side drawer.",
+        "As owner, generate and share an invite by link.",
+        "Generate and share a separate invite by code.",
+        "Accept an invite from a second account/device and confirm the new person is a",
+        "member.",
+        "Confirm only the owner can remove another member.",
+        "Confirm a member can leave the household voluntarily.",
+        "Verify shared inventory, grocery, planning, and activity data synchronize",
+        "correctly after joins and removals."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-004",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Join an Existing Household",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Invite Link/Code",
+        "Join",
+        "Profile",
+        "Shared Kitchen"
+      ],
+      "checklist": [
+        "Open a valid invite from a new or existing account.",
+        "Confirm the household name and inviter are clear before joining.",
+        "Join successfully without creating a duplicate household.",
+        "Confirm shared inventory and grocery data load.",
+        "Confirm private profile preferences remain personal where intended.",
+        "Reject or use an expired invite and verify clear recovery messaging."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-101",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Add the First Inventory Items",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Empty Inventory",
+        "Add Item",
+        "Save",
+        "Home",
+        "Daily Brief",
+        "Cook"
+      ],
+      "checklist": [
+        "Start with an empty kitchen.",
+        "Add one pantry, refrigerator, freezer, and staple item manually.",
+        "Verify quantities, units, storage location, and expiration values save.",
+        "Confirm inventory counts and category counts update.",
+        "Confirm Home and Daily Brief move from empty to populated states.",
+        "Confirm Makeable Meals and recipe availability recalculate.",
+        "Relaunch the app and verify all items persist."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-102",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Stock the Kitchen From a Receipt",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Home/Drawer",
+        "Scan Receipt",
+        "Review",
+        "Correct",
+        "Import",
+        "Verify"
+      ],
+      "checklist": [
+        "Scan a clear multi-item receipt and confirm every recognized line is reviewable before import.",
+        "Correct at least one product, quantity, category, package size, storage location, or expiration value.",
+        "Resolve an item already present in Inventory without creating an unintended duplicate.",
+        "Import the accepted lines and confirm every item appears exactly once with the approved details.",
+        "Confirm removed, rejected, or unresolved receipt lines are not imported.",
+        "Verify Kitchen, Available, and Reserved quantities remain accurate after import.",
+        "Verify Home, Daily Brief, Makeable Meals, Recipes, Grocery, and planning integrity refresh correctly."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review",
+        "Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-103",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Add a Product by Barcode",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Scan Barcode",
+        "Product Match",
+        "Adjust Details",
+        "Save",
+        "Verify"
+      ],
+      "checklist": [
+        "Scan a known barcode and verify the correct product appears.",
+        "Adjust quantity and package size before saving.",
+        "Assign the intended storage location and expiration date.",
+        "Save and verify inventory/category counts update.",
+        "Scan the same barcode again and verify duplicate handling.",
+        "Scan an unknown barcode and complete the manual fallback.",
+        "Confirm downstream recipe and grocery logic uses the saved quantity."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-104",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Quick Update After Real-World Use",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Home",
+        "Quick Update",
+        "Describe Change",
+        "Review",
+        "Apply"
+      ],
+      "checklist": [
+        "Open Quick Update from Home or the side drawer.",
+        "Describe consuming, adding, opening, or discarding multiple items.",
+        "Review the interpreted changes before applying them.",
+        "Correct one misunderstood item or amount.",
+        "Apply the update and verify exact quantities.",
+        "Confirm low-stock, expiration, recipe, and grocery effects update.",
+        "Undo or manually repair an incorrect update successfully."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-105",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Edit, Move, and Reclassify an Item",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Inventory",
+        "Item Detail",
+        "Edit",
+        "Move Location/Category",
+        "Save"
+      ],
+      "checklist": [
+        "Open an existing item from search and from its category.",
+        "Edit name, quantity, unit, package size, and expiration.",
+        "Move the item between refrigerator, pantry, freezer, or staples.",
+        "Confirm it disappears from the old location and appears once in the new one.",
+        "Verify category counts and inventory status recalculate.",
+        "Confirm recipes and Makeable Meals use the updated item identity.",
+        "Reopen after relaunch and verify the edit persisted."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-106",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Delete, Undo, and Restore Inventory",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Item Detail",
+        "Delete",
+        "Confirm",
+        "Undo/Restore",
+        "Connected Systems"
+      ],
+      "checklist": [
+        "Delete an item used by at least one recipe or future planned meal.",
+        "Confirm the deletion prompt identifies the correct item and communicates any planning impact.",
+        "Verify the item disappears immediately from Inventory, search, Kitchen, Available, and Reserved views.",
+        "Confirm Home, Daily Brief, Makeable Meals, Grocery, and affected planned meals recalculate correctly.",
+        "Use Undo within the supported recovery window and confirm the item returns with all prior details.",
+        "Confirm restored quantities and reservations return without duplication or stale warnings.",
+        "Verify household activity history records the delete and restoration accurately."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review",
+        "Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-107",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Expiration Cleanup",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Use It Soon",
+        "Item Detail",
+        "Use/Discard/Edit",
+        "Refresh"
+      ],
+      "checklist": [
+        "Create items expiring today, tomorrow, later, and already expired.",
+        "Confirm ordering and labels are accurate in Use It Soon and Daily Brief.",
+        "Open an item from the expiration surface.",
+        "Mark one used, one discarded, and extend one expiration date.",
+        "Confirm each action updates inventory and recommendations correctly.",
+        "Verify discarded items can trigger grocery suggestions when appropriate.",
+        "Confirm no stale expiration warnings remain after refresh/relaunch."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-108",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Partial Package and Fractional Quantity",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Add Package",
+        "Cook Partial Amount",
+        "Verify Remaining Quantity"
+      ],
+      "checklist": [
+        "Add an item with package count and package size.",
+        "Use a recipe requiring less than one full package.",
+        "Adjust servings before cooking.",
+        "Complete the meal and verify only the used amount is deducted.",
+        "Confirm the remaining amount displays in an understandable unit.",
+        "Cook again until the package reaches zero.",
+        "Verify low-stock and grocery behavior at each threshold."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-201",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Build a Grocery List Manually",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Grocery",
+        "Add Item",
+        "Quantity/Category",
+        "Sort",
+        "Shop"
+      ],
+      "checklist": [
+        "Add multiple items manually, including a duplicate and a long name.",
+        "Assign quantities, units, category, and store where supported.",
+        "Reorder or sort the list.",
+        "Move an item between lists or stores if available.",
+        "Edit and delete an item before shopping.",
+        "Confirm manual items are not overwritten by meal-plan automation.",
+        "Relaunch and verify the list persists."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-202",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Generate a List From a Meal Plan",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook Later",
+        "Plan Meals",
+        "Missing Ingredients",
+        "Grocery List"
+      ],
+      "checklist": [
+        "Plan multiple meals with overlapping ingredients.",
+        "Set different serving counts for at least two meals.",
+        "Generate or review missing grocery ingredients.",
+        "Confirm owned inventory is excluded at the correct usable quantity.",
+        "Confirm repeated ingredients consolidate into one accurate amount.",
+        "Remove one planned meal and verify the list recalculates.",
+        "Confirm manually added grocery items remain untouched."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-203",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Complete a Grocery Shopping Trip",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "To Buy",
+        "Shopping Mode",
+        "Mark Bought",
+        "Review Import",
+        "Finish",
+        "Inventory"
+      ],
+      "checklist": [
+        "Open a populated grocery list in shopping mode and mark items bought individually and in bulk where supported.",
+        "Undo at least one accidental purchase action and confirm list state restores correctly.",
+        "Finish shopping and review quantities, package details, storage locations, and expiration values before Inventory import.",
+        "Confirm purchased items transfer into Inventory exactly once and preserve manually added grocery items appropriately.",
+        "Scan the same trip receipt afterward and verify duplicate protection prevents double entry.",
+        "Confirm To Buy, Bought, and grocery history views remain accurate after completion.",
+        "Verify Home, Daily Brief, Makeable Meals, meal planning, Reserved inventory, and prep opportunities update."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review",
+        "Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-204",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Shop Across Multiple Stores",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Grocery",
+        "Assign Stores",
+        "Shop Store A",
+        "Store B",
+        "Complete"
+      ],
+      "checklist": [
+        "Assign items to at least two stores.",
+        "Confirm grouping and totals are clear.",
+        "Complete only the first store and leave the second incomplete.",
+        "Exit and resume the trip without losing progress.",
+        "Move an unavailable item to another store or leave it pending.",
+        "Complete the second store and verify one combined inventory result.",
+        "Confirm history accurately represents both store segments."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-205",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Substitute an Unavailable Grocery Item",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Planned Meal",
+        "Grocery Item Unavailable",
+        "Substitute",
+        "Recalculate"
+      ],
+      "checklist": [
+        "Choose an ingredient tied to a planned recipe and mark it unavailable.",
+        "Review substitute suggestions for relevance and quantity.",
+        "Accept a substitute and confirm the grocery list changes.",
+        "Confirm the recipe and meal-prep instructions adapt if required.",
+        "Reject a substitute and keep the original item pending.",
+        "Verify inventory import uses the purchased substitute, not the original.",
+        "Confirm no duplicate or orphaned ingredient remains."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-301",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Cook a Makeable Meal Tonight",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook",
+        "Cook Now",
+        "Makeable Meal",
+        "Steps",
+        "Finish"
+      ],
+      "checklist": [
+        "Enter Cook Now and choose servings/household diners.",
+        "Confirm Makeable Meals reflects current inventory.",
+        "Select a fully makeable recipe and review details.",
+        "Begin cooking and advance through every step.",
+        "Use timers or device instructions where offered.",
+        "Finish the meal and verify inventory deductions.",
+        "Confirm Home, Daily Brief, meal history, and grocery suggestions update."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-302",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Choose a Base and Refresh Suggestions",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook Now",
+        "Base Ingredient",
+        "Suggestions",
+        "Refresh",
+        "Select"
+      ],
+      "checklist": [
+        "Choose a protein, produce item, or other meal base.",
+        "Confirm suggestions are relevant to the selected base and inventory.",
+        "Use refresh and verify genuinely different useful options appear.",
+        "Switch between entree-only and full-meal choices if supported.",
+        "Open and back out of multiple recipe previews without losing selections.",
+        "Select one recipe and continue into serving and substitution steps.",
+        "Confirm the chosen base is not deducted until cooking completes."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-303",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Cook With One Missing Ingredient",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Recipe",
+        "Missing Ingredient",
+        "Substitute/Shop/Continue",
+        "Cook"
+      ],
+      "checklist": [
+        "Select a recipe missing exactly one ingredient.",
+        "Confirm the missing amount is accurate for the selected servings.",
+        "Review substitution, omit, or add-to-grocery options.",
+        "Choose a valid substitute and confirm instructions update.",
+        "Complete cooking and verify the substitute is deducted.",
+        "Confirm the original missing ingredient is not incorrectly deducted.",
+        "Verify meal history records the adapted version clearly."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-304",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "No Makeable Meals Recovery",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook Now",
+        "Zero Results",
+        "Recovery Options",
+        "New Path"
+      ],
+      "checklist": [
+        "Create inventory conditions with no fully makeable meals.",
+        "Confirm the empty state explains why there are no results.",
+        "Use suggested recovery paths such as nearly makeable, substitutions, add item, or",
+        "grocery.",
+        "Confirm the user can change the base or constraints without restarting.",
+        "Select a recovered option and reach a viable recipe.",
+        "Verify no dead end, blank screen, or misleading claim occurs."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-305",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Pause and Resume Active Cooking",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Start Cooking",
+        "Leave Attempt",
+        "Pause Cooking",
+        "Reopen",
+        "Resume",
+        "Finish"
+      ],
+      "checklist": [
+        "Begin a multi-step recipe and complete several preparation or cooking steps.",
+        "Attempt to leave and confirm Stocked offers Pause Cooking, Cancel Meal, and Continue Cooking.",
+        "Choose Pause Cooking and confirm the current step, completed steps, substitutions, and active timers are saved.",
+        "Background Stocked, lock the device, force close, and relaunch the app.",
+        "Resume from the exact saved point without repeating completed steps or losing timer context.",
+        "Finish the recipe and confirm inventory is deducted only once at completion.",
+        "Verify Home, Daily Brief, meal history, Grocery, and future planning integrity update correctly."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review",
+        "Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-306",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Cancel Cooking Before Completion",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Start Recipe",
+        "Progress",
+        "Cancel",
+        "Confirm",
+        "Inventory and Planning Check"
+      ],
+      "checklist": [
+        "Start a recipe and progress far enough to create meaningful saved cooking state.",
+        "Attempt to leave using both back navigation and the explicit cancel action.",
+        "Confirm warning language clearly distinguishes Pause Cooking from Cancel Meal.",
+        "Cancel the session and verify the active cooking state is removed.",
+        "Confirm no ingredients are deducted and no prepared or reserved quantity is changed as though the meal completed.",
+        "Confirm the unfinished meal does not appear in completed meal history or completion-based Daily Brief activity.",
+        "Start the same recipe again and verify a clean state with accurate current inventory and planning impact."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review",
+        "Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-307",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Cook a Full Meal With Multiple Components",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook Now",
+        "Full Meal",
+        "Coordinated Steps",
+        "Complete"
+      ],
+      "checklist": [
+        "Select a main dish with at least one side or component.",
+        "Confirm servings apply consistently to every component.",
+        "Verify prep and cooking steps are sequenced for realistic timing.",
+        "Confirm shared ingredients are not duplicated incorrectly.",
+        "Use multiple devices or alternate devices if offered.",
+        "Complete all components and verify combined deductions.",
+        "Confirm meal history represents one meal rather than unrelated recipes."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-401",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Plan a Full Week of Meals",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook Later",
+        "Calendar",
+        "Add Meals",
+        "Review Week"
+      ],
+      "checklist": [
+        "Open the calendar-based planning experience.",
+        "Plan meals across at least five different days.",
+        "Use saved, discovered, and AI-created recipes.",
+        "Change servings for different days.",
+        "Confirm conflicts, repeated meals, and schedule details are understandable.",
+        "Review grocery impact and prep opportunities.",
+        "Close and reopen; the complete week should persist."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-402",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Move, Replace, and Remove Planned Meals",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Calendar",
+        "Move Meal",
+        "Replace",
+        "Remove",
+        "Recalculate"
+      ],
+      "checklist": [
+        "Move a meal to a different day.",
+        "Replace a planned recipe with another.",
+        "Remove a meal entirely.",
+        "Confirm grocery quantities recalculate after each action.",
+        "Confirm batch-prep tasks add, change, or disappear correctly.",
+        "Confirm reminders and Daily Brief use the new schedule.",
+        "Verify no orphaned grocery or prep task remains."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-403",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Sunday Batch Prep Across Meals",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Meal Plan",
+        "Prep Overview",
+        "Combine Tasks",
+        "Complete Prep"
+      ],
+      "checklist": [
+        "Plan at least three meals sharing ingredients.",
+        "Open the meal-prep overview.",
+        "Confirm shared washing, chopping, and portioning tasks are consolidated.",
+        "Confirm quantities equal the combined needs of all meals.",
+        "Complete a shared prep task and verify the used amounts become reserved/spoken for",
+        "rather than freely available.",
+        "Confirm storage and use-by guidance are appropriate for each meal date.",
+        "Verify Total, Available, and Reserved quantities remain understandable across",
+        "Inventory, Cook Now, and Meal Planning."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-404",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Batch an Ingredient Used Differently",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Multiple Meals",
+        "Same Ingredient",
+        "Different Cuts/Methods",
+        "Prep Plan"
+      ],
+      "checklist": [
+        "Plan meals using the same ingredient in different forms, such as diced and sliced",
+        "onion.",
+        "Confirm Stocked combines only compatible preparation work.",
+        "Verify quantities are split accurately by preparation method.",
+        "Confirm the app does not falsely combine tasks that should remain separate.",
+        "Mark one preparation method complete and leave the other pending.",
+        "Confirm each meal receives the correct prepared form."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-405",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Shared Marinade Across Meals",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Plan Meals",
+        "Shared Protein/Marinade",
+        "Batch",
+        "Store",
+        "Cook"
+      ],
+      "checklist": [
+        "Plan multiple meals using the same compatible protein and marinade.",
+        "Confirm Stocked proposes one safe batch-marination task.",
+        "Verify total protein and marinade quantities.",
+        "Confirm separation/labeling guidance for different meal days.",
+        "Complete prep and verify each linked meal is ready at the right time.",
+        "Remove one meal and confirm batch quantities recalculate.",
+        "Verify food-safety timing prevents over-marination or unsafe storage."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-406",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Prep Schedule Changes After Inventory Change",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Prep Plan",
+        "Inventory Edit",
+        "Recalculate",
+        "Review"
+      ],
+      "checklist": [
+        "Create a meal plan and generated prep schedule.",
+        "Delete, reduce, or expire a required inventory item.",
+        "Confirm affected prep tasks and grocery needs update.",
+        "Add the missing item back with a different quantity.",
+        "Confirm the schedule recalculates without duplicate tasks.",
+        "Verify completed prep remains completed where still valid."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-407",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Cook a Previously Prepped Meal",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Prepared Meal",
+        "Cook Now",
+        "Adjusted Steps",
+        "Complete"
+      ],
+      "checklist": [
+        "Complete prep tasks for a planned meal in advance.",
+        "Open that meal on its scheduled day.",
+        "Confirm already completed prep steps are skipped or marked done.",
+        "Verify remaining instructions reflect the prepared state.",
+        "Complete cooking and deduct only the correct remaining inventory.",
+        "Confirm prepared subcomponents are consumed/cleared appropriately.",
+        "Verify history and plan status update to completed."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-408",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Reserve Ingredients for Planned Meals",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Plan Meal",
+        "Calculate Needs",
+        "Reserve Inventory",
+        "Show Available Balance"
+      ],
+      "checklist": [
+        "Plan a future meal using ingredients currently in Inventory.",
+        "Confirm required amounts are marked Reserved or Spoken For.",
+        "Confirm Total Owned remains unchanged while Available decreases by the reserved",
+        "amount.",
+        "Verify Makeable Meals defaults to Available inventory and does not silently",
+        "consume reservations.",
+        "Confirm Home, Daily Brief, Grocery, and Meal Prep reflect the commitment.",
+        "Remove or change the planned meal and verify the reservation recalculates",
+        "immediately."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-409",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Cook Now With Reserved Ingredients",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook Now",
+        "Include Reserved Items",
+        "Select Recipe",
+        "Review Impact",
+        "Cook Anyway"
+      ],
+      "checklist": [
+        "Confirm default Ready to Cook results use only Available inventory.",
+        "Enable the option to include recipes that require Reserved inventory.",
+        "Confirm affected recipes are clearly labeled as using reserved ingredients.",
+        "Open one and review which future meals and quantities will be affected.",
+        "Choose Cook Anyway and confirm the user is not blocked.",
+        "Verify the affected future meal creates or updates a grocery need before its",
+        "scheduled date.",
+        "Confirm reservations, Available inventory, recommendations, and alerts all",
+        "recalculate."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-410",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Reserved Inventory Recipe Visibility",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Cook Now",
+        "Ready to Cook",
+        "Ready if Plans Change",
+        "Compare"
+      ],
+      "checklist": [
+        "Create inventory where several recipes are possible only by using reserved items.",
+        "Confirm those recipes do not appear as fully safe/default makeable meals.",
+        "Confirm they remain discoverable in a clearly separated Ready if Plans Change view",
+        "or equivalent filter.",
+        "Verify each card communicates the reservation impact before selection.",
+        "Confirm the user can return to Available-only results without losing other Cook",
+        "Now choices.",
+        "Rate whether the distinction between owned, available, and reserved is",
+        "understandable."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-411",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Future Meal Shortage Warning",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Reservation or Override",
+        "Recalculate Future Meals",
+        "Alert",
+        "Replenish"
+      ],
+      "checklist": [
+        "Create several planned meals that rely on overlapping inventory.",
+        "Reserve quantities and confirm the app detects when supply will run out before all",
+        "scheduled meals.",
+        "Verify the warning identifies the affected ingredient, amount, and meal date.",
+        "Use a reserved ingredient in Cook Now and choose Cook Anyway.",
+        "Confirm the future shortage warning updates immediately.",
+        "Add the replenishment to Grocery or change the affected meal.",
+        "Verify the warning clears only when the future plan is valid again."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-501",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Import a Recipe From a Link",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Recipes",
+        "Import",
+        "Website or Social Post Link",
+        "Parse",
+        "Edit",
+        "Save",
+        "Cook/Plan"
+      ],
+      "checklist": [
+        "Import a supported website recipe URL.",
+        "Import a supported social recipe link, such as Instagram or TikTok, when the post",
+        "contains enough usable recipe detail.",
+        "Confirm title, image, ingredients, quantities, and instructions parse accurately",
+        "from available source data.",
+        "Show clear recovery when a source does not contain enough information to import.",
+        "Correct at least one parsed field and save the recipe.",
+        "Check inventory matching and missing-ingredient calculations.",
+        "Use the imported recipe in Cook Now or Cook Later successfully."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-502",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Create a Recipe With AI",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Recipes",
+        "Create With AI",
+        "Prompt",
+        "Review",
+        "Save",
+        "Use"
+      ],
+      "checklist": [
+        "Describe a recipe using dietary, ingredient, time, and appliance constraints.",
+        "Confirm the generated recipe follows the prompt.",
+        "Verify quantities and steps are internally consistent.",
+        "Confirm inventory-aware claims are accurate.",
+        "Edit and save the recipe.",
+        "Generate again or refine without losing the accepted version.",
+        "Cook or schedule the saved recipe successfully."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-503",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Organize and Refind a Saved Recipe",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Save/Favorite",
+        "Collection",
+        "Search/Filter",
+        "Open"
+      ],
+      "checklist": [
+        "Save and favorite a recipe.",
+        "Place it into a collection or cuisine grouping.",
+        "Find it using keyword, ingredient, source, and category paths.",
+        "Remove it from favorites but keep it saved.",
+        "Move it to another collection.",
+        "Confirm duplicates are not created through repeated saves.",
+        "Delete/archive and verify expected recovery or confirmation behavior."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-504",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Change Recipe Servings Across Systems",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Recipe Detail",
+        "Change Servings",
+        "Grocery/Plan/Cook Updates"
+      ],
+      "checklist": [
+        "Open a recipe and change its serving count.",
+        "Confirm ingredient quantities scale correctly.",
+        "Add it to a meal plan and verify the selected serving count persists.",
+        "Confirm grocery requirements use the scaled quantities.",
+        "Begin Cook Now and verify the same serving count is used.",
+        "Complete cooking and confirm scaled inventory deductions."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-601",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Two-Person Shared Kitchen Day",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Member A Adds",
+        "Member B Shops",
+        "Member A Cooks",
+        "Both Sync"
+      ],
+      "checklist": [
+        "Member A adds or edits inventory.",
+        "Member B sees the change on another device.",
+        "Member B adds and buys grocery items.",
+        "Member A sees bought items and inventory updates.",
+        "Member A completes a meal.",
+        "Member B sees deductions, activity, and meal status.",
+        "Confirm no duplicate events or conflicting totals appear."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-602",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Simultaneous Inventory Conflict",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Two Devices",
+        "Same Item Edit",
+        "Sync",
+        "Resolution"
+      ],
+      "checklist": [
+        "Open the same item on two devices.",
+        "Make different quantity or detail edits before syncing.",
+        "Submit both changes close together.",
+        "Confirm the first completed change is applied first and the later change",
+        "reconciles without creating a duplicate item.",
+        "Confirm the final quantity and details are clear on both devices.",
+        "Confirm activity history communicates both actions in a sensible order.",
+        "Relaunch both devices and verify they converge on the same final state."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-603",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Profile Preferences Affect Shared Suggestions",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Member Preferences",
+        "Shared Meal Suggestions",
+        "Review"
+      ],
+      "checklist": [
+        "Create different likes, dislikes, allergies, or dietary preferences for household",
+        "members.",
+        "Generate recommendations while each individual profile is active.",
+        "Confirm recommendations remain personalized to the active profile rather than",
+        "being overwritten by another member.",
+        "When multiple diners are intentionally selected, confirm the app explains how",
+        "their preferences are being combined.",
+        "Change one profile preference and verify only the appropriate recommendations",
+        "refresh.",
+        "Confirm private profile data is not exposed unnecessarily."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-701",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Expiration-First Recommendation Flow",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Expiring Item",
+        "Daily Brief/Home",
+        "Recipe",
+        "Cook",
+        "Clear Alert"
+      ],
+      "checklist": [
+        "Create an ingredient expiring soon with multiple possible recipes.",
+        "Confirm Daily Brief and Use It Soon surface the item.",
+        "Confirm recipe suggestions reasonably prioritize using it.",
+        "Select and cook a recommended recipe.",
+        "Verify the correct amount is deducted.",
+        "Confirm expiration alerts and recommendations clear or adjust afterward.",
+        "Rate whether the recommendation felt genuinely useful."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-702",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Inventory Correction Repairs the Ecosystem",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Incorrect Inventory",
+        "Edit",
+        "All Recommendations Recalculate"
+      ],
+      "checklist": [
+        "Create an intentional quantity or identity error.",
+        "Observe affected Makeable Meals, grocery, Home, and Daily Brief results.",
+        "Correct the inventory record.",
+        "Confirm every dependent surface recalculates.",
+        "Verify stale recommendation cards disappear.",
+        "Confirm no manual refresh is required where real-time updates are expected."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-703",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Offline Work and Reconnect",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Go Offline",
+        "Edit/Add/Plan",
+        "Reconnect",
+        "Sync"
+      ],
+      "checklist": [
+        "Disconnect the device from the network.",
+        "Add or edit inventory and grocery items locally.",
+        "Open recipes that are downloaded with the app and confirm they remain usable",
+        "offline.",
+        "Attempt a workflow that requires live AI or online search and verify clear",
+        "messaging.",
+        "Create supported offline meal-plan or cooking changes.",
+        "Reconnect and confirm queued actions sync once without data loss.",
+        "Verify reservations and future planned meals are rechecked after sync so offline",
+        "ingredient use cannot silently invalidate a later meal."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-704",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Force Close During Data Processing",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Start Scan/AI/Save",
+        "Force Close",
+        "Reopen",
+        "Recover"
+      ],
+      "checklist": [
+        "Begin a receipt scan, AI generation, or other processing task.",
+        "Force close at different processing stages.",
+        "Reopen Stocked and observe recovery messaging/state.",
+        "Confirm partial data is either safely recovered or discarded.",
+        "Repeat the action and confirm no duplicate records.",
+        "Verify the app remains stable and connected systems are accurate."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "WF-705",
+      "section": "WORKFLOW CERTIFICATION",
+      "title": "Full Kitchen Lifecycle",
+      "purpose": "",
+      "isWorkflow": true,
+      "steps": [
+        "Plan",
+        "Shop",
+        "Stock",
+        "Prep",
+        "Cook",
+        "Leftovers",
+        "Repeat"
+      ],
+      "checklist": [
+        "Plan several meals for the week.",
+        "Generate and complete the grocery trip.",
+        "Verify inventory reflects purchases.",
+        "Complete shared batch prep.",
+        "Cook at least one planned meal.",
+        "Record leftovers or remaining portions where supported.",
+        "Confirm inventory, grocery, Home, Daily Brief, recipes, and future plans remain",
+        "aligned."
+      ],
+      "flowExperience": [
+        "I knew what to do next",
+        "No unnecessary backtracking",
+        "The result felt trustworthy",
+        "Overall:  Pass / Fail / Needs Review     Ticket(s): __________________________"
+      ]
+    },
+    {
+      "id": "STRESS-001",
+      "section": "STRESS TESTING",
+      "title": "Rapid Interaction Testing",
+      "purpose": "Verify the app remains stable during repeated user interactions.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Rapid repeated taps",
+        "Double taps",
+        "Fast navigation between hubs",
+        "Repeated opening/closing modals",
+        "Repeated searches",
+        "No crashes or freezes"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "STRESS-002",
+      "section": "STRESS TESTING",
+      "title": "Large Data Sets",
+      "purpose": "Verify performance with unusually large amounts of data.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "500+ inventory items",
+        "100+ recipes",
+        "200+ grocery items",
+        "Long household history",
+        "Scrolling performance",
+        "Search performance"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "STRESS-003",
+      "section": "STRESS TESTING",
+      "title": "Edge Cases & Invalid Input",
+      "purpose": "Verify unexpected user input is handled safely.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Very long names",
+        "Special characters",
+        "Emoji input",
+        "Zero quantities",
+        "Negative values rejected",
+        "Blank required fields"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "STRESS-004",
+      "section": "STRESS TESTING",
+      "title": "Offline & Recovery",
+      "purpose": "Verify behavior when connectivity changes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Launch offline",
+        "Reconnect to internet",
+        "Queued actions sync",
+        "Conflict resolution",
+        "Background and relaunch",
+        "No data loss"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REG-001",
+      "section": "REGRESSION",
+      "title": "Regression Certification",
+      "purpose": "Verify all critical functionality after changes.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Authentication",
+        "Navigation",
+        "Home Hub",
+        "Cook Hub",
+        "Inventory Hub",
+        "Recipes Hub"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "REG-002",
+      "section": "REGRESSION",
+      "title": "Critical User Journeys",
+      "purpose": "Verify the highest-value workflows from start to finish.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "First-time onboarding",
+        "Grocery trip workflow",
+        "Cook dinner workflow",
+        "Meal planning workflow",
+        "Meal prep workflow",
+        "Household collaboration workflow"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SIGNOFF-001",
+      "section": "RELEASE SIGN-OFF",
+      "title": "Build Certification",
+      "purpose": "Document overall build quality before release.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Major issues resolved",
+        "Critical bugs resolved",
+        "Known issues documented",
+        "Regression complete",
+        "Performance acceptable",
+        "Ready for developer review"
+      ],
+      "flowExperience": []
+    },
+    {
+      "id": "SIGNOFF-002",
+      "section": "RELEASE SIGN-OFF",
+      "title": "Release Approval",
+      "purpose": "Final release recommendation.",
+      "isWorkflow": false,
+      "steps": [],
+      "checklist": [
+        "Recommend release",
+        "Recommend release with known issues",
+        "Do not recommend release",
+        "QA signature completed",
+        "Developer sign-off completed",
+        "Release notes attached"
+      ],
+      "flowExperience": []
+    }
+  ]
+}

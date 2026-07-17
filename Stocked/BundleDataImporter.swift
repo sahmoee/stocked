@@ -42,6 +42,19 @@ final class BundleDataImporter {
     static let shared = BundleDataImporter()
     private init() {}
 
+    private nonisolated struct ParsedBundle: Sendable {
+        let recipes: [RecipeDatabaseEntry]
+        let ingredients: [String]
+
+        var isEmpty: Bool { recipes.isEmpty && ingredients.isEmpty }
+    }
+
+    private nonisolated enum PreparedBundle: Sendable {
+        case unreadable
+        case oversized(Int)
+        case parsed(hash: String, payload: ParsedBundle)
+    }
+
     private let manifestKey = "bundleImportManifest_v2"
     private let kb = StockedKnowledgeBase.shared
 
@@ -54,41 +67,44 @@ final class BundleDataImporter {
 
     func importNewBundledFiles() async {
         let manifest = loadManifest()
-        var updated  = manifest
-
+        var updated = manifest
+        var manifestChanged = false
         let candidates = discoverBundledJSONs()
 
         for url in candidates {
-            // Quick size check before expensive hash.
-        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let sz = attrs[.size] as? Int, sz > 0 else { continue }
+            let prepared = await Task.detached(priority: .utility) {
+                Self.prepareBundle(at: url)
+            }.value
+            guard !Task.isCancelled else { return }
 
-            // #4: the large recipe corpus is no longer shipped as JSON — it lives in
-            // the prebuilt, read-only SQLite database queried on demand by RecipeStore.
-            // Guard against ever whole-file-parsing a very large JSON here (the old
-            // path cost ~326 MB peak RSS + seconds of CPU at launch). Small drop-in
-            // JSONs still work exactly as documented above.
-            guard sz <= Self.maxInlineJSONBytes else {
-                Log.app.error("Skipping oversized bundle JSON \(url.lastPathComponent, privacy: .public) (\(sz) bytes). Convert large corpora to SQLite via build_recipe_db.py instead.")
+            switch prepared {
+            case .unreadable:
                 continue
-            }
 
-        let hash = contentHash(of: url)
-            guard manifest[url.lastPathComponent] != hash else { continue } // already imported
+            case .oversized(let size):
+                Log.app.error("Skipping oversized bundle JSON \(url.lastPathComponent, privacy: .public) (\(size) bytes). Convert large corpora to SQLite via build_recipe_db.py instead.")
 
-            let imported = await importFile(at: url)
-            if imported {
+            case .parsed(let hash, let payload):
+                guard manifest[url.lastPathComponent] != hash else { continue }
+                guard !payload.isEmpty else { continue }
+
+                // One actor hop and one coalesced persistence write per file. The old path
+                // upserted each recipe separately, repeatedly rebuilding and writing the store.
+                await RecipeDatabase.shared.upsertAll(payload.recipes)
+                _ = mergeIngredients(payload.ingredients)
                 updated[url.lastPathComponent] = hash
-                saveManifest(updated)
+                manifestChanged = true
             }
         }
+
+        if manifestChanged { saveManifest(updated) }
     }
 
     /// Files larger than this are assumed to be a bulk corpus that belongs in the
     /// prebuilt SQLite database (RecipeStore), not parsed into memory at launch.
     /// 8 MB comfortably covers any hand-authored drop-in JSON while excluding the
     /// 98 MB RecipeNLG export that used to be loaded here.
-    private static let maxInlineJSONBytes = 8 * 1024 * 1024
+    private nonisolated static let maxInlineJSONBytes = 8 * 1024 * 1024
 
     // MARK: - File discovery
 
@@ -103,54 +119,55 @@ final class BundleDataImporter {
         .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
-    // MARK: - Per-file import
+    // MARK: - Background parsing
 
-    @discardableResult
-    private func importFile(at url: URL) async -> Bool {
-        guard let data = try? Data(contentsOf: url) else { return false }
-        guard let raw  = try? JSONSerialization.jsonObject(with: data) else { return false }
+    private nonisolated static func prepareBundle(at url: URL) -> PreparedBundle {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? Int,
+              size > 0 else { return .unreadable }
+        guard size <= maxInlineJSONBytes else { return .oversized(size) }
+        guard let data = try? Data(contentsOf: url) else { return .unreadable }
 
-        var recipesImported = 0
-        var ingredientsImported = 0
+        let hash = SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        guard let raw = try? JSONSerialization.jsonObject(with: data) else {
+            return .unreadable
+        }
+        return .parsed(hash: hash, payload: parseBundle(raw))
+    }
+
+    private nonisolated static func parseBundle(_ raw: Any) -> ParsedBundle {
+        var recipes: [RecipeDatabaseEntry] = []
+        var ingredients: [String] = []
 
         // ── Schema A: RecipeNLG / Stocked export { "version":1, "recipes":[...] } ──
-        if let dict = raw as? [String: Any], let recipeArray = dict["recipes"] as? [[String: Any]] {
-            let entries = recipeArray.compactMap { parseRecipeDict($0) }
-            for entry in entries { await RecipeDatabase.shared.upsert(entry) }
-            recipesImported = entries.count
-
-            // Also pick up food_items / food_items_common / food_items_expanded
+        if let dict = raw as? [String: Any],
+           let recipeArray = dict["recipes"] as? [[String: Any]] {
+            recipes = recipeArray.compactMap(parseRecipeDict)
             for key in ["food_items", "food_items_common", "food_items_expanded", "ingredients"] {
-                if let items = dict[key] as? [String] {
-                    let added = mergeIngredients(items)
-                    ingredientsImported += added
-                }
+                if let items = dict[key] as? [String] { ingredients.append(contentsOf: items) }
             }
         }
 
         // ── Schema B: Flat array [ { "title": "...", ... } ] ──────────────────────
         else if let recipeArray = raw as? [[String: Any]] {
-            let entries = recipeArray.compactMap { parseRecipeDict($0) }
-            for entry in entries { await RecipeDatabase.shared.upsert(entry) }
-            recipesImported = entries.count
+            recipes = recipeArray.compactMap(parseRecipeDict)
         }
 
         // ── Schema C: Pure ingredient list { "food_items_common":[...] } ──────────
         else if let dict = raw as? [String: Any] {
             for key in ["food_items", "food_items_common", "food_items_expanded", "ingredients", "brands"] {
-                if let items = dict[key] as? [String] {
-                    let added = mergeIngredients(items)
-                    ingredientsImported += added
-                }
+                if let items = dict[key] as? [String] { ingredients.append(contentsOf: items) }
             }
         }
 
-        return recipesImported > 0 || ingredientsImported > 0
+        return ParsedBundle(recipes: recipes, ingredients: ingredients)
     }
 
     // MARK: - Recipe parser (handles both RecipeNLG and generic schemas)
 
-    private func parseRecipeDict(_ d: [String: Any]) -> RecipeDatabaseEntry? {
+    private nonisolated static func parseRecipeDict(_ d: [String: Any]) -> RecipeDatabaseEntry? {
         // Support both "title" and "name" keys
         let title = (d["title"] as? String ?? d["name"] as? String ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -172,23 +189,23 @@ final class BundleDataImporter {
         }
 
         let steps: [String]
-        if let arr = d["steps"] as? [String]        { steps = arr }
+        if let arr = d["steps"] as? [String] { steps = arr }
         else if let arr = d["directions"] as? [String] { steps = arr }
         else if let arr = d["instructions"] as? [String] { steps = arr }
         else { steps = [] }
 
         guard ingredients.count >= 2 else { return nil }
 
-        let ct = d["cooking_time"] as? [String: String]
+        let cookingTime = d["cooking_time"] as? [String: String]
 
         return RecipeDatabaseEntry(
             title:       title,
             description: d["description"] as? String ?? "",
             sourceURL:   d["sourceURL"] as? String ?? d["source_url"] as? String ?? "",
             sourceName:  d["sourceName"] as? String ?? d["source"] as? String ?? "Bundled",
-            prepTime:    d["prepTime"] as? String ?? ct?["prep"] ?? "",
-            cookTime:    d["cookTime"] as? String ?? ct?["cook"] ?? "",
-            totalTime:   d["totalTime"] as? String ?? ct?["total"] ?? "",
+            prepTime:    d["prepTime"] as? String ?? cookingTime?["prep"] ?? "",
+            cookTime:    d["cookTime"] as? String ?? cookingTime?["cook"] ?? "",
+            totalTime:   d["totalTime"] as? String ?? cookingTime?["total"] ?? "",
             servings:    stringify(d["servings"]),
             category:    d["category"] as? String ?? "",
             cuisine:     d["cuisine"] as? String ?? "",
@@ -203,10 +220,15 @@ final class BundleDataImporter {
 
     @discardableResult
     private func mergeIngredients(_ names: [String]) -> Int {
-        let known = Set(kb.ingredients.map { $0.name.lowercased() })
-        let newItems = names
-            .filter { !known.contains($0.lowercased()) && !$0.isEmpty }
-            .map { KnowledgeIngredient(name: $0, category: "Pantry", emoji: "🛒") }
+        var known = Set(kb.ingredients.map { $0.name.lowercased() })
+        var newItems: [KnowledgeIngredient] = []
+        for rawName in names {
+            let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { continue }
+            let key = name.lowercased()
+            guard known.insert(key).inserted else { continue }
+            newItems.append(KnowledgeIngredient(name: name, category: "Pantry", emoji: "🛒"))
+        }
         kb.ingredients.append(contentsOf: newItems)
         if !newItems.isEmpty { kb.saveIngredients() }
         return newItems.count
@@ -222,11 +244,6 @@ final class BundleDataImporter {
         UserDefaults.standard.set(manifest, forKey: manifestKey)
     }
 
-    private func contentHash(of url: URL) -> String {
-        guard let data = try? Data(contentsOf: url) else { return "" }
-        return SHA256.hash(data: data).compactMap { String(format: "%02x", $0) }.joined()
-    }
-
     // MARK: - Dev helper
 
     /// Force re-import of all bundled JSONs on next launch.
@@ -236,7 +253,7 @@ final class BundleDataImporter {
 
     // MARK: - Utility
 
-    private func stringify(_ val: Any?) -> String {
+    private nonisolated static func stringify(_ val: Any?) -> String {
         switch val {
         case let s as String: return s
         case let n as Int:    return "\(n)"

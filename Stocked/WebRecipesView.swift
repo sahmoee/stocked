@@ -11,12 +11,20 @@ enum WebSheet: Identifiable {
     case sourcePicker
     case importURL
     case manageSources
+    // RL-009: a pasted link that turns out to be TikTok / Instagram / YouTube / Pinterest
+    // routes to the social preview instead of the (doomed) JSON-LD scrape…
+    case socialImport(url: String)
+    // …and from there, "Edit before saving" / manual completion / AI drafting open the
+    // shared CreateRecipeView prefill form.
+    case socialForm(form: AddRecipeForm, source: String)
     var id: String {
         switch self {
         case .detail(let r): return "detail-\(r.id)"
         case .sourcePicker:  return "source"
         case .importURL:     return "import"
         case .manageSources: return "manage"
+        case .socialImport(let u): return "social-\(u)"
+        case .socialForm:    return "social-form"
         }
     }
 }
@@ -232,6 +240,13 @@ struct WebRecipesView: View {
                 RecipeSourcesManagerView().environment(session)
             case .importURL:
                 URLImportSheet { url in
+                    // RL-009: social links share this entry point but take the social
+                    // pipeline — og: metadata → Worker structuring → preview with
+                    // "Needs review" flags — since they never publish recipe JSON-LD.
+                    if SocialImportDetector.isSocialURL(url) {
+                        activeSheet = .socialImport(url: url)
+                        return
+                    }
                     Task {
                         if let r = try? await manager.importFromURL(url) {
                             activeSheet = .detail(recipe: r)
@@ -240,6 +255,14 @@ struct WebRecipesView: View {
                     if case .importURL = activeSheet { activeSheet = nil }
                 }
                 .environment(session)
+            case .socialImport(let url):
+                SocialImportSheet(urlString: url) { form, source in
+                    activeSheet = .socialForm(form: form, source: source)
+                }
+                .environment(session)
+            case let .socialForm(form, source):
+                CreateRecipeView(prefill: form, prefillSource: source)
+                    .environment(session)
             }
         }
     }
@@ -926,7 +949,7 @@ struct URLImportSheet: View {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Paste a direct recipe URL from a site that publishes standard recipe data:")
+                    Text("Paste a recipe link — a recipe website, or a social post from TikTok, Instagram, YouTube, or Pinterest:")
                         .font(.system(size: 14))
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
 

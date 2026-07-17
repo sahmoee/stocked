@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "updated": "2026-07-16",
+  "recipes": [
+    {
+      "id": "001",
+      "title": "One-Pan Garlic Butter Chicken & Rice",
+      "category": "Dinner",
+      "area": "American",
+      "image": "img/recipes/001.jpg",
+      "tags": ["one-pan", "weeknight", "kid-friendly"],
+      "ingredients": ["Chicken thighs", "Long-grain rice", "Chicken broth", "Butter", "Garlic", "Onion", "Salt", "Black pepper", "Parsley"],
+      "measures": ["6 pieces", "1 1/2 cups", "3 cups", "3 tbsp", "4 cloves", "1 small", "to taste", "to taste", "for garnish"],
+      "instructions": "Season the chicken with salt and pepper.\nSear thighs skin-side down in butter until golden, then set aside.\nSoften diced onion and garlic in the same pan.\nStir in rice to toast for 1 minute, then pour in the broth.\nNestle the chicken back on top, cover, and simmer 20 minutes until the rice is tender.\nRest 5 minutes, fluff, and finish with chopped parsley."
+    },
+    {
+      "id": "002",
+      "title": "Weeknight Tomato Basil Pasta",
+      "category": "Dinner",
+      "area": "Italian",
+      "image": "img/recipes/002.jpg",
+      "tags": ["vegetarian", "20-minute", "pantry"],
+      "ingredients": ["Spaghetti", "Canned crushed tomatoes", "Garlic", "Olive oil", "Fresh basil", "Parmesan", "Salt", "Red pepper flakes"],
+      "measures": ["12 oz", "1 can (28 oz)", "3 cloves", "3 tbsp", "1/2 cup", "1/2 cup", "to taste", "a pinch"],
+      "instructions": "Boil the spaghetti in well-salted water until al dente.\nWarm olive oil and sliced garlic until fragrant, then add the tomatoes and a pinch of red pepper flakes.\nSimmer the sauce 10 minutes.\nToss the drained pasta with the sauce and a splash of pasta water.\nFinish off the heat with torn basil and Parmesan."
+    },
+    {
+      "id": "003",
+      "title": "Sheet-Pan Honey Garlic Salmon",
+      "category": "Dinner",
+      "area": "American",
+      "image": "img/recipes/003.jpg",
+      "tags": ["high-protein", "30-minute", "gluten-free"],
+      "ingredients": ["Salmon fillets", "Honey", "Soy sauce (or tamari)", "Garlic", "Lemon", "Broccoli", "Olive oil", "Salt"],
+      "measures": ["4 fillets", "3 tbsp", "2 tbsp", "3 cloves", "1", "4 cups florets", "2 tbsp", "to taste"],
+      "instructions": "Heat the oven to 425°F.\nWhisk honey, soy sauce, minced garlic, and a squeeze of lemon.\nToss broccoli with olive oil and salt on a sheet pan.\nAdd the salmon, brush generously with the glaze, and roast 12–15 minutes.\nSpoon the pan juices over the top and serve with lemon wedges."
+    },
+    {
+      "id": "004",
+      "title": "Black Bean Quesadillas",
+      "category": "Lunch",
+      "area": "Mexican",
+      "image": "img/recipes/004.jpg",
+      "tags": ["vegetarian", "budget", "kid-friendly"],
+      "ingredients": ["Flour tortillas", "Black beans", "Shredded cheese", "Bell pepper", "Cumin", "Green onion", "Salsa", "Sour cream"],
+      "measures": ["4", "1 can (15 oz)", "1 1/2 cups", "1", "1 tsp", "2 stalks", "to serve", "to serve"],
+      "instructions": "Mash the drained black beans with cumin and a pinch of salt.\nSpread over half of each tortilla, then top with cheese, diced pepper, and green onion.\nFold and cook in a dry skillet over medium heat until golden and the cheese melts, about 2–3 minutes per side.\nSlice into wedges and serve with salsa and sour cream."
+    },
+    {
+      "id": "005",
+      "title": "Overnight Oats, Three Ways",
+      "category": "Breakfast",
+      "area": "American",
+      "image": "img/recipes/005.jpg",
+      "tags": ["make-ahead", "no-cook", "vegetarian"],
+      "ingredients": ["Rolled oats", "Milk (any)", "Greek yogurt", "Chia seeds", "Maple syrup", "Vanilla", "Toppings"],
+      "measures": ["1/2 cup", "1/2 cup", "1/4 cup", "1 tbsp", "1 tbsp", "1/2 tsp", "as desired"],
+      "instructions": "Stir oats, milk, yogurt, chia, maple syrup, and vanilla in a jar.\nSeal and refrigerate overnight (at least 6 hours).\nIn the morning, loosen with a splash of milk.\nTop one of three ways: berries + almonds, banana + peanut butter, or apple + cinnamon."
+    }
+  ]
+}

@@ -101,6 +101,10 @@ struct MealPlannerView: View {
     @State var selectedMissing: Set<String> = []  // user deselects items they don't need
     @State var activeSheet: MealPlannerSheet? = nil   // single sheet driver
     @State var shouldDismissAfterSave = false
+    // RL-005 — projected conflicts for the CURRENT (possibly unsaved) plan.
+    // Derived through the pure ReservationEngine against the local edit state,
+    // so warnings track edits live and auto-clear the moment they're resolved.
+    @State var planConflicts: [MealConflict] = []
     @Environment(\.dismiss) var dismiss
 
     let mealTypes = ["Breakfast", "Lunch", "Dinner"]
@@ -290,9 +294,50 @@ struct MealPlannerView: View {
             }
         }
         .onChange(of: plannedMeals) { _, newValue in
-            // Persist any local changes back to the store.
+            // Persist any local changes back to the store. The store's didSet
+            // bumps planRevision, so every other surface's reservations follow.
             session.guestStore.plannedMeals = newValue
+            recomputeConflicts()   // RL-006: plan mutations drive recalculation
         }
+        .task { recomputeConflicts() }
+        .onChange(of: session.guestStore.inventoryRevision) { _, _ in recomputeConflicts() }
+    }
+
+    // MARK: - RL-005 conflict detection + repairs
+
+    /// Re-derive projected conflicts for the plan as currently edited. Pure and
+    /// idempotent — recomputing never duplicates warnings or touches user data.
+    func recomputeConflicts() {
+        planConflicts = ReservationEngine.compute(meals: plannedMeals,
+                                                  inventory: session.guestStore.inventoryItems).conflicts
+    }
+
+    /// The conflicts belonging to one meal card, urgency order preserved.
+    func conflicts(for meal: PlannedMeal) -> [MealConflict] {
+        planConflicts.filter { $0.mealID == meal.id }
+    }
+
+    /// Conflicts keyed by meal for the list-view day cards.
+    var conflictsByMeal: [UUID: [MealConflict]] {
+        Dictionary(grouping: planConflicts, by: \.mealID)
+    }
+
+    /// Repair: buy the missing amount (consolidated — dedup lives in the store).
+    func repairAddToGrocery(_ conflict: MealConflict) {
+        session.guestStore.addToGroceryIfMissing(conflict.ingredient,
+                                                 recommended: true,
+                                                 recipeSource: conflict.mealTitle)
+        HapticManager.success()
+    }
+
+    /// Repair: release the reservation by dropping the shorted ingredient line
+    /// from that meal. Only the one line moves; the meal itself stays planned.
+    func releaseReservation(_ conflict: MealConflict) {
+        guard let idx = plannedMeals.firstIndex(where: { $0.id == conflict.mealID }) else { return }
+        withAnimation {
+            plannedMeals[idx].ingredients.removeAll { $0 == conflict.rawIngredient }
+        }
+        HapticManager.success()
     }
 
     // Quick add sheet opened from calendar tap

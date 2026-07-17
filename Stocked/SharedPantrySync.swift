@@ -164,7 +164,7 @@ final class SharedPantrySync {
     // MARK: - Merge helpers (last-write-wins by id)
 
     private func mergeInventory(remote: [LocalInventoryItem], into store: GuestDataStore) {
-        var byID = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0) })
+        var byID = Dictionary(keepingLastValues: store.inventoryItems.map { ($0.id, $0) })
         for item in remote { byID[item.id] = item }   // remote wins on conflict
         let merged = Array(byID.values).sorted { $0.name < $1.name }
         // Avoid a no-op assignment that would re-trigger didSet → push loops.
@@ -172,7 +172,7 @@ final class SharedPantrySync {
     }
 
     private func mergeGrocery(remote: [LocalGroceryItem], into store: GuestDataStore) {
-        var byID = Dictionary(uniqueKeysWithValues: store.groceryItems.map { ($0.id, $0) })
+        var byID = Dictionary(keepingLastValues: store.groceryItems.map { ($0.id, $0) })
         for item in remote { byID[item.id] = item }
         let merged = Array(byID.values)
         if merged != store.groceryItems { store.groceryItems = merged }

@@ -111,7 +111,7 @@ final class AIInventoryScanner {
         if let schema = obj["schemaVersion"] as? Int,
            schema != StockedWorkerRoute.inventoryScan.schemaVersion { return [] }
 
-        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        let byID = Dictionary(keepingLastValues: items.map { ($0.id, $0) })
 
         return arr.compactMap { u -> InventoryScanUpdate? in
             guard let idStr = u["id"] as? String,

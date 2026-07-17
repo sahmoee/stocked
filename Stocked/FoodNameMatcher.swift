@@ -21,6 +21,14 @@ nonisolated enum FoodNameMatcher {
         "aubergine": "eggplant", "confectioners sugar": "powdered sugar", "canned": "can"
     ]
 
+    /// PERF: `normalized(_:)` is the single hottest string path in the app — it runs
+    /// ~4–6× per `matches()` call, and `matches()` runs O(ingredients × inventory) for
+    /// every recipe card in the Discover rails. Sorting `synonyms` on every call (longest
+    /// key first, so multi-word phrases replace before their sub-words) was pure repeated
+    /// work. Sort once here; the dictionary is a compile-time constant so the order is stable.
+    private static let synonymsByLengthDesc: [(from: String, to: String)] =
+        synonyms.sorted { $0.key.count > $1.key.count }.map { (from: $0.key, to: $0.value) }
+
     static func normalized(_ raw: String) -> String {
         var text = raw.lowercased()
             .folding(options: [.diacriticInsensitive, .widthInsensitive], locale: .current)
@@ -28,7 +36,7 @@ nonisolated enum FoodNameMatcher {
         text = text.components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
-        for (from, to) in synonyms.sorted(by: { $0.key.count > $1.key.count }) {
+        for (from, to) in synonymsByLengthDesc {
             text = replacingWholePhrase(from, with: to, in: text)
         }
         return text.split(separator: " ").map { singular(String($0)) }.joined(separator: " ")

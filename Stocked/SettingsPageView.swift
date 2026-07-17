@@ -9,10 +9,12 @@
 // Sheet discipline: ONE .sheet(item:) with an Identifiable enum for every detail
 // screen — never Bool+optional — so each opens correctly on the FIRST tap.
 import SwiftUI
+import UIKit
 
 struct SettingsPageView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     // ── Accordion state — one section open at a time ────────────────
     private enum SettingsSection: String, CaseIterable {
@@ -34,6 +36,10 @@ struct SettingsPageView: View {
     @State private var showClearAlert = false
     @State private var showDeleteAccountAlert = false
     @State private var showLogoutConfirm = false
+
+    // ── Hidden QA unlock ────────────────────────────────────────────
+    @State private var showQACodePrompt = false
+    @State private var qaCode = ""
 
     var body: some View {
         ZStack {
@@ -64,6 +70,19 @@ struct SettingsPageView: View {
                     accordion(.help, icon: "questionmark.circle.fill", tint: Color.stockedGold,
                               title: "Help & Support", subtitle: "Guides and getting unstuck") {
                         helpContent
+                    }
+
+                    // Hidden QA entry. Tapping prompts for the access code; once unlocked it
+                    // opens the QA Workbook (a floating, always-accessible panel).
+                    settingsSectionRow(icon: "checkmark.seal.fill", tint: Color.stockedCharcoal,
+                                       title: "QA",
+                                       subtitle: QAWorkbookStore.shared.unlocked ? "Open workbook" : "Restricted") {
+                        if QAWorkbookStore.shared.unlocked {
+                            QAWorkbookStore.shared.open()
+                            dismiss()
+                        } else {
+                            showQACodePrompt = true
+                        }
                     }
 
                     BuildInfoFooter()
@@ -98,6 +117,22 @@ struct SettingsPageView: View {
             case .editProfile:   EditProfileView().environment(session)
             }
         }
+        .alert("QA", isPresented: $showQACodePrompt) {
+            TextField("Access code", text: $qaCode)
+            Button("Unlock") {
+                if qaCode.trimmingCharacters(in: .whitespaces).lowercased() == "joo" {
+                    QAWorkbookStore.shared.unlocked = true
+                    QAWorkbookStore.shared.open()
+                    QAWorkbookStore.shared.minimize()   // appears as the floating bubble
+                    HapticManager.success()
+                    dismiss()
+                } else {
+                    HapticManager.warning()
+                }
+                qaCode = ""
+            }
+            Button("Cancel", role: .cancel) { qaCode = "" }
+        } message: { Text("Enter the QA access code.") }
         .alert("Erase All Data?", isPresented: $showClearAlert) {
             Button("Erase Everything", role: .destructive) { session.signOut(clearData: true) }
             Button("Cancel", role: .cancel) {}
@@ -420,6 +455,36 @@ struct SettingsPageView: View {
                        title: "Help Center", detail: "Guides for every part of Stocked") {
             activeSheet = .helpCenter
         }
+        settingsButton(icon: "envelope.fill", color: Color.stockedInfo,
+                       title: "Contact Support", detail: BuildConfig.supportEmail) {
+            if let u = supportMailtoURL { openURL(u) }
+        }
+        settingsButton(icon: "lock.shield.fill", color: Color.stockedGreen,
+                       title: "Privacy Policy", detail: "How your data is handled") {
+            if let u = URL(string: BuildConfig.privacyURL) { openURL(u) }
+        }
+        settingsButton(icon: "doc.text.fill", color: Color.stockedCharcoal,
+                       title: "Terms of Service", detail: "The rules for using Stocked") {
+            if let u = URL(string: BuildConfig.termsURL) { openURL(u) }
+        }
+        settingsButton(icon: "globe", color: Color.stockedGold,
+                       title: "Website", detail: "sowensstudios.com") {
+            if let u = URL(string: BuildConfig.websiteURL) { openURL(u) }
+        }
+    }
+
+    /// Pre-filled support email with app version + device context (no personal data).
+    private var supportMailtoURL: URL? {
+        let subject = "Stocked Support — \(BuildConfig.displayLabel)"
+        let body = "\n\n\n—\nApp: Stocked \(BuildConfig.version) (\(BuildConfig.buildNumber))"
+            + "\nDevice: \(UIDevice.current.model)"
+            + "\niOS: \(UIDevice.current.systemVersion)"
+        var comps = URLComponents()
+        comps.scheme = "mailto"
+        comps.path = BuildConfig.supportEmail
+        comps.queryItems = [URLQueryItem(name: "subject", value: subject),
+                            URLQueryItem(name: "body", value: body)]
+        return comps.url
     }
 
     // MARK: - Row helpers (mirrors the drawer's settingsRow visual language)

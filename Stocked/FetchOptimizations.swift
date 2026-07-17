@@ -14,6 +14,19 @@
 
 import Foundation
 
+// MARK: - Duplicate-safe dictionary construction
+
+extension Dictionary {
+    /// Builds a dictionary without trapping when synced/cached input contains duplicate keys.
+    /// The newest value wins, which matches Stocked's merge semantics.
+    init<S>(keepingLastValues sequence: S) where S: Sequence, S.Element == (Key, Value) {
+        self.init()
+        for (key, value) in sequence {
+            self[key] = value
+        }
+    }
+}
+
 // MARK: - #6 Request coalescing
 
 /// Dedupes concurrent identical async requests. If two callers request the same key

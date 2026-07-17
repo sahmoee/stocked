@@ -156,7 +156,7 @@ final class RecipeInterest {
 
     private func compactAndSave() {
         if weights.count > 80 {
-            weights = Dictionary(uniqueKeysWithValues: weights.sorted { abs($0.value) > abs($1.value) }.prefix(80).map { ($0.key, $0.value) })
+            weights = Dictionary(keepingLastValues: weights.sorted { abs($0.value) > abs($1.value) }.prefix(80).map { ($0.key, $0.value) })
         }
         UserDefaults.standard.set(weights, forKey: key)
     }

@@ -194,10 +194,15 @@ struct MainTabView: View {
             Task { await runShareImport() }
         }
         .task {
-            // Refresh every scheduled notification against current inventory/profile.
-            DailyBriefNotificationManager.shared.rescheduleAll(store: session.guestStore)
-            // Push a fresh snapshot to the Home/Lock Screen widgets.
-            WidgetBridge.refresh(store: session.guestStore)
+            // LAG FIX: notification rescheduling + widget refresh used to run on the very
+            // first frame of the main UI, stacked on top of household sync, migrations and
+            // image backfill. Defer them a few seconds — they are background maintenance and
+            // nothing user-visible depends on them at launch.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                DailyBriefNotificationManager.shared.rescheduleAll(store: session.guestStore)
+                WidgetBridge.refresh(store: session.guestStore)
+            }
             // Cold-launch case: the flag may already be true before onChange can observe a change.
             if session.pendingSharedRecipe {
                 session.pendingSharedRecipe = false

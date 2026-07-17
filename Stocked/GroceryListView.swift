@@ -40,12 +40,15 @@ enum GrocerySheet: Identifiable {
     case share
     case scanList
     case cookLater(CookLaterContext)
+    // RL-007 — flagged-duplicate review before checked items move into the pantry.
+    case purchaseReview(PurchaseDupReviewContext)
     var id: String {
         switch self {
         case .storePicker: return "store-picker"
         case .share: return "share"
         case .scanList: return "scan-list"
         case .cookLater(let context): return "cook-later-\(context.id.uuidString)"
+        case .purchaseReview(let context): return "purchase-review-\(context.id.uuidString)"
         }
     }
 }
@@ -84,6 +87,9 @@ struct GroceryListView: View {
     @State private var showMoreDialog = false // #245 — header ··· (store/share/scan/move)
     @State private var sortAZ = false          // #245 — "Sort: Category / Name" pill
     @State private var quickAddName = ""
+    // RL-010 — optional "group by store" view mode. Off by default so the unified list
+    // stays the primary experience; persisted so shoppers who organize by store keep it.
+    @AppStorage("groceryGroupByStore_v1") private var groupByStore = false
 
     // #235 — mockup segmented pill.
     private func segmentButton(_ title: String, count: Int, active: Bool, action: @escaping () -> Void) -> some View {
@@ -215,17 +221,116 @@ struct GroceryListView: View {
             pool = pool.filter { $0.assignedTo.isEmpty || $0.assignedTo.caseInsensitiveCompare(me) == .orderedSame }
         }
         let visible = filteredItems(pool)
+        // RL-010 — housekeeping: drop store assignments for rows no longer on the list.
+        MultiStoreAssignments.shared.prune(keeping: Set(store.groceryItems.map(\.id)))
         var grouped: [String: (icon: String, order: Int, items: [LocalGroceryItem])] = [:]
-        for item in visible {
-            let cat = categoryFor(item.name)
-            grouped[cat.title, default: (cat.icon, cat.order, [])].items.append(item)
+        if groupByStore {
+            // RL-010 — per-store sections: explicit assignment → learned store → default.
+            // The default store sorts first (it's where most of the trip happens); other
+            // stores follow alphabetically.
+            for item in visible {
+                let name = resolvedStore(for: item)
+                grouped[name, default: ("storefront", name == session.preferredStore ? 0 : 1, [])].items.append(item)
+            }
+        } else {
+            for item in visible {
+                let cat = categoryFor(item.name)
+                grouped[cat.title, default: (cat.icon, cat.order, [])].items.append(item)
+            }
         }
         cachedSections = grouped
             .map { (title: $0.key, info: $0.value) }
-            .sorted { $0.info.order < $1.info.order }
+            // Tie-break alphabetically so store sections (all order 1) render stably.
+            .sorted { ($0.info.order, $0.title) < ($1.info.order, $1.title) }
             .map { GrocerySection(title: $0.title, icon: $0.info.icon,
                                   items: sortAZ ? $0.info.items.sorted { $0.name.lowercased() < $1.name.lowercased() }
                                                 : $0.info.items) }
+    }
+
+    // MARK: - RL-010 store resolution
+
+    /// Which store this row belongs to: explicit assignment → learned history → default.
+    private func resolvedStore(for item: LocalGroceryItem) -> String {
+        MultiStoreAssignments.shared.resolvedStore(for: item,
+                                                   learned: store.itemStoreHistory,
+                                                   defaultStore: session.preferredStore)
+    }
+
+    /// True when every item earmarked for `storeName` is checked off — the per-store
+    /// completion state that makes a multi-store trip legible ("H-E-B done, Costco next").
+    private func storeSegmentComplete(_ storeName: String) -> Bool {
+        !store.groceryItems.contains { !$0.isChecked && resolvedStore(for: $0) == storeName }
+    }
+
+    // MARK: - RL-007 dedupe-aware "move purchased → pantry"
+
+    /// Entry point for both the whole-list "Move Checked → Pantry" action and the
+    /// per-store segment buttons. Runs the dedupe engine first: a clean bill transfers
+    /// immediately (the checked list is its own review); flagged items get the
+    /// Merge / Keep Both / Skip sheet before anything lands.
+    private func beginPantryTransfer(_ items: [LocalGroceryItem]) {
+        guard !items.isEmpty else { return }
+        let candidates = items.map { g in
+            PurchaseImportCandidate(id: g.id, name: g.name, quantity: max(1, g.quantity),
+                                    store: resolvedStore(for: g), source: .shoppingTrip)
+        }
+        let flags = PurchaseDedupEngine.evaluate(candidates: candidates,
+                                                 history: PurchaseImportLog.shared.records)
+        if flags.isEmpty {
+            commitPantryTransfer(candidates: candidates, resolutions: [:])
+        } else {
+            grocerySheet = .purchaseReview(PurchaseDupReviewContext(
+                title: "Move to Pantry", candidates: candidates, flags: flags))
+        }
+    }
+
+    /// The actual transfer, after RL-007 review (or directly when nothing was flagged).
+    /// Mirrors GuestDataStore.moveCheckedGroceryToInventory but is duplicate-aware and
+    /// stamps each line with the trip id + store segment (RL-010): finishing H-E-B now
+    /// and Costco in an hour logs two segments of ONE trip, so a later receipt scan of
+    /// either store is recognized as the same shopping.
+    private func commitPantryTransfer(candidates: [PurchaseImportCandidate],
+                                      resolutions: [UUID: PurchaseDupResolution]) {
+        let tripID = PurchaseImportLog.shared.currentTripID()
+        let who = UserDefaults.standard.string(forKey: "householdMemberName_v1") ?? ""
+        var moved = 0
+        var importRecords: [PurchaseImportRecord] = []
+
+        for cand in candidates {
+            guard let g = store.groceryItems.first(where: { $0.id == cand.id }) else { continue }
+            switch resolutions[cand.id] ?? .keepBoth {
+            case .skip:
+                break   // duplicate — never enters inventory
+            case .merge:
+                PurchaseImportMerge.refreshExisting(in: store, name: g.name,
+                                                    storeName: cand.store.isEmpty ? nil : cand.store)
+            case .keepBoth:
+                var inv = LocalInventoryItem(name: g.name, level: 1.0, zone: "Pantry",
+                                             quantity: max(1, g.quantity))
+                inv.purchaseDate     = Date()
+                inv.addedBy          = who
+                inv.storePurchasedAt = cand.store.isEmpty ? nil : cand.store
+                store.addInventoryItem(inv)   // merges equivalent rows (#2/#18)
+                moved += 1
+                importRecords.append(PurchaseImportRecord(
+                    normalizedName: PurchaseDedupEngine.normalizedName(g.name),
+                    displayName: g.name, quantity: max(1, g.quantity),
+                    store: cand.store, source: .shoppingTrip,
+                    transactionKey: tripID, importedAt: Date()))
+            }
+        }
+        // Every handled row leaves the list — skipped/merged lines were already bought
+        // and accounted for; keeping them would just re-flag next time.
+        let handled = Set(candidates.map(\.id))
+        withAnimation { store.groceryItems.removeAll { handled.contains($0.id) } }
+        PurchaseImportLog.shared.record(importRecords)
+
+        let segments = PurchaseImportLog.shared.storeSegments(forTrip: tripID)
+        let segmentNote = segments.count > 1 ? " (\(segments.joined(separator: " + ")))" : ""
+        loopMessage = moved == 0
+            ? "Nothing new to move — duplicates skipped"
+            : "Moved \(moved) item\(moved == 1 ? "" : "s") into your pantry\(segmentNote)"
+        HapticManager.success()
     }
 
     var body: some View {
@@ -285,9 +390,14 @@ struct GroceryListView: View {
                         Button { sortAZ = true } label: {
                             Label("Name (A–Z)", systemImage: sortAZ ? "checkmark" : "circle")
                         }
+                        Divider()
+                        // RL-010 — optional store-organized view; unified list stays default.
+                        Button { groupByStore.toggle() } label: {
+                            Label("Group by Store", systemImage: groupByStore ? "checkmark" : "storefront")
+                        }
                     } label: {
                         HStack(spacing: 5) {
-                            Text("Sort: \(sortAZ ? "Name" : "Category")")
+                            Text(groupByStore ? "By Store" : "Sort: \(sortAZ ? "Name" : "Category")")
                                 .font(.system(size: 12, weight: .semibold))
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 9, weight: .semibold))
@@ -569,6 +679,16 @@ struct GroceryListView: View {
                 NavigationStack {
                     CookLaterWorkspaceView(context: context).environment(session)
                 }
+            case .purchaseReview(let context):
+                // RL-007 — Merge / Keep Both / Skip for flagged duplicates, then commit.
+                PurchaseDedupReviewView(context: context,
+                                        onCommit: { resolutions in
+                                            grocerySheet = nil
+                                            commitPantryTransfer(candidates: context.candidates,
+                                                                 resolutions: resolutions)
+                                        },
+                                        onCancel: { grocerySheet = nil })
+                    .environment(session)
             }
         }
         .onAppear { rebuildSections() }
@@ -585,6 +705,7 @@ struct GroceryListView: View {
         .onChange(of: showBought) { _, _ in rebuildSections() }   // #235 — segment filter
         .onChange(of: showMineOnly) { _, _ in rebuildSections() } // #E2 — Mine filter
         .onChange(of: sortAZ) { _, _ in rebuildSections() }        // #245 — sort pill
+        .onChange(of: groupByStore) { _, _ in rebuildSections() }  // RL-010 — store grouping
         // #245 — header ··· hosts the relocated chrome (store / share / scan / move).
         .confirmationDialog("Grocery List", isPresented: $showMoreDialog, titleVisibility: .visible) {
             Button("Shopping at \(session.preferredStore) — change store") { grocerySheet = .storePicker }
@@ -597,9 +718,9 @@ struct GroceryListView: View {
             Button("Scan a List") { grocerySheet = .scanList }
             if store.groceryItems.contains(where: { $0.isChecked }) {
                 Button("Move Checked → Pantry") {
-                    let n = store.moveCheckedGroceryToInventory()
-                    loopMessage = "Moved \(n) item\(n == 1 ? "" : "s") into your pantry"
-                    HapticManager.success()
+                    // RL-007 — routed through the dedupe-aware transfer so a trip that was
+                    // already receipt-scanned (or double-tapped) can't land twice.
+                    beginPantryTransfer(store.groceryItems.filter { $0.isChecked })
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -747,6 +868,19 @@ struct GroceryListView: View {
                             .contentShape(Rectangle())
                     }.buttonStyle(.plain)
                     .a11yButton("Clear \(done) checked items", hint: "Removes checked items. You can undo.")
+                }
+            }
+
+            // RL-010 — per-store segment transfer: in the Bought view grouped by store,
+            // each store's purchases can move to the pantry as soon as that segment is
+            // confirmed, without waiting for the rest of a multi-store trip. Runs through
+            // the RL-007 dedupe path like every other import.
+            if groupByStore && showBought && total > 0 {
+                Divider().padding(.horizontal, 14)
+                MultiStoreSegmentFooter(storeName: section.title,
+                                        itemCount: total,
+                                        isComplete: storeSegmentComplete(section.title)) {
+                    beginPantryTransfer(section.items)
                 }
             }
         }
@@ -924,6 +1058,21 @@ struct GroceryListView: View {
                 grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
             } label: {
                 Label(item.recipeSource.isEmpty ? "Plan with this item" : "View planned meal", systemImage: "calendar.badge.plus")
+            }
+            // RL-010 — assign/move this row to a store. Just a side-table write, so the
+            // item is never recreated: checked state and provenance survive the move.
+            Menu {
+                MultiStorePickerMenu(
+                    currentStore: resolvedStore(for: item),
+                    isExplicit: MultiStoreAssignments.shared.explicitStore(for: item.id) != nil,
+                    extras: Array(Set(store.itemStoreHistory.values)).sorted(),
+                    onSelect: { name in
+                        MultiStoreAssignments.shared.assign(name, to: item.id)
+                        rebuildSections()
+                        HapticManager.select()
+                    })
+            } label: {
+                Label("Store: \(resolvedStore(for: item))", systemImage: "storefront")
             }
             if HouseholdSync.shared.state == .owner || HouseholdSync.shared.state == .member {
                 Menu {

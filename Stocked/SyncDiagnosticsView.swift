@@ -7,6 +7,8 @@ import SwiftUI
 struct SyncDiagnosticsView: View {
     @Environment(AppSession.self) private var session
     @State private var household = HouseholdSync.shared
+    @State private var isSendingReport = false
+    @State private var reportResult: String? = nil
 
     private var s: HouseholdSyncStatus { household.syncStatus }
 
@@ -36,6 +38,41 @@ struct SyncDiagnosticsView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
                 }.buttonStyle(.plain)
+
+                // POST /support/diagnostics — uploads a privacy-scrubbed snapshot (counts,
+                // versions, sync health; never item or recipe names) and shows a reference
+                // number the user can quote to support.
+                Button {
+                    guard !isSendingReport else { return }
+                    isSendingReport = true
+                    reportResult = nil
+                    Task { @MainActor in
+                        do {
+                            let ref = try await StockedDiagnosticsUploader.upload(session: session)
+                            reportResult = "Report sent — reference \(ref). Quote this in your support email."
+                        } catch {
+                            reportResult = error.localizedDescription
+                        }
+                        isSendingReport = false
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isSendingReport { ProgressView().tint(Color.stockedWhite) }
+                        Text(isSendingReport ? "Sending…" : "Send Diagnostics Report")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.stockedWhite)
+                    .frame(maxWidth: .infinity).padding(.vertical, 12)
+                    .background(Color.stockedGold.opacity(0.85), in: RoundedRectangle(cornerRadius: 10))
+                }.buttonStyle(.plain)
+
+                if let reportResult {
+                    Text(reportResult)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(session.themeTextColor.opacity(0.75))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
 
                 Text("These details help diagnose household sync. Nothing here is shared.")
                     .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))

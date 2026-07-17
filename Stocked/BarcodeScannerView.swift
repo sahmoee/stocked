@@ -357,10 +357,13 @@ struct BarcodeScannerView: View {
             // get first chance so a previously scanned item can gain brand/label/nutrition data.
             let cachedName = BarcodeCache.shared.lookup(code)
 
-            // Waterfall: Open Food Facts first, then USDA branded foods. Both use persistent
-            // API caches, so repeat scans normally avoid the network.
-            let openFood = await withTimeout(5) { await OpenFoodFactsClient.shared.lookup(barcode: code) }
-            var product = openFood
+            // Waterfall: the Stocked Worker first (/barcodes/resolve — real product DBs,
+            // edge-cached 30d, no API keys on device), then the local device fallbacks
+            // (Open Food Facts → USDA branded foods) for offline/Worker-miss cases.
+            var product = await withTimeout(6) { await WorkerBarcodeResolver.resolve(code) }
+            if product == nil {
+                product = await withTimeout(5) { await OpenFoodFactsClient.shared.lookup(barcode: code) }
+            }
             if product == nil {
                 product = await withTimeout(5) {
                     await USDANutritionClient.shared.lookupProduct(barcode: code)

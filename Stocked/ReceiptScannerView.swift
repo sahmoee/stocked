@@ -88,6 +88,12 @@ struct ReceiptScannerView: View {
     @State private var showPhotoPicker = false
     @State private var photoPickerItems: [PhotosPickerItem] = []
 
+    // RL-007 — duplicate-purchase protection. When the dedupe engine flags lines that
+    // match a recent import (a re-scanned receipt, or a shopping trip already moved to
+    // the pantry), the review sheet asks Merge / Keep Both / Skip before anything lands.
+    @State private var dupReview: PurchaseDupReviewContext? = nil
+    @State private var pendingTransactionKey = ""
+
     nonisolated enum Phase: Sendable { case instructions, scanning, review, done }
 
     var scannerAvailable: Bool {
@@ -198,6 +204,17 @@ struct ReceiptScannerView: View {
         }
         .sheet(isPresented: $showArchive) {
             ReceiptArchiveSheet(entries: archive).environment(session)
+        }
+        // RL-007 — flagged-duplicate review before the import commits. item-driven so it
+        // can't collide with the archive sheet (only one context exists at a time).
+        .sheet(item: $dupReview) { context in
+            PurchaseDedupReviewView(context: context,
+                                    onCommit: { resolutions in
+                                        dupReview = nil
+                                        commitItemsToPantry(resolutions: resolutions)
+                                    },
+                                    onCancel: { dupReview = nil })
+                .environment(session)
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoPickerItems, maxSelectionCount: 1, matching: .images)
         .onChange(of: photoPickerItems) { _, items in
@@ -833,13 +850,55 @@ extension ReceiptScannerView {
     }
 
     private func addItemsToPantry() {
+        // RL-007 — before anything lands, ask the dedupe engine whether these lines match
+        // a recent import (this exact receipt re-scanned, or the same trip already moved
+        // to the pantry from the grocery list). Flagged lines go through the review sheet;
+        // a clean bill commits straight away, same as before.
         let toAdd = lineItems.filter { $0.isChecked }
+        let storeForImport = detectedStore.isEmpty ? session.preferredStore : detectedStore
+        pendingTransactionKey = PurchaseDedupEngine.transactionKey(
+            store: storeForImport,
+            date: detectedDate ?? Date(),
+            itemNames: toAdd.map { $0.resolved })
+        let candidates = toAdd.map { item in
+            PurchaseImportCandidate(id: item.id, name: item.resolved,
+                                    quantity: max(1, item.quantity),
+                                    store: storeForImport, source: .receipt)
+        }
+        let flags = PurchaseDedupEngine.evaluate(candidates: candidates,
+                                                 history: PurchaseImportLog.shared.records,
+                                                 transactionKey: pendingTransactionKey)
+        if flags.isEmpty {
+            commitItemsToPantry(resolutions: [:])
+        } else {
+            dupReview = PurchaseDupReviewContext(title: "Receipt Import",
+                                                 candidates: candidates, flags: flags)
+        }
+    }
+
+    /// The actual import, after RL-007 review (or directly when nothing was flagged).
+    /// `resolutions` carries the user's per-line choices; lines without an entry import
+    /// normally. Skipped lines never enter inventory; merged lines refresh the existing
+    /// row's details without double-counting quantity.
+    private func commitItemsToPantry(resolutions: [UUID: PurchaseDupResolution]) {
+        let toAdd = lineItems.filter { $0.isChecked && resolutions[$0.id] != .skip }
         let rdb   = ReceiptDatabase.shared
         var added = 0
         // #20 — attribute who added (household member name, falling back to device).
         let who = session.householdMemberName
+        let storeForImport = detectedStore.isEmpty ? session.preferredStore : detectedStore
+        var importRecords: [PurchaseImportRecord] = []
 
-        for item in toAdd {
+        for item in toAdd where resolutions[item.id] == .merge {
+            // Same physical purchase seen twice — refresh details on the existing row.
+            PurchaseImportMerge.refreshExisting(
+                in: session.guestStore, name: item.resolved,
+                price: item.totalPrice ?? item.unitPrice,
+                storeName: detectedStore.isEmpty ? nil : detectedStore,
+                brand: item.brand, expiry: item.suggestedExpiry)
+        }
+
+        for item in toAdd where resolutions[item.id] != .merge {
             // Confirmation itself is a useful calibration signal, even when the user made no edit.
             AICorrectionStore.shared.record(kind: .itemName, original: item.rawText,
                                             predicted: item.resolved, final: item.resolved, outcome: .accepted)
@@ -860,7 +919,21 @@ extension ReceiptScannerView {
             inv.sourceBadge      = item.badge                       // provenance from OCR confidence
             session.guestStore.addInventoryItem(inv)
             added += 1
+
+            // RL-007 — remember this line so a later import of the same trip (grocery
+            // check-off, re-scan) is recognized. The transaction key ties every line of
+            // this receipt to one shopping trip.
+            importRecords.append(PurchaseImportRecord(
+                normalizedName: PurchaseDedupEngine.normalizedName(item.resolved),
+                displayName: item.resolved, quantity: max(1, item.quantity),
+                store: storeForImport, source: .receipt,
+                transactionKey: pendingTransactionKey, importedAt: Date()))
+            // RL-010 — teach the learned store map: this product comes from this store.
+            if !detectedStore.isEmpty {
+                session.guestStore.itemStoreHistory[PurchaseDedupEngine.normalizedName(item.resolved)] = detectedStore
+            }
         }
+        PurchaseImportLog.shared.record(importRecords)
 
         // #5 Receipt → auto-restock: check off any grocery-list items that match what was just
         // purchased, so the list reflects the shopping trip without manual ticking.

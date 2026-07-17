@@ -30,6 +30,8 @@ struct CookNowResultsView: View {
     @State private var openRecipe: UserRecipe? = nil
     @State private var goRecipe = false
     @State private var showMore = false
+    // RL-004 — Cook Anyway review for recipes that touch meal-plan reservations.
+    @State private var overridePayload: ReservationOverridePayload? = nil
 
     var body: some View {
         StockedShell(showBack: true, titleText: title) {
@@ -74,6 +76,15 @@ struct CookNowResultsView: View {
         .task { recompute() }
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
+        .onChange(of: store.planRevision)      { _, _ in recompute() }  // RL-006: plan edits move reservations
+        .sheet(item: $overridePayload) { payload in
+            ReservationOverrideSheet(recipe: payload.recipe, touches: payload.touches) {
+                // Cook Anyway: the override is recorded; proceed into the recipe.
+                openRecipe = payload.recipe
+                goRecipe = true
+            }
+            .environment(session)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             goRecipe = false; goRefresh = false
         }
@@ -168,8 +179,17 @@ struct CookNowResultsView: View {
                                 matchPercent: matchPercent(c),
                                 imageURL: c.recipe.imageURL
                             ) {
-                                openRecipe = c.recipe
-                                goRecipe = true
+                                // RL-004 — a recipe using reserved ingredients gets the
+                                // informative Cook Anyway review first (never blocking:
+                                // it can still be cooked from inside the sheet).
+                                let touches = ReservationLedger.shared.reservedTouches(
+                                    ingredientNames: c.recipe.ingredients.filter { !$0.isOptional }.map(\.name))
+                                if c.usesReservedIngredients && !touches.isEmpty {
+                                    overridePayload = ReservationOverridePayload(recipe: c.recipe, touches: touches)
+                                } else {
+                                    openRecipe = c.recipe
+                                    goRecipe = true
+                                }
                             }
                         }
                     }
@@ -192,6 +212,11 @@ struct CookNowResultsView: View {
         case .excluded:        lead = "Not a fit"
         }
         if !c.recipe.cookTime.isEmpty { lead += " · \(c.recipe.cookTime)" }
+        // RL-004 — never present a reservation-touching recipe as fully safe:
+        // the badge tells the truth ("the food exists, but it's spoken for").
+        if c.usesReservedIngredients && c.readiness.isReadyNow {
+            lead += " · Ready if plans change"
+        }
         return lead
     }
 

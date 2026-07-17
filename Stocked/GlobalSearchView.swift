@@ -6,6 +6,7 @@ struct GlobalSearchView: View {
     @State private var query = ""
     @State private var onlineResults:    [OnlineRecipe] = []
     @State private var isSearchingOnline = false
+    @State private var searchTask: Task<Void, Never>?   // #2 — cancel stale searches
     @State private var isOffline         = false
     @State private var offlineResultsCache: [String: [OnlineRecipe]] = [:]
     private let offlineCacheKey = "globalSearchOfflineCache_v1"
@@ -338,16 +339,21 @@ struct GlobalSearchView: View {
 
     private func searchOnline(_ q: String) {
         let trimmed = q.trimmingCharacters(in: .whitespaces)
-        guard trimmed.count >= 3 else { onlineResults = []; return }
+        // #2 — cancel any in-flight/obsolete search so a slow older keystroke can't
+        // overwrite newer results or waste the network.
+        searchTask?.cancel()
+        guard trimmed.count >= 3 else { onlineResults = []; isSearchingOnline = false; return }
         isSearchingOnline = true
-        Task {
+        searchTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000) // debounce 0.5s
+            if Task.isCancelled { return }
             guard query.trimmingCharacters(in: .whitespaces) == trimmed else { return }
             let enc = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
             guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(enc)"),
                   let (data, _) = try? await URLSession.shared.data(from: url),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let meals = json["meals"] as? [[String: Any]] else {
+                if Task.isCancelled { return }
                 // Network failed — serve offline cache
                 await MainActor.run {
                     isSearchingOnline = false
@@ -356,8 +362,10 @@ struct GlobalSearchView: View {
                 }
                 return
             }
+            if Task.isCancelled { return }
             let loader = OnlineRecipesLoader()
             let parsed = meals.compactMap { loader.parseMealPublic($0) }
+            if Task.isCancelled { return }
             await MainActor.run {
                 onlineResults = parsed
                 isSearchingOnline = false

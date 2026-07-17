@@ -69,7 +69,7 @@ struct CookingSessionSummaryView: View {
             Text(anchorTitle.displayNormalized)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(session.themeTextColor.opacity(0.75))
-            Text(completion.label)
+            Text(completion.summaryLabel)
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(Color.stockedGold)
                 .padding(.horizontal, 10).padding(.vertical, 4)

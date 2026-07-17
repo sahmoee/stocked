@@ -774,6 +774,9 @@ struct BuildInfoFooter: View {
                     Text("Tap to see what's new")
                         .font(.system(size: 10))
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
+                    Text("\(BuildConfig.company) · sowensstudios.com")
+                        .font(.system(size: 10))
+                        .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
                 Spacer()
                 Image(systemName: "chevron.right")

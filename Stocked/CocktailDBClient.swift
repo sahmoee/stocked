@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import Foundation
 
-struct CocktailRecipe: Identifiable, Codable {
+nonisolated struct CocktailRecipe: Identifiable, Codable, Sendable {
     let id:           String
     let name:         String
     let category:     String
@@ -18,8 +18,7 @@ struct CocktailRecipe: Identifiable, Codable {
     let measures:     [String]
 }
 
-@MainActor
-final class CocktailDBClient {
+actor CocktailDBClient {
 
     static let shared = CocktailDBClient()
     private init() {}
@@ -58,7 +57,7 @@ final class CocktailDBClient {
 
         for d in drinks.shuffled().prefix(4) {
             guard let id = d["idDrink"] as? String else { continue }
-            if let recipe = await fetchById(id) { ingest(recipe) }
+            if let recipe = await fetchById(id) { await ingest(recipe) }
         }
     }
 
@@ -143,12 +142,14 @@ final class CocktailDBClient {
     }
 
     // Feed into KB (ingredients) and RecipeDatabase (recipe)
-    private func ingest(_ cocktail: CocktailRecipe) {
-        let kb = StockedKnowledgeBase.shared
-
-        // Register each ingredient into the knowledge base → powers predictive text
-        for ing in cocktail.ingredients {
-            kb.learnFromInventoryItem(name: ing, category: "Beverages")
+    private func ingest(_ cocktail: CocktailRecipe) async {
+        // Register each ingredient into the knowledge base → powers predictive text.
+        // Only this small model mutation belongs on MainActor; network parsing stays here.
+        await MainActor.run {
+            let kb = StockedKnowledgeBase.shared
+            for ingredient in cocktail.ingredients {
+                kb.learnFromInventoryItem(name: ingredient, category: "Beverages")
+            }
         }
 
         // Build ingredient lines: "2 oz Vodka", "Splash Lime Juice"
@@ -177,7 +178,7 @@ final class CocktailDBClient {
             cachedAt:    Date()
         )
 
-        Task { await RecipeDatabase.shared.upsert(entry) }
+        await RecipeDatabase.shared.upsert(entry)
     }
 
     private func shouldSync() -> Bool {

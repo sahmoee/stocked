@@ -98,7 +98,8 @@ nonisolated struct AddRecipeForm: Sendable {
 actor RecipeDatabase {
     static let shared = RecipeDatabase()
 
-    private let userDefaultsKey = "recipeDatabase_v2"
+    private let storageKey       = "recipe_database_v3"
+    private let legacyDefaultsKey = "recipeDatabase_v2"
     private let maxEntries       = 2000         // hard cap before LRU eviction
     private var entries: [RecipeDatabaseEntry] = []
     private var titleIndex: [String: UUID] = [:]   // lowercase title → id for dedup
@@ -149,8 +150,10 @@ actor RecipeDatabase {
         if candidateIDs.isEmpty {
             candidates = entries.filter { $0.title.lowercased().contains(q) }
         } else {
-            let byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
-            candidates = candidateIDs.compactMap { byID[$0] }
+            // Preserve database order while selecting candidates. Building a full UUID
+            // dictionary on every keystroke allocated heavily and could trap on duplicate
+            // IDs from a damaged/partially synced cache.
+            candidates = entries.filter { candidateIDs.contains($0.id) }
         }
 
         // #14 + #10: rank by title relevance first, then quality/completeness.
@@ -244,19 +247,26 @@ actor RecipeDatabase {
 
     // MARK: Persistence
     private func persist() {
-        Task(priority: .background) { [entries] in
-            if let data = try? JSONEncoder().encode(entries) {
-                UserDefaults.standard.set(data, forKey: self.userDefaultsKey)
-            }
-        }
+        // Large recipe arrays do not belong in the preferences domain. LocalDatabase
+        // coalesces and encodes this write on its utility queue, avoiding cfprefsd stalls.
+        LocalDatabase.shared.save(entries, key: storageKey)
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+        if let decoded = LocalDatabase.shared.loadArray(RecipeDatabaseEntry.self, key: storageKey) {
+            entries = decoded
+            rebuildIndex()
+            return
+        }
+
+        // One-time migration from builds that stored the full recipe database in UserDefaults.
+        guard let data = UserDefaults.standard.data(forKey: legacyDefaultsKey),
               let decoded = try? JSONDecoder().decode([RecipeDatabaseEntry].self, from: data)
         else { return }
         entries = decoded
         rebuildIndex()
+        LocalDatabase.shared.save(decoded, key: storageKey)
+        UserDefaults.standard.removeObject(forKey: legacyDefaultsKey)
     }
 
     private func rebuildIndex() {
@@ -429,35 +439,41 @@ final class RecipeDatabaseManager {
 
     // MARK: Merge from all live caches
     func mergeAllSources() async {
-        // Convert on @MainActor BEFORE crossing into actor — avoids isolation warnings
+        // Snapshot on MainActor, then convert away from it. These caches can contain hundreds
+        // of rich rows; mapping every ingredient/step during launch used to compete with first paint.
         // 1. OfflineRecipeCache
-        let offlineEntries = OfflineRecipeCache.shared.recipes.map { r -> RecipeDatabaseEntry in
-            RecipeDatabaseEntry(
-                title: r.title, description: r.description ?? "",
-                sourceURL: r.sourceURL ?? "", sourceName: r.source,
-                prepTime: r.prepTime ?? "", cookTime: r.cookTime ?? "", totalTime: "",
-                servings: r.servings ?? "", category: r.category, cuisine: r.area,
-                tags: r.tags, ingredients: r.ingredients, steps: r.steps,
-                imageURL: r.imageURL
-            )
-        }
+        let offlineRaw = OfflineRecipeCache.shared.recipes
+        let offlineEntries = await Task.detached(priority: .utility) {
+            offlineRaw.map { r -> RecipeDatabaseEntry in
+                RecipeDatabaseEntry(
+                    title: r.title, description: r.description ?? "",
+                    sourceURL: r.sourceURL ?? "", sourceName: r.source,
+                    prepTime: r.prepTime ?? "", cookTime: r.cookTime ?? "", totalTime: "",
+                    servings: r.servings ?? "", category: r.category, cuisine: r.area,
+                    tags: r.tags, ingredients: r.ingredients, steps: r.steps,
+                    imageURL: r.imageURL
+                )
+            }
+        }.value
         await db.mergeEntries(offlineEntries)
 
         // 2. WebRecipeCatalogue
         let webRaw = await WebRecipeCatalogue.shared.all()
-        let webEntries = webRaw.map { r -> RecipeDatabaseEntry in
-            RecipeDatabaseEntry(
-                title: r.title, description: r.description,
-                sourceURL: r.sourceURL, sourceName: r.sourceName,
-                prepTime: r.prepTime, cookTime: r.cookTime, totalTime: r.totalTime,
-                servings: r.servings, category: r.category, cuisine: r.cuisine,
-                tags: r.tags,
-                ingredients: r.ingredients,
-                steps: r.steps.map { $0.text },
-                imageURL: r.imageURL, calories: r.calories ?? "", rating: r.rating,
-                cachedAt: r.cachedAt
-            )
-        }
+        let webEntries = await Task.detached(priority: .utility) {
+            webRaw.map { r -> RecipeDatabaseEntry in
+                RecipeDatabaseEntry(
+                    title: r.title, description: r.description,
+                    sourceURL: r.sourceURL, sourceName: r.sourceName,
+                    prepTime: r.prepTime, cookTime: r.cookTime, totalTime: r.totalTime,
+                    servings: r.servings, category: r.category, cuisine: r.cuisine,
+                    tags: r.tags,
+                    ingredients: r.ingredients,
+                    steps: r.steps.map { $0.text },
+                    imageURL: r.imageURL, calories: r.calories ?? "", rating: r.rating,
+                    cachedAt: r.cachedAt
+                )
+            }
+        }.value
         await db.mergeEntries(webEntries)
 
         // 3. Auto-discover and import any new bundled JSON files

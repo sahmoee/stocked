@@ -45,6 +45,43 @@ struct RecipeVaultView: View {
     // #248 — Discover (online recipes below the hub)
     @State private var onlineLoader = OnlineRecipesLoader.shared
 
+    // #3 — prepared hub stats. Body re-runs on ANY @Observable store change (incl.
+    // unrelated inventory updates); computing these counts inline meant filtering
+    // userRecipes 3–4× per render. Instead compute once, in a single pass, only when
+    // recipes / recently-viewed actually change.
+    @State private var hubStats = RecipeHubStats()
+    private struct RecipeHubStats {
+        var favorites = 0, cooked = 0, saved = 0, cuisines = 0
+        var recents: [UserRecipe] = []
+    }
+    private func recomputeHubStats() {
+        let recipes = session.guestStore.userRecipes
+        var fav = 0, cooked = 0
+        var cuisineSet = Set<String>()
+        for r in recipes {
+            if r.isFavorited { fav += 1 }
+            if r.cookCount > 0 { cooked += 1 }
+            if !r.cuisine.isEmpty { cuisineSet.insert(r.cuisine) }
+        }
+        let recents = session.recentlyViewedRecipeIDs.compactMap { id in
+            recipes.first(where: { $0.id == id })
+        }
+        hubStats = RecipeHubStats(favorites: fav, cooked: cooked, saved: recipes.count,
+                                  cuisines: cuisineSet.count, recents: recents)
+    }
+    /// Cheap change signal for the hub stats: hashes only the fields the counts depend
+    /// on (NOT imageData — a full [UserRecipe] Equatable compare would diff image blobs
+    /// every render). onChange compares two Ints; recompute runs only when this shifts.
+    private var hubStatsSignature: Int {
+        var hasher = Hasher()
+        for r in session.guestStore.userRecipes {
+            hasher.combine(r.id); hasher.combine(r.isFavorited)
+            hasher.combine(r.cookCount); hasher.combine(r.cuisine)
+        }
+        hasher.combine(session.recentlyViewedRecipeIDs)
+        return hasher.finalize()
+    }
+
     // SwiftUI gives undefined behavior when many .navigationDestination(isPresented:)
     // modifiers are stacked on one view — they collide, and toggling one bool can
     // trigger a different destination. That's why tapping Categories opened a recipe.
@@ -208,16 +245,16 @@ struct RecipeVaultView: View {
                 // ── #238 — My Recipes hub (mockup 2×2) ──────────────────
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     hubCard(icon: "heart.fill", tint: Color.stockedGold,
-                            count: session.guestStore.userRecipes.filter(\.isFavorited).count,
+                            count: hubStats.favorites,
                             unit: "recipes", label: "Favorites") { navTarget = .favorites }
                     hubCard(icon: "checkmark.circle.fill", tint: Color.stockedGreen,
-                            count: session.guestStore.userRecipes.filter { $0.cookCount > 0 }.count,
+                            count: hubStats.cooked,
                             unit: "recipes", label: "Cooked") { navTarget = .cooked }
                     hubCard(icon: "bookmark.fill", tint: Color.stockedInfo,
-                            count: session.guestStore.userRecipes.count,
+                            count: hubStats.saved,
                             unit: "recipes", label: "Saved") { navTarget = .saved }
                     hubCard(icon: "folder.fill", tint: Color.stockedGold,
-                            count: Set(session.guestStore.userRecipes.map(\.cuisine).filter { !$0.isEmpty }).count,
+                            count: hubStats.cuisines,
                             unit: "cuisines", label: "Collections") { navTarget = .collections }
                     hubActionCard(icon: "square.grid.2x2.fill", tint: Color.stockedGold,
                                   label: "Categories",
@@ -240,9 +277,7 @@ struct RecipeVaultView: View {
                 .coachmarkAnchor("recipes.hub")
 
                 // ── #240 — Recently Viewed (mockup rail) ────────────────
-                let recents = session.recentlyViewedRecipeIDs.compactMap { id in
-                    session.guestStore.userRecipes.first(where: { $0.id == id })
-                }
+                let recents = hubStats.recents
                 if !recents.isEmpty {
                     HStack {
                         Text("Recently Viewed")
@@ -398,7 +433,7 @@ struct RecipeVaultView: View {
             case .online(let recipe):
                 OnlineRecipeDetailView(recipe: recipe).environment(session)   // #248
             case .sources:
-                SourcesBrowserView(pool: discoverPool,
+                SourcesBrowserView(pool: discoverSnapshot.pool,
                                    onOpenRecipe: { navTarget = .online($0) },
                                    onOpenSource: { navTarget = .sourceRecipes($0) })
                     .environment(session)
@@ -415,7 +450,19 @@ struct RecipeVaultView: View {
         .onAppear {
             selectedTab = session.preferredRecipeTab
             onlineLoader.loadIfNeeded(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })  // #248
+            scheduleDiscoverSnapshotRebuild()
             consumePendingImportIfNeeded()
+            recomputeHubStats()
+        }
+        .onChange(of: onlineLoader.revision) { _, _ in
+            scheduleDiscoverSnapshotRebuild()
+        }
+        // #3 — recompute prepared hub stats only when their real inputs change (cheap
+        // Int signature avoids comparing recipe image blobs every render).
+        .onChange(of: hubStatsSignature) { _, _ in recomputeHubStats() }
+        .onDisappear {
+            discoverSnapshotTask?.cancel()
+            discoverSnapshotTask = nil
         }
         .onChange(of: session.pendingRecipeImport) { _, pending in
             if pending { consumePendingImportIfNeeded() }
@@ -459,97 +506,152 @@ struct RecipeVaultView: View {
     // three rails, all from OnlineRecipesLoader (TheMealDB + the synced local
     // database) — cached instantly, refreshed in the background.
 
-    private var discoverPool: [OnlineRecipe] {
-        // De-duplicate by normalized title AND drop recipes with no real step-by-step
-        // instructions (or link-only "instructions" from sources like Edamam). The
-        // loader pulls from several feeds and the same dish can come back from more
-        // than one with different ids — which is why the same recipe showed twice.
-        // #FB — drinks are excluded here entirely: they get their own compact rail
-        // (and the Drinks hub card) instead of popping up in Popular/Dinner ideas.
-        let drinkIDs = Set(RecipeSourceHub.drinks(pool: onlineLoader.recipes).map { $0.id })
-        var seen = Set<String>()
-        var out: [OnlineRecipe] = []
-        for r in onlineLoader.recipes
-            where !r.imageURL.isEmpty
-               && !drinkIDs.contains(r.id)
-               && OnlineRecipeFacts.hasRealInstructions(r.instructions) {
-            let key = OnlineRecipeFacts.normalizedTitle(r.title)
-            if seen.insert(key).inserted { out.append(r) }
-        }
-        return out
-    }
-
-    /// #FB — compact drinks pool for the small Discover rail (never mixed with food).
-    private var discoverDrinks: [OnlineRecipe] {
-        var seen = Set<String>()
-        var out: [OnlineRecipe] = []
-        for r in RecipeSourceHub.drinks(pool: onlineLoader.recipes)
-            where !r.imageURL.isEmpty && OnlineRecipeFacts.hasRealInstructions(r.instructions) {
-            let key = OnlineRecipeFacts.normalizedTitle(r.title)
-            if seen.insert(key).inserted { out.append(r) }
-        }
-        return Array(out.prefix(8))
-    }
-    // #251 — pantry + saved snapshots reused by every Discover card's badges.
-    private var discoverInStock: Set<String> { session.guestStore.inStockNameSet }
-    private var discoverSavedTitles: Set<String> { session.guestStore.savedRecipeTitles }
-
-    /// Splits the pool into (hero, popular, dinners, sweets) with no recipe repeated.
-    /// "Popular right now" is ordered by what this user actually opens (#6) — recipes whose
-    /// category/area match the user's interest profile float to the front.
-    /// #FB — rails also prefer recipes you can actually make (fewest missing first),
-    /// so the ideas read as convenient instead of 9-ingredients-short.
-    private var discoverSplit: (hero: OnlineRecipe?, popular: [OnlineRecipe], dinners: [OnlineRecipe], sweets: [OnlineRecipe]) {
-        var pool = discoverPool
-        let hero = pool.first
-        if hero != nil { pool.removeFirst() }
-
-        let sweetCats  = ["dessert", "breakfast"]
-        let dinnerCats = ["beef", "chicken", "pasta", "pork", "lamb", "seafood", "vegetarian", "vegan", "side"]
-
-        let inStock = discoverInStock
-        func missingCount(_ r: OnlineRecipe) -> Int {
-            if case .missing(let n) = OnlineRecipeMatch.status(r, inStock: inStock) { return n }
-            return 0
-        }
-
-        var used = Set<String>()
-        func take(_ n: Int, where match: (OnlineRecipe) -> Bool) -> [OnlineRecipe] {
-            var out: [OnlineRecipe] = []
-            for r in pool where out.count < n && !used.contains(r.id) && match(r) {
-                out.append(r); used.insert(r.id)
-            }
-            return out.sorted { missingCount($0) < missingCount($1) }
-        }
-        let sweets  = take(8) { sweetCats.contains($0.category.lowercased()) }
-        let dinners = take(8) { dinnerCats.contains($0.category.lowercased()) }
-        // Popular: take a wider slice, then sort by interest score so the user's taste leads.
-        var popular = take(12) { _ in true }
-        popular.sort { RecipeInterest.shared.score(category: $0.category, area: $0.area)
-                     > RecipeInterest.shared.score(category: $1.category, area: $1.area) }
-        popular = Array(popular.prefix(8))
-        return (hero, popular, dinners, sweets)
-    }
-
-    // #FB — Discover no longer reshuffles under your thumb: the split is frozen into
-    // a snapshot that only rebuilds when you re-enter the screen or tap Refresh.
-    private struct DiscoverSnapshot {
+    // The old implementation rebuilt multiple full recipe scans from computed properties
+    // during every SwiftUI body evaluation. This immutable snapshot is assembled off-main once
+    // per loader revision and reused by every rail, badge, quick pick, and source destination.
+    private nonisolated struct DiscoverSnapshot: Sendable {
+        var pool: [OnlineRecipe] = []
         var hero: OnlineRecipe?
         var popular: [OnlineRecipe] = []
         var dinners: [OnlineRecipe] = []
         var sweets:  [OnlineRecipe] = []
         var drinks:  [OnlineRecipe] = []
-        var isEmpty: Bool { hero == nil && popular.isEmpty && dinners.isEmpty && sweets.isEmpty }
+        var statusByID: [String: OnlineRecipeMatch.Status] = [:]
+        var isEmpty: Bool {
+            hero == nil && popular.isEmpty && dinners.isEmpty && sweets.isEmpty
+        }
     }
-    @State private var discoverSnapshot = DiscoverSnapshot()
 
-    private func rebuildDiscoverSnapshot() {
-        let split = discoverSplit
-        discoverSnapshot = DiscoverSnapshot(hero: split.hero,
-                                            popular: split.popular,
-                                            dinners: split.dinners,
-                                            sweets: split.sweets,
-                                            drinks: discoverDrinks)
+    @State private var discoverSnapshot = DiscoverSnapshot()
+    @State private var discoverSnapshotTask: Task<Void, Never>?
+
+    private var discoverSavedTitles: Set<String> {
+        session.guestStore.savedRecipeTitles
+    }
+
+    private func scheduleDiscoverSnapshotRebuild() {
+        discoverSnapshotTask?.cancel()
+
+        let recipes = onlineLoader.recipes
+        guard !recipes.isEmpty else {
+            discoverSnapshot = DiscoverSnapshot()
+            discoverSnapshotTask = nil
+            return
+        }
+        let inStock = session.guestStore.inStockNameSet
+        let interestWeights = RecipeInterest.shared.weights
+
+        discoverSnapshotTask = Task {
+            let snapshot = await Task.detached(priority: .userInitiated) {
+                Self.makeDiscoverSnapshot(
+                    recipes: recipes,
+                    inStock: inStock,
+                    interestWeights: interestWeights
+                )
+            }.value
+            guard !Task.isCancelled else { return }
+            discoverSnapshot = snapshot
+            discoverSnapshotTask = nil
+        }
+    }
+
+    private nonisolated static func makeDiscoverSnapshot(
+        recipes: [OnlineRecipe],
+        inStock: Set<String>,
+        interestWeights: [String: Double]
+    ) -> DiscoverSnapshot {
+        let drinkWords = ["cocktail", "drink", "beverage", "shake", "smoothie",
+                          "coffee", "tea", "punch", "shot", "mocktail", "juice"]
+        func isDrink(_ recipe: OnlineRecipe) -> Bool {
+            let source = recipe.source.lowercased()
+            if source.contains("cocktaildb") { return true }
+            let category = recipe.category.lowercased()
+            return drinkWords.contains { category.contains($0) }
+        }
+
+        var seenFood = Set<String>()
+        var food: [OnlineRecipe] = []
+        var seenDrinks = Set<String>()
+        var drinks: [OnlineRecipe] = []
+
+        for recipe in recipes
+            where !recipe.imageURL.isEmpty
+               && OnlineRecipeFacts.hasRealInstructions(recipe.instructions) {
+            let key = OnlineRecipeFacts.normalizedTitle(recipe.title)
+            guard !key.isEmpty else { continue }
+            if isDrink(recipe) {
+                if seenDrinks.insert(key).inserted, drinks.count < 8 {
+                    drinks.append(recipe)
+                }
+            } else if seenFood.insert(key).inserted {
+                food.append(recipe)
+            }
+        }
+
+        var remaining = food
+        let hero = remaining.first
+        if hero != nil { remaining.removeFirst() }
+
+        let sweetCategories: Set<String> = ["dessert", "breakfast"]
+        let dinnerCategories: Set<String> = [
+            "beef", "chicken", "pasta", "pork", "lamb",
+            "seafood", "vegetarian", "vegan", "side"
+        ]
+        var statuses: [String: OnlineRecipeMatch.Status] = [:]
+
+        func status(_ recipe: OnlineRecipe) -> OnlineRecipeMatch.Status {
+            if let cached = statuses[recipe.id] { return cached }
+            let computed = OnlineRecipeMatch.status(recipe, inStock: inStock)
+            statuses[recipe.id] = computed
+            return computed
+        }
+
+        func missingCount(_ recipe: OnlineRecipe) -> Int {
+            if case .missing(let count) = status(recipe) { return count }
+            return 0
+        }
+
+        var used = Set<String>()
+        func take(_ count: Int, matching: (OnlineRecipe) -> Bool) -> [OnlineRecipe] {
+            var result: [OnlineRecipe] = []
+            for recipe in remaining
+                where result.count < count && !used.contains(recipe.id) && matching(recipe) {
+                result.append(recipe)
+                used.insert(recipe.id)
+            }
+            return result.sorted { missingCount($0) < missingCount($1) }
+        }
+
+        let sweets = take(8) { sweetCategories.contains($0.category.lowercased()) }
+        let dinners = take(8) { dinnerCategories.contains($0.category.lowercased()) }
+        var popular = take(12) { _ in true }
+        func interestScore(_ recipe: OnlineRecipe) -> Double {
+            let category = recipe.category.lowercased()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let area = recipe.area.lowercased()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return (interestWeights[category] ?? 0) + (interestWeights[area] ?? 0)
+        }
+        popular.sort {
+            let lhs = interestScore($0)
+            let rhs = interestScore($1)
+            if lhs != rhs { return lhs > rhs }
+            return missingCount($0) < missingCount($1)
+        }
+        popular = Array(popular.prefix(8))
+
+        if let hero { _ = status(hero) }
+        for recipe in drinks { _ = status(recipe) }
+
+        return DiscoverSnapshot(
+            pool: food,
+            hero: hero,
+            popular: popular,
+            dinners: dinners,
+            sweets: sweets,
+            drinks: drinks,
+            statusByID: statuses
+        )
     }
 
     /// One-tap open that also teaches the interest profile (#6).
@@ -645,14 +747,6 @@ struct RecipeVaultView: View {
             }
         }
         .padding(.bottom, 6)
-        .onAppear {
-            // #FB — snapshot rebuilds only on screen entry (or Refresh), never mid-scroll.
-            if discoverSnapshot.isEmpty || !discoverPool.isEmpty { rebuildDiscoverSnapshot() }
-        }
-        .onChange(of: onlineLoader.isLoading) { _, loading in
-            // A refresh (manual or first load) just finished — show the new batch once.
-            if !loading { rebuildDiscoverSnapshot() }
-        }
     }
 
     // #FB — quick-pick browse chips over the discover pool.
@@ -673,7 +767,7 @@ struct RecipeVaultView: View {
 
     private func quickPickChip(_ title: String, icon: String) -> some View {
         NavigationLink {
-            QuickPickListView(pick: title, pool: discoverPool,
+            QuickPickListView(pick: title, pool: discoverSnapshot.pool,
                               onOpenRecipe: { openOnlineRecipe($0) })
                 .environment(session)
         } label: {
@@ -801,7 +895,7 @@ struct RecipeVaultView: View {
     // nothing when the kitchen is empty (no honest signal to give).
     @ViewBuilder
     private func onlineStatusBadge(_ recipe: OnlineRecipe, light: Bool) -> some View {
-        switch OnlineRecipeMatch.status(recipe, inStock: discoverInStock) {
+        switch discoverSnapshot.statusByID[recipe.id] ?? .unknown {
         case .ready:
             badgePill(text: "Ready", system: "checkmark.circle.fill",
                       fg: .white, bg: Color.stockedGreen)
@@ -926,15 +1020,28 @@ private struct RecipeSearchBar: View {
                 guard !Task.isCancelled else { return }
                 let snap = await RecipeDatabaseManager.shared.loadSnapshot()
                 guard !Task.isCancelled else { return }
-                // #9 fuzzy matching: title/cuisine/category fuzzily, ingredients by substring;
-                // ranked by best title relevance.
-                dbResults = snap.filter {
-                    FuzzyMatch.matches(trimmed, $0.title) ||
-                    FuzzyMatch.matches(trimmed, $0.cuisine) ||
-                    FuzzyMatch.matches(trimmed, $0.category) ||
-                    $0.ingredients.contains { $0.localizedCaseInsensitiveContains(trimmed) }
-                }
-                .sorted { FuzzyMatch.score(trimmed, $0.title) > FuzzyMatch.score(trimmed, $1.title) }
+
+                // Fuzzy matching and sorting the full writable snapshot used to resume on
+                // MainActor and block typing/navigation. Keep only the small UI result set.
+                let results = await Task.detached(priority: .userInitiated) {
+                    Array(
+                        snap.lazy.filter {
+                            FuzzyMatch.matches(trimmed, $0.title) ||
+                            FuzzyMatch.matches(trimmed, $0.cuisine) ||
+                            FuzzyMatch.matches(trimmed, $0.category) ||
+                            $0.ingredients.contains {
+                                $0.localizedCaseInsensitiveContains(trimmed)
+                            }
+                        }
+                        .sorted {
+                            FuzzyMatch.score(trimmed, $0.title) >
+                            FuzzyMatch.score(trimmed, $1.title)
+                        }
+                        .prefix(40)
+                    )
+                }.value
+                guard !Task.isCancelled else { return }
+                dbResults = results
             }
         }
     }

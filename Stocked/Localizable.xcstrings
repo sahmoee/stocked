@@ -19,6 +19,9 @@
     "· %@" : {
 
     },
+    "· having trouble syncing" : {
+
+    },
     "· Start timer" : {
 
     },
@@ -31,6 +34,9 @@
           }
         }
       }
+    },
+    "“%@” uses ingredients reserved for planned meals. You can still cook it — here's what it touches." : {
+
     },
     "\"%@\" will be removed from your collection. This can't be undone." : {
 
@@ -50,6 +56,9 @@
           }
         }
       }
+    },
+    "/100" : {
+
     },
     "% Daily Value per serving · 2000 cal diet" : {
 
@@ -114,6 +123,16 @@
         }
       }
     },
+    "%@ · %@ held · %@ free" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@ held · %3$@ free"
+          }
+        }
+      }
+    },
     "%@ · %lld" : {
       "localizations" : {
         "en" : {
@@ -155,6 +174,19 @@
       }
     },
     "%@ · one-time purchase" : {
+
+    },
+    "%@ · serves %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · serves %2$lld"
+          }
+        }
+      }
+    },
+    "%@ · sowensstudios.com" : {
 
     },
     "%@ %@" : {
@@ -205,6 +237,16 @@
     },
     "%@ done" : {
 
+    },
+    "%@ done — move %lld to Pantry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ done — move %2$lld to Pantry"
+          }
+        }
+      }
     },
     "%@ in the last 7 days" : {
 
@@ -337,9 +379,6 @@
         }
       }
     },
-    "%@." : {
-
-    },
     "%@. %@" : {
       "localizations" : {
         "en" : {
@@ -375,6 +414,9 @@
           }
         }
       }
+    },
+    "%lld 📍" : {
+
     },
     "%lld available" : {
 
@@ -424,6 +466,16 @@
     },
     "%lld entries" : {
 
+    },
+    "%lld future meal%@ short — tap to review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld future meal%2$@ short — tap to review"
+          }
+        }
+      }
     },
     "%lld in stock" : {
 
@@ -497,6 +549,16 @@
         }
       }
     },
+    "%lld item%@ reserved for planned meals" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld item%2$@ reserved for planned meals"
+          }
+        }
+      }
+    },
     "%lld item%@ scanned" : {
       "localizations" : {
         "en" : {
@@ -544,6 +606,9 @@
       }
     },
     "%lld items ready to add" : {
+
+    },
+    "%lld marked" : {
 
     },
     "%lld meal%@" : {
@@ -650,6 +715,16 @@
     },
     "%lld percent used" : {
 
+    },
+    "%lld planned meal%@ short — see the planner for fixes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld planned meal%2$@ short — see the planner for fixes."
+          }
+        }
+      }
     },
     "%lld planning conflict%@" : {
       "localizations" : {
@@ -813,6 +888,16 @@
         }
       }
     },
+    "%lld/%lld implemented" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld implemented"
+          }
+        }
+      }
+    },
     "%lld/%lld in stock" : {
       "localizations" : {
         "en" : {
@@ -864,6 +949,9 @@
       }
     },
     "%lld%%" : {
+
+    },
+    "%lld%% complete" : {
 
     },
     "%lld%% of budget used" : {
@@ -1036,6 +1124,9 @@
     "1 missing" : {
 
     },
+    "1. …\n2. …" : {
+
+    },
     "2-step" : {
 
     },
@@ -1084,6 +1175,9 @@
     "About %lld minutes hands-off remaining." : {
 
     },
+    "Access code" : {
+
+    },
     "Access Level" : {
 
     },
@@ -1104,6 +1198,16 @@
     },
     "Add %@ to Grocery List" : {
 
+    },
+    "Add %lld Item%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Add %1$lld Item%2$@"
+          }
+        }
+      }
     },
     "Add %lld Item%@ to Grocery List" : {
       "localizations" : {
@@ -1219,6 +1323,9 @@
 
     },
     "Add Photo" : {
+
+    },
+    "Add Replacement to Grocery" : {
 
     },
     "Add shortages to Grocery after saving" : {
@@ -1344,10 +1451,19 @@
     "Already have %lld — mark 1 used" : {
 
     },
+    "Already imported" : {
+
+    },
     "Already in Pantry" : {
 
     },
     "Already reserved for %@." : {
+
+    },
+    "Also adding · %lld" : {
+
+    },
+    "Also made" : {
 
     },
     "Also update my inventory" : {
@@ -1384,6 +1500,9 @@
 
     },
     "Anything we missed?" : {
+
+    },
+    "App Correctness" : {
 
     },
     "App Icon" : {
@@ -1425,7 +1544,13 @@
         }
       }
     },
+    "Approved changes & future work" : {
+
+    },
     "Are you scanning one item, or multiple items in a row?\nBulk mode keeps the scanner open after each scan." : {
+
+    },
+    "AREA" : {
 
     },
     "As you use up and remove items, your stats will build here." : {
@@ -1443,6 +1568,9 @@
     "At your usual pace, gone by %@" : {
 
     },
+    "Attach" : {
+
+    },
     "Auto Backup" : {
 
     },
@@ -1456,6 +1584,12 @@
 
     },
     "Auto-generated from meal dates, freezer items, and ingredients that can be prepared together." : {
+
+    },
+    "Auto-saved to THINGS_TO_CHANGE.md for AI pickup" : {
+
+    },
+    "Auto-suggested from the screen you were on." : {
 
     },
     "Autofilled from %@" : {
@@ -1552,6 +1686,9 @@
     "by %@" : {
 
     },
+    "By Store" : {
+
+    },
     "Cache is getting large. Deleting it frees space; Stocked will download needed content again." : {
 
     },
@@ -1583,6 +1720,15 @@
 
     },
     "Cancel" : {
+
+    },
+    "Cancel — don't import yet" : {
+
+    },
+    "Cancel Meal" : {
+
+    },
+    "Cancel this meal?" : {
 
     },
     "Cancel timer" : {
@@ -1637,10 +1783,16 @@
     "CHOOSE A STORE" : {
 
     },
+    "Choose a workbook" : {
+
+    },
     "Choose an avatar that represents\nyour cooking personality." : {
 
     },
     "Choose an icon for Stocked. It updates on your Home Screen right away." : {
+
+    },
+    "Choose Another Meal" : {
 
     },
     "Choose Photo" : {
@@ -1650,6 +1802,9 @@
 
     },
     "Choose Store" : {
+
+    },
+    "Choose what this device shares with your household. Turning something off keeps it private to you — others won't see your changes for it, and you won't receive theirs." : {
 
     },
     "Choose what you want to be notified about in this household." : {
@@ -1668,6 +1823,9 @@
 
     },
     "Close" : {
+
+    },
+    "Close & Sync" : {
 
     },
     "Code expires in 7 days" : {
@@ -1729,6 +1887,9 @@
         }
       }
     },
+    "Complete It Manually" : {
+
+    },
     "Configured sources are discovery candidates only. Recipe browsing shows a source after it reaches 20 complete recipes; failed sources with five or fewer are removed from cache." : {
 
     },
@@ -1756,6 +1917,9 @@
     "Continue as Guest" : {
 
     },
+    "Continue Cooking" : {
+
+    },
     "Convert to" : {
 
     },
@@ -1766,6 +1930,9 @@
 
     },
     "Cook again" : {
+
+    },
+    "Cook Anyway" : {
 
     },
     "Cook Buttons" : {
@@ -1833,6 +2000,9 @@
     "Cooking for %lld. Adjust servings for this session." : {
 
     },
+    "Cooking in progress" : {
+
+    },
     "COOKING PROFILE" : {
 
     },
@@ -1855,6 +2025,9 @@
 
     },
     "Couldn't find anything to change from that. Try naming an item you have." : {
+
+    },
+    "Couldn't import that post" : {
 
     },
     "Couldn't load %@ recipes right now." : {
@@ -1962,6 +2135,9 @@
     "Delete cached files?" : {
 
     },
+    "Delete entry" : {
+
+    },
     "Delete Recipe" : {
 
     },
@@ -1974,6 +2150,9 @@
     "Describe it and we'll build the recipe." : {
 
     },
+    "Describe the change / bug / fix needed" : {
+
+    },
     "Deselect All" : {
 
     },
@@ -1981,6 +2160,9 @@
 
     },
     "Details" : {
+
+    },
+    "Details (optional)" : {
 
     },
     "Did you mean" : {
@@ -1999,6 +2181,12 @@
 
     },
     "Dinner is closer than you think." : {
+
+    },
+    "Discard" : {
+
+    },
+    "Discard Progress" : {
 
     },
     "Discover" : {
@@ -2029,6 +2217,9 @@
 
     },
     "Downloaded recipes, nutrition responses, product metadata, and images are cached for faster loading and offline reuse. Your pantry, grocery list, saved recipes, and account data are never deleted here." : {
+
+    },
+    "Draft It with AI (labeled)" : {
 
     },
     "Drag to plan  ·  dots = expiring" : {
@@ -2088,6 +2279,9 @@
     "Edit amounts, remove items, or add what's missing to your grocery list. The recipe updates as you go." : {
 
     },
+    "Edit Before Saving" : {
+
+    },
     "Edit Inventory" : {
 
     },
@@ -2122,6 +2316,9 @@
 
     },
     "Enter the invite code shared by your household member." : {
+
+    },
+    "Enter the QA access code." : {
 
     },
     "Enter zip code" : {
@@ -2171,6 +2368,9 @@
 
     },
     "Everything checks out!" : {
+
+    },
+    "Everything else is available to cook" : {
 
     },
     "Everything's confirmed!" : {
@@ -2263,6 +2463,9 @@
     "FAVOURITE CUISINES" : {
 
     },
+    "Fed by QA tickets · manual entries · regression" : {
+
+    },
     "Fetching…" : {
 
     },
@@ -2348,6 +2551,9 @@
         }
       }
     },
+    "From QA · %@" : {
+
+    },
     "FROM THE WEB" : {
 
     },
@@ -2418,6 +2624,9 @@
           }
         }
       }
+    },
+    "Group by Store" : {
+
     },
     "Guest" : {
 
@@ -2517,6 +2726,9 @@
     "How would you like to import?" : {
 
     },
+    "How you appear to everyone in your household — in the member list, the activity feed, and the Daily Brief. Syncs to every device." : {
+
+    },
     "However you cook it, the meal keeps its place on your plan until you serve it." : {
 
     },
@@ -2541,7 +2753,19 @@
     "Identifying food items…" : {
 
     },
+    "Implementation notes" : {
+
+    },
+    "Implemented" : {
+
+    },
     "Import" : {
+
+    },
+    "Import Again Anyway" : {
+
+    },
+    "Import from %@" : {
 
     },
     "Import from Screenshot" : {
@@ -2787,6 +3011,9 @@
     "Leave" : {
 
     },
+    "Leave cooking?" : {
+
+    },
     "Leave Household" : {
 
     },
@@ -2841,6 +3068,9 @@
     "Listening — say \"next\", \"back\", \"repeat\", or \"finish\"" : {
 
     },
+    "Living Running List" : {
+
+    },
     "Load Demo Receipt (Simulator)" : {
 
     },
@@ -2871,6 +3101,9 @@
     "Looking up product…" : {
 
     },
+    "Looks like some of this was already added" : {
+
+    },
     "Low" : {
 
     },
@@ -2887,6 +3120,9 @@
 
     },
     "Manual" : {
+
+    },
+    "Manual entry" : {
 
     },
     "Mark %@" : {
@@ -2961,6 +3197,9 @@
     "Merge %lld items" : {
 
     },
+    "Minimize to Test" : {
+
+    },
     "Minute" : {
 
     },
@@ -3008,6 +3247,16 @@
     },
     "Most used" : {
 
+    },
+    "Move %lld from %@ to Pantry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Move %1$lld from %2$@ to Pantry"
+          }
+        }
+      }
     },
     "Move all checked to %@" : {
 
@@ -3067,6 +3316,9 @@
     "Needs: %@" : {
 
     },
+    "New" : {
+
+    },
     "New Abbreviation" : {
 
     },
@@ -3085,6 +3337,9 @@
     "Next Step" : {
 
     },
+    "Nice work" : {
+
+    },
     "No %@ preparations yet" : {
 
     },
@@ -3092,6 +3347,9 @@
 
     },
     "No activity yet." : {
+
+    },
+    "No changes yet.\nMark a QA item Fail or add a ticket and it lands here automatically — add one manually, or shake to report from anywhere." : {
 
     },
     "No complete online recipes cached" : {
@@ -3184,6 +3442,12 @@
     "None" : {
 
     },
+    "None yet — tap Suggest, or type the area above." : {
+
+    },
+    "Not enough to build a recipe" : {
+
+    },
     "Not for me" : {
 
     },
@@ -3224,6 +3488,9 @@
 
     },
     "Nothing in your kitchen is expiring in the next few days." : {
+
+    },
+    "Nothing is reserved — every item is fully available." : {
 
     },
     "Nothing matches yet" : {
@@ -3311,6 +3578,9 @@
     "Open" : {
 
     },
+    "Open My Recipes" : {
+
+    },
     "Open planned meal" : {
 
     },
@@ -3330,6 +3600,9 @@
 
     },
     "Open Stocked to find something to cook." : {
+
+    },
+    "opens %@" : {
 
     },
     "Opens the %@ tab" : {
@@ -3386,13 +3659,16 @@
     "Pantry Value" : {
 
     },
+    "Park unrelated ideas here" : {
+
+    },
     "Past Meals" : {
 
     },
-    "Paste a direct recipe URL from a site that publishes standard recipe data:" : {
+    "Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review." : {
 
     },
-    "Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review." : {
+    "Paste a recipe link — a recipe website, or a social post from TikTok, Instagram, YouTube, or Pinterest:" : {
 
     },
     "Paste a recipe URL…" : {
@@ -3410,10 +3686,25 @@
     "Paste the recipe text — title, ingredients, and steps. We'll structure it; you can fix anything before saving." : {
 
     },
+    "Pause Cooking" : {
+
+    },
     "paused" : {
 
     },
+    "Paused" : {
+
+    },
+    "Paused cooking session" : {
+
+    },
+    "Pausing saves your exact step and timers so you can pick up right where you left off. Nothing is deducted from inventory until you finish." : {
+
+    },
     "Pending" : {
+
+    },
+    "Pending changes will sync automatically" : {
 
     },
     "Pending changes: %lld" : {
@@ -3507,7 +3798,13 @@
     "Planning Impact" : {
 
     },
+    "Point at issue" : {
+
+    },
     "Point at receipt · Tap anywhere to capture" : {
+
+    },
+    "Point at the issue" : {
 
     },
     "Point camera at any barcode or QR code" : {
@@ -3582,6 +3879,9 @@
     "Pricing shown at checkout." : {
 
     },
+    "Privacy Policy" : {
+
+    },
     "Processing…" : {
 
     },
@@ -3589,6 +3889,15 @@
 
     },
     "Pull down to fetch cocktails, mocktails, shots, and more from TheCocktailDB, the IBA official list, Open Drinks, and API Ninjas." : {
+
+    },
+    "QA" : {
+
+    },
+    "QA · Running List · defects · self-check" : {
+
+    },
+    "QA %@" : {
 
     },
     "QR Code Transfer" : {
@@ -3601,6 +3910,9 @@
 
     },
     "Qty −1" : {
+
+    },
+    "Quality Assurance Workbook" : {
 
     },
     "Quantity" : {
@@ -3640,6 +3952,9 @@
 
     },
     "Ready" : {
+
+    },
+    "Ready if plans change" : {
 
     },
     "Ready Now" : {
@@ -3747,6 +4062,9 @@
     "Regenerating…" : {
 
     },
+    "Release" : {
+
+    },
     "Reminders can't be delivered until you allow notifications in Settings." : {
 
     },
@@ -3802,6 +4120,25 @@
     "Rename Recipe" : {
 
     },
+    "Replacements Added to Grocery" : {
+
+    },
+    "Report a problem" : {
+
+    },
+    "Reserved for %lld meal%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Reserved for %1$lld meal%2$@"
+          }
+        }
+      }
+    },
+    "Reserved for Planned Meals" : {
+
+    },
     "Reset" : {
 
     },
@@ -3821,6 +4158,12 @@
 
     },
     "Restore Purchase" : {
+
+    },
+    "Resume Cooking" : {
+
+    },
+    "RESUME HERE" : {
 
     },
     "Retake Photo" : {
@@ -3871,6 +4214,9 @@
 
     },
     "Reviews every item and suggests cleaned-up names, the right storage spot, missing nutrition, and expiry estimates. You approve each change." : {
+
+    },
+    "Run self-check now" : {
 
     },
     "Running low" : {
@@ -3985,6 +4331,9 @@
     "SCHEDULED" : {
 
     },
+    "Screenshot unavailable" : {
+
+    },
     "Search" : {
 
     },
@@ -3992,6 +4341,9 @@
 
     },
     "Search an item" : {
+
+    },
+    "Search changes" : {
 
     },
     "Search complete recipes" : {
@@ -4069,6 +4421,12 @@
     "Selected" : {
 
     },
+    "Send Diagnostics Report" : {
+
+    },
+    "Sending…" : {
+
+    },
     "Serve Now" : {
 
     },
@@ -4108,6 +4466,9 @@
     "Settings" : {
 
     },
+    "SEVERITY" : {
+
+    },
     "Shape picks the Cook page look (Circle, Pill rows, Rounded photo cards); size scales it — updates live" : {
 
     },
@@ -4126,10 +4487,16 @@
     "Share CSV…" : {
 
     },
+    "Share for AI" : {
+
+    },
     "Share List" : {
 
     },
     "Share one kitchen across your whole family — each person uses their own Apple ID, and everyone sees the same pantry and grocery list in real time." : {
+
+    },
+    "Share report for AI" : {
 
     },
     "Share snapshot" : {
@@ -4154,6 +4521,9 @@
 
     },
     "Shopping Overview" : {
+
+    },
+    "Short %@" : {
 
     },
     "Short by about %@" : {
@@ -4196,6 +4566,9 @@
 
     },
     "Skip — keep inventory as is" : {
+
+    },
+    "Skip All — Add Nothing" : {
 
     },
     "Skip discovery — go straight to prep and cooking." : {
@@ -4296,6 +4669,9 @@
     "Stocked" : {
 
     },
+    "STOCKED" : {
+
+    },
     "Stocked — %@" : {
 
     },
@@ -4303,6 +4679,9 @@
 
     },
     "Stocked hasn't seen these touched in a while. One tap each keeps your kitchen honest." : {
+
+    },
+    "Stocked, %@" : {
 
     },
     "Stocked." : {
@@ -4342,6 +4721,9 @@
     "Store covered items in the fridge. Come back to cook when you're ready." : {
 
     },
+    "Store: %@" : {
+
+    },
     "STORED IN" : {
 
     },
@@ -4367,6 +4749,9 @@
 
     },
     "Substitutions" : {
+
+    },
+    "Suggest from area" : {
 
     },
     "Sync" : {
@@ -4408,10 +4793,16 @@
     "Tap a vibe — we'll find the recipe." : {
 
     },
+    "tap bubble to return" : {
+
+    },
     "Tap Refresh to build complete source libraries. A website appears only after 20 unique full recipes are cached." : {
 
     },
     "Tap the amount to adjust how much gets deducted — All, Half, or None." : {
+
+    },
+    "Tap the image to drop a pin on the problem area." : {
 
     },
     "Tap the ones you usually have on hand." : {
@@ -4421,6 +4812,9 @@
 
     },
     "Tap to change your shopping store. Your preference is saved per-item when you use Find in Store." : {
+
+    },
+    "tap to mark" : {
 
     },
     "Tap to see options" : {
@@ -4439,6 +4833,12 @@
 
     },
     "Tell Stocked you finished or used up an item." : {
+
+    },
+    "Terms" : {
+
+    },
+    "Test in App" : {
 
     },
     "Text Manually" : {
@@ -4468,13 +4868,25 @@
     "These details help diagnose household sync. Nothing here is shared." : {
 
     },
+    "These items match a recent import. Skip duplicates, merge details, or keep both if you really bought it twice." : {
+
+    },
     "These items need to be used or added to your shopping list." : {
+
+    },
+    "These meals will be re-checked automatically — anything left short shows up as a conflict in the planner." : {
 
     },
     "These two recipes look similar. Keep one, or keep both." : {
 
     },
+    "Things to Change" : {
+
+    },
     "This device and iCloud" : {
+
+    },
+    "This link is already saved as “%@” in My Recipes." : {
 
     },
     "this month" : {
@@ -4510,6 +4922,9 @@
           }
         }
       }
+    },
+    "TICKET" : {
+
     },
     "Tidying up the import…" : {
 
@@ -4584,6 +4999,9 @@
     "Track usage on this device" : {
 
     },
+    "Trail: %@" : {
+
+    },
     "TRY" : {
 
     },
@@ -4635,6 +5053,9 @@
     "Unit Converter" : {
 
     },
+    "Unlock" : {
+
+    },
     "Unlock Household Sync" : {
 
     },
@@ -4666,6 +5087,9 @@
 
     },
     "Use Anyway" : {
+
+    },
+    "Use default store" : {
 
     },
     "Use It Soon" : {
@@ -4705,6 +5129,19 @@
 
     },
     "v%@" : {
+
+    },
+    "Verified by %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Verified by %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Verify & sign off" : {
 
     },
     "View All" : {
@@ -4779,6 +5216,9 @@
     "Weighted %@" : {
 
     },
+    "What actually happened" : {
+
+    },
     "What are you planning?" : {
 
     },
@@ -4786,6 +5226,9 @@
 
     },
     "What changed?" : {
+
+    },
+    "What did you re-test after the fix?" : {
 
     },
     "What do you want to do with it?" : {
@@ -4800,7 +5243,19 @@
     "What it's known for (optional)" : {
 
     },
+    "What needs to change?" : {
+
+    },
+    "What now?" : {
+
+    },
+    "What should happen" : {
+
+    },
     "What should we call you?" : {
+
+    },
+    "What went wrong?" : {
 
     },
     "What would you like to add?" : {
@@ -4828,6 +5283,9 @@
 
     },
     "What's on the menu tonight?" : {
+
+    },
+    "What's wrong here?" : {
 
     },
     "When items are expiring, suggest a recipe that uses them up" : {
@@ -5014,6 +5472,12 @@
 
     },
     "Your saved diet and allergens filter recipe results automatically and steer AI recipe ideas." : {
+
+    },
+    "Your saved progress and timers will be discarded, and this meal won't be recorded as cooked. Nothing is deducted from inventory. If it came from your plan, the planned meal stays." : {
+
+    },
+    "Your step progress, timers, and temporary substitutions will be discarded, and this meal won't be recorded as cooked. Nothing is deducted from inventory. If it came from your plan, the planned meal stays." : {
 
     },
     "Your surplus inventory" : {

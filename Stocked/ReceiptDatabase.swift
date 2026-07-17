@@ -47,7 +47,7 @@ final class ReceiptDatabase {
     // MARK: - Load
     private func load() {
         if let items = db.load([LearnedReceiptItem].self, key: key) {
-            learnedItems = Dictionary(uniqueKeysWithValues: items.map { ($0.resolvedName.lowercased(), $0) })
+            learnedItems = Dictionary(keepingLastValues: items.map { ($0.resolvedName.lowercased(), $0) })
         }
         receiptHistory = db.load([ReceiptRecord].self, key: histKey) ?? []
     }

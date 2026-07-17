@@ -1,0 +1,490 @@
+{
+ "entries": [
+  {
+   "id": "RL-001",
+   "section": "Cook Now",
+   "title": "Pause and Resume Active Cooking",
+   "status": "Approved - implementation required",
+   "priority": "High",
+   "intent": "Allow a user to leave an active cooking session without losing progress, forcing completion, or corrupting\ninventory. The experience should feel safe and predictable when the user needs to answer a call, lock the\nphone, switch apps, put the device down, or intentionally pause cooking.",
+   "vision": "Cook Now should behave like a resilient guided session rather than a fragile sequence of screens. The user\nmust be able to trust that Stocked remembers the exact cooking state and returns them to the same point.",
+   "ux": [
+    "When the user attempts to leave an active cooking session, present three explicit actions: Pause Cooking, Cancel Meal, and Continue Cooking.",
+    "Pause Cooking must save the exact current step, completed steps, serving count, chosen substitutions, selected appliances/devices, selected meal components, notes, and all applicable timers.",
+    "After pausing, show a visible paused-session card or banner in Cook Now and, where appropriate, on Home or Daily Brief.",
+    "Resuming must return the user directly to the exact saved point rather than restarting the recipe or reopening a generic recipe detail page.",
+    "The interface must clearly distinguish a paused meal from a completed meal or a merely planned meal."
+   ],
+   "logic": [
+    "Do not deduct inventory when the session starts, pauses, backgrounds, closes, or resumes.",
+    "Inventory deduction occurs only once, after explicit meal completion.",
+    "Prevent duplicate completion events and duplicate inventory deductions after resume, app relaunch, or repeated taps.",
+    "Persist active-session state locally and synchronize it to the user/household account where supported.",
+    "Timer state must preserve remaining duration and elapsed real-world time according to the timer's intended behavior."
+   ],
+   "connected": [
+    "Cook Now session state",
+    "Inventory and reserved inventory",
+    "Meal history",
+    "Home Hub and Daily Brief",
+    "Notifications and active timers",
+    "Household activity where shared cooking activity is visible"
+   ],
+   "edge": [
+    "App is force-closed while cooking.",
+    "Device is locked for longer than an active timer.",
+    "User loses connectivity after pausing.",
+    "Recipe or inventory data changes from another household device while the session is paused.",
+    "User resumes after the planned meal date has changed.",
+    "User taps Finish twice or resumes a session already completed on another device."
+   ],
+   "acceptance": [
+    "User can pause from any active cooking step.",
+    "All progress and selections are restored exactly.",
+    "No ingredients are deducted before completion.",
+    "Completion deducts inventory once.",
+    "Paused sessions survive backgrounding, force-close, relaunch, and temporary offline use.",
+    "Canceled and completed sessions never reappear as resumable."
+   ]
+  },
+  {
+   "id": "RL-002",
+   "section": "Cook Now",
+   "title": "Cancel Cooking Without Completion",
+   "status": "Approved - implementation required",
+   "priority": "High",
+   "intent": "Give the user a clear, safe way to abandon a cooking session without falsely marking the meal complete or\nchanging inventory as though the meal was cooked.",
+   "vision": "Cancellation should feel intentional and reversible up to the confirmation point. The app must explain the\nimpact clearly and avoid leaving behind misleading history, deductions, timers, or workflow state.",
+   "ux": [
+    "Cancel Meal appears as a deliberate option when leaving an active session.",
+    "Show a confirmation explaining that cooking progress will be discarded and the meal will not be recorded as completed.",
+    "If Stocked supports manually logged real-world ingredient use during cooking, explain whether those manual changes remain or are reverted.",
+    "After cancellation, return the user to a sensible destination such as Cook Now, the recipe page, or the prior planner context.",
+    "Starting the same recipe again must open a clean session."
+   ],
+   "logic": [
+    "Canceling must clear the active-session record, running timers, step progress, temporary substitutions, and temporary completion flags.",
+    "Do not create completed meal history.",
+    "Do not award streaks, achievements, ratings, or completion activity.",
+    "Do not deduct inventory automatically.",
+    "If the meal came from a future plan, cancellation should not automatically remove the planned meal unless the user separately chooses to remove or replace it."
+   ],
+   "connected": [
+    "Cook Now",
+    "Meal planning",
+    "Inventory",
+    "Meal history",
+    "Notifications and timers",
+    "Household activity"
+   ],
+   "edge": [
+    "User cancels while offline.",
+    "User cancels after a timer notification fires.",
+    "Another household member has already completed the shared session.",
+    "User cancels a prepped or reserved planned meal.",
+    "User accidentally backgrounds the app and returns without choosing cancel."
+   ],
+   "acceptance": [
+    "Cancellation requires a clear confirmation.",
+    "No completed history entry is created.",
+    "No automatic inventory deduction occurs.",
+    "All active timers and resumable-session indicators are cleared.",
+    "Planned meal data remains accurate.",
+    "Restarting begins from a clean state."
+   ]
+  },
+  {
+   "id": "RL-003",
+   "section": "Inventory / Meal Planning",
+   "title": "Available, Reserved, and Total Inventory Architecture",
+   "status": "Approved - implementation required",
+   "priority": "Critical",
+   "intent": "Prevent future meal plans from silently competing with current cooking decisions by separating what the\nhousehold physically owns from what is still freely available and what has already been committed to planned\nmeals.",
+   "vision": "Stocked should act like an intelligent kitchen planning system, not only a list of food. A user must understand\nthe difference between total physical inventory and inventory that is safe to use without disrupting future\nplans.",
+   "ux": [
+    "Kitchen or Total view shows all physical inventory owned.",
+    "Available view shows the quantity not committed to future meals or completed prep.",
+    "Reserved view shows committed quantities grouped by ingredient and by the meal or prep task creating the reservation.",
+    "Item details should show Total Owned, Reserved, and Available using understandable units.",
+    "Reservation labels must include the linked meal, scheduled date, reserved amount, and any prepared state.",
+    "Users should not have to perform calculations to understand why a physically present ingredient is not fully available."
+   ],
+   "logic": [
+    "Total Owned = all physical usable quantity in inventory.",
+    "Reserved = quantity committed to planned meals and/or prepared components that remain assigned to those meals.",
+    "Available = Total Owned minus valid Reserved quantity.",
+    "Reservations do not physically deduct inventory until the ingredient is consumed, discarded, or otherwise explicitly removed.",
+    "Reservations recalculate when servings, recipes, dates, ingredients, substitutions, meal status, or inventory quantities change.",
+    "Never allow Available to display as a misleading negative number; instead surface a shortage/conflict state."
+   ],
+   "connected": [
+    "Inventory",
+    "Cook Now makeability",
+    "Cook Later and meal calendar",
+    "Meal prep",
+    "Grocery suggestions",
+    "Home Hub and Daily Brief",
+    "AI recommendations",
+    "Household synchronization"
+   ],
+   "edge": [
+    "Two planned meals reserve more than the owned amount.",
+    "Inventory expires before a reserved meal date.",
+    "An item is deleted, moved, or reclassified.",
+    "Prepared ingredients change form or unit.",
+    "One household member edits a plan while another edits inventory.",
+    "Recipe serving changes create fractional reservations."
+   ],
+   "acceptance": [
+    "Total, Reserved, and Available are mathematically consistent.",
+    "Every reservation can be traced to a source.",
+    "All connected systems use the appropriate quantity type.",
+    "Planning edits recalculate reservations immediately.",
+    "Shortages are surfaced rather than hidden.",
+    "Relaunch and multi-device sync preserve the same values."
+   ]
+  },
+  {
+   "id": "RL-004",
+   "section": "Cook Now / Planning Integrity",
+   "title": "Cook Anyway Reservation Override",
+   "status": "Approved - implementation required",
+   "priority": "Critical",
+   "intent": "Allow users to intentionally use reserved ingredients for an immediate meal without being blocked, while\nmaking the consequence to future plans clear and automatically repairing the affected systems.",
+   "vision": "Stocked should advise, not control. The user owns the kitchen and must always be able to override a\nreservation, but the app should intelligently explain the tradeoff and protect future planning integrity.",
+   "ux": [
+    "Recipes requiring reserved ingredients should not appear as fully safe default makeable meals.",
+    "Provide an Include Reserved Items, Ready if Plans Change, or equivalent discovery option.",
+    "Clearly label affected recipe cards before selection.",
+    "Before cooking, show the reserved ingredients that will be used, the future meals affected, the quantities involved, and the earliest affected date.",
+    "Provide Cook Anyway, Choose Another Meal, and Add Replacement to Grocery actions.",
+    "The warning should be informative rather than alarmist or blocking."
+   ],
+   "logic": [
+    "Cook Anyway releases or consumes the required reservation amount and recalculates all affected future meals.",
+    "Create or update grocery needs for the affected future plan when replacement inventory is required.",
+    "Do not create duplicate grocery items; consolidate quantities while preserving manual items.",
+    "Recalculate Available and Reserved immediately.",
+    "Record the override in activity/history where appropriate."
+   ],
+   "connected": [
+    "Cook Now",
+    "Reserved inventory",
+    "Meal calendar",
+    "Grocery",
+    "Meal prep",
+    "Daily Brief and alerts",
+    "AI recommendation engine",
+    "Household synchronization"
+   ],
+   "edge": [
+    "One ingredient affects multiple future meals.",
+    "Only part of a reservation is consumed.",
+    "User changes servings after reviewing the warning.",
+    "A grocery replacement already exists.",
+    "Another member edits or removes the affected meal during the decision flow.",
+    "User completes the meal offline."
+   ],
+   "acceptance": [
+    "User can proceed despite a reservation.",
+    "Impact is shown before final confirmation.",
+    "Future meal validity and grocery needs recalculate correctly.",
+    "No duplicate reservation or grocery records are created.",
+    "All devices converge on the same updated plan.",
+    "Warnings clear when the future plan is valid again."
+   ]
+  },
+  {
+   "id": "RL-005",
+   "section": "Meal Planning / Intelligence",
+   "title": "Future Meal Conflict and Shortage Detection",
+   "status": "Approved - implementation required",
+   "priority": "Critical",
+   "intent": "Detect when inventory, cooking, prep, or planning changes will leave a future meal without enough usable\ningredients.",
+   "vision": "The user should never believe a future meal is fully planned and ready when Stocked already knows the\ningredients will be unavailable. The app should identify the problem early, explain it clearly, and offer direct\nrepair actions.",
+   "ux": [
+    "Warnings identify the exact ingredient, missing amount, affected meal, and scheduled date.",
+    "Show conflicts in the meal calendar, meal detail, Daily Brief, prep plan, and relevant grocery surfaces.",
+    "Offer direct actions such as Add to Grocery, Change Meal, Adjust Servings, Release Reservation, or Choose Substitute.",
+    "Warnings should prioritize the earliest or most urgent conflict.",
+    "Resolved warnings must disappear automatically."
+   ],
+   "logic": [
+    "Evaluate projected inventory availability in chronological meal order.",
+    "Account for reservations, expirations, planned purchases, prepared components, substitutions, serving counts, and Cook Anyway overrides.",
+    "Do not count an unconfirmed grocery suggestion as owned inventory.",
+    "Recalculate after every relevant plan or inventory change.",
+    "Preserve manual grocery items while updating automated quantities."
+   ],
+   "connected": [
+    "Meal planning",
+    "Inventory and reservations",
+    "Grocery automation",
+    "Meal prep",
+    "Daily Brief",
+    "Notifications",
+    "AI recommendations",
+    "Household sync"
+   ],
+   "edge": [
+    "Several meals share the same ingredient.",
+    "Inventory expires between two meal dates.",
+    "Shopping is partially completed.",
+    "User changes dates out of chronological order.",
+    "Substitution is acceptable for one meal but not another.",
+    "Offline edits conflict after reconnection."
+   ],
+   "acceptance": [
+    "Every invalid future meal is detected.",
+    "Warnings contain specific, actionable information.",
+    "Repair actions update all dependent systems.",
+    "No stale warning remains after resolution.",
+    "Projected calculations match actual quantities and dates.",
+    "Multi-device edits reconcile without duplicate conflicts."
+   ]
+  },
+  {
+   "id": "RL-006",
+   "section": "Cross-System Architecture",
+   "title": "Planning Integrity Certification and System Rules",
+   "status": "Approved - ongoing requirement",
+   "priority": "Critical",
+   "intent": "Establish a shared rule that every change affecting a meal plan must propagate accurately to reservations,\ngrocery needs, prep tasks, reminders, calendar status, and recommendations.",
+   "vision": "Meal planning must remain trustworthy even after repeated edits. Stocked should behave as one connected\nsystem rather than a set of screens with separately maintained data.",
+   "ux": [
+    "Users should see updates immediately after moving, replacing, removing, scaling, or completing a meal.",
+    "Do not require users to manually repair grocery quantities, prep tasks, or reservations after a plan edit.",
+    "Where a recalculation has meaningful consequences, summarize what changed.",
+    "Preserve user-created manual data and distinguish it from automated data."
+   ],
+   "logic": [
+    "Treat the meal plan as a source event that drives dependent calculations.",
+    "Any plan mutation triggers an idempotent recalculation of reservations, shortages, grocery quantities, prep tasks, reminders, and recommendation eligibility.",
+    "Automated records must maintain source links so they can be updated or removed without touching unrelated manual records.",
+    "Repeated recalculation must not create duplicates.",
+    "Completed historical activity should not be rewritten unless the underlying record was incorrect."
+   ],
+   "connected": [
+    "Cook Later",
+    "Inventory and reservations",
+    "Grocery",
+    "Meal prep",
+    "Notifications",
+    "Daily Brief",
+    "Cook Now",
+    "AI recommendations",
+    "Household sync"
+   ],
+   "edge": [
+    "Multiple plan changes occur before synchronization.",
+    "One meal is removed after shared prep is completed.",
+    "Servings change after grocery shopping.",
+    "A planned recipe is edited or deleted.",
+    "Calendar dates cross time zones or day boundaries.",
+    "Manual grocery items match automated ingredients."
+   ],
+   "acceptance": [
+    "All dependent systems remain synchronized after every plan change.",
+    "No duplicate automated records are created.",
+    "Manual records are preserved.",
+    "Completed work remains valid when appropriate.",
+    "Invalid completed prep is surfaced rather than silently reused.",
+    "The same final state appears after relaunch and on all devices."
+   ]
+  },
+  {
+   "id": "RL-007",
+   "section": "Grocery / Inventory",
+   "title": "Receipt and Purchased-Item Duplicate Protection",
+   "status": "Approved - implementation required",
+   "priority": "High",
+   "intent": "Prevent grocery purchases from entering inventory more than once when the same shopping trip is recorded\nthrough shopping-mode completion, receipt scanning, barcode scanning, or manual confirmation.",
+   "vision": "Stocked should make inventory capture easy without punishing users for using more than one input method.\nThe system should recognize likely duplicates and ask for confirmation rather than silently double-counting.",
+   "ux": [
+    "Before import, flag likely duplicate items and explain the matching evidence.",
+    "Allow the user to merge, keep both, replace, or edit the candidate.",
+    "Use clear language such as Already added from today's shopping trip.",
+    "Do not hide legitimate multiple purchases of the same product.",
+    "Show a final review before accepted receipt items enter inventory."
+   ],
+   "logic": [
+    "Evaluate time window, store, product identity, barcode, normalized name, quantity, package size, and source transaction.",
+    "Attach a shopping-trip or transaction identifier to automated imports where possible.",
+    "Duplicate protection should compare against recently imported and recently purchased items.",
+    "Merging must preserve accurate total quantity and package details.",
+    "Rejected receipt lines must not enter inventory."
+   ],
+   "connected": [
+    "Shopping mode",
+    "Receipt scan",
+    "Barcode scan",
+    "Manual inventory entry",
+    "Inventory history",
+    "Household activity",
+    "Home and Daily Brief"
+   ],
+   "edge": [
+    "User intentionally bought two identical packages.",
+    "Receipt contains weighted produce.",
+    "Product name differs between receipt and inventory.",
+    "Shopping trip spans multiple stores.",
+    "Two household members import the same receipt.",
+    "Offline import syncs later."
+   ],
+   "acceptance": [
+    "Likely duplicates are detected before final import.",
+    "Users can intentionally keep legitimate duplicates.",
+    "Same trip cannot silently double inventory.",
+    "Merge calculations are correct.",
+    "Import history identifies the source.",
+    "Downstream inventory totals remain accurate."
+   ]
+  },
+  {
+   "id": "RL-008",
+   "section": "Platform / Household",
+   "title": "Offline Use and Synchronization Recovery",
+   "status": "Approved - implementation required",
+   "priority": "High",
+   "intent": "Allow essential Stocked workflows to remain usable during temporary connectivity loss and safely synchronize\nwhen the connection returns.",
+   "vision": "A kitchen app must remain dependable in stores, kitchens, and homes with unstable service. Offline use should\nfeel intentional, not broken, while still protecting shared-household data integrity.",
+   "ux": [
+    "Clearly indicate offline status without blocking normal local work.",
+    "Allow supported actions to be completed locally and show that they are pending sync.",
+    "Explain when a feature truly requires connectivity, such as some AI generation or remote imports.",
+    "After reconnection, show conflicts only when user input is required.",
+    "Do not repeatedly notify users about successful routine sync."
+   ],
+   "logic": [
+    "Queue supported mutations with unique identifiers and timestamps.",
+    "Use idempotent synchronization so retries do not duplicate records.",
+    "Resolve non-conflicting changes automatically.",
+    "For conflicting edits, preserve both source events and apply defined reconciliation rules.",
+    "Never discard local user work silently.",
+    "Recalculate dependent systems after the final reconciled state is established."
+   ],
+   "connected": [
+    "Inventory",
+    "Grocery",
+    "Meal planning",
+    "Cook Now progress",
+    "Meal prep",
+    "Household activity",
+    "Notifications",
+    "Authentication/session persistence"
+   ],
+   "edge": [
+    "Two devices edit the same item offline.",
+    "User completes cooking offline.",
+    "Account session expires while offline.",
+    "Queued action references a recipe or meal removed on another device.",
+    "App is reinstalled before pending sync completes.",
+    "Network repeatedly connects and disconnects."
+   ],
+   "acceptance": [
+    "Supported actions work offline.",
+    "Pending work survives app relaunch.",
+    "Sync retries do not duplicate data.",
+    "Conflicts resolve according to documented rules.",
+    "No user-created data is silently lost.",
+    "All connected systems recalculate after reconciliation."
+   ]
+  },
+  {
+   "id": "RL-009",
+   "section": "Recipes",
+   "title": "Social Recipe Link Import",
+   "status": "Future implementation - approved concept",
+   "priority": "Medium",
+   "intent": "Let users save recipes from supported social posts when enough recipe information is publicly available, while\nclearly communicating when a post cannot be reliably converted.",
+   "vision": "Stocked should reduce the friction between discovering a recipe and using it in the kitchen. It should never\nfabricate missing details or pretend an incomplete social post produced a trustworthy recipe.",
+   "ux": [
+    "Accept supported social links through the same import entry point as website recipes.",
+    "Show import progress and source attribution.",
+    "Preview the extracted title, image, ingredients, quantities, servings, and steps before saving.",
+    "Highlight uncertain or missing fields for user review.",
+    "When content is insufficient, explain what is missing and offer manual completion or AI-assisted drafting with explicit labeling."
+   ],
+   "logic": [
+    "Use only source content that is available and permitted to be parsed.",
+    "Do not invent exact quantities, cooking times, or safety instructions without disclosure.",
+    "Normalize ingredients for inventory matching only after user confirmation.",
+    "Preserve the original source link.",
+    "Prevent duplicate recipe saves where the same source has already been imported."
+   ],
+   "connected": [
+    "Recipe collection",
+    "Inventory matching",
+    "Cook Now",
+    "Cook Later",
+    "Grocery",
+    "AI recipe assistance",
+    "Search and favorites"
+   ],
+   "edge": [
+    "Video caption contains partial ingredients.",
+    "Post is private, deleted, or region-restricted.",
+    "Multiple recipes appear in one post.",
+    "Creator edits the post after import.",
+    "Units or servings are ambiguous.",
+    "Imported content conflicts with user dietary preferences."
+   ],
+   "acceptance": [
+    "Supported links import usable source data.",
+    "Uncertain fields are clearly identified.",
+    "Insufficient sources do not create falsely complete recipes.",
+    "User can edit before saving.",
+    "Original source attribution is retained.",
+    "Saved recipe works in planning and cooking flows."
+   ]
+  },
+  {
+   "id": "RL-010",
+   "section": "Grocery",
+   "title": "Multi-Store Grocery Organization",
+   "status": "Future implementation - approved concept",
+   "priority": "Medium",
+   "intent": "Help users organize and complete one grocery plan across multiple stores without fragmenting inventory\nupdates or losing trip progress.",
+   "vision": "Stocked should support how households actually shop: different items may come from different stores, trips\nmay be completed at different times, and the final result should still become one coherent inventory update.",
+   "ux": [
+    "Allow each item to have a preferred or selected store.",
+    "Group the list by store while retaining a unified overall view.",
+    "Show per-store completion state and allow the user to finish one store while leaving others pending.",
+    "Allow an unavailable item to move to another store without recreating it.",
+    "Preserve progress after leaving shopping mode."
+   ],
+   "logic": [
+    "Store assignment is an organizational attribute, not a duplicate list record.",
+    "Purchased quantities transfer to inventory as they are confirmed.",
+    "One trip may contain multiple store segments linked to the same broader shopping plan.",
+    "Automated meal-plan grocery quantities remain consolidated even when split across stores.",
+    "Shopping history records store-specific segments and final combined results."
+   ],
+   "connected": [
+    "Grocery list",
+    "Shopping mode",
+    "Inventory import",
+    "Meal planning",
+    "Receipt scan and duplicate protection",
+    "History",
+    "Household sync"
+   ],
+   "edge": [
+    "Same ingredient is purchased at two stores.",
+    "Only part of a quantity is available at Store A.",
+    "Store changes while offline.",
+    "Another household member shops a different store simultaneously.",
+    "Receipt scan occurs after items were already marked bought.",
+    "An item remains pending after the rest of the plan is completed."
+   ],
+   "acceptance": [
+    "Items can be assigned and moved between stores.",
+    "Store progress persists independently.",
+    "Purchased items update inventory accurately.",
+    "No duplicate grocery or inventory records are created.",
+    "History shows a coherent multi-store trip.",
+    "Household members see consistent live or reconciled progress."
+   ]
+  }
+ ]
+}

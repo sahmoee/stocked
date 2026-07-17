@@ -42,9 +42,14 @@ final class NetworkMonitor {
             let type = NetworkMonitor.classify(path)
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                let changed = !self.hasEvaluated || self.isOnline != online
                 self.isOnline = online
                 self.connection = type
                 self.hasEvaluated = true
+                // RL-008: tell the offline queue center about real transitions so queued
+                // work syncs promptly on reconnect (the center coalesces duplicate reports
+                // from ConnectivityMonitor and rate-limits attempts to one per 10 s).
+                if changed { OfflineQueueCenter.shared.connectivityChanged(online: online) }
             }
         }
         monitor.start(queue: queue)
@@ -89,6 +94,10 @@ struct OfflineBanner: View {
                 .background(session.themeTextColor.opacity(0.08))
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
+            // RL-008: pending-sync strip rides directly under the offline banner, so it
+            // appears everywhere the banner does (StockedShell) with no extra wiring. It
+            // handles its own visibility — hidden unless queued work is actually waiting.
+            PendingSyncBadge()
         }
         .animation(.easeInOut(duration: 0.25), value: isOffline)
     }

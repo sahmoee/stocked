@@ -102,7 +102,11 @@ struct StockedShell<Content: View>: View {
                 // "Cook.", "Inventory.") with no chevron. The trailing period now matches the
                 // wordmark text color (black in light mode) rather than the gold accent.
                 // Centered mode (sub-screens) keeps "Stocked." + chevron.
-                let wordmark = Text("\(titleText).").foregroundColor(session.themeTextColor)
+                // The header brand wordmark is ALWAYS "Stocked." on every screen — it
+                // never switches to the section name (Cook / Inventory / Recipes / …).
+                // `titleText` is kept only for the VoiceOver label so screen-reader users
+                // still hear which screen they're on.
+                let wordmark = Text("Stocked.").foregroundColor(session.themeTextColor)
                     .font(.stockedSerif(26, weight: .bold))
 
                 let titleCore = Button { (titleTap ?? onTitleTap)?() } label: {
@@ -119,6 +123,7 @@ struct StockedShell<Content: View>: View {
                 .buttonStyle(.plain)
                 .disabled(titleTap == nil && onTitleTap == nil)
                 .fixedSize()
+                .accessibilityLabel(titleText == "Stocked" ? "Stocked" : "Stocked, \(titleText)")
                 .coachmarkAnchor("shell.title")
 
                 if leadingTitle {

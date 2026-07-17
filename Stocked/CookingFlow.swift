@@ -811,7 +811,13 @@ struct CookingFlashcardView: View {
     @State private var midCookSubIngredient: String = ""
     @State private var showMidCookSub       = false
     @State private var showFullScreen       = false   // #FB — full-screen flashcards + voice control
-    
+    // ── RL-001 / RL-002 — durable pause/resume/cancel ──────────────
+    @State private var showLeaveOptions     = false   // 3-way leave dialog (pause / cancel / continue)
+    @State private var showCancelConfirm    = false   // RL-002 explicit cancel confirmation
+    @State private var didBootstrapRecord   = false   // one-time session-record setup per view life
+    @Environment(\.dismiss) private var dismissView
+    @Environment(\.scenePhase) private var scenePhase
+
     let tips: [String] = [
         "Oil is ready when a water drop sizzles immediately.",
         "Pat protein dry before seasoning for a better sear.",
@@ -826,6 +832,10 @@ struct CookingFlashcardView: View {
     /// Cook Now: ingredient → in-stock substitute chosen for this session.
     /// Guidance-only — step text is NEVER rewritten (it stays the author's).
     var sessionSubs: [String: String] = [:]
+    /// RL-001 — when set, this cook RESUMES a persisted session: completed
+    /// steps, checked ingredients, and timers restore to the exact saved point
+    /// (timers adjusted for elapsed wall-clock time).
+    var resume: ActiveCookSessionSnapshot? = nil
     // Cook Now workspace: optional session enables the "While it cooks" hands-off
     // opportunity entry during a long cook.
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
@@ -840,6 +850,131 @@ struct CookingFlashcardView: View {
         return 30
     }
     
+    // ── RL-001 / RL-002 — durable session record ────────────────────
+    // The cook's exact state (step, timers, subs, appliances) is mirrored into
+    // ActiveCookSessionStore with immediate write-through, so force-close,
+    // relaunch, backgrounding, and offline all preserve the session. Inventory
+    // is NEVER touched here — deduction happens once, on explicit completion.
+
+    private var sessionStore: ActiveCookSessionStore { .shared }
+
+    /// Build the persistable snapshot of the cook exactly as it stands.
+    private func currentSnapshot(from base: ActiveCookSessionSnapshot?) -> ActiveCookSessionSnapshot {
+        var snap = base ?? ActiveCookSessionSnapshot(
+            recipeTitle: recipeTitle, ingredients: ingredients, steps: steps, servings: baseServings)
+        snap.recipeID = cookSession?.recipeID
+        snap.recipeTitle = recipeTitle
+        snap.ingredients = ingredients
+        snap.steps = steps
+        snap.servings = baseServings
+        snap.currentStep = min(max(isSwipeMode ? currentCard : (expandedStep ?? currentCard), 0),
+                               max(0, steps.count - 1))
+        snap.completedSteps = Array(completedSteps).sorted()
+        snap.checkedIngredientIndexes = Array(checkedIngredients).sorted()
+        snap.substitutions = sessionSubs
+        snap.selectedAppliances = Array(cookSession?.selectedEquipment ?? []).sorted()
+        snap.selectedComponents = cookSession?.selectedSideTitles ?? []
+        snap.timers = timerEngine.exportStates()
+        snap.plannedMealID = cookSession?.plannedMealID
+        return snap
+    }
+
+    /// Write-through capture — called on step change, ingredient check, timer
+    /// change, and backgrounding. Only an ACTIVE record is updated: explicit
+    /// pause/cancel/complete decisions are never silently overwritten.
+    private func captureSessionSnapshot() {
+        guard !sessionEnded,
+              let live = sessionStore.current,
+              live.status == .active,
+              live.recipeTitle == recipeTitle else { return }
+        sessionStore.save(currentSnapshot(from: live))
+    }
+
+    /// One-time record setup: adopt a resumed snapshot, silently pick up the
+    /// same cook after a force-close (RL-001 edge case), or start fresh.
+    private func bootstrapSessionRecord() {
+        guard !didBootstrapRecord else { return }
+        didBootstrapRecord = true
+        timerEngine.recipeTitle = recipeTitle
+        timerEngine.totalSteps  = steps.count
+        timerEngine.onStateChange = { captureSessionSnapshot() }
+        if let resume {
+            restoreSessionState(from: resume)
+            sessionStore.adoptResumed(currentSnapshot(from: resume))
+        } else if let existing = sessionStore.resumable, existing.recipeTitle == recipeTitle {
+            // Re-entered the same cook (relaunch, floating pill, back into the
+            // flow) — continue it at the saved point instead of starting over.
+            restoreSessionState(from: existing)
+            sessionStore.adoptResumed(currentSnapshot(from: existing))
+        } else {
+            sessionStore.save(currentSnapshot(from: nil))
+        }
+    }
+
+    /// Put the UI back at the exact saved point. Timers are rebuilt with
+    /// wall-clock adjustment — one that would have finished while away shows
+    /// as finished/ready (see StepTimerEngine.restore).
+    private func restoreSessionState(from snap: ActiveCookSessionSnapshot) {
+        completedSteps = Set(snap.completedSteps.filter { steps.indices.contains($0) })
+        checkedIngredients = Set(snap.checkedIngredientIndexes.filter { ingredients.indices.contains($0) })
+        let target = steps.indices.contains(snap.currentStep)
+            ? snap.currentStep
+            : (steps.indices.first { !completedSteps.contains($0) } ?? max(0, steps.count - 1))
+        currentCard = target
+        expandedStep = target
+        timerEngine.restore(snap.timers)
+    }
+
+    /// True when leaving would lose meaningful progress (worth the dialog).
+    private var hasMeaningfulProgress: Bool {
+        !completedSteps.isEmpty || !checkedIngredients.isEmpty || !timerEngine.timers.isEmpty
+    }
+
+    /// RL-001 — back-chevron intercept: present the three explicit choices.
+    private func handleLeaveAttempt() {
+        if sessionEnded || finishCooking { dismissView(); return }
+        guard hasMeaningfulProgress else {
+            // Untouched cook — leave quietly, nothing worth resuming later.
+            sessionStore.cancel()
+            timerEngine.cancelAll()
+            dismissView()
+            return
+        }
+        showLeaveOptions = true
+    }
+
+    /// RL-001 — Pause Cooking: freeze everything exactly as it stands. Running
+    /// timers keep their wall-clock fire dates AND their pending notifications,
+    /// so a pot on the stove still alerts even if the device stays locked.
+    private func pauseAndLeave() {
+        sessionStore.pause(currentSnapshot(from: sessionStore.current))
+        timerEngine.suspendKeepingNotifications()
+        // Keep the floating "In Progress" pill alive as a second resume path.
+        if session.activeCook?.title != recipeTitle {
+            session.activeCook = .init(title: recipeTitle, ingredients: ingredients,
+                                       steps: steps, servings: baseServings, startedAt: Date())
+        }
+        HapticManager.select()
+        dismissView()
+    }
+
+    /// RL-002 — Cancel Meal: deliberate discard. Clears the record, timers,
+    /// step progress, and temporary substitutions; no meal history, no streaks,
+    /// no inventory deduction. A meal cooked from a plan STAYS planned.
+    private func cancelMeal() {
+        sessionEnded = true
+        sessionStore.cancel()
+        timerEngine.cancelAll()
+        clearProgress()
+        CookNowSession.clearPersisted()
+        session.activeCook = nil
+        HapticManager.select()
+        dismissView()
+        // Land back at the hub the cook started from — never deep in the flow
+        // whose context was just discarded.
+        NotificationCenter.default.post(name: .stockedPopToRoot, object: nil)
+    }
+
     private var allDone: Bool { completedSteps.count == steps.count }
     private func markComplete(_ i: Int) {
         withAnimation(.spring(response: 0.3)) {
@@ -1192,6 +1327,50 @@ struct CookingFlashcardView: View {
                     .padding(.bottom, 12)
                 }
             }
+        }
+        // ── RL-001 — intercept the shell's back chevron so leaving an active
+        //    cook always goes through the explicit pause/cancel/continue choice.
+        //    Scoped to the shell only: pushed destinations (plating, hands-off)
+        //    attach after this modifier, so their back buttons stay standard.
+        .environment(\.stockedDismiss, { handleLeaveAttempt() })
+        .onAppear {
+            if !didBootstrapRecord {
+                bootstrapSessionRecord()
+            } else if !sessionEnded, let live = sessionStore.resumable, live.recipeTitle == recipeTitle {
+                // Reappeared after a safety-net pause (tab switch away and
+                // back): rebuild suspended timers and mark the record active.
+                if timerEngine.timers.isEmpty && !live.timers.isEmpty { timerEngine.restore(live.timers) }
+                sessionStore.adoptResumed(currentSnapshot(from: live))
+            }
+        }
+        .onDisappear {
+            // Safety net for any exit that bypassed the dialog (programmatic
+            // pop, etc.): keep the cook as paused rather than losing it.
+            if !sessionEnded && !finishCooking && !showHandsOff && !showFullScreen {
+                captureSessionSnapshot()
+                sessionStore.pauseCurrentIfActive()
+                timerEngine.suspendKeepingNotifications()
+            }
+        }
+        // Write-through capture on every meaningful change + on backgrounding.
+        .onChange(of: completedSteps)     { _, _ in captureSessionSnapshot() }
+        .onChange(of: currentCard)        { _, _ in captureSessionSnapshot() }
+        .onChange(of: checkedIngredients) { _, _ in captureSessionSnapshot() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { captureSessionSnapshot() }
+        }
+        .confirmationDialog("Leave cooking?", isPresented: $showLeaveOptions, titleVisibility: .visible) {
+            Button("Pause Cooking") { pauseAndLeave() }
+            Button("Cancel Meal", role: .destructive) { showCancelConfirm = true }
+            Button("Continue Cooking", role: .cancel) {}
+        } message: {
+            Text("Pausing saves your exact step and timers so you can pick up right where you left off. Nothing is deducted from inventory until you finish.")
+        }
+        .alert("Cancel this meal?", isPresented: $showCancelConfirm) {
+            Button("Keep Cooking", role: .cancel) {}
+            Button("Discard Progress", role: .destructive) { cancelMeal() }
+        } message: {
+            Text("Your step progress, timers, and temporary substitutions will be discarded, and this meal won't be recorded as cooked. Nothing is deducted from inventory. If it came from your plan, the planned meal stays.")
         }
         .overlay {
             if showCelebration {
@@ -1559,8 +1738,23 @@ struct CookingFlashcardView: View {
             .sheet(isPresented: $showDeductSheet) {
                 IngredientDeductSheet(
                     ingredients: ingredients,
-                    onConfirmWeighted: { session.guestStore.deductIngredients(weighted: $0); didDeduct = true },
-                    onSkip:    { didDeduct = true }
+                    onConfirmWeighted: { weighted in
+                        // RL-001 — idempotent completion: the session's token is
+                        // consumed exactly once (and survives relaunch), so
+                        // repeated Finish taps, resume-after-complete, or a
+                        // zombie plating screen can never deduct twice.
+                        if ActiveCookSessionStore.shared.completeCurrentSession() {
+                            session.guestStore.deductIngredients(weighted: weighted)
+                        }
+                        didDeduct = true
+                    },
+                    onSkip:    {
+                        // Skipping the deduction still ENDS the session — it must
+                        // never reappear as resumable. The deduction token stays
+                        // unconsumed only because nothing was deducted.
+                        ActiveCookSessionStore.shared.markCurrentCompleted()
+                        didDeduct = true
+                    }
                 ).environment(session)
             }
             .fullScreenCover(isPresented: $showCamera) {
@@ -1808,6 +2002,16 @@ struct CookingFlashcardView: View {
         }
         
         private func finishMeal() {
+            // RL-001 — one meal-history record per cook session. The token is
+            // consumed exactly once (persisted), so resume, relaunch, or a second
+            // "Finish & Save Meal" tap can't double-count streaks, achievements,
+            // past meals, or leftovers.
+            let cookRecord = ActiveCookSessionStore.shared
+            guard cookRecord.recordMealForCurrentSession() else {
+                cookRecord.clearFinished()
+                if let goHome { goHome() } else { dismiss() }
+                return
+            }
             let dateStr = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
             var meal = LocalPastMeal(title: recipeTitle, date: dateStr)
             // #FB — rating/thumb start empty; if untouched, infer a neutral record.
@@ -1841,6 +2045,9 @@ struct CookingFlashcardView: View {
                 item.expirationDate = Calendar.current.date(byAdding: .day, value: zone == "Freezer" ? 90 : 4, to: Date())
                 session.guestStore.addInventoryItem(item)
             }
+            // RL-001 — the session is fully served: drop its record so it can
+            // never reappear as resumable (tokens stay consumed in the ledger).
+            cookRecord.clearFinished()
             // Return to the live shell: pop the cook flow's NavigationStack to root and
             // select Home. Falls back to dismiss() if the env closure isn't present
             // (e.g. SwiftUI preview). Never push a second MainTabView — that nests a

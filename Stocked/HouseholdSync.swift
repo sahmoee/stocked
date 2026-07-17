@@ -112,6 +112,7 @@ final class HouseholdSync {
         syncStatus.lastError = nil
         syncStatus.activeRoute = route
         nextRetryAllowedAt = .distantPast
+        backoffIsServerImposed = false
         syncStatus.nextRetryAllowedAt = nil
         syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
@@ -130,6 +131,12 @@ final class HouseholdSync {
         default: serverDelay = exponential
         }
         let jitter = Double.random(in: 0.8...1.2)
+        // RL-008: mark server-imposed pauses so a reconnect doesn't clear them (see
+        // noteConnectivityRestored).
+        switch failure {
+        case .rateLimited, .quotaExhausted: backoffIsServerImposed = true
+        default: backoffIsServerImposed = false
+        }
         nextRetryAllowedAt = Date().addingTimeInterval(max(exponential, serverDelay) * jitter)
         syncStatus.nextRetryAllowedAt = nextRetryAllowedAt
         syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
@@ -138,6 +145,39 @@ final class HouseholdSync {
     // #6 backoff gate: the poller checks this before attempting a push.
     private var nextRetryAllowedAt: Date = .distantPast
     var retryIsAllowed: Bool { Date() >= nextRetryAllowedAt }
+    // RL-008: remember whether the current backoff was a server-imposed pause (quota /
+    // rate limit). A network reconnect resets transport backoff — the failures were the
+    // dead connection's fault — but must NOT reset a server pause, or a flapping network
+    // could burn the remaining KV quota.
+    @ObservationIgnored private var backoffIsServerImposed = false
+
+    /// RL-008: called by OfflineQueueCenter on an offline→online transition. Clears the
+    /// persisted transport backoff so recovery is immediate, leaving server-imposed pauses
+    /// (quota, 429) intact.
+    func noteConnectivityRestored() {
+        guard !backoffIsServerImposed else { return }
+        nextRetryAllowedAt = .distantPast
+        syncStatus.nextRetryAllowedAt = nil
+        LocalDatabase.shared.save(syncStatus, key: DBKey.householdSyncStatus.rawValue)
+    }
+
+    /// RL-008: one coalesced recovery pass after reconnect. syncNow is single-flight and
+    /// only acknowledges the operations captured in its request, so calling this alongside
+    /// the poller can never duplicate or drop work.
+    func reconnectSync() async {
+        guard let store = pollStore, state == .owner || state == .member else { return }
+        if pendingOps.isEmpty {
+            await pullNow(into: store)
+        } else if retryIsAllowed {
+            await syncNow(store: store)
+        }
+    }
+
+    /// RL-008: replay a queued one-shot mutation (see OfflineQueueCenter). Same transport
+    /// as every other household call; returns success so the queue knows whether to drain.
+    func replayPost(_ path: String, _ body: [String: Any]) async -> Bool {
+        await post(path, body) != nil
+    }
     private func markPullSucceeded(route: HouseholdSyncRoute) {
         syncStatus.lastSuccessfulPull = Date()
         syncStatus.activeRoute = route
@@ -190,12 +230,65 @@ final class HouseholdSync {
         return "Member"
     }
 
+    /// Whether the user has set a custom household display name themselves. Once true, the
+    /// auto-sync from the profile name (updateDisplayName) stops overwriting it.
+    var nameIsCustom: Bool {
+        get { UserDefaults.standard.bool(forKey: "hh_name_custom") }
+        set { UserDefaults.standard.set(newValue, forKey: "hh_name_custom") }
+    }
+
+    // ── Selective sync (#2): which data categories this device shares/receives. Default ON. ──
+    private func syncFlag(_ key: String) -> Bool {
+        UserDefaults.standard.object(forKey: key) == nil ? true : UserDefaults.standard.bool(forKey: key)
+    }
+    var syncInventory: Bool { get { syncFlag("hh_sync_inv") } set { UserDefaults.standard.set(newValue, forKey: "hh_sync_inv") } }
+    var syncGrocery:   Bool { get { syncFlag("hh_sync_gro") } set { UserDefaults.standard.set(newValue, forKey: "hh_sync_gro") } }
+    var syncRecipes:   Bool { get { syncFlag("hh_sync_rec") } set { UserDefaults.standard.set(newValue, forKey: "hh_sync_rec") } }
+    var syncMealPlans: Bool { get { syncFlag("hh_sync_mp")  } set { UserDefaults.standard.set(newValue, forKey: "hh_sync_mp")  } }
+
+    // ── Household name (#3): shared name for the whole household. Persists locally and, once the
+    // user sets it, rides along on push so every device sees it (LWW among members who set one). ──
+    var householdName: String {
+        get { UserDefaults.standard.string(forKey: "hh_display_name") ?? "My Stocked. Kitchen" }
+        set { UserDefaults.standard.set(newValue, forKey: "hh_display_name") }
+    }
+    var householdNameIsCustom: Bool {
+        get { UserDefaults.standard.bool(forKey: "hh_display_name_custom") }
+        set { UserDefaults.standard.set(newValue, forKey: "hh_display_name_custom") }
+    }
+    /// Save + sync the household name. Marks it custom so it rides on the next push and sticks.
+    func setHouseholdName(_ name: String, store: GuestDataStore? = nil) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        householdName = trimmed
+        householdNameIsCustom = true
+        if let store, state == .owner || state == .member { Task { await syncNow(store: store) } }
+    }
+
     /// Called by the app (from AppSession) whenever the user's profile name is known or changes.
     /// Updates the local display name and, if already in a household, propagates the rename to the
-    /// server so every device and the Daily Brief see the new name.
+    /// server so every device and the Daily Brief see the new name. Skips when the user has
+    /// explicitly chosen a household-specific name (see setMyName).
     func updateDisplayName(_ name: String, store: GuestDataStore? = nil) {
+        guard !nameIsCustom else { return }
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, trimmed.lowercased() != "chef", trimmed != "You" else { return }
+        propagateName(trimmed, store: store)
+    }
+
+    /// User explicitly sets THEIR OWN household display name (Settings → Your Name). Marks it
+    /// custom (so the profile name won't clobber it), persists it, and syncs it to every device +
+    /// the Daily Brief / activity feed via the setname endpoint.
+    func setMyName(_ name: String, store: GuestDataStore? = nil) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        nameIsCustom = true
+        propagateName(trimmed, store: store)
+    }
+
+    /// Shared rename path: set local name + push the rename to the server, then pull so the
+    /// member list / attribution reflect it immediately.
+    private func propagateName(_ trimmed: String, store: GuestDataStore?) {
         let previous = myDisplayName
         myDisplayName = trimmed
         guard previous != trimmed, state == .owner || state == .member,
@@ -335,6 +428,10 @@ final class HouseholdSync {
     /// launch / foreground once a household exists.
     func startAutoSync(store: GuestDataStore, everySeconds: UInt64 = 6) {
         pollStore = store
+        // RL-008: the offline queue center needs the connectivity monitors running and a
+        // chance to flush relaunch-surviving work. Activate before the household guard so
+        // reconnect recovery works even for devices not in a household.
+        OfflineQueueCenter.shared.activate()
         pollTask?.cancel()
         guard state == .owner || state == .member else { return }
         // Anything queued before the last quit (offline edits) gets pushed right away.
@@ -404,20 +501,32 @@ final class HouseholdSync {
         let capturedOperationIDs = Set(capturedOps.map(\.id))
         let capturedTombstones = store.householdTombstoneSnapshot()
         syncStage = .uploading(store.groceryItems.count)
-        let body: [String: Any] = [
-            "code": code,
-            "actorId": memberId,
-            "grocery": store.groceryItems.map { groceryDict($0) },
-            "inventory": store.inventoryItems.map { inventoryDict($0) },
-            "userRecipes": store.userRecipes.map { userRecipeDict($0) },
-            "genRecipes": store.savedGeneratedRecipes.map { genRecipeDict($0) },
-            "plannedMeals": store.plannedMeals.map { plannedMealDict($0) },
-            "invDeleted": Array(capturedTombstones.inventory),
-            "groDeleted": Array(capturedTombstones.grocery),
-            "userRecipeDeleted": Array(capturedTombstones.userRecipes),
-            "genRecipeDeleted": Array(capturedTombstones.generatedRecipes),
-            "mealDeleted": Array(capturedTombstones.plannedMeals),
-        ]
+        // #2 — only include the categories the user chose to share. Omitted categories aren't
+        // merged server-side, so this device keeps that data private to itself.
+        var body: [String: Any] = ["code": code, "actorId": memberId]
+        if syncGrocery {
+            body["grocery"] = store.groceryItems.map { groceryDict($0) }
+            body["groDeleted"] = Array(capturedTombstones.grocery)
+        }
+        if syncInventory {
+            body["inventory"] = store.inventoryItems.map { inventoryDict($0) }
+            body["invDeleted"] = Array(capturedTombstones.inventory)
+        }
+        if syncRecipes {
+            body["userRecipes"] = store.userRecipes.map { userRecipeDict($0) }
+            body["genRecipes"] = store.savedGeneratedRecipes.map { genRecipeDict($0) }
+            body["userRecipeDeleted"] = Array(capturedTombstones.userRecipes)
+            body["genRecipeDeleted"] = Array(capturedTombstones.generatedRecipes)
+        }
+        if syncMealPlans {
+            body["plannedMeals"] = store.plannedMeals.map { plannedMealDict($0) }
+            body["mealDeleted"] = Array(capturedTombstones.plannedMeals)
+        }
+        // #3 — carry the household name so it syncs, but only once this user has set one
+        // (avoids a member who never renamed it clobbering the owner's name with the default).
+        if householdNameIsCustom { body["householdName"] = householdName }
+        // Hidden QA Workbook results sync within the household (last-writer-wins by updatedAt).
+        if let qa = QAWorkbookStore.shared.serialized() { body["qa"] = qa }
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             let message = lastPostFailure?.localizedDescription
@@ -460,12 +569,23 @@ final class HouseholdSync {
 
     func logActivity(_ kind: HouseholdActivity.Kind, itemName: String) async {
         guard let code = joinCode, state == .owner || state == .member else { return }
+        // RL-008: each event carries a stable eventId + its ORIGINAL timestamp, so a replay
+        // of a request whose response was lost merges as the same event, never a duplicate,
+        // and an offline edit keeps its true time in the feed after reconnect.
         let event: [String: Any] = [
+            "eventId": UUID().uuidString,
             "kind": kind.rawValue, "itemName": itemName,
             "actorName": myDisplayName, "date": Date().timeIntervalSince1970 * 1000,
         ]
-        // Push a single activity event (server merges + caps).
-        _ = await post("/household/push", ["code": code, "activity": [event]])
+        let body: [String: Any] = ["code": code, "activity": [event]]
+        // Push a single activity event (server merges + caps). Previously fire-and-forget —
+        // an offline edit's feed entry just vanished. Now a failed post lands in the durable
+        // offline queue and replays on reconnect (RL-008: never silently discard local work).
+        if await post("/household/push", body) == nil {
+            OfflineQueueCenter.shared.enqueueWorkerMutation(kind: "activity",
+                                                            path: "/household/push",
+                                                            body: body)
+        }
     }
 
     /// #3 Fire-and-forget activity emit for use from store didSets. No-op outside a household.
@@ -752,10 +872,18 @@ final class HouseholdSync {
         // silently overwritten. Empty on the push path, so pushes always apply straight through.
         let lockedIDs: Set<UUID> = detectConflictsOnApply ? Set(pendingOps.map { $0.entityID }) : []
 
+        // #3 — adopt the household's shared name when the server has one and we haven't set our own.
+        if let remoteName = (hh["name"] as? String)?.trimmingCharacters(in: .whitespaces),
+           !remoteName.isEmpty, !householdNameIsCustom, householdName != remoteName {
+            householdName = remoteName
+        }
+        // Adopt a newer QA Workbook blob from the household.
+        if let qaObj = hh["qa"] as? [String: Any] { QAWorkbookStore.shared.applyRemote(qaObj) }
+
         var groAdded = 0
-        if let groRaw = hh["grocery"] as? [[String: Any]] {
+        if syncGrocery, let groRaw = hh["grocery"] as? [[String: Any]] {
             let remote = groRaw.compactMap { parseGrocery($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.groceryItems.map { ($0.id, $0) })
+            var byID = Dictionary(keepingLastValues: store.groceryItems.map { ($0.id, $0) })
             for r in remote {
                 if let local = byID[r.id] {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
@@ -780,9 +908,9 @@ final class HouseholdSync {
         // Inventory: last-write-wins by updatedAt, honoring tombstones. Adds, edits (quantity,
         // title, zone), and removals all converge this way.
         var invAdded = 0
-        if let invRaw = hh["inventory"] as? [[String: Any]] {
+        if syncInventory, let invRaw = hh["inventory"] as? [[String: Any]] {
             let remote = invRaw.compactMap { parseInventory($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0) })
+            var byID = Dictionary(keepingLastValues: store.inventoryItems.map { ($0.id, $0) })
             for r in remote {
                 if let local = byID[r.id] {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
@@ -831,9 +959,9 @@ final class HouseholdSync {
         // (assigning always would still be safe because the remote-apply guard blocks a push loop,
         // but this avoids needless local saves).
         let userRecipeTombstones = Set((hh["userRecipeDeleted"] as? [String]) ?? [])
-        if let raw = hh["userRecipes"] as? [[String: Any]] {
+        if syncRecipes, let raw = hh["userRecipes"] as? [[String: Any]] {
             let remote = raw.compactMap { parseUserRecipe($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.userRecipes.map { ($0.id, $0) })
+            var byID = Dictionary(keepingLastValues: store.userRecipes.map { ($0.id, $0) })
             var touched = false
             for r in remote {
                 if let local = byID[r.id] {
@@ -850,9 +978,9 @@ final class HouseholdSync {
             if touched { store.userRecipes = Array(byID.values) }
         }
         let genRecipeTombstones = Set((hh["genRecipeDeleted"] as? [String]) ?? [])
-        if let raw = hh["genRecipes"] as? [[String: Any]] {
+        if syncRecipes, let raw = hh["genRecipes"] as? [[String: Any]] {
             let remote = raw.compactMap { parseGenRecipe($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.savedGeneratedRecipes.map { ($0.id, $0) })
+            var byID = Dictionary(keepingLastValues: store.savedGeneratedRecipes.map { ($0.id, $0) })
             var touched = false
             for r in remote {
                 if let local = byID[r.id] {
@@ -870,9 +998,9 @@ final class HouseholdSync {
         }
         // #13 Planned meals: LWW merge honoring tombstones, same pattern as recipes.
         let mealTombstones = Set((hh["mealDeleted"] as? [String]) ?? [])
-        if let raw = hh["plannedMeals"] as? [[String: Any]] {
+        if syncMealPlans, let raw = hh["plannedMeals"] as? [[String: Any]] {
             let remote = raw.compactMap { parsePlannedMeal($0) }
-            var byID = Dictionary(uniqueKeysWithValues: store.plannedMeals.map { ($0.id, $0) })
+            var byID = Dictionary(keepingLastValues: store.plannedMeals.map { ($0.id, $0) })
             var touched = false
             for r in remote {
                 if let local = byID[r.id] {

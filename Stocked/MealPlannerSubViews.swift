@@ -260,6 +260,13 @@ extension MealPlannerView {
                             }
                         }
                         .padding(.horizontal, 16).padding(.vertical, 10)
+                        // RL-005 — projected shortages for this meal, with repairs.
+                        ForEach(conflicts(for: meal)) { conflict in
+                            PlanConflictRow(conflict: conflict,
+                                            onAddToGrocery: { repairAddToGrocery(conflict) },
+                                            onRelease:      { releaseReservation(conflict) })
+                                .padding(.horizontal, 16).padding(.bottom, 8)
+                        }
                         Divider().padding(.horizontal, 16)
                     }
                 }
@@ -285,7 +292,10 @@ extension MealPlannerView {
                     onAddMeal:   { type in activeSheet = .picker(day: i, type: type) },
                     onRemoveMeal:{ meal in withAnimation { plannedMeals.removeAll { $0.id == meal.id } } },
                     onCookNow:   { meal in cookTransitionMeal = meal },
-                    onPrepNow:   { meal in preppingMeal = meal; navigateToPrep = true }
+                    onPrepNow:   { meal in preppingMeal = meal; navigateToPrep = true },
+                    conflictsByMeal:  conflictsByMeal,
+                    onConflictGrocery: { repairAddToGrocery($0) },
+                    onConflictRelease: { releaseReservation($0) }
                 )
             }
         }
@@ -299,6 +309,10 @@ extension MealPlannerView {
                 summaryBadge(value: "\(plannedMeals.count)", label: "Meals Planned")
                 Divider().frame(height: 32)
                 summaryBadge(value: "\(missingIngredients.count)", label: "Items Missing")
+                Divider().frame(height: 32)
+                // RL-005 — cross-meal shortages (reservations + expiry), not
+                // just plain missing items; derived live from the edit state.
+                summaryBadge(value: "\(planConflicts.count)", label: "Conflicts")
             }
             .padding(16)
             .background(Color.stockedWhite.opacity(0.28)).clipShape(RoundedRectangle(cornerRadius: 14))
@@ -414,6 +428,15 @@ struct DayPlanCard: View {
     let onRemoveMeal:(PlannedMeal) -> Void
     let onCookNow:   (PlannedMeal) -> Void
     let onPrepNow:   (PlannedMeal) -> Void
+    // RL-005 — projected shortages per meal + repair callbacks. Defaulted so
+    // the card stays drop-in for callers that don't do conflict detection.
+    var conflictsByMeal: [UUID: [MealConflict]] = [:]
+    var onConflictGrocery: (MealConflict) -> Void = { _ in }
+    var onConflictRelease: (MealConflict) -> Void = { _ in }
+
+    private var dayConflictCount: Int {
+        meals.reduce(0) { $0 + (conflictsByMeal[$1.id]?.count ?? 0) }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -423,6 +446,17 @@ struct DayPlanCard: View {
                         .font(.system(size: 16, weight: .semibold, design: .serif))
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
+                    // RL-005 — day-level conflict badge, visible even collapsed.
+                    if dayConflictCount > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9))
+                            Text("\(dayConflictCount)").font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundStyle(Color.stockedError)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Color.stockedError.opacity(0.10))
+                        .clipShape(Capsule())
+                    }
                     if !meals.isEmpty {
                         Text("\(meals.count) meal\(meals.count == 1 ? "" : "s")")
                             .font(.system(size: 12)).foregroundStyle(Color.stockedGold)
@@ -474,6 +508,13 @@ struct DayPlanCard: View {
                                 }
                             }
                             .padding(.horizontal, 14).padding(.vertical, 10)
+                            // RL-005 — this meal's projected shortages + repairs.
+                            ForEach(conflictsByMeal[meal.id] ?? []) { conflict in
+                                PlanConflictRow(conflict: conflict,
+                                                onAddToGrocery: { onConflictGrocery(conflict) },
+                                                onRelease:      { onConflictRelease(conflict) })
+                                    .padding(.horizontal, 14).padding(.bottom, 8)
+                            }
                             Divider().padding(.horizontal, 14)
                         }
                     }
@@ -752,6 +793,72 @@ struct PrepNowView: View {
                     .padding(.horizontal, 20)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Plan Conflict Row (RL-005)
+// One projected shortage on a meal card: the specific ingredient, how much is
+// missing, and why — with inline repairs. Warnings are derived (never stored),
+// so a fixed conflict simply stops rendering on the next recalculation.
+struct PlanConflictRow: View {
+    @Environment(AppSession.self) var session
+    let conflict: MealConflict
+    let onAddToGrocery: () -> Void
+    let onRelease: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.stockedError)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Short \(conflict.missingDisplay)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(hintText)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 8) {
+                Button(action: onAddToGrocery) {
+                    Label("Add to Grocery", systemImage: "cart.badge.plus")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(Color.stockedGold.opacity(0.12))
+                        .clipShape(Capsule())
+                }.buttonStyle(.plain)
+                Button(action: onRelease) {
+                    Label("Release", systemImage: "arrow.uturn.backward")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(session.themeTextColor.opacity(0.06))
+                        .clipShape(Capsule())
+                }.buttonStyle(.plain)
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(10)
+        .background(Color.stockedError.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+    }
+
+    /// Why it's short + the "adjust servings" nudge where that would help.
+    private var hintText: String {
+        switch conflict.reason {
+        case .notInStock:
+            return "Not in your inventory yet."
+        case .overAllocated:
+            return "Earlier meals claim it first — buy more, lower servings, or release it here."
+        case .expiresBeforeMeal:
+            return "What you own expires before this meal — plan it sooner or restock."
         }
     }
 }

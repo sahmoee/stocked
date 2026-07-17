@@ -17,7 +17,7 @@ struct CatalogEntry {
 struct ProductCatalog {
     // #14: O(1) lookup dictionary — keyed on normalised name
     static let lookup: [String: CatalogEntry] = {
-        Dictionary(uniqueKeysWithValues: all.map { ($0.name.lowercased(), $0) })
+        Dictionary(keepingLastValues: all.map { ($0.name.lowercased(), $0) })
     }()
 
     // Exact lookup (O(1))

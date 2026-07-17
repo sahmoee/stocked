@@ -101,7 +101,14 @@ nonisolated enum MakeabilityEngine {
             }
         }
 
-        return result.sorted { $0.readiness < $1.readiness }
+        return result.sorted {
+            if $0.readiness != $1.readiness { return $0.readiness < $1.readiness }
+            // RL-004 — among equally-ready recipes, ones that would consume
+            // ingredients reserved for planned meals sink below truly free
+            // ones: they are only "ready if plans change", never presented
+            // ahead of a recipe with no strings attached.
+            return !$0.usesReservedIngredients && $1.usesReservedIngredients
+        }
     }
 
     // MARK: - Heuristics

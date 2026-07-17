@@ -120,6 +120,14 @@ nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
     let readiness: CookNowReadiness
     let resolutions: [IngredientResolution]
 
+    /// RL-004 — required ingredient names that are reserved for planned meals.
+    /// Filled after classification by `CookNowEngine.annotatingReservations`;
+    /// defaulted so the classifier itself stays reservation-unaware and pure.
+    /// A recipe that touches reservations is never presented as fully safe —
+    /// it is "ready if plans change", and surfaces label/demote it accordingly.
+    var usesReserved: [String] = []
+    var usesReservedIngredients: Bool { !usesReserved.isEmpty }
+
     var id: UUID { recipe.id }
 
     /// Count of required ingredients found directly in stock.
@@ -361,6 +369,25 @@ nonisolated struct CookNowEngine: Sendable {
     /// they never contribute to metrics.
     func classifyAll(resolveSubstitutes: SubstituteResolver) -> [ClassifiedRecipe] {
         recipes.map { classify($0, resolveSubstitutes: resolveSubstitutes) }
+    }
+
+    // MARK: Reservation annotation (RL-004)
+
+    /// Stamp each classified recipe with the reserved ingredients it uses.
+    /// Pure pass over already-classified results: readiness tiers are NOT
+    /// changed (a reservation is a planning concern, not a stock concern) —
+    /// callers use `usesReservedIngredients` to label cards and route the
+    /// Cook Anyway review before cooking.
+    static func annotatingReservations(_ classified: [ClassifiedRecipe],
+                                       reservedNames: Set<String>) -> [ClassifiedRecipe] {
+        guard !reservedNames.isEmpty else { return classified }
+        return classified.map { c in
+            var copy = c
+            copy.usesReserved = ReservationEngine.usesReserved(
+                ingredientNames: c.recipe.ingredients.filter { !$0.isOptional }.map(\.name),
+                reservedNames: reservedNames)
+            return copy
+        }
     }
 
     // MARK: Metrics

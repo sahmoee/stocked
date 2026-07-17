@@ -426,7 +426,9 @@ class AppSession {
         isLoggedIn = true
         forceLogin = false
         UserDefaults.standard.removeObject(forKey: Self.signedOutMarkerKey)
-        guestStore.requestNotificationPermission()
+        // NOTIF FIX: one deferred post-onboarding ask instead of an immediate dialog that
+        // used to pop over the first frame of the app (read as a launch freeze).
+        NotificationPermissionCoordinator.promptOnceAfterOnboarding()
     }
     func continueAsGuest() { enterKitchen() }
 
@@ -464,7 +466,8 @@ class AppSession {
         SharedPantrySync.shared.accountAllowsSync = true
 
         pendingSignInMigration = hadGuestData
-        guestStore.requestNotificationPermission()
+        // NOTIF FIX: same deferred, once-only ask as enterKitchen().
+        NotificationPermissionCoordinator.promptOnceAfterOnboarding()
     }
 
     /// User chose to KEEP their guest data on sign-in: nothing to move (the data already lives

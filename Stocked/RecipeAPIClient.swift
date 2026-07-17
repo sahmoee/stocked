@@ -38,7 +38,7 @@ struct MealDBMeal: Decodable {
     }
 }
 
-struct CachedRecipe: Codable, Identifiable {
+struct CachedRecipe: Codable, Identifiable, Sendable {
     var id          = UUID()
     let mealID:     String
     let title:      String

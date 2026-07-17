@@ -133,7 +133,7 @@ enum RecipeSourceHub {
             ("API Ninjas",         "🥷", "Cocktails and recipes",         !BuildConfig.apiNinjasKey.isEmpty),
             ("Suggestic", "🍅", "Recipes with vegan and vegetarian filters", !BuildConfig.suggesticToken.isEmpty),
         ]
-        let metaByName = Dictionary(uniqueKeysWithValues: feedMeta.map { ($0.name, $0) })
+        let metaByName = Dictionary(keepingLastValues: feedMeta.map { ($0.name, $0) })
 
         var listings: [SourceListing] = []
         var seen = Set<String>()

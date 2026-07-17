@@ -2,24 +2,95 @@ name = "stocked-receipt-worker"
 main = "index.js"
 compatibility_date = "2025-01-01"
 
-# Rate-limit counters live in this KV namespace. Create it and paste the id below:
-#   wrangler kv namespace create RATE_KV
-# Then replace the placeholder id. (preview_id is optional, for `wrangler dev`.)
+# ── KV namespaces (existing) ──────────────────────────────────────────────────
+# RATE_KV also stores household snapshot mirrors ("hh:") and daily-brief blobs.
 [[kv_namespaces]]
 binding = "RATE_KV"
 id = "e0bde8969aad4e3c88b6281227bc08d1"
 
-# Crowd item database KV (merged in from the former standalone stocked-crowd worker).
-# Create it and paste the id below:
-#   wrangler kv namespace create CROWD
 [[kv_namespaces]]
 binding = "CROWD"
 id = "030167e99e0c41f4a233bb139a8b466f"
 
-# Optional: override the model without editing code.
+# ── Durable Object: household sync (improvement #1) ───────────────────────────
+# Requires the Workers Paid plan. The class is exported from index.js.
+[[durable_objects.bindings]]
+name = "HOUSEHOLD_DO"
+class_name = "HouseholdDO"
+
+[[migrations]]
+tag = "v1"
+# SQLite-backed DO storage (Cloudflare no longer allows KV-backed DO namespaces
+# for new classes). The key-value storage API (storage.get/put/deleteAll) used by
+# HouseholdDO works unchanged on the SQLite backend.
+new_sqlite_classes = ["HouseholdDO"]
+
+# ── Native Rate Limiting bindings (improvement #2) ────────────────────────────
+# Atomic, per-key. period must be 10 or 60 (seconds). namespace_id is any unique
+# integer string per limiter. If these are absent the Worker falls back to a
+# coarse Cache-API counter, so it keeps working during rollout.
+[[unsafe.bindings]]
+name = "RL_AI"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_RECEIPT"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 30, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_HOUSEHOLD"
+type = "ratelimit"
+namespace_id = "1003"
+# Applies to /household/push only. Generous: the app auto-syncs every ~6s and can
+# burst on retry, and multiple household members share an IP behind NAT.
+simple = { limit = 300, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_CROWD"
+type = "ratelimit"
+namespace_id = "1004"
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_DEFAULT"
+type = "ratelimit"
+namespace_id = "1005"
+simple = { limit = 60, period = 60 }
+
+# ── Queues: daily brief generation (new function #10) ─────────────────────────
+# Requires the Workers Paid plan. Create the queues first (see MANUAL_STEPS.md).
+[[queues.producers]]
+queue = "stocked-briefs"
+binding = "BRIEF_QUEUE"
+
+[[queues.consumers]]
+queue = "stocked-briefs"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "stocked-briefs-dlq"
+
+# ── Cron Triggers: enqueue briefs daily (free) ────────────────────────────────
+[triggers]
+crons = ["0 13 * * *"]   # 13:00 UTC every day
+
+# ── Observability (improvement #10) ───────────────────────────────────────────
+[observability]
+enabled = true
+
+# ── Plain vars (non-secret) ───────────────────────────────────────────────────
 [vars]
 ANTHROPIC_MODEL = "claude-sonnet-5"
+APPLE_BUNDLE_ID = "com.sowens.Stocked"     # your app's bundle id
+APP_ATTEST_ENABLED = ""                      # set to "1" only after wiring App Attest
+CONTENT_ORIGIN = "https://cdn.sowensstudios.com"   # origin for /content/* (curated recipes + images)
+# CORS_ALLOW_ORIGINS = "https://example.com"       # optional: comma-separated allowlist; unset → "*" (non-credentialed, as before)
 
-# Secrets are NOT set here — set them with `wrangler secret put` (see README):
-#   ANTHROPIC_API_KEY    (your sk-ant-… key)
-#   STOCKED_SHARED_KEY   (a long random string; must match the app's value)
+# ── Secrets (set with `wrangler secret put`, NOT here) ────────────────────────
+#   ANTHROPIC_API_KEY     (sk-ant-…)
+#   STOCKED_SHARED_KEY    (long random string; must match the app)
+#   SESSION_SIGNING_KEY   (long random string; signs short-lived session tokens)

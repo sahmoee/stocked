@@ -26,6 +26,16 @@ final class StepTimer {
         self.remaining = seconds
     }
 
+    /// RL-001 — rebuild a timer from a persisted session snapshot with an
+    /// already-elapsed portion (or as finished, when the timer ran out while
+    /// the app was closed / the device was locked).
+    init(stepIndex: Int, seconds: Int, remaining: Int, isFinished: Bool) {
+        self.stepIndex = stepIndex
+        self.totalSeconds = seconds
+        self.remaining = max(0, remaining)
+        self.isFinished = isFinished
+    }
+
     func start(onFinish: @escaping (Int) -> Void) {
         guard !isFinished else { return }
         isRunning = true
@@ -73,6 +83,13 @@ final class StepTimerEngine {
     // #16 — context for the Live Activity, set by the cook flow.
     var recipeTitle: String = ""
     var totalSteps: Int = 0
+
+    // RL-001 — step text per timer so persisted sessions can rebuild
+    // notifications and the Live Activity on resume.
+    private var stepTexts: [Int: String] = [:]
+    /// RL-001 — the cook flow hooks this to capture a session snapshot whenever
+    /// timer state changes (start / pause / reset / finish).
+    var onStateChange: (() -> Void)? = nil
 
     // MARK: - Time parsing
     /// Returns detected seconds from a step string, or nil if none found.
@@ -139,12 +156,17 @@ final class StepTimerEngine {
 
     // MARK: - Timer control
     func startTimer(stepIndex: Int, stepText: String) {
+        stepTexts[stepIndex] = stepText
         if let existing = timers[stepIndex] {
             existing.start { [weak self] idx in self?.handleFinished(idx, stepText: stepText) }
+            // Resuming a paused countdown: the original notification was
+            // canceled on pause, so schedule a fresh one for the remaining time.
+            scheduleNotification(stepIndex: stepIndex, seconds: existing.remaining, stepText: stepText)
             // #16 — resume: relaunch the Live Activity for the remaining time.
             LiveActivityManager.shared.start(
                 recipeTitle: recipeTitle, stepNumber: stepIndex + 1, totalSteps: totalSteps,
                 stepText: stepText, endDate: Date().addingTimeInterval(TimeInterval(existing.remaining)))
+            onStateChange?()
             return
         }
         guard let secs = Self.detectSeconds(in: stepText), secs > 0 else { return }
@@ -156,17 +178,95 @@ final class StepTimerEngine {
         LiveActivityManager.shared.start(
             recipeTitle: recipeTitle, stepNumber: stepIndex + 1, totalSteps: totalSteps,
             stepText: stepText, endDate: Date().addingTimeInterval(TimeInterval(secs)))
+        onStateChange?()
     }
 
     func pauseTimer(stepIndex: Int) {
         timers[stepIndex]?.pause()
         cancelNotification(stepIndex: stepIndex)
         LiveActivityManager.shared.end()
+        onStateChange?()
     }
 
     func resetTimer(stepIndex: Int) {
         timers[stepIndex]?.reset()
         cancelNotification(stepIndex: stepIndex)
+        LiveActivityManager.shared.end()
+        onStateChange?()
+    }
+
+    // MARK: - RL-001 session persistence (export / restore / suspend)
+
+    /// Capture every timer with wall-clock semantics: running timers store a
+    /// fire DATE, paused timers a frozen remaining count. Called by the cook
+    /// flow whenever it snapshots the session.
+    func exportStates() -> [CookSessionTimerState] {
+        timers.values
+            .sorted { $0.stepIndex < $1.stepIndex }
+            .map { t in
+                CookSessionTimerState(
+                    stepIndex: t.stepIndex,
+                    stepText: stepTexts[t.stepIndex] ?? "",
+                    totalSeconds: t.totalSeconds,
+                    endDate: (t.isRunning && !t.isFinished)
+                        ? Date().addingTimeInterval(TimeInterval(t.remaining)) : nil,
+                    pausedRemaining: (!t.isRunning && !t.isFinished) ? t.remaining : nil,
+                    isFinished: t.isFinished)
+            }
+    }
+
+    /// Rebuild timers from a persisted session, adjusted for elapsed wall-clock
+    /// time. A running timer whose fire date passed while the app was away
+    /// restores as finished/ready. Running timers re-schedule their local
+    /// notification (identical identifier — replaces any still-pending one).
+    func restore(_ states: [CookSessionTimerState]) {
+        var soonestRunning: (index: Int, text: String, remaining: Int)? = nil
+        for s in states {
+            stepTexts[s.stepIndex] = s.stepText
+            if s.isFinished {
+                timers[s.stepIndex] = StepTimer(stepIndex: s.stepIndex, seconds: s.totalSeconds,
+                                                remaining: 0, isFinished: true)
+            } else if let end = s.endDate {
+                let remaining = Int(end.timeIntervalSinceNow.rounded())
+                if remaining <= 0 {
+                    // Finished while paused/backgrounded/locked — show it done.
+                    timers[s.stepIndex] = StepTimer(stepIndex: s.stepIndex, seconds: s.totalSeconds,
+                                                    remaining: 0, isFinished: true)
+                } else {
+                    let timer = StepTimer(stepIndex: s.stepIndex, seconds: s.totalSeconds,
+                                          remaining: remaining, isFinished: false)
+                    timers[s.stepIndex] = timer
+                    let text = s.stepText
+                    timer.start { [weak self] idx in self?.handleFinished(idx, stepText: text) }
+                    scheduleNotification(stepIndex: s.stepIndex, seconds: remaining, stepText: text)
+                    if soonestRunning == nil || remaining < (soonestRunning?.remaining ?? .max) {
+                        soonestRunning = (s.stepIndex, text, remaining)
+                    }
+                }
+            } else {
+                // Paused mid-count: frozen exactly where the user left it.
+                timers[s.stepIndex] = StepTimer(stepIndex: s.stepIndex, seconds: s.totalSeconds,
+                                                remaining: s.pausedRemaining ?? s.totalSeconds,
+                                                isFinished: false)
+            }
+        }
+        // #16 — one Live Activity: surface the soonest-ending running timer.
+        if let running = soonestRunning {
+            LiveActivityManager.shared.start(
+                recipeTitle: recipeTitle, stepNumber: running.index + 1, totalSteps: totalSteps,
+                stepText: running.text,
+                endDate: Date().addingTimeInterval(TimeInterval(running.remaining)))
+        }
+    }
+
+    /// Stop in-app countdown tasks WITHOUT canceling the pending timer
+    /// notifications — used when the user pauses and leaves the cook. Running
+    /// pots keep cooking in the real world, so the notification still fires
+    /// even if the device stays locked longer than the timer.
+    func suspendKeepingNotifications() {
+        for timer in timers.values { timer.pause() }
+        timers.removeAll()
+        stepTexts.removeAll()
         LiveActivityManager.shared.end()
     }
 
@@ -192,6 +292,7 @@ final class StepTimerEngine {
     private func handleFinished(_ stepIndex: Int, stepText: String) {
         HapticManager.success()
         LiveActivityManager.shared.end()
+        onStateChange?()   // RL-001 — persist the finished state immediately
     }
 
     // MARK: - Local notifications

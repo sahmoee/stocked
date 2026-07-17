@@ -31,7 +31,12 @@ enum CookNowCompute {
         /// Recipes in the dashboard's Ready Now bucket (exact + confirmed swaps),
         /// exact matches first.
         var readyNow: [ClassifiedRecipe] {
-            classified.filter { $0.readiness.isReadyNow }.sorted { $0.readiness < $1.readiness }
+            classified.filter { $0.readiness.isReadyNow }.sorted {
+                if $0.readiness != $1.readiness { return $0.readiness < $1.readiness }
+                // RL-004 — reservation-touching recipes sink below equally-ready
+                // free ones; they are "ready if plans change", not fully safe.
+                return !$0.usesReservedIngredients && $1.usesReservedIngredients
+            }
         }
         /// Recipes one review-tap away from ready.
         var needsReview: [ClassifiedRecipe] { classified.filter { $0.readiness == .swapNeedsReview } }
@@ -88,9 +93,17 @@ enum CookNowCompute {
             lookup[name.lowercased().trimmingCharacters(in: .whitespaces), default: []]
         }
 
+        // RL-004 — stamp recipes that would consume reservations held by the
+        // meal plan, so no surface presents them as fully safe. The ledger is
+        // revision-cached, so this is a no-op unless the plan/inventory moved.
+        let ledger = ReservationLedger.shared
+        ledger.refreshIfNeeded(store: store)
+        let annotated = CookNowEngine.annotatingReservations(classified,
+                                                             reservedNames: ledger.snapshot.reservedNames)
+
         var out = Output()
-        out.classified = classified
-        out.metrics = CookNowEngine.metrics(from: classified)
+        out.classified = annotated
+        out.metrics = CookNowEngine.metrics(from: annotated)
         out.emphasis = CookNowEngine.emphasis(for: out.metrics,
                                               inventoryEmpty: store.inventoryItems.isEmpty)
         return out
@@ -117,9 +130,13 @@ enum CookNowCompute {
             confirmedSubstitutions: session?.confirmedSubstitutionKeys ?? [],
             overrides: session?.overridesSnapshotForEngine ?? [:]
         )
-        return engine.classify(recipe) { name in
+        let classified = engine.classify(recipe) { name in
             lookup[name.lowercased().trimmingCharacters(in: .whitespaces), default: []]
         }
+        let ledger = ReservationLedger.shared
+        ledger.refreshIfNeeded(store: store)
+        return CookNowEngine.annotatingReservations([classified],
+                                                    reservedNames: ledger.snapshot.reservedNames).first ?? classified
     }
 }
 

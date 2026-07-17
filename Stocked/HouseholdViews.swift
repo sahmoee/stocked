@@ -311,19 +311,20 @@ struct HouseholdMembersView: View {
             .padding(.top, 22).padding(.bottom, 10)
 
             VStack(spacing: 0) {
-                NavigationLink { HouseholdActivityView() } label: { settingRow("clock.arrow.circlepath", "Household Activity") }.buttonStyle(.plain)
-                Divider().padding(.leading, 50)
-                NavigationLink { HouseholdSettingsView() } label: { settingRow("gearshape", "Edit Household Info") }.buttonStyle(.plain)
-                Divider().padding(.leading, 50)
-                NavigationLink { HouseholdNotificationsView() } label: { settingRow("bell", "Manage Notifications") }.buttonStyle(.plain)
+                // #4 — single entry point. Activity, Notifications, Name, Invite, and What Syncs
+                // all live inside Household Settings, so there's exactly one path to each.
+                NavigationLink { HouseholdSettingsView() } label: { settingRow("gearshape", "Household Settings") }.buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             .padding(.bottom, 24)
         }
         .task {
-            household.myDisplayName = session.isNamedUser ? session.userName
-                : (session.effectiveName)   // guests: use their entered/effective name, never the device name ("iPhone")
+            // #1 — don't clobber a name the user set themselves (Settings → Your Name).
+            if !household.nameIsCustom {
+                household.myDisplayName = session.isNamedUser ? session.userName
+                    : (session.effectiveName)   // guests: use their entered/effective name, never the device name ("iPhone")
+            }
             members = await household.fetchMembers()
             loading = false
             presence = await household.fetchPresence()   // #11 last-active per member
@@ -429,8 +430,11 @@ struct HouseholdActivityView: View {
             }
         }
         .task {
-            household.myDisplayName = session.isNamedUser ? session.userName
-                : (session.effectiveName)   // guests: use their entered/effective name, never the device name ("iPhone")
+            // #1 — don't clobber a name the user set themselves (Settings → Your Name).
+            if !household.nameIsCustom {
+                household.myDisplayName = session.isNamedUser ? session.userName
+                    : (session.effectiveName)   // guests: use their entered/effective name, never the device name ("iPhone")
+            }
             events = await household.fetchActivity()
             loading = false
         }
@@ -705,11 +709,19 @@ struct HouseholdSettingsView: View {
         HHScreen("Household Settings") {
             VStack(spacing: 0) {
                 NavigationLink { HouseholdNameEditView() } label: {
-                    settingsRow("Household Name", "My Stocked. Kitchen")
+                    settingsRow("Household Name", household.householdName)
+                }.buttonStyle(.plain)
+                Divider()
+                NavigationLink { HouseholdMyNameEditView() } label: {
+                    settingsRow("Your Name", household.myDisplayName, subtitle: "How you appear to the household")
                 }.buttonStyle(.plain)
                 Divider()
                 NavigationLink { HouseholdShareCodeView() } label: {
                     settingsRow("Invite Code", household.joinCode ?? "—", subtitle: "Share or regenerate")
+                }.buttonStyle(.plain)
+                Divider()
+                NavigationLink { HouseholdSyncOptionsView() } label: {
+                    settingsRow("What Syncs", "Choose what's shared", subtitle: "Inventory, grocery, recipes, meal plans")
                 }.buttonStyle(.plain)
                 Divider()
                 NavigationLink { HouseholdNotificationsView() } label: {
@@ -1057,7 +1069,8 @@ struct HouseholdHelpView: View {
 struct HouseholdNameEditView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
-    @State private var name = UserDefaults.standard.string(forKey: "hh_display_name") ?? "My Stocked. Kitchen"
+    @State private var household = HouseholdSync.shared
+    @State private var name = HouseholdSync.shared.householdName
 
     var body: some View {
         HHScreen("Household Name") {
@@ -1071,10 +1084,81 @@ struct HouseholdNameEditView: View {
                 .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
                 .padding(.bottom, 18)
             Button {
-                UserDefaults.standard.set(name, forKey: "hh_display_name")
+                // Persists locally AND syncs to every device (rides on the next push).
+                household.setHouseholdName(name, store: session.guestStore)
                 dismiss()
             } label: { Text("Save").hhPrimaryButton() }
                 .padding(.bottom, 24)
         }
+    }
+}
+
+// MARK: - Your Name editor (#1 — your own household display name)
+
+struct HouseholdMyNameEditView: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
+    @State private var household = HouseholdSync.shared
+    @State private var name = HouseholdSync.shared.myDisplayName
+
+    var body: some View {
+        HHScreen("Your Name") {
+            Text("How you appear to everyone in your household — in the member list, the activity feed, and the Daily Brief. Syncs to every device.")
+                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .padding(.top, 12).padding(.bottom, 18)
+            TextField("Your name", text: $name)
+                .font(.system(size: 17))
+                .foregroundStyle(session.themeTextColor)
+                .padding(.vertical, 14).padding(.horizontal, 16)
+                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.bottom, 18)
+            Button {
+                household.setMyName(name, store: session.guestStore)
+                dismiss()
+            } label: { Text("Save").hhPrimaryButton() }
+                .padding(.bottom, 24)
+        }
+    }
+}
+
+// MARK: - What Syncs (#2 — selective sync)
+
+struct HouseholdSyncOptionsView: View {
+    @Environment(AppSession.self) private var session
+    private let household = HouseholdSync.shared
+    @State private var inv = HouseholdSync.shared.syncInventory
+    @State private var gro = HouseholdSync.shared.syncGrocery
+    @State private var rec = HouseholdSync.shared.syncRecipes
+    @State private var mp  = HouseholdSync.shared.syncMealPlans
+
+    var body: some View {
+        HHScreen("What Syncs") {
+            Text("Choose what this device shares with your household. Turning something off keeps it private to you — others won't see your changes for it, and you won't receive theirs.")
+                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .padding(.top, 12).padding(.bottom, 16)
+            VStack(spacing: 0) {
+                toggleRow("Inventory", "shippingbox.fill", $inv) { household.syncInventory = $0 }
+                Divider()
+                toggleRow("Grocery list", "cart.fill", $gro) { household.syncGrocery = $0 }
+                Divider()
+                toggleRow("Recipes", "book.fill", $rec) { household.syncRecipes = $0 }
+                Divider()
+                toggleRow("Meal plans", "calendar", $mp) { household.syncMealPlans = $0 }
+            }
+            .padding(.horizontal, 14)
+            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .padding(.bottom, 20)
+        }
+    }
+
+    private func toggleRow(_ title: String, _ icon: String, _ binding: Binding<Bool>, _ persist: @escaping (Bool) -> Void) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.system(size: 15)).foregroundStyle(Color.stockedGold).frame(width: 26)
+            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
+            Spacer()
+            Toggle("", isOn: binding).labelsHidden().tint(Color.stockedGold)
+                .onChange(of: binding.wrappedValue) { _, v in persist(v) }
+        }
+        .padding(.vertical, 12)
     }
 }

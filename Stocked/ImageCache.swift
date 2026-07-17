@@ -7,6 +7,7 @@
 import SwiftUI
 import PhotosUI
 import ImageIO
+import UIKit
 
 /// Lightweight identity for locally stored image data. Sampling a few bytes avoids
 /// hashing or decoding the entire JPEG every time SwiftUI reevaluates a view.
@@ -43,21 +44,51 @@ private nonisolated struct CachedImageLoadID: Hashable, Sendable {
 }
 
 // MARK: - ImageCache
-final class ImageCache {
+final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private init() {
         createCacheDir()
-        removeLegacyUnstableCache()
-        pruneDiskIfNeeded()
         memCache.countLimit = 150
         memCache.totalCostLimit = 50 * 1024 * 1024  // 50MB mem cap
         localDataCache.countLimit = 100
         localDataCache.totalCostLimit = 40 * 1024 * 1024
+
+        // #8 — release in-memory images under memory pressure (keeps disk). Prevents the
+        // large image caches from contributing to a jetsam termination during heavy scrolling.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.evictMemory() }
+
+        // Directory enumeration and legacy-cache deletion can be slow after an image-heavy
+        // session. Running either from the singleton initializer used to freeze the first
+        // recipe screen that touched ImageCache.shared.
+        let directory = cacheDir
+        let legacyDirectory = legacyCacheDir
+        let maxBytes = maxDiskBytes
+        Task.detached(priority: .background) {
+            if legacyDirectory != directory {
+                try? FileManager.default.removeItem(at: legacyDirectory)
+            }
+            Self.prune(directory: directory, maxBytes: maxBytes)
+        }
+    }
+
+    private struct InFlightImageRequest {
+        let id: UUID
+        let task: Task<UIImage?, Never>
     }
 
     private let memCache = NSCache<NSString, UIImage>()
     private let localDataCache = NSCache<NSString, UIImage>()
+    private let stateLock = NSLock()
     private var prefetchTasks: [String: Task<Void, Never>] = [:]
+    private var inFlightRequests: [String: InFlightImageRequest] = [:]
+
+    private func withStateLock<T>(_ body: () -> T) -> T {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return body()
+    }
 
     private let maxDiskBytes = 250 * 1_048_576
     private let cacheDir: URL = {
@@ -163,23 +194,63 @@ final class ImageCache {
     // MARK: - Fetch (cache-first)
     @discardableResult
     func fetchImage(url urlString: String) async -> UIImage? {
-        // #PERF — split the cache probe: memory is instant (fine on main); the disk read
-        // hops off-thread so scrolling image grids never blocks on file IO.
-        if let mem = memoryImage(for: urlString) { return mem }
+        let canonicalURL = URLCanonicalizer.canonicalString(urlString)
+        if let mem = memoryImage(for: canonicalURL) { return mem }
+
+        // Coalesce the entire disk/network pipeline. A recipe grid often contains the same
+        // image in multiple rails; previously each card started its own disk read and download.
+        let request: InFlightImageRequest = withStateLock {
+            if let existing = inFlightRequests[canonicalURL] { return existing }
+            let id = UUID()
+            let task = Task(priority: .userInitiated) { [weak self] () -> UIImage? in
+                guard let self else { return nil }
+                return await self.loadImageUncoalesced(urlString: canonicalURL)
+            }
+            let created = InFlightImageRequest(id: id, task: task)
+            inFlightRequests[canonicalURL] = created
+            return created
+        }
+
+        let image = await request.task.value
+        withStateLock {
+            if inFlightRequests[canonicalURL]?.id == request.id {
+                inFlightRequests.removeValue(forKey: canonicalURL)
+            }
+        }
+        return image
+    }
+
+    private func loadImageUncoalesced(urlString: String) async -> UIImage? {
         if let disk = await diskImage(for: urlString) { return disk }
-        guard let url = URL(string: urlString) else { return nil }
-        // #16: limit concurrent network fetches so a grid appearing doesn't saturate things.
+        guard !Task.isCancelled, let url = URL(string: urlString) else { return nil }
+
         await ImageFetchLimiter.shared.acquire()
-        defer { Task { await ImageFetchLimiter.shared.release() } }
+        if Task.isCancelled {
+            await ImageFetchLimiter.shared.release()
+            return nil
+        }
+
+        let result: UIImage?
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            // #14 perf: downsample to a sensible max dimension before caching. Recipe images
-            // display at ≤280pt; 700px covers retina while using a fraction of the memory of
-            // a full-resolution decode, so far more images fit under the cache's cost cap.
-            guard let img = ImageCache.downsample(data, maxDimension: 700) ?? UIImage(data: data) else { return nil }
-            store(img, for: urlString)
-            return img
-        } catch { return nil }
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard !Task.isCancelled,
+                  let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode),
+                  response.mimeType?.lowercased().hasPrefix("image/") == true,
+                  response.expectedContentLength <= 20 * 1_048_576 || response.expectedContentLength < 0,
+                  data.count <= 20 * 1_048_576,
+                  let image = ImageCache.downsample(data, maxDimension: 700) ?? UIImage(data: data)
+            else {
+                await ImageFetchLimiter.shared.release()
+                return nil
+            }
+            store(image, for: urlString)
+            result = image
+        } catch {
+            result = nil
+        }
+        await ImageFetchLimiter.shared.release()
+        return result
     }
 
     /// Decode an image directly at a reduced size using ImageIO (much cheaper than decoding
@@ -204,21 +275,27 @@ final class ImageCache {
     // MARK: - Prefetch next N images (#8)
     /// Call from scroll view's onAppear with the upcoming URLs.
     func prefetch(urls: [String]) {
-        for url in urls.prefix(10) {
-            // Memory-only probe here. fetchImage performs the disk lookup asynchronously;
-            // the old synchronous disk probe could stall a fast carousel scroll.
-            guard memoryImage(for: url) == nil, prefetchTasks[url] == nil else { continue }
-            let urlCopy = url
-            prefetchTasks[url] = Task(priority: .background) {
-                _ = await ImageCache.shared.fetchImage(url: urlCopy)
-                self.prefetchTasks.removeValue(forKey: urlCopy)
+        for rawURL in urls.prefix(10) {
+            let url = URLCanonicalizer.canonicalString(rawURL)
+            guard memoryImage(for: url) == nil else { continue }
+
+            withStateLock {
+                guard prefetchTasks[url] == nil else { return }
+                prefetchTasks[url] = Task(priority: .background) { [weak self] in
+                    guard let self else { return }
+                    _ = await self.fetchImage(url: url)
+                    self.withStateLock {
+                        self.prefetchTasks.removeValue(forKey: url)
+                    }
+                }
             }
         }
     }
 
-    func cancelPrefetch(for url: String) {
-        prefetchTasks[url]?.cancel()
-        prefetchTasks.removeValue(forKey: url)
+    func cancelPrefetch(for rawURL: String) {
+        let url = URLCanonicalizer.canonicalString(rawURL)
+        let task = withStateLock { prefetchTasks.removeValue(forKey: url) }
+        task?.cancel()
     }
 
     private func pruneDiskIfNeeded() {
@@ -253,13 +330,39 @@ final class ImageCache {
         let mb = Double(diskCacheSizeBytes) / 1_048_576
         return mb < 1 ? "\(diskCacheSizeBytes / 1024) KB" : String(format: "%.1f MB", mb)
     }
-    func clearAll() {
-        prefetchTasks.values.forEach { $0.cancel() }
-        prefetchTasks.removeAll()
+    /// #8 — memory-pressure eviction: drop the in-memory image caches and cancel
+    /// prefetch/in-flight decodes, but KEEP the disk cache (cheap to reload, survives
+    /// pressure — that's the point of the disk layer). Called on a memory warning.
+    func evictMemory() {
+        let tasks = withStateLock { () -> [Task<Void, Never>] in
+            let t = Array(prefetchTasks.values)
+            prefetchTasks.removeAll()
+            inFlightRequests.values.forEach { $0.task.cancel() }
+            inFlightRequests.removeAll()
+            return t
+        }
+        tasks.forEach { $0.cancel() }
         memCache.removeAllObjects()
         localDataCache.removeAllObjects()
-        ((try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)) ?? [])
-            .forEach { try? FileManager.default.removeItem(at: $0) }
+    }
+
+    func clearAll() {
+        let tasks = withStateLock { () -> [Task<Void, Never>] in
+            let tasks = Array(prefetchTasks.values)
+            prefetchTasks.removeAll()
+            inFlightRequests.values.forEach { $0.task.cancel() }
+            inFlightRequests.removeAll()
+            return tasks
+        }
+        tasks.forEach { $0.cancel() }
+        memCache.removeAllObjects()
+        localDataCache.removeAllObjects()
+        let directory = cacheDir
+        Task.detached(priority: .utility) {
+            ((try? FileManager.default.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: nil)) ?? [])
+                .forEach { try? FileManager.default.removeItem(at: $0) }
+        }
     }
 }
 

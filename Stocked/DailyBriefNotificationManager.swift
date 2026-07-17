@@ -129,10 +129,10 @@ final class DailyBriefNotificationManager {
 
     func scheduleIfEnabled(store: GuestDataStore) {
         guard isEnabled else { cancel(); return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-            guard granted else { return }
-            Task { @MainActor in self.schedule(store: store) }
-        }
+        // NOTIF FIX: schedulers never trigger the system permission dialog — they only run
+        // when permission already exists. The one-time ask lives in
+        // NotificationPermissionCoordinator (post-onboarding) and the Settings toggles.
+        NotificationPermissionCoordinator.ifAuthorized { self.schedule(store: store) }
     }
 
     func schedule(store: GuestDataStore) {
@@ -180,10 +180,8 @@ final class DailyBriefNotificationManager {
 
     func scheduleExpiryIfEnabled(store: GuestDataStore) {
         guard expiryRemindersEnabled else { cancelExpiry(); return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-            guard granted else { return }
-            Task { @MainActor in self.scheduleExpiry(store: store) }
-        }
+        // NOTIF FIX: no permission dialog from a scheduler (see scheduleIfEnabled).
+        NotificationPermissionCoordinator.ifAuthorized { self.scheduleExpiry(store: store) }
     }
 
     // Schedules one reminder per item that expires in the future, firing the morning
@@ -194,7 +192,15 @@ final class DailyBriefNotificationManager {
         let cal = Calendar.current
         let now = Date()
 
-        for item in store.inventoryItems {
+        // iOS caps pending local notifications at 64 per app. A large pantry could burn the
+        // whole budget (silently dropping the daily brief / timers). Keep the 40 soonest
+        // expiries — reminders beyond that horizon are rescheduled as inventory changes.
+        let upcoming = store.inventoryItems
+            .filter { ($0.expirationDate ?? .distantPast) > now }
+            .sorted { ($0.expirationDate ?? .distantFuture) < ($1.expirationDate ?? .distantFuture) }
+            .prefix(40)
+
+        for item in upcoming {
             guard let exp = item.expirationDate, exp > now else { continue }
             // Fire 1 day before expiry at the user's chosen time (default 9 AM).
             guard let dayBefore = cal.date(byAdding: .day, value: -1, to: exp) else { continue }
@@ -246,10 +252,8 @@ final class DailyBriefNotificationManager {
 
     func scheduleCookSuggestionIfEnabled(store: GuestDataStore) {
         guard cookSuggestionEnabled else { cancelCookSuggestion(); return }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-            guard granted else { return }
-            Task { @MainActor in self.scheduleCookSuggestion(store: store) }
-        }
+        // NOTIF FIX: no permission dialog from a scheduler (see scheduleIfEnabled).
+        NotificationPermissionCoordinator.ifAuthorized { self.scheduleCookSuggestion(store: store) }
     }
 
     /// Fires tomorrow at 4 PM (dinner-planning time) IF there are items expiring soon. Prefers a

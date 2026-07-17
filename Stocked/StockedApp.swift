@@ -46,6 +46,9 @@ struct StockedApp: App {
         #if DEBUG
         BuildConfigurationGuard.logIssues()
         #endif
+        // #9 — start MetricKit field instrumentation (launch time, hang rate, memory,
+        // crash/hang diagnostics). Additive; delivers aggregated payloads ~daily.
+        StockedMetrics.shared.start()
         // #15 perf: a roomy shared URLCache lets cacheable API responses (recipe sources,
         // etc.) return from cache / revalidate with 304s instead of re-downloading.
         URLCache.shared = URLCache(memoryCapacity: 16 * 1024 * 1024,
@@ -91,6 +94,9 @@ struct StockedApp: App {
                 // Pull the latest household state right away so returning to the app shows
                 // changes other members made while we were backgrounded.
                 HouseholdSync.shared.syncOnForeground()
+                // Remote configuration (kill switches / maintenance / min version) —
+                // throttled to one fetch per 15 min, ETag-revalidated.
+                Task { await StockedRemoteConfig.shared.refreshIfStale() }
                 // #drift — apply any "I used X" items queued by the Siri intent.
                 session.guestStore.drainPendingUsedItems()
                 let ud = UserDefaults.standard
@@ -158,11 +164,28 @@ struct RootView: View {
                 LoginView()
             }
 
+            // Server-driven maintenance / update-required banner (GET /configuration).
+            // Renders nothing in the common case; never blocks interaction.
+            VStack {
+                RemoteConfigBanner()
+                    .environment(session)
+                    .padding(.top, 4)
+                Spacer()
+            }
+            .zIndex(1500)
+            .allowsHitTesting(true)
+
             // Global household-sync progress prompt — shows on whichever device is syncing
             // (creator, joiner, or a member receiving a push), with success/failure.
             HouseholdSyncProgress()
                 .environment(session)
                 .zIndex(2000)
+
+            // Hidden QA Workbook — renders nothing until unlocked ("QA" in Settings) and
+            // opened. Sits above everything so its floating bubble is always reachable.
+            QAFloatingOverlay()
+                .environment(session)
+                .zIndex(3000)
         }
         // No .animation(value:) — causes CATransaction fence timeout on iPad
         // when splashDone + quizCompleted + isLoggedIn all change together.
@@ -175,11 +198,18 @@ struct RootView: View {
         .dynamicTypeSize(.xSmall ... .accessibility3)
         .onAppear {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
+            // Deferred remote-config fetch (kill switches, maintenance, min version).
+            StockedRemoteConfig.shared.startDeferredLaunchFetch()
             // Restored in Build 140 (these run identically on iPhone, which doesn't crash,
             // so they're not the iPad-only cause). Build 140 isolates the iPad tab-mounting.
             KitchenTransferManager.autoRestoreOnNewDeviceIfNeeded(into: session)
-            RecipeImageResolver.backfillMissingImagesIfNeeded()
-            NutritionBackfill.runIfNeeded()
+            // LAG FIX: image + nutrition backfills are pure background maintenance; starting
+            // them on the first frame competed with initial render/sync. Defer a few seconds.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                RecipeImageResolver.backfillMissingImagesIfNeeded()
+                NutritionBackfill.runIfNeeded()
+            }
             SharedPantrySync.shared.startObserving(store: session.guestStore)
             // Start automatic household sync so changes from other members appear on their own,
             // with no manual sync. No-op if this device isn't in a household.

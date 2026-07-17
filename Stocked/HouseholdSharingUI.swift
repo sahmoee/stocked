@@ -115,11 +115,26 @@ extension HouseholdAppDelegate: UNUserNotificationCenterDelegate {
         }
     }
 
-    // Show banners even while the app is foregrounded, so reminders aren't silently dropped.
+    // NOTIF FIX ("notification pops up and gets stuck when opening the app"):
+    // Routine kitchen reminders (low stock, daily brief, expiry, staple nudge, prep day,
+    // cook suggestion) must NOT banner over the app while the user is already inside it —
+    // the low-stock alert in particular is scheduled ~2s after inventory loads, so it used
+    // to slide over the Home screen on almost every launch. Those now land silently in
+    // Notification Center (.list) while the app is foregrounded. Time-critical alerts the
+    // user is actively waiting on (cook step timers) still banner with sound.
+    private static let quietForegroundIDs: Set<String> = [
+        "lowStock", "stocked_daily_brief", "stocked_staple_nudge",
+        "stocked_prep_reminder", "stocked_cook_suggestion",
+    ]
+    private static let quietForegroundPrefixes = ["stocked_expiry_", "expiry_"]
+
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        let id = notification.request.identifier
+        let quiet = Self.quietForegroundIDs.contains(id)
+            || Self.quietForegroundPrefixes.contains(where: { id.hasPrefix($0) })
+        completionHandler(quiet ? [.list] : [.banner, .sound])
     }
 }
 

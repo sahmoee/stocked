@@ -39,6 +39,10 @@ final class ConnectivityMonitor {
                 if m.isOnline != online {
                     m.isOnline = online
                     Log.net.notice("Connectivity changed: \(online ? "online" : "offline", privacy: .public)")
+                    // RL-008: an offline→online transition is the moment queued local work
+                    // can finally move. The center coalesces + rate-limits, so reporting
+                    // from both this monitor and NetworkMonitor is safe.
+                    OfflineQueueCenter.shared.connectivityChanged(online: online)
                 }
             }
         }

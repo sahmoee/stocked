@@ -67,6 +67,8 @@ class OnlineRecipesLoader {
     var recipes:   [OnlineRecipe] = []
     var isLoading  = false
     var error:     String?
+    /// Changes whenever the published recipe content changes, even when the count does not.
+    var revision   = 0
 
     private let cacheKey = "onlineRecipesCache_v3"
     private let cacheTimestampKey = "onlineRecipesCacheTimestamp_v3"
@@ -74,6 +76,8 @@ class OnlineRecipesLoader {
     private let countKey = "appOpenCount"
     private var loadTask: Task<Void, Never>?
     private var bootstrapTask: Task<Void, Never>?
+    private var seedTask: Task<Void, Never>?
+    private var fetchGeneration = 0
     private var didBootstrapCache = false
     private var cachedAt: Date?
 
@@ -101,6 +105,7 @@ class OnlineRecipesLoader {
         // immediately, and only start the bounded source funnel when that cache is stale.
         let cacheKey = self.cacheKey
         let timestampKey = self.cacheTimestampKey
+        let preferredCuisines = profile?.cuisinePrefs ?? []
         bootstrapTask = Task { [weak self] in
             let cached = await OnlineRecipesPersistentCache.shared.load(
                 cacheKey: cacheKey, timestampKey: timestampKey)
@@ -108,7 +113,11 @@ class OnlineRecipesLoader {
             self.cachedAt = cached.savedAt
             self.didBootstrapCache = true
             if self.recipes.isEmpty, !cached.recipes.isEmpty {
-                self.recipes = self.filterByProfile(cached.recipes, profile: profile)
+                let filtered = await Task.detached(priority: .utility) {
+                    Self.filterByProfile(cached.recipes, preferredCuisines: preferredCuisines)
+                }.value
+                guard !Task.isCancelled else { return }
+                self.publish(filtered)
             }
             if self.recipes.isEmpty { self.seedFromLocalDatabase(profile: profile) }
             let isFresh = cached.savedAt.map { Date().timeIntervalSince($0) < self.cacheTTL } ?? false
@@ -120,30 +129,39 @@ class OnlineRecipesLoader {
     /// Pull a batch from the on-device RecipeDatabase (Spoonacular/CocktailDB/MealDB already
     /// synced there) into `recipes` so the UI has content offline. No-ops if empty.
     private func seedFromLocalDatabase(profile: UserCookingProfile?) {
-        Task { [weak self] in
+        guard seedTask == nil else { return }
+        let preferredCuisines = profile?.cuisinePrefs ?? []
+        seedTask = Task { [weak self] in
             guard let self else { return }
+            defer { self.seedTask = nil }
+
             let entries = await RecipeDatabaseManager.shared.loadSnapshot()
-            var local = entries
-                .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
-                .prefix(60)
-                .map { Self.makeOnlineRecipe(from: $0) }
-            // #4: the bulk corpus now lives in the read-only SQLite store, not the
-            // writable RecipeDatabase. If the writable store has little with images,
-            // pull a presentable batch from the corpus. RecipeNLG is text-only, so we
-            // require steps (real content) rather than images — the card resolves an
-            // image from title/category or shows a fallback emoji.
-            if local.count < 12 {
-                let corpus = await RecipeDatabaseManager.shared.corpusPresentable(limit: 60)
-                local += corpus
-                    .filter { !$0.steps.isEmpty }
+            guard !Task.isCancelled else { return }
+            let presentableCount = await Task.detached(priority: .utility) {
+                entries.lazy.filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }.prefix(12).count
+            }.value
+            let corpus: [RecipeDatabaseEntry]
+            if presentableCount < 12 {
+                corpus = await RecipeDatabaseManager.shared.corpusPresentable(limit: 60)
+            } else {
+                corpus = []
+            }
+
+            let local = await Task.detached(priority: .utility) {
+                var mapped = entries
+                    .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
+                    .prefix(60)
                     .map { Self.makeOnlineRecipe(from: $0) }
-            }
-            await MainActor.run {
-                guard self.recipes.isEmpty, !local.isEmpty else { return }
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    self.recipes = self.filterByProfile(Array(local), profile: profile)
+                if mapped.count < 12 {
+                    mapped += corpus
+                        .filter { !$0.steps.isEmpty }
+                        .map { Self.makeOnlineRecipe(from: $0) }
                 }
-            }
+                return Self.filterByProfile(Array(mapped), preferredCuisines: preferredCuisines)
+            }.value
+
+            guard !Task.isCancelled, self.recipes.isEmpty, !local.isEmpty else { return }
+            self.publish(local)
         }
     }
 
@@ -181,24 +199,40 @@ class OnlineRecipesLoader {
         if !pantry.isEmpty { pantrySeedNames = pantry }
         bootstrapTask?.cancel()
         bootstrapTask = nil
+        seedTask?.cancel()
+        seedTask = nil
         didBootstrapCache = true
+        fetchGeneration &+= 1
         loadTask?.cancel()
         loadTask = nil
+        isLoading = false
         fetchInBackground(profile: profile)
     }
+
     func cancel() {
+        fetchGeneration &+= 1
         bootstrapTask?.cancel(); bootstrapTask = nil
+        seedTask?.cancel(); seedTask = nil
         loadTask?.cancel(); loadTask = nil
+        isLoading = false
     }
 
-    private func filterByProfile(_ all: [OnlineRecipe], profile: UserCookingProfile?) -> [OnlineRecipe] {
+    private func publish(_ value: [OnlineRecipe]) {
+        recipes = value
+        revision &+= 1
+    }
+
+    private nonisolated static func filterByProfile(
+        _ all: [OnlineRecipe],
+        preferredCuisines: [String]
+    ) -> [OnlineRecipe] {
         // Always drop recipes that have no real step-by-step instructions, or whose
         // "instructions" are just a link to the source (e.g. Edamam, which doesn't
         // license step text). These should never surface anywhere in Discover/search.
         let withSteps = all.filter { OnlineRecipeFacts.hasRealInstructions($0.instructions) }
 
-        guard let p = profile, !p.cuisinePrefs.isEmpty else { return withSteps }
-        let preferred = p.cuisinePrefs.map { $0.lowercased() }
+        guard !preferredCuisines.isEmpty else { return withSteps }
+        let preferred = preferredCuisines.map { $0.lowercased() }
         return withSteps.sorted { a, b in
             let sA = preferred.contains(where: { a.area.lowercased().contains($0) || a.category.lowercased().contains($0) }) ? 2 : 0
             let sB = preferred.contains(where: { b.area.lowercased().contains($0) || b.category.lowercased().contains($0) }) ? 2 : 0
@@ -208,9 +242,13 @@ class OnlineRecipesLoader {
 
     private func fetchInBackground(profile: UserCookingProfile? = nil) {
         guard loadTask == nil else { return }
+        fetchGeneration &+= 1
+        let generation = fetchGeneration
+        let preferredCuisines = profile?.cuisinePrefs ?? []
         loadTask = Task(priority: .background) { [weak self] in
-            guard let self, !Task.isCancelled else { return }
-            await MainActor.run { self.isLoading = true; self.error = nil }
+            guard let self, !Task.isCancelled, self.fetchGeneration == generation else { return }
+            self.isLoading = true
+            self.error = nil
 
             let config = URLSessionConfiguration.default
             config.timeoutIntervalForRequest = 10
@@ -218,9 +256,14 @@ class OnlineRecipesLoader {
 
             var fetched: [OnlineRecipe] = []
 
+            // Phase 0: Sowens curated content hosted on Namecheap cPanel (static JSON + images,
+            // cached on-device with ETag). Cheap, offline-friendly, and returns [] until published.
+            fetched += await RemoteContentClient.shared.onlineRecipes(limit: 40)
+
+            let spoonacularRemainingPoints = await SpoonacularClient.shared.remainingPointsToday
             let sourcePlan = RecipeDiscoveryPlan.make(
                 cacheCount: self.recipes.count,
-                spoonacularRemainingPoints: SpoonacularClient.shared.remainingPointsToday,
+                spoonacularRemainingPoints: spoonacularRemainingPoints,
                 mealDBHealth: SourceHealth.shared.score("TheMealDB"),
                 isForced: false
             )
@@ -240,22 +283,12 @@ class OnlineRecipesLoader {
 
             // Phase 3: Pull from local RecipeDatabase (Spoonacular/CocktailDB already synced there)
             let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
-            let dbRecipes = dbEntries
-                .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
-                .shuffled().prefix(60)
-                .map { entry -> OnlineRecipe in
-                    OnlineRecipe(
-                        id: entry.id.uuidString,
-                        title: entry.title,
-                        category: entry.category,
-                        area: entry.cuisine,
-                        instructions: entry.steps.joined(separator: "\n"),
-                        imageURL: entry.imageURL,
-                        ingredients: entry.ingredients,
-                        measures: Array(repeating: "", count: entry.ingredients.count),
-                        source: entry.sourceName.isEmpty ? "My Database" : entry.sourceName
-                    )
-                }
+            let dbRecipes = await Task.detached(priority: .utility) {
+                dbEntries
+                    .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
+                    .shuffled().prefix(60)
+                    .map { Self.makeOnlineRecipe(from: $0) }
+            }.value
             fetched.append(contentsOf: dbRecipes)
 
             // Phase 4: DummyJSON removed — fake placeholder data, not real recipes
@@ -285,55 +318,38 @@ class OnlineRecipesLoader {
             }()
             // Up to 4 pantry ingredients drive "cook from what I have" pulls.
             let pantrySeeds = Array(self.pantrySeedNames.prefix(4))
-            await withTaskGroup(of: [OnlineRecipe].self) { group in
-                for term in seedTerms {
-                    // Free sources — fire per seed term for broad coverage.
-                    group.addTask { await RecipeSourcesPlus.edamam(query: term, limit: 6) }
-                    group.addTask { await RecipeSourcesPlus.wikibooksCookbook(query: term, limit: 3) }
-                    group.addTask { await RecipeSourcesPlus.mealDBByIngredient(term, limit: 5) }
-                }
-                // TheCocktailDB — free, no key. Cocktails carry real instructions, so
-                // they surface as proper recipes and add variety beyond food dishes.
-                group.addTask { await CocktailDBClient.shared.discoverRecipes(limit: 8) }
-                // DummyJSON — free, no key, curated recipes with real step-by-step
-                // instructions. A batch per refresh, plus per-seed searches for relevance.
-                group.addTask { await RecipeSourcesPlus.dummyJSONRecipes(limit: 20) }
-                for term in seedTerms {
-                    group.addTask { await RecipeSourcesPlus.dummyJSONSearch(term, limit: 6) }
-                }
-                // Pantry-seeded MealDB: pull recipes built around what the user actually has,
-                // so the "cook from what I have" surfaces and Discover stay full even for
-                // users with narrow cuisine prefs. Bounded to the top few pantry ingredients.
-                for ingredient in pantrySeeds {
-                    group.addTask { await RecipeSourcesPlus.mealDBByIngredient(ingredient, limit: 5) }
-                }
-                // Tasty (RapidAPI) — fires per seed term for broad coverage. No-ops until
-                // a RAPIDAPI_KEY is added to Secrets.xcconfig; activates automatically once it is.
-                if !BuildConfig.rapidAPIKey.isEmpty {
-                    for term in seedTerms {
-                        group.addTask { await RecipeSourcesPlus.tasty(query: term, limit: 8) }
-                    }
-                }
-                // API Ninjas v3 recipes — general recipes by title, seeded by cuisine terms and
-                // top pantry items. No-ops until APINinjasKey is set in Secrets.xcconfig.
-                if !BuildConfig.apiNinjasKey.isEmpty {
-                    for term in (seedTerms + pantrySeeds).prefix(4) {
-                        group.addTask { await DrinkSourcesPlus.apiNinjasRecipes(title: term, limit: 8) }
-                    }
-                }
-                // Suggestic — keyed recipe feed with vegan/vegetarian support. No-ops until
-                // SuggesticAPIToken is set in Secrets.xcconfig.
-                if !BuildConfig.suggesticToken.isEmpty {
-                    for term in seedTerms {
-                        group.addTask { await SuggesticSource.recipes(query: term, limit: 12) }
-                    }
-                }
-                // Community recipe feed — pulled from a GitHub-hosted JSON you control, so
-                // recipes can be added without shipping an app update. No-ops until
-                // RemoteRecipeFeed.feedURLString is set.
-                group.addTask { await RemoteRecipeFeed.fetch() }
-                for await results in group { fetched += results }
+            var supplementalTasks: [RecipeDiscoveryCoordinator.RecipeTask] = []
+            for term in seedTerms {
+                supplementalTasks.append { await RecipeSourcesPlus.edamam(query: term, limit: 6) }
+                supplementalTasks.append { await RecipeSourcesPlus.wikibooksCookbook(query: term, limit: 3) }
+                supplementalTasks.append { await RecipeSourcesPlus.mealDBByIngredient(term, limit: 5) }
             }
+            supplementalTasks.append { await CocktailDBClient.shared.discoverRecipes(limit: 8) }
+            supplementalTasks.append { await RecipeSourcesPlus.dummyJSONRecipes(limit: 20) }
+            for term in seedTerms {
+                supplementalTasks.append { await RecipeSourcesPlus.dummyJSONSearch(term, limit: 6) }
+            }
+            for ingredient in pantrySeeds {
+                supplementalTasks.append { await RecipeSourcesPlus.mealDBByIngredient(ingredient, limit: 5) }
+            }
+            if !BuildConfig.rapidAPIKey.isEmpty {
+                for term in seedTerms {
+                    supplementalTasks.append { await RecipeSourcesPlus.tasty(query: term, limit: 8) }
+                }
+            }
+            if !BuildConfig.apiNinjasKey.isEmpty {
+                for term in (seedTerms + pantrySeeds).prefix(4) {
+                    supplementalTasks.append { await DrinkSourcesPlus.apiNinjasRecipes(title: term, limit: 8) }
+                }
+            }
+            if !BuildConfig.suggesticToken.isEmpty {
+                for term in seedTerms {
+                    supplementalTasks.append { await SuggesticSource.recipes(query: term, limit: 12) }
+                }
+            }
+            supplementalTasks.append { await RemoteRecipeFeed.fetch() }
+            fetched += await RecipeDiscoveryCoordinator.boundedGather(
+                supplementalTasks, maxConcurrent: 4)
 
             // Spoonacular is intentionally last: free/cached sources get first chance and the
             // local daily ledger prevents Discover from burning the 150-point provider budget.
@@ -350,7 +366,13 @@ class OnlineRecipesLoader {
             // fan-out competed with image loading. Publisher recipes remain available after URL
             // import or from the on-device catalogue, without automatic network scraping.
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self.fetchGeneration == generation else {
+                if self.fetchGeneration == generation {
+                    self.isLoading = false
+                    self.loadTask = nil
+                }
+                return
+            }
 
             // Normalize, validate, and merge away from the MainActor. The old firstIndex loop
             // re-normalized every retained recipe for every candidate (quadratic work) and was a
@@ -359,27 +381,28 @@ class OnlineRecipesLoader {
                 Self.deduplicateAndMerge(fetched)
             }.value
 
-            await MainActor.run { [weak self] in
-                guard let self else { return }
-                self.isLoading = false
-                if !unique.isEmpty {
-                    let existingIds = Set(self.recipes.map(\.id))
-                    let newOnes = unique.filter { !existingIds.contains($0.id) }
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        let combined = Array((newOnes + self.recipes).prefix(400))
-                        self.recipes = self.filterByProfile(combined, profile: profile)
-                    }
-                    self.saveCacheAsync(self.recipes)
-                    // Cross-source sync: everything freshly fetched — from ANY feed — joins
-                    // the on-device RecipeDatabase, the one pool behind Discover's offline
-                    // seed, recipe search, the mood finder's database layer, and cook
-                    // ranking. Sources stop being silos; each fetch enriches the whole app.
-                    RecipeSourceHub.ingestIntoDatabase(newOnes)
-                } else if self.recipes.isEmpty {
-                    self.error = "Couldn't load recipes. Check your connection."
-                }
-                self.loadTask = nil
+            guard !Task.isCancelled else { return }
+            guard self.fetchGeneration == generation else { return }
+            self.isLoading = false
+            if !unique.isEmpty {
+                let existingIds = Set(self.recipes.map(\.id))
+                let newOnes = unique.filter { !existingIds.contains($0.id) }
+                let combined = Array((newOnes + self.recipes).prefix(400))
+                let filtered = await Task.detached(priority: .utility) {
+                    Self.filterByProfile(combined, preferredCuisines: preferredCuisines)
+                }.value
+                guard !Task.isCancelled, self.fetchGeneration == generation else { return }
+                self.publish(filtered)
+                self.saveCacheAsync(self.recipes)
+                // Cross-source sync: everything freshly fetched — from ANY feed — joins
+                // the on-device RecipeDatabase, the one pool behind Discover's offline
+                // seed, recipe search, the mood finder's database layer, and cook
+                // ranking. Sources stop being silos; each fetch enriches the whole app.
+                RecipeSourceHub.ingestIntoDatabase(newOnes)
+            } else if self.recipes.isEmpty {
+                self.error = "Couldn't load recipes. Check your connection."
             }
+            self.loadTask = nil
         }
     }
 
@@ -586,6 +609,9 @@ struct OnlineRecipesView: View {
     @State private var dbSnapshot:    [RecipeDatabaseEntry] = []
     @State private var dbSuggestions: [RecipeDatabaseEntry] = []
 
+    @State private var displayRecipes: [OnlineRecipe] = []
+    @State private var suggestionTask: Task<Void, Never>?
+
     // Live TheMealDB search
     @State private var isSearching  = false
     @State private var liveResults: [OnlineRecipe] = []
@@ -593,56 +619,98 @@ struct OnlineRecipesView: View {
 
     let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
-    // Grid shows live results while searching, otherwise loader.recipes filtered locally
-    private var displayRecipes: [OnlineRecipe] {
-        // Apply cuisine filter (#20)
+    private struct RecipeFilterKey: Hashable {
+        let loaderRevision: Int
+        let liveResultIDs: [String]
+        let searchText: String
+        let cuisine: String?
+        let hideAllergens: Bool
+        let diet: String?
+        let allergens: [String]
+    }
+
+    private var filterKey: RecipeFilterKey {
+        RecipeFilterKey(
+            loaderRevision: loader.revision,
+            liveResultIDs: liveResults.map(\.id),
+            searchText: searchText,
+            cuisine: selectedCuisine,
+            hideAllergens: hideAllergens,
+            diet: selectedDiet,
+            allergens: session.guestStore.cookingProfile.allergens
+        )
+    }
+
+    private nonisolated static func filteredRecipes(
+        loaderRecipes: [OnlineRecipe],
+        liveResults: [OnlineRecipe],
+        searchText: String,
+        selectedCuisine: String?,
+        hideAllergens: Bool,
+        allergens: [String],
+        selectedDiet: String?
+    ) -> [OnlineRecipe] {
         func cuisineFiltered(_ list: [OnlineRecipe]) -> [OnlineRecipe] {
             guard let cuisine = selectedCuisine else { return list }
-            let q = cuisine.lowercased()
-            return list.filter { $0.area.lowercased().contains(q) || $0.category.lowercased().contains(q) }
+            let query = cuisine.lowercased()
+            return list.filter {
+                $0.area.lowercased().contains(query) ||
+                $0.category.lowercased().contains(query)
+            }
         }
-        // #251 — optional allergen hide: drop recipes that hit the user's allergens.
-        func allergenFiltered(_ list: [OnlineRecipe]) -> [OnlineRecipe] {
-            guard hideAllergens else { return list }
-            let allergens = session.guestStore.cookingProfile.allergens
-            guard !allergens.isEmpty else { return list }
-            return list.filter { OnlineRecipeFacts.allergenHits($0, allergens: allergens).isEmpty }
-        }
+
         let base: [OnlineRecipe]
-        if !liveResults.isEmpty { base = cuisineFiltered(liveResults) }
-        else if searchText.isEmpty { base = cuisineFiltered(loader.recipes) }
-        else {
-            let q  = searchText.lowercased()
-            let pq = NLQueryParser.parse(searchText)
-            base = loader.recipes.filter { r in
-                let basic = r.title.lowercased().contains(q) ||
-                            r.area.lowercased().contains(q) ||
-                            r.category.lowercased().contains(q) ||
-                            r.ingredients.contains { $0.lowercased().contains(q) }
-                if !pq.hasStructure { return basic }
-                let allText = ([r.title, r.area, r.category] + r.ingredients).joined(separator: " ").lowercased()
-                for excl in pq.exclude { if allText.contains(excl) { return false } }
-                if let cuisine = pq.cuisine { if !allText.contains(cuisine) { return false } }
-                if let meal = pq.mealType { if !allText.contains(meal) { return false } }
+        if !liveResults.isEmpty {
+            base = cuisineFiltered(liveResults)
+        } else if searchText.isEmpty {
+            base = cuisineFiltered(loaderRecipes)
+        } else {
+            let query = searchText.lowercased()
+            // nonisolated context: use the pure parser overload. This filter only reads
+            // parsedQuery.exclude/.cuisine/.mealType/.hasStructure (all text-pattern derived),
+            // not .ingredients — so the main-actor knowledge-base list isn't needed here.
+            let parsedQuery = NLQueryParser.parse(searchText, knownIngredients: [])
+            base = cuisineFiltered(loaderRecipes).filter { recipe in
+                let basic = recipe.title.lowercased().contains(query) ||
+                    recipe.area.lowercased().contains(query) ||
+                    recipe.category.lowercased().contains(query) ||
+                    recipe.ingredients.contains { $0.lowercased().contains(query) }
+                if !parsedQuery.hasStructure { return basic }
+
+                let allText = ([recipe.title, recipe.area, recipe.category] + recipe.ingredients)
+                    .joined(separator: " ").lowercased()
+                for excluded in parsedQuery.exclude where allText.contains(excluded) {
+                    return false
+                }
+                if let cuisine = parsedQuery.cuisine, !allText.contains(cuisine) { return false }
+                if let meal = parsedQuery.mealType, !allText.contains(meal) { return false }
                 return basic
             }
         }
-        // Final guard: never display a recipe without real step-by-step instructions,
-        // regardless of which source it came from (live search, cache, corpus).
-        // #261 — diet chip: keep recipes whose inferred labels include the selected diet.
-        var out = allergenFiltered(base).filter { OnlineRecipeFacts.hasRealInstructions($0.instructions) }
+
+        var filtered = base.filter {
+            OnlineRecipeFacts.hasRealInstructions($0.instructions)
+        }
+        if hideAllergens, !allergens.isEmpty {
+            filtered = filtered.filter {
+                OnlineRecipeFacts.allergenHits($0, allergens: allergens).isEmpty
+            }
+        }
         if let diet = selectedDiet {
-            out = out.filter { r in
-                let f = DietaryClassifier.flags(for: r.ingredients, title: r.title)
+            filtered = filtered.filter { recipe in
+                let flags = DietaryClassifier.flags(
+                    for: recipe.ingredients,
+                    title: recipe.title
+                )
                 switch diet {
-                case "Vegan":       return f.vegan
-                case "Vegetarian":  return f.vegetarian || f.vegan
-                case "Gluten-Free": return f.glutenFree
+                case "Vegan":       return flags.vegan
+                case "Vegetarian":  return flags.vegetarian || flags.vegan
+                case "Gluten-Free": return flags.glutenFree
                 default:            return true
                 }
             }
         }
-        return out
+        return filtered
     }
 
     private var hasAllergens: Bool { !session.guestStore.cookingProfile.allergens.filter { !$0.isEmpty }.isEmpty }
@@ -945,9 +1013,37 @@ struct OnlineRecipesView: View {
             loader.loadIfNeeded(profile: session.guestStore.cookingProfile)
             Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
         }
-        .onChange(of: loader.recipes.count) { _, _ in
-            let urls = displayRecipes.prefix(40).map { $0.imageURL }
-            ImageCache.shared.prefetch(urls: Array(urls))
+        .task(id: filterKey) {
+            if !searchText.isEmpty {
+                try? await Task.sleep(nanoseconds: 90_000_000)
+            }
+            guard !Task.isCancelled else { return }
+            let loaderRecipes = loader.recipes
+            let live = liveResults
+            let query = searchText
+            let cuisine = selectedCuisine
+            let shouldHideAllergens = hideAllergens
+            let allergens = session.guestStore.cookingProfile.allergens
+            let diet = selectedDiet
+            let filtered = await Task.detached(priority: .userInitiated) {
+                Self.filteredRecipes(
+                    loaderRecipes: loaderRecipes,
+                    liveResults: live,
+                    searchText: query,
+                    selectedCuisine: cuisine,
+                    hideAllergens: shouldHideAllergens,
+                    allergens: allergens,
+                    selectedDiet: diet
+                )
+            }.value
+            guard !Task.isCancelled else { return }
+            displayRecipes = filtered
+            ImageCache.shared.prefetch(
+                urls: filtered.prefix(40).map(\.imageURL).filter { !$0.isEmpty })
+        }
+        .onDisappear {
+            suggestionTask?.cancel()
+            searchTask?.cancel()
         }
         .sheet(item: $selected) { recipe in
             OnlineRecipeDetailView(recipe: recipe).environment(session)
@@ -956,9 +1052,32 @@ struct OnlineRecipesView: View {
 
     // MARK: - Predictive helpers
     private func updateSuggestions(_ query: String) {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard q.count >= 2 else { dbSuggestions = []; return }
-        dbSuggestions = RecipeDatabaseManager.shared.suggestions(for: q, in: dbSnapshot, limit: 6)
+        suggestionTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 2 else {
+            dbSuggestions = []
+            return
+        }
+        let snapshot = dbSnapshot
+        suggestionTask = Task {
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            let suggestions = await Task.detached(priority: .userInitiated) {
+                let query = trimmed.lowercased()
+                let byTitle = snapshot.filter {
+                    $0.title.lowercased().hasPrefix(query)
+                }
+                let byAnywhere = snapshot.filter { entry in
+                    let index = ([entry.title, entry.description, entry.category, entry.cuisine]
+                        + entry.tags + entry.ingredients + [entry.sourceName])
+                        .joined(separator: " ").lowercased()
+                    return !entry.title.lowercased().hasPrefix(query) && index.contains(query)
+                }
+                return Array((byTitle + byAnywhere).prefix(6))
+            }.value
+            guard !Task.isCancelled else { return }
+            dbSuggestions = suggestions
+        }
     }
 
     // Convert a local RecipeDatabaseEntry → OnlineRecipe for the detail sheet
@@ -1126,15 +1245,22 @@ struct OnlineRecipeCard: View {
             inStock: inStock,
             expiringNames: expiringNames
         )
-        switch OnlineRecipeMatch.status(recipe, inStock: inStock) {
-        case .ready:       badge(text: "Ready", system: "checkmark.circle.fill", bg: Color.stockedGreen)
-        case .missing(let n):
-            // Ring makes coverage scannable at a glance; keep the text badge for the exact count.
+        if inStock.isEmpty || coverage.total == 0 {
+            EmptyView()
+        } else if coverage.isReady {
+            badge(text: "Ready", system: "checkmark.circle.fill", bg: Color.stockedGreen)
+        } else {
+            // Coverage already performed the canonical stock match. Reusing it avoids
+            // repeating the ingredient × pantry matcher for every visible card.
+            let missing = coverage.missingCount
             HStack(spacing: 5) {
                 MatchRing(coverage: coverage, size: 26)
-                badge(text: n == 1 ? "1 missing" : "\(n) missing", system: nil, bg: Color.stockedError.opacity(0.92))
+                badge(
+                    text: missing == 1 ? "1 missing" : "\(missing) missing",
+                    system: nil,
+                    bg: Color.stockedError.opacity(0.92)
+                )
             }
-        case .unknown:     EmptyView()
         }
     }
 

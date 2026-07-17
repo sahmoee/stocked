@@ -11,6 +11,8 @@ struct InventoryDetailsSheet: View {
     @Environment(\.dismiss) var dismiss
 
     private var items: [LocalInventoryItem] { session.guestStore.inventoryItems }
+    // RL-003 — derived reservations (Total / Reserved / Available per item).
+    private var ledger: ReservationLedger { ReservationLedger.shared }
 
     private func zoneStats(_ zones: [String]) -> (count: Int, pct: Int) {
         let zi = items.filter { zones.contains($0.zone) }
@@ -53,6 +55,9 @@ struct InventoryDetailsSheet: View {
                             zoneRow("Pantry",  icon: "cabinet.fill",       tint: Color.stockedGoldDark, zones: ["Pantry", "Staples"])
                         }
 
+                        // ── Reserved for planned meals (RL-003) ──────
+                        reservationSection
+
                         // ── Running low ───────────────────────────────
                         detailSection("Running Low", icon: "arrow.down.circle.fill",
                                       tint: Color.stockedGold,
@@ -85,6 +90,108 @@ struct InventoryDetailsSheet: View {
             }
         }
         .presentationDetents([.large, .medium])
+        // RL-006 — reservations re-derive whenever the plan or inventory moves.
+        .task { ledger.refreshIfNeeded(store: session.guestStore) }
+        .onChange(of: session.guestStore.inventoryRevision) { _, _ in ledger.refreshIfNeeded(store: session.guestStore) }
+        .onChange(of: session.guestStore.planRevision)      { _, _ in ledger.refreshIfNeeded(store: session.guestStore) }
+    }
+
+    // MARK: - Reserved for planned meals (RL-003)
+
+    private func claimDayLabel(_ claim: ReservationClaim) -> String {
+        if claim.dayIndex == 0 { return "Today" }
+        if claim.dayIndex == 1 { return "Tomorrow" }
+        let f = DateFormatter(); f.dateFormat = "EEE"
+        return f.string(from: claim.date)
+    }
+
+    @ViewBuilder
+    private var reservationSection: some View {
+        let breakdowns = ledger.snapshot.breakdowns
+        let conflictCount = ledger.snapshot.conflicts.count
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                Image(systemName: "calendar.badge.clock").font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                Text("Reserved for Planned Meals")
+                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .foregroundStyle(session.themeTextColor)
+                Spacer()
+                if !breakdowns.isEmpty {
+                    Text("\(breakdowns.count)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.stockedGold)
+                }
+            }
+            if breakdowns.isEmpty {
+                Text("Nothing is reserved — every item is fully available.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+            } else {
+                if conflictCount > 0 {
+                    Text("\(conflictCount) planned meal\(conflictCount == 1 ? " is" : "s are") short — see the planner for fixes.")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(Color.stockedError.opacity(0.85))
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(breakdowns.prefix(10).enumerated()), id: \.element.id) { idx, b in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 10) {
+                                FoodIconView(name: b.itemName, size: 26, emojiSize: 16)
+                                Text(b.itemName.displayNormalized)
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundStyle(session.themeTextColor)
+                                    .lineLimit(1)
+                                Spacer(minLength: 6)
+                                // Total / Reserved / Available in the item's own units;
+                                // Available is floored at zero — a deficit shows as a
+                                // shortage state, never a misleading negative.
+                                if b.quantified {
+                                    Text("\(b.totalDisplay) · \(b.reservedDisplay) held · \(b.availableDisplay) free")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        .lineLimit(1).fixedSize()
+                                } else {
+                                    Text("Reserved for \(b.claims.count) meal\(b.claims.count == 1 ? "" : "s")")
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .foregroundStyle(Color.stockedGold)
+                                        .lineLimit(1).fixedSize()
+                                }
+                            }
+                            // Every reservation labeled with its meal, day, and amount.
+                            ForEach(b.claims.prefix(4)) { claim in
+                                HStack(spacing: 6) {
+                                    Image(systemName: claim.prepared ? "checkmark.circle" : "calendar")
+                                        .font(.system(size: 9.5))
+                                        .foregroundStyle(claim.prepared ? Color.stockedGreen : Color.stockedGold.opacity(0.8))
+                                    Text("\(claim.mealTitle.displayNormalized) · \(claimDayLabel(claim))")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        .lineLimit(1)
+                                    Spacer(minLength: 4)
+                                    Text(claim.amountDisplay)
+                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                        .fixedSize()
+                                }
+                                .padding(.leading, 36)
+                            }
+                            if b.claims.count > 4 {
+                                Text("+ \(b.claims.count - 4) more")
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                    .padding(.leading, 36)
+                            }
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 9)
+                        if idx < min(breakdowns.count, 10) - 1 {
+                            Divider().overlay(session.themeTextColor.opacity(0.08)).padding(.leading, 46)
+                        }
+                    }
+                }
+                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            }
+        }
     }
 
     private func zoneRow(_ name: String, icon: String, tint: Color, zones: [String]) -> some View {

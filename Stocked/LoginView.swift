@@ -5,6 +5,7 @@ import Combine
 
 struct LoginView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.openURL) private var openURL
     @State private var name      = ""
     @State private var animateIn = false
     @State private var appleError: String? = nil
@@ -109,6 +110,17 @@ struct LoginView: View {
                         .padding(.horizontal, 32)
                 }
 
+                // Legal links — shown at account creation (App Store guideline 5.1.1).
+                HStack(spacing: 6) {
+                    Button("Privacy Policy") { if let u = URL(string: BuildConfig.privacyURL) { openURL(u) } }
+                    Text("·").foregroundStyle(session.themeTextColor.opacity(0.3))
+                    Button("Terms") { if let u = URL(string: BuildConfig.termsURL) { openURL(u) } }
+                }
+                .font(.system(size: 11))
+                .tint(session.themeTextColor.opacity(0.5))
+                .padding(.top, 10)
+                .opacity(animateIn ? 1 : 0)
+
                 Spacer()
             }
             .frame(maxWidth: 480)   // centre and constrain on iPad
@@ -141,6 +153,10 @@ struct LoginView: View {
         case .success(let auth):
             guard let cred = auth.credential as? ASAuthorizationAppleIDCredential else { return }
             let userID    = cred.user
+            // Upgrade the Worker session from guest → Apple-verified using this sign-in's
+            // identity token (best-effort; the app keeps working if the Worker is unreachable).
+            let appleJWT = cred.identityToken.flatMap { String(data: $0, encoding: .utf8) }
+            Task { await StockedSession.shared.setAppleIdentityToken(appleJWT) }
             // Apple only includes fullName/email on the FIRST authorization for a given Apple
             // ID; on every later sign-in they're nil. Capture everything Apple sends into the
             // per-Apple-ID vault, then read the merged profile back. Because the vault is keyed

@@ -84,6 +84,8 @@ struct InventoryHubView: View {
                     // where items can actually be dragged onto days.
                     statusCard
                         .coachmarkAnchor("inv.status")
+                    // RL-003 — surface Available vs Reserved where people look first.
+                    reservedSummaryRow
                     // AI assistant: change inventory in plain language (use/remove/clear items).
                     Button { showAIAssistant = true } label: {
                         HStack(spacing: 10) {
@@ -166,6 +168,53 @@ struct InventoryHubView: View {
             showSearchField = false; searchText = ""
         }
         .coachmarks(page: .inventory, steps: InventoryCoachmarks.steps)
+        // RL-006 — reservations are derived: re-check whenever the plan or the
+        // inventory moves. refreshIfNeeded is revision-keyed, so this is free
+        // when nothing changed and idempotent when it did.
+        .task { ReservationLedger.shared.refreshIfNeeded(store: session.guestStore) }
+        .onChange(of: session.guestStore.inventoryRevision) { _, _ in
+            ReservationLedger.shared.refreshIfNeeded(store: session.guestStore)
+        }
+        .onChange(of: session.guestStore.planRevision) { _, _ in
+            ReservationLedger.shared.refreshIfNeeded(store: session.guestStore)
+        }
+    }
+
+    // ── RL-003 — Available vs Reserved at a glance ───────────────────
+    // Compact strip under the status card: how many items the meal plan has
+    // claims on, and whether any future meal is projected short. Tapping opens
+    // the details sheet, where every reservation is labeled with its meal.
+    @ViewBuilder
+    private var reservedSummaryRow: some View {
+        let snap = ReservationLedger.shared.snapshot
+        if !snap.breakdowns.isEmpty {
+            Button { showStatusDetails = true } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.15)).frame(width: 34, height: 34)
+                        Image(systemName: "calendar.badge.clock").font(.system(size: 14)).foregroundStyle(Color.stockedGold)
+                    }
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("\(snap.breakdowns.count) item\(snap.breakdowns.count == 1 ? "" : "s") reserved for planned meals")
+                            .font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
+                        Text(snap.conflicts.isEmpty
+                             ? "Everything else is available to cook"
+                             : "\(snap.conflicts.count) future meal\(snap.conflicts.count == 1 ? "" : "s") short — tap to review")
+                            .font(.system(size: 11))
+                            .foregroundStyle(snap.conflicts.isEmpty
+                                             ? session.themeTextColor.opacity(0.5)
+                                             : Color.stockedError.opacity(0.85))
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                }
+                .padding(10)
+                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            }
+            .buttonStyle(.plain)
+            .a11yButton("\(snap.breakdowns.count) inventory items reserved for planned meals, view details")
+        }
     }
 
     // ── #251 Empty-kitchen seed (App #3) ─────────────────────────────
@@ -370,16 +419,27 @@ struct InventoryHubView: View {
                 .font(.system(size: 17, weight: .bold, design: .serif))
                 .foregroundStyle(session.themeTextColor)
 
+            // #3 — classify each item ONCE into a count map, then hand each card its
+            // number. Previously every card re-filtered allItems through the heavy
+            // classifier, i.e. O(items × categories) per render.
+            let counts = categoryCountMap()
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ForEach(MockCategory.allCases) { cat in
-                    categoryCard(cat)
+                    categoryCard(cat, count: counts[cat] ?? 0)
                 }
             }
         }
     }
 
-    private func categoryCard(_ cat: MockCategory) -> some View {
-        let count = allItems.filter { MockCategory.classify($0) == cat }.count
+    /// #3 — classify each item once into a count map (heavy classifier runs O(items),
+    /// not O(items × categories) per render).
+    private func categoryCountMap() -> [MockCategory: Int] {
+        var counts: [MockCategory: Int] = [:]
+        for item in allItems { counts[MockCategory.classify(item), default: 0] += 1 }
+        return counts
+    }
+
+    private func categoryCard(_ cat: MockCategory, count: Int) -> some View {
         return Button { selectedCategory = cat } label: {
             HStack(spacing: 12) {
                 ZStack {

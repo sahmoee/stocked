@@ -225,12 +225,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ChompAPIKey</key>
 	<string>$(CHOMP_API_KEY)</string>
-	<key>ClaudeAPIKey</key>
-	<string>$(CLAUDE_API_KEY)</string>
-	<key>ClaudeAPIURL</key>
-	<string>$(CLAUDE_API_URL)</string>
-	<key>ClaudeModel</key>
-	<string>$(CLAUDE_MODEL)</string>
 	<key>EdamamAppID</key>
 	<string>$(EDAMAM_APP_ID)</string>
 	<key>EdamamAppKey</key>

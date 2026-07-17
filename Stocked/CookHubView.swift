@@ -49,6 +49,12 @@ struct CookHubView: View {
     @State private var goCookNow = false
     @State private var goCookLater = false
 
+    // RL-001 — paused/interrupted cooking session resume + RL-002 discard.
+    private var cookRecord: ActiveCookSessionStore { .shared }
+    @State private var resumeTarget: ActiveCookSessionSnapshot? = nil
+    @State private var goResume = false
+    @State private var showDiscardConfirm = false
+
     var body: some View {
         // #FB — the two choices are centered and fit the page on every device:
         // scrolling is disabled and the options are balanced with spacers so nothing
@@ -68,6 +74,18 @@ struct CookHubView: View {
                 }
                 .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
                 .coachmarkAnchor("cook.header")
+
+                // RL-001 — a paused (or force-closed) cooking session surfaces
+                // here for one-tap resume straight to the exact saved step.
+                if let paused = cookRecord.resumable {
+                    CookSessionResumeCard(
+                        snapshot: paused,
+                        onResume: { resumeTarget = paused; goResume = true },
+                        onDiscard: { showDiscardConfirm = true }
+                    )
+                    .padding(.horizontal, CookStyle.screenHPad)
+                    .padding(.top, 12)
+                }
 
                 Spacer(minLength: 12)
 
@@ -90,9 +108,37 @@ struct CookHubView: View {
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
         .navigationDestination(isPresented: $goCookLater) { CookLaterHomeView() }
+        // RL-001 — resume goes DIRECTLY to the cooking screen at the saved
+        // step, never through the recipe detail page.
+        .navigationDestination(isPresented: $goResume) {
+            if let resumeTarget {
+                CookingFlashcardView(recipeTitle: resumeTarget.recipeTitle,
+                                     ingredients: resumeTarget.ingredients,
+                                     steps: resumeTarget.steps,
+                                     baseServings: resumeTarget.servings,
+                                     sessionSubs: resumeTarget.substitutions,
+                                     resume: resumeTarget)
+            }
+        }
+        // RL-002 — deliberate cancel with an explicit consequences explainer.
+        .alert("Cancel this meal?", isPresented: $showDiscardConfirm) {
+            Button("Keep It", role: .cancel) {}
+            Button("Discard Progress", role: .destructive) {
+                cookRecord.cancel()
+                session.activeCook = nil
+                HapticManager.select()
+            }
+        } message: {
+            Text("Your saved progress and timers will be discarded, and this meal won't be recorded as cooked. Nothing is deducted from inventory. If it came from your plan, the planned meal stays.")
+        }
+        // Terminal/stale records never reappear as resumable.
+        .task { cookRecord.clearIfStale() }
         .onReceive(NotificationCenter.default.publisher(for: .stockedOpenCookLater)) { _ in
             goCookNow = false
             goCookLater = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
+            goResume = false   // collapse a resumed cook (e.g. after Cancel Meal)
         }
         .coachmarks(page: .cook, steps: CookCoachmarks.steps)
     }
@@ -285,11 +331,28 @@ struct CookNowHomeView: View {
     @State private var goUseItUp      = false
     @State private var goFinishServe  = false
 
+    // RL-001 — paused/interrupted cooking session resume + RL-002 discard.
+    private var cookRecord: ActiveCookSessionStore { .shared }
+    @State private var resumeTarget: ActiveCookSessionSnapshot? = nil
+    @State private var goResumeCook = false
+    @State private var showDiscardConfirm = false
+
     var body: some View {
         StockedShell(showBack: true, titleText: "Cook Now") {
             VStack(alignment: .leading, spacing: 18) {
 
                 header
+
+                // RL-001 — the paused-session banner: distinguishes a paused
+                // cook from planned/completed meals and resumes at the exact step.
+                if let paused = cookRecord.resumable {
+                    CookSessionResumeCard(
+                        snapshot: paused,
+                        onResume: { resumeTarget = paused; goResumeCook = true },
+                        onDiscard: { showDiscardConfirm = true }
+                    )
+                    .padding(.horizontal, CookStyle.screenHPad)
+                }
 
                 switch snapshot.emphasis {
                 case .emptyInventory:      emptyInventoryState
@@ -328,6 +391,29 @@ struct CookNowHomeView: View {
                     SmartRecommendationView(mode: .ingredient(chipIngredient)).environment(cookSession)
                 }
             }
+            // RL-001 — resume goes DIRECTLY to the cooking screen at the saved step.
+            .navigationDestination(isPresented: $goResumeCook) {
+                if let resumeTarget {
+                    CookingFlashcardView(recipeTitle: resumeTarget.recipeTitle,
+                                         ingredients: resumeTarget.ingredients,
+                                         steps: resumeTarget.steps,
+                                         baseServings: resumeTarget.servings,
+                                         sessionSubs: resumeTarget.substitutions,
+                                         resume: resumeTarget)
+                        .environment(cookSession)
+                }
+            }
+        }
+        // RL-002 — deliberate cancel with an explicit consequences explainer.
+        .alert("Cancel this meal?", isPresented: $showDiscardConfirm) {
+            Button("Keep It", role: .cancel) {}
+            Button("Discard Progress", role: .destructive) {
+                cookRecord.cancel()
+                session.activeCook = nil
+                HapticManager.select()
+            }
+        } message: {
+            Text("Your saved progress and timers will be discarded, and this meal won't be recorded as cooked. Nothing is deducted from inventory. If it came from your plan, the planned meal stays.")
         }
         .task { bootstrap() }
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
@@ -336,7 +422,7 @@ struct CookNowHomeView: View {
             goStartWith = false; goMakeableNow = false; goUseItUp = false; goFinishServe = false
             goBuildFood = false; goMood = false; goRefresh = false
             goReadyList = false; goAlmostList = false; goMoreList = false
-            goSurpriseDetail = false; goChip = false
+            goSurpriseDetail = false; goChip = false; goResumeCook = false
         }
     }
 

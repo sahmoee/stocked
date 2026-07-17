@@ -12,26 +12,26 @@ import Foundation
 
 // MARK: - Models (internal — only what we need for ingestion)
 
-private struct SpoonacularSearchResult: Codable {
+private nonisolated struct SpoonacularSearchResult: Codable, Sendable {
     let id:    Int
     let title: String
     let image: String
 }
 
-private struct SpoonacularIngredient: Codable {
+private nonisolated struct SpoonacularIngredient: Codable, Sendable {
     let name:     String
     let original: String
 }
 
-private struct SpoonacularStep: Codable {
+private nonisolated struct SpoonacularStep: Codable, Sendable {
     let step: String
 }
 
-private struct SpoonacularInstructionGroup: Codable {
+private nonisolated struct SpoonacularInstructionGroup: Codable, Sendable {
     let steps: [SpoonacularStep]
 }
 
-private struct SpoonacularDetail: Codable {
+private nonisolated struct SpoonacularDetail: Codable, Sendable {
     let id:                   Int
     let title:                String
     let image:                String
@@ -49,14 +49,13 @@ private struct SpoonacularDetail: Codable {
 
 // MARK: - Client
 
-@MainActor
-final class SpoonacularClient {
+actor SpoonacularClient {
 
     static let shared = SpoonacularClient()
     private init() {}
 
-    var apiKey: String { BuildConfig.spoonacularAPIKey }
-    var isConfigured: Bool { !apiKey.isEmpty && !apiKey.hasPrefix("YOUR_") }
+    nonisolated var apiKey: String { BuildConfig.spoonacularAPIKey }
+    nonisolated var isConfigured: Bool { !apiKey.isEmpty && !apiKey.hasPrefix("YOUR_") }
 
     private let base = "https://api.spoonacular.com"
     private let syncKey = "spoonacularLastSync"
@@ -133,7 +132,7 @@ final class SpoonacularClient {
         let results = await fetchRandom(tags: tag.isEmpty ? [] : [tag], number: 20)
         for result in results {
             if let detail = await fetchDetail(id: result.id) {
-                ingest(detail)
+                await ingest(detail)
             }
             // Small delay to avoid hammering the API
             try? await Task.sleep(nanoseconds: 100_000_000)
@@ -144,8 +143,10 @@ final class SpoonacularClient {
         let seedTerms = ["chick", "beef", "pasta", "tomat", "onion"]
         for term in seedTerms {
             let names = await autocomplete(term, number: 8)
-            for name in names {
-                StockedKnowledgeBase.shared.learnFromInventoryItem(name: name, category: "Pantry")
+            await MainActor.run {
+                for name in names {
+                    StockedKnowledgeBase.shared.learnFromInventoryItem(name: name, category: "Pantry")
+                }
             }
         }
     }
@@ -298,12 +299,14 @@ final class SpoonacularClient {
     }
 
     // Feed one Spoonacular recipe into KB + RecipeDatabase
-    private func ingest(_ r: SpoonacularDetail) {
-        let kb = StockedKnowledgeBase.shared
-
-        // Register ingredients → powers FoodPredictiveTextField
-        for ing in r.extendedIngredients {
-            kb.learnFromInventoryItem(name: ing.name, category: "Pantry")
+    private func ingest(_ r: SpoonacularDetail) async {
+        // Only the observable knowledge-base mutation belongs on MainActor. Network decoding,
+        // normalization, and database construction stay on this client actor.
+        await MainActor.run {
+            let kb = StockedKnowledgeBase.shared
+            for ingredient in r.extendedIngredients {
+                kb.learnFromInventoryItem(name: ingredient.name, category: "Pantry")
+            }
         }
 
         let steps = r.analyzedInstructions.flatMap { $0.steps }.map { $0.step }
@@ -325,7 +328,7 @@ final class SpoonacularClient {
             cachedAt:    Date()
         )
 
-        Task { await RecipeDatabase.shared.upsert(entry) }
+        await RecipeDatabase.shared.upsert(entry)
     }
 
     private func stripHTML(_ s: String) -> String {

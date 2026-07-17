@@ -3,8 +3,6 @@
 // ── Xcode setup (one-time) ──────────────────────────────────────────────────
 // 1. Open Info.plist, add keys matching each xcconfig variable, e.g.:
 //    MealDBBaseURL      → $(MEALDB_BASE_URL)
-//    ClaudeAPIURL       → $(CLAUDE_API_URL)
-//    ClaudeModel        → $(CLAUDE_MODEL)
 //    VerboseLogging     → $(VERBOSE_LOGGING)
 //    ShowDebugOverlay   → $(SHOW_DEBUG_OVERLAY)
 //    EnableMealPrep     → $(ENABLE_MEAL_PREP)
@@ -58,21 +56,36 @@ nonisolated enum BuildConfig {
     static var mealDBBaseURL: String {
         bundleString("MealDBBaseURL") ?? "https://www.themealdb.com/api/json/v1/1"
     }
-    static var claudeAPIURL: String {
-        bundleString("ClaudeAPIURL") ?? "https://api.anthropic.com/v1/messages"
-    }
-    static var claudeModel: String {
-        bundleString("ClaudeModel") ?? "claude-sonnet-5"
-    }
-    /// Injected via xcconfig CLAUDE_API_KEY → Info.plist ClaudeAPIKey.
-    /// Never hardcode this value — leave it blank here and set it in your xcconfig.
-    static var claudeAPIKey: String {
-        bundleString("ClaudeAPIKey") ?? ""
-    }
-    static let claudeAPIVersion = "2023-06-01"
+    // MOVED TO WORKER (2026-07): the direct Anthropic path (ClaudeAPIURL/ClaudeModel/
+    // ClaudeAPIKey/claudeAPIVersion) is gone. Every AI request goes through the Stocked
+    // Worker, which holds the Anthropic key server-side, picks models (with fallback),
+    // rate-limits, validates output, and caches. No AI vendor key ships in the app.
     /// Receipt parsing proxied through a Cloudflare Worker that holds the Anthropic
     /// key server-side (no key in the app). See _worker/stocked-receipt-worker/README.md.
     static let receiptWorkerURL = "https://stocked-receipt-worker.stocked.workers.dev"
+    /// Custom API domain via a Cloudflare Worker custom-domain route. Once
+    /// `api.sowensstudios.com` is verified in Cloudflare (see SOWENS_STUDIOS.md), change
+    /// `receiptWorkerURL` above to this value and ship — both URLs hit the same Worker.
+    static let receiptWorkerCustomURL = "https://api.sowensstudios.com"
+
+    // ── Sowens Studios — brand & support ─────────────────────────────────────
+    static let company        = "Sowens Studios"
+    static let websiteURL     = "https://sowensstudios.com"
+    static let supportEmail   = "support@sowensstudios.com"
+    static let privacyURL     = "https://sowensstudios.com/privacy"
+    static let termsURL       = "https://sowensstudios.com/terms"
+    static let supportPageURL = "https://sowensstudios.com/support"
+
+    // ── Content CDN (Namecheap cPanel static hosting) ────────────────────────
+    // Curated recipe JSON + images live at <contentBaseURL>/content/… served over
+    // HTTPS from the Namecheap Stellar Plus disk and cached on-device.
+    //
+    // NOTE: the apex sowensstudios.com points at Netlify, so cPanel content is served
+    // from a subdomain (cdn.sowensstudios.com) pointed at the cPanel server. If you'd
+    // rather host the same content/ folder on Netlify instead, set Info.plist
+    // ContentBaseURL to https://sowensstudios.com.
+    static var contentBaseURL: String { bundleString("ContentBaseURL") ?? "https://cdn.sowensstudios.com" }
+    static let contentEnabled = true
     /// Shared secret sent to the Worker as the `X-Stocked-Key` header so the public endpoint
     /// rejects drive-by callers. Injected via xcconfig STOCKED_WORKER_KEY → Info.plist
     /// StockedWorkerKey. Must match the Worker's STOCKED_SHARED_KEY secret. Never hardcode.

@@ -66,6 +66,45 @@ enum SharedRecipeImporter {
 
         // 1) A shared link → structured web import (best quality).
         if let urlStr = payload["url"] as? String, urlStr.hasPrefix("http") {
+            // RL-009: social links (TikTok / Instagram / YouTube / Pinterest) never carry
+            // Schema.org Recipe JSON-LD, so the web scrape below is doomed for them. Branch
+            // to the social fetcher: public og:title/og:description (the caption, where
+            // creators put the recipe) + og:image, then the SAME editable-form flow — the
+            // form runs the Worker recipeImport structuring exactly like web imports, and
+            // flags uncertain amounts "Needs review". Nothing is fabricated: a private or
+            // deleted post is a clear error, not a fake recipe.
+            if let platform = SocialImportDetector.platform(for: urlStr) {
+                Log.app.log("ShareImport: social URL (\(platform.rawValue, privacy: .public)) — using og: metadata")
+                do {
+                    let content = try await SocialImportFetcher.fetch(urlStr, platform: platform)
+                    var form = AddRecipeForm()
+                    form.title = content.title
+                    form.imageURL = content.imageURL
+                    form.sourceURL = content.sourceURL
+                    form.description = content.caption
+                    // Verbatim caption + a Source line, so "Show original text" preserves
+                    // the link even though the create form doesn't carry notes through.
+                    form.originalText = content.combinedText + "\n\nSource: \(content.sourceURL)"
+                    return .success(Result(form: form, source: platform.displayName))
+                } catch let error as SocialImportError {
+                    switch error {
+                    case .privateOrDeleted:
+                        return .scrapeFailed("\(platform.displayName) — the post looks private or deleted, so no public recipe text exists")
+                    case .offline:
+                        return .scrapeFailed("\(platform.displayName) while offline")
+                    case .insufficientContent, .transport:
+                        // Fall through to shared text (a share often includes the caption)
+                        // or the generic failure below.
+                        if (payload["text"] as? String)?.isEmpty == false {
+                            Log.app.log("ShareImport: social fetch thin — falling back to shared text")
+                        } else {
+                            return .scrapeFailed(platform.displayName)
+                        }
+                    }
+                } catch {
+                    return .scrapeFailed(platform.displayName)
+                }
+            } else {
             Log.app.log("ShareImport: got URL, scraping \(urlStr, privacy: .public)")
             if let web = try? await WebRecipeManager.shared.importFromURL(urlStr) {
                 var form = AddRecipeForm()
@@ -106,6 +145,7 @@ enum SharedRecipeImporter {
                 Log.app.error("ShareImport: page-text fallback found no recipe either")
                 return .scrapeFailed(hostName(urlStr))
             }
+            }   // end non-social web-scrape branch (RL-009)
         }
 
         // 2) Shared text (e.g. a pasted recipe, or a caption) → heuristic parser.

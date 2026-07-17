@@ -879,7 +879,7 @@ actor WebRecipeFetcher {
             for await (domain, isBad) in group where isBad { bad.insert(domain) }
             return bad
         }
-        let order = Dictionary(uniqueKeysWithValues: ranked.enumerated().map { ($1, $0) })
+        let order = Dictionary(keepingLastValues: ranked.enumerated().map { ($1, $0) })
         let sources = selected
             .filter { !unhealthy.contains($0.domain) }
             .sorted { (order[$0.domain] ?? 99) < (order[$1.domain] ?? 99) }
