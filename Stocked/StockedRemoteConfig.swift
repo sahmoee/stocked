@@ -23,13 +23,36 @@ nonisolated struct RemoteAppConfig: Codable, Sendable, Equatable {
     struct Maintenance: Codable, Sendable, Equatable {
         var active: Bool = false
         var message: String = ""
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            active  = (try? c.decodeIfPresent(Bool.self,   forKey: .active))  ?? false
+            message = (try? c.decodeIfPresent(String.self, forKey: .message)) ?? ""
+        }
     }
     var minSupportedVersion: String = "0.0.0"
     var maintenance: Maintenance = Maintenance()
     var disabledRecipeSources: [String] = []
     var killSwitches: [String: Bool] = [:]
+    /// Gradual rollout percentages per feature, 0–100. Absent feature = fully on.
+    /// Server sets e.g. {"rollout": {"multiStore": 25}} to enable for 25% of installs.
+    var rollout: [String: Int] = [:]
 
     static let empty = RemoteAppConfig()
+
+    init() {}
+    // Lenient decoding: every field is optional-with-default so a config that omits
+    // keys (or adds new ones) can never fail the whole fetch. This also fixes the
+    // "RemoteConfig fetch failed: The data couldn't be read because it is missing"
+    // log seen when the served config lacked a key the synthesized decoder required.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        minSupportedVersion   = (try? c.decodeIfPresent(String.self,        forKey: .minSupportedVersion)) ?? "0.0.0"
+        maintenance           = (try? c.decodeIfPresent(Maintenance.self,   forKey: .maintenance)) ?? Maintenance()
+        disabledRecipeSources = (try? c.decodeIfPresent([String].self,      forKey: .disabledRecipeSources)) ?? []
+        killSwitches          = (try? c.decodeIfPresent([String: Bool].self, forKey: .killSwitches)) ?? [:]
+        rollout               = (try? c.decodeIfPresent([String: Int].self,  forKey: .rollout)) ?? [:]
+    }
 }
 
 @MainActor
@@ -74,6 +97,27 @@ final class StockedRemoteConfig {
     func isSourceDisabled(_ source: String) -> Bool {
         config.disabledRecipeSources.contains { $0.caseInsensitiveCompare(source) == .orderedSame }
     }
+
+    /// Gradual rollout: true when this install falls inside the feature's percentage.
+    /// Each install draws a stable bucket 0–99 once; a feature at 25 is on for buckets
+    /// 0–24 everywhere, so the same install keeps the same answer until the % changes.
+    /// Absent feature (or no config yet) = fully on — rollout is opt-in per feature.
+    func isRolledOut(_ feature: String) -> Bool {
+        guard let percent = config.rollout[feature] else { return true }
+        if percent >= 100 { return true }
+        if percent <= 0 { return false }
+        return Self.installBucket < percent
+    }
+
+    /// Stable per-install bucket 0–99, drawn once and persisted.
+    static let installBucket: Int = {
+        let key = "rolloutBucket_v1"
+        let existing = UserDefaults.standard.object(forKey: key) as? Int
+        if let existing { return existing }
+        let bucket = Int.random(in: 0..<100)
+        UserDefaults.standard.set(bucket, forKey: key)
+        return bucket
+    }()
 
     var maintenanceMessage: String? {
         guard config.maintenance.active else { return nil }

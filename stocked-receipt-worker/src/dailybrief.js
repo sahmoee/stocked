@@ -55,6 +55,27 @@ export async function handleDailyBrief(request, env, ctx, requestId) {
   return json(brief);
 }
 
+/** POST /daily-brief/context → store the household's context snapshot so the
+ *  scheduled (cron) pipeline can generate briefs without the app being awake.
+ *  Bounded, best-effort, 7-day TTL (a stale household simply stops getting briefs). */
+export async function handleBriefContext(request, env, ctx) {
+  let raw;
+  try { raw = await request.text(); } catch { return json({ error: "Bad request", code: "invalidInput" }, 400); }
+  if (raw.length > 128 * 1024) return json({ error: "Payload too large", code: "payloadTooLarge" }, 413);
+  let body; try { body = JSON.parse(raw); } catch { return json({ error: "Invalid JSON", code: "invalidInput" }, 400); }
+  const code = String(body.code || "").trim().toUpperCase();
+  if (!/^[A-Z0-9-]{4,16}$/.test(code)) return json({ error: "Invalid household code", code: "invalidInput" }, 422);
+  if (!env.RATE_KV) return json({ error: "Server misconfigured", code: "upstreamError" }, 500);
+  await env.RATE_KV.put("briefctx:" + code, JSON.stringify({
+    inventory: Array.isArray(body.inventory) ? body.inventory.slice(0, 300) : [],
+    grocery: Array.isArray(body.grocery) ? body.grocery.slice(0, 200) : [],
+    plannedMeals: Array.isArray(body.plannedMeals) ? body.plannedMeals.slice(0, 60) : [],
+    planHorizonDays: Number(body.planHorizonDays) || 7,
+    code, storedAt: Date.now(),
+  }), { expirationTtl: 7 * 86400 });
+  return json({ ok: true });
+}
+
 /** Producer: enqueue a brief job (used by the scheduled handler). */
 export async function enqueueBrief(env, payload) {
   if (!env.BRIEF_QUEUE) return false;

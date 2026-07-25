@@ -202,6 +202,9 @@ struct MainTabView: View {
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
                 DailyBriefNotificationManager.shared.rescheduleAll(store: session.guestStore)
                 WidgetBridge.refresh(store: session.guestStore)
+                // Server daily briefs: upload the (scrubbed) context snapshot at most
+                // every 12h so the Worker cron can generate household briefs.
+                DailyBriefContextUploader.uploadIfNeeded(store: session.guestStore)
             }
             // Cold-launch case: the flag may already be true before onChange can observe a change.
             if session.pendingSharedRecipe {

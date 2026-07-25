@@ -19,12 +19,14 @@ import { buildLegacyPrompt, buildRoutePrompt, PATH_ROUTES, ROUTE_SCHEMA } from "
 import { handleHousehold } from "./src/household.js";
 import { handleCrowd } from "./src/crowd.js";
 import { handleDiscover } from "./src/discover.js";
-import { handleDailyBrief, handleBriefQueue, handleScheduledBriefs } from "./src/dailybrief.js";
+import { handleDailyBrief, handleBriefQueue, handleScheduledBriefs, handleBriefContext } from "./src/dailybrief.js";
 import { handleConfiguration, getRuntimeConfig, resolveMaxTokens, resolveModel } from "./src/config.js";
 import { handleBarcodeResolve } from "./src/barcodes.js";
 import { handleDiagnostics } from "./src/diagnostics.js";
 import { handlePricesCompare } from "./src/prices.js";
 import { handleContentRecipes, handleContentImage, contentOriginFor } from "./src/content.js";
+import { handleFeatureRoute, checkAiQuota } from "./src/features.js";
+import { handleSmartRoute } from "./src/smart.js";
 import { recordMetrics, handleMetricsToday } from "./src/metrics.js";
 import { sharedKeyOK, verifyAppleIdentityToken, issueSession, verifySession, verifyAttestation } from "./src/auth.js";
 import { isLimited, limiterFor, rateSubject } from "./src/ratelimit.js";
@@ -32,7 +34,7 @@ import { HouseholdDO } from "./src/household-do.js";
 
 export { HouseholdDO }; // Durable Object must be exported from the entry module.
 
-const WORKER_VERSION = "2026-07-17.1";
+const WORKER_VERSION = "2026-07-17.2";
 const DEFAULT_MODEL = "claude-sonnet-5";
 const FALLBACK_MODEL = "claude-haiku-4-5-20251001";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -49,8 +51,12 @@ export default {
     const started = Date.now();
     const url = new URL(request.url);
     let route = "unknown", status = 200;
-    // Capture the handler's real status for logs/metrics before returning.
-    const done = (resp) => { status = resp.status; return resp; };
+    // Capture the handler's real status, and stamp timing + request id on every response.
+    const done = (resp) => {
+      status = resp.status;
+      try { resp.headers.set("Server-Timing", `worker;dur=${Date.now() - started}`); resp.headers.set("X-Request-Id", requestId); } catch {}
+      return resp;
+    };
     try {
       if (request.method === "OPTIONS") {
         return new Response(null, {
@@ -60,18 +66,60 @@ export default {
       }
 
       if (url.pathname === "/health") {
-        return json({
+        const base = {
           ok: true, version: WORKER_VERSION,
           hasAnthropicKey: !!env.ANTHROPIC_API_KEY,
           hasSharedKey: !!env.STOCKED_SHARED_KEY,
           hasSessionKey: !!env.SESSION_SIGNING_KEY,
           hasHouseholdDO: !!env.HOUSEHOLD_DO,
           contentOrigin: contentOriginFor(env),
+        };
+        if (!url.searchParams.get("deep")) return json(base, 200);
+        // Deep health: actually probe dependencies with timings.
+        const checks = {};
+        try { const t = Date.now(); await env.RATE_KV.put("hc:probe", "1", { expirationTtl: 60 }); const v = await env.RATE_KV.get("hc:probe"); checks.rateKV = { ok: v === "1", ms: Date.now() - t }; }
+        catch (e) { checks.rateKV = { ok: false, error: String(e && e.message || e) }; }
+        try { const t = Date.now(); const v = await env.CROWD.get("hc:probe"); checks.crowdKV = { ok: true, ms: Date.now() - t, present: v != null }; }
+        catch (e) { checks.crowdKV = { ok: false, error: String(e && e.message || e) }; }
+        checks.householdDO = { ok: !!env.HOUSEHOLD_DO };
+        checks.featuresKV = { bound: !!env.FEATURES_KV };
+        checks.mediaR2 = { bound: !!env.MEDIA };
+        checks.analyticsD1 = { bound: !!env.DB };
+        return json({ ...base, deep: true, checks }, 200);
+      }
+
+      if (url.pathname === "/version") {
+        return json({
+          ok: true, version: WORKER_VERSION, time: new Date().toISOString(),
+          maintenance: env.MAINTENANCE === "1",
+          capabilities: [
+            "ai", "sessions", "household-sync", "crowd", "barcodes", "prices", "discover", "daily-brief",
+            "config", "diagnostics", "content-feed", "proxy-keys", "recipe-fetch", "invite", "price-watch",
+            "backup", "media", "analytics", "substitutions", "aasa", "units-convert", "recipe-scale",
+            "pantry-match", "grocery-optimize", "nutrition-estimate", "expiry-estimate", "season", "meal-plan",
+            "barcodes-batch", "temperature", "experiment", "deep-health", "server-timing",
+          ],
         }, 200);
       }
 
+      // Public, keyless route: Apple fetches the Universal Links file with no headers (#20).
+      if (url.pathname === "/.well-known/apple-app-site-association") {
+        route = "aasa";
+        return done(await handleFeatureRoute(url, request, env, ctx, requestId));
+      }
+
+      // Global maintenance kill-switch (health / version / AASA above stay reachable).
+      if (env.MAINTENANCE === "1") { status = 503; return errJson(503, "Temporarily down for maintenance", { code: "maintenance", requestId, retryAfter: 120 }); }
+
       // Coarse outer gate (shared secret still ships as a first filter).
       if (!sharedKeyOK(request, env)) { status = 401; return errJson(401, "Unauthorized", { code: "unauthorized", requestId }); }
+
+      // Diagnostics echo (authed): reflect request shape for debugging clients.
+      if (url.pathname === "/ops/echo") {
+        return done(json({ ok: true, method: request.method, path: url.pathname,
+          query: Object.fromEntries(url.searchParams), colo: (request.cf && request.cf.colo) || null,
+          country: (request.cf && request.cf.country) || null, requestId, at: new Date().toISOString() }, 200));
+      }
 
       // Rate-limit subject: a valid, non-guest session keys limits by its subject
       // (fairer behind NAT); otherwise the connecting IP.
@@ -152,6 +200,11 @@ export default {
         if (await isLimited(limiterFor(env, "default"), rlKey, "disc")) { status = 429; return errJson(429, "Rate limit exceeded", { code: "rateLimited", requestId }); }
         return done(await handleDiscover(request, env, ctx));
       }
+      if (url.pathname === "/daily-brief/context") {
+        route = "dailyBriefContext";
+        if (await isLimited(limiterFor(env, "default"), ip, "briefctx")) { status = 429; return json({ error: "Rate limit exceeded", code: "rateLimited" }, 429); }
+        return await handleBriefContext(request, env, ctx);
+      }
       if (url.pathname === "/daily-brief/generate") {
         route = "dailyBrief";
         if (await isLimited(limiterFor(env, "default"), rlKey, "brief")) { status = 429; return errJson(429, "Rate limit exceeded", { code: "rateLimited", requestId }); }
@@ -170,6 +223,21 @@ export default {
         route = "priceCompare";
         if (await isLimited(limiterFor(env, "default"), rlKey, "price")) { status = 429; return errJson(429, "Rate limit exceeded", { code: "rateLimited", requestId }); }
         return done(await handlePricesCompare(request, env, ctx, requestId));
+      }
+
+      // ── Consolidated feature routes (the "20 more" — proxy keys, recipe fetch, content
+      //     packs, stores, nutrition, invite, price watch, backup, media, analytics,
+      //     substitutions, AASA, realtime/push scaffolds). Returns null if not a feature. ──
+      {
+        const feat = await handleFeatureRoute(url, request, env, ctx, requestId);
+        if (feat) { route = "feature"; return done(feat); }
+      }
+
+      // ── Smart culinary intelligence (units, scaling, pantry match, grocery optimize,
+      //     nutrition, expiry, seasonality, meal plan, temperature, experiments…) ──
+      {
+        const s = await handleSmartRoute(url, request, env, ctx, requestId);
+        if (s) { route = "smart"; return done(s); }
       }
 
       // ── Body read for AI routes ──
@@ -196,6 +264,10 @@ export default {
       // Route class → rate limiter.
       const kind = (prompt.route === "receiptImage" || prompt.route === "receiptText") ? "receipt" : "ai";
       if (await isLimited(limiterFor(env, kind), rlKey, kind)) { status = 429; return errJson(429, "Rate limit exceeded", { code: "rateLimited", requestId }); }
+
+      // Per-user daily AI quota (#7; no-op until FEATURES_KV is bound).
+      { const quota = await checkAiQuota(env, request.headers.get("X-Stocked-Session") || rlKey);
+        if (!quota.ok) { status = 429; return errJson(429, "Daily AI limit reached", { code: "quotaExceeded", requestId, retryAfter: 3600 }); } }
 
       // App Attest gate for expensive routes (opt-in; no-op until enabled).
       if (EXPENSIVE_ROUTES.has(prompt.route)) {
