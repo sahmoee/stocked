@@ -38,12 +38,43 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+                // ── 4.13 (build 63) — Smoother, safer, connected ──
+                ChangelogVersion(
+                    version: "4.13",
+                    buildDate: "Build 63 · July 17, 2026",
+                    headline: "What's new in Stocked",
+                    isLatest: true,
+                    entries: [
+                        ChangelogEntry(icon: "pause.circle.fill", color: Color.stockedGold,
+                                       title: "Pause a cook, come back later",
+                                       detail: "Leaving mid-cook now asks what you want: pause, cancel, or keep going. A paused meal waits on the Cook screen and resumes at the exact step — timers included — even after closing the app."),
+                        ChangelogEntry(icon: "lock.badge.clock", color: Color.stockedGreen,
+                                       title: "Your plan protects its ingredients",
+                                       detail: "Items reserved for planned meals now show Total, Reserved, and Available. Cooking something that borrows from a plan shows exactly which meal is affected — cook anyway, pick another, or add a replacement to the list."),
+                        ChangelogEntry(icon: "doc.on.doc.fill", color: Color.stockedGold,
+                                       title: "No more double groceries",
+                                       detail: "Scanning a receipt after a shopping trip can't double-count your pantry anymore. Stocked spots likely duplicates, shows its evidence, and lets you merge, keep both, or skip."),
+                        ChangelogEntry(icon: "cart.fill", color: Color.stockedGreen,
+                                       title: "Shop by store",
+                                       detail: "Group your grocery list by store, finish one store at a time, and move items between stores without retyping them."),
+                        ChangelogEntry(icon: "wifi.slash", color: Color.stockedGold,
+                                       title: "Offline that you can trust",
+                                       detail: "Edits made offline queue up visibly — \"Pending changes · will sync\" — and send themselves exactly once when you're back online."),
+                        ChangelogEntry(icon: "link.badge.plus", color: Color.stockedGreen,
+                                       title: "Save recipes from social links",
+                                       detail: "Paste a TikTok, Instagram, YouTube, or Pinterest link and review what Stocked found before saving. Anything uncertain is flagged for your eyes, never invented."),
+                        ChangelogEntry(icon: "bell.slash.fill", color: Color.stockedGold,
+                                       title: "Calmer notifications, faster opens",
+                                       detail: "Reminders no longer pop over the app while you're using it, permission is asked once at the right moment, and launch is noticeably quicker. A rare crash on launch was also fixed."),
+                    ]
+                ),
+
                 // ── 4.24 (build 44) — Adaptive cooking workspace ──
                 ChangelogVersion(
                     version: "4.24",
                     buildDate: "Build 44 · July 14, 2026",
                     headline: "What's new in Stocked",
-                    isLatest: true,
+                    isLatest: false,
                     entries: [
                         ChangelogEntry(icon: "hand.raised.fill", color: Color.stockedGold,
                                        title: "Start With Something",

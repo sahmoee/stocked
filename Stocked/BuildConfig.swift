@@ -39,7 +39,7 @@ nonisolated enum BuildConfig {
     private static let fallbackVersion     = "0.0"
 
     static let changeCount   = 1
-    static let buildName     = "Build 44 — Adaptive cooking workspace: Start With Something and intent selection, standalone preparation discovery by dish role, cooking method comparison with equipment availability gating and combined device workflows, sectioned Before You Start checklist, hands off orchestration during long cooks, cook ahead now with cooling storage and reheat lifecycle tied to the meal planner, Finish and Serve, compounding prep across upcoming meals, and an inventory consumption coordinator."
+    static let buildName     = "Build 63 — Custom API domain (api.sowensstudios.com) live for all Worker calls; in-app support contact support@sowensstudios.com and sowensstudios.com link confirmed in Settings; MetricKit subscribers made nonisolated (fixes TestFlight 4.13/62 launch crash); pause/resume/cancel cooking, reserved inventory with Cook Anyway, purchase duplicate protection, multi-store grocery, offline pending-sync surfacing, social recipe link import, quieter notifications, faster launch."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection
