@@ -61,6 +61,7 @@ struct QAModeView: View {
                 sessionSection
                 invariantSection
                 diagnosticsSection
+                crashSection
                 eventSection
                 bridgeSection
             }
@@ -77,6 +78,7 @@ struct QAModeView: View {
     private var sessionSection: some View {
         Section("This session") {
             row("Screens visited", "\(recorder.screenCount)")
+            row("Taps recorded", "\(recorder.tapTotal)")
             row("Actions attempted", "\(recorder.attemptCount)")
             row("Failures", "\(recorder.failureCount)", tint: recorder.failureCount > 0 ? .red : nil)
             row("Invariant violations", "\(recorder.violationCount)",
@@ -213,6 +215,41 @@ struct QAModeView: View {
             }
         } header: { Text("Full diagnostics") } footer: {
             Text("One tap sweeps every layer: the invariant suite plus live Worker health, remote config, connectivity, sync, notification budget, data integrity, storage, and the cook-session record.")
+        }
+    }
+
+    // MARK: Crashes & device log
+
+    private var crashSection: some View {
+        Section {
+            let log = DiagnosticsMonitor.shared.currentLog()
+            let crashes = log.split(separator: "\n").filter { $0.contains("CRASH") }.count
+            let hangs   = log.split(separator: "\n").filter { $0.contains("HANG") || $0.contains("hang") }.count
+            row("Crashes recorded", "\(crashes)", tint: crashes > 0 ? .red : nil)
+            row("Hang reports", "\(hangs)", tint: hangs > 0 ? .orange : nil)
+            if log.isEmpty {
+                Text("No MetricKit diagnostics on this device — that's the good outcome.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                NavigationLink {
+                    ScrollView {
+                        Text(log)
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            .padding(16)
+                    }
+                    .navigationTitle("Device log")
+                    .toolbar { ShareLink(item: log) { Image(systemName: "square.and.arrow.up") } }
+                } label: {
+                    Label("View device log", systemImage: "doc.text.magnifyingglass")
+                }
+                ShareLink(item: log) {
+                    Label("Export device log", systemImage: "square.and.arrow.up")
+                }
+            }
+        } header: { Text("Crashes & device log") } footer: {
+            Text("MetricKit crash and hang diagnostics, delivered by iOS up to a day after the event. New entries also appear automatically as failures in the event feed and ride along in every exported or published QA report.")
         }
     }
 

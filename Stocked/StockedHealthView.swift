@@ -201,6 +201,7 @@ struct StockedHealthView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .qaScreen("Settings > App Health")
         .stockedScreen()
         .navigationTitle("App Health")
         .navigationBarTitleDisplayMode(.inline)
@@ -272,6 +273,11 @@ private struct DiagnosticsLogSheet: View {
             .navigationTitle("Diagnostics log")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    ShareLink(item: DiagnosticsMonitor.shared.currentLog()) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
             }
         }

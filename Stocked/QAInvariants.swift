@@ -44,6 +44,32 @@ nonisolated struct QAInvariantResult: Identifiable, Codable, Sendable {
 @MainActor
 enum QAInvariants {
 
+    /// Async variant that yields the main actor between probes. The background
+    /// runner uses THIS — running the whole suite synchronously stalled the main
+    /// thread for long enough during cooking that the iOS watchdog killed the app
+    /// (the "CRASH type=10 signal=9" entries in the diagnostics log).
+    static func runAllYielding(store: GuestDataStore, session: CookNowSession?) async -> [QAInvariantResult] {
+        var out: [QAInvariantResult] = []
+        let probes: [() -> QAInvariantResult] = [
+            { allergenExclusion(store: store, session: session) },
+            { readyRecipesTrulyStocked(store: store, session: session) },
+            { coverageInternalConsistency(store: store) },
+            { homeMatchesCookExact(store: store, session: session) },
+            { reservationMath(store: store) },
+            { lowStockAgreement(store: store) },
+            { expiringAgreement(store: store) },
+            { availabilityFloorRespected(store: store) },
+            { noDuplicateIdentities(store: store) },
+            { discoverPoolReachingClassifier(store: store) },
+            { optionalIngredientsExcluded(store: store) },
+        ]
+        for probe in probes {
+            out.append(probe())
+            await Task.yield()   // let UI/timer work interleave between probes
+        }
+        return out
+    }
+
     /// Run every probe. Ordered so the critical ones surface first in the UI.
     static func runAll(store: GuestDataStore, session: CookNowSession?) -> [QAInvariantResult] {
         var out: [QAInvariantResult] = []

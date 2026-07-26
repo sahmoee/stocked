@@ -87,6 +87,7 @@ struct SettingsPageView: View {
             }
         }
         .navigationTitle("Settings")
+        .qaScreen("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

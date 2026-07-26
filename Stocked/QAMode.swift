@@ -153,15 +153,32 @@ final class QARecorder {
     func setInvariantResults(_ results: [QAInvariantResult]) {
         invariantResults = results
         lastInvariantRun = Date()
-        for r in results where r.status != .ok {
+        // Only true violations enter the event feed. BLOCKED means "not enough data
+        // to judge" — logging those as violations flooded the counters (a session
+        // showed 7 "violations" that were all blocked probes) and buried real bugs.
+        for r in results where r.status == .violation {
             record(.violation, screen: "Invariants", label: r.name, detail: r.detail)
         }
+    }
+
+    // MARK: Tap tracking (aggregate)
+    // Every tap anywhere in the app bumps a per-screen counter while QA mode is on.
+    // Aggregate counts, not per-tap events: a 20-minute session is thousands of taps
+    // and per-tap rows would flush the ring buffer instantly. The counts prove which
+    // screens actually received interaction (pairs with the screens-visited list).
+    private(set) var tapCounts: [String: Int] = [:]
+    var tapTotal: Int { tapCounts.values.reduce(0, +) }
+
+    func tapped() {
+        guard isEnabled else { return }
+        tapCounts[currentScreen, default: 0] += 1
     }
 
     func clear() {
         events = []
         invariantResults = []
         lastInvariantRun = nil
+        tapCounts = [:]
     }
 
     // MARK: Derived
@@ -188,8 +205,22 @@ final class QARecorder {
     var exportText: String {
         var out = ["Stocked QA session — \(Date().formatted())",
                    "Build \(BuildConfig.version) (\(BuildConfig.buildNumber))",
-                   "screens \(screenCount) · attempts \(attemptCount) · failures \(failureCount) · violations \(violationCount)",
+                   "screens \(screenCount) · taps \(tapTotal) · attempts \(attemptCount) · failures \(failureCount) · violations \(violationCount)",
                    ""]
+        if !tapCounts.isEmpty {
+            out.append("TAPS BY SCREEN")
+            for (screen, n) in tapCounts.sorted(by: { $0.value > $1.value }) {
+                out.append("  \(n)× \(screen)")
+            }
+            out.append("")
+        }
+        let crashLog = DiagnosticsMonitor.shared.currentLog()
+        let crashLines = crashLog.split(separator: "\n").filter { $0.contains("CRASH") || $0.contains("HANG") }
+        if !crashLines.isEmpty {
+            out.append("DEVICE CRASH/HANG LOG (MetricKit)")
+            for l in crashLines.suffix(20) { out.append("  \(l)") }
+            out.append("")
+        }
         if !invariantResults.isEmpty {
             out.append("INVARIANTS")
             for r in invariantResults {

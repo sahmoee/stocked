@@ -79,7 +79,12 @@ final class QABackgroundRunner {
     /// check inside `runNow`, so calling it liberally is safe.
     func runSoon() {
         guard QARecorder.shared.isEnabled else { return }
-        Task { await runNow(force: false) }
+        // Small debounce so a burst of mutations (finishing a cook fires several)
+        // becomes one run, and it never lands on the exact frame of a transition.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            await runNow(force: false)
+        }
     }
 
     // MARK: Running
@@ -101,11 +106,17 @@ final class QABackgroundRunner {
 
     func runNow(force: Bool) async {
         guard QARecorder.shared.isEnabled, !isRunning, let store else { return }
+        // WATCHDOG FIX: never auto-run while the user is actively mid-cook — the
+        // classification probes are the heaviest main-actor work in the app, and
+        // stacking them on live timer ticks froze Cook Now badly enough for iOS
+        // to SIGKILL the app. Manual runs (force) are still allowed.
+        if !force, let snap = ActiveCookSessionStore.shared.resumable, snap.status == .active { return }
         let sig = signature(store)
         if !force && sig == lastSignature { return }
 
         isRunning = true
-        let results = QAInvariants.runAll(store: store, session: session)
+        surfaceNewCrashes()
+        let results = await QAInvariants.runAllYielding(store: store, session: session)
         QARecorder.shared.setInvariantResults(results)
         lastSignature = sig
         runCount += 1
@@ -115,6 +126,27 @@ final class QABackgroundRunner {
         if autoPublish && !violations.isEmpty {
             await publish()
         }
+    }
+
+    // MARK: Crash surfacing
+
+    /// MetricKit delivers crash/hang diagnostics up to a day after they happen.
+    /// Each run, diff the persisted device log and turn NEW crash/hang lines into
+    /// QA failure events — so a watchdog kill from yesterday is impossible to miss
+    /// in today's session feed and in every exported/published report.
+    private func surfaceNewCrashes() {
+        let log = DiagnosticsMonitor.shared.currentLog()
+        let lines = log.split(separator: "\n").map(String.init)
+            .filter { $0.contains("CRASH") || $0.contains("HANG") }
+        let seenKey = "qa.crashLinesSeen_v1"
+        let seen = UserDefaults.standard.integer(forKey: seenKey)
+        guard lines.count > seen else { return }
+        for line in lines.suffix(lines.count - seen) {
+            QARecorder.shared.record(.failure, screen: "Device",
+                                     label: line.contains("CRASH") ? "Crash detected (MetricKit)" : "Hang detected (MetricKit)",
+                                     detail: line)
+        }
+        UserDefaults.standard.set(lines.count, forKey: seenKey)
     }
 
     // MARK: Publishing
@@ -136,7 +168,12 @@ final class QABackgroundRunner {
             "failures": recorder.failureCount,
             "violations": recorder.violationCount,
             "unresolvedAttempts": recorder.unresolvedAttempts.count,
+            "taps": recorder.tapTotal,
         ]
+        let crashLines = DiagnosticsMonitor.shared.currentLog()
+            .split(separator: "\n").map(String.init)
+            .filter { $0.contains("CRASH") || $0.contains("HANG") }
+        health["recentCrashes"] = Array(crashLines.suffix(10))
         if let store {
             health["inventoryItems"] = store.inventoryItems.count
             health["savedRecipes"] = store.userRecipes.count

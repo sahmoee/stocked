@@ -185,6 +185,10 @@ struct RootView: View {
             .zIndex(1500)
             .allowsHitTesting(true)
 
+            // QA tap counter — transparent passthrough layer, active only in QA mode.
+            QATapTracker()
+                .zIndex(2400)
+
             // QA bubble — renders nothing unless QA mode is on (Settings → App Health).
             QAFloatingBubble()
                 .environment(session)

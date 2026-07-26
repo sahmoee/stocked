@@ -895,6 +895,7 @@ struct CookingFlashcardView: View {
     private func bootstrapSessionRecord() {
         guard !didBootstrapRecord else { return }
         didBootstrapRecord = true
+        QARecorder.shared.enteredScreen("Cooking Flashcards")
         timerEngine.recipeTitle = recipeTitle
         timerEngine.totalSteps  = steps.count
         timerEngine.onStateChange = { captureSessionSnapshot() }

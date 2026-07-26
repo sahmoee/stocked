@@ -227,6 +227,7 @@ struct ReceiptScannerView: View {
             }
         }
         .onAppear { loadArchive() }
+        .qaScreen("Receipt Scanner")
     }
 
     // MARK: - Instructions
