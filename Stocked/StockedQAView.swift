@@ -676,7 +676,7 @@ struct StockedQAGateView: View {
     }
 
     private func tryUnlock() {
-        if code == Self.qaCode {
+        if code.trimmingCharacters(in: .whitespaces).lowercased() == Self.qaCode.lowercased() {
             wrong = false
             withAnimation { unlocked = true }
         } else {

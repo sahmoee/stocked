@@ -185,6 +185,11 @@ struct RootView: View {
             .zIndex(1500)
             .allowsHitTesting(true)
 
+            // QA bubble — renders nothing unless QA mode is on (Settings → App Health).
+            QAFloatingBubble()
+                .environment(session)
+                .zIndex(2500)
+
             // Global household-sync progress prompt — shows on whichever device is syncing
             // (creator, joiner, or a member receiving a push), with success/failure.
             HouseholdSyncProgress()

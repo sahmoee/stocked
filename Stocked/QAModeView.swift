@@ -60,6 +60,7 @@ struct QAModeView: View {
             if recorder.isEnabled {
                 sessionSection
                 invariantSection
+                diagnosticsSection
                 eventSection
                 bridgeSection
             }
@@ -134,6 +135,84 @@ struct QAModeView: View {
             Text("Invariants")
         } footer: {
             Text("These compare two surfaces that must agree. A violation is a bug in the app, not a test failure. Blocked means there was not enough data to judge — the message says what to add. Runs automatically every two minutes and after meaningful changes.")
+        }
+    }
+
+    // MARK: Full diagnostics
+
+    @State private var diagReport: QADiagnosticsReport?
+    @State private var diagRunning = false
+    @State private var diagUploadResult: String?
+
+    private var diagnosticsSection: some View {
+        Section {
+            Button {
+                guard !diagRunning else { return }
+                diagRunning = true
+                diagUploadResult = nil
+                Task { @MainActor in
+                    diagReport = await QAFullDiagnostics.run(store: store, session: nil)
+                    diagRunning = false
+                }
+            } label: {
+                Label(diagRunning ? "Running full sweep…" : "Run Full Diagnostics",
+                      systemImage: "stethoscope")
+            }
+            .disabled(diagRunning)
+
+            if let report = diagReport {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(report.verdict)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(report.violationCount == 0 ? .green : .red)
+                    Text("\(report.sections.count) areas · \(report.sections.flatMap(\.rows).count) checks · \(String(format: "%.1f", report.duration))s")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                ForEach(report.sections) { sec in
+                    DisclosureGroup {
+                        ForEach(sec.rows) { r in
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 7) {
+                                    Image(systemName: symbol(r.status)).foregroundStyle(color(r.status))
+                                    Text(r.name).font(.caption.weight(.medium))
+                                }
+                                Text(r.detail).font(.caption2).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text(sec.title).font(.subheadline)
+                            Spacer()
+                            let bad = sec.rows.filter { $0.status == .violation }.count
+                            if bad > 0 {
+                                Text("\(bad)").font(.caption2.bold()).foregroundStyle(.red)
+                            } else {
+                                Image(systemName: "checkmark").font(.caption2).foregroundStyle(.green)
+                            }
+                        }
+                    }
+                }
+                ShareLink(item: report.exportText) {
+                    Label("Export report", systemImage: "square.and.arrow.up")
+                }
+                Button {
+                    Task { @MainActor in
+                        do {
+                            let ref = try await StockedDiagnosticsUploader.upload(session: session)
+                            diagUploadResult = "Uploaded — reference \(ref)"
+                        } catch { diagUploadResult = error.localizedDescription }
+                    }
+                } label: {
+                    Label("Upload to support (STK- reference)", systemImage: "paperplane")
+                }
+                if let diagUploadResult {
+                    Text(diagUploadResult).font(.caption).foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+        } header: { Text("Full diagnostics") } footer: {
+            Text("One tap sweeps every layer: the invariant suite plus live Worker health, remote config, connectivity, sync, notification budget, data integrity, storage, and the cook-session record.")
         }
     }
 
