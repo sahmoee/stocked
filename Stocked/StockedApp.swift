@@ -255,6 +255,10 @@ struct RootView: View {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
             // Deferred remote-config fetch (kill switches, maintenance, min version).
             StockedRemoteConfig.shared.startDeferredLaunchFetch()
+            #if targetEnvironment(macCatalyst)
+            // Mac app: minimum window size + hidden title bar (see MacCatalystSupport).
+            MacWindowSupport.configureWindows()
+            #endif
             // QA automation: if QA mode was left enabled, the invariant runner starts
             // by itself at launch — no need to visit the QA screen first.
             if QARecorder.shared.isEnabled {
