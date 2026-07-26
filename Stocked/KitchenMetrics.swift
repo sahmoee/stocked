@@ -19,9 +19,27 @@ import Foundation
 /// main-actor-by-default mode.
 nonisolated enum KitchenThresholds {
     /// Days-until-expiry at or under which an item counts as "expiring soon".
+    /// Previously ALSO written as `86400 * 3` (Daily Brief notification),
+    /// `86400 * 5` (Daily Brief list), and `d <= 3` (Inventory hub chips) —
+    /// four windows for one concept. Everything reads this now.
     static let expiringSoonDays = 4
+
     /// Fill level under which a non-par item counts as "running low".
+    /// Previously ALSO written as 0.2 (widget, Daily Brief x2) and 0.33
+    /// (inventory details sheet) — so the same jar was "low" on one screen and
+    /// fine on another. Everything reads this now.
     static let lowFillLevel = 0.25
+
+    /// Fill level under which an item is near-empty rather than merely low.
+    /// The widget and notification copy want a tighter bar than the grocery
+    /// suggestions do; this is that bar, named instead of inlined as 0.2.
+    static let criticalFillLevel = 0.1
+
+    /// Fill level at or above which an item reads as "Full" in the fill-word
+    /// labels, with the midpoint below it reading as "Half". Was inlined as
+    /// 0.66 / 0.33 in three views.
+    static let fullFillLevel = 0.66
+    static let halfFillLevel = 0.33
 }
 
 /// A snapshot of the kitchen's headline numbers, computed once from the store.

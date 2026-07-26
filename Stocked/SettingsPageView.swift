@@ -28,6 +28,7 @@ struct SettingsPageView: View {
         case storePopout, household, recipeSources, appIcon
         case transfer, notifications, dataStorage
         case helpCenter, editProfile
+        case qa
         var id: Int { rawValue }
     }
     @State private var activeSheet: Sheet? = nil
@@ -70,6 +71,14 @@ struct SettingsPageView: View {
                         helpContent
                     }
 
+                    // QA — code-gated release checklist (Checkbook v4.13.69) with the
+                    // Worker bridge to the StockedQA companion app. Deliberately last.
+                    settingsSectionRow(icon: "checklist", tint: Color.stockedCharcoal,
+                                       title: "QA",
+                                       subtitle: "Release checklist · testers only") {
+                        activeSheet = .qa
+                    }
+
                     BuildInfoFooter()
                         .padding(.top, 10)
                     Color.clear.frame(height: 30)
@@ -100,6 +109,7 @@ struct SettingsPageView: View {
             case .dataStorage:   DataStorageView().environment(session)
             case .helpCenter:    HelpCenterSheet().environment(session)
             case .editProfile:   EditProfileView().environment(session)
+            case .qa:            StockedQAGateView().environment(session)
             }
         }
         .alert("Erase All Data?", isPresented: $showClearAlert) {
@@ -381,6 +391,28 @@ struct SettingsPageView: View {
                        detail: "Usage, migration · Backs up \(session.backupFrequency.rawValue.lowercased())") {
             activeSheet = .dataStorage
         }
+        // Improvement #20 — one screen over the Worker, crash/hang history, sync conflicts, cache
+        // and storage. Also the only route to SyncDiagnosticsView, which was built and never linked.
+        NavigationLink {
+            StockedHealthView()
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 7).fill(Color.stockedGreen).frame(width: 28, height: 28)
+                    Image(systemName: "waveform.path.ecg").font(.system(size: 13)).foregroundStyle(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("App Health").font(.system(size: 14, design: .serif))
+                        .foregroundStyle(session.themeTextColor)
+                    Text("Server, stability, sync and cache")
+                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 11))
+                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+            }
+        }
+        .buttonStyle(.plain)
         Button { showClearAlert = true } label: {
             HStack(spacing: 12) {
                 ZStack {

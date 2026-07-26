@@ -3,6 +3,7 @@ import SwiftUI
 import CoreLocation
 import Combine
 import os
+import CoreSpotlight
 
 // MARK: - Location Manager
 @Observable
@@ -87,10 +88,16 @@ struct StockedApp: App {
             if phase != .active {
                 DebouncedDefaults.shared.flushAll()
                 session.guestStore.flushPendingSaves()   // #4 — force batched data saves to disk
+                StockedFeatureStores.flushAll()          // #6 — same for the feature stores
                 WidgetBridge.refresh(store: session.guestStore)   // keep widgets current
             }
             // #19 — handle Siri-shortcut launch intents when we come to the foreground.
             if phase == .active {
+                // #14 — one data point for when this user is actually reachable. Used to nudge
+                // reminder delivery toward a time they'll see it, within bounds they chose.
+                NotificationEngagement.shared.recordAppOpen()
+                // Keep the derived inventory index fresh so the first screen doesn't rebuild it.
+                InventoryIndex.shared.refreshIfNeeded(session.guestStore)
                 // Pull the latest household state right away so returning to the app shows
                 // changes other members made while we were backgrounded.
                 HouseholdSync.shared.syncOnForeground()
@@ -133,6 +140,7 @@ struct StockedApp: App {
 struct RootView: View {
     @Environment(AppSession.self) var session
     @State private var splashDone = false
+    @State private var nameEntry = ""   // FR-03: bound to the Apple name-entry prompt
 
     var body: some View {
         ZStack {
@@ -152,13 +160,13 @@ struct RootView: View {
                     .environment(\.stockedDevice,
                         UIDevice.current.userInterfaceIdiom == .pad ? .tablet : .regular)
                     .stockedToasts()
-            } else if session.isLoggedIn && session.transferManager.isCheckingForExistingAccount {
-                // A logged-in user's first-launch iCloud restore check is running. Hold on the
-                // splash rather than flashing the onboarding quiz — if they have an existing
-                // Stocked backup, the check will restore it and flip quizCompleted, sending them
-                // straight to the app. Only if there's no backup do we fall through to the quiz.
-                SplashView()
             } else if session.isLoggedIn {
+                // FR-02 FIX: the old "isCheckingForExistingAccount → SplashView()" branch was
+                // removed. It existed only to hold the screen during the launch iCloud auto-restore
+                // (also removed, FR-01). With auto-restore gone that branch could only ever show a
+                // bare splash with no way forward — which is the "skip onboarding → blank until
+                // relaunch" bug. A logged-in user with onboarding not yet complete belongs on the
+                // quiz, full stop.
                 OnboardingQuiz()
             } else {
                 LoginView()
@@ -182,6 +190,51 @@ struct RootView: View {
                 .zIndex(2000)
 
         }
+        // FR-01 FIX (point 4): consent prompt for restoring an existing iCloud backup after
+        // Sign in with Apple. Nothing is pulled from iCloud unless the user taps Restore.
+        .alert("Restore your Stocked data?", isPresented: Binding(
+            get: { session.pendingICloudRestoreOffer },
+            set: { if !$0 { session.pendingICloudRestoreOffer = false } })) {
+            Button("Restore from iCloud") {
+                session.pendingICloudRestoreOffer = false
+                // The backup carries the user's real name, so no name prompt is needed.
+                session.pendingAppleNamePrompt = false
+                session.transferManager.restoreFromiCloud(into: session.guestStore, merge: true)
+            }
+            Button("Start Fresh", role: .cancel) {
+                session.pendingICloudRestoreOffer = false
+            }
+        } message: {
+            Text("This Apple ID has a saved Stocked backup. Restore your previous setup — inventory, recipes, settings, and onboarding — or start fresh and take the quiz again.")
+        }
+        // FR-03 FIX: name-entry prompt when Sign in with Apple gave no name. Gated so it never
+        // fights the restore prompt — if a restore is offered, we wait for that decision first
+        // (restoring brings the real name back and clears this).
+        .alert("What should we call you?", isPresented: Binding(
+            get: { session.pendingAppleNamePrompt && !session.pendingICloudRestoreOffer },
+            set: { if !$0 { session.pendingAppleNamePrompt = false } })) {
+            TextField("Your name", text: $nameEntry)
+                .textInputAutocapitalization(.words)
+            Button("Save") {
+                let n = nameEntry.trimmingCharacters(in: .whitespaces)
+                if !n.isEmpty {
+                    session.updateName(n)
+                    // Persist to the Keychain vault so it survives future reinstalls too.
+                    if !session.appleUserID.isEmpty {
+                        AppleProfileVault.remember(userID: session.appleUserID,
+                                                   firstName: n, fullName: n, email: "")
+                    }
+                }
+                session.pendingAppleNamePrompt = false
+                nameEntry = ""
+            }
+            Button("Not now", role: .cancel) {
+                session.pendingAppleNamePrompt = false
+                nameEntry = ""
+            }
+        } message: {
+            Text("Apple didn't share your name this time. Add it so Stocked can greet you properly — you can change it later in Settings.")
+        }
         // No .animation(value:) — causes CATransaction fence timeout on iPad
         // when splashDone + quizCompleted + isLoggedIn all change together.
         .preferredColorScheme(session.isDarkMode ? .dark : .light)
@@ -195,15 +248,20 @@ struct RootView: View {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
             // Deferred remote-config fetch (kill switches, maintenance, min version).
             StockedRemoteConfig.shared.startDeferredLaunchFetch()
-            // Restored in Build 140 (these run identically on iPhone, which doesn't crash,
-            // so they're not the iPad-only cause). Build 140 isolates the iPad tab-mounting.
-            KitchenTransferManager.autoRestoreOnNewDeviceIfNeeded(into: session)
+            // FR-01 FIX: the launch-time iCloud auto-restore was REMOVED. It ran for guests,
+            // before login, with no consent, and re-imported a CloudKit backup that survives app
+            // deletion — which is what made a "fresh" install come up with 94% stock, dark mode,
+            // skipped onboarding, and a blank splash while the CloudKit fetch ran. A fresh install
+            // must be empty and light. Restore is now explicit only: Settings ▸ Restore from
+            // iCloud, or the consent prompt after Sign in with Apple (see LoginView).
             // LAG FIX: image + nutrition backfills are pure background maintenance; starting
             // them on the first frame competed with initial render/sync. Defer a few seconds.
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 4_000_000_000)
                 RecipeImageResolver.backfillMissingImagesIfNeeded()
                 NutritionBackfill.runIfNeeded()
+                // #17 — index recipes + inventory for system Spotlight search.
+                SpotlightIndexer.reindex(store: session.guestStore)
             }
             SharedPantrySync.shared.startObserving(store: session.guestStore)
             // Start automatic household sync so changes from other members appear on their own,
@@ -215,7 +273,7 @@ struct RootView: View {
             // runs once). UserDefaults remains the source of truth until the Checkpoint 2
             // cutover; this just builds and keeps a verified parallel mirror.
             Task { @MainActor in
-                DataMigration.runIfNeeded(from: session.guestStore)
+                _ = await DataMigration.runIfNeeded(from: session.guestStore)
             }
         }
         .onChange(of: session.isDarkMode) { _, dark in
@@ -247,6 +305,31 @@ struct RootView: View {
             } else if url.isFileURL {
                 _ = mgr.importFromURL(url, into: session.guestStore, merge: true)
             }
+        }
+        // Universal links (improvement #3): HTTPS links on the associated domain — e.g. a
+        // scanned container-label QR `https://sowensstudios.com/l/<uuid>` — arrive as a
+        // web-browsing user activity, not via onOpenURL. Route them to the same surfaces.
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let web = activity.webpageURL,
+                  web.host?.contains("sowensstudios.com") == true else { return }
+            let parts = web.pathComponents.filter { $0 != "/" }
+            switch parts.first {
+            case "l":                                       // container label
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.inventory)
+            case "grocery":
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.grocery)
+            case "cook":
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.cook)
+            case "recipes":
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
+            default:
+                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.home)
+            }
+        }
+        // #17 — a tapped Spotlight result opens the matching hub.
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String else { return }
+            NotificationCenter.default.post(name: .stockedSwitchTab, object: SpotlightIndexer.route(for: id))
         }
     }
 }

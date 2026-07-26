@@ -559,12 +559,13 @@ struct ExpiringItemsView: View {
         case .expiring:
             return store.inventoryItems.filter { item in
                 guard !store.isSnoozed(item.id) else { return false }   // hide snoozed items
-                guard let exp = item.expirationDate else { return false }
-                return exp.timeIntervalSinceNow < 86400 * 5
+                // WAS: a 5-day window here against a 3-day window in the
+                // brief's own notification and 4 days everywhere else.
+                return item.isExpiringSoon
             }.sorted { ($0.expirationDate ?? .distantFuture) < ($1.expirationDate ?? .distantFuture) }
         case .lowStock:
-            return store.inventoryItems.filter { $0.level < 0.2 }
-                .sorted { $0.level < $1.level }
+            return store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }
+                .sorted { $0.effectiveLevel < $1.effectiveLevel }
         }
     }
 

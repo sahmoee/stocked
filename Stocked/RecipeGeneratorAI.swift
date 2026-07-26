@@ -26,6 +26,13 @@ nonisolated enum RecipeGeneratorAI {
         var haveItems: [String] = []      // ingredients the user already has
         var dietary: String? = nil        // e.g. "vegetarian", "gluten-free"
         var maxTime: String? = nil        // e.g. "30 minutes"
+        /// SAFETY: the user's saved allergen/dislike profile. This was MISSING
+        /// entirely — the generator only ever saw the free-text `dietary` chip,
+        /// so it could compose a recipe around an ingredient the user had
+        /// recorded an allergy to, while Cook Now refused that same recipe.
+        /// Now sent to the Worker as an explicit constraint AND enforced on the
+        /// response, so a model that ignores the instruction is still caught.
+        var dietaryRules: DietaryGuard.Rules = .none
     }
 
     /// Generate a recipe from a description. Returns nil if offline, unconfigured, the Worker
@@ -42,8 +49,15 @@ nonisolated enum RecipeGeneratorAI {
         let cleanHave = options.haveItems
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        if !cleanHave.isEmpty { payload["haveItems"] = cleanHave }
+        // Screen the "have" list before it is sent, so an allergen sitting in the
+        // pantry is never offered to the model as a building block.
+        let safeHave = DietaryGuard.safeIngredients(cleanHave, rules: options.dietaryRules)
+        if !safeHave.isEmpty { payload["haveItems"] = safeHave }
         if let d = options.dietary?.trimmingCharacters(in: .whitespaces), !d.isEmpty { payload["dietary"] = d }
+        if let constraint = DietaryGuard.promptConstraint(rules: options.dietaryRules) {
+            payload["restrictions"] = constraint
+            payload["allergens"] = options.dietaryRules.allergens
+        }
         if let t = options.maxTime?.trimmingCharacters(in: .whitespaces), !t.isEmpty { payload["maxTime"] = t }
 
         let responseText: String
@@ -57,6 +71,16 @@ nonisolated enum RecipeGeneratorAI {
         }
         guard let recipe = parse(responseText) else {
             Log.app.error("RecipeGeneratorAI: worker text didn't parse into a recipe.")
+            return nil
+        }
+        // SAFETY BACKSTOP: never hand back a generated recipe that hits a saved
+        // allergen, even if the model ignored the prompt constraint. A model
+        // instruction is a request; this is the enforcement.
+        let hits = DietaryGuard.allergenHits(ingredientLines: recipe.ingredients.map(\.name),
+                                             title: recipe.title,
+                                             rules: options.dietaryRules)
+        if !hits.isEmpty {
+            Log.app.error("RecipeGeneratorAI: discarded a generated recipe that hit a saved allergen.")
             return nil
         }
         return recipe

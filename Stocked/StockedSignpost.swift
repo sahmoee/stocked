@@ -66,7 +66,10 @@ nonisolated enum StockedSignpost {
 
 /// MetricKit subscriber. Register once at launch via `StockedMetrics.shared.start()`.
 /// nonisolated: MetricKit delivers payloads on a background queue (see header comment).
-nonisolated final class StockedMetrics: NSObject, MXMetricManagerSubscriber {
+/// @unchecked Sendable: the only mutable state is `started`, written once from start() on the
+/// main thread at launch (see its note); every other stored property is an immutable Sendable
+/// `let`. This is what makes `static let shared` concurrency-safe on a nonisolated class.
+nonisolated final class StockedMetrics: NSObject, MXMetricManagerSubscriber, @unchecked Sendable {
     static let shared = StockedMetrics()
     private let log = Logger(subsystem: StockedSignpost.subsystem, category: "metrics")
     // Written only from start(), which the app calls exactly once from StockedApp.init

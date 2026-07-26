@@ -559,7 +559,11 @@ struct ReceiptScannerView: View {
             onToggle: { lineItems[index].isChecked.toggle() },
             onCorrect: { corrected in
                 ReceiptAbbreviationDatabase.shared.recordCorrection(raw: item.rawText, corrected: corrected)
-                session.guestStore.learnOCRCorrection(raw: item.rawText, resolved: corrected)
+                // #13 — the store is recorded alongside the correction so two chains that use the
+                // same abbreviation for different products stop overwriting each other.
+                session.guestStore.learnOCRCorrection(
+                    raw: item.rawText, resolved: corrected,
+                    store: detectedStore.isEmpty ? session.preferredStore : detectedStore)
                 AICorrectionStore.shared.record(kind: .itemName, original: item.rawText,
                                                 predicted: item.resolved, final: corrected,
                                                 outcome: corrected == item.resolved ? .accepted : .edited)
@@ -1201,7 +1205,9 @@ extension ReceiptScannerView {
                 raw: raw,
                 aiResolved: aiResolved,
                 storeName: storeHint,
-                learnedTranslation: session.guestStore.translateOCR(raw),
+                // #13 — store-scoped and fuzzy, so a correction learned on a previous receipt from
+                // this chain applies even when the line has a different weight or promo suffix.
+                learnedTranslation: session.guestStore.translateOCR(raw, store: storeHint),
                 abbreviationTranslation: abbreviationDB.lookup(raw)
             ) else { return nil }
 
@@ -1332,7 +1338,9 @@ struct LiveTextScannerPanel: UIViewControllerRepresentable {
         weak var vc: DataScannerViewController?
         var onCapture: ((String) -> Void)?
         var onCaptureImage: ((UIImage) -> Void)?
-        var shutterObserver: Any?
+        // nonisolated(unsafe): only assigned on the main actor, and read once from the (always
+        // nonisolated) deinit to unregister the observer — no concurrent access, so it's safe.
+        nonisolated(unsafe) var shutterObserver: Any?
 
         deinit {
             if let obs = shutterObserver {

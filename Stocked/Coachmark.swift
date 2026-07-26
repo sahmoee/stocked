@@ -60,9 +60,27 @@ struct CoachmarkAnchorKey: PreferenceKey {
 
 extension View {
     /// Tag a view so a coachmark spotlight step can glow around it.
+    ///
+    /// Also registers the same id with `.id(_:)` so the coachmark engine can scroll the element
+    /// into view before spotlighting it. Without this, a spotlight step whose target is below the
+    /// fold fell back to a floating centered card that referenced something the user couldn't see —
+    /// the "Not sure what area this prompt is referencing to" bug. The scroll container
+    /// (`StockedShell`) listens for `.coachmarkScrollTo` and scrolls to this id.
+    ///
+    /// Safe on every current call site: all anchors are static sections, grid cells, or ForEach
+    /// rows with stable identity — none is inside a `List`, and the id strings are unique.
     func coachmarkAnchor(_ id: String) -> some View {
         anchorPreference(key: CoachmarkAnchorKey.self, value: .bounds) { [id: $0] }
+            .id(id)
     }
+}
+
+// MARK: - Scroll coordination
+
+extension Notification.Name {
+    /// Posted by the coachmark engine with the anchor id (as `object`) when a spotlight step
+    /// becomes active. `StockedShell` scrolls that id to center.
+    static let coachmarkScrollTo = Notification.Name("coachmarkScrollTo")
 }
 
 // MARK: - Seen tracking
@@ -126,14 +144,24 @@ private struct CoachmarkHost: ViewModifier {
                 if !CoachmarkStore.hasSeen(page) && !steps.isEmpty {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
                         withAnimation(.easeInOut(duration: 0.3)) { active = true }
+                        scrollToCurrent()
                     }
                 }
             }
     }
 
+    /// Bring the current step's target on-screen if it's a spotlight step. No-op for card steps.
+    /// The anchor's reported rect updates automatically once the scroll settles, so the glow and
+    /// callout re-resolve to the new position.
+    private func scrollToCurrent() {
+        guard index < steps.count, case let .spotlight(anchorID) = steps[index].kind else { return }
+        NotificationCenter.default.post(name: .coachmarkScrollTo, object: anchorID)
+    }
+
     private func advance() {
         if index + 1 < steps.count {
             withAnimation(.easeInOut(duration: 0.25)) { index += 1 }
+            scrollToCurrent()
         } else {
             finish()
         }

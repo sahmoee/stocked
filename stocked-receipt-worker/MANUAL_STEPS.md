@@ -184,3 +184,66 @@ can redeploy the old worker at any time without an app update.
 - `fetch(request, env)` → `fetch(request, env, ctx)` with `waitUntil`.
 - Anthropic call → timeout + circuit breaker + Haiku fallback + output validation.
 - New endpoints added; none change existing routes.
+
+---
+
+## The 20 features (all on the Worker — cPanel abandoned)
+
+Deploy with `wrangler deploy`. Everything works out of the box or 501s cleanly with
+`{code:"notConfigured", need:"…"}` until you add the listed secret/binding — nothing crashes.
+
+| # | Feature | Endpoint | Status / needs |
+|---|---|---|---|
+| — | Recipe feed (was cPanel) | `GET /content/recipes` | **Live** — now serves from GitHub site‑repo (`CONTENT_ORIGIN`) |
+| 1 | API‑key proxy | `GET /proxy/{spoonacular\|usda\|apininjas\|edamam\|rapidapi}/…` | needs that service's secret |
+| 2 | Server‑side recipe fetch/scrape | `GET /recipes/fetch?url=` | **Live** (JSON‑LD + HTML, 12h cache) |
+| 3 | Realtime household sync | `GET /realtime/household` | scaffold — add WS to HouseholdDO |
+| 4 | Push notifications | `POST /push/register` | needs `APNS_KEY_P8/ID/TEAM_ID` (scaffold) |
+| 5 | Household invite links | `POST /household/invite` | **Live** (link); email needs SMTP secrets |
+| 6 | Price‑drop watch | `POST /prices/watch` | needs `FEATURES_KV` |
+| 7 | Per‑user AI quota | (automatic on AI routes) | needs `FEATURES_KV` + optional `AI_DAILY_LIMIT` |
+| 8 | (price watch cron) | scheduled | uses `FEATURES_KV` |
+| 9 | Feature flags | `GET /configuration` | **Live** (extend in config.js) |
+| 10 | AI abuse limits | native rate‑limit | **Live** |
+| 11 | Substitutions | `GET /crowd/substitutions?name=` | **Live** (built‑in table + crowd) |
+| 12 | Live grocery collab | (DO) | scaffold — same WS work as #3 |
+| 13 | Image mirror | `POST /media/image`, `GET /media/…` | needs `MEDIA` R2 bucket |
+| 14 | Analytics / price history | `POST /analytics/event` | needs `DB` (D1); no‑op accepted otherwise |
+| 15 | Feedback / screenshot upload | `POST /media/feedback` | needs `MEDIA` R2 bucket |
+| 16 | Encrypted backups | `POST /backup`, `GET /backup` | needs `FEATURES_KV` |
+| 17 | Content packs | `GET /content/pack/{name}` | **Live** (from `CONTENT_ORIGIN`/content/packs) |
+| 18 | Nutrition lookup | `GET /nutrition/lookup?q=` | needs `USDA_KEY` |
+| 19 | Store directory | `GET /stores` | **Live** (built‑in) |
+| 20 | Universal Links (AASA) | `GET /.well-known/apple-app-site-association` | **Live** (set `APPLE_TEAM_ID`) |
+
+To enable the binding‑gated ones, uncomment the block in `wrangler.toml`, create the resource
+(`wrangler kv namespace create FEATURES_KV`, `wrangler r2 bucket create stocked-media`,
+`wrangler d1 create stocked-analytics`), paste the id, and redeploy. For key‑gated ones:
+`wrangler secret put SPOONACULAR_KEY` (etc.).
+
+---
+
+## Smart routes (v2026-07-17.2 — fully functional, no bindings/secrets needed)
+
+All key-gated like the rest; pure logic, deterministic, unit-tested (`tests/smart.test.mjs`, 16 tests):
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/units/convert` | GET | Volume↔mass unit conversion via ingredient density |
+| `/units/parse` | GET | Parse "1 1/2 cups flour" → {value, unit, ingredient} |
+| `/units/temperature` | GET | Oven °F ↔ °C ↔ gas mark |
+| `/recipe/scale` | POST | Scale ingredient lines to a factor or target servings |
+| `/recipe/pantry-match` | POST | Makeability score + missing ingredients |
+| `/ingredients/normalize` | POST | Canonicalize ingredient names |
+| `/ingredients/substitute` | GET | Substitutions w/ ratios + `?diet=vegan` filter |
+| `/grocery/optimize` | POST | Dedupe, merge quantities, aisle-sort a list |
+| `/grocery/from-recipes` | POST | Combined shopping list across recipes |
+| `/nutrition/estimate` | POST | kcal/protein/carbs/fat estimate |
+| `/expiry/estimate` | GET | Shelf-life days (crowd-aware via CROWD KV) |
+| `/season/produce` | GET | In-season produce by month |
+| `/meal-plan/suggest` | POST | Meals you can mostly make from your pantry |
+| `/barcodes/batch` | POST | Resolve up to 25 barcodes in one call |
+| `/experiment` | GET | Deterministic A/B bucket for a session |
+
+Worker-wide upgrades: `GET /version` (capability list), `GET /health?deep=1` (probes KV/DO with timings),
+`Server-Timing` + `X-Request-Id` on every response, global `MAINTENANCE=1` kill-switch, `GET /ops/echo`.

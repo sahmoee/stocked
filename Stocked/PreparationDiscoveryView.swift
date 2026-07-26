@@ -293,9 +293,8 @@ struct PreparationDiscoveryView: View {
             .padding(.horizontal, CookStyle.screenHPad + 8)
     }
 
+    // Shared matcher — was a sixth copy of the substring rule.
     private func looseContains(_ a: String, _ b: String) -> Bool {
-        let na = a.lowercased(), nb = b.lowercased()
-        guard na.count > 2, nb.count > 2 else { return na == nb }
-        return na.contains(nb) || nb.contains(na)
+        KitchenAvailability.nameMatches(a, b)
     }
 }

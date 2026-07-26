@@ -1150,7 +1150,8 @@ struct InventoryItemRow: View {
     private var batteryColor: Color {
         if item.isExpired { return .red }
         if item.isExpiringSoon { return .orange }
-        return item.effectiveLevel < 0.25 ? .red : item.effectiveLevel < 0.5 ? Color.stockedGold : Color.stockedGreen
+        return item.effectiveLevel < KitchenThresholds.lowFillLevel ? .red
+             : item.effectiveLevel < 0.5 ? Color.stockedGold : Color.stockedGreen
     }
     // #241 — exact mockup quantity line: count when >1, otherwise the fill word.
     private var qtyLine: String {

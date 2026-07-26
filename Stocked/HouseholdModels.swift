@@ -189,6 +189,12 @@ nonisolated enum HouseholdEntityType: String, Codable, Sendable {
     case savedRecipe
     case plannedMeal
     case householdActivity
+    /// Launch readiness 1.4 — the generic bucket for the feature collections (leftovers, family,
+    /// events, shared costs, store layouts, harvests, labels, takeout). One case for all eight:
+    /// the queue only exists to trigger pushes and mark ids locked, and push sends full state,
+    /// so per-collection cases would add nothing but enum churn. Decode-safe: the raw value only
+    /// appears in queues written after this ships.
+    case featureData
 }
 
 /// What happened to the entity.

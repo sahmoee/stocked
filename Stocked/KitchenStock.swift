@@ -68,13 +68,17 @@ enum KitchenStock {
         categoryOf[staple.lowercased()] ?? .other
     }
 
-    /// A staple counts as in-stock if any in-stock inventory name contains it (or vice versa),
-    /// so "Milk" matches "Whole Milk" and "Eggs" matches "Large Eggs". `inStock` is the set of
-    /// lowercased names from GuestDataStore.inStockNameSet.
+    /// A staple counts as in-stock when it name-matches any available inventory
+    /// item, so "Milk" matches "Whole Milk" and "Eggs" matches "Large Eggs".
+    /// `inStock` is the set of lowercased names from GuestDataStore.inStockNameSet.
+    ///
+    /// WAS: raw two-way substring containment, which also made "Oil" match
+    /// "Olive Oil Spray" and any short staple match far too much. NOW: the
+    /// shared boundary-aware rule, so the Kitchen Health staple percentage
+    /// agrees with what Cook and Recipes think you have.
     static func isInStock(_ staple: String, inStock: Set<String>) -> Bool {
-        let s = staple.lowercased()
-        guard !s.isEmpty else { return false }
-        return inStock.contains { $0.contains(s) || s.contains($0) }
+        guard !staple.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        return KitchenAvailability.isPresent(staple, inNames: inStock)
     }
 
     /// 0–100. Empty staples → 0.

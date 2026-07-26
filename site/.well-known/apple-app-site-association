@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.sowens.Stocked"],
+        "components": [
+          { "/": "/l/*", "comment": "Container label QR codes" },
+          { "/": "/grocery", "comment": "Grocery list" },
+          { "/": "/cook", "comment": "Cook hub" },
+          { "/": "/recipes", "comment": "Recipes hub" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["TEAMID.com.sowens.Stocked"]
+  }
+}

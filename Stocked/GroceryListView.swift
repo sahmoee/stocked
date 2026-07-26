@@ -127,10 +127,23 @@ struct GroceryListView: View {
         return aisleOrder.first { lower.contains($0.key) }?.value ?? 99
     }
     private func sortForShopping() {
+        // DEP-14 / G-07: if the Store Layout tool has learned a walking order for the store you
+        // shop at, use it — that's your ACTUAL aisle order, not the generic guess below. Falls
+        // back to the built-in aisle ranking when no layout has been taught for this store yet.
+        let layout = StoreLayoutStore.shared.layout(for: session.preferredStore)
         withAnimation(.spring(response: 0.3)) {
-            store.groceryItems.sort {
-                let sa = aisleScore($0.name), sb = aisleScore($1.name)
-                return sa == sb ? $0.name < $1.name : sa < sb
+            if layout.trips > 0 {
+                let ordered = StoreRouting.sort(store.groceryItems.map(\.name), layout: layout)
+                var rank: [String: Int] = [:]
+                for (i, n) in ordered.enumerated() where rank[n.lowercased()] == nil { rank[n.lowercased()] = i }
+                store.groceryItems.sort {
+                    (rank[$0.name.lowercased()] ?? .max, $0.name) < (rank[$1.name.lowercased()] ?? .max, $1.name)
+                }
+            } else {
+                store.groceryItems.sort {
+                    let sa = aisleScore($0.name), sb = aisleScore($1.name)
+                    return sa == sb ? $0.name < $1.name : sa < sb
+                }
             }
             isSortedForShopping = true
         }
@@ -151,11 +164,12 @@ struct GroceryListView: View {
     /// whether the empty list shows the big empty-state or a compact header (so suggestions lead).
     private var hasSuggestions: Bool {
         let low = store.inventoryItems.contains { inv in
-            inv.effectiveLevel < 0.25 &&
+            KitchenAvailability.isRunningLow(inv) &&
             !store.groceryItems.contains { $0.name.lowercased() == inv.name.lowercased() }
         }
         if low { return true }
-        let runningOut = store.itemsRunningOutSoon(within: 4).contains { $0.effectiveLevel >= 0.25 }
+        let runningOut = store.itemsRunningOutSoon(within: KitchenThresholds.expiringSoonDays)
+            .contains { $0.effectiveLevel >= KitchenThresholds.lowFillLevel }
         if runningOut { return true }
         return !GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map { $0.name }, limit: 8).isEmpty
     }
@@ -477,7 +491,7 @@ struct GroceryListView: View {
 
                         // Low stock suggestions (not yet added)
                         let lowNotInList = store.inventoryItems.filter { inv in
-                            inv.effectiveLevel < 0.25 &&
+                            KitchenAvailability.isRunningLow(inv) &&
                             !store.groceryItems.contains { $0.name.lowercased() == inv.name.lowercased() }
                         }
                         if !lowNotInList.isEmpty {

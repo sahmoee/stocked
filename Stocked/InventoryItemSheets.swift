@@ -1592,12 +1592,10 @@ struct ItemPhotoPicker: UIViewControllerRepresentable {
             guard let provider = results.first?.itemProvider,
                   provider.canLoadObject(ofClass: UIImage.self) else { return }
             provider.loadObject(ofClass: UIImage.self) { image, _ in
-                Task { @MainActor in
-                    if let ui = image as? UIImage {
-                        // Compress to max 300KB for storage efficiency
-                        self.parent.imageData = ui.jpegData(compressionQuality: 0.5)
-                    }
-                }
+                // Compress here (off-main) so only Sendable `Data` — never the non-Sendable
+                // UIImage — crosses into the @MainActor task.
+                let data = (image as? UIImage)?.jpegData(compressionQuality: 0.5)
+                Task { @MainActor in self.parent.imageData = data }
             }
         }
     }

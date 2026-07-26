@@ -38,12 +38,48 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+                // ── 4.13 (build 69) — Every screen agrees ──
+                ChangelogVersion(
+                    version: "4.13",
+                    buildDate: "Build 69 · July 26, 2026",
+                    headline: "What's new in Stocked",
+                    isLatest: true,
+                    entries: [
+                        ChangelogEntry(icon: "equal.circle.fill", color: Color.stockedGreen,
+                                       title: "Every screen agrees on what you have",
+                                       detail: "Cook, Recipes, Home, the widget, and your Daily Brief used to work out what was in your kitchen in slightly different ways, so the same pantry could look full on one screen and half-empty on another. They all read the same answer now."),
+                        ChangelogEntry(icon: "checkmark.circle.badge.questionmark", color: Color.stockedGold,
+                                       title: "More honest ingredient matching",
+                                       detail: "Matching used to be loose enough that olive oil could stand in for any oil and garlic powder could pass as garlic. Cook percentages are stricter and truer now — if a recipe says you have everything, you have everything."),
+                        ChangelogEntry(icon: "exclamationmark.shield.fill", color: Color.stockedError,
+                                       title: "Allergens respected everywhere",
+                                       detail: "Your saved allergens are now applied the same way across Cook, Recipes, Surprise Me, and recipe suggestions. The AI recipe generator can finally see them too, and will refuse a recipe that uses something you have listed."),
+                        ChangelogEntry(icon: "clock.badge.checkmark", color: Color.stockedGold,
+                                       title: "One meaning for low and expiring soon",
+                                       detail: "Running low and expiring soon meant different things on different screens — a jar could be flagged in your grocery list but look fine in Inventory. One definition now, so alerts and lists match what you see."),
+                        ChangelogEntry(icon: "text.badge.checkmark", color: Color.stockedGreen,
+                                       title: "Missing-ingredient counts add up",
+                                       detail: "Recipe cards could show a missing count that did not match the ingredients they named. The number and the list are built together now, and optional garnishes no longer count against a recipe."),
+                        ChangelogEntry(icon: "sparkle.magnifyingglass", color: Color.stockedGreen,
+                                       title: "Cook now ranks your whole recipe library",
+                                       detail: "Cook only ever ranked your saved recipes and the built-in starters. Everything you browse in Recipes is now scored the same way, so Cook suggests real meals you have not saved yet, with readiness and substitutions worked out properly."),
+                        ChangelogEntry(icon: "photo.stack.fill", color: Color.stockedGold,
+                                       title: "Real photos on cook suggestions",
+                                       detail: "Cook rows fell back to a plain icon whenever a recipe had no saved photo. They now show a real picture of the dish, looked up the same way the rest of the app does."),
+                        ChangelogEntry(icon: "person.2.badge.key.fill", color: Color.stockedError,
+                                       title: "Who you cook for actually counts",
+                                       detail: "Allergies you record for the people in your household are now applied everywhere recipes are suggested, not just on the profile screen. Anyone marked as home has their allergies treated as a hard no."),
+                        ChangelogEntry(icon: "arrow.triangle.2.circlepath", color: Color.stockedGold,
+                                       title: "Generated recipes stay up to date",
+                                       detail: "A recipe Stocked generated for you used to remember what was missing on the day it was created. It now checks against your kitchen as it is right now."),
+                    ]
+                ),
                 // ── 4.13 (build 63) — Smoother, safer, connected ──
                 ChangelogVersion(
                     version: "4.13",
                     buildDate: "Build 63 · July 17, 2026",
                     headline: "What's new in Stocked",
-                    isLatest: true,
+                    isLatest: false,
                     entries: [
                         ChangelogEntry(icon: "pause.circle.fill", color: Color.stockedGold,
                                        title: "Pause a cook, come back later",

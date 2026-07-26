@@ -1,0 +1,29 @@
+{
+  "identifier" : "STOCKED_LOCAL",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : true,
+      "internalID" : "HOUSEHOLDSYNC01",
+      "localizations" : [
+        {
+          "description" : "Sync your kitchen across everyone in your household.",
+          "displayName" : "Household Sync",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.stocked.householdsync",
+      "referenceName" : "Household Sync",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

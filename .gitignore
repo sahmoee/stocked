@@ -18,8 +18,8 @@ node_modules/
 # BuildBuddy local undo points — never commit
 .buildbuddy-backups/
 
-# Cleanup staging (Claude can't delete on this mount; empty this folder in Finder)
-_to_delete/
+# Deliverable snapshots — regenerate from git, never keep source copies in-tree
+*.zip
 
 # macOS metadata
 ._*

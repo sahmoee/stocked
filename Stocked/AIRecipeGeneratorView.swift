@@ -266,10 +266,13 @@ struct AIRecipeGeneratorView: View {
         defer { isGenerating = false }
 
         let have = haveText.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+        // Pass the saved allergen profile through — the generator previously only
+        // saw the free-text dietary chip, so an allergen was invisible to it.
         let opts = RecipeGeneratorAI.Options(
             haveItems: have,
             dietary: dietary == "Any" ? nil : dietary,
-            maxTime: maxTime == "Any" ? nil : maxTime
+            maxTime: maxTime == "Any" ? nil : maxTime,
+            dietaryRules: DietaryGuard.Rules(allergens: session.guestStore.cookingProfile.allergens)
         )
         if let recipe = await RecipeGeneratorAI.generate(idea: idea, options: opts) {
             withAnimation(.easeOut(duration: 0.2)) { result = recipe }

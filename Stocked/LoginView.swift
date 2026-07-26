@@ -180,12 +180,15 @@ struct LoginView: View {
                 UserDefaults.standard.set(firstName, forKey: DBKey.appleFirstName.rawValue)
             }
 
-            // Greeting shows the FIRST name only (e.g. "Good Morning, Alex"). Fall back to the
-            // remembered email prefix, then Chef, only when we have never captured a first name.
-            let emailForFallback = freshEmail.isEmpty ? (stored?.email ?? "") : freshEmail
-            let displayName = firstName.isEmpty
-                ? (emailForFallback.components(separatedBy: "@").first ?? "Chef")
-                : firstName
+            // FR-03 FIX: don't silently fall back to "Chef" (or a random private-relay email
+            // prefix) when Apple gives no name. Register with whatever real first name we have
+            // (from this auth or the Keychain vault); if that's empty, flag the name-entry prompt
+            // so RootView asks the user directly. A non-relay email prefix is still an acceptable
+            // greeting, so only prompt when we have neither a name nor a real email.
+            let realEmail = (freshEmail.isEmpty ? (stored?.email ?? "") : freshEmail)
+            let isPrivateRelay = realEmail.hasSuffix("@privaterelay.appleid.com")
+            let emailPrefix = (realEmail.isEmpty || isPrivateRelay) ? "" : (realEmail.components(separatedBy: "@").first ?? "")
+            let displayName = firstName.isEmpty ? emailPrefix : firstName
 
             // Detect whether the user already has local guest data BEFORE we register the
             // account, so signIn() can flag the migrate-vs-discard prompt.
@@ -197,10 +200,23 @@ struct LoginView: View {
             // The old code called enterKitchen(), which forced accountType back to .guest.
             session.signIn(appleUserID: userID, name: displayName, hadGuestData: hadGuestData)
 
-            // Returning user: pull their latest iCloud backup so inventory + preferences
-            // come back automatically. Merge-style so it never wipes anything local.
-            // Uses the session-retained manager so the async CloudKit task isn't orphaned.
-            session.transferManager.restoreFromiCloud(into: session.guestStore, merge: true)
+            // Ask for a name when we couldn't derive a real one from Apple.
+            if displayName.trimmingCharacters(in: .whitespaces).isEmpty {
+                session.pendingAppleNamePrompt = true
+            }
+
+            // FR-01 FIX (point 4): do NOT auto-restore. If this device has no local data and the
+            // Apple ID has an iCloud backup, OFFER to restore — RootView prompts, and only a "yes"
+            // pulls it. When local guest data exists, the migrate/discard prompt handles that
+            // instead; the user can still restore later from Settings.
+            if !hadGuestData {
+                // transferManager is session-owned, so the async task isn't orphaned.
+                Task { @MainActor in
+                    if await session.transferManager.latestBackupExists() {
+                        session.pendingICloudRestoreOffer = true
+                    }
+                }
+            }
 
         case .failure(let error):
             let nsErr = error as NSError

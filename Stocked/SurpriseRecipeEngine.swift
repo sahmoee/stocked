@@ -107,8 +107,42 @@ struct OnDeviceRecipeGenerator {
     nonisolated static func generateWithProfile(inventory: [String],
                                                 profile: UserCookingProfile,
                                                 servings: Int) -> GeneratedRecipe {
-        let parsed    = parseIngredients(inventory)
+        // G1 (QA gap): honor the saved Dietary Profile's ALLERGENS, matching how Cook Now
+        // (CookNowEngine.isExcluded) refuses allergen recipes. Surprise Me previously filtered
+        // only diet (vegan/vegetarian), so an allergen item in stock could be built into a meal.
+        // Two-layer guard: (1) drop any in-stock ingredient that looseMatches an allergen so it
+        // never seeds the recipe, and (2) drop templates structurally centred on that allergen
+        // category so a defaulted ingredient can't reintroduce it.
+        // NOW routed through DietaryGuard so this guard, CookNowEngine's
+        // exclusion, and Discover's allergen filter apply the SAME rule. The
+        // local substring closure this replaces was looser in some cases and
+        // stricter in others, so a recipe could be refused by Cook Now and
+        // simultaneously built by Surprise Me.
+        let rules = DietaryGuard.Rules(allergens: profile.allergens)
+        let allergens = rules.allergens
+        let safeInventory = DietaryGuard.safeIngredients(inventory, rules: rules)
+        let parsed    = parseIngredients(safeInventory)
         var templates: [RecipeTemplate] = RecipeTemplate.allCases
+
+        // Category-level allergen guard on templates (dairy → cheesy bake; gluten/wheat → the
+        // grain/pasta-built templates). Rice defaults stay (naturally gluten-free).
+        // Pattern-match rather than `==`: RecipeTemplate's Equatable conformance is main-actor
+        // isolated (Swift 6 default isolation), so `==` can't be used in this nonisolated func.
+        // The rest of this type already uses `switch` for the same reason.
+        if !allergens.isEmpty {
+            let dairyAllergen  = allergens.contains { ["milk","dairy","cheese","lactose","whey","casein"].contains($0) }
+            let glutenAllergen = allergens.contains { ["gluten","wheat","barley","rye"].contains($0) }
+            if dairyAllergen {
+                templates.removeAll { t in
+                    switch t { case .cheesyBake: return true; default: return false }
+                }
+            }
+            if glutenAllergen {
+                templates.removeAll { t in
+                    switch t { case .cheesyBake, .pastaVeggie: return true; default: return false }
+                }
+            }
+        }
 
         // Filter by skill level — map template cases to complexity
         let skillLimit: [String: Int] = ["Beginner": 1, "Home Cook": 2,
@@ -320,8 +354,10 @@ enum RecipeTemplate: CaseIterable, Hashable, Sendable {
     nonisolated func recipeData(protein: String, veggie: String, grain: String,
                     dairy: String, servings: Int, inventory: Set<String>) -> RecipeData {
 
+        // Shared matcher — was a local substring closure that disagreed with
+        // every other "do I have this?" answer in the app.
         func inStock(_ name: String) -> Bool {
-            inventory.contains(where: { $0.contains(name.lowercased()) || name.lowercased().contains($0) })
+            KitchenAvailability.isPresent(name, inNames: inventory)
         }
         func ing(_ amount: String, _ name: String) -> RecipeIngredientLine {
             RecipeIngredientLine(amount: amount, name: name, inStock: inStock(name))

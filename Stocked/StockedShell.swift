@@ -68,20 +68,32 @@ struct StockedShell<Content: View>: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.bottom, 8)   // small buffer for tab bar safeAreaInset
                 } else {
-                    ScrollView(showsIndicators: false) {
-                        content
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.bottom, StockedUI.scrollBottomPad)
-                    }
-                    .scrollDismissesKeyboard(.interactively)
-                    // App-wide pull-to-refresh. Screens with their own refresh needs pass
-                    // onRefresh; everything else gets the standard refresh (household pull +
-                    // cache rebuild + haptic) for free.
-                    .refreshable {
-                        if let onRefresh {
-                            await onRefresh()
-                        } else {
-                            await StockedRefresh.standard(session: session)
+                    // ScrollViewReader lets the coachmark engine scroll a spotlight target into
+                    // view before highlighting it. Elements tagged with `.coachmarkAnchor(id)` also
+                    // carry `.id(id)`, so scrollTo can find them; the engine posts .coachmarkScrollTo
+                    // with the id. Purely additive — normal scrolling is unaffected.
+                    ScrollViewReader { scrollProxy in
+                        ScrollView(showsIndicators: false) {
+                            content
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.bottom, StockedUI.scrollBottomPad)
+                        }
+                        .scrollDismissesKeyboard(.interactively)
+                        // App-wide pull-to-refresh. Screens with their own refresh needs pass
+                        // onRefresh; everything else gets the standard refresh (household pull +
+                        // cache rebuild + haptic) for free.
+                        .refreshable {
+                            if let onRefresh {
+                                await onRefresh()
+                            } else {
+                                await StockedRefresh.standard(session: session)
+                            }
+                        }
+                        .onReceive(NotificationCenter.default.publisher(for: .coachmarkScrollTo)) { note in
+                            guard let id = note.object as? String else { return }
+                            withAnimation(.easeInOut(duration: 0.35)) {
+                                scrollProxy.scrollTo(id, anchor: .center)
+                            }
                         }
                     }
                 }

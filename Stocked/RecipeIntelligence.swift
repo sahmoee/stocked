@@ -18,13 +18,25 @@ nonisolated enum OnlineRecipeMatch {
     /// two-way name match the rest of the app uses for inventory. `inStock` is the
     /// caller's set of lowercased in-stock item names (GuestDataStore.inStockNameSet).
     nonisolated static func stockMatch(_ recipe: OnlineRecipe, inStock: Set<String>) -> (have: Int, total: Int) {
-        let names = RecipeIngredients.names(recipe.ingredients)
+        let c = coverage(recipe, inStock: inStock)
+        return (c.have, c.total)
+    }
+
+    /// Full coverage for an online recipe, via the app's one shared rule.
+    ///
+    /// WAS: this counted EVERY parsed ingredient name in the denominator while
+    /// the Cook tab's `stockMatch(for: UserRecipe)` dropped optional ones — so
+    /// an API recipe carrying "salt to taste" and "parsley for garnish" was
+    /// scored out of a padded total and read as missing more than it was. That,
+    /// plus the loose substring matcher on the Cook side, is why the two tabs
+    /// disagreed. Both now share this rule.
+    nonisolated static func coverage(_ recipe: OnlineRecipe,
+                                     inStock: Set<String>) -> KitchenAvailability.Coverage {
+        let lines = RecipeIngredients.names(recipe.ingredients)
             .map { IngredientSynonyms.canonical($0) }
             .filter { !$0.isEmpty }
-        guard !names.isEmpty else { return (0, 0) }
-        var have = 0
-        for n in names where inStock.contains(where: { FoodNameMatcher.matches(n, $0).score >= 0.72 }) { have += 1 }
-        return (have, names.count)
+        guard !lines.isEmpty else { return .empty }
+        return KitchenAvailability.coverage(lines: lines, availableNames: inStock)
     }
 
     /// A short status for a Discover/browser card: nil when there's nothing in the
@@ -81,16 +93,16 @@ nonisolated enum OnlineRecipeFacts {
 
     /// Allergens (from the user's profile) that this online recipe appears to contain.
     /// Returns the matched allergen words so the UI can show "Contains: peanuts, milk".
+    /// Routed through DietaryGuard so Discover, Cook Now, Surprise Me, and the
+    /// AI generator all decide "does this hit an allergen?" the same way. WAS:
+    /// whole-phrase matching only, which missed hits that Cook Now's substring
+    /// rule caught — so a recipe could be refused by Cook and shown clean here.
     nonisolated static func allergenHits(_ recipe: OnlineRecipe, allergens: [String]) -> [String] {
-        let active = allergens.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 }
-        guard !active.isEmpty else { return [] }
-        let names = RecipeIngredients.names(recipe.ingredients).map { $0.lowercased() }
-        let haystack = (names + [recipe.title.lowercased()])
-        var hits: Set<String> = []
-        for a in active where haystack.contains(where: { FoodNameMatcher.containsPhrase(a, in: $0) }) {
-            hits.insert(a)
-        }
-        return Array(hits).sorted()
+        DietaryGuard.allergenHits(
+            ingredientLines: RecipeIngredients.names(recipe.ingredients),
+            title: recipe.title,
+            rules: DietaryGuard.Rules(allergens: allergens)
+        )
     }
 }
 

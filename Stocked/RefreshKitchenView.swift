@@ -92,9 +92,9 @@ struct RefreshKitchenView: View {
         }
 
         func isPivot(_ item: LocalInventoryItem) -> Bool {
-            let n = item.name.lowercased()
-            if dependNames.contains(where: { n.contains($0) || $0.contains(n) }) { return true }
-            if gateNames.contains(where: { n.contains($0) || $0.contains(n) }) { return true }
+            // Shared matcher — was another inline substring pair.
+            if KitchenAvailability.isPresent(item.name, inNames: dependNames) { return true }
+            if KitchenAvailability.isPresent(item.name, inNames: gateNames) { return true }
             return false
         }
 

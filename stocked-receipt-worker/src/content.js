@@ -14,7 +14,9 @@
 
 import { json, errJson, withCors, strongETag, etagMatches, background, logEvent } from "./util.js";
 
-export const DEFAULT_CONTENT_ORIGIN = "https://cdn.sowensstudios.com";
+// cPanel is abandoned — the worker now serves recipes straight from the GitHub repo that
+// Recipe Studio pushes to (site-repo/master), cached at the edge. Override with env.CONTENT_ORIGIN.
+export const DEFAULT_CONTENT_ORIGIN = "https://raw.githubusercontent.com/sahmoee/site-repo/master";
 const RECIPES_PATH = "/content/recipes.json";
 const RECIPES_TTL_S = 6 * 3600;          // fresh edge cache
 const RECIPES_STALE_TTL_S = 7 * 24 * 3600; // stale-on-error fallback copy

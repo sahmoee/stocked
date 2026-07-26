@@ -45,6 +45,18 @@ class AppSession {
     // fate of the pre-existing guest data is undecided.
     var pendingSignInMigration: Bool = false
 
+    // FR-01 FIX (point 4): set after Sign in with Apple ONLY when an iCloud backup exists and the
+    // device has no local guest data. RootView presents a "Restore your Stocked data?" prompt —
+    // nothing is pulled from iCloud until the user says yes. This replaces the old unconditional
+    // auto-restore on sign-in. Transient (never persisted).
+    var pendingICloudRestoreOffer: Bool = false
+
+    // FR-03 FIX: set when Sign in with Apple returns NO usable first name (Apple only sends the name
+    // on the first-ever authorization). RootView shows a one-field "What should we call you?" prompt
+    // so the greeting is never "Chef." The entered name is saved to the Keychain vault, so it also
+    // survives future reinstalls. Transient.
+    var pendingAppleNamePrompt: Bool = false
+
     // Retained transfer manager. iCloud restore/backup spawn async tasks; a session-owned
     // instance (vs a transient local one) guarantees in-flight CloudKit work isn't orphaned
     // before completion — the root cause of restores silently not applying.
@@ -333,6 +345,10 @@ class AppSession {
     }
 
     init() {
+        // FR-03: move any legacy UserDefaults Apple-name vault into the Keychain BEFORE the
+        // preference reads below, so a returning Apple user keeps their real name across reinstalls.
+        AppleProfileVault.migrateFromUserDefaultsIfNeeded()
+
         let ud = UserDefaults.standard
         self.isDarkMode           = ud.bool(forKey: DBKey.darkMode.rawValue)
         let savedFontV            = ud.object(forKey: DBKey.fontVerticalOffset.rawValue)
@@ -467,12 +483,16 @@ class AppSession {
         // resolving back to guest on the next cold launch (init reads wasGuest).
         UserDefaults.standard.set(false, forKey: "wasGuest")
 
-        // Signing in with Apple IS the entry — a registered user must not be sent back through
-        // the onboarding quiz. If "Clear All Data" wiped quizCompleted, the app's gate would
-        // otherwise fall through to OnboardingQuiz(), whose completion calls enterKitchen() and
-        // forces the account back to .guest with the name "Chef" — exactly the "still shows Chef
-        // / Guest, quiz reappears" bug. Marking onboarding complete here skips that path.
-        guestStore.quizCompleted = true
+        // FR-03 FIX: do NOT auto-complete onboarding on Apple sign-in. The user wants to SEE the
+        // onboarding quiz when they sign in (with the option to restore previous results instead).
+        // Leaving quizCompleted false routes RootView to OnboardingQuiz; if the Apple ID has an
+        // iCloud backup, the restore prompt (pendingICloudRestoreOffer) offers to bring the
+        // previous setup back, which sets quizCompleted = true and skips the quiz. If they start
+        // fresh, they take the quiz. Guests already re-onboard every time their data was wiped.
+        //
+        // The old "force quizCompleted = true" existed to dodge a bug where finishing the quiz
+        // called enterKitchen() and downgraded the account to .guest/"Chef". That's now guarded
+        // in enterKitchen() (alreadyRegistered), so onboarding-after-sign-in is safe.
 
         // Belt-and-suspenders: didSet already ran, but set the gate explicitly too.
         SharedPantrySync.shared.accountAllowsSync = true
@@ -542,6 +562,11 @@ class AppSession {
             if let bundleID = Bundle.main.bundleIdentifier {
                 UserDefaults.standard.removePersistentDomain(forName: bundleID)
             }
+
+            // FR-01 fix (point 5): erase the iCloud CloudKit backup too. Without this, the kitchen
+            // the user just erased would come back on the next Sign in with Apple or explicit
+            // restore — "erase" has to mean erase everywhere. Best-effort, async, never blocks.
+            Task { await transferManager.deleteAlliCloudBackups() }
         }
 
         // Always reset login state. forceLogin sends RootView to the login screen even on the

@@ -125,14 +125,17 @@ struct RecipeVaultView: View {
     }
     @State private var navTarget: RecipeNavTarget? = nil
 
-    let tabNames = ["Ready to Cook Now", "My Collection", "Browse", "For You ✦"]
+    // Launch readiness 1.3 — the "For You ✦" fourth tab was removed for v1. A tappable
+    // "Coming Soon" placeholder is a common App Review rejection (Guideline 2.3.2), and the
+    // whole surface (ForYouView.swift) was already unreferenced after the hub redesign.
+    // Reintroduce it only when the feature is real.
+    let tabNames = ["Ready to Cook Now", "My Collection", "Browse"]
 
     private var greeting: String { StockedFormatters.timeOfDayGreeting }
     private var subtitle: String {
         switch selectedTab {
         case 0: return "Based on what's in your kitchen"
         case 1: return "Your recipes and meal history"
-        case 3: return "AI recipes built around you — coming soon"
         default: return "Based on what's in your kitchen"
         }
     }
@@ -448,7 +451,9 @@ struct RecipeVaultView: View {
             }
         }
         .onAppear {
-            selectedTab = session.preferredRecipeTab
+            // Clamped: a user who saved tab 3 (the removed For You tab) as their preferred
+            // start must not land on an index that no longer exists.
+            selectedTab = min(session.preferredRecipeTab, tabNames.count - 1)
             onlineLoader.loadIfNeeded(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })  // #248
             scheduleDiscoverSnapshotRebuild()
             consumePendingImportIfNeeded()
@@ -1236,11 +1241,9 @@ private nonisolated struct RecipeCollectionSnapshotBuilder {
         )
     }
 
+    // WAS: the third byte-identical copy of the substring matcher. NOW: shared.
     private static func looseMatch(_ a: String, _ b: String) -> Bool {
-        let lhs = a.lowercased().trimmingCharacters(in: .whitespaces)
-        let rhs = b.lowercased().trimmingCharacters(in: .whitespaces)
-        guard lhs.count > 2, rhs.count > 2 else { return lhs == rhs }
-        return lhs.contains(rhs) || rhs.contains(lhs)
+        KitchenAvailability.nameMatches(a, b)
     }
 
     private static func duplicateSummary(_ recipes: [UserRecipe]) -> RecipeDuplicateSummary {

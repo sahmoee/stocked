@@ -73,14 +73,22 @@ struct CookNowResultsView: View {
             }
             .navigationDestination(isPresented: $goRefresh) { RefreshKitchenView() }
         }
-        .task { recompute() }
+        .task {
+            // Hydrate the Discover pool from its own persisted cache before
+            // classifying, so opening this screen on a cold launch scores the
+            // real recipe library instead of only the starter meals.
+            await OnlineRecipesLoader.shared.warmFromCacheIfNeeded()
+            recompute()
+            QABackgroundRunner.shared.runSoon()
+        }
+        .qaScreen("Cook Now results")
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
         .onChange(of: store.planRevision)      { _, _ in recompute() }  // RL-006: plan edits move reservations
         .sheet(item: $overridePayload) { payload in
             ReservationOverrideSheet(recipe: payload.recipe, touches: payload.touches) {
                 // Cook Anyway: the override is recorded; proceed into the recipe.
-                openRecipe = payload.recipe
+                openRecipe = store.ensureSavedForCooking(payload.recipe)
                 goRecipe = true
             }
             .environment(session)
@@ -187,7 +195,10 @@ struct CookNowResultsView: View {
                                 if c.usesReservedIngredients && !touches.isEmpty {
                                     overridePayload = ReservationOverridePayload(recipe: c.recipe, touches: touches)
                                 } else {
-                                    openRecipe = c.recipe
+                                    // Persist first when this came from Discover or
+                                    // a generated recipe, so the detail screen's
+                                    // actions are real rather than silent no-ops.
+                                    openRecipe = store.ensureSavedForCooking(c.recipe)
                                     goRecipe = true
                                 }
                             }

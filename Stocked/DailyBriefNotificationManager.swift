@@ -28,7 +28,8 @@ final class DailyBriefNotificationManager {
     /// has actually allowed notifications, and offer a path to the Settings app if denied).
     func authorizationStatus(_ completion: @escaping @MainActor (UNAuthorizationStatus) -> Void) {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            Task { @MainActor in completion(settings.authorizationStatus) }
+            let status = settings.authorizationStatus   // Sendable enum; don't send `settings` across the boundary
+            Task { @MainActor in completion(status) }
         }
     }
 
@@ -120,6 +121,26 @@ final class DailyBriefNotificationManager {
         get { UserDefaults.standard.integer(forKey: hourKey) == 0 ? 7 : UserDefaults.standard.integer(forKey: hourKey) }
         set { UserDefaults.standard.set(newValue, forKey: hourKey) }
     }
+
+    /// Improvement #14 — the hour actually used for delivery.
+    ///
+    /// Starts at the user's configured `hour` and shifts toward when they're demonstrably
+    /// reachable, but never by more than three hours and never outside 7am–9pm. If the user set
+    /// 7am they meant morning; learning is allowed to refine that, not overrule it.
+    /// Falls straight back to `hour` until there's enough evidence.
+    var adaptiveHour: Int {
+        guard adaptiveTimingEnabled else { return hour }
+        return NotificationEngagement.shared.suggestedHour(preferred: hour)
+    }
+
+    /// User-facing switch. Defaults ON, but reading the key directly means an explicit opt-out
+    /// sticks. Surfaced in the health view.
+    var adaptiveTimingEnabled: Bool {
+        get {
+            UserDefaults.standard.object(forKey: "adaptiveNotifyTiming_v1") as? Bool ?? true
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "adaptiveNotifyTiming_v1") }
+    }
     var minute: Int {
         get { UserDefaults.standard.integer(forKey: minKey) }
         set { UserDefaults.standard.set(newValue, forKey: minKey) }
@@ -142,11 +163,10 @@ final class DailyBriefNotificationManager {
         content.sound = .default
 
         // Build a useful summary
-        let expiring = store.inventoryItems.filter { item in
-            guard let exp = item.expirationDate else { return false }
-            return exp.timeIntervalSinceNow < 86400 * 3 && exp.timeIntervalSinceNow > 0
-        }
-        let lowStock = store.inventoryItems.filter { $0.level < 0.2 }
+        // WAS: a 3-day window and a raw-`level` 0.2 threshold, so the brief
+        // announced a different set of items than Inventory and the widget did.
+        let expiring = store.expiringSoonItems.filter { ($0.daysUntilExpiry ?? -1) >= 0 }
+        let lowStock = store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }
 
         if expiring.isEmpty && lowStock.isEmpty {
             content.title = "Good morning, your kitchen is looking good 🍳"
@@ -165,7 +185,7 @@ final class DailyBriefNotificationManager {
         content.userInfo = ["action": "openDailyBrief"]
 
         var comps        = DateComponents()
-        comps.hour       = hour
+        comps.hour       = adaptiveHour   // #14 — learned window, bounded by the user's setting
         comps.minute     = minute
         let trigger      = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
         let request      = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)

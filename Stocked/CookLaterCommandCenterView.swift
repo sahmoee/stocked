@@ -598,6 +598,8 @@ struct CookLaterCommandCenterView: View {
   @State private var selectedDay: Int
   @State private var activeSheet: CookLaterCommandSheet?
   @State private var completedPrepKeys: Set<String> = []
+  /// #11 — the meal awaiting a "what did this use?" confirm.
+  @State private var cookedMeal: PlannedMeal? = nil
   @State private var shoppingOverrides: [String: Double] = [:]
   @State private var toast: String?
   @State private var webManager = WebRecipeManager.shared
@@ -668,6 +670,10 @@ struct CookLaterCommandCenterView: View {
         Spacer(minLength: 24)
       }
       .padding(.top, 2)
+    }
+    // #11 — close the loop between "I cooked this" and what's actually left in the pantry.
+    .sheet(item: $cookedMeal) { meal in
+      CookCompletionSheet(meal: meal).environment(session)
     }
     .sheet(item: $activeSheet) { sheet in
       switch sheet {
@@ -1775,8 +1781,14 @@ struct CookLaterCommandCenterView: View {
   private func toggleCooked(_ meal: PlannedMeal) {
     guard let index = store.plannedMeals.firstIndex(where: { $0.id == meal.id }) else { return }
     store.plannedMeals[index].isCooked.toggle()
+    // Improvement #11 — this path never touched inventory, so cooking from Cook Later left the
+    // ingredients on the shelf indefinitely. Offer the deductions (and leftovers) in one step.
     if store.plannedMeals[index].isCooked {
-      store.addLeftover(named: meal.title, servings: meal.servings)
+      if CookConsumption.hasProposals(for: meal, store: store) {
+        cookedMeal = meal
+      } else {
+        store.addLeftover(named: meal.title, servings: meal.servings)
+      }
     }
     HapticManager.success()
   }

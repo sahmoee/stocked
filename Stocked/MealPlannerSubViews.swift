@@ -338,6 +338,27 @@ extension MealPlannerView {
                 }
             }
 
+            // Improvement #6: close the plan→grocery loop for the WHOLE week in one tap.
+            // generateGroceryFromMealPlan() already skips in-stock items, cooked meals, and
+            // dedupes against the list — it just never had a caller until now.
+            Button {
+                let added = session.guestStore.generateGroceryFromMealPlan()
+                ToastCenter.shared.success(added > 0
+                    ? "Added \(added) item\(added == 1 ? "" : "s") to grocery"
+                    : "Grocery already has everything for this plan")
+                HapticManager.select()
+            } label: {
+                Label("Build Grocery List", systemImage: "cart.badge.plus")
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(Color.stockedCharcoal)
+                    .frame(maxWidth: .infinity).padding(.vertical, 15)
+                    .background(Color.stockedGold.opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                    .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                        .stroke(Color.stockedGold.opacity(0.5), lineWidth: 1))
+            }
+            .buttonStyle(.plain).padding(.horizontal, 24)
+
             Button { savePlan() } label: {
                 Label("Save Plan", systemImage: "checkmark.circle.fill")
                     .font(.system(size: 16, weight: .semibold, design: .serif))

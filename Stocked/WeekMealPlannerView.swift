@@ -10,6 +10,8 @@ struct WeekMealPlannerView: View {
     @State private var addingDay: Int? = nil
     @State private var newTitle = ""
     @State private var newMealType = "Dinner"
+    /// #11 — the meal awaiting a "what did this use?" confirm.
+    @State private var cookedMeal: PlannedMeal? = nil
 
     private let mealTypes = ["Breakfast", "Lunch", "Dinner"]
     private var weekdayNames: [String] {
@@ -33,6 +35,10 @@ struct WeekMealPlannerView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
+        }
+        // #11 — close the loop between "I cooked this" and what's actually left in the pantry.
+        .sheet(item: $cookedMeal) { meal in
+            CookCompletionSheet(meal: meal)
         }
     }
 
@@ -111,9 +117,15 @@ struct WeekMealPlannerView: View {
     private func toggleCooked(_ meal: PlannedMeal) {
         guard let i = session.guestStore.plannedMeals.firstIndex(where: { $0.id == meal.id }) else { return }
         session.guestStore.plannedMeals[i].isCooked.toggle()
-        // #14 tie-in: marking a meal cooked offers to save leftovers.
+        // Improvement #11 — marking a meal cooked here used to be a complete no-op on stock, so
+        // the ingredients stayed in the pantry forever and every downstream number drifted.
+        // Now it offers the deductions (and leftovers) in one confirm step.
         if session.guestStore.plannedMeals[i].isCooked {
-            session.guestStore.addLeftover(named: meal.title, servings: meal.servings)
+            if CookConsumption.hasProposals(for: meal, store: session.guestStore) {
+                cookedMeal = meal
+            } else {
+                session.guestStore.addLeftover(named: meal.title, servings: meal.servings)
+            }
         }
     }
     private func remove(_ meal: PlannedMeal) {

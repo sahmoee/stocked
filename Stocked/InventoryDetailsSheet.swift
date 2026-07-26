@@ -22,7 +22,7 @@ struct InventoryDetailsSheet: View {
     }
 
     private var lowItems: [LocalInventoryItem] {
-        items.filter { $0.effectiveLevel > 0 && $0.effectiveLevel < 0.33 }
+        items.filter { KitchenAvailability.isRunningLow($0) }
              .sorted { $0.effectiveLevel < $1.effectiveLevel }
     }
     private var emptyItems: [LocalInventoryItem] {

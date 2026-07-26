@@ -322,10 +322,9 @@ struct BeforeYouStartView: View {
 
     // MARK: Helpers
 
+    // Shared matcher — was a fourth copy of the substring rule.
     private func looseContains(_ a: String, _ b: String) -> Bool {
-        let na = a.lowercased(), nb = b.lowercased()
-        guard na.count > 2, nb.count > 2 else { return na == nb }
-        return na.contains(nb) || nb.contains(na)
+        KitchenAvailability.nameMatches(a, b)
     }
 
     private func sectionCard<Content: View>(title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {

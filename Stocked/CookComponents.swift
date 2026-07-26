@@ -397,7 +397,14 @@ struct CookRecipeCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                AsyncFoodImage(name: title, url: imageURL, size: 56)
+                // `resolveOnline` defaults to FALSE, so a recipe with no stored
+                // imageURL — every starter meal — went straight to the emoji
+                // placeholder instead of looking an image up by name. That is the
+                // wrong default for this card: it is the app's main recipe row.
+                // Online recipes carry a URL and load it directly; the rest now
+                // resolve through TheMealDB / Spoonacular / Foodish like the
+                // Ready-to-Cook thumbnails already did.
+                AsyncFoodImage(name: title, url: imageURL, size: 56, resolveOnline: true)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.system(size: 15.5, weight: .semibold))

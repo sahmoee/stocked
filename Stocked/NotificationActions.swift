@@ -18,11 +18,16 @@ import Foundation
 enum StockedNotificationCategory {
     /// Category for per-item expiry reminders (carries item id + name in userInfo).
     static let expiryItem = "EXPIRY_ITEM"
+    /// Daily brief digest. Previously set on the notification but never registered, so the
+    /// digest carried no buttons — improvement #7 registers it with a quick action.
+    static let dailyBrief = "DAILY_BRIEF"
 }
 
 enum StockedNotificationAction {
     static let addToGrocery = "ADD_TO_GROCERY"
     static let markUsed     = "MARK_USED"
+    /// Foreground action on the daily brief that opens the kitchen.
+    static let openKitchen  = "OPEN_KITCHEN"
 }
 
 enum StockedNotificationKey {
@@ -61,10 +66,22 @@ enum NotificationActionRegistrar {
             intentIdentifiers: [],
             options: []
         )
+        let openKitchen = UNNotificationAction(
+            identifier: StockedNotificationAction.openKitchen,
+            title: "Open Kitchen",
+            options: [.foreground]
+        )
+        let dailyBriefCategory = UNNotificationCategory(
+            identifier: StockedNotificationCategory.dailyBrief,
+            actions: [openKitchen],
+            intentIdentifiers: [],
+            options: []
+        )
         // Preserve any categories other code may register by unioning rather than replacing.
         UNUserNotificationCenter.current().getNotificationCategories { existing in
             var merged = existing
             merged.insert(expiryCategory)
+            merged.insert(dailyBriefCategory)
             UNUserNotificationCenter.current().setNotificationCategories(merged)
         }
     }
@@ -77,6 +94,10 @@ enum NotificationActionHandler {
     /// the response, so the delegate can skip its legacy screen-routing switch.
     @MainActor
     static func handle(_ response: UNNotificationResponse) -> Bool {
+        // #14 — acting on a notification is the strongest evidence we get about when this user is
+        // receptive, so it's weighted higher than a plain app open.
+        NotificationEngagement.shared.recordNotificationAction()
+
         let info = response.notification.request.content.userInfo
         let itemID   = info[StockedNotificationKey.itemID]   as? String
         let itemName = info[StockedNotificationKey.itemName] as? String ?? ""

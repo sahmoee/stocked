@@ -50,16 +50,25 @@ final class AppAnalytics {
 
     private let countsKey = "app_analytics_counts_v1"
     private let lastSeenKey = "app_analytics_lastseen_v1"
+    private let enabledKey = "app_analytics_enabled_v1"
+
+    /// #19 — opt-out. Everything is on-device, but the user still owns the choice. Default on;
+    /// when off, `log` is a no-op and existing counts can be cleared via `reset()`.
+    var isEnabled: Bool {
+        didSet { UserDefaults.standard.set(isEnabled, forKey: enabledKey) }
+    }
 
     private init() {
         counts = AppAnalytics.loadDict(countsKey)
         lastSeen = AppAnalytics.loadDates(lastSeenKey)
+        isEnabled = UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true
     }
 
     // MARK: - Logging
 
-    /// Record one occurrence of an event.
+    /// Record one occurrence of an event. No-op when the user has opted out.
     func log(_ event: Event) {
+        guard isEnabled else { return }
         counts[event.rawValue, default: 0] += 1
         lastSeen[event.rawValue] = Date()
         persist()

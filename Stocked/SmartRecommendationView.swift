@@ -175,9 +175,10 @@ struct SmartRecommendationView: View {
         loading = false
     }
 
+    // Shared matcher — was a fifth copy, and the only one with NO length guard
+    // at all, so a one-character ingredient name matched everything.
     private func looseContains(_ a: String, _ b: String) -> Bool {
-        let na = a.lowercased(), nb = b.lowercased()
-        return na.contains(nb) || nb.contains(na)
+        KitchenAvailability.nameMatches(a, b)
     }
 
     // MARK: Context line

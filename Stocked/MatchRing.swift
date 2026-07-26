@@ -54,18 +54,21 @@ enum RecipeCoverageBuilder {
     /// touching the observable store while parsing and matching a large ingredient list.
     nonisolated static func make(for recipe: OnlineRecipe, inStock: Set<String>,
                                  expiringNames: [String]) -> RecipeCoverage {
-        let m = OnlineRecipeMatch.stockMatch(recipe, inStock: inStock)
+        // BUG THIS FIXES: `have`/`total` came from the 0.72 token matcher while
+        // `missingNames` was built by raw substring containment, and
+        // `missingCount` was derived as `total - have`. The count and the named
+        // list were therefore produced by two different rules inside one struct,
+        // so "Missing only X" could name an ingredient the count did not
+        // include (or omit one it did). Both now come from the same pass.
+        let c = OnlineRecipeMatch.coverage(recipe, inStock: inStock)
         let names = RecipeIngredients.names(recipe.ingredients)
             .map { IngredientSynonyms.canonical($0) }
             .filter { !$0.isEmpty }
-        let missing = names.filter { n in
-            !inStock.contains(where: { $0.contains(n) || n.contains($0) })
-        }
         let expiringUsed = expiringNames.filter { exp in
-            names.contains(where: { $0.contains(exp) || exp.contains($0) })
+            names.contains { KitchenAvailability.nameMatches($0, exp) }
         }
-        return RecipeCoverage(have: m.have, total: m.total,
-                              missingNames: missing, expiringUsed: expiringUsed)
+        return RecipeCoverage(have: c.have, total: c.total,
+                              missingNames: c.missingNames, expiringUsed: expiringUsed)
     }
 }
 

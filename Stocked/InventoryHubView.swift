@@ -878,7 +878,7 @@ struct CategoryItemsView: View {
                     .lineLimit(1)
                     .layoutPriority(1)
                 Spacer(minLength: 6)
-                if let d = item.daysUntilExpiry, d <= 3 {
+                if let d = item.daysUntilExpiry, d <= KitchenThresholds.expiringSoonDays {
                     Text(d < 0 ? "Expired" : d == 0 ? "Today" : "\(d)d")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(d <= 1 ? Color.red.opacity(0.8) : Color.orange)
@@ -906,7 +906,7 @@ struct CategoryItemsView: View {
                         .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.55))
                         .frame(height: 62)
                     FoodIconView(name: item.name, size: 44, emojiSize: 26)
-                    if let d = item.daysUntilExpiry, d <= 3 {
+                    if let d = item.daysUntilExpiry, d <= KitchenThresholds.expiringSoonDays {
                         VStack { HStack { Spacer()
                             Circle().fill(d <= 1 ? Color.red : Color.orange)
                                 .frame(width: 8, height: 8).padding(5)

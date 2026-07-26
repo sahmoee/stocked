@@ -7,3 +7,16 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Universal links: the AASA must be served as JSON for iOS to accept it.
+[[headers]]
+  for = "/.well-known/apple-app-site-association"
+  [headers.values]
+    Content-Type = "application/json"
+
+# Container-label links open the app when installed; otherwise show the homepage
+# (a natural place to offer the App Store) instead of a 404.
+[[redirects]]
+  from = "/l/*"
+  to = "/"
+  status = 200

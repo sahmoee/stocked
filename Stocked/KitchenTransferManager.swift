@@ -829,6 +829,11 @@ class KitchenTransferManager {
                 return
             case .success(.some(let data)):
                 let ok = importFromData(data, into: store, merge: merge)
+                // FR-03 FIX: a successful restore means this user already has a set-up kitchen —
+                // mark onboarding complete so the consent-prompt "Restore" path skips the quiz and
+                // lands in the app. (Matches the old auto-restore behavior; harmless when the
+                // caller is an already-onboarded user restoring from Settings.)
+                if ok { store.quizCompleted = true }
                 statusMessage = ok ? "Restored from iCloud ✓" : statusMessage
                 Log.transfer.notice("iCloud restore \(ok ? "succeeded" : "failed", privacy: .public)")
             }
@@ -877,6 +882,37 @@ class KitchenTransferManager {
             return .success(newestData)   // newestData == nil ⇒ genuinely no backups
         } catch {
             return .failure(error)        // a real CloudKit failure — surface it
+        }
+    }
+
+    /// FR-01 FIX (point 4): does the signed-in Apple ID have a restorable iCloud backup?
+    /// Used to decide whether to OFFER a restore after sign-in — we never pull without consent.
+    /// Returns false on any error / no iCloud, so a hiccup silently means "don't offer."
+    func latestBackupExists() async -> Bool {
+        guard let status = try? await cloudContainer.accountStatus(), status == .available else { return false }
+        if case .success(.some) = await fetchLatestICloudBackupResult() { return true }
+        return false
+    }
+
+    /// FR-01 FIX (point 5): delete EVERY KitchenBackup record from the private database, so
+    /// "Erase All Data" / account deletion truly wipes the cloud copy too — otherwise the next
+    /// sign-in or explicit restore would bring the erased kitchen back. Best-effort and silent.
+    func deleteAlliCloudBackups() async {
+        guard let status = try? await cloudContainer.accountStatus(), status == .available else { return }
+        let db = cloudContainer.privateCloudDatabase
+        let query = CKQuery(recordType: "KitchenBackup", predicate: NSPredicate(value: true))
+        do {
+            let (results, _) = try await db.records(matching: query, inZoneWith: nil,
+                                                    desiredKeys: [], resultsLimit: 200)
+            let ids = results.compactMap { (id, res) -> CKRecord.ID? in
+                if case .success = res { return id }
+                return nil
+            }
+            guard !ids.isEmpty else { return }
+            _ = try await db.modifyRecords(saving: [], deleting: ids)
+            Log.transfer.notice("Erased \(ids.count) iCloud KitchenBackup record(s)")
+        } catch {
+            Log.transfer.notice("iCloud backup erase failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 

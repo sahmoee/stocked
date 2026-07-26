@@ -19,7 +19,9 @@ import Foundation
 extension Dictionary {
     /// Builds a dictionary without trapping when synced/cached input contains duplicate keys.
     /// The newest value wins, which matches Stocked's merge semantics.
-    init<S>(keepingLastValues sequence: S) where S: Sequence, S.Element == (Key, Value) {
+    /// `nonisolated` so it's callable from any actor/background context (the project defaults
+    /// declarations to @MainActor, which would otherwise pin this pure utility to the main actor).
+    nonisolated init<S>(keepingLastValues sequence: S) where S: Sequence, S.Element == (Key, Value) {
         self.init()
         for (key, value) in sequence {
             self[key] = value

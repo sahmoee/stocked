@@ -735,7 +735,7 @@ struct StockedDocument: FileDocument {
 
 // MARK: - Custom UTType for .stocked files
 extension UTType {
-    static var stockedKitchen: UTType {
+    nonisolated static var stockedKitchen: UTType {
         UTType(exportedAs: "com.stocked.kitchen", conformingTo: .json)
     }
 }

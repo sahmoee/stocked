@@ -54,20 +54,13 @@ actor RemoteContentClient {
 
     private var backoffUntil: Date? = nil   // after a 404/failure, don't re-hit the network until this passes
 
-    private var base: String { BuildConfig.contentBaseURL }
-
-    // MOVED TO WORKER: curated content is now served by the Stocked Worker
-    // (GET /content/recipes — edge-cached 6h with ETag + stale-on-error, proxying the
-    // cPanel origin), so the app gets Cloudflare's edge instead of shared hosting and
-    // the origin can move without an app update. The direct cPanel URL remains the
-    // fallback when the Worker isn't configured. Image URLs keep resolving against
-    // contentBaseURL, which stays correct for both paths.
-    private var usingWorker: Bool { StockedWorkerClient.isConfigured }
+    // WORKER-ONLY: all curated content is served by the Stocked Worker (GET /content/recipes and
+    // /content/img/* — edge-cached with ETag + stale-on-error). cPanel is no longer used; the
+    // Worker fetches recipes from the GitHub site-repo and caches them at Cloudflare's edge.
+    private var base: String { StockedWorkerClient.url()?.absoluteString ?? BuildConfig.receiptWorkerURL }
     private var catalogURL: URL? {
-        if usingWorker, let worker = StockedWorkerClient.url() {
-            return worker.appendingPathComponent("content/recipes")
-        }
-        return URL(string: base + "/content/recipes.json")
+        guard let worker = StockedWorkerClient.url() ?? URL(string: BuildConfig.receiptWorkerURL) else { return nil }
+        return worker.appendingPathComponent("content/recipes")
     }
 
     private var cacheURL: URL {
@@ -85,7 +78,7 @@ actor RemoteContentClient {
 
         var req = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 8)
         if let tag = loadETag() { req.setValue(tag, forHTTPHeaderField: "If-None-Match") }
-        if usingWorker { BuildConfig.authorizeWorkerRequest(&req) }   // Worker routes are key-gated
+        BuildConfig.authorizeWorkerRequest(&req)   // Worker routes are key-gated
 
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)

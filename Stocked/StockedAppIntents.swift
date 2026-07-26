@@ -50,7 +50,7 @@ nonisolated struct StartCookingIntent: AppIntent {
 /// consumption logged, auto-restock honored). Queue-and-drain because the intent
 /// can run outside the app's live data layer — writing the store's full item JSON
 /// from here would risk clobbering fields this lightweight context doesn't decode.
-nonisolated struct MarkItemUsedIntent: AppIntent {
+struct MarkItemUsedIntent: AppIntent {
     nonisolated static var title: LocalizedStringResource { "Mark Item Used in Stocked" }
     nonisolated static var description: IntentDescription { IntentDescription("Tell Stocked you finished or used up an item.") }
     nonisolated static var openAppWhenRun: Bool { false }
@@ -73,7 +73,7 @@ nonisolated struct MarkItemUsedIntent: AppIntent {
 /// #drift — "Hey Siri, add milk to Stocked." Same queue-and-drain pattern as
 /// MarkItemUsedIntent: queue the name, apply through the store on next foreground
 /// (smart merge, crowd defaults, and household sync all honored).
-nonisolated struct AddItemIntent: AppIntent {
+struct AddItemIntent: AppIntent {
     nonisolated static var title: LocalizedStringResource { "Add Item to Stocked" }
     nonisolated static var description: IntentDescription { IntentDescription("Add an item to your Stocked kitchen inventory.") }
     nonisolated static var openAppWhenRun: Bool { false }
@@ -141,6 +141,14 @@ nonisolated enum StockedInventoryReader {
 }
 
 // MARK: - Shortcut phrases (no parameters — fully SDK-safe)
+//
+// THE app's single shortcuts provider. AppIntents allows exactly ONE
+// `AppShortcutsProvider` conformance per app — a second one is a hard build error, not a
+// warning — so every shortcut in Stocked must be registered here. Apple also caps this at
+// 10 entries; we currently declare 9.
+//
+// Intents themselves live in two files (this one, and StockedAppIntentsPlus.swift for the
+// kitchen-feature intents). That split is fine; only the *provider* must be unique.
 
 @available(iOS 16.0, *)
 nonisolated struct StockedShortcuts: AppShortcutsProvider {
@@ -189,6 +197,45 @@ nonisolated struct StockedShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "What's Expiring",
             systemImageName: "clock.badge.exclamationmark"
+        )
+
+        // ── Improvement #17 — kitchen-feature intents (defined in StockedAppIntentsPlus.swift) ──
+        // Registered here because the provider must be unique app-wide.
+        AppShortcut(
+            intent: WhatLeftoversIntent(),
+            phrases: [
+                "What leftovers do I have in \(.applicationName)",
+                "Check my \(.applicationName) leftovers"
+            ],
+            shortTitle: "Leftovers",
+            systemImageName: "takeoutbag.and.cup.and.straw"
+        )
+        AppShortcut(
+            intent: WhatToThawIntent(),
+            phrases: [
+                "What should I thaw in \(.applicationName)",
+                "\(.applicationName) thaw plan"
+            ],
+            shortTitle: "What to Thaw",
+            systemImageName: "snowflake"
+        )
+        AppShortcut(
+            intent: HowManyDaysOfFoodIntent(),
+            phrases: [
+                "How many days of food do I have in \(.applicationName)",
+                "\(.applicationName) readiness"
+            ],
+            shortTitle: "Days of Food",
+            systemImageName: "shield.checkered"
+        )
+        AppShortcut(
+            intent: WhatCanIUseUpIntent(),
+            phrases: [
+                "What should I use up in \(.applicationName)",
+                "\(.applicationName) what needs eating"
+            ],
+            shortTitle: "Use Up",
+            systemImageName: "arrow.down.to.line.circle"
         )
     }
 }

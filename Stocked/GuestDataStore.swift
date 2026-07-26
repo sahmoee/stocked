@@ -619,6 +619,14 @@ class GuestDataStore {
             tmpFiles.filter { $0.lastPathComponent.hasPrefix("stocked") }
                     .forEach { try? fm.removeItem(at: $0) }
         }
+
+        // ── 8. Feature stores (FR-01 fix, point 5) ────────────────────
+        // The 8 feature collections (leftovers, family, events, shared costs, store layouts,
+        // harvests, labels, takeout) live as their own singletons. Their FILES were wiped by
+        // deleteAll() above, but the in-memory arrays weren't — and the next mutation/flush would
+        // re-persist them. Reset the live singletons so a cleared kitchen can't come back.
+        FeatureSync.shared.wipeAll()
+        SyncConflictLog.shared.clear()
     }
 
     func addGroceryItem(name: String) {
@@ -681,7 +689,11 @@ class GuestDataStore {
         // Memoized: rebuilt only after the inventory changes (see invalidateStockMatches).
         // The Discover rails and recipe badges read this repeatedly per render.
         if let hit = inStockNamesCache { return hit }
-        let set = Set(inventoryItems.filter { $0.level > 0 }.map { $0.name.lowercased() })
+        // WAS: `$0.level > 0` — the RAW level, which ignores the expiry-decay
+        // adjustment in `effectiveLevel`. That is why the Daily Brief and the
+        // Discover badges disagreed with Inventory about what was on hand.
+        // NOW: the shared available-item rule (effectiveLevel above the floor).
+        let set = KitchenAvailability.availableNames(in: inventoryItems)
         inStockNamesCache = set
         return set
     }
@@ -706,7 +718,7 @@ class GuestDataStore {
                 let n = ing.name.trimmingCharacters(in: .whitespaces)
                 guard !n.isEmpty else { continue }
                 let low = n.lowercased()
-                if inStock.contains(where: { low.contains($0) || $0.contains(low) }) { continue }
+                if KitchenAvailability.isPresent(low, inNames: inStock) { continue }
                 var contribution = Self.groceryContribution(for: ing, scale: scale)
                 // Amounts baked into the ingredient NAME ("6 corn tortillas", "14 oz jar
                 // Enchilada sauce") split apart here so the stored name is clean and the
@@ -786,23 +798,9 @@ class GuestDataStore {
             OnlineRecipeFacts.normalizedTitle($0.title) == OnlineRecipeFacts.normalizedTitle(r.title)
         }) { return existing.id }
 
-        var saved = UserRecipe(title: r.title)
-        saved.cookTime   = r.cookTime
-        saved.servings   = r.servings
-        saved.difficulty = r.difficulty
-        saved.notes      = r.tips
-        saved.ingredients = r.ingredients.map { line in
-            let full = "\(line.amount) \(line.name)".trimmingCharacters(in: .whitespaces)
-            let pq = ParsedQuantity.parse(full)
-            let name = pq.baseName.isEmpty ? line.name.trimmingCharacters(in: .whitespaces) : pq.baseName
-            return RecipeIngredient(
-                name: name,
-                amount: line.amount.trimmingCharacters(in: .whitespaces),
-                quantity: pq.amount > 0 ? pq.amount : nil,
-                unit: pq.canonicalUnit.isEmpty ? nil : pq.canonicalUnit
-            )
-        }
-        saved.instructions = r.steps
+        // Conversion moved to RecipeAdapter — it was duplicated here and in
+        // importOnlineRecipe, and the classifier needs the same shape.
+        let saved = RecipeAdapter.userRecipe(from: r, persistentID: UUID())
         addUserRecipe(saved)
         RecipeInterest.shared.record(category: "generated", area: saved.cuisine,
                                      ingredients: saved.ingredients.map(\.name), event: .saved)
@@ -816,26 +814,9 @@ class GuestDataStore {
             OnlineRecipeFacts.normalizedTitle($0.title) == OnlineRecipeFacts.normalizedTitle(recipe.title)
         }) { return existing.id }
 
-        var saved = UserRecipe(title: recipe.title)
-        saved.ingredients = recipe.ingredientLines.map { pair in
-            let full = "\(pair.measure) \(pair.ingredient)".trimmingCharacters(in: .whitespaces)
-            let pq = ParsedQuantity.parse(full)
-            // baseName is the parsed name; fall back to the raw ingredient if parsing stripped it.
-            let name = pq.baseName.isEmpty ? pair.ingredient.trimmingCharacters(in: .whitespaces) : pq.baseName
-            return RecipeIngredient(
-                name: name,
-                amount: pair.measure.trimmingCharacters(in: .whitespaces),
-                quantity: pq.amount > 0 ? pq.amount : nil,
-                unit: pq.canonicalUnit.isEmpty ? nil : pq.canonicalUnit
-            )
-        }
-        saved.instructions = recipe.instructions
-            .components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-        saved.imageURL = recipe.imageURL
-        saved.cuisine  = recipe.area
-        saved.notes    = [recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · ")
+        // Conversion moved to RecipeAdapter (shared with the classification pool
+        // and with saveGeneratedRecipe).
+        let saved = RecipeAdapter.userRecipe(from: recipe, persistentID: UUID())
         addUserRecipe(saved)
         RecipeInterest.shared.record(category: recipe.category, area: recipe.area,
                                      ingredients: saved.ingredients.map(\.name), event: .saved)
@@ -1364,16 +1345,18 @@ class GuestDataStore {
 
     // MARK: - Stock matching + profile ranking (#1, #2, #6)
     /// Loose two-way name match: "chicken breast" ↔ "Chicken", "eggs" ↔ "Egg (dozen)".
+    /// WAS: two-way substring containment with a `count > 2` guard, copied
+    /// byte-for-byte into CookNowEngine and RecipeVaultViews. The three copies
+    /// drifted from the stricter FoodNameMatcher rule the Discover badges used,
+    /// which is why the Cook tab and the Recipes tab reported different
+    /// availability for comparable recipes. NOW: one shared rule.
     nonisolated private static func looseMatch(_ a: String, _ b: String) -> Bool {
-        let na = a.lowercased().trimmingCharacters(in: .whitespaces)
-        let nb = b.lowercased().trimmingCharacters(in: .whitespaces)
-        guard na.count > 2, nb.count > 2 else { return na == nb }
-        return na.contains(nb) || nb.contains(na)
+        KitchenAvailability.nameMatches(a, b)
     }
 
     /// Is this ingredient on hand (any in-stock inventory item that name-matches)?
     func ingredientInStock(_ ingredient: String) -> Bool {
-        inventoryItems.contains { $0.effectiveLevel > 0 && Self.looseMatch(ingredient, $0.name) }
+        KitchenAvailability.isPresent(ingredient, in: inventoryItems)
     }
 
     /// How much of a recipe you can make right now: (have, total) over non-optional
@@ -1398,10 +1381,15 @@ class GuestDataStore {
 
     func stockMatch(for recipe: UserRecipe) -> (have: Int, total: Int) {
         if let hit = stockMatchCache[recipe.id] { return hit }
-        let needed = recipe.ingredients.filter { !$0.isOptional }
-        guard !needed.isEmpty else { stockMatchCache[recipe.id] = (0, 0); return (0, 0) }
-        let have = needed.filter { ingredientInStock($0.name) }.count
-        let result = (have, needed.count)
+        // Routed through the shared coverage rule so this number, the Cook tab's
+        // readiness tiers, the Recipes tab badge, and the match ring are all
+        // computed by ONE matcher with ONE optional-ingredient rule.
+        let coverage = KitchenAvailability.coverage(
+            lines: recipe.ingredients.map(\.name),
+            optionalFlags: recipe.ingredients.map(\.isOptional),
+            availableNames: inStockNameSet
+        )
+        let result = (coverage.have, coverage.total)
         stockMatchCache[recipe.id] = result
         return result
     }
@@ -1415,6 +1403,69 @@ class GuestDataStore {
             !savedTitles.contains($0.title.lowercased().trimmingCharacters(in: .whitespaces))
         }
         return userRecipes + starters
+    }
+
+    /// Everything the readiness classifier should score: the user's collection,
+    /// the starter meals, their saved AI-generated recipes, and the Discover pool.
+    ///
+    /// WAS: only `cookCatalog`, i.e. saved recipes plus starter meals. Discover
+    /// recipes had no path into the classifier at all, so Cook Now ranked a
+    /// handful of authored starter meals while the real recipe library sat behind
+    /// a naive missing-count badge. Generated recipes were counted separately off
+    /// a `missingIngredients` list frozen at generation time.
+    ///
+    /// The Discover pool is PASSED IN rather than stored. An earlier attempt kept
+    /// it as a store property mirrored from the Recipes tab; that was wrong twice
+    /// over. It was marked `@ObservationIgnored`, so writing it notified nobody
+    /// and Cook Now kept serving a stale catalog, and it made the store depend on
+    /// a view-layer load having already happened. Passing it keeps one source of
+    /// truth (the loader's own cache) and no hidden ordering requirement.
+    /// Ensure a classified recipe exists in the user's own collection, returning
+    /// the persisted copy.
+    ///
+    /// Recipes adapted from Discover or from a generated recipe carry a DERIVED
+    /// id and are not in `userRecipes`. Opening one from Cook Now used to hand
+    /// `UserRecipeDetailView` a recipe the store had never seen, so rename,
+    /// delete, favourite, and cook-history all looked available and silently did
+    /// nothing (they resolve by id against `userRecipes`). Cook Now is an
+    /// intent-to-cook surface, so persisting on open is the honest fix: the
+    /// recipe becomes the user's, and every downstream action works.
+    ///
+    /// Idempotent by id and by normalized title, so repeated opens do not
+    /// duplicate.
+    @discardableResult
+    func ensureSavedForCooking(_ recipe: UserRecipe) -> UserRecipe {
+        if let existing = userRecipes.first(where: { $0.id == recipe.id }) { return existing }
+        let key = OnlineRecipeFacts.normalizedTitle(recipe.title)
+        if let existing = userRecipes.first(where: {
+            OnlineRecipeFacts.normalizedTitle($0.title) == key
+        }) { return existing }
+
+        var saved = recipe
+        saved.id = UUID()          // a real, store-owned identity
+        saved.dateCreated = Date()
+        addUserRecipe(saved)
+        return saved
+    }
+
+    func classifiableCatalog(discover: [OnlineRecipe] = []) -> [UserRecipe] {
+        let mine = cookCatalog
+        var seen = Set(mine.map { OnlineRecipeFacts.normalizedTitle($0.title) })
+
+        var generated: [UserRecipe] = []
+        for g in savedGeneratedRecipes where !g.isHidden {
+            let key = OnlineRecipeFacts.normalizedTitle(g.title)
+            guard !key.isEmpty, !seen.contains(key) else { continue }
+            seen.insert(key)
+            generated.append(RecipeAdapter.userRecipe(from: g))
+        }
+
+        let discovered = RecipeAdapter.classificationPool(
+            online: discover,
+            excludingTitles: seen,
+            availableTokens: RecipeAdapter.availableTokens(in: inventoryItems)
+        )
+        return mine + generated + discovered
     }
 
     /// Saved recipes that use at least one item expiring within `days` — "use it up" picks.
@@ -1546,14 +1597,14 @@ class GuestDataStore {
     /// Returns the number of items added.
     @discardableResult
     func generateGroceryFromMealPlan() -> Int {
-        let inStock = Set(inventoryItems.filter { $0.level > 0 }.map { $0.name.lowercased() })
+        let inStock = KitchenAvailability.availableNames(in: inventoryItems)
         var added = 0
         for meal in plannedMeals where !meal.isCooked {
             for ing in meal.ingredients {
                 let n = ing.trimmingCharacters(in: .whitespaces)
                 guard !n.isEmpty else { continue }
                 let low = n.lowercased()
-                let haveInStock = inStock.contains(where: { low.contains($0) || $0.contains(low) })
+                let haveInStock = KitchenAvailability.isPresent(low, inNames: inStock)
                 let onList = groceryItems.contains { $0.name.lowercased() == low }
                 if !haveInStock && !onList {
                     withAnimation {
@@ -1619,13 +1670,13 @@ class GuestDataStore {
     /// Combines the built-in substitution DB with the user's own substitution entries.
     func inStockSubstitutes(for ingredient: String) -> [String] {
         let inStock = inventoryItems.filter { $0.level > 0 }.map { $0.name }
-        var subs: [String] = []
-        if let entry = StockedDatabase.shared.substitutions(for: ingredient) {
-            subs += entry.substitutions.map { $0.substitute }
-        }
-        subs += userSubstitutions
-            .filter { $0.ingredient.lowercased() == ingredient.lowercased() }
-            .map { $0.substitute }
+        // Improvement #1 — one source of truth. This used to combine only StockedDatabase with an
+        // EXACT-match filter over userSubstitutions, so a swap saved as "oat milk" never applied to
+        // a recipe line reading "milk". The engine matches loosely in both directions and also
+        // folds in IngredientIntel's ratio table.
+        let subs = SubstitutionEngine
+            .local(for: ingredient, userEntries: userSubstitutions)
+            .map(\.substitute)
         // Keep only substitutes that match something currently in stock.
         let matches = subs.filter { sub in
             inStock.contains(where: { $0.lowercased().contains(sub.lowercased()) || sub.lowercased().contains($0.lowercased()) })
@@ -1639,7 +1690,7 @@ class GuestDataStore {
     /// #20 — "Surprise me" tuned to preferences + what's in stock. Scores known recipes
     /// by how many ingredients you already have, lightly biased to preferred cuisines.
     func surpriseRecipeTuned() -> GeneratedRecipe? {
-        let inStock = Set(inventoryItems.filter { $0.level > 0 }.map { $0.name.lowercased() })
+        let inStock = KitchenAvailability.availableNames(in: inventoryItems)
         // Cuisine preferences live on the cooking profile (owned by AppSession); read them
         // straight from storage so this works from within GuestDataStore.
         let profileCuisines: [String] = {
@@ -1649,14 +1700,30 @@ class GuestDataStore {
             return p.cuisinePrefs
         }()
         let prefs = Set(profileCuisines.map { $0.lowercased() })
+        // G1 (QA gap): exclude any saved recipe containing a profile allergen, so "Surprise me"
+        // can never hand back an allergen dish — mirrors CookNowEngine.isExcluded.
+        let allergens: [String] = {
+            guard let data = ud.data(forKey: DBKey.cookingProfile.rawValue),
+                  let p = try? JSONDecoder().decode(UserCookingProfile.self, from: data)
+            else { return [] }
+            return p.allergens.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 }
+        }()
+        // Routed through DietaryGuard — this was a FOURTH allergen rule, on top
+        // of CookNowEngine, Discover, and Surprise Me. All four agree now.
+        let dietaryRules = DietaryGuard.Rules(allergens: allergens)
+        func hasAllergen(_ r: GeneratedRecipe) -> Bool {
+            !DietaryGuard.allergenHits(ingredientLines: r.ingredients.map(\.name),
+                                       title: r.title,
+                                       rules: dietaryRules).isEmpty
+        }
         func score(_ r: GeneratedRecipe) -> Int {
-            let have = r.ingredients.filter { line in
-                inStock.contains(where: { line.name.lowercased().contains($0) || $0.contains(line.name.lowercased()) })
+            let have = r.ingredients.filter {
+                KitchenAvailability.isPresent($0.name, inNames: inStock)
             }.count
             let cuisineBonus = prefs.contains(where: { r.mealCategory.lowercased().contains($0) }) ? 3 : 0
             return have + cuisineBonus
         }
-        let pool = savedGeneratedRecipes.filter { !$0.isHidden }
+        let pool = savedGeneratedRecipes.filter { !$0.isHidden && !hasAllergen($0) }
         guard !pool.isEmpty else { return nil }
         let sorted = pool.sorted { score($0) > score($1) }
         let topCount = max(1, sorted.count / 3)
@@ -1712,13 +1779,21 @@ class GuestDataStore {
             if let data = try? JSONEncoder().encode(newValue) { ud.set(data, forKey: "ocrDict_v1") }
         }
     }
-    // Translate raw OCR text using learned dictionary, returns resolved name or nil if unknown
-    func translateOCR(_ raw: String) -> String? {
-        let lower = raw.lowercased().trimmingCharacters(in: .whitespaces)
-        return ocrDictionary.first { $0.rawText.lowercased() == lower }?.resolved
+    /// Translate raw OCR text using the learned dictionary. Returns nil if unknown.
+    ///
+    /// Improvement #13 — routes through `ReceiptLearningIndex`, which adds three things the old
+    /// exact-match version lacked: per-store scoping (two chains can use "GV" differently), fuzzy
+    /// token matching (a line learned as "ORG CHKN BRST" still fires for "ORG CHKN BRST 2LB"), and
+    /// a single build per scan instead of re-decoding the whole dictionary from UserDefaults on
+    /// every line.
+    func translateOCR(_ raw: String, store: String = "") -> String? {
+        ReceiptLearningIndex.shared.rebuildIfNeeded(from: ocrDictionary)
+        return ReceiptLearningIndex.shared.resolve(raw, store: store)
     }
-    // Learn a new correction (raw → resolved)
-    func learnOCRCorrection(raw: String, resolved: String) {
+
+    /// Learn a new correction (raw → resolved), globally and — when we know which store the
+    /// receipt came from — scoped to that store as well.
+    func learnOCRCorrection(raw: String, resolved: String, store: String = "") {
         guard raw.lowercased() != resolved.lowercased() else { return }
         var dict = ocrDictionary
         if let i = dict.firstIndex(where: { $0.rawText.lowercased() == raw.lowercased() }) {
@@ -1728,6 +1803,8 @@ class GuestDataStore {
             dict.append(OCRTranslation(rawText: raw, resolved: resolved))
         }
         ocrDictionary = dict
+        ReceiptLearningIndex.shared.learn(raw: raw, resolved: resolved, store: store)
+        ReceiptLearningIndex.shared.rebuild(from: dict)
     }
 
     // Cooking profile — stored var so @Observable tracks it for RootView routing
@@ -1897,13 +1974,42 @@ class GuestDataStore {
         KitchenStock.byCategory(staples: stockStaples, inStock: inStockNameSet)
     }
     var availableMeals: Int {
-        // #247 — must agree with the Cook Now rail: fully-stocked catalog meals
-        // (saved + starters) plus saved AI-generated recipes with nothing missing.
+        // #247 — must agree with the Cook Now rail.
+        //
+        // IT DID NOT. This count used `stockMatch` (loose substring matcher, no
+        // dietary exclusion) while the Cook tab used CookNowEngine (stricter
+        // matcher, substitutions, allergen exclusion, reservation demotion), so
+        // Home and Cook printed different numbers from the same inventory.
+        //
+        // Both now share the matcher and the optional rule, and this count now
+        // applies the same dietary exclusion. It is defined to equal
+        // CookNowEngine's `.exact` tier — the "N exact" figure the Cook tab
+        // shows under "Ready now". It deliberately does NOT include
+        // `.readyWithSwap`: substitution readiness depends on session-confirmed
+        // swaps, which are Cook-session state and cannot be read from a
+        // store-level computed property without running the full classifier in
+        // a view body (the render-loop hazard documented on stockMatchCache).
+        let rules = DietaryGuard.Rules(allergens: cookingProfile.allergens)
         let catalogReady = cookCatalog.filter { r in
             let m = stockMatch(for: r)
-            return m.total > 0 && m.have == m.total
+            guard m.total > 0, m.have == m.total else { return false }
+            return !DietaryGuard.isExcluded(ingredientLines: r.ingredients.map(\.name),
+                                            title: r.title,
+                                            rules: rules)
         }.count
-        let generatedReady = savedGeneratedRecipes.filter { $0.missingIngredients.isEmpty }.count
+        // WAS: `savedGeneratedRecipes.filter { $0.missingIngredients.isEmpty }` —
+        // reading a list frozen at the moment the recipe was generated, so a
+        // generated recipe's readiness never responded to the kitchen changing.
+        // Now classified live against inventory like every other recipe.
+        let generatedReady = savedGeneratedRecipes.filter { g in
+            guard !g.isHidden else { return false }
+            let adapted = RecipeAdapter.userRecipe(from: g)
+            let m = stockMatch(for: adapted)
+            guard m.total > 0, m.have == m.total else { return false }
+            return !DietaryGuard.isExcluded(ingredientLines: adapted.ingredients.map(\.name),
+                                            title: adapted.title,
+                                            rules: rules)
+        }.count
         return catalogReady + generatedReady
     }
     var urgentItems: [LocalInventoryItem] {

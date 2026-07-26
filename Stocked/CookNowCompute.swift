@@ -51,15 +51,34 @@ enum CookNowCompute {
     /// Classify the current catalog against the current inventory, profile, and
     /// (optionally) a Cook Now session's overrides + confirmed substitutions.
     static func run(store: GuestDataStore, session: CookNowSession?) -> Output {
-        let recipes = store.cookCatalog
+        // WAS: `store.cookCatalog` — saved recipes plus starter meals only, so
+        // Discover recipes and saved AI-generated recipes could never receive a
+        // readiness tier. Now the full classifiable catalog, with the Discover
+        // pool read straight from the loader that the Recipes tab uses, so both
+        // tabs are scoring the same recipes from one source of truth.
+        let recipes = store.classifiableCatalog(discover: OnlineRecipesLoader.shared.recipes)
 
         // In-stock names: same availability rule the rest of the app uses.
-        let inStock = store.inventoryItems.filter { $0.effectiveLevel > 0 }.map { $0.name }
+        let inStock = KitchenAvailability.availableItems(in: store.inventoryItems).map { $0.name }
 
-        // Allergens come from the saved cooking profile — the same source the
-        // vault's allergen warnings use. (Household member dislikes have no
-        // central store accessor today; when one exists it plugs in here.)
-        let allergens = store.cookingProfile.allergens.filter { !$0.isEmpty }
+        // Allergens: the saved cooking profile PLUS the allergies recorded on the
+        // family profiles of everyone currently present.
+        //
+        // The family-profile allergies were previously unreachable from here —
+        // the comment this replaces said "household member dislikes have no
+        // central store accessor today". `FamilyProfileStore.shared` did exist,
+        // and its model documents `allergies` as "hard constraints — never
+        // suggest", but the only consumer was KitchenToolboxView. So a user could
+        // record a child's peanut allergy on a screen that promised never to
+        // suggest it, and Cook Now would go on suggesting it.
+        let family = FamilyProfileStore.shared
+        let allergens = (store.cookingProfile.allergens + family.activeAllergens)
+            .filter { !$0.isEmpty }
+        // Dislikes are the household's soft constraints — excluded like allergens
+        // by the engine, which is the behaviour the model documents.
+        let dislikes = Array(Set(
+            family.profiles.filter(\.isPresent).flatMap(\.dislikes).map { $0.lowercased() }
+        )).filter { !$0.isEmpty }
 
         // Pre-resolve in-stock substitutes for every ingredient the classifier
         // might ask about (anything not directly in stock). One store pass;
@@ -79,7 +98,7 @@ enum CookNowCompute {
             recipes: recipes,
             inStockNames: inStock,
             allergens: allergens,
-            dislikes: [],
+            dislikes: dislikes,
             confirmedSubstitutions: session?.confirmedSubstitutionKeys ?? [],
             overrides: session.map { s in
                 // Session stores lowercased keys already; pass through.

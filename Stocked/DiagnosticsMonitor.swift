@@ -19,7 +19,10 @@ import Foundation
 import MetricKit
 import os
 
-nonisolated final class DiagnosticsMonitor: NSObject, MXMetricManagerSubscriber {
+// @unchecked Sendable is accurate here, not a shortcut: every stored property below is an
+// immutable `let` of a Sendable type (Logger, URL, Int, DispatchQueue) — the class has no
+// mutable state — and the only shared resource (the log file) is serialized through `io`.
+nonisolated final class DiagnosticsMonitor: NSObject, MXMetricManagerSubscriber, @unchecked Sendable {
     static let shared = DiagnosticsMonitor()
 
     private let log = Logger(subsystem: "com.sowens.Stocked", category: "diagnostics")

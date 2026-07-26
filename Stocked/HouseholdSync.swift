@@ -525,6 +525,14 @@ final class HouseholdSync {
         // #3 — carry the household name so it syncs, but only once this user has set one
         // (avoids a member who never renamed it clobbering the owner's name with the default).
         if householdNameIsCustom { body["householdName"] = householdName }
+        // Launch readiness 1.4 — the feature collections (leftovers, family, events, shared
+        // costs, store layouts, harvests, labels, takeout) ride the same push. Gated on the
+        // inventory toggle: they're all kitchen-contents data, and a user who opted their
+        // inventory out of sharing has clearly opted this out too.
+        let capturedFeatureTombstones = FeatureSync.shared.tombstoneSnapshot()
+        if syncInventory {
+            body.merge(FeatureSync.shared.pushPayload()) { _, new in new }
+        }
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             let message = lastPostFailure?.localizedDescription
@@ -535,6 +543,7 @@ final class HouseholdSync {
         }
 
         store.acknowledgeHouseholdTombstones(capturedTombstones)
+        FeatureSync.shared.acknowledgeTombstones(capturedFeatureTombstones)   // 1.4
         markQueueCompleted(operationIDs: capturedOperationIDs, route: .workerPush)
         let counts = applyHousehold(hh, into: store)
         if let updated = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = updated }
@@ -885,6 +894,9 @@ final class HouseholdSync {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordGroceryConflict(mine: local, theirs: r)   // divert, keep local for now
                     } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
+                        // G7 — audit a silent LWW overwrite (self-guards when names match).
+                        SyncConflictLog.shared.record(entityType: "Grocery", entityName: local.name,
+                                                      replaced: local.name, winning: r.name, writer: r.lastWriterID)
                         byID[r.id] = r   // newer wins
                     }
                 } else if !groTombstones.contains(r.id.uuidString) {
@@ -912,6 +924,17 @@ final class HouseholdSync {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordInventoryConflict(mine: local, theirs: r)
                     } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
+                        // #19 — the remote wins and the local value is about to be discarded.
+                        // The outcome is unchanged (last-write-wins), but a real local edit no
+                        // longer disappears without a trace the user can find.
+                        if local.updatedAt > 0, local != r {
+                            SyncConflictLog.shared.record(
+                                entityType: "Inventory",
+                                entityName: local.name,
+                                replaced: HouseholdSync.describe(local),
+                                winning: HouseholdSync.describe(r),
+                                writer: r.addedBy ?? "")
+                        }
                         byID[r.id] = r
                     }
                 } else if !invTombstones.contains(r.id.uuidString) {
@@ -964,6 +987,8 @@ final class HouseholdSync {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordUserRecipeConflict(mine: local, theirs: r)
                     } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
+                        SyncConflictLog.shared.record(entityType: "Recipe", entityName: local.title,
+                                                      replaced: local.title, winning: r.title, writer: r.lastWriterID)
                         byID[r.id] = r; touched = true
                     }
                 } else if !userRecipeTombstones.contains(r.id.uuidString) {
@@ -983,6 +1008,8 @@ final class HouseholdSync {
                     if lockedIDs.contains(r.id) && r.updatedAt != local.updatedAt {
                         recordGenRecipeConflict(mine: local, theirs: r)
                     } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
+                        SyncConflictLog.shared.record(entityType: "Saved recipe", entityName: local.title,
+                                                      replaced: local.title, winning: r.title, writer: r.lastWriterID)
                         byID[r.id] = r; touched = true
                     }
                 } else if !genRecipeTombstones.contains(r.id.uuidString) {
@@ -1000,7 +1027,19 @@ final class HouseholdSync {
             var touched = false
             for r in remote {
                 if let local = byID[r.id] {
-                    if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) { byID[r.id] = r; touched = true }
+                    if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
+                        // #19 — planned meals were the one collection with NO conflict check at
+                        // all, so a meal you moved could be silently reverted by another device.
+                        // Still last-write-wins, but no longer invisible.
+                        if local.updatedAt > 0, local.title != r.title || local.dayIndex != r.dayIndex {
+                            SyncConflictLog.shared.record(
+                                entityType: "Planned meal",
+                                entityName: local.title,
+                                replaced: "\(local.title) · day \(local.dayIndex)",
+                                winning: "\(r.title) · day \(r.dayIndex)")
+                        }
+                        byID[r.id] = r; touched = true
+                    }
                 } else if !mealTombstones.contains(r.id.uuidString) {
                     byID[r.id] = r; touched = true
                 }
@@ -1008,10 +1047,28 @@ final class HouseholdSync {
             for id in byID.keys where mealTombstones.contains(id.uuidString) { byID[id] = nil; touched = true }
             if touched { store.plannedMeals = Array(byID.values) }
         }
+
+        // Launch readiness 1.4 — merge the feature collections (leftovers, family, events, shared
+        // costs, store layouts, harvests, labels, takeout) with the same per-id LWW policy.
+        // Gated like the push: these travel with the inventory toggle.
+        if syncInventory {
+            FeatureSync.shared.apply(hh)
+        }
         return (invAdded, groAdded)
     }
 
     // MARK: - Conflict recording + resolution (Drop 5, Option B)
+
+    /// #19 — a short readable summary of an inventory item, for the "what was replaced" log.
+    /// Deliberately the fields a user would notice changing.
+    nonisolated static func describe(_ item: LocalInventoryItem) -> String {
+        var parts = ["\(item.quantity)× \(item.name)"]
+        parts.append(item.zone)
+        if let exp = item.expirationDate {
+            parts.append("exp \(exp.formatted(date: .abbreviated, time: .omitted))")
+        }
+        return parts.joined(separator: " · ")
+    }
 
     private func addConflict(_ c: HouseholdConflict) {
         // De-dupe by entity id: a newer pull replaces an unresolved conflict for the same item.

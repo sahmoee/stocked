@@ -31,6 +31,11 @@ struct GlobalSearchView: View {
         case cachedRecipe(CachedRecipe)
         case foodItem(IngredientEntry)
         case onlineRecipe(OnlineRecipe)
+        // Improvement #10 — the app grew four whole data domains that search couldn't see.
+        case tool(ToolboxTool)
+        case leftover(LeftoverEntry)
+        case containerLabel(ContainerLabel)
+        case plannedMeal(PlannedMeal)
 
         var id: String {
             switch self {
@@ -41,6 +46,10 @@ struct GlobalSearchView: View {
             case .cachedRecipe(let r):   return "cache_\(r.id)"
             case .foodItem(let f):       return "food_\(f.id)"
             case .onlineRecipe(let r):   return "online_\(r.id)"
+            case .tool(let t):           return "tool_\(t.rawValue)"
+            case .leftover(let l):       return "left_\(l.id)"
+            case .containerLabel(let c): return "label_\(c.id)"
+            case .plannedMeal(let m):    return "meal_\(m.id)"
             }
         }
         var title: String {
@@ -52,6 +61,10 @@ struct GlobalSearchView: View {
             case .cachedRecipe(let r):   return r.title
             case .foodItem(let f):       return f.name
             case .onlineRecipe(let r):   return r.title
+            case .tool(let t):           return t.title
+            case .leftover(let l):       return l.title
+            case .containerLabel(let c): return c.contents
+            case .plannedMeal(let m):    return m.title
             }
         }
         var subtitle: String {
@@ -63,6 +76,10 @@ struct GlobalSearchView: View {
             case .cachedRecipe(let r):   return "\(r.area) · \(r.source)"
             case .foodItem(let f):       return f.category
             case .onlineRecipe(let r):   return "\(r.area) · \(r.category)"
+            case .tool(let t):           return t.subtitle
+            case .leftover(let l):       return l.isExpired ? "Past date" : "\(l.portions) portion\(l.portions == 1 ? "" : "s") · \(l.daysLeft)d left"
+            case .containerLabel(let c): return "\(c.storage) · labelled \(c.filledOn.formatted(date: .abbreviated, time: .omitted))"
+            case .plannedMeal(let m):    return m.isCooked ? "Cooked" : "\(m.mealType) · day \(m.dayIndex)"
             }
         }
         var icon: String {
@@ -74,6 +91,10 @@ struct GlobalSearchView: View {
             case .cachedRecipe:   return "globe"
             case .foodItem:       return "leaf.fill"
             case .onlineRecipe:   return "network"
+            case .tool(let t):    return t.icon
+            case .leftover:       return "takeoutbag.and.cup.and.straw"
+            case .containerLabel: return "qrcode"
+            case .plannedMeal:    return "calendar"
             }
         }
         var sourceLabel: String {
@@ -85,6 +106,10 @@ struct GlobalSearchView: View {
             case .cachedRecipe(let r): return r.source
             case .foodItem:           return "Food DB"
             case .onlineRecipe:       return "Online"
+            case .tool:               return "Toolbox"
+            case .leftover:           return "Leftovers"
+            case .containerLabel:     return "Labels"
+            case .plannedMeal:        return "Meal Plan"
             }
         }
         var sourceTint: Color {
@@ -96,6 +121,10 @@ struct GlobalSearchView: View {
             case .cachedRecipe:   return Color.stockedGold
             case .foodItem:       return Color.stockedSuccess
             case .onlineRecipe:   return Color.purple
+            case .tool:           return Color.stockedGold
+            case .leftover:       return Color.orange
+            case .containerLabel: return Color.stockedInfo
+            case .plannedMeal:    return Color.stockedGreen
             }
         }
     }
@@ -158,6 +187,30 @@ struct GlobalSearchView: View {
         StockedKnowledgeBase.shared.suggestIngredients(prefix: q, limit: 6)
             .forEach { s(.foodItem($0.asIngredientEntry), 30) }
 
+        // ── Improvement #10 ─────────────────────────────────────────────────
+        // Four domains search couldn't previously see at all. Scored against the existing ladder:
+        // a leftover about to go off outranks a pantry substring match, because it's the more
+        // urgent answer; tools sit just under recipes since "where is that thing" is the query
+        // they answer.
+        LeftoversStore.shared.queue
+            .filter { $0.title.lowercased().contains(q) }
+            .forEach { s(.leftover($0), $0.daysLeft <= 1 ? 90 : 68) }
+
+        // Tools are matched fuzzily — the toolbox already uses FuzzyMatch, and a user searching
+        // "convert" should find "Unit Converter".
+        ToolboxTool.allCases
+            .filter { FuzzyMatch.matches(q, $0.title) || $0.subtitle.lowercased().contains(q) }
+            .prefix(5)
+            .forEach { s(.tool($0), $0.title.lowercased() == q ? 95 : 55) }
+
+        store.plannedMeals
+            .filter { !$0.isBuilding && $0.title.lowercased().contains(q) }
+            .forEach { s(.plannedMeal($0), 72) }
+
+        ContainerLabelStore.shared.byAge
+            .filter { $0.contents.lowercased().contains(q) }
+            .forEach { s(.containerLabel($0), 66) }
+
         // Deduplicate by id, sort by score descending
         var seen = Set<String>()
         return scored
@@ -182,12 +235,23 @@ struct GlobalSearchView: View {
         }
         let online    = all.filter { if case .onlineRecipe = $0 { return true }; return false }
         let foods     = all.filter { if case .foodItem     = $0 { return true }; return false }
+        // #10 — the four new domains.
+        let leftovers = all.filter { if case .leftover      = $0 { return true }; return false }
+        let meals     = all.filter { if case .plannedMeal   = $0 { return true }; return false }
+        let tools     = all.filter { if case .tool          = $0 { return true }; return false }
+        let labels    = all.filter { if case .containerLabel = $0 { return true }; return false }
+
         var groups: [(String, [SearchResult])] = []
-        if !pantry.isEmpty   { groups.append(("In Your Pantry", pantry)) }
-        if !grocery.isEmpty  { groups.append(("Grocery List", grocery)) }
-        if !recipes.isEmpty  { groups.append(("Recipes", recipes)) }
-        if !online.isEmpty   { groups.append(("Online", online)) }
-        if !foods.isEmpty    { groups.append(("Ingredients", foods)) }
+        if !pantry.isEmpty    { groups.append(("In Your Pantry", pantry)) }
+        // Leftovers sit directly under the pantry: they're food you have, just in a different form.
+        if !leftovers.isEmpty { groups.append(("Leftovers", leftovers)) }
+        if !labels.isEmpty    { groups.append(("Labelled Containers", labels)) }
+        if !grocery.isEmpty   { groups.append(("Grocery List", grocery)) }
+        if !meals.isEmpty     { groups.append(("Planned Meals", meals)) }
+        if !recipes.isEmpty   { groups.append(("Recipes", recipes)) }
+        if !tools.isEmpty     { groups.append(("Tools", tools)) }
+        if !online.isEmpty    { groups.append(("Online", online)) }
+        if !foods.isEmpty     { groups.append(("Ingredients", foods)) }
         return groups
     }
 
@@ -431,6 +495,16 @@ struct GlobalSearchView: View {
                     close(); navigate(to: .grocery)
                 case .pastMeal:
                     close(); navigate(to: .recipes)
+                // ── Improvement #10 ─────────────────────────────────────────
+                // Leftovers and labels both live under Inventory; planned meals under Cook.
+                // Tools deep-link into the Toolbox via the existing tab-switch notification,
+                // so no new navigation plumbing is needed.
+                case .leftover, .containerLabel:
+                    close(); navigate(to: .inventory)
+                case .plannedMeal:
+                    close(); navigate(to: .cook)
+                case .tool:
+                    close(); navigate(to: .home)
                 }
             }
             Divider().padding(.leading, 76)

@@ -77,8 +77,19 @@ actor OpenFoodFactsClient {
         guard let url = components.url else { return nil }
 
         guard let (data, response) = try? await session.data(from: url),
-              (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true
+        else { return nil }
+
+        guard let result = parseProduct(data, barcode: cleaned) else { return nil }
+        await APIResponseCache.shared.store(result, for: cacheKey, ttl: cacheTTL)
+        return result
+    }
+
+    /// All JSON-dictionary work happens here — nonisolated + synchronous — so the non-Sendable
+    /// `[String: Any]` values are born and consumed in one place and never cross an isolation
+    /// boundary (fixes the "sending 'product'/'nutrients' risks data races" errors).
+    nonisolated private func parseProduct(_ data: Data, barcode cleaned: String) -> OpenFoodProduct? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               (json["status"] as? NSNumber)?.intValue != 0,
               let product = json["product"] as? [String: Any] else { return nil }
 
@@ -86,7 +97,7 @@ actor OpenFoodFactsClient {
         guard !name.isEmpty else { return nil }
 
         let categoryTags = normalizedTags(product["categories_tags"])
-        let result = OpenFoodProduct(
+        return OpenFoodProduct(
             barcode: cleaned,
             name: name,
             brand: nonEmpty(product["brands"]) ?? "",
@@ -103,11 +114,9 @@ actor OpenFoodFactsClient {
             ingredientsText: nonEmpty(product["ingredients_text_en"]) ?? nonEmpty(product["ingredients_text"]),
             sourceName: "Open Food Facts"
         )
-        await APIResponseCache.shared.store(result, for: cacheKey, ttl: cacheTTL)
-        return result
     }
 
-    private func parseNutrition(_ nutrients: [String: Any]?, servingSize: String?) -> NutritionFacts? {
+    nonisolated private func parseNutrition(_ nutrients: [String: Any]?, servingSize: String?) -> NutritionFacts? {
         guard let nutrients else { return nil }
         let useServing = servingSize != nil && numeric(nutrients["energy-kcal_serving"]) > 0
         let suffix = useServing ? "_serving" : "_100g"
@@ -134,7 +143,7 @@ actor OpenFoodFactsClient {
         )
     }
 
-    private func normalizedTags(_ value: Any?) -> [String] {
+    nonisolated private func normalizedTags(_ value: Any?) -> [String] {
         (value as? [String] ?? []).map { raw in
             let withoutLocale = raw.contains(":") ? String(raw.split(separator: ":", maxSplits: 1).last ?? "") : raw
             return withoutLocale.replacingOccurrences(of: "-", with: " ")
@@ -142,13 +151,13 @@ actor OpenFoodFactsClient {
         }.filter { !$0.isEmpty }
     }
 
-    private func numeric(_ value: Any?) -> Double {
+    nonisolated private func numeric(_ value: Any?) -> Double {
         if let number = value as? NSNumber { return number.doubleValue }
         if let string = value as? String { return Double(string) ?? 0 }
         return 0
     }
 
-    private func nonEmpty(_ value: Any?) -> String? {
+    nonisolated private func nonEmpty(_ value: Any?) -> String? {
         guard let string = value as? String else { return nil }
         let cleaned = string.trimmingCharacters(in: .whitespacesAndNewlines)
         return cleaned.isEmpty ? nil : cleaned

@@ -30,11 +30,12 @@ import { handleSmartRoute } from "./src/smart.js";
 import { recordMetrics, handleMetricsToday } from "./src/metrics.js";
 import { sharedKeyOK, verifyAppleIdentityToken, issueSession, verifySession, verifyAttestation } from "./src/auth.js";
 import { isLimited, limiterFor, rateSubject } from "./src/ratelimit.js";
+import { handleQARoute } from "./src/qa.js";
 import { HouseholdDO } from "./src/household-do.js";
 
 export { HouseholdDO }; // Durable Object must be exported from the entry module.
 
-const WORKER_VERSION = "2026-07-17.2";
+const WORKER_VERSION = "2026-07-26.1";
 const DEFAULT_MODEL = "claude-sonnet-5";
 const FALLBACK_MODEL = "claude-haiku-4-5-20251001";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -215,6 +216,15 @@ export default {
         if (await isLimited(limiterFor(env, "default"), rlKey, "barc")) { status = 429; return errJson(429, "Rate limit exceeded", { code: "rateLimited", requestId }); }
         return done(await handleBarcodeResolve(request, env, ctx, requestId));
       }
+      // ── QA report bridge (companion app <-> main app App Health) ──
+      // Sits after the blanket sharedKeyOK gate above, so these are key-gated
+      // without a second check that could drift from the first.
+      if (url.pathname === "/qa/reports" || url.pathname === "/qa/reports/latest") {
+        route = "qaReports";
+        const qa = await handleQARoute(url, request, env, requestId);
+        if (qa) return done(qa);
+      }
+
       if (url.pathname === "/support/diagnostics") {
         route = "diagnostics";
         return done(await handleDiagnostics(request, env, ctx, requestId));

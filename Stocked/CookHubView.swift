@@ -429,6 +429,16 @@ struct CookNowHomeView: View {
     // MARK: Bootstrap / recompute
 
     private func bootstrap() {
+        // Hydrate the Discover pool from its own persisted cache so Cook scores
+        // the real recipe library, not just starter meals, even when the user
+        // has not opened Recipes this session. Off-main decode; recomputes when
+        // it lands.
+        Task {
+            await OnlineRecipesLoader.shared.warmFromCacheIfNeeded()
+            recompute()
+            // QA mode: re-check invariants once the real catalog is loaded.
+            QABackgroundRunner.shared.runSoon()
+        }
         if !sessionReady {
             if let snap = CookNowSession.loadPersisted() {
                 cookSession = CookNowSession(snapshot: snap)

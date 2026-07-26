@@ -22,7 +22,7 @@ enum InventoryCoachmarks {
                    body: "Change your inventory just by asking. Say what you used, set a level, add something you bought, or clear everything, and confirm the changes before they apply."),
         .spotlight("inv.expiring",
                    title: "Expiring soon",
-                   body: "A preview of items that need using up soon. Tap View All to see the full list and cook them before they go to waste."),
+                   body: "Food that's close to its date shows up here so you can use it before it's wasted. When there's a list, tap View All to see all of it."),
         .card(title: "Swipe, search, and sort",
               body: "Swipe left on any item to delete it, with a quick undo if you change your mind. Use Search and Sort at the top right to find an item fast or reorder the list."),
         .card(title: "Pull down to refresh",
@@ -95,16 +95,17 @@ enum HomeCoachmarks {
         .spotlight("home.widget.useItSoon",
                    title: "Use It Soon",
                    body: "Items that are close to expiring show up here so you can cook them before they go to waste."),
-        .spotlight("home.widget.dailyBrief",
-                   title: "Daily Brief",
-                   body: "This card is a quick preview of your kitchen today: what is expiring, what is low, and what is worth cooking."),
+        // (The "Daily Brief" widget spotlight was removed: the Daily Brief card isn't in the
+        // default Home layout — default widgets are Stock Level, Action Center, Use It Soon and
+        // Tip of the Day — so it spotlighted nothing and floated as a stray card. The Brief is
+        // fully covered by the next step, which opens it from the title.)
         .spotlight("shell.title",
                    title: "Open your Daily Brief",
-                   body: "Tap the Stocked title at the top of the screen any time to open your full Daily Brief, with the complete rundown for the day."),
+                   body: "Tap the Stocked title at the top of the screen any time to open your full Daily Brief: a quick rundown of what's expiring, what's low, and what's worth cooking today."),
         .card(title: "Make it yours",
               body: "Press and hold anywhere on Home to customize. You can drag widgets to reorder them, remove ones you do not use, and add new ones from the gallery."),
         .card(title: "Find everything in the menu",
-              body: "Swipe from the left edge, or tap the menu icon, to open the side menu. Your profile, settings, tools, and help all live there — plus the Kitchen Toolbox, twenty extra tools in one place."),
+              body: "Swipe from the left edge, or tap the menu icon, to open the side menu. Your profile, settings, tools, and help all live there — plus the Kitchen Toolbox, dozens of extra tools in one place."),
         .card(title: "Make the menu yours",
               body: "In the side menu, press and hold any row under Kitchen Tools or Insights and drag to reorder. Pull down on any screen to refresh it."),
     ]

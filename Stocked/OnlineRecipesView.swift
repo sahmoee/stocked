@@ -222,6 +222,23 @@ class OnlineRecipesLoader {
         revision &+= 1
     }
 
+    /// Load the persisted Discover snapshot into memory WITHOUT any network work.
+    ///
+    /// The Cook tab classifies this pool, and a user can open Cook on a cold
+    /// launch having never touched Recipes this session — in which case the
+    /// loader is empty and Cook would fall back to starter meals only, which is
+    /// exactly the bug this fixes. Cheap and idempotent: it returns immediately
+    /// once recipes are in memory, and the decode happens on the cache actor, not
+    /// the main thread.
+    func warmFromCacheIfNeeded() async {
+        guard recipes.isEmpty, !isLoading else { return }
+        let cached = await OnlineRecipesPersistentCache.shared.load(
+            cacheKey: cacheKey, timestampKey: cacheTimestampKey
+        )
+        guard !cached.recipes.isEmpty, recipes.isEmpty else { return }
+        publish(cached.recipes)
+    }
+
     private nonisolated static func filterByProfile(
         _ all: [OnlineRecipe],
         preferredCuisines: [String]
@@ -1489,7 +1506,11 @@ struct OnlineRecipeDetailView: View {
                                     Circle().fill(Color.stockedGold).frame(width: 6, height: 6)
                                     Text([pair.measure, pair.ingredient].filter { !$0.isEmpty }.joined(separator: " "))
                                         .font(.system(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor)
+                                    Spacer(minLength: 0)
+                                    // Subtle, predictive: tap to convert units / see substitutions (no typing).
+                                    IngredientActionsButton(measure: pair.measure, name: pair.ingredient)
                                 }
+                                .ingredientQuickActions(measure: pair.measure, name: pair.ingredient)
                             }
                         }
                         .padding(16).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.15)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

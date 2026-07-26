@@ -12,7 +12,7 @@
 
 import {
   HH_MAX_ITEMS, ROLE_DEFAULTS, sanitizeName, sanitizeId, appendActivity,
-  mergeLWW, dedupeCap, semanticHousehold,
+  mergeLWW, dedupeCap, semanticHousehold, FEATURE_COLLECTIONS,
   pushBatchHash, PUSH_DEDUPE_WINDOW_MS, PUSH_DEDUPE_MAX,
 } from "./household-shared.js";
 
@@ -110,6 +110,8 @@ export class HouseholdDO {
       activity: [{ kind: "householdCreated", itemName: "", actorName: ownerName, date: Date.now() }],
       updatedAt: Date.now(), revision: 1,
     };
+    // 1.4 — seed the feature collections so pulls always find arrays, never undefined.
+    for (const key of FEATURE_COLLECTIONS) household[key] = [];
     await this.putDoc(household);
     return this.json({ code: household.code, household });
   }
@@ -225,6 +227,42 @@ export class HouseholdDO {
     if (Array.isArray(body.genRecipes)) household.genRecipes = mergeLWW(household.genRecipes, body.genRecipes, genRecipeDel).slice(0, HH_MAX_ITEMS);
     if (Array.isArray(body.plannedMeals)) household.plannedMeals = mergeLWW(household.plannedMeals, body.plannedMeals, mealDel).slice(0, HH_MAX_ITEMS);
     if (Array.isArray(body.activity)) household.activity = appendActivity((household.activity || []).concat(body.activity), null);
+
+    // Launch readiness 1.4 — the client's feature collections (leftovers, family profiles,
+    // events, shared costs, store layouts, garden harvests, container labels, takeout log).
+    // Same per-item LWW as inventory: mergeLWW keys by `id` and resolves ties by
+    // updatedAt/lastWriterID, treating the rest of the item body opaquely — so client-side
+    // model changes never need a Worker change again. Store layouts are the one exception:
+    // they have no UUID (keyed by store name), so they get a dedicated name-keyed merge where
+    // MORE TRIPS wins — losing learned trips hurts more than losing recency.
+    for (const key of FEATURE_COLLECTIONS) {
+      const delKey = key + "Deleted";
+      if (!canRemove) body[delKey] = [];
+      household[delKey] = dedupeCap((household[delKey] || []).concat(Array.isArray(body[delKey]) ? body[delKey] : []), HH_MAX_ITEMS);
+      const del = new Set(household[delKey]);
+      if (Array.isArray(body[key])) {
+        if (key === "storeLayouts") {
+          // Name-keyed merge: more trips wins (learned data), then updatedAt.
+          const byName = new Map();
+          for (const l of household[key] || []) {
+            const k = String(l.store || "").toLowerCase();
+            if (k && !del.has(k)) byName.set(k, l);
+          }
+          for (const l of body[key]) {
+            const k = String(l.store || "").toLowerCase();
+            if (!k || del.has(k)) continue;
+            const cur = byName.get(k);
+            if (!cur || Number(l.trips || 0) > Number(cur.trips || 0)
+                || (Number(l.trips || 0) === Number(cur.trips || 0) && Number(l.updatedAt || 0) >= Number(cur.updatedAt || 0))) {
+              byName.set(k, l);
+            }
+          }
+          household[key] = Array.from(byName.values()).slice(0, HH_MAX_ITEMS);
+        } else {
+          household[key] = mergeLWW(household[key] || [], body[key], del).slice(0, HH_MAX_ITEMS);
+        }
+      }
+    }
 
     // #3 — shared household name (last writer among members who set one wins).
     if (typeof body.householdName === "string" && body.householdName.trim()) {

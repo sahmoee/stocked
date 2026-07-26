@@ -35,11 +35,11 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 0
-    private static let fallbackVersion     = "0.0"
+    private static let fallbackBuildNumber = 69
+    private static let fallbackVersion     = "4.13"
 
-    static let changeCount   = 1
-    static let buildName     = "Build 63 — Custom API domain (api.sowensstudios.com) live for all Worker calls; in-app support contact support@sowensstudios.com and sowensstudios.com link confirmed in Settings; MetricKit subscribers made nonisolated (fixes TestFlight 4.13/62 launch crash); pause/resume/cancel cooking, reserved inventory with Cook Anyway, purchase duplicate protection, multi-store grocery, offline pending-sync surfacing, social recipe link import, quieter notifications, faster launch."
+    static let changeCount   = 40
+    static let buildName     = "Build 69 - One shared availability service. Cook, Recipes, Home, the widget, and the Daily Brief now compute what you have from a single matcher instead of ten, so their numbers agree. One allergen rule replaces four, and the AI recipe generator now sees your saved allergens and refuses a recipe that hits one. Low-stock and expiring-soon windows unified. Cook Now now ranks your whole recipe library, online recipes included, with real photos, family-profile allergies reach the classifier, and a new QA mode runs self-checks that catch two screens disagreeing."
     static let buildDate     = "July 2026"
 
     // MARK: - Environment detection

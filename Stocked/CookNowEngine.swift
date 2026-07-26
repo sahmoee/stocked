@@ -237,19 +237,22 @@ nonisolated struct CookNowEngine: Sendable {
         self.overrides = overrides
     }
 
-    // MARK: Name matching (local copy of the store's loose match, kept private
-    // here so the engine is self-contained and the store's private helper is
-    // not widened — mirrors the codebase's pattern of local matching helpers).
+    // MARK: Name matching
+    //
+    // WAS: a private byte-identical copy of GuestDataStore's `looseMatch` —
+    // two-way substring containment with a `count > 2` guard. That is why this
+    // engine over-reported readiness ("oil" satisfied "olive oil", "garlic"
+    // satisfied "garlic powder") while the Recipes tab, which used the stricter
+    // FoodNameMatcher score, under-reported it on comparable recipes.
+    //
+    // NOW: one shared rule. See KitchenAvailability.
 
     private static func looseMatch(_ a: String, _ b: String) -> Bool {
-        let na = a.lowercased().trimmingCharacters(in: .whitespaces)
-        let nb = b.lowercased().trimmingCharacters(in: .whitespaces)
-        guard na.count > 2, nb.count > 2 else { return na == nb }
-        return na.contains(nb) || nb.contains(na)
+        KitchenAvailability.nameMatches(a, b)
     }
 
     private func nameInStock(_ ingredient: String) -> Bool {
-        inStockLower.contains { Self.looseMatch(ingredient, $0) }
+        KitchenAvailability.isPresent(ingredient, inNames: inStockLower)
     }
 
     /// Stable key for a confirmed substitution decision.
@@ -267,18 +270,16 @@ nonisolated struct CookNowEngine: Sendable {
 
     // MARK: Exclusion
 
+    // WAS: substring matching on ingredient names only, which disagreed with
+    // Discover's `allergenHits` (whole-phrase) and with Surprise Me's own
+    // hardcoded category list. NOW: one rule for every surface, and the most
+    // cautious of the three — see DietaryGuard.
     private func isExcluded(_ recipe: UserRecipe) -> Bool {
-        if !allergens.isEmpty {
-            for ing in recipe.ingredients {
-                for a in allergens where Self.looseMatch(ing.name, a) { return true }
-            }
-        }
-        if !dislikes.isEmpty {
-            for ing in recipe.ingredients {
-                for d in dislikes where Self.looseMatch(ing.name, d) { return true }
-            }
-        }
-        return false
+        DietaryGuard.isExcluded(
+            ingredientLines: recipe.ingredients.map(\.name),
+            title: recipe.title,
+            rules: DietaryGuard.Rules(allergens: allergens, dislikes: dislikes)
+        )
     }
 
     // MARK: Classify one recipe

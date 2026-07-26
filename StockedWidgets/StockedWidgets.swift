@@ -187,10 +187,80 @@ struct StockedStatusWidget: Widget {
     }
 }
 
+// MARK: - Expiring Soon widget (improvement #1)
+
+struct ExpiringSoonWidgetView: View {
+    var entry: StockedEntry
+    var body: some View {
+        let s = entry.snapshot
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: "clock.badge.exclamationmark").font(.system(size: 12, weight: .semibold))
+                Text("Use soon").font(.system(size: 13, weight: .bold))
+            }
+            if s.expiringNames.isEmpty {
+                Text(s.expiringCount == 0 ? "Nothing expiring" : "\(s.expiringCount) expiring")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            } else {
+                ForEach(s.expiringNames.prefix(3), id: \.self) { n in
+                    Text("• \(n)").font(.system(size: 12)).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .widgetURL(URL(string: "stocked://inventory"))
+    }
+}
+
+struct ExpiringSoonWidget: Widget {
+    let kind = "StockedExpiringWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: StockedProvider()) { entry in
+            ExpiringSoonWidgetView(entry: entry)
+                .containerBackground(Color.wBg.opacity(0.0), for: .widget)
+        }
+        .configurationDisplayName("Expiring Soon")
+        .description("The items you should use up next.")
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
+    }
+}
+
+// MARK: - Grocery widget (improvement #1)
+
+struct GroceryWidgetView: View {
+    var entry: StockedEntry
+    var body: some View {
+        let s = entry.snapshot
+        VStack(spacing: 2) {
+            Image(systemName: "cart.fill").font(.system(size: 15, weight: .semibold))
+            Text("\(s.groceryCount)").font(.system(size: 22, weight: .bold))
+            Text(s.groceryCount == 1 ? "to buy" : "to buy").font(.system(size: 11)).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetURL(URL(string: "stocked://grocery"))
+    }
+}
+
+struct GroceryWidget: Widget {
+    let kind = "StockedGroceryWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: StockedProvider()) { entry in
+            GroceryWidgetView(entry: entry)
+                .containerBackground(Color.wBg.opacity(0.0), for: .widget)
+        }
+        .configurationDisplayName("Grocery List")
+        .description("How many items are on your list.")
+        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline])
+    }
+}
+
 @main
 struct StockedWidgetBundle: WidgetBundle {
     var body: some Widget {
         StockedStatusWidget()
+        ExpiringSoonWidget()
+        GroceryWidget()
         CookTimerLiveActivity()
     }
 }

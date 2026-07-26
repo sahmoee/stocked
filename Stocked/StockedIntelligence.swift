@@ -341,9 +341,12 @@ nonisolated struct ParsedQuantity {
         return u.isEmpty ? n : "\(n) \(u)"
     }
 
-    // Conversion table to a shared "ml" base for volume merging
+    // Conversion table to a shared "ml" base for volume merging.
+    // Improvement #2: cup was 240 here and 236.588 in UnitConverter, IngredientIntel and
+    // CookLaterCrossCheckEngine — the same recipe measured differently depending on which screen
+    // you were on. Aligned to 236.588 (the US legal cup) everywhere.
     private static let toML: [String: Double] = [
-        "cup": 240, "tbsp": 14.787, "tsp": 4.929,
+        "cup": 236.588, "tbsp": 14.7868, "tsp": 4.92892,
         "l": 1000, "ml": 1
     ]
     private static let toG: [String: Double] = [
@@ -376,43 +379,29 @@ nonisolated struct ParsedQuantity {
         return ParsedQuantity(amount: amount + other.amount, unit: aUnit, baseName: baseName)
     }
 
-    // Compiled ONCE — was previously rebuilt on every parse() call, which runs per
-    // ingredient during recipe matching (a hot path that contributed to the ICU/regex
-    // allocation storm). Reusing one instance removes those per-call allocations.
-    private static let quantityRegex: NSRegularExpression? = {
-        try? NSRegularExpression(pattern: #"^([\d]+[½¼¾]?|[\d]*[½¼¾]|[\d]+/[\d]+|[\d]*\.[\d]+)?\s*([a-zA-Z]+\.?)?\s*(.+)$"#)
-    }()
-
+    /// Improvement #2 — delegates to `MeasureParser`, the app's single parser.
+    ///
+    /// The old implementation here was an NSRegularExpression that knew only ½ ¼ ¾ and could not
+    /// read a mixed number like "1 1/2 cups". Both now work, along with ⅓ ⅔ ⅛ ⅜ ⅝ ⅞, "fl oz",
+    /// European decimals and ranges. The signature and semantics are unchanged (amount 0 and
+    /// unit "" still mean "unspecified"), so all eight call sites keep working as-is.
     static func parse(_ raw: String) -> ParsedQuantity {
-        let s = raw.trimmingCharacters(in: .whitespaces)
-        // Regex: optional leading number (incl. fractions ½ ¼ ¾ 1/2 1/4 3/4), optional unit, rest = name
-        guard let regex = quantityRegex,
-              let match = regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s))
-        else { return ParsedQuantity(amount: 0, unit: "", baseName: s.lowercased()) }
-
-        let g = { (i: Int) -> String in
-            guard let r = Range(match.range(at: i), in: s) else { return "" }
-            return String(s[r]).trimmingCharacters(in: .whitespaces)
+        let m = MeasureParser.parse(raw)
+        // MeasureParser only reports a unit it actually recognises; the old regex would happily
+        // take any alphabetic token. Keeping that behaviour matters because callers rely on
+        // "2 cloves garlic" yielding unit "cloves", and clove is not a measurement unit.
+        var unit = m.unit
+        var name = m.name
+        if unit.isEmpty, m.amount != nil {
+            let tokens = name.split(separator: " ").map(String.init)
+            if let first = tokens.first, first.count > 1, first.allSatisfy({ $0.isLetter }) {
+                unit = first
+                name = tokens.dropFirst().joined(separator: " ")
+            }
         }
-
-        let amountStr = g(1)
-        let unitStr   = g(2)
-        let nameStr   = g(3)
-
-        let amount = parseAmount(amountStr)
-        return ParsedQuantity(amount: amount, unit: unitStr, baseName: nameStr.lowercased())
-    }
-
-    private static func parseAmount(_ s: String) -> Double {
-        if s.isEmpty { return 0 }
-        if s.contains("½") { return (Double(s.replacingOccurrences(of: "½", with: "")) ?? 0) + 0.5 }
-        if s.contains("¼") { return (Double(s.replacingOccurrences(of: "¼", with: "")) ?? 0) + 0.25 }
-        if s.contains("¾") { return (Double(s.replacingOccurrences(of: "¾", with: "")) ?? 0) + 0.75 }
-        if s.contains("/") {
-            let p = s.components(separatedBy: "/")
-            if p.count == 2, let n = Double(p[0]), let d = Double(p[1]), d != 0 { return n / d }
-        }
-        return Double(s) ?? 0
+        return ParsedQuantity(amount: m.amount ?? 0,
+                              unit: unit,
+                              baseName: name.isEmpty ? m.raw.lowercased() : name.lowercased())
     }
 
     // Normalized base name for dedup (strips common suffixes)

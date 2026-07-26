@@ -20,7 +20,7 @@ enum WidgetBridge {
             .prefix(3)
             .map { $0.name }
 
-        let lowStock = store.inventoryItems.filter { $0.effectiveLevel > 0 && $0.effectiveLevel < 0.2 }.count
+        let lowStock = store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }.count
         let todayMeal = store.plannedMeals.first { $0.dayIndex == 0 && !$0.isCooked }?.title
         let grocery = store.groceryItems.filter { !$0.isChecked }.count
 

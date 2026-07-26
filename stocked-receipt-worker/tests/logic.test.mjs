@@ -236,3 +236,74 @@ test('new endpoints build prompts and are marked validated', () => {
   assert.equal(ROUTE_SCHEMA.recipeEnrich, 1);
   assert.equal(buildRoutePrompt('recipeFix', {}), null); // missing recipe → null
 });
+
+// ── Launch readiness 1.4 — feature-collection sync (leftovers, shared costs, …) ──────────────
+
+test('DO push merges feature collections per-id LWW and honors tombstones', async () => {
+  const legacy = { code: 'ABCD2345', ownerName: 'Key', ownerId: 'm1',
+    members: [{ name: 'Key', memberId: 'm1' }], inventory: [], grocery: [], activity: [],
+    leftovers: [{ id: 'L1', title: 'Chili', portions: 3, updatedAt: 10, lastWriterID: 'm1' }],
+    sharedExpenses: [{ id: 'E1', label: 'Costco', amount: 80, updatedAt: 10, lastWriterID: 'm1' }],
+    updatedAt: 100, revision: 5 };
+  const kv = mockKV({ 'hh:ABCD2345': JSON.stringify(legacy) });
+  const dobj = new HouseholdDO({ storage: mockStorage() }, { RATE_KV: kv });
+
+  const res = await dobj.fetch(doRequest('push', 'ABCD2345', {
+    code: 'ABCD2345', actorId: 'm2',
+    // Newer edit to L1 wins; E2 is brand new; L-gone was deleted on the pushing device.
+    leftovers: [{ id: 'L1', title: 'Chili', portions: 2, updatedAt: 20, lastWriterID: 'm2' }],
+    leftoversDeleted: ['L-gone'],
+    sharedExpenses: [
+      { id: 'E1', label: 'Costco', amount: 80, updatedAt: 10, lastWriterID: 'm1' },
+      { id: 'E2', label: 'H-E-B', amount: 42.5, updatedAt: 15, lastWriterID: 'm2' },
+    ],
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  const l1 = body.household.leftovers.find((x) => x.id === 'L1');
+  assert.equal(l1.portions, 2, 'newer updatedAt wins the LWW merge');
+  assert.equal(body.household.sharedExpenses.length, 2, 'both roommates see both expenses');
+  assert.ok(body.household.leftoversDeleted.includes('L-gone'), 'tombstone persisted');
+});
+
+test('DO push merges storeLayouts by name with more-trips-wins', async () => {
+  const legacy = { code: 'ABCD2345', ownerName: 'Key', ownerId: 'm1',
+    members: [{ name: 'Key', memberId: 'm1' }], inventory: [], grocery: [], activity: [],
+    storeLayouts: [{ store: 'H-E-B', trips: 5, positions: { milk: 0.9 }, updatedAt: 99 }],
+    updatedAt: 100, revision: 5 };
+  const kv = mockKV({ 'hh:ABCD2345': JSON.stringify(legacy) });
+  const dobj = new HouseholdDO({ storage: mockStorage() }, { RATE_KV: kv });
+
+  const res = await dobj.fetch(doRequest('push', 'ABCD2345', {
+    code: 'ABCD2345', actorId: 'm2',
+    storeLayouts: [
+      { store: 'h-e-b', trips: 2, positions: { milk: 0.1 }, updatedAt: 200 },  // fewer trips loses despite newer
+      { store: 'Target', trips: 1, positions: {}, updatedAt: 200 },            // new store appears
+    ],
+  }));
+  const body = await res.json();
+  const heb = body.household.storeLayouts.find((x) => x.store.toLowerCase() === 'h-e-b');
+  assert.equal(heb.trips, 5, 'the layout with MORE learned trips wins, not the newer one');
+  assert.equal(body.household.storeLayouts.length, 2, 'new store added');
+});
+
+test('feature-only pushes are not wrongly deduped as identical', async () => {
+  const legacy = { code: 'ABCD2345', ownerName: 'Key', ownerId: 'm1',
+    members: [{ name: 'Key', memberId: 'm1' }], inventory: [], grocery: [], activity: [],
+    leftovers: [], updatedAt: 100, revision: 5 };
+  const kv = mockKV({ 'hh:ABCD2345': JSON.stringify(legacy) });
+  const dobj = new HouseholdDO({ storage: mockStorage() }, { RATE_KV: kv });
+
+  await dobj.fetch(doRequest('push', 'ABCD2345', {
+    code: 'ABCD2345', actorId: 'm1',
+    leftovers: [{ id: 'L1', title: 'Soup', portions: 1, updatedAt: 10 }],
+  }));
+  const res2 = await dobj.fetch(doRequest('push', 'ABCD2345', {
+    code: 'ABCD2345', actorId: 'm1',
+    leftovers: [{ id: 'L2', title: 'Rice', portions: 2, updatedAt: 11 }],
+  }));
+  const body2 = await res2.json();
+  assert.notEqual(body2.deduped, true, 'different feature content must not hash-collide');
+  assert.equal(body2.household.leftovers.length, 2);
+});
