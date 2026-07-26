@@ -23,6 +23,23 @@ struct QAModeView: View {
             }
 
             Section {
+                // The one switch that means "QA runs itself": recording on, invariant
+                // runner on (launch/foreground/periodic/after-mutation), findings
+                // auto-published to the bridge. Flipping it off stops everything.
+                Toggle("Automate QA", isOn: Binding(
+                    get: { recorder.isEnabled && runner.autoPublish },
+                    set: { on in
+                        recorder.isEnabled = on
+                        runner.autoPublish = on
+                        if on { runner.start(store: store, session: nil) }
+                    }))
+                .disabled(!QARecorder.isAvailable)
+                .tint(.green)
+            } header: { Text("Full automation") } footer: {
+                Text("Runs the whole invariant suite on its own — at launch, on foreground, every 2 minutes while open, and right after cooks, imports, and syncs — and publishes findings to the QA bridge automatically. Survives relaunch until turned off.")
+            }
+
+            Section {
                 Toggle("QA mode", isOn: Binding(
                     get: { recorder.isEnabled },
                     set: { on in

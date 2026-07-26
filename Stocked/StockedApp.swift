@@ -104,6 +104,8 @@ struct StockedApp: App {
                 // Remote configuration (kill switches / maintenance / min version) —
                 // throttled to one fetch per 15 min, ETag-revalidated.
                 Task { await StockedRemoteConfig.shared.refreshIfStale() }
+                // QA automation: re-check invariants when returning to the foreground.
+                if QARecorder.shared.isEnabled { QABackgroundRunner.shared.runSoon() }
                 // #drift — apply any "I used X" items queued by the Siri intent.
                 session.guestStore.drainPendingUsedItems()
                 let ud = UserDefaults.standard
@@ -248,6 +250,11 @@ struct RootView: View {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
             // Deferred remote-config fetch (kill switches, maintenance, min version).
             StockedRemoteConfig.shared.startDeferredLaunchFetch()
+            // QA automation: if QA mode was left enabled, the invariant runner starts
+            // by itself at launch — no need to visit the QA screen first.
+            if QARecorder.shared.isEnabled {
+                QABackgroundRunner.shared.start(store: session.guestStore, session: nil)
+            }
             // FR-01 FIX: the launch-time iCloud auto-restore was REMOVED. It ran for guests,
             // before login, with no consent, and re-imported a CloudKit backup that survives app
             // deletion — which is what made a "fresh" install come up with 94% stock, dark mode,

@@ -971,6 +971,9 @@
     "%lld trips" : {
 
     },
+    "%lld unresolved attempt(s)" : {
+
+    },
     "%lld used · %lld wasted" : {
       "localizations" : {
         "en" : {
@@ -2050,6 +2053,9 @@
     "Clear log" : {
 
     },
+    "Clear session" : {
+
+    },
     "Clear smart cache" : {
 
     },
@@ -2684,6 +2690,9 @@
     "Estimates based on ~100g per ingredient · %lld servings" : {
 
     },
+    "Event feed" : {
+
+    },
     "Event name" : {
 
     },
@@ -2800,6 +2809,9 @@
 
     },
     "Export inventory & grocery list (CSV)" : {
+
+    },
+    "Export session log" : {
 
     },
     "F" : {
@@ -3282,6 +3294,9 @@
     "Instructions" : {
 
     },
+    "Invariants" : {
+
+    },
     "Inventory Assistant" : {
 
     },
@@ -3547,6 +3562,9 @@
     "Loading collection…" : {
 
     },
+    "Loading…" : {
+
+    },
     "Local only — used to improve the app" : {
 
     },
@@ -3761,6 +3779,9 @@
     "Move all checked to %@" : {
 
     },
+    "Move around the app to populate this." : {
+
+    },
     "Move Checked → Pantry" : {
 
     },
@@ -3943,6 +3964,9 @@
 
     },
     "No results for \"%@\"" : {
+
+    },
+    "No run yet." : {
 
     },
     "No saved recipes yet — use Quick Picks below" : {
@@ -4548,7 +4572,16 @@
     "Product Name" : {
 
     },
+    "Publish findings automatically" : {
+
+    },
     "Publish findings to QA companion" : {
+
+    },
+    "Publish health report" : {
+
+    },
+    "Publishes this device's health report to the Worker, and reads the companion app's latest suite results back. Requires the /qa routes to be deployed and a Worker key configured in this build." : {
 
     },
     "Pull down to fetch cocktails, mocktails, shots, and more from TheCocktailDB, the IBA official list, Open Drinks, and API Ninjas." : {
@@ -4563,10 +4596,22 @@
     "QA Access" : {
 
     },
+    "QA bridge" : {
+
+    },
     "QA Checkbook" : {
 
     },
     "QA code" : {
+
+    },
+    "QA mode" : {
+
+    },
+    "QA mode is unavailable in this build. It is enabled in debug and TestFlight builds so a shipped App Store binary cannot sit recording because a toggle was left on." : {
+
+    },
+    "QA mode records the screens you open and the actions you attempt, and runs invariant checks that compare what two surfaces compute from the same data. Nothing is sent anywhere unless you publish." : {
 
     },
     "QR Code Transfer" : {
@@ -4720,6 +4765,12 @@
 
     },
     "Record usage on this device" : {
+
+    },
+    "Recording" : {
+
+    },
+    "Records screens and attempted actions, and runs invariant checks that compare what two surfaces compute from the same data. Off by default." : {
 
     },
     "Refresh" : {
@@ -4921,10 +4972,16 @@
     "Rough calories and macros for a list of ingredients. Estimates only — not medical advice." : {
 
     },
+    "Run checks now" : {
+
+    },
     "Running low" : {
 
     },
     "Running Low Soon" : {
+
+    },
+    "Running…" : {
 
     },
     "Runs out ~%@" : {
@@ -5409,6 +5466,9 @@
     "Start with the longest-cooking items so everything finishes close together." : {
 
     },
+    "Started and never completed — a spinner that never ends looks like this." : {
+
+    },
     "Starting Amount" : {
 
     },
@@ -5713,6 +5773,9 @@
     "These changes come from what you told us while cooking. Apply the ones that should stick." : {
 
     },
+    "These compare two surfaces that must agree. A violation is a bug in the app, not a test failure. Blocked means there was not enough data to judge — the message says what to add. Runs automatically every two minutes and after meaningful changes." : {
+
+    },
     "These details help diagnose household sync. Nothing here is shared." : {
 
     },
@@ -5756,6 +5819,9 @@
 
     },
     "This season" : {
+
+    },
+    "This session" : {
 
     },
     "This source doesn't include step-by-step instructions here. Tap View source below for the full method." : {
@@ -6059,6 +6125,9 @@
 
     },
     "View planned meal" : {
+
+    },
+    "View QA app findings" : {
 
     },
     "View Recipe" : {

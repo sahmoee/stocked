@@ -186,8 +186,11 @@ struct StockedHealthView: View {
                 NavigationLink { QAModeView() } label: {
                     Label("QA mode", systemImage: "checkmark.seal")
                 }
+                NavigationLink { StockedQAGateView() } label: {
+                    Label("Release checklist", systemImage: "checklist")
+                }
             } header: { Text("QA") } footer: {
-                Text("Records screens and attempted actions, and runs invariant checks that compare what two surfaces compute from the same data. Off by default.")
+                Text("QA mode records screens and attempted actions and runs invariant checks automatically. The release checklist is the code-gated manual checkbook; both publish to the same QA bridge.")
             }
 
             // ── Build ────────────────────────────────────────────────────────
