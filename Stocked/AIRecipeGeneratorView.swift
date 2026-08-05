@@ -268,10 +268,17 @@ struct AIRecipeGeneratorView: View {
         let have = haveText.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
         // Pass the saved allergen profile through — the generator previously only
         // saw the free-text dietary chip, so an allergen was invisible to it.
+        let mustUse = session.guestStore.inventoryItems
+            .filter { $0.effectiveLevel > 0 }
+            .sorted { ($0.daysUntilExpiry ?? Int.max) < ($1.daysUntilExpiry ?? Int.max) }
+            .prefix(5)
+            .map(\.name)
         let opts = RecipeGeneratorAI.Options(
             haveItems: have,
             dietary: dietary == "Any" ? nil : dietary,
             maxTime: maxTime == "Any" ? nil : maxTime,
+            cuisinePreference: session.guestStore.cookingProfile.cuisinePrefs,
+            mustUse: Array(mustUse),
             dietaryRules: DietaryGuard.Rules(allergens: session.guestStore.cookingProfile.allergens)
         )
         if let recipe = await RecipeGeneratorAI.generate(idea: idea, options: opts) {

@@ -123,7 +123,12 @@ final class QABackgroundRunner {
         isRunning = false
 
         let violations = results.filter { $0.status == .violation }
-        if autoPublish && !violations.isEmpty {
+        // Publish when the invariant suite found something, OR when a tester filed
+        // a ticket that has not reached the bridge yet. Before tickets existed a
+        // clean invariant run meant there was nothing to say; now a run can be
+        // spotless while three hand-written blockers sit unsynced on the device.
+        let ticketsWaiting = !QATicketStore.shared.unsynced.isEmpty
+        if autoPublish && (!violations.isEmpty || ticketsWaiting) {
             await publish()
         }
     }
@@ -185,7 +190,38 @@ final class QABackgroundRunner {
              "detail": r.detail, "critical": r.critical]
         }
 
+        // Tester-filed tickets and live runtime measurements ride along in the same
+        // envelope. A report that says "0 violations" while the device is thermally
+        // throttled at 900 MB with two open blockers is a misleading report, and the
+        // bridge had no way to know any of that.
+        let tickets = QATicketStore.shared
+        health["tickets"] = tickets.healthSummary
+        let runtime = QARuntimeMonitor.shared
+        health["runtime"] = [
+            "footprintMB": Int(runtime.currentFootprintMB.rounded()),
+            "peakFootprintMB": Int(runtime.peakFootprintMB.rounded()),
+            "growthMB": Int(runtime.memoryGrowthMB.rounded()),
+            "worstHitchMs": Int(runtime.worstHitchMs.rounded()),
+            "severeHitches": runtime.severeHitchCount,
+            "thermal": runtime.thermalName,
+            "lowPower": runtime.lowPower,
+            "freeDiskMB": Int(runtime.freeDiskMB.rounded()),
+            "networkCalls": runtime.networkCallCount,
+            "networkFailures": runtime.networkFailureCount,
+        ]
+        health["triage"] = [
+            "verdict": QATriage.shared.verdict,
+            "blockers": QATriage.shared.blockers.count,
+            "warnings": QATriage.shared.warnings.count,
+            "findings": QATriage.shared.findings.prefix(20).map { f in
+                ["level": f.level.title, "title": f.title,
+                 "detail": f.detail, "source": f.source]
+            },
+        ]
+        health["deadScreens"] = recorder.deadScreens
+
         let openBlockers = results.filter { $0.status == .violation && $0.critical }.count
+            + tickets.blockers.count
         let payload: [String: Any] = [
             "schema": "stocked-qa-report/v1",
             "source": "stocked-app",
@@ -211,6 +247,18 @@ final class QABackgroundRunner {
             lastPublish = Date()
             lastPublishOutcome = ok ? "published" : "worker rejected the report"
             if ok { recorder.succeeded(attempt) } else { recorder.failed(attempt, detail: lastPublishOutcome) }
+            // Tickets go up as their own envelope right after, not folded into this
+            // one. The summary above is a count; the ticket envelope carries the
+            // tester's actual words, the breadcrumb trail, and the screenshot name.
+            // Sending them separately also means a rejected report does not silently
+            // take three bug reports down with it.
+            if ok { await pushTickets() }
+            // Mirror to the Logs folder so every successful worker publish has a
+            // local archive on the Mac without the tester pressing anything.
+            if ok {
+                let snap = recorder.fullExportText
+                Task { await QASyncCoordinator.shared.mirrorLog(snap, name: "qa-report-auto.txt") }
+            }
             return ok
         } catch {
             lastPublish = Date()
@@ -218,6 +266,14 @@ final class QABackgroundRunner {
             recorder.failed(attempt, error: error)
             return false
         }
+    }
+
+    /// Flush anything the tester filed that has not reached the bridge yet.
+    /// Safe to call repeatedly — the store skips tickets it has already synced.
+    func pushTickets() async {
+        let store = QATicketStore.shared
+        guard !store.unsynced.isEmpty else { return }
+        await store.publishUnsynced()
     }
 }
 
@@ -250,6 +306,34 @@ nonisolated enum QAReportTransport {
         return (200...299).contains(code)
     }
 
+    /// Fetch the most recent report this app published to /qa/reports.
+    /// Returns nil when the bridge has no report yet.
+    static func fetchOwnReport() async throws -> [String: Any]? {
+        guard let base = URL(string: BuildConfig.receiptWorkerURL) else {
+            throw StockedServiceError.notConfigured("QA bridge")
+        }
+        var comps = URLComponents(url: base.appendingPathComponent("qa/reports/latest"),
+                                  resolvingAgainstBaseURL: false)
+        comps?.queryItems = [URLQueryItem(name: "source", value: "stocked-app")]
+        guard let url = comps?.url else { throw StockedServiceError.notConfigured("QA bridge") }
+        var req = URLRequest(url: url, timeoutInterval: 20)
+        BuildConfig.authorizeWorkerRequest(&req)
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+        if code == 404 { return nil }
+        guard (200...299).contains(code) else {
+            let hint: String
+            switch code {
+            case 401, 403: hint = "the shared key was rejected"
+            case 405:      hint = "the QA routes are not deployed yet — run wrangler deploy"
+            case 500...599: hint = "the Worker failed"
+            default:       hint = "unexpected reply from the QA bridge"
+            }
+            throw StockedServiceError.httpStatus(code, hint)
+        }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
     /// Fetch the companion app's latest findings so the main app can show them.
     /// Returns nil when the bridge is reachable but empty (code `no_reports`).
     static func fetchCompanionFindings() async throws -> [String: Any]? {
@@ -267,7 +351,26 @@ nonisolated enum QAReportTransport {
         let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
         if code == 404 { return nil }
         guard (200...299).contains(code) else {
-            throw StockedServiceError.notConfigured("QA bridge returned \(code)")
+            // NOT `.notConfigured`. That case interpolates into "<x> is not
+            // configured.", so a status code passed to it produced the sentence
+            // "QA bridge returned 405 is not configured." — which reads like the
+            // app is missing a setting when the truth is the server answered and
+            // said no. `.httpStatus` is the case that exists for exactly this.
+            //
+            // 405 in particular has one cause worth naming: the Worker's QA
+            // routes sat below a blanket POST-only gate, so every GET was
+            // refused before the QA handler ran. Fixed on the Worker side in
+            // Build 73 — but the fix only takes effect once it is deployed, and
+            // an unhelpful error message is what sent someone looking in the app
+            // for a problem that was never there.
+            let hint: String
+            switch code {
+            case 401, 403: hint = "the shared key was rejected"
+            case 405:      hint = "the QA routes are not deployed on the Worker yet — run wrangler deploy"
+            case 500...599: hint = "the Worker failed"
+            default:       hint = "unexpected reply from the QA bridge"
+            }
+            throw StockedServiceError.httpStatus(code, hint)
         }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }

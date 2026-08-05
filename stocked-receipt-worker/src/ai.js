@@ -114,6 +114,8 @@ export function parseModelJSON(text) {
 export async function callAnthropicResilient({ env, models, system, user, maxTokens, timeoutMs, promptCache, requestId }) {
   const apiKey = env.ANTHROPIC_API_KEY;
   let lastStatus = 502;
+  let lastText = "";
+  let lastModel = null;
   for (const model of models.filter(Boolean)) {
     if (await breakerOpen(model)) { logEvent({ requestId, event: "breakerSkip", model }); continue; }
     const res = await callOnce({ apiKey, model, system, user, maxTokens, timeoutMs, promptCache, requestId });
@@ -122,12 +124,16 @@ export async function callAnthropicResilient({ env, models, system, user, maxTok
       return { ok: true, text: res.text, model };
     }
     lastStatus = res.status;
-    // 5xx / timeout counts against the breaker; 4xx (bad request/key) does not — retrying won't help.
+    lastText = res.text || "";
+    lastModel = model;
+    // 5xx / timeout counts against the breaker; 4xx (bad request/key) does not — retrying won't help
+    // against the breaker specifically, but a DIFFERENT model can still succeed where this one
+    // failed (e.g. a bad/unsupported model id, a per-model quota, or a model-specific content
+    // rejection), so we keep trying the remaining models instead of giving up on the first 4xx.
     await breakerRecord(model, res.status >= 500);
-    logEvent({ requestId, event: "upstreamFail", model, status: res.status, aborted: !!res.aborted });
-    if (res.status >= 400 && res.status < 500) break; // don't fall back on a client-side error
+    logEvent({ requestId, event: "upstreamFail", model, status: res.status, aborted: !!res.aborted, bodySnippet: lastText.slice(0, 300) });
   }
-  return { ok: false, status: lastStatus };
+  return { ok: false, status: lastStatus, text: lastText, model: lastModel };
 }
 
 /**
@@ -137,7 +143,10 @@ export async function callAnthropicResilient({ env, models, system, user, maxTok
  */
 export async function runValidatedRoute({ env, route, schemaVersion, models, system, user, maxTokens, timeoutMs, promptCache, requestId }) {
   const first = await callAnthropicResilient({ env, models, system, user, maxTokens, timeoutMs, promptCache, requestId });
-  if (!first.ok) return { ok: false, status: first.status, code: "upstreamError" };
+  if (!first.ok) {
+    logEvent({ requestId, event: "upstreamExhausted", route, status: first.status, model: first.model, bodySnippet: (first.text || "").slice(0, 300) });
+    return { ok: false, status: first.status, code: "upstreamError", upstreamStatus: first.status, upstreamBody: (first.text || "").slice(0, 300) };
+  }
 
   let parsed = parseModelJSON(extractText(first.text));
   let check = validateAIOutput(route, parsed, schemaVersion);

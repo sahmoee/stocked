@@ -301,6 +301,16 @@ final class StockedKnowledgeBase {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
+        let tags = (m["strTags"] as? String ?? "").components(separatedBy: ",").filter { !$0.isEmpty }
+        let classification = RecipeClassifier.classify(
+            title: title,
+            rawCuisine: m["strArea"] as? String ?? "",
+            rawCategory: m["strCategory"] as? String ?? "",
+            keywords: tags,
+            ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+            instructions: steps
+        )
+
         return RecipeDatabaseEntry(
             title:       title,
             description: "",
@@ -308,9 +318,9 @@ final class StockedKnowledgeBase {
             sourceName:  "TheMealDB",
             prepTime:    "", cookTime: "", totalTime: "",
             servings:    "4",
-            category:    m["strCategory"] as? String ?? "",
-            cuisine:     m["strArea"]     as? String ?? "",
-            tags:        (m["strTags"]    as? String ?? "").components(separatedBy: ",").filter { !$0.isEmpty },
+            category:    classification.category,
+            cuisine:     classification.cuisine,
+            tags:        classification.tags + tags,
             ingredients: ingredients,
             steps:       steps,
             imageURL:    m["strMealThumb"] as? String ?? "",

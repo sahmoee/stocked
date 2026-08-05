@@ -424,6 +424,16 @@ struct SocialImportSheet: View {
             imageURL: content.imageURL.isEmpty ? nil : content.imageURL
         )
         if saved.title.isEmpty { saved.title = "\(platform.displayName) Recipe" }
+        let classification = RecipeClassifier.classify(
+            title: saved.title,
+            rawCuisine: recipe.cuisine,
+            rawCategory: nil,
+            keywords: [],
+            ingredients: saved.ingredients,
+            instructions: saved.instructions
+        )
+        saved.cuisine = classification.cuisine
+        saved.tags = classification.tags
         session.guestStore.addUserRecipe(saved)
         HapticManager.success()
         dismiss()

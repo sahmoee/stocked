@@ -35,6 +35,7 @@ struct WebRecipesView: View {
     @State private var searchText    = ""
     @State private var selectedSource: RecipeSource? = nil
     @State private var selectedCategory: RecipeSource.SourceCategory? = nil
+    @State private var selectedRecipeCategory: String? = nil
     @State private var activeSheet: WebSheet? = nil
     @State private var importURL = ""
     @State private var maxCookMinutes: Int? = nil   // #15 cook-time filter (nil = any)
@@ -55,6 +56,18 @@ struct WebRecipesView: View {
             )
         }
         .sorted { $0.displayName < $1.displayName }
+    }
+
+    private var facetRecipes: [UserRecipe] {
+        manager.recipes.map { recipe in
+            UserRecipe(
+                title: recipe.title,
+                cuisine: recipe.cuisine,
+                tags: recipe.tags + [recipe.category],
+                ingredients: recipe.ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: recipe.steps.map(\.text)
+            )
+        }
     }
 
     // MARK: Filtered recipes
@@ -81,6 +94,9 @@ struct WebRecipesView: View {
             base = base.filter {
                 RecipeSourceRegistry.source(for: $0.sourceDomain)?.category == cat
             }
+        }
+        if let recipeCategory = selectedRecipeCategory {
+            base = base.filter { RecipeTaxonomy.canonicalCategory($0.category) == recipeCategory }
         }
         // #15 max cook-time filter (when set).
         if let maxMin = maxCookMinutes {
@@ -140,7 +156,11 @@ struct WebRecipesView: View {
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 24).padding(.bottom, 10)
 
-            // Category filter chips
+            Text("Website categories")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .padding(.horizontal, 24).padding(.bottom, 6)
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     FilterChip(
@@ -180,6 +200,30 @@ struct WebRecipesView: View {
             }
             .stockedHorizontalSnap()
             .padding(.bottom, 8)
+
+            let recipeCategories = RecipeFacets.availableCategories(in: facetRecipes)
+            if !recipeCategories.isEmpty {
+                Text("Recipe categories")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .padding(.horizontal, 24).padding(.bottom, 6)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        FilterChip(label: "All recipes", emoji: "🍽️", isSelected: selectedRecipeCategory == nil) {
+                            selectedRecipeCategory = nil
+                        }
+                        ForEach(recipeCategories, id: \.self) { category in
+                            FilterChip(label: category, emoji: "🍽️", isSelected: selectedRecipeCategory == category) {
+                                selectedRecipeCategory = selectedRecipeCategory == category ? nil : category
+                            }
+                        }
+                    }
+                    .stockedScrollTargetLayout()
+                    .padding(.horizontal, 24)
+                }
+                .stockedHorizontalSnap()
+                .padding(.bottom, 8)
+            }
 
             // #15 cook-time quick filters
             ScrollView(.horizontal, showsIndicators: false) {

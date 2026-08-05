@@ -696,6 +696,15 @@ struct JSONLDRecipeParser {
         // Instructions — HowToStep array, HowToSection array, or plain string
         let steps = parseInstructions(json["recipeInstructions"])
 
+        let classification = RecipeClassifier.classify(
+            title: title,
+            rawCuisine: cuisine,
+            rawCategory: category,
+            keywords: keywords,
+            ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+            instructions: steps.map(\.text)
+        )
+
         // Rating
         var rating: Double? = nil
         var ratingCount: Int? = nil
@@ -718,11 +727,11 @@ struct JSONLDRecipeParser {
             totalTime:   totalTime,
             servings:    servings,
             difficulty:  mapDifficulty(keywords: keywords, cookTime: totalTime),
-            category:    category,
-            cuisine:     cuisine,
+            category:    classification.category,
+            cuisine:     classification.cuisine,
             ingredients: ingredients,
             steps:       steps,
-            tags:        keywords,
+            tags:        classification.tags + keywords,
             rating:      rating,
             ratingCount: ratingCount,
             calories:    calories,

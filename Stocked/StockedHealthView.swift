@@ -181,18 +181,6 @@ struct StockedHealthView: View {
                 Text("Counts stay on this device to help you see how you use Stocked. Nothing is ever sent anywhere. Turn it off any time.")
             }
 
-            // ── QA ───────────────────────────────────────────────────────────
-            Section {
-                NavigationLink { QAModeView() } label: {
-                    Label("QA mode", systemImage: "checkmark.seal")
-                }
-                NavigationLink { StockedQAGateView() } label: {
-                    Label("Release checklist", systemImage: "checklist")
-                }
-            } header: { Text("QA") } footer: {
-                Text("QA mode records screens and attempted actions and runs invariant checks automatically. The release checklist is the code-gated manual checkbook; both publish to the same QA bridge.")
-            }
-
             // ── Build ────────────────────────────────────────────────────────
             Section("Build") {
                 row("Version", BuildConfig.version)

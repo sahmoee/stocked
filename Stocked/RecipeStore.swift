@@ -266,9 +266,21 @@ actor RecipeStore {
             return String(cString: c)
         }
         let rowid = sqlite3_column_int64(stmt, 0)
+        let title = text(1)
+        let tags = RecipeStore.decodeJSONArray(text(11))
+        let ingredients = RecipeStore.decodeJSONArray(text(12))
+        let steps = RecipeStore.decodeJSONArray(text(13))
+        let classification = RecipeClassifier.classify(
+            title: title,
+            rawCuisine: text(10),
+            rawCategory: text(9),
+            keywords: tags,
+            ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+            instructions: steps
+        )
         return RecipeDatabaseEntry(
             id:          RecipeStore.stableID(forRowID: rowid),
-            title:       text(1),
+            title:       title,
             description: text(2),
             sourceURL:   text(3),
             sourceName:  text(4),
@@ -276,11 +288,11 @@ actor RecipeStore {
             cookTime:    text(6),
             totalTime:   text(7),
             servings:    text(8),
-            category:    text(9),
-            cuisine:     text(10),
-            tags:        RecipeStore.decodeJSONArray(text(11)),
-            ingredients: RecipeStore.decodeJSONArray(text(12)),
-            steps:       RecipeStore.decodeJSONArray(text(13)),
+            category:    classification.category,
+            cuisine:     classification.cuisine,
+            tags:        classification.tags + tags,
+            ingredients: ingredients,
+            steps:       steps,
             imageURL:    text(14)
         )
     }

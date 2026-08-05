@@ -192,6 +192,32 @@ export default {
         return done(await handleCrowd(url, request, env, ctx, requestId));
       }
 
+      // ── QA report bridge (companion app <-> main app App Health) ──
+      //
+      // MUST STAY ABOVE THE POST-ONLY GATE BELOW. This block used to sit under
+      // it, which meant every GET the QA bridge makes — /qa/reports/latest is
+      // the one the app calls to check the bridge is alive at all — was
+      // answered with a blanket 405 before it ever reached handleQARoute. The
+      // app surfaced that as "QA bridge returned 405", which reads like a
+      // method mismatch in the client and is nothing of the kind: the route
+      // never ran. handleQARoute does its own per-path method checking, so it
+      // does not need the outer gate and must not be behind it.
+      //
+      // It is still below the sharedKeyOK gate above, so these routes are
+      // key-gated without a second check that could drift from the first.
+      //
+      // /qa/shots (Build 73) carries a raw JPEG rather than JSON, because the
+      // report envelope is capped at 256 KB and raising that cap to fit
+      // pictures would remove the same protection from the text path. Its size
+      // limit is enforced inside handleQARoute, not by MAX_BODY_BYTES below —
+      // which is another reason it belongs here, above the body-reading path.
+      if (url.pathname === "/qa/reports" || url.pathname === "/qa/reports/latest" ||
+          url.pathname === "/qa/shots" || url.pathname.startsWith("/qa/shots/")) {
+        route = "qaReports";
+        const qa = await handleQARoute(url, request, env, requestId);
+        if (qa) return done(qa);
+      }
+
       // Everything below is POST-only.
       if (request.method !== "POST") { status = 405; return errJson(405, "Method not allowed", { code: "methodNotAllowed", requestId }); }
 
@@ -216,15 +242,6 @@ export default {
         if (await isLimited(limiterFor(env, "default"), rlKey, "barc")) { status = 429; return errJson(429, "Rate limit exceeded", { code: "rateLimited", requestId }); }
         return done(await handleBarcodeResolve(request, env, ctx, requestId));
       }
-      // ── QA report bridge (companion app <-> main app App Health) ──
-      // Sits after the blanket sharedKeyOK gate above, so these are key-gated
-      // without a second check that could drift from the first.
-      if (url.pathname === "/qa/reports" || url.pathname === "/qa/reports/latest") {
-        route = "qaReports";
-        const qa = await handleQARoute(url, request, env, requestId);
-        if (qa) return done(qa);
-      }
-
       if (url.pathname === "/support/diagnostics") {
         route = "diagnostics";
         return done(await handleDiagnostics(request, env, ctx, requestId));
@@ -309,7 +326,20 @@ export default {
           env, route: prompt.route, schemaVersion: prompt.schemaVersion, models,
           system: prompt.system, user: prompt.user, maxTokens, promptCache: true, requestId,
         });
-        if (!r.ok) { status = 502; return errJson(502, "Assistant output invalid", { code: r.code || "upstreamError", requestId, extra: { errors: r.errors } }); }
+        if (!r.ok) {
+          status = 502;
+          // Distinguish an upstream call failure (network/auth/model/rate-limit — the model
+          // never produced a response to validate) from a genuine schema-validation failure
+          // (the model answered, but its JSON didn't satisfy the route's schema after one
+          // repair attempt). Both used to be flattened into the same "Assistant output
+          // invalid" text, which made this class of failure undiagnosable from the app.
+          const isUpstream = r.code === "upstreamError";
+          const message = isUpstream ? "Assistant upstream error" : "Assistant output invalid";
+          const extra = isUpstream
+            ? { upstreamStatus: r.upstreamStatus, upstreamBody: r.upstreamBody }
+            : { errors: r.errors };
+          return errJson(502, message, { code: r.code || "upstreamError", requestId, extra });
+        }
         const envelope = {
           content: [{ type: "text", text: JSON.stringify(r.value) }],
           schemaVersion: prompt.schemaVersion, route: prompt.route, workerVersion: WORKER_VERSION,

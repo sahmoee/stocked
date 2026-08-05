@@ -162,9 +162,7 @@ struct QuizEditView: View {
     }
 
     private var cuisineGrid: some View {
-        let cuisines = [("🍝","Italian"),("🌮","Mexican"),("🥢","Asian"),
-                        ("🫒","Mediterranean"),("🍔","American"),("🫕","Indian"),
-                        ("🌴","Caribbean"),("🧆","Middle Eastern"),("🥐","French")]
+        let cuisines = RecipeTaxonomy.cuisines.map { (CuisineBrowseView.flag(for: $0), $0) }
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
             ForEach(cuisines, id: \.1) { emoji, label in
                 chip("\(emoji)\n\(label)", selected: cuisinePrefs.contains(label)) {

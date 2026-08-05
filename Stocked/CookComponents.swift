@@ -237,6 +237,134 @@ struct CookActionCard: View {
     }
 }
 
+// MARK: - Row tone + illustrated row
+
+/// Surface a row paints itself with. The illustrations supplied for Cook are transparent
+/// cut-outs, so the card — not the image — owns the background. Never bake a fill into the PNG.
+enum CookRowTone {
+    case dark   // charcoal card, light text (mockup: "in your pantry" / "use tonight" rows)
+    case soft   // tan / dark-surface card, theme text (mockup: "plan ahead" rows)
+}
+
+/// How a CookCategoryCard paints itself.
+/// `.fullBleed` is the original treatment (photo fills the cell, scrim on the left) and stays
+/// the default so Build Around Food and every existing call site are untouched.
+/// `.illustrated` is the second render mode for transparent cut-out art.
+enum CookCardRender {
+    case fullBleed
+    case illustrated
+}
+
+/// A row that composites a transparent illustration over the card's own fill at runtime:
+/// cut-out art at the leading edge, then title, subtitle, an optional gold "In pantry" pill or
+/// cart glyph, then the chevron. Used by the Cook sub-option screens and the Cook Now pathways.
+struct CookIllustratedRow: View {
+    @Environment(AppSession.self) private var session
+    let title: String
+    var subtitle: String = ""
+    var assetName: String? = nil
+    var fallbackEmoji: String? = nil
+    var fallbackIcon: String = "fork.knife"
+    var tone: CookRowTone = .dark
+    var artSize: CGFloat = 68
+    /// Gold "In pantry" pill on the trailing edge.
+    var showPantryPill: Bool = false
+    /// cart.badge.plus glyph on the trailing edge (shown for items not in the pantry).
+    var showCartGlyph: Bool = false
+    /// Softens the whole row for items that are not in the pantry.
+    var dimmed: Bool = false
+    var action: (() -> Void)? = nil
+
+    private var onDark: Bool { tone == .dark }
+    private var ink: Color { onDark ? Color.stockedWhite : session.themeTextColor }
+    private var fill: Color {
+        switch tone {
+        case .dark: return Color.stockedCharcoal.opacity(dimmed ? 0.45 : 1.0)
+        case .soft: return session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6)
+        }
+    }
+
+    var body: some View {
+        if let action {
+            Button(action: action) { rowVisual }
+                .buttonStyle(.plain)
+                .accessibilityLabel(subtitle.isEmpty ? title : "\(title). \(subtitle)")
+        } else {
+            rowVisual
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(subtitle.isEmpty ? title : "\(title). \(subtitle)")
+        }
+    }
+
+    private var rowVisual: some View {
+        HStack(spacing: 14) {
+            art
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 16.5, weight: .semibold, design: .serif))
+                    .foregroundStyle(ink.opacity(dimmed ? 0.6 : 1.0))
+                    .fixedSize(horizontal: false, vertical: true)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(ink.opacity(dimmed ? 0.4 : 0.6))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 6)
+            if showPantryPill {
+                HStack(spacing: 4) {
+                    Circle().fill(Color.stockedGold).frame(width: 7, height: 7)
+                    Text("In pantry")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                }
+            } else if showCartGlyph {
+                Image(systemName: "cart.badge.plus")
+                    .font(.system(size: 13))
+                    .foregroundStyle(ink.opacity(0.35))
+            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(ink.opacity(onDark ? 0.45 : 0.3))
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(fill, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+        // Hit area == the visible rounded card, nothing more — same guarantee the full-bleed
+        // treatment makes, so a tap never bleeds onto the neighbouring row.
+        .contentShape(RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+    }
+
+    // scaledToFit inside a fixed frame never overflows, so the art cannot extend the row's
+    // layout or hit-test bounds the way a scaledToFill photo can.
+    @ViewBuilder private var art: some View {
+        if let photo = cookAssetImage(assetName) {
+            photo
+                .resizable()
+                .scaledToFit()
+                .frame(width: artSize, height: artSize)
+                .opacity(dimmed ? 0.55 : 1.0)
+        } else {
+            ZStack {
+                Circle()
+                    .fill(onDark ? Color.stockedWhite.opacity(0.10) : Color.stockedGold.opacity(0.15))
+                    .frame(width: artSize * 0.72, height: artSize * 0.72)
+                if let fallbackEmoji {
+                    Text(fallbackEmoji).font(.system(size: artSize * 0.34))
+                } else {
+                    Image(systemName: fallbackIcon)
+                        .font(.system(size: artSize * 0.30, weight: .semibold))
+                        .foregroundStyle(onDark ? Color.stockedWhite : Color.stockedGold)
+                }
+            }
+            .frame(width: artSize, height: artSize)
+            .opacity(dimmed ? 0.55 : 1.0)
+        }
+    }
+}
+
 // MARK: - CategoryCard — a category tile (Protein, Vegetables, Breakfast, …) with a count
 
 struct CookCategoryCard: View {
@@ -247,10 +375,17 @@ struct CookCategoryCard: View {
     var emoji: String? = nil
     var assetName: String? = nil
     var cardHeight: CGFloat = 92
+    /// Defaults to the original full-bleed photo treatment. Pass `.illustrated` for the
+    /// transparent cut-out row style.
+    var render: CookCardRender = .fullBleed
+    var tone: CookRowTone = .dark
     var action: (() -> Void)? = nil
 
     @ViewBuilder private var cardVisual: some View {
-        if let photo = cookAssetImage(assetName) {
+        if render == .illustrated {
+            CookIllustratedRow(title: title, subtitle: subtitle, assetName: assetName,
+                               fallbackEmoji: emoji, fallbackIcon: icon, tone: tone)
+        } else if let photo = cookAssetImage(assetName) {
             photoCell(photo)
         } else {
             flatRow
@@ -404,10 +539,16 @@ struct CookRecipeCard: View {
                 // Online recipes carry a URL and load it directly; the rest now
                 // resolve through TheMealDB / Spoonacular / Foodish like the
                 // Ready-to-Cook thumbnails already did.
-                AsyncFoodImage(name: title, url: imageURL, size: 56, resolveOnline: true)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                // Build 84 (STK-77-0005, from the field) - "all icons should be
+                // bigger and match the style". The art was 56 pt in a 10 pt
+                // corner while every illustrated Cook row runs bigger art in the
+                // shared card corner with a serif title. Same language here now,
+                // so a results row no longer reads as a different app from the
+                // screen that led to it.
+                AsyncFoodImage(name: title, url: imageURL, size: 68, resolveOnline: true)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 15.5, weight: .semibold))
+                    Text(title).font(.system(size: 16, weight: .semibold, design: .serif))
                         .foregroundStyle(session.themeTextColor).lineLimit(1)
                     if !subtitle.isEmpty {
                         Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
@@ -419,9 +560,9 @@ struct CookRecipeCard: View {
                         .foregroundStyle(Color.stockedGreen)
                 }
             }
-            .padding(.vertical, 10).padding(.horizontal, 14)
+            .padding(.vertical, 12).padding(.horizontal, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
         }
         .buttonStyle(.plain)
     }

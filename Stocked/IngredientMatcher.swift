@@ -44,7 +44,7 @@ nonisolated enum IngredientMatcher {
     static func canonical(_ raw: String) -> String {
         var normalized = FoodNameMatcher.normalized(raw)
         for (from, to) in synonyms.sorted(by: { $0.key.count > $1.key.count }) {
-            if FoodNameMatcher.containsPhrase(from, in: normalized) {
+            if KitchenAvailability.nameMatches(normalized, from) || FoodNameMatcher.containsPhrase(from, in: normalized) {
                 normalized = FoodNameMatcher.normalized(to)
                 break
             }
@@ -83,7 +83,7 @@ nonisolated enum IngredientMatcher {
         var missing: [String] = []
         for raw in recipeIngredients {
             let name = ParsedIngredient.parse(raw).name
-            let found = pantrySet.contains { FoodNameMatcher.matches(name, $0).score >= 0.72 }
+            let found = pantrySet.contains { KitchenAvailability.nameMatches(name, $0) }
             if found { matched.append(name) } else { missing.append(name) }
         }
         let score = Int((Double(matched.count) / Double(recipeIngredients.count)) * 100)

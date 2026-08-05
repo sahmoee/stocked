@@ -232,7 +232,7 @@ final class ImageCache: @unchecked Sendable {
 
         let result: UIImage?
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await URLSession.shared.data(for: ImageCache.imageRequest(for: url))
             guard !Task.isCancelled,
                   let http = response as? HTTPURLResponse,
                   (200...299).contains(http.statusCode),
@@ -251,6 +251,30 @@ final class ImageCache: @unchecked Sendable {
         }
         await ImageFetchLimiter.shared.release()
         return result
+    }
+
+    /// A request that recipe sites will actually answer.
+    ///
+    /// Most recipe photos live behind a CDN configured to refuse hotlinking: a bare GET with
+    /// no `Referer` and a URLSession user agent comes back 403, and the card shows a grey
+    /// placeholder for a picture that loads perfectly in a browser. Sending the image's own
+    /// origin as the referrer is what a page on that site would send, and a plain browser
+    /// user agent stops the simpler filters. Accept is set so servers that content-negotiate
+    /// hand back an image rather than an HTML error page.
+    nonisolated static func imageRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        if let scheme = url.scheme, let host = url.host {
+            request.setValue("\(scheme)://\(host)/", forHTTPHeaderField: "Referer")
+        }
+        request.setValue("image/avif,image/webp,image/jpeg,image/png,*/*;q=0.8",
+                         forHTTPHeaderField: "Accept")
+        request.setValue(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+                + "(KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+            forHTTPHeaderField: "User-Agent"
+        )
+        request.timeoutInterval = 20
+        return request
     }
 
     /// Decode an image directly at a reduced size using ImageIO (much cheaper than decoding

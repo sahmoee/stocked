@@ -128,7 +128,7 @@ nonisolated struct CookLaterSuggestedMeal: Identifiable, Sendable, Equatable {
 }
 
 nonisolated enum CookLaterPlanningEngine {
-  static let mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"]
+  static let mealTypes = RecipeTaxonomy.categories.filter { ["Breakfast", "Lunch", "Dinner", "Snack"].contains($0) }
 
   static func dayLabel(_ index: Int, short: Bool = false) -> String {
     guard (0..<7).contains(index) else { return "Later" }

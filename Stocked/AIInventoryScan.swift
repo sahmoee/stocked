@@ -11,6 +11,7 @@
 // household sync fire exactly once.
 
 import SwiftUI
+import os
 
 // MARK: - Model
 
@@ -57,16 +58,31 @@ final class AIInventoryScanner {
     var isScanning = false
     var lastError: String?
 
-    nonisolated static var isAvailable: Bool { StockedWorkerClient.isConfigured }
+    /// Either path being usable is enough to offer the scan: the cloud Worker (richer
+    /// model), or on-device Apple Intelligence (works offline, and covers the Worker
+    /// being unreachable/misconfigured/erroring).
+    static var isAvailable: Bool { StockedWorkerClient.isConfigured || AppleOnDeviceAI.isAvailable }
+
+    /// True if the most recent completed scan produced at least one update via the
+    /// on-device fallback rather than the cloud Worker (surfaced so the review sheet
+    /// can note it, if it wants to — purely informational).
+    private(set) var usedOnDeviceFallback = false
 
     /// Sends the inventory snapshot to the Worker; returns proposed updates
     /// (empty array = inventory already tidy), or nil on failure with lastError set.
+    /// Each chunk tries the cloud Worker first (bigger model, richer world knowledge);
+    /// if that chunk's request fails for any reason — Worker down, misconfigured,
+    /// offline, upstream error — it falls back to Apple's on-device model for just
+    /// that chunk when this device supports it, instead of failing the whole scan.
     func scan(store: GuestDataStore) async -> [InventoryScanUpdate]? {
         lastError = nil
+        usedOnDeviceFallback = false
         let items = store.inventoryItems
         guard !items.isEmpty else { lastError = "Your inventory is empty — nothing to scan."; return nil }
-        guard StockedWorkerClient.isConfigured else { lastError = "The AI scan needs the Stocked Worker configured."; return nil }
-        guard ConnectivityMonitor.isOnlineFlag else { lastError = "You're offline — try again with a connection."; return nil }
+        guard Self.isAvailable else {
+            lastError = "The AI scan needs the Stocked Worker configured, or Apple Intelligence enabled on this device."
+            return nil
+        }
 
         // Chunking prevents max-token truncation on large pantries and lets each result be cached
         // against the exact inventory revision + item subset.
@@ -76,28 +92,62 @@ final class AIInventoryScanner {
         isScanning = true
         defer { isScanning = false }
         var allUpdates: [InventoryScanUpdate] = []
-        do {
-            for (index, chunk) in chunks.enumerated() {
-                let snapshot = chunk.map { item -> [String: Any] in
-                    ["id": item.id.uuidString, "name": item.name, "zone": item.zone,
-                     "quantity": item.quantity, "brand": item.brand ?? "",
-                     "hasNutrition": item.nutrition != nil, "hasExpiry": item.expirationDate != nil]
+        var lastChunkError: Error?
+        let corrections = AICorrectionStore.shared.promptCorrections()
+        let cloudReachable = StockedWorkerClient.isConfigured && ConnectivityMonitor.isOnlineFlag
+
+        for (index, chunk) in chunks.enumerated() {
+            if cloudReachable {
+                do {
+                    let snapshot = chunk.map { item -> [String: Any] in
+                        ["id": item.id.uuidString, "name": item.name, "zone": item.zone,
+                         "quantity": item.quantity, "brand": item.brand ?? "",
+                         "hasNutrition": item.nutrition != nil, "hasExpiry": item.expirationDate != nil]
+                    }
+                    let payload: [String: Any] = [
+                        "inventoryScan": true, "inventory": snapshot,
+                        "inventoryRevision": store.inventoryRevision, "chunk": index,
+                        "corrections": corrections
+                    ]
+                    let data = try await StockedWorkerClient.requestData(route: .inventoryScan,
+                                                                         payload: payload,
+                                                                         timeout: 90)
+                    allUpdates.append(contentsOf: Self.decode(data, items: chunk))
+                    continue
+                } catch {
+                    lastChunkError = error
+                    Log.app.notice("AIInventoryScan: Worker failed for chunk \(index, privacy: .public), trying on-device — \(error.localizedDescription, privacy: .public)")
                 }
-                let payload: [String: Any] = [
-                    "inventoryScan": true, "inventory": snapshot,
-                    "inventoryRevision": store.inventoryRevision, "chunk": index,
-                    "corrections": AICorrectionStore.shared.promptCorrections()
-                ]
-                let data = try await StockedWorkerClient.requestData(route: .inventoryScan,
-                                                                     payload: payload,
-                                                                     timeout: 50)
-                allUpdates.append(contentsOf: Self.decode(data, items: chunk))
             }
-            return allUpdates
-        } catch {
-            lastError = error.localizedDescription
+
+            if AppleOnDeviceAI.isAvailable {
+                let correctionsList = corrections.map { "\($0.key) → \($0.value)" }
+                // Foundation Models has no built-in timeout; 35 s per chunk prevents
+                // the spinner from running for minutes when the model is slow or overloaded.
+                let onDevice: [InventoryScanUpdate]? = await withTaskGroup(of: [InventoryScanUpdate]?.self) { group in
+                    group.addTask { try? await AppleOnDeviceAI.scanInventory(items: chunk, corrections: correctionsList) }
+                    group.addTask { try? await Task.sleep(nanoseconds: 35_000_000_000); return nil }
+                    let result = await group.next() ?? nil
+                    group.cancelAll()
+                    return result
+                }
+                if let onDevice {
+                    allUpdates.append(contentsOf: onDevice)
+                    usedOnDeviceFallback = true
+                    continue
+                }
+                // nil = timed out; fall through keeping prior lastChunkError
+            }
+            // Neither path worked for this chunk. Keep whatever earlier chunks already
+            // produced and move on — a partial scan beats none — but remember the
+            // failure so it can be reported if the whole scan comes up empty.
+        }
+
+        if allUpdates.isEmpty, let lastChunkError {
+            lastError = lastChunkError.localizedDescription
             return nil
         }
+        return allUpdates
     }
 
     /// Parses the Worker's response ({updates:[…]} — possibly inside an Anthropic

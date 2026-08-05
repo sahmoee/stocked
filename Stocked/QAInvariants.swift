@@ -49,12 +49,32 @@ enum QAInvariants {
     /// thread for long enough during cooking that the iOS watchdog killed the app
     /// (the "CRASH type=10 signal=9" entries in the diagnostics log).
     static func runAllYielding(store: GuestDataStore, session: CookNowSession?) async -> [QAInvariantResult] {
+        // BUILD 75 — ONE snapshot for the whole suite.
+        //
+        // Three probes each called `CookNowCompute.run` independently, and this
+        // loop yields the main actor between every probe so UI work can
+        // interleave. That combination is how the Build 69 field export ended up
+        // with three full classification passes inside four hundred milliseconds
+        // against unchanged data: a mounted Cook Now surface recomputed in the
+        // yield window and evicted the one-entry memo the next probe was about
+        // to hit.
+        //
+        // It was also a correctness problem, and the more serious of the two.
+        // `homeMatchesCookExact` compares Home's count against Cook's count; if
+        // those two numbers come from snapshots taken a hundred milliseconds
+        // apart with an inventory edit in between, a real divergence and a
+        // perfectly ordinary edit look exactly the same. Every probe now judges
+        // the same snapshot, taken once, before the first yield.
+        let snapshot = CookNowCompute.run(store: store, session: session)
+        await Task.yield()
+
         var out: [QAInvariantResult] = []
         let probes: [() -> QAInvariantResult] = [
-            { allergenExclusion(store: store, session: session) },
-            { readyRecipesTrulyStocked(store: store, session: session) },
+            { allergenExclusion(store: store, session: session, snapshot: snapshot) },
+            { readyRecipesTrulyStocked(store: store, session: session, snapshot: snapshot) },
+            { surfacedRecipesAreShowable(store: store, session: session, snapshot: snapshot) },
             { coverageInternalConsistency(store: store) },
-            { homeMatchesCookExact(store: store, session: session) },
+            { homeMatchesCookExact(store: store, session: session, snapshot: snapshot) },
             { reservationMath(store: store) },
             { lowStockAgreement(store: store) },
             { expiringAgreement(store: store) },
@@ -62,6 +82,8 @@ enum QAInvariants {
             { noDuplicateIdentities(store: store) },
             { discoverPoolReachingClassifier(store: store) },
             { optionalIngredientsExcluded(store: store) },
+            { classificationNotRepeating() },
+            { workerConfigured() },
         ]
         for probe in probes {
             out.append(probe())
@@ -72,11 +94,13 @@ enum QAInvariants {
 
     /// Run every probe. Ordered so the critical ones surface first in the UI.
     static func runAll(store: GuestDataStore, session: CookNowSession?) -> [QAInvariantResult] {
+        let snapshot = CookNowCompute.run(store: store, session: session)
         var out: [QAInvariantResult] = []
-        out.append(allergenExclusion(store: store, session: session))
-        out.append(readyRecipesTrulyStocked(store: store, session: session))
+        out.append(allergenExclusion(store: store, session: session, snapshot: snapshot))
+        out.append(readyRecipesTrulyStocked(store: store, session: session, snapshot: snapshot))
+        out.append(surfacedRecipesAreShowable(store: store, session: session, snapshot: snapshot))
         out.append(coverageInternalConsistency(store: store))
-        out.append(homeMatchesCookExact(store: store, session: session))
+        out.append(homeMatchesCookExact(store: store, session: session, snapshot: snapshot))
         out.append(reservationMath(store: store))
         out.append(lowStockAgreement(store: store))
         out.append(expiringAgreement(store: store))
@@ -84,6 +108,8 @@ enum QAInvariants {
         out.append(noDuplicateIdentities(store: store))
         out.append(discoverPoolReachingClassifier(store: store))
         out.append(optionalIngredientsExcluded(store: store))
+        out.append(classificationNotRepeating())
+        out.append(workerConfigured())
         return out
     }
 
@@ -91,7 +117,9 @@ enum QAInvariants {
 
     /// No recipe presented as cookable may contain an active allergen, from the
     /// cooking profile OR from any family member marked present.
-    static func allergenExclusion(store: GuestDataStore, session: CookNowSession?) -> QAInvariantResult {
+    static func allergenExclusion(store: GuestDataStore,
+                                  session: CookNowSession?,
+                                  snapshot: CookNowCompute.Output? = nil) -> QAInvariantResult {
         let family = FamilyProfileStore.shared
         let allergens = (store.cookingProfile.allergens + family.activeAllergens).filter { !$0.isEmpty }
         guard !allergens.isEmpty else {
@@ -101,8 +129,8 @@ enum QAInvariants {
                                      critical: true)
         }
         let rules = DietaryGuard.Rules(allergens: allergens)
-        let snapshot = CookNowCompute.run(store: store, session: session)
-        let surfaced = snapshot.readyNow + snapshot.needsReview + snapshot.almostReady
+        let snap = snapshot ?? CookNowCompute.run(store: store, session: session)
+        let surfaced = snap.readyNow + snap.needsReview + snap.almostReady
 
         var offenders: [String] = []
         for c in surfaced {
@@ -130,9 +158,11 @@ enum QAInvariants {
     /// Every recipe in the exact tier must have all required ingredients in
     /// stock. This is the probe that would have caught the loose substring
     /// matcher reporting "Everything in stock" for a kitchen missing corn.
-    static func readyRecipesTrulyStocked(store: GuestDataStore, session: CookNowSession?) -> QAInvariantResult {
-        let snapshot = CookNowCompute.run(store: store, session: session)
-        let exact = snapshot.readyNow.filter { $0.readiness == .exact }
+    static func readyRecipesTrulyStocked(store: GuestDataStore,
+                                         session: CookNowSession?,
+                                         snapshot: CookNowCompute.Output? = nil) -> QAInvariantResult {
+        let snap = snapshot ?? CookNowCompute.run(store: store, session: session)
+        let exact = snap.readyNow.filter { $0.readiness == .exact }
         guard !exact.isEmpty else {
             return QAInvariantResult(name: "Ready recipes truly stocked",
                                      status: .blocked,
@@ -191,10 +221,12 @@ enum QAInvariants {
 
     // MARK: - Home agrees with Cook
 
-    static func homeMatchesCookExact(store: GuestDataStore, session: CookNowSession?) -> QAInvariantResult {
+    static func homeMatchesCookExact(store: GuestDataStore,
+                                     session: CookNowSession?,
+                                     snapshot: CookNowCompute.Output? = nil) -> QAInvariantResult {
         let home = store.availableMeals
-        let snapshot = CookNowCompute.run(store: store, session: session)
-        let cook = snapshot.readyNow.filter { $0.readiness == .exact }.count
+        let snap = snapshot ?? CookNowCompute.run(store: store, session: session)
+        let cook = snap.readyNow.filter { $0.readiness == .exact }.count
         // availableMeals also counts fully-stocked saved generated recipes, which
         // the exact tier includes too, so these are defined to be equal.
         return home == cook
@@ -356,5 +388,121 @@ enum QAInvariants {
             : QAInvariantResult(name: "Optional ingredients excluded", status: .violation,
                                 detail: "\(recipe.title): denominator \(cov.total) but \(required) required — garnishes are being counted",
                                 critical: true)
+    }
+    // MARK: - Critical: a recipe Cook Now offers must be one you can cook from
+    //
+    // STK-69-0001, filed from the field against Build 69: "No recipe showing —
+    // needs a full recipe as they appear anywhere else in the app", on the Cook
+    // Now results screen.
+    //
+    // The cause was a Discover recipe with no method reaching the classifier.
+    // `OnlineRecipesLoader.warmFromCacheIfNeeded()` — the function the Cook tab
+    // calls on a cold launch — published the raw persisted cache, while every
+    // other Discover path runs it through `filterByProfile`, which drops recipes
+    // whose "instructions" are empty or are really just a link to the source.
+    // So Cook Now could rank and offer a recipe the Recipes tab would never show,
+    // and tapping it wrote that hollow copy permanently into My Collection.
+    //
+    // Both leaks are closed in this build. This probe is the guard that stops
+    // the next one: it asks the question at the surface, where the tester asked
+    // it, and does not care which upstream path let the recipe through.
+
+    /// Every recipe Cook Now presents as cookable must have real instructions.
+    static func surfacedRecipesAreShowable(store: GuestDataStore,
+                                           session: CookNowSession?,
+                                           snapshot: CookNowCompute.Output? = nil) -> QAInvariantResult {
+        let snap = snapshot ?? CookNowCompute.run(store: store, session: session)
+        let surfaced = snap.readyNow + snap.needsReview + snap.almostReady
+        guard !surfaced.isEmpty else {
+            return QAInvariantResult(name: "Surfaced recipes are showable",
+                                     status: .blocked,
+                                     detail: "nothing surfaced in Cook Now to verify — add inventory or open Recipes once",
+                                     critical: true)
+        }
+        let hollow = surfaced.filter {
+            !OnlineRecipeFacts.hasRealInstructions($0.recipe.instructions.joined(separator: "\n"))
+        }
+        if hollow.isEmpty {
+            return QAInvariantResult(name: "Surfaced recipes are showable",
+                                     status: .ok,
+                                     detail: "\(surfaced.count) surfaced recipes, every one has a method",
+                                     critical: true)
+        }
+        return QAInvariantResult(name: "Surfaced recipes are showable",
+                                 status: .violation,
+                                 detail: "STK-69-0001 again — Cook Now is offering \(hollow.count) recipe(s) with no instructions: "
+                                     + hollow.prefix(3).map(\.recipe.title).joined(separator: "; "),
+                                 critical: true)
+    }
+
+    // MARK: - The classifier must not repeat itself
+    //
+    // Build 69's export: "Cook Now classify — 15x · total 2.21s · avg 147ms ·
+    // worst 211ms", with three passes inside four hundred milliseconds against
+    // data that had not moved, and sixteen frame hitches sitting on top of them.
+    // Nothing in QA said so. The rollup table showed the total and left the
+    // reader to notice that fifteen was too many.
+    //
+    // Repeated identical work is invisible in every other diagnostic the app
+    // produces — each individual pass is fast, correct, and unremarkable. It is
+    // only the gap between them that gives it away, so that is what this reads.
+
+    /// Consecutive full classification passes must not stack up against
+    /// unchanged data. A gap under half a second between one pass finishing and
+    /// the next starting means a cache that should have hit did not.
+    static func classificationNotRepeating() -> QAInvariantResult {
+        let passes = QAProcessTracker.shared.records
+            .filter { $0.name == "Cook Now classify" && $0.state != .running }
+            .sorted { $0.startedAt < $1.startedAt }
+        guard passes.count >= 3 else {
+            return QAInvariantResult(name: "Classification does not repeat",
+                                     status: .blocked,
+                                     detail: "\(passes.count) classification pass(es) recorded — use Cook Now for a minute to exercise this probe",
+                                     critical: false)
+        }
+        var bursts = 0
+        var closest = Double.greatestFiniteMagnitude
+        for (a, b) in zip(passes, passes.dropFirst()) {
+            let gap = b.startedAt.timeIntervalSince(a.endedAt ?? a.startedAt)
+            guard gap >= 0 else { continue }
+            if gap < 0.5 {
+                bursts += 1
+                closest = min(closest, gap)
+            }
+        }
+        let totalMs = passes.reduce(0.0) { $0 + $1.duration } * 1000
+        if bursts == 0 {
+            return QAInvariantResult(name: "Classification does not repeat",
+                                     status: .ok,
+                                     detail: "\(passes.count) passes, \(Int(totalMs))ms total, none stacked on the one before · memo holding \(CookNowCompute.memoDepth) snapshot(s)",
+                                     critical: false)
+        }
+        return QAInvariantResult(name: "Classification does not repeat",
+                                 status: .violation,
+                                 detail: "\(bursts) of \(passes.count - 1) passes started within half a second of the previous one finishing (closest \(Int(closest * 1000))ms) across \(Int(totalMs))ms of classification — the snapshot memo is being evicted between callers",
+                                 critical: false)
+    }
+
+    /// Verifies the Worker URL is present and syntactically valid. Does NOT make
+    /// a network call — probes must be offline-safe. A misconfigured Worker means
+    /// every AI feature silently falls back to on-device or 503s.
+    static func workerConfigured() -> QAInvariantResult {
+        let url = BuildConfig.receiptWorkerURL
+        guard !url.isEmpty else {
+            return QAInvariantResult(name: "Worker URL configured",
+                                     status: .violation,
+                                     detail: "BuildConfig.receiptWorkerURL is empty — all AI routes will fail",
+                                     critical: false)
+        }
+        guard URL(string: url) != nil, url.hasPrefix("https://") else {
+            return QAInvariantResult(name: "Worker URL configured",
+                                     status: .violation,
+                                     detail: "URL is not a valid https address: \(url)",
+                                     critical: false)
+        }
+        return QAInvariantResult(name: "Worker URL configured",
+                                 status: .ok,
+                                 detail: url,
+                                 critical: false)
     }
 }

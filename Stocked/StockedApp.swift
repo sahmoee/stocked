@@ -185,14 +185,65 @@ struct RootView: View {
             .zIndex(1500)
             .allowsHitTesting(true)
 
-            // QA tap counter — transparent passthrough layer, active only in QA mode.
+            // QA tap counter — a zero-size observer that installs a non-cancelling
+            // recognizer on the window, active only in QA mode.
             QATapTracker()
                 .zIndex(2400)
 
-            // QA bubble — renders nothing unless QA mode is on (Settings → App Health).
-            QAFloatingBubble()
-                .environment(session)
-                .zIndex(2500)
+            // QA issue reporter — press and hold anywhere while QA mode is on to
+            // file a ticket about whatever is on screen. Like QATapTracker, this
+            // renders nothing: it installs a long-press recognizer on the window
+            // that neither cancels nor delays touches, so the app underneath keeps
+            // behaving exactly as it would with QA off. The sheet it presents is
+            // the only thing the tester ever sees.
+            QAIssueReporter()
+                .zIndex(2450)
+
+            // QA heads-up display — opt-in, read-only, cannot be tapped. Off by
+            // default even inside QA mode.
+            QAHUD()
+                .zIndex(2350)
+
+            // QA touch trail (Build 73) — a pure listener recogniser on the window
+            // that records where touches land so a report can say what was pressed
+            // and the screenshot can ring it. Records nothing while QA mode is off.
+            QATouchTrailTracker()
+                .zIndex(2410)
+
+            // Live touch rings (Build 73) — off by default, and hosted in a UIWindow
+            // ABOVE the level `QAScreenshot` photographs, so turning it on never
+            // double-draws a touch into a bug report.
+            QATouchOverlayMount()
+                .zIndex(2420)
+
+            // CONSOLIDATED (July 2026): the floating QA bubble used to be a second,
+            // parallel QA surface with its own subset of controls. Every QA feature
+            // now lives in one place — Settings → QA — so there is one
+            // screen to learn and one export to send. The reporter and HUD above are
+            // deliberately not a return of that bubble: one has no visual presence at
+            // all, the other has no touch presence at all.
+            //
+            // BUILD 73 REVISITS THAT, NARROWLY. What comes back is not the old
+            // parallel surface — it is a shortcut to the same single QA screen,
+            // available only after the passcode has been entered once. The reason
+            // the original was consolidated away was duplication of *controls*;
+            // this duplicates none. It exists because the QA screen lives four taps
+            // deep inside Settings, which is four taps a tester cannot take while
+            // reproducing the thing they are trying to report.
+            //
+            // Zero-size: it only hands the session to a UIWindow that lives above
+            // the app entirely, which is the only way a QA control can sit on top of
+            // a sheet, a cover, a popover or an alert.
+            QAFloatingButtonMount()
+                .zIndex(2460)
+
+            // Shake to report (Build 74) — zero-size, and the only reason it is a
+            // view at all is to get a lifetime tied to the app's and a place to
+            // watch QA mode and the toggle. The accelerometer only spins while QA
+            // mode is on; with QA off this mounts, reads two booleans and does
+            // nothing else for the life of the process.
+            QAShakeMount()
+                .zIndex(2470)
 
             // Global household-sync progress prompt — shows on whichever device is syncing
             // (creator, joiner, or a member receiving a push), with success/failure.
@@ -259,10 +310,6 @@ struct RootView: View {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
             // Deferred remote-config fetch (kill switches, maintenance, min version).
             StockedRemoteConfig.shared.startDeferredLaunchFetch()
-            #if targetEnvironment(macCatalyst)
-            // Mac app: minimum window size + hidden title bar (see MacCatalystSupport).
-            MacWindowSupport.configureWindows()
-            #endif
             // QA automation: if QA mode was left enabled, the invariant runner starts
             // by itself at launch — no need to visit the QA screen first.
             if QARecorder.shared.isEnabled {
@@ -278,6 +325,15 @@ struct RootView: View {
             // them on the first frame competed with initial render/sync. Defer a few seconds.
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 4_000_000_000)
+                // Build 89 — clear out the retired recipe sources (the bundled Kaggle
+                // dataset and the "Sowens" curated feed). It runs before the Spotlight
+                // reindex on purpose: indexing recipes that are about to be deleted would
+                // leave them showing in system search after they were gone from the app.
+                // Cheap enough to run every launch — a filter over two arrays and one
+                // pass of the recipe database, with a write only if something was found —
+                // and running it every launch is what catches rows arriving over
+                // household sync from a device still on an older build.
+                await RecipePurge.run(store: session.guestStore)
                 RecipeImageResolver.backfillMissingImagesIfNeeded()
                 NutritionBackfill.runIfNeeded()
                 // #17 — index recipes + inventory for system Spotlight search.

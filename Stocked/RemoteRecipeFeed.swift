@@ -49,11 +49,16 @@ nonisolated enum RemoteRecipeFeed {
 
         let (ttl, maxN) = await config()
 
-        // Keep only presentable, sanely-sized recipes.
+        // Keep only presentable, sanely-sized recipes — and nothing from a retired source.
+        // This feed is published from a repo the app does not control, so the filter goes
+        // here rather than trusting the file: a row that comes down tagged "Sowens" or
+        // carrying a Kaggle link is dropped before Discover ever sees it, and would be
+        // refused by RecipeDatabase afterwards even if it weren't.
         let cleaned = recipes.filter {
             !$0.title.trimmingCharacters(in: .whitespaces).isEmpty &&
             !$0.instructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            $0.instructions.count < 6000
+            $0.instructions.count < 6000 &&
+            !RecipeSourceBlocklist.isBlocked(sourceName: $0.source, sourceURL: $0.imageURL, id: $0.id)
         }
         // Prefer recipes that already have an image, then cap — so Discover stays light and
         // the image resolver isn't asked to fill hundreds of blanks.

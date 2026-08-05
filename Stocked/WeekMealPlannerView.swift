@@ -13,7 +13,7 @@ struct WeekMealPlannerView: View {
     /// #11 — the meal awaiting a "what did this use?" confirm.
     @State private var cookedMeal: PlannedMeal? = nil
 
-    private let mealTypes = ["Breakfast", "Lunch", "Dinner"]
+    private let mealTypes = RecipeTaxonomy.categories.filter { ["Breakfast", "Lunch", "Dinner"].contains($0) }
     private var weekdayNames: [String] {
         let f = DateFormatter()
         let cal = Calendar.current

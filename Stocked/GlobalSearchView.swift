@@ -174,10 +174,18 @@ struct GlobalSearchView: View {
         let filtered = cachedHits.filter { r in
             guard pq.hasStructure else { return true }
             // Convert CachedRecipe → temp RecipeDatabaseEntry for NL filter
+            let classification = RecipeClassifier.classify(
+                title: r.title,
+                rawCuisine: r.area,
+                rawCategory: r.category,
+                keywords: [],
+                ingredients: r.ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: r.steps
+            )
             let tmp = RecipeDatabaseEntry(
                 title: r.title, description: "", sourceURL: "", sourceName: r.source,
                 prepTime: r.prepTime ?? "", cookTime: r.cookTime ?? "", totalTime: r.totalTime ?? "",
-                servings: "", category: r.category, cuisine: r.area, tags: [],
+                servings: "", category: classification.category, cuisine: classification.cuisine, tags: classification.tags,
                 ingredients: r.ingredients, steps: r.steps, imageURL: r.imageURL, cachedAt: r.cachedAt
             )
             return NLQueryParser.matches(tmp, query: pq)

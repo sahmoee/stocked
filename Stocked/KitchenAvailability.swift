@@ -79,17 +79,47 @@ nonisolated enum KitchenAvailability {
     /// Is `ingredient` present in a collection of inventory item names?
     /// `names` is expected to already be filtered to available items (see
     /// `availableNames(in:)`).
+    ///
+    /// This is the linear fallback for callers holding an arbitrary sequence.
+    /// Prefer the `Set<String>` overload below — it goes through the token index
+    /// and skips the comparisons that provably score zero.
     static func isPresent(_ ingredient: String, inNames names: some Sequence<String>) -> Bool {
         let parsed = parsedName(ingredient)
         guard !parsed.isEmpty else { return false }
         return names.contains { nameMatches(parsed, $0) }
     }
 
-    /// Is `ingredient` present in the inventory?
-    static func isPresent(_ ingredient: String, in items: [LocalInventoryItem]) -> Bool {
+    /// Indexed overload. Concrete types win overload resolution over generic
+    /// ones, so every existing call site passing a `Set` — and they nearly all
+    /// do, because `availableNames(in:)` returns one — picks this up with no
+    /// source change and no behaviour change.
+    static func isPresent(_ ingredient: String, inNames names: Set<String>) -> Bool {
         let parsed = parsedName(ingredient)
         guard !parsed.isEmpty else { return false }
-        return items.contains { $0.effectiveLevel > availableFillFloor && nameMatches(parsed, $0.name) }
+        return index(for: names).contains(parsed)
+    }
+
+    /// Is `ingredient` present in an index the caller already built? The fastest
+    /// form — no set hashing, no memo lookup, just the parse and the index hit.
+    /// Callers that ask about one fixed inventory many times over (the Cook Now
+    /// engine, above all) should hold a `NameIndex` and use this.
+    static func isPresent(_ ingredient: String, in index: NameIndex) -> Bool {
+        let parsed = parsedName(ingredient)
+        guard !parsed.isEmpty else { return false }
+        return index.contains(parsed)
+    }
+
+    /// Is `ingredient` present in the inventory?
+    ///
+    /// PERF: routed through the indexed name overload rather than scanning
+    /// `items` directly. Building the name Set is O(n) allocation + hashing;
+    /// the scan it replaces was O(n) *fuzzy comparisons*, each of which
+    /// normalizes two strings and computes a token score. Behaviour is
+    /// identical — `availableNames(in:)` applies the same `availableFillFloor`
+    /// this loop did, and its lowercasing is a no-op because `nameMatches`
+    /// normalizes (and therefore lowercases) both sides anyway.
+    static func isPresent(_ ingredient: String, in items: [LocalInventoryItem]) -> Bool {
+        isPresent(ingredient, inNames: availableNames(in: items))
     }
 
     /// The canonical available-item filter. Every "in stock" list in the app
@@ -111,11 +141,17 @@ nonisolated enum KitchenAvailability {
     /// compares food to food. "1 cup all-purpose flour, sifted" → "flour".
     /// Falls back to the raw string when parsing yields nothing.
     static func parsedName(_ ingredientLine: String) -> String {
-        let parsed = RecipeIngredients.parse(ingredientLine).name
-        let trimmed = parsed.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty
-            ? ingredientLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            : trimmed
+        // PERF: this runs once per ingredient per inventory comparison — millions of
+        // times during a Cook Now classification pass — and `RecipeIngredients.parse`
+        // is a full quantity/unit/prep parse. Memoized on the raw line; the transform
+        // is pure and deterministic, so a cache hit is indistinguishable from a miss.
+        ParsedNameMemo.shared.value(for: ingredientLine) { line in
+            let parsed = RecipeIngredients.parse(line).name
+            let trimmed = parsed.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty
+                ? line.trimmingCharacters(in: .whitespacesAndNewlines)
+                : trimmed
+        }
     }
 
     // MARK: - Coverage
@@ -169,16 +205,96 @@ nonisolated enum KitchenAvailability {
 
         guard !required.isEmpty else { return .empty }
 
+        // PERF: one index build for the whole recipe instead of a full linear
+        // fuzzy scan per required ingredient. `index(for:)` is memoized on the
+        // name set, so classifying a catalog of recipes against one unchanged
+        // inventory builds it exactly once.
+        let idx = index(for: availableNames)
+
         var have = 0
         var missing: [String] = []
         for name in required {
-            if availableNames.contains(where: { nameMatches(name, $0) }) {
+            if idx.contains(name) {
                 have += 1
             } else {
                 missing.append(name)
             }
         }
         return Coverage(have: have, total: required.count, missingNames: missing)
+    }
+
+    // MARK: - Token index
+    //
+    // PERF (the Cook Now freeze, July 2026 field export): a full classification
+    // pass asked about ~700 distinct ingredients against ~78 in-stock names —
+    // ~54,000 fuzzy comparisons, each normalizing two strings and scoring their
+    // tokens, every one of them on the main actor. The process log recorded
+    // "14 recipes, 17 ms" against "134 recipes, 1230 ms": 10× the recipes for
+    // 72× the time, which is not the shape of a linear algorithm.
+    //
+    // Almost all of those comparisons are answered zero. `FoodNameMatcher`
+    // guarantees exactly when: read `matchTokens`' doc comment — every path to
+    // a non-zero score requires the two token sets to intersect, so DISJOINT
+    // TOKEN SETS IMPLY SCORE 0, precisely and with no threshold tuning. That
+    // makes an inverted token index a lossless filter rather than a heuristic:
+    // skipping a comparison here can never change an answer.
+    //
+    // The one hole is a name that normalizes to nothing but stop words, whose
+    // token set is empty and therefore intersects nothing. Those are held in
+    // `untokenized` and compared every time, per the contract `matchTokens`
+    // states — an empty set means "compare against everything", not "matches
+    // nothing".
+
+    /// An inverted word → names index over a set of inventory names, so a
+    /// lookup compares against the names sharing a word instead of all of them.
+    nonisolated struct NameIndex: Sendable {
+        private let names: [String]
+        private let byToken: [String: [Int]]
+        /// Names with no tokens at all — never findable by token, so always tried.
+        private let untokenized: [Int]
+
+        init(_ source: Set<String>) {
+            var names: [String] = []
+            var byToken: [String: [Int]] = [:]
+            var untokenized: [Int] = []
+            names.reserveCapacity(source.count)
+            for name in source {
+                let i = names.count
+                names.append(name)
+                let tokens = FoodNameMatcher.matchTokens(name)
+                if tokens.isEmpty {
+                    untokenized.append(i)
+                } else {
+                    for t in tokens { byToken[t, default: []].append(i) }
+                }
+            }
+            self.names = names
+            self.byToken = byToken
+            self.untokenized = untokenized
+        }
+
+        /// Names that could possibly match `parsed`. A superset of the true
+        /// matches — the caller still applies `nameMatches`.
+        func candidates(for parsed: String) -> [String] {
+            let tokens = FoodNameMatcher.matchTokens(parsed)
+            guard !tokens.isEmpty else { return names }
+            var hits = Set<Int>(untokenized)
+            for t in tokens {
+                if let bucket = byToken[t] { hits.formUnion(bucket) }
+            }
+            return hits.map { names[$0] }
+        }
+
+        func contains(_ parsed: String) -> Bool {
+            candidates(for: parsed).contains { nameMatches(parsed, $0) }
+        }
+    }
+
+    /// A memoized index over `names`. Cheap to call repeatedly with the same
+    /// set — which is the point, since every recipe in a classification pass
+    /// asks about the same inventory.
+    static func index(for names: Set<String>) -> NameIndex {
+        NameIndexMemo.shared.index(for: names)
     }
 
     /// Does this ingredient line mark itself optional? Mirrors the convention
@@ -212,5 +328,67 @@ nonisolated enum KitchenAvailability {
     /// grocery suggestions do.
     static func isCriticallyLow(_ item: LocalInventoryItem) -> Bool {
         item.effectiveLevel > 0 && item.effectiveLevel < KitchenThresholds.criticalFillLevel
+    }
+}
+
+/// Memo for `KitchenAvailability.parsedName`. Locked rather than actor-isolated
+/// because the enum is `nonisolated` and synchronous by contract.
+private nonisolated final class ParsedNameMemo: @unchecked Sendable {
+    static let shared = ParsedNameMemo()
+    private let lock = NSLock()
+    private var cache: [String: String] = [:]
+    private let cap = 4000
+
+    func value(for key: String, _ compute: (String) -> String) -> String {
+        lock.lock()
+        if let hit = cache[key] { lock.unlock(); return hit }
+        lock.unlock()
+        let value = compute(key)
+        lock.lock()
+        if cache.count >= cap { cache.removeAll(keepingCapacity: true) }
+        cache[key] = value
+        lock.unlock()
+        return value
+    }
+
+    func purge() { lock.lock(); cache.removeAll(keepingCapacity: false); lock.unlock() }
+}
+
+/// Memo for `KitchenAvailability.index(for:)`. Keyed by the name set itself, so
+/// the index is rebuilt exactly when the inventory actually changes and not on
+/// any other signal. The cap is small on purpose: a handful of distinct name
+/// sets are live at once (current inventory, plus whatever a sheet is holding),
+/// and each index is proportional to the inventory, not the catalog.
+private nonisolated final class NameIndexMemo: @unchecked Sendable {
+    static let shared = NameIndexMemo()
+    private let lock = NSLock()
+    private var cache: [Set<String>: KitchenAvailability.NameIndex] = [:]
+    private let cap = 8
+
+    func index(for names: Set<String>) -> KitchenAvailability.NameIndex {
+        lock.lock()
+        if let hit = cache[names] { lock.unlock(); return hit }
+        lock.unlock()
+
+        let built = KitchenAvailability.NameIndex(names)
+
+        lock.lock()
+        if cache.count >= cap { cache.removeAll(keepingCapacity: true) }
+        cache[names] = built
+        lock.unlock()
+        return built
+    }
+
+    func purge() { lock.lock(); cache.removeAll(keepingCapacity: false); lock.unlock() }
+}
+
+extension KitchenAvailability {
+    /// Drop every memoized parse + name comparison. Safe at any time.
+    /// Explicitly `nonisolated`: the module builds with default main-actor
+    /// isolation, and this touches only lock-guarded pure caches.
+    nonisolated static func purgeCaches() {
+        ParsedNameMemo.shared.purge()
+        NameIndexMemo.shared.purge()
+        FoodNameMatcher.purgeCaches()
     }
 }

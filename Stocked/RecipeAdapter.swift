@@ -97,9 +97,17 @@ nonisolated enum RecipeAdapter {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
         out.imageURL = recipe.imageURL
-        out.cuisine = recipe.area
+        let classification = RecipeClassifier.classify(
+            title: recipe.title,
+            rawCuisine: recipe.area,
+            rawCategory: recipe.category,
+            keywords: [],
+            ingredients: out.ingredients,
+            instructions: out.instructions
+        )
+        out.cuisine = classification.cuisine
         out.notes = [recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · ")
-        out.tags = [recipe.category, recipe.area, recipe.source].filter { !$0.isEmpty }
+        out.tags = (classification.tags + [recipe.source]).filter { !$0.isEmpty }
         return out
     }
 
@@ -124,7 +132,16 @@ nonisolated enum RecipeAdapter {
         out.imageURL = recipe.imageURL
         out.imageData = recipe.imageData
         out.isFavorited = recipe.isFavorited
-        out.tags = recipe.mealCategory.isEmpty ? [] : [recipe.mealCategory]
+        let classification = RecipeClassifier.classify(
+            title: recipe.title,
+            rawCuisine: recipe.cuisine,
+            rawCategory: recipe.mealCategory,
+            keywords: [],
+            ingredients: out.ingredients,
+            instructions: recipe.steps
+        )
+        out.cuisine = classification.cuisine
+        out.tags = classification.tags
         return out
     }
 
@@ -198,6 +215,14 @@ nonisolated enum RecipeAdapter {
             // A recipe with no ingredient lines cannot be classified honestly —
             // it would read as "ready" because nothing is missing.
             guard !lines.isEmpty else { continue }
+            // ...and a recipe with no METHOD cannot be cooked from, so it must
+            // never be offered as cookable. This is the same rule Discover
+            // applies on every display path; enforcing it at the classifier
+            // boundary too means no future cache or import path can leak a
+            // hollow recipe into Cook Now the way the cache-warm path did in
+            // Build 69 (STK-69-0001). Checked BEFORE `seen.insert`, so a fuller
+            // copy of the same title further down the pool can still get in.
+            guard OnlineRecipeFacts.hasRealInstructions(r.instructions) else { continue }
             seen.insert(key)
 
             var matched = 0
@@ -219,7 +244,7 @@ nonisolated enum RecipeAdapter {
         out.reserveCapacity(min(limit, scored.count))
         for entry in scored.prefix(limit) {
             let adapted = userRecipe(from: entry.recipe)
-            guard !adapted.ingredients.isEmpty else { continue }
+            guard !adapted.ingredients.isEmpty, !adapted.instructions.isEmpty else { continue }
             out.append(adapted)
         }
         return out

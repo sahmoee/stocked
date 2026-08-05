@@ -107,7 +107,7 @@ struct MealPlannerView: View {
     @State var planConflicts: [MealConflict] = []
     @Environment(\.dismiss) var dismiss
 
-    let mealTypes = ["Breakfast", "Lunch", "Dinner"]
+    let mealTypes = RecipeTaxonomy.categories.filter { ["Breakfast", "Lunch", "Dinner"].contains($0) }
 
     // Next 7 days
     var days: [(label: String, date: Date)] {
@@ -342,7 +342,7 @@ struct MealPlannerView: View {
 
     // Quick add sheet opened from calendar tap
     func calendarQuickAddSheet(day: Int) -> some View {
-        let mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"]
+        let mealTypes = RecipeTaxonomy.categories.filter { ["Breakfast", "Lunch", "Dinner", "Snack"].contains($0) }
         return NavigationStack {
             VStack(spacing: 0) {
                 Text("Add Meal — Day \(day == 0 ? "Today" : "in \(day) day\(day == 1 ? "" : "s")")")

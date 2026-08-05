@@ -48,136 +48,18 @@ struct SettingsContent: View {
             // to the same screen without duplicating the control.)
             Section {
                 DisclosureGroup(isExpanded: $expandPreferences) {
-                    // Dark Mode
-                    Toggle(isOn: Binding(get: { session.isDarkMode }, set: { session.isDarkMode = $0 })) {
-                        Label("Dark Mode", systemImage: "moon.fill")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
-
-                    // Measurements (US / Metric)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Measurements", systemImage: "ruler")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                        HStack(spacing: 8) {
-                            ForEach(UnitSystem.allCases, id: \.self) { sys in
-                                themeButton(sys.label, active: session.unitSystem == sys) {
-                                    withAnimation(.spring(response: 0.25)) { session.unitSystem = sys }
-                                }
-                            }
-                        }
-                    }
+                    PreferencesSectionView(
+                        onPreferredStore: {
+                            if let onQuickAction { onQuickAction(.storePopout) }
+                            else { activeSheet = .storePopout }
+                        },
+                        onRecipeSources: {
+                            if let onQuickAction { onQuickAction(.recipeSources) }
+                            else { activeSheet = .recipeSources }
+                        },
+                        onAppIcon: { activeSheet = .appIcon }
+                    )
                     .listRowBackground(Color.clear)
-
-                    // #9 — Recipe Text Size: scales recipe titles, ingredients, and steps
-                    // app-wide (fixed-size fonts don't follow the system text-size slider).
-                    RecipeTextSizeControl()
-                        .listRowBackground(Color.clear)
-
-                    // Cook Buttons — shape + size for the Cook Now hub buttons (Foods, Moods,
-                    // Surprise Me). Size scales them up to the width limit of the screen.
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Cook Buttons", systemImage: "circle.grid.2x1.fill")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                        Text("Applies to Cook Now, Cook Later, and the Cook hub buttons — updates live")
-                            .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                        HStack(spacing: 6) {
-                            ForEach(CookButtonShape.allCases, id: \.self) { shape in
-                                themeButton(shape.rawValue, active: session.cookButtonShape == shape) {
-                                    withAnimation(.spring(response: 0.25)) { session.cookButtonShape = shape }
-                                }
-                            }
-                        }
-                        HStack(spacing: 10) {
-                            Image(systemName: "minus.magnifyingglass")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
-                            Slider(value: Binding(get: { session.cookButtonSize },
-                                                  set: { session.cookButtonSize = $0 }),
-                                   in: 150...400, step: 10)
-                                .tint(Color.stockedGold)
-                            Image(systemName: "plus.magnifyingglass")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-
-                    // Crowd database — opt-in, anonymized shared item facts. Read features
-                    // (smart defaults, pairings) work for everyone; only reporting is gated.
-                    Toggle(isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "crowdShareEnabled") },
-                        set: { UserDefaults.standard.set($0, forKey: "crowdShareEnabled") }
-                    )) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Label("Improve Stocked for Everyone", systemImage: "person.3.fill")
-                                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                            Text("Share anonymized item facts (name, unit, container, quantity) — never your identity, account, or location")
-                                .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                        }
-                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
-
-                    // Preferred Store (pop-out picker).
-                    Button { if let onQuickAction { onQuickAction(.storePopout) } else { activeSheet = .storePopout } } label: {
-                        HStack {
-                            Label("Preferred Store", systemImage: "storefront")
-                                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                            Spacer()
-                            Text(session.preferredStore).font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedGold)
-                            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.35))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(Color.clear)
-
-                    // Auto-add Missing to Grocery
-                    Toggle(isOn: Binding(get: { session.autoAddMissingToGrocery }, set: { session.autoAddMissingToGrocery = $0 })) {
-                        Label("Auto-Add Missing to Grocery", systemImage: "cart.badge.plus")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
-
-                    // Auto-Backup frequency (single home for this control).
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Auto Backup", systemImage: "clock.arrow.2.circlepath")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                        HStack(spacing: 6) {
-                            ForEach(BackupFrequency.allCases, id: \.self) { freq in
-                                themeButton(freq.rawValue, active: session.backupFrequency == freq) {
-                                    session.backupFrequency = freq
-                                }
-                            }
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-
-                    // Recipe Sources — add your own websites or manage the built-in list.
-                    Button { if let onQuickAction { onQuickAction(.recipeSources) } else { activeSheet = .recipeSources } } label: {
-                        settingsRow(icon: "globe", color: Color.stockedGold,
-                                    title: "Recipe Sources",
-                                    detail: "Add websites or manage sources")
-                    }
-                    .listRowBackground(Color.clear)
-
-                    // App Icon — personalization: 16 alternate Home Screen icons.
-                    Button { activeSheet = .appIcon } label: {
-                        settingsRow(icon: "app.badge", color: Color.stockedGold,
-                                    title: "App Icon",
-                                    detail: "Choose an alternate Home Screen icon")
-                    }
-                    .listRowBackground(Color.clear)
-
-                    // Apple Health — opt-in nutrition logging for cooked meals. Hidden on
-                    // devices without Health data (e.g. some iPads).
-                    if HealthKitManager.shared.isAvailable {
-                        Toggle(isOn: Binding(
-                            get: { HealthKitManager.shared.isEnabled },
-                            set: { HealthKitManager.shared.isEnabled = $0 }
-                        )) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Label("Apple Health", systemImage: "heart.fill")
-                                    .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                                Text("Log cooked-meal nutrition to Health")
-                                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                            }
-                        }.tint(Color.stockedGold).listRowBackground(Color.clear)
-                    }
                 } label: {
                     fieldLabel(icon: "slider.horizontal.3", color: Color.stockedInfo, title: "Preferences")
                 }
@@ -189,20 +71,9 @@ struct SettingsContent: View {
             // (daily brief / expiry / cook / prep reminders).
             Section {
                 DisclosureGroup(isExpanded: $expandNotifications) {
-                    // Low Stock reminders.
-                    Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.updateNotificationsEnabledFromUser($0) })) {
-                        Label("Low Stock Reminders", systemImage: "exclamationmark.bubble.fill")
-                            .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                    }.tint(Color.stockedGold).listRowBackground(Color.clear)
-
-                    // Reminders & Daily Brief scheduling — opens the existing settings screen.
-                    Button {
+                    NotificationsSectionView {
                         if let onQuickAction { onQuickAction(.notifications) }
                         else { activeSheet = .notifications }
-                    } label: {
-                        settingsRow(icon: "bell.badge.fill", color: Color.stockedGold,
-                                    title: "Reminders & Daily Brief",
-                                    detail: "Schedule expiry, cook & prep reminders")
                     }
                     .listRowBackground(Color.clear)
                 } label: {
@@ -216,66 +87,18 @@ struct SettingsContent: View {
             // Clear All App Data, and the Data & Storage detail screen.
             Section {
                 DisclosureGroup(isExpanded: $expandDataStorage) {
-                    // Transfer Kitchen — existing export/import screen.
-                    Button { if let onQuickAction { onQuickAction(.transferKitchen) } else { activeSheet = .transfer } } label: {
-                        settingsRow(icon: "arrow.left.arrow.right.square.fill", color: Color.stockedGold,
-                                    title: "Transfer Kitchen", detail: "Export or import data")
-                    }
+                    DataStorageSectionView(
+                        onTransferKitchen: {
+                            if let onQuickAction { onQuickAction(.transferKitchen) }
+                            else { activeSheet = .transfer }
+                        },
+                        onDataStorage: {
+                            if let onQuickAction { onQuickAction(.dataStorage) }
+                            else { activeSheet = .dataStorage }
+                        },
+                        onEraseAllData: { showClearAlert = true }
+                    )
                     .listRowBackground(Color.clear)
-
-                    // Backup to iCloud (manual).
-                    Button {
-                        session.transferManager.backupToiCloud(store: session.guestStore)
-                    } label: {
-                        settingsRow(icon: "icloud.fill", color: Color.stockedInfo,
-                                    title: "Backup to iCloud",
-                                    detail: "Last backup: \(session.transferManager.lastBackupDate)")
-                    }.listRowBackground(Color.clear)
-
-                    // Live backup/restore status (so CloudKit failures are visible).
-                    if !session.transferManager.errorMessage.isEmpty {
-                        Label(session.transferManager.errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.system(size: 12)).foregroundStyle(.red)
-                            .listRowBackground(Color.clear)
-                    } else if !session.transferManager.statusMessage.isEmpty {
-                        Label(session.transferManager.statusMessage, systemImage: "checkmark.circle.fill")
-                            .font(.system(size: 12)).foregroundStyle(Color.stockedGreen)
-                            .listRowBackground(Color.clear)
-                    }
-
-                    // Storage, usage, migration, and auto-backup frequency — ONE row. This
-                    // used to be two rows ("Auto Backup Options" and "Data & Storage") that
-                    // both opened the exact same detail screen; condensed to a single entry.
-                    Button { if let onQuickAction { onQuickAction(.dataStorage) } else { activeSheet = .dataStorage } } label: {
-                        settingsRow(icon: "internaldrive", color: Color.stockedCharcoal,
-                                    title: "Storage & Auto Backup",
-                                    detail: "Usage, migration · Backs up \(session.backupFrequency.rawValue.lowercased())")
-                    }.listRowBackground(Color.clear)
-
-                    // Erase All Data — combined destructive action. One tap now clears
-                    // EVERYTHING everywhere: local device data, the iCloud Key-Value Store,
-                    // the iCloud Documents backup, and all CloudKit KitchenBackup records
-                    // (the old separate "Delete iCloud Data" row was folded into this).
-                    // signOut(clearData: true) also forces the onboarding quiz on next entry.
-                    Button { showClearAlert = true } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 7).fill(Color.red).frame(width: 28, height: 28)
-                                Image(systemName: "trash.fill").font(.system(size: 13)).foregroundStyle(.white)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Erase All Data").font(.system(size: 14, design: .serif)).foregroundStyle(.red)
-                                Text("This device and iCloud").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                            }
-                            Spacer()
-                        }
-                    }.listRowBackground(Color.clear)
-                    .alert("Erase All Data?", isPresented: $showClearAlert) {
-                        Button("Erase Everything", role: .destructive) { session.signOut(clearData: true) }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("Permanently deletes your pantry, grocery list, meal history, recipes, and settings from this device AND removes every Stocked backup from iCloud. You'll go through setup again next time. Cannot be undone.")
-                    }
                 } label: {
                     fieldLabel(icon: "internaldrive.fill", color: Color.stockedCharcoal, title: "Data & Storage")
                 }
@@ -287,17 +110,11 @@ struct SettingsContent: View {
             // required by the App Store for signed-in accounts and is surfaced here.
             if session.accountType != .guest {
                 Section {
-                    Button { showDeleteAccountAlert = true } label: {
-                        settingsRow(icon: "person.crop.circle.badge.xmark", color: .red,
-                                    title: "Delete Account", detail: "Permanently delete your account")
-                    }
+                    AccountSectionView(
+                        showsProfileActions: false,
+                        onDeleteAccount: { showDeleteAccountAlert = true }
+                    )
                     .listRowBackground(Color.clear)
-                    .alert("Delete Account?", isPresented: $showDeleteAccountAlert) {
-                        Button("Delete Account", role: .destructive) { session.deleteAccount() }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
-                    }
                 }
             }
         }
@@ -311,6 +128,18 @@ struct SettingsContent: View {
             case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
             case .appIcon:       NavigationStack { AppIconPickerView().environment(session) }
             }
+        }
+        .alert("Erase All Data?", isPresented: $showClearAlert) {
+            Button("Erase Everything", role: .destructive) { session.signOut(clearData: true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Permanently deletes your pantry, grocery list, meal history, recipes, and settings from this device AND removes every Stocked backup from iCloud. You'll go through setup again next time. Cannot be undone.")
+        }
+        .alert("Delete Account?", isPresented: $showDeleteAccountAlert) {
+            Button("Delete Account", role: .destructive) { session.deleteAccount() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
         }
     }
 
@@ -1199,5 +1028,3 @@ struct HelpCenterSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }
-
-

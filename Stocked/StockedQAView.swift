@@ -53,6 +53,12 @@ enum QAVerdict: String, Codable, CaseIterable {
 struct QACheckItemState: Codable {
     var verdict: QAVerdict = .untested
     var note: String = ""
+    /// Build 74. Set when a ticket was filed from this row — see
+    /// QACheckTickets.swift. Optional rather than defaulted because synthesised
+    /// `Codable` throws on a missing key rather than falling back to the default,
+    /// and the decode of this dictionary is inside a `try?`. A non-Optional field
+    /// here would silently erase every verdict recorded before this build.
+    var ticketNumber: String?
 }
 
 struct QACheckItem: Identifiable {
@@ -83,7 +89,7 @@ struct QAChecklistSection: Identifiable {
 // MARK: - Checkbook v4.13 build 69 — 36 sections · 270 checks
 
 enum StockedQAChecklist {
-    static let version = "4.13 build 69"
+    static let version = "4.18 build 74"
 
     // (text, isBlocker)
     static let sections: [QAChecklistSection] = [
@@ -449,8 +455,14 @@ final class StockedQAStore {
         states[item.ticket] ?? QACheckItemState()
     }
     func set(_ item: QACheckItem, _ state: QACheckItemState) {
+        let previous = states[item.ticket]?.verdict
         states[item.ticket] = state
         save()
+        // Build 74: a verdict set while a test run is open belongs to that run.
+        // Guarded on an actual change so re-saving a note does not re-stamp it.
+        if previous != state.verdict {
+            QARunLog.shared.recordCheck(item.ticket, state.verdict)
+        }
     }
     func reset(_ section: QAChecklistSection) {
         for item in section.items { states.removeValue(forKey: item.ticket) }
@@ -618,70 +630,29 @@ enum StockedQABridge {
     }
 }
 
-// MARK: - Gate (asks for the QA code first)
+// MARK: - Gate (asks for the QA code, at most once every ten minutes)
+//
+// The unlock is not held here any more. It lives in `QAAccessGate`, which
+// persists one timestamp and treats it as good for ten minutes — so pushing
+// into QA, backing out to look at something, and pushing in again does not
+// re-prompt. See QAAccessGate.swift for why the window is fixed rather than
+// sliding.
 
 struct StockedQAGateView: View {
-    @Environment(AppSession.self) private var session
-    @State private var code = ""
-    @State private var unlocked = false
-    @State private var wrong = false
-
-    private static let qaCode = "Joo"
-
     var body: some View {
+        // BUILD 74: this used to carry its own copy of the passcode pane, the
+        // expiry tick and the unlock handler — a second implementation of the
+        // same gate that guards `QAModeView`. There is one now, in QAEntry.swift,
+        // and this is a thin alias so the call sites that jump straight to the
+        // checkbook keep working unchanged.
+        //
+        // The `NavigationStack` stays here because those call sites present this
+        // as a sheet with nothing above it. `QAUnlockGate` deliberately does not
+        // bring one of its own.
         NavigationStack {
-            if unlocked {
+            QAUnlockGate(lockedMessage: "Enter the QA code to open the release checklist.") {
                 StockedQAHomeView()
-            } else {
-                ZStack {
-                    session.themeBgColor.ignoresSafeArea()
-                    VStack(spacing: 18) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 40))
-                            .foregroundStyle(Color.stockedGold)
-                        Text("QA Access")
-                            .font(.system(size: 22, weight: .bold, design: .serif))
-                            .foregroundStyle(session.themeTextColor)
-                        Text("Enter the QA code to open the release checklist.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
-                            .multilineTextAlignment(.center)
-                        SecureField("QA code", text: $code)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(session.themeCardColor))
-                            .frame(maxWidth: 240)
-                            .multilineTextAlignment(.center)
-                            .onSubmit(tryUnlock)
-                        if wrong {
-                            Text("That's not the code.")
-                                .font(.system(size: 12)).foregroundStyle(.red)
-                        }
-                        Button(action: tryUnlock) {
-                            Text("Unlock")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Color.stockedBlack)
-                                .padding(.horizontal, 34).padding(.vertical, 11)
-                                .background(Capsule().fill(Color.stockedGold))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(24)
-                }
-                .navigationTitle("QA")
-                .navigationBarTitleDisplayMode(.inline)
             }
-        }
-    }
-
-    private func tryUnlock() {
-        if code.trimmingCharacters(in: .whitespaces).lowercased() == Self.qaCode.lowercased() {
-            wrong = false
-            withAnimation { unlocked = true }
-        } else {
-            wrong = true
-            code = ""
         }
     }
 }
@@ -695,6 +666,15 @@ struct StockedQAHomeView: View {
     @State private var bridgeStatus: String?
     @State private var companionJSON: String?
 
+    // Build 73. These mirror `nonisolated` UserDefaults-backed statics, which
+    // cannot vend a Binding. The mirrors are seeded in `.task` rather than in an
+    // initialiser so the toggles reflect a change made from the floating menu in
+    // a different window while this screen was already on screen.
+    @State private var gate = QAAccessGate.shared
+    @State private var showTouchesLive = QATouchTrailSettings.overlayEnabled
+    @State private var ringTapsInShots = QATouchTrailSettings.annotateShots
+    @State private var floatingButton = QAFloatingButtonSettings.isEnabled
+
     var body: some View {
         List {
             Section {
@@ -702,6 +682,8 @@ struct StockedQAHomeView: View {
             } footer: {
                 Text("Checkbook v\(StockedQAChecklist.version) · \(StockedQAChecklist.totalChecks) checks · \(StockedQAChecklist.totalBlockers) blockers. Do not sign off with an open BLOCKER — if one is knowingly shipped, put the reason and follow-up plan in its note.")
             }
+
+            qaAccessSection
 
             Section("Stocked QA bridge (via Worker)") {
                 Button {
@@ -749,6 +731,63 @@ struct StockedQAHomeView: View {
         }
         .navigationTitle("QA Checkbook")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            showTouchesLive = QATouchTrailSettings.overlayEnabled
+            ringTapsInShots = QATouchTrailSettings.annotateShots
+            floatingButton  = QAFloatingButtonSettings.isEnabled
+        }
+    }
+
+    // MARK: - Access, touches, destinations (Build 73)
+
+    @ViewBuilder
+    private var qaAccessSection: some View {
+        Section {
+            HStack {
+                Label("Access", systemImage: gate.isUnlocked ? "lock.open.fill" : "lock.fill")
+                Spacer()
+                Text(gate.remainingText)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(gate.isUnlocked ? Color.stockedGreen : .secondary)
+            }
+            if gate.isUnlocked {
+                Button(role: .destructive) { gate.lock() } label: {
+                    Label("Lock QA now", systemImage: "lock.rotation")
+                }
+            }
+
+            Toggle(isOn: $floatingButton) {
+                Label("Floating QA button", systemImage: "circle.circle")
+            }
+            .onChange(of: floatingButton) { _, on in
+                QAFloatingButtonSettings.isEnabled = on
+                QAFloatingButtonWindow.shared.syncFromGate()
+            }
+
+            Toggle(isOn: $ringTapsInShots) {
+                Label("Ring taps in screenshots", systemImage: "hand.tap")
+            }
+            .onChange(of: ringTapsInShots) { _, on in
+                QATouchTrailSettings.annotateShots = on
+            }
+
+            Toggle(isOn: $showTouchesLive) {
+                Label("Show touches on screen", systemImage: "hand.point.up.left")
+            }
+            .onChange(of: showTouchesLive) { _, on in
+                QATouchTrailSettings.overlayEnabled = on
+            }
+
+            NavigationLink {
+                QASyncSettingsView()
+            } label: {
+                Label("Reports, logs and where they go", systemImage: "externaldrive.badge.icloud")
+            }
+        } header: {
+            Text("QA access & capture")
+        } footer: {
+            Text("One unlock lasts ten minutes across every QA screen. The floating button stays available afterwards and re-prompts only when the ten minutes have run out. Ringed taps are drawn into the screenshot itself; the live overlay is for recording a screen capture and is never photographed.")
+        }
     }
 
     private var signOffCard: some View {
@@ -813,19 +852,79 @@ struct StockedQAHomeView: View {
 
 // MARK: - Section detail
 
+/// IMPROVEMENT 2 (Build 74) — a 270-row checkbook needs a way to see less of it.
+///
+/// The longest section is 14 rows and the checkbook is 36 sections. Halfway
+/// through a pass the only question that matters is "what have I not done yet",
+/// and answering it meant scrolling every section looking for empty squares —
+/// which is exactly the task a person does badly and skips rows on.
+nonisolated enum QACheckFilter: String, CaseIterable, Identifiable {
+    case all, untested, notPassing, blockers
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .all:        return "All"
+        case .untested:   return "Untested"
+        case .notPassing: return "Not passing"
+        case .blockers:   return "Blockers"
+        }
+    }
+
+    func matches(_ item: QACheckItem, _ state: QACheckItemState) -> Bool {
+        switch self {
+        case .all:        return true
+        case .untested:   return state.verdict == .untested
+        case .notPassing: return state.verdict == .fail || state.verdict == .blocked
+        case .blockers:   return item.blocker
+        }
+    }
+}
+
 struct StockedQASectionView: View {
     let section: QAChecklistSection
     @State private var store = StockedQAStore.shared
     @State private var noteEditing: QACheckItem? = nil
     @State private var noteDraft = ""
+    @State private var filter: QACheckFilter = .all
+    // Build 74: set when a row is marked fail or blocked, which offers to turn
+    // the failure into a real ticket rather than a note nobody will ever see.
+    @State private var ticketPrompt: QACheckItem? = nil
+    @State private var ticketVerdict: QAVerdict = .fail
+    @State private var justFiled = ""
+
+    private var visibleItems: [QACheckItem] {
+        section.items.filter { filter.matches($0, store.state($0)) }
+    }
+
+    private var firstUntested: QACheckItem? {
+        section.items.first { store.state($0).verdict == .untested }
+    }
 
     var body: some View {
         List {
             if !section.note.isEmpty {
                 Text(section.note).font(.caption).foregroundStyle(.secondary)
             }
-            ForEach(section.items) { item in
+
+            filterBar
+
+            if !justFiled.isEmpty {
+                Text(justFiled).font(.caption).foregroundStyle(Color.stockedGreen)
+            }
+
+            if visibleItems.isEmpty {
+                Label(filter == .untested ? "Every row in this section has a verdict."
+                      : "Nothing here matches \"\(filter.title)\".",
+                      systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(Color.stockedGreen)
+            }
+
+            ForEach(visibleItems) { item in
                 itemRow(item)
+                    .id(item.ticket)
             }
         }
         .navigationTitle("\(section.number). \(section.title)")
@@ -851,6 +950,56 @@ struct StockedQASectionView: View {
             }
             Button("Cancel", role: .cancel) { noteEditing = nil }
         }
+        .sheet(item: $ticketPrompt) { item in
+            QACheckTicketSheet(item: item, section: section, verdict: ticketVerdict) { filed in
+                justFiled = filed.map { "Filed \($0.number) from \(item.ticket)." } ?? ""
+            }
+        }
+        .qaScreen("QA > Checkbook > \(section.number)")
+    }
+
+    // MARK: Filtering
+
+    private var filterBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(QACheckFilter.allCases) { f in
+                        let n = section.items.filter { f.matches($0, store.state($0)) }.count
+                        Button {
+                            filter = f
+                        } label: {
+                            Text("\(f.title) \(n)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Capsule().fill(filter == f
+                                                           ? Color.stockedGold
+                                                           : Color.gray.opacity(0.15)))
+                                .foregroundStyle(filter == f ? Color.stockedBlack : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(n == 0 && f != .all)
+                        .opacity(n == 0 && f != .all ? 0.4 : 1)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            if let next = firstUntested, filter != .untested {
+                Button {
+                    // Switching the filter is the jump: the untested rows become
+                    // the only rows, so the next one is at the top of the screen.
+                    // Cheaper and steadier than a ScrollViewReader scroll, which
+                    // fights the List's own cell reuse on a long section.
+                    filter = .untested
+                } label: {
+                    Label("Jump to next untested — \(next.ticket)", systemImage: "arrow.down.to.line")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
     }
 
     private func itemRow(_ item: QACheckItem) -> some View {
@@ -861,6 +1010,15 @@ struct StockedQASectionView: View {
                     var s = state
                     s.verdict = s.verdict.next
                     store.set(item, s)
+                    // Build 74: landing on fail or blocked offers a ticket. A
+                    // prompt rather than an automatic file — someone tapping
+                    // through the cycle to see what the button does should not
+                    // leave a trail of tickets behind them.
+                    if (s.verdict == .fail || s.verdict == .blocked),
+                       s.ticketNumber == nil {
+                        ticketVerdict = s.verdict
+                        ticketPrompt = item
+                    }
                 } label: {
                     Image(systemName: state.verdict.symbol)
                         .font(.title3)
@@ -900,6 +1058,11 @@ struct StockedQASectionView: View {
             if !state.note.isEmpty {
                 Text(state.note).font(.caption).foregroundStyle(Color.stockedGold)
             }
+            if let number = state.ticketNumber {
+                Label(number, systemImage: "ticket")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Color.stockedInfo)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -911,6 +1074,7 @@ struct StockedQASectionView: View {
             let tag = item.blocker ? " [BLOCKER]" : ""
             lines.append("[\(s.verdict.rawValue.uppercased())] \(item.ticket)\(tag) \(item.text)")
             if !s.note.isEmpty { lines.append("        note: \(s.note)") }
+            if let number = s.ticketNumber { lines.append("        ticket: \(number)") }
         }
         return lines.joined(separator: "\n")
     }

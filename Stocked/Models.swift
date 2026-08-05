@@ -347,6 +347,7 @@ nonisolated struct GeneratedRecipe: Identifiable, Codable, Sendable, Equatable {
     var steps:        [String]
     var tips:               String
     var mealCategory:       String   = ""
+    var cuisine:            String   = ""
     var missingIngredients: [String] = []
     var isFavorited:        Bool = false
     var isHidden:           Bool = false

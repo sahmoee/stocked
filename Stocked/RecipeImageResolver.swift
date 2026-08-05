@@ -47,9 +47,8 @@ actor RecipeImageResolver {
 
     // normalized title → resolved URL string ("" = looked up, genuinely found nothing)
     private var cache: [String: String] = [:]
-    // v5: misses from transient rate-limit errors are no longer cached; bump clears the old
-    // cache so any recipes previously blanked by a 429 storm get a fresh chance.
-    private let cacheKey = "recipeImageResolverCache_v5"
+    // v6: clears category-random MealDB results so dish-first matching can repair bad photos.
+    private let cacheKey = "recipeImageResolverCache_v6"
     private var loaded = false
 
     // Per-title in-flight resolutions, so concurrent cards for the same dish share one lookup.
@@ -88,10 +87,18 @@ actor RecipeImageResolver {
     /// Resolve an image URL for a recipe title. Returns nil if every source struck out
     /// (caller should then render the emoji placeholder). `category` optionally biases the
     /// Foodish generic fallback (e.g. "dessert", "pasta", "rice").
-    func imageURL(for title: String, category: String? = nil) async -> URL? {
+    func imageURL(for title: String, category: String? = nil, storedURL: String? = nil) async -> URL? {
         loadCacheIfNeeded()
         let key = normalize(title)
         guard !key.isEmpty else { return nil }
+
+        if let storedURL, !storedURL.isEmpty,
+           let stored = URL(string: storedURL),
+           await isReachableImage(storedURL) == .reachable {
+            cache[key] = stored.absoluteString
+            persist()
+            return stored
+        }
 
         // Curated feed first: images.json from the stocked-recipes repo (zero API quota).
         if let curated = await RemoteImageFeed.shared.lookup(title: title), let u = URL(string: curated) {
@@ -181,15 +188,15 @@ actor RecipeImageResolver {
         guard (200..<300).contains(http.statusCode) else { return .miss }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let meals = json["meals"] as? [[String: Any]],
-              let thumb = meals.first?["strMealThumb"] as? String,
+              let best = Self.bestMealDBMatch(for: title, in: meals, floor: 0.68),
+              let thumb = best["strMealThumb"] as? String,
               !thumb.isEmpty else { return .miss }
         return .found(thumb)
     }
 
     // MARK: - Source 1b: TheMealDB filter-by-category (free, no key)
-    // When the exact dish name isn't in TheMealDB, map the title to the closest real food
-    // category (Beef, Chicken, Seafood, …) and pull a genuine dish photo from it. A beef dish
-    // for a steak is dramatically better than a random unrelated photo.
+    // Category lookup is only a second chance for close title matches. A random category-mate
+    // is worse than no photo because the emoji placeholder is honest.
     private func mealDBByCategory(_ title: String) async -> SourceResult {
         guard let cat = Self.mealDBCategory(from: title),
               let q = cat.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
@@ -201,7 +208,8 @@ actor RecipeImageResolver {
         guard (200..<300).contains(http.statusCode) else { return .miss }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let meals = json["meals"] as? [[String: Any]],
-              let thumb = meals.randomElement()?["strMealThumb"] as? String,
+              let best = Self.bestMealDBMatch(for: title, in: meals, floor: 0.58),
+              let thumb = best["strMealThumb"] as? String,
               !thumb.isEmpty else { return .miss }
         return .found(thumb)
     }
@@ -209,38 +217,88 @@ actor RecipeImageResolver {
     // Map a recipe title to a real TheMealDB category. Conservative — returns nil when nothing
     // clearly fits so we don't force an unrelated category.
     static func mealDBCategory(from title: String) -> String? {
-        let t = title.lowercased()
+        let folded = SearchNormalization.fold(title)
+        let classification = RecipeClassifier.classify(
+            title: title,
+            rawCuisine: nil,
+            rawCategory: nil,
+            keywords: [],
+            ingredients: [],
+            instructions: []
+        )
+
         switch true {
-        case t.contains("steak"), t.contains("beef"), t.contains("brisket"), t.contains("meatball"),
-             t.contains("meatloaf"), t.contains("burger"), t.contains("sirloin"), t.contains("ribeye"):
+        case folded.contains("pot pie"), folded.contains("chicken and dumplings"), folded.contains("casserole"),
+             folded.contains("buffalo chicken dip"):
+            return nil
+        case folded.contains("shepherds pie"), folded.contains("shepherd pie"), folded.contains("pot roast"),
+             folded.contains("beef bourguignon"):
             return "Beef"
-        case t.contains("chicken"), t.contains("poultry"), t.contains("wing"), t.contains("drumstick"), t.contains("turkey"):
+        case folded.contains("chicken parmesan"), folded.contains("chicken parmigiana"):
             return "Chicken"
-        case t.contains("pork"), t.contains("bacon"), t.contains("ham"), t.contains("sausage"),
-             t.contains("pork chop"), t.contains("ribs"), t.contains("pulled pork"):
-            return "Pork"
-        case t.contains("lamb"), t.contains("mutton"):
-            return "Lamb"
-        case t.contains("fish"), t.contains("salmon"), t.contains("tuna"), t.contains("shrimp"),
-             t.contains("prawn"), t.contains("seafood"), t.contains("cod"), t.contains("tilapia"),
-             t.contains("crab"), t.contains("lobster"), t.contains("scallop"), t.contains("clam"), t.contains("mussel"):
-            return "Seafood"
-        case t.contains("pasta"), t.contains("spaghetti"), t.contains("lasagna"), t.contains("noodle"),
-             t.contains("alfredo"), t.contains("mac and cheese"), t.contains("ravioli"), t.contains("penne"):
-            return "Pasta"
-        case t.contains("dessert"), t.contains("cake"), t.contains("pie"), t.contains("cookie"),
-             t.contains("brownie"), t.contains("pudding"), t.contains("ice cream"), t.contains("tart"), t.contains("cheesecake"):
+        case folded.contains("cobbler"):
             return "Dessert"
-        case t.contains("breakfast"), t.contains("pancake"), t.contains("omelet"), t.contains("omelette"),
-             t.contains("waffle"), t.contains("french toast"), t.contains("scrambled"), t.contains("egg"):
+        case folded.contains("pie"), folded.contains("cake"), folded.contains("tart"), folded.contains("brownie"),
+             folded.contains("cookie"), folded.contains("pudding"), folded.contains("cheesecake"):
+            return "Dessert"
+        case ["Breakfast", "Pasta", "Seafood", "Vegan", "Vegetarian"].contains(classification.category):
+            return classification.category
+        case classification.category == "Appetizer":
+            return "Starter"
+        case folded.contains("pasta"), folded.contains("spaghetti"), folded.contains("lasagna"), folded.contains("noodle"),
+             folded.contains("alfredo"), folded.contains("mac and cheese"), folded.contains("ravioli"), folded.contains("penne"):
+            return "Pasta"
+        case folded.contains("breakfast"), folded.contains("pancake"), folded.contains("omelet"), folded.contains("omelette"),
+             folded.contains("waffle"), folded.contains("french toast"), folded.contains("scrambled"):
             return "Breakfast"
-        case t.contains("vegan"):
+        case folded.contains("vegan"):
             return "Vegan"
-        case t.contains("vegetarian"), t.contains("veggie"), t.contains("tofu"), t.contains("salad"):
+        case folded.contains("vegetarian"), folded.contains("veggie"), folded.contains("tofu"), folded.contains("salad"):
             return "Vegetarian"
+        case folded.contains("steak"), folded.contains("beef"), folded.contains("brisket"), folded.contains("meatball"),
+             folded.contains("meatloaf"), folded.contains("burger"), folded.contains("sirloin"), folded.contains("ribeye"):
+            return "Beef"
+        case folded.contains("chicken"), folded.contains("poultry"), folded.contains("wing"), folded.contains("drumstick"),
+             folded.contains("turkey"):
+            return "Chicken"
+        case folded.contains("pork"), folded.contains("bacon"), folded.contains("ham"), folded.contains("sausage"),
+             folded.contains("pork chop"), folded.contains("ribs"), folded.contains("pulled pork"):
+            return "Pork"
+        case folded.contains("lamb"), folded.contains("mutton"):
+            return "Lamb"
+        case folded.contains("fish"), folded.contains("salmon"), folded.contains("tuna"), folded.contains("shrimp"),
+             folded.contains("prawn"), folded.contains("seafood"), folded.contains("cod"), folded.contains("tilapia"),
+             folded.contains("crab"), folded.contains("lobster"), folded.contains("scallop"), folded.contains("clam"), folded.contains("mussel"):
+            return "Seafood"
         default:
             return nil
         }
+    }
+
+    private static func bestMealDBMatch(for title: String, in meals: [[String: Any]], floor: Double) -> [String: Any]? {
+        let scored = meals.compactMap { meal -> (meal: [String: Any], score: Double)? in
+            guard let name = meal["strMeal"] as? String, !name.isEmpty else { return nil }
+            let score = mealDBTitleScore(title, candidate: name)
+            return score >= floor ? (meal, score) : nil
+        }
+        return scored.max { $0.score < $1.score }?.meal
+    }
+
+    private static func mealDBTitleScore(_ title: String, candidate: String) -> Double {
+        let titleTokens = significantTokens(title)
+        let candidateTokens = significantTokens(candidate)
+        let shared = titleTokens.intersection(candidateTokens)
+        let overlap = titleTokens.isEmpty ? 0 : Double(shared.count) / Double(titleTokens.count)
+        let candidateCoverage = candidateTokens.isEmpty ? 0 : Double(shared.count) / Double(candidateTokens.count)
+        let fuzzy = FuzzyMatch.score(SearchNormalization.fold(title), SearchNormalization.fold(candidate))
+        return max(fuzzy, (overlap * 0.7) + (candidateCoverage * 0.3))
+    }
+
+    private static func significantTokens(_ raw: String) -> Set<String> {
+        let stopwords: Set<String> = ["and", "with", "the", "a", "an", "of", "in", "to", "for", "easy", "best", "homemade", "classic", "minute", "minutes"]
+        return Set(SearchNormalization.fold(raw)
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count > 2 && !stopwords.contains($0) })
     }
 
     // MARK: - Source 2: Spoonacular complexSearch (uses key; quota-limited)
@@ -347,11 +405,18 @@ actor RecipeImageResolver {
     // Fills missing images across the recipe DB. Runs once per install, throttled and
     // bounded so it's gentle on the Spoonacular quota (most hits are free TheMealDB/Foodish).
     static func backfillMissingImagesIfNeeded() {
-        let flagKey = "didBackfillRecipeImages_v1"
-        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        let fillFlagKey = "didBackfillRecipeImages_v1"
+        let repairFlagKey = "didRepairRecipeImages_v1"
+        guard !UserDefaults.standard.bool(forKey: fillFlagKey) || !UserDefaults.standard.bool(forKey: repairFlagKey) else { return }
         Task(priority: .background) {
-            await shared.backfill(limit: 40)
-            UserDefaults.standard.set(true, forKey: flagKey)
+            if !UserDefaults.standard.bool(forKey: fillFlagKey) {
+                await shared.backfill(limit: 40)
+                UserDefaults.standard.set(true, forKey: fillFlagKey)
+            }
+            if !UserDefaults.standard.bool(forKey: repairFlagKey) {
+                await shared.repairThemealDBImages(limit: 40)
+                UserDefaults.standard.set(true, forKey: repairFlagKey)
+            }
         }
     }
 
@@ -371,5 +436,31 @@ actor RecipeImageResolver {
             try? await Task.sleep(nanoseconds: 400_000_000)
         }
         Log.net.notice("Image backfill complete: \(filled, privacy: .public) filled")
+    }
+
+    private func repairThemealDBImages(limit: Int) async {
+        let entries = await RecipeDatabase.shared.all()
+        let suspect = entries.filter { Self.shouldRepairThemealDBImage(title: $0.title, imageURL: $0.imageURL) }.prefix(limit)
+        guard !suspect.isEmpty else { return }
+        Log.net.notice("Repairing ThemealDB images for \(suspect.count, privacy: .public) recipes")
+        var repaired = 0
+        for var entry in suspect {
+            if let url = await imageURL(for: entry.title, category: entry.category), url.absoluteString != entry.imageURL {
+                entry.imageURL = url.absoluteString
+                await RecipeDatabase.shared.upsert(entry)
+                repaired += 1
+            }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+        Log.net.notice("ThemealDB image repair complete: \(repaired, privacy: .public) repaired")
+    }
+
+    private static func shouldRepairThemealDBImage(title: String, imageURL: String) -> Bool {
+        guard let url = URL(string: imageURL),
+              let host = url.host?.lowercased(),
+              host.contains("themealdb.com") else { return false }
+        let slug = url.deletingPathExtension().lastPathComponent
+        guard !slug.isEmpty else { return true }
+        return FuzzyMatch.score(SearchNormalization.fold(title), SearchNormalization.fold(slug)) < 0.68
     }
 }

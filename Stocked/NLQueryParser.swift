@@ -74,10 +74,17 @@ nonisolated struct NLQueryParser {
         q.mealType = mealTypes.first { text.contains($0) }
 
         // ── Cuisines ────────────────────────────────────────────────────
-        let cuisines = ["italian","mexican","chinese","japanese","indian","thai","greek",
-                        "french","korean","vietnamese","american","mediterranean","middle eastern",
-                        "spanish","turkish","moroccan","british","german","cajun","tex-mex"]
-        q.cuisine = cuisines.first { text.contains($0) }
+        let words = text.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        var cuisineCandidates: [String] = []
+        for width in stride(from: min(4, words.count), through: 1, by: -1) {
+            guard words.count >= width else { continue }
+            for start in 0...(words.count - width) {
+                cuisineCandidates.append(words[start..<(start + width)].joined(separator: " "))
+            }
+        }
+        q.cuisine = cuisineCandidates
+            .map { RecipeTaxonomy.canonicalCuisine($0) }
+            .first { $0 != "Other" }
 
         // ── Ingredient extraction using NaturalLanguage ─────────────────
         let tagger = NLTagger(tagSchemes: [.lexicalClass])

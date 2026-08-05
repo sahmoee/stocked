@@ -163,18 +163,41 @@ final class SharedPantrySync {
 
     // MARK: - Merge helpers (last-write-wins by id)
 
+    // TOMBSTONE-AWARE (July 2026) — this is the "swipe to delete one grocery item
+    // and every item comes back" bug.
+    //
+    // The merge was remote-wins over a union of ids, and it had no idea which ids
+    // had just been deleted. Deleting an item pushes a new snapshot; iCloud echoes
+    // that push back through `didChangeExternallyNotification`; the echo (or a
+    // slightly older snapshot from another device) still contained the deleted rows,
+    // and remote-wins faithfully restored them. With a whole list added at once —
+    // "add missing ingredients" — the pre-delete snapshot is the one in flight, so
+    // deleting one row resurrected all of them.
+    //
+    // The store already keeps `pendingGroTombstones` / `pendingInvTombstones` for
+    // exactly this. Honouring them here means a deleted id can never be re-added by
+    // an incoming snapshot, no matter how stale that snapshot is.
+
     private func mergeInventory(remote: [LocalInventoryItem], into store: GuestDataStore) {
+        let tombstones = store.pendingInvTombstones
         var byID = Dictionary(keepingLastValues: store.inventoryItems.map { ($0.id, $0) })
-        for item in remote { byID[item.id] = item }   // remote wins on conflict
-        let merged = Array(byID.values).sorted { $0.name < $1.name }
+        for item in remote where !tombstones.contains(item.id.uuidString) {
+            byID[item.id] = item   // remote wins on conflict, but never resurrects
+        }
+        let merged = Array(byID.values)
+            .filter { !tombstones.contains($0.id.uuidString) }
+            .sorted { $0.name < $1.name }
         // Avoid a no-op assignment that would re-trigger didSet → push loops.
         if merged != store.inventoryItems { store.inventoryItems = merged }
     }
 
     private func mergeGrocery(remote: [LocalGroceryItem], into store: GuestDataStore) {
+        let tombstones = store.pendingGroTombstones
         var byID = Dictionary(keepingLastValues: store.groceryItems.map { ($0.id, $0) })
-        for item in remote { byID[item.id] = item }
-        let merged = Array(byID.values)
+        for item in remote where !tombstones.contains(item.id.uuidString) {
+            byID[item.id] = item
+        }
+        let merged = Array(byID.values).filter { !tombstones.contains($0.id.uuidString) }
         if merged != store.groceryItems { store.groceryItems = merged }
     }
 }

@@ -131,11 +131,19 @@ nonisolated enum RecipeSourcesPlus {
             let ings = (r["ingredientLines"] as? [String]) ?? []
             let cuisines = (r["cuisineType"] as? [String]) ?? []
             let dishes   = (r["dishType"] as? [String]) ?? []
+            let classification = RecipeClassifier.classify(
+                title: label,
+                rawCuisine: cuisines.first,
+                rawCategory: dishes.first,
+                keywords: cuisines + dishes,
+                ingredients: ings.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: []
+            )
             return OnlineRecipe(
                 id: "edamam-\(abs(url.hashValue))",
                 title: label,
-                category: dishes.first?.capitalized ?? "",
-                area: cuisines.first?.capitalized ?? "",
+                category: classification.category,
+                area: classification.cuisine,
                 // Edamam doesn't return cooking steps (licensing) — leave
                 // instructions empty rather than stuffing the source URL here. The
                 // detail view shows an honest "no steps from this source" message and
@@ -276,12 +284,20 @@ nonisolated enum RecipeSourcesPlus {
         let image = (r["thumbnail_url"] as? String) ?? ""
         let cuisine = ((r["cuisine"] as? [String: Any])?["name"] as? String) ?? ""
         let idNum = (r["id"] as? Int).map(String.init) ?? UUID().uuidString
+        let classification = RecipeClassifier.classify(
+            title: name,
+            rawCuisine: cuisine,
+            rawCategory: nil,
+            keywords: [],
+            ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+            instructions: steps
+        )
 
         return OnlineRecipe(
             id: "tasty-\(idNum)",
             title: name,
-            category: "",
-            area: cuisine,
+            category: classification.category,
+            area: classification.cuisine,
             instructions: steps.joined(separator: "\n"),
             imageURL: image,
             ingredients: ingredients,
@@ -331,11 +347,19 @@ nonisolated enum RecipeSourcesPlus {
         let idNum = (r["id"] as? Int).map(String.init) ?? UUID().uuidString
         let cuisine = (r["cuisine"] as? String) ?? ""
         let meal = (r["mealType"] as? [String])?.first ?? ""
+        let classification = RecipeClassifier.classify(
+            title: name,
+            rawCuisine: cuisine,
+            rawCategory: meal,
+            keywords: (r["tags"] as? [String]) ?? [],
+            ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+            instructions: steps
+        )
         return OnlineRecipe(
             id: "dummyjson-\(idNum)",
             title: name,
-            category: meal,
-            area: cuisine,
+            category: classification.category,
+            area: classification.cuisine,
             instructions: steps.joined(separator: "\n"),
             imageURL: (r["image"] as? String) ?? "",
             ingredients: ingredients,

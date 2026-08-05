@@ -1442,6 +1442,37 @@ class GuestDataStore {
         }) { return existing }
 
         var saved = recipe
+
+        // STK-69-0001 — never persist a recipe with no method.
+        //
+        // What made that ticket permanent rather than merely annoying is this
+        // line. Opening a hollow Discover recipe from Cook Now minted a fresh
+        // UUID for it and wrote it into the user's own collection, where no
+        // later fix to the Discover pipeline can ever reach it: it is theirs
+        // now, it has no steps, and it will still have none in a year.
+        //
+        // The upstream leaks are closed in this build, so this should be
+        // unreachable. It is here because "should be unreachable" is exactly the
+        // claim that was true of every other path into this function.
+        //
+        // If the live Discover pool holds a full version of the same title,
+        // adopt its steps and save that. Otherwise hand back the caller's copy
+        // unsaved — the detail screen shows its own honest empty state, and the
+        // collection does not grow a permanent stub.
+        let hasMethod = saved.instructions.contains {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        if !hasMethod {
+            guard let full = OnlineRecipesLoader.shared.recipes.first(where: {
+                OnlineRecipeFacts.normalizedTitle($0.title) == key
+                    && OnlineRecipeFacts.hasRealInstructions($0.instructions)
+            }) else { return recipe }
+            saved.instructions = full.instructions
+                .components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        }
+
         saved.id = UUID()          // a real, store-owned identity
         saved.dateCreated = Date()
         addUserRecipe(saved)
@@ -1699,7 +1730,7 @@ class GuestDataStore {
             else { return [] }
             return p.cuisinePrefs
         }()
-        let prefs = Set(profileCuisines.map { $0.lowercased() })
+        let prefs = Set(profileCuisines.map { RecipeTaxonomy.canonicalCuisine($0) }.filter { $0 != "Other" })
         // G1 (QA gap): exclude any saved recipe containing a profile allergen, so "Surprise me"
         // can never hand back an allergen dish — mirrors CookNowEngine.isExcluded.
         let allergens: [String] = {
@@ -1716,18 +1747,50 @@ class GuestDataStore {
                                        title: r.title,
                                        rules: dietaryRules).isEmpty
         }
-        func score(_ r: GeneratedRecipe) -> Int {
-            let have = r.ingredients.filter {
-                KitchenAvailability.isPresent($0.name, inNames: inStock)
-            }.count
-            let cuisineBonus = prefs.contains(where: { r.mealCategory.lowercased().contains($0) }) ? 3 : 0
-            return have + cuisineBonus
+        let starItems = KitchenAvailability.availableItems(in: inventoryItems).filter { item in
+            let expiringSoon = (item.daysUntilExpiry ?? Int.max) <= 3
+            return expiringSoon || item.quantity >= 3 || item.effectiveLevel >= 0.75
+        }
+        let starNames = Set(starItems.map { $0.name.lowercased() })
+
+        /// How close this recipe is to cookable, not how many pantry staples it happens to
+        /// name. Coverage is a fraction so a short recipe you can finish beats a long one you
+        /// can't start.
+        func score(_ r: GeneratedRecipe) -> Double {
+            let lines = r.ingredients.map { line in
+                line.amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? line.name : "\(line.amount) \(line.name)"
+            }
+            let coverage = KitchenAvailability.coverage(lines: lines, availableNames: inStock)
+            guard coverage.total > 0 else { return -100 }
+
+            var value = coverage.fraction * 100
+            if coverage.isComplete { value += 45 }
+            value -= Double(coverage.missingCount) * 12
+
+            let starHits = lines.filter { KitchenAvailability.isPresent($0, inNames: starNames) }.count
+            value += min(20, Double(starHits) * 5)
+
+            let cuisine = RecipeTaxonomy.canonicalCuisine(r.cuisine)
+            if cuisine != "Other", prefs.contains(cuisine) { value += 10 }
+
+            let requiredCount = lines.filter { !KitchenAvailability.isOptionalLine($0) }.count
+            if requiredCount < 4 { value -= 18 }
+            if r.steps.count < 3 || !OnlineRecipeFacts.hasRealInstructions(r.steps.joined(separator: "\n")) { value -= 18 }
+            let titleTokens = SearchNormalization.fold(r.title)
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }
+            if titleTokens.count <= 2, KitchenAvailability.isPresent(r.title, inNames: inStock) { value -= 15 }
+            return value
         }
         let pool = savedGeneratedRecipes.filter { !$0.isHidden && !hasAllergen($0) }
         guard !pool.isEmpty else { return nil }
         let sorted = pool.sorted { score($0) > score($1) }
-        let topCount = max(1, sorted.count / 3)
-        return sorted.prefix(topCount).randomElement()
+        let complete = sorted.filter { r in
+            let lines = r.ingredients.map { $0.amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? $0.name : "\($0.amount) \($0.name)" }
+            return KitchenAvailability.coverage(lines: lines, availableNames: inStock).isComplete
+        }
+        let varietyPool = complete.isEmpty ? sorted.prefix(min(8, sorted.count)) : complete.prefix(min(8, complete.count))
+        return varietyPool.randomElement()
     }
 
     func inventoryCSV() -> String {

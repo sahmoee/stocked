@@ -78,8 +78,7 @@ struct EditPreferencesView: View {
                 }
 
                 Section {
-                    let cuisines = ["Italian","Mexican","Japanese","Chinese","Indian",
-                                    "Mediterranean","American","French","Thai","Korean"]
+                    let cuisines = RecipeTaxonomy.cuisines
                     ForEach(cuisines, id: \.self) { cuisine in
                         HStack {
                             Text(cuisine).font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)

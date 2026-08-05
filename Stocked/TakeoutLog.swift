@@ -30,7 +30,7 @@ nonisolated struct TakeoutEntry: Codable, Identifiable, Hashable, Sendable, Hous
 
     var costPerPerson: Double { cost / Double(max(1, people)) }
 
-    static let mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"]
+    static let mealTypes = RecipeTaxonomy.categories.filter { ["Breakfast", "Lunch", "Dinner", "Snack"].contains($0) }
     static let kinds = ["Takeout", "Delivery", "Restaurant"]
 }
 

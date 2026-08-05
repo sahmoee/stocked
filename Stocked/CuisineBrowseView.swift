@@ -13,8 +13,9 @@ import SwiftUI
 struct CuisineBrowseView: View {
     @Environment(AppSession.self) var session
 
-    @State private var cuisines: [String] = CuisineBrowseView.fallbackCuisines
-    @State private var loaded = false
+    private var cuisines: [String] {
+        RecipeFacets.availableCuisines(in: session.guestStore.userRecipes)
+    }
 
     var body: some View {
         StockedShell(showBack: true, scrollDisabled: false, titleText: "Cuisines") {
@@ -27,7 +28,11 @@ struct CuisineBrowseView: View {
                 LazyVStack(spacing: 10) {
                     ForEach(cuisines, id: \.self) { cuisine in
                         NavigationLink {
-                            CuisineRecipesView(area: cuisine).environment(session)
+                            RecipeListView(
+                                title: cuisine,
+                                recipes: session.guestStore.userRecipes.filter { RecipeFacets.matches($0, cuisine: cuisine) }
+                            )
+                            .environment(session)
                         } label: {
                             cuisineRow(cuisine)
                         }
@@ -36,25 +41,6 @@ struct CuisineBrowseView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 24)
-            }
-            .task {
-                guard !loaded else { return }
-                loaded = true
-                let areas = await RecipeSourcesPlus.mealDBAreas()
-                if !areas.isEmpty {
-                    // Keep only cuisines we have a flag for — this also drops non-cuisine
-                    // areas like "Unknown" that have nothing real to browse. Then sort
-                    // the most familiar ones first, the rest A–Z.
-                    let known = areas.filter { CuisineBrowseView.flagIfKnown(for: $0) != nil }
-                    let preferred = CuisineBrowseView.fallbackCuisines
-                    let ranked = known.sorted { a, b in
-                        let ia = preferred.firstIndex(of: a) ?? Int.max
-                        let ib = preferred.firstIndex(of: b) ?? Int.max
-                        if ia != ib { return ia < ib }
-                        return a < b
-                    }
-                    if !ranked.isEmpty { cuisines = ranked }
-                }
             }
         }
     }
@@ -70,6 +56,9 @@ struct CuisineBrowseView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(session.themeTextColor)
             Spacer()
+            Text("\(RecipeFacets.count(cuisine: cuisine, in: session.guestStore.userRecipes))")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(session.themeTextColor.opacity(0.5))
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(session.themeTextColor.opacity(0.35))
@@ -92,7 +81,7 @@ struct CuisineBrowseView: View {
     /// "Unknown", which also have no real recipes to browse).
     static func flagIfKnown(for cuisine: String) -> String? {
         switch cuisine.lowercased() {
-        case "american":              return "🇺🇸"
+        case "american", "southern", "cajun & creole", "tex-mex", "bbq", "new england", "soul food", "hawaiian": return "🇺🇸"
         case "italian":               return "🇮🇹"
         case "mexican":               return "🇲🇽"
         case "chinese":               return "🇨🇳"
@@ -105,13 +94,21 @@ struct CuisineBrowseView: View {
         case "british":               return "🇬🇧"
         case "turkish":               return "🇹🇷"
         case "vietnamese":            return "🇻🇳"
+        case "filipino":              return "🇵🇭"
+        case "caribbean":             return "🏝️"
+        case "african":               return "🌍"
         case "moroccan":              return "🇲🇦"
         case "jamaican":              return "🇯🇲"
+        case "mediterranean":         return "🫒"
+        case "middle eastern":        return "🧆"
+        case "german":                return "🇩🇪"
+        case "irish":                 return "🇮🇪"
+        case "eastern european":      return "🌍"
+        case "latin american":        return "🌎"
+        case "fusion":                return "🍽️"
         case "canadian":              return "🇨🇦"
         case "dutch":                 return "🇳🇱"
         case "egyptian":              return "🇪🇬"
-        case "filipino":              return "🇵🇭"
-        case "irish":                 return "🇮🇪"
         case "kenyan":                return "🇰🇪"
         case "malaysian":             return "🇲🇾"
         case "polish":                return "🇵🇱"

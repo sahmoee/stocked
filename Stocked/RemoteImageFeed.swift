@@ -61,10 +61,18 @@ final class RemoteImageFeed {
     }
 
     nonisolated private static func normalize(_ s: String) -> String {
-        s.lowercased()
+        var tokens = s.lowercased()
             .folding(options: .diacriticInsensitive, locale: .current)
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
-            .joined(separator: " ")
+        let articles: Set<String> = ["a", "an", "the"]
+        let qualifiers: Set<String> = ["easy", "best", "homemade", "classic", "quick", "simple", "ultimate"]
+        while let first = tokens.first, articles.contains(first) || qualifiers.contains(first) || first.allSatisfy(\.isNumber) {
+            tokens.removeFirst()
+        }
+        while let last = tokens.last, qualifiers.contains(last) || last.allSatisfy(\.isNumber) || last == "minute" || last == "minutes" || last == "min" {
+            tokens.removeLast()
+        }
+        return tokens.joined(separator: " ")
     }
 }

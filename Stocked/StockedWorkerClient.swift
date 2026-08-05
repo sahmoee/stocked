@@ -56,9 +56,33 @@ nonisolated enum StockedWorkerClient {
 
     static var isConfigured: Bool { url() != nil }
 
-    /// Central request primitive. Payloads remain JSON-compatible dictionaries at call sites, but
-    /// are encoded before crossing the cache actor boundary so no `[String: Any]` crosses actors.
+    /// Central request primitive, wrapped in QA process tracking.
+    ///
+    /// EVERY network call in the app funnels through this one function, which is
+    /// why the tracking lives here: it makes "Actions attempted" and "Failures"
+    /// report real numbers without touching a single call site. Before this, both
+    /// counters read 0 in every QA session because `QARecorder.attempt(...)` had
+    /// essentially no callers — the counters were right and nothing was feeding them.
     static func requestData(route: StockedWorkerRoute,
+                            payload: [String: Any],
+                            timeout: TimeInterval = 30,
+                            cacheTTL: TimeInterval? = nil) async throws -> Data {
+        let handle = await QAProcessTracker.shared.begin("Worker: \(route.rawValue)",
+                                                         detail: "network request")
+        do {
+            let data = try await performRequest(route: route, payload: payload,
+                                                timeout: timeout, cacheTTL: cacheTTL)
+            await handle.finish(detail: "\(data.count) bytes")
+            return data
+        } catch {
+            await handle.fail(error.localizedDescription)
+            throw error
+        }
+    }
+
+    /// Payloads remain JSON-compatible dictionaries at call sites, but are encoded before
+    /// crossing the cache actor boundary so no `[String: Any]` crosses actors.
+    private static func performRequest(route: StockedWorkerRoute,
                             payload: [String: Any],
                             timeout: TimeInterval = 30,
                             cacheTTL: TimeInterval? = nil) async throws -> Data {
@@ -110,10 +134,10 @@ nonisolated enum StockedWorkerClient {
             }
             guard (200..<300).contains(http.statusCode) else {
                 let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-                let detail = object?["error"] as? String
+                let baseDetail = object?["error"] as? String
                 let code = object?["code"] as? String
-                if code == "kvQuota" { throw StockedServiceError.quotaExhausted(detail ?? "Household sync storage is temporarily unavailable.") }
-                throw StockedServiceError.httpStatus(http.statusCode, detail)
+                if code == "kvQuota" { throw StockedServiceError.quotaExhausted(baseDetail ?? "Household sync storage is temporarily unavailable.") }
+                throw StockedServiceError.httpStatus(http.statusCode, Self.diagnosticDetail(base: baseDetail, code: code, object: object))
             }
             // Validate the envelope now so truncation and empty responses never enter the cache.
             _ = try AIResponseDecoder.textResponse(from: data)
@@ -126,6 +150,35 @@ nonisolated enum StockedWorkerClient {
         } catch let error as StockedServiceError { throw error }
         catch is CancellationError { throw StockedServiceError.cancelled }
         catch { throw StockedServiceError.transport(error.localizedDescription) }
+    }
+
+    /// Unpacks the Worker's error envelope ({ error, code, requestId, ...extra }) into one
+    /// readable line so a failure is diagnosable straight from the app's error text — no
+    /// server-side log access needed. The Worker attaches different `extra` fields depending
+    /// on where the failure happened:
+    ///   • upstream call never produced a response to validate → upstreamStatus/upstreamBody
+    ///     (the raw Anthropic HTTP status + error body, e.g. an auth or model-id problem)
+    ///   • the model answered but its JSON failed schema validation → errors[] (field/code pairs)
+    private static func diagnosticDetail(base: String?, code: String?, object: [String: Any]?) -> String? {
+        var parts: [String] = []
+        if let base, !base.isEmpty { parts.append(base) }
+        if let code, !code.isEmpty { parts.append("[\(code)]") }
+        if let status = object?["upstreamStatus"] as? Int {
+            var bit = "upstream \(status)"
+            if let body = object?["upstreamBody"] as? String, !body.isEmpty {
+                bit += ": \(body.prefix(240))"
+            }
+            parts.append(bit)
+        }
+        if let errors = object?["errors"] as? [[String: Any]], !errors.isEmpty {
+            let summary = errors.prefix(5).map { e -> String in
+                let field = (e["field"] as? String) ?? "?"
+                let ecode = (e["code"] as? String) ?? "?"
+                return "\(field):\(ecode)"
+            }.joined(separator: ", ")
+            parts.append("schema errors: \(summary)")
+        }
+        return parts.isEmpty ? base : parts.joined(separator: " — ")
     }
 
     static func completionResponse(route: StockedWorkerRoute,

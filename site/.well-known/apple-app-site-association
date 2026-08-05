@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["TEAMID.com.sowens.Stocked"],
+        "appIDs": ["5DV5N49VG8.com.sowens.Stocked"],
         "components": [
           { "/": "/l/*", "comment": "Container label QR codes" },
           { "/": "/grocery", "comment": "Grocery list" },
@@ -13,6 +13,6 @@
     ]
   },
   "webcredentials": {
-    "apps": ["TEAMID.com.sowens.Stocked"]
+    "apps": ["5DV5N49VG8.com.sowens.Stocked"]
   }
 }

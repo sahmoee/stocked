@@ -125,41 +125,140 @@ struct FoodsCategoryView: View {
 }
 
 // MARK: - Foods Sub-option
+
+/// One tappable option on a Cook sub-option screen. `asset` names a transparent illustration in
+/// the catalog; if it is missing, CookIllustratedRow falls back to an emoji/glyph badge.
+struct CookFoodOption: Identifiable, Hashable {
+    var id: String { title }
+    let title: String
+    let subtitle: String
+    let asset: String
+}
+
 struct FoodsSubOptionView: View {
     @Environment(AppSession.self) var session
     let category: String
     let icon: String
     let servings: Int
 
-    let optionsMap: [String: [String]] = [
-        "Protein":       ["Chicken","Beef","Pork","Seafood","Tofu","Eggs","Lamb"],
-        "Vegetables":    ["Leafy Greens","Root Veggies","The Roasters","Soft and Sautéed"],
-        "Expiring Soon": ["Use What's Left","Flexible"],
-        "Leftovers":     ["Reinvent It","Simple Reheat"],
+    // ── Option catalog ──────────────────────────────────────────────────────
+    // Protein and Vegetables are grouped at runtime by what is actually in the pantry, so their
+    // options are listed flat. Expiring Soon and Leftovers use fixed sections.
+    private static let proteinOptions: [CookFoodOption] = [
+        .init(title: "Chicken", subtitle: "Roast, grill, or shred it into anything.", asset: "pro_chicken"),
+        .init(title: "Beef",    subtitle: "Steaks, ground beef, and slow braises.",   asset: "pro_beef"),
+        .init(title: "Pork",    subtitle: "Chops, tenderloin, bacon, and sausage.",   asset: "pro_pork"),
+        .init(title: "Seafood", subtitle: "Fish and shellfish, ready fast.",          asset: "pro_seafood"),
+        .init(title: "Tofu",    subtitle: "Crisp it, crumble it, or simmer it.",      asset: "pro_tofu"),
+        .init(title: "Eggs",    subtitle: "Breakfast, dinner, or anything between.",  asset: "pro_eggs"),
+        .init(title: "Lamb",    subtitle: "Rich and hearty for a bigger meal.",       asset: "pro_lamb"),
     ]
+
+    private static let vegetableOptions: [CookFoodOption] = [
+        .init(title: "Leafy Greens",      subtitle: "Spinach, kale, lettuce, and more.",                     asset: "veg_leafy_greens"),
+        .init(title: "Root Vegetables",   subtitle: "Carrots, potatoes, beets, and turnips.",                asset: "veg_root_vegetables"),
+        .init(title: "Cruciferous",       subtitle: "Broccoli, cauliflower, cabbage, and Brussels sprouts.", asset: "veg_cruciferous"),
+        .init(title: "Peppers & Tomatoes", subtitle: "Fresh, bright, and easy to build around.",             asset: "veg_peppers_tomatoes"),
+        .init(title: "Mushrooms",         subtitle: "Earthy and savory in almost anything.",                 asset: "veg_mushrooms"),
+        .init(title: "Squash & Zucchini", subtitle: "Roast it, sauté it, or slice it into pasta.",           asset: "veg_squash_zucchini"),
+        .init(title: "Fresh Herbs",       subtitle: "Finish a dish with a little brightness.",               asset: "veg_fresh_herbs"),
+    ]
+
+    private static let leftoverSections: [(String, [CookFoodOption])] = [
+        ("Use tonight", [
+            .init(title: "Reinvent It",       subtitle: "Turn leftovers into something new.",             asset: "left_reinvent_it"),
+            .init(title: "Simple Reheat",     subtitle: "Warm it up and finish with sides.",              asset: "left_simple_reheat"),
+            .init(title: "Build a Bowl",      subtitle: "Mix grains, protein, and vegetables.",           asset: "left_build_a_bowl"),
+            .init(title: "Wrap or Sandwich",  subtitle: "Great for quick lunches and easy dinners.",      asset: "left_wrap_or_sandwich"),
+        ]),
+        ("Need inspiration", [
+            .init(title: "Pasta & Rice Remix", subtitle: "Use cooked extras in fast meals.",              asset: "left_pasta_rice_remix"),
+            .init(title: "Soup or Skillet",    subtitle: "A flexible way to use what's left.",            asset: "left_soup_or_skillet"),
+        ]),
+    ]
+
+    private static let expiringSections: [(String, [CookFoodOption])] = [
+        ("Cook now", [
+            .init(title: "Use What's Left",  subtitle: "Start with the items that should go first.",  asset: "exp_use_whats_left"),
+            .init(title: "Flexible Meals",   subtitle: "Bowls, pastas, skillets, and stir-fries.",    asset: "exp_flexible_meals"),
+            .init(title: "Quick Rescue",     subtitle: "Fast ideas for produce that's fading.",       asset: "exp_quick_rescue"),
+            .init(title: "Batch Prep",       subtitle: "Cook now to save ingredients for later.",     asset: "exp_batch_prep"),
+        ]),
+        ("Keep it from going to waste", [
+            .init(title: "Freeze or Prep",      subtitle: "Simple ways to buy more time.",           asset: "exp_freeze_or_prep"),
+            .init(title: "Add One Ingredient",  subtitle: "Complete the meal with a quick shop.",    asset: "exp_add_one_ingredient"),
+        ]),
+    ]
+
     @State private var selected: String?
     @State private var gotoRecipe = false
     @State private var pendingUnstocked: String? = nil  // item tapped but not in stock
     @State private var addedToList: String? = nil        // confirmation feedback
 
-    var options: [String] { optionsMap[category] ?? [] }
+    /// True for the two categories whose rows are graded against real inventory.
+    private var pantryGraded: Bool { category == "Protein" || category == "Vegetables" }
+
+    private var flatOptions: [CookFoodOption] {
+        switch category {
+        case "Protein":    return Self.proteinOptions
+        case "Vegetables": return Self.vegetableOptions
+        default:           return []
+        }
+    }
+
+    /// The screen as sections. Protein and Vegetables split live by what is in the pantry;
+    /// Leftovers and Expiring Soon use their authored sections.
+    private var sections: [(title: String, options: [CookFoodOption])] {
+        switch category {
+        case "Protein", "Vegetables":
+            let stocked = flatOptions.filter { isInInventory($0.title, store: session.guestStore) }
+            let rest    = flatOptions.filter { !isInInventory($0.title, store: session.guestStore) }
+            var out: [(String, [CookFoodOption])] = []
+            if !stocked.isEmpty { out.append(("In your pantry", stocked)) }
+            if !rest.isEmpty    { out.append(("Plan ahead", rest)) }
+            return out.map { (title: $0.0, options: $0.1) }
+        case "Leftovers":
+            return Self.leftoverSections.map { (title: $0.0, options: $0.1) }
+        case "Expiring Soon":
+            return Self.expiringSections.map { (title: $0.0, options: $0.1) }
+        default:
+            return []
+        }
+    }
+
+    private var headline: String {
+        switch category {
+        case "Expiring Soon": return "Use what needs attention first."
+        case "Leftovers":     return "Start with what's already cooked."
+        default:              return "Choose what you want to cook with first."
+        }
+    }
+
+    /// Back-compat: the flat list of option titles this screen shows.
+    var options: [String] { sections.flatMap { $0.options }.map(\.title) }
 
     var body: some View {
-        StockedShell(showBack: true, scrollDisabled: true) {
+        StockedShell(showBack: true) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 20) {
                     ZStack {
                         Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
                         Text(icon).font(.system(size: 32))
                     }
-                    Text(category)
-                        .font(.system(size: 28, weight: .regular, design: .serif))
-                        .foregroundStyle(Color.stockedWhite)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(category)
+                            .font(.system(size: 28, weight: .regular, design: .serif))
+                            .foregroundStyle(Color.stockedWhite)
+                        Text(headline)
+                            .font(.system(size: 13))
+                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                .padding(.horizontal, 28).padding(.bottom, 32)
+                .padding(.horizontal, 28).padding(.bottom, 24)
 
                 // Inventory legend (protein + veg categories only)
-                if category == "Protein" || category == "Vegetables" {
+                if pantryGraded {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 16) {
                             HStack(spacing: 5) {
@@ -184,60 +283,51 @@ struct FoodsSubOptionView: View {
                     .padding(.horizontal, 28).padding(.bottom, 16)
                 }
 
-                VStack(spacing: 16) {
-                    ForEach(options, id: \.self) { opt in
-                        let inStock = (category == "Protein" || category == "Vegetables")
-                            ? isInInventory(opt, store: session.guestStore) : true
-                        let justAdded = addedToList == opt
-                        Button {
-                            if inStock {
-                                withAnimation(.spring(response: 0.2)) { selected = opt }
-                                Task {
-                                    try? await Task.sleep(nanoseconds: 300000000)
-                                    gotoRecipe = true
-                                }
-                            } else {
-                                withAnimation(.spring(response: 0.3)) { pendingUnstocked = opt }
-                            }
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(opt)
-                                        .font(.system(size: 19, weight: .regular, design: .serif))
-                                        .foregroundStyle(inStock ? Color.stockedWhite : Color.stockedWhite.opacity(0.5))
-                                    if !inStock {
-                                        Text(justAdded ? "Added to grocery list ✓" : "Tap to see options")
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(justAdded ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
+                VStack(alignment: .leading, spacing: 20) {
+                    ForEach(Array(sections.enumerated()), id: \.element.title) { pair in
+                        let index = pair.offset
+                        let section = pair.element
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(section.title)
+                                .font(.system(size: 13, weight: .bold, design: .serif))
+                                .foregroundStyle(session.themeTextColor.opacity(0.75))
+
+                            ForEach(section.options) { opt in
+                                let inStock = pantryGraded
+                                    ? isInInventory(opt.title, store: session.guestStore) : true
+                                let justAdded = addedToList == opt.title
+                                let sub: String = {
+                                    if justAdded { return "Added to grocery list ✓" }
+                                    if !inStock  { return "Tap to explore options." }
+                                    return opt.subtitle
+                                }()
+                                CookIllustratedRow(
+                                    title: opt.title,
+                                    subtitle: sub,
+                                    assetName: opt.asset,
+                                    fallbackEmoji: icon,
+                                    tone: index == 0 ? .dark : .soft,
+                                    artSize: 68,
+                                    showPantryPill: pantryGraded && inStock,
+                                    showCartGlyph: pantryGraded && !inStock,
+                                    dimmed: !inStock
+                                ) {
+                                    if inStock {
+                                        withAnimation(.spring(response: 0.2)) { selected = opt.title }
+                                        Task {
+                                            try? await Task.sleep(nanoseconds: 300000000)
+                                            gotoRecipe = true
+                                        }
+                                    } else {
+                                        withAnimation(.spring(response: 0.3)) { pendingUnstocked = opt.title }
                                     }
                                 }
-                                Spacer()
-                                if inStock {
-                                    HStack(spacing: 4) {
-                                        Circle().fill(Color.stockedGold).frame(width: 7, height: 7)
-                                        Text("In pantry").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.stockedGold)
-                                    }
-                                } else {
-                                    Image(systemName: "cart.badge.plus")
-                                        .font(.system(size: 13))
-                                        .foregroundStyle(Color.stockedWhite.opacity(0.3))
-                                }
                             }
-                            .padding(.horizontal, 20).padding(.vertical, 18)
-                            .frame(maxWidth: .infinity)
-                            .background(inStock ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.45))
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule().stroke(
-                                    inStock ? Color.clear : Color.stockedWhite.opacity(0.12),
-                                    lineWidth: 1
-                                )
-                            )
                         }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 28)
                     }
                 }
+                .padding(.horizontal, 22)
+                .padding(.bottom, 28)
                 // Bottom sheet for unstocked item
                 .sheet(item: Binding(
                     get: { pendingUnstocked.map { UnstockedItem(name: $0) } },
@@ -786,10 +876,19 @@ struct MoodRecipeFinderView: View {
         guard RecipeGeneratorAI.isAvailable else { return nil }
         var idea = "A \(subcategory.lowercased()) \(keyword) style meal"
         if let energy { idea += ", for a \(energy.lowercased()) energy evening" }
-        let onHand = session.guestStore.inventoryItems
+        let availableItems = session.guestStore.inventoryItems
             .filter { $0.effectiveLevel > 0 }
-            .prefix(12).map { $0.name }
-        var options = RecipeGeneratorAI.Options(haveItems: Array(onHand))
+        let onHand = availableItems.prefix(12).map { $0.name }
+        let mustUse = availableItems
+            .sorted { ($0.daysUntilExpiry ?? Int.max) < ($1.daysUntilExpiry ?? Int.max) }
+            .prefix(5)
+            .map(\.name)
+        var options = RecipeGeneratorAI.Options(
+            haveItems: Array(onHand),
+            cuisinePreference: session.guestStore.cookingProfile.cuisinePrefs,
+            mustUse: Array(mustUse),
+            dietaryRules: DietaryGuard.Rules(allergens: session.guestStore.cookingProfile.allergens)
+        )
         if let timeBudget { options.maxTime = timeBudget }
         guard let g = await RecipeGeneratorAI.generate(idea: idea, options: options) else { return nil }
         let ings = g.ingredients.map { $0.amount.isEmpty ? $0.name : "\($0.amount) \($0.name)" }

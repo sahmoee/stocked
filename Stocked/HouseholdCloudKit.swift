@@ -719,16 +719,24 @@ final class HouseholdCloudKit {
         }
     }
 
+    // TOMBSTONE-AWARE (July 2026) — same fix as SharedPantrySync.mergeGrocery, and
+    // it has to be made in both: this path runs for CloudKit households, that one
+    // for the key-value store, and a delete that survives one merge only to be
+    // undone by the other is still a delete that does not stick.
     private func mergeInventory(remote: [LocalInventoryItem], into store: GuestDataStore) {
+        let tombstones = store.pendingInvTombstones
         var byID = Dictionary(keepingLastValues: store.inventoryItems.map { ($0.id, $0) })
-        for item in remote { byID[item.id] = item }
-        let merged = Array(byID.values).sorted { $0.name < $1.name }
+        for item in remote where !tombstones.contains(item.id.uuidString) { byID[item.id] = item }
+        let merged = Array(byID.values)
+            .filter { !tombstones.contains($0.id.uuidString) }
+            .sorted { $0.name < $1.name }
         if merged != store.inventoryItems { store.inventoryItems = merged }
     }
     private func mergeGrocery(remote: [LocalGroceryItem], into store: GuestDataStore) {
+        let tombstones = store.pendingGroTombstones
         var byID = Dictionary(keepingLastValues: store.groceryItems.map { ($0.id, $0) })
-        for item in remote { byID[item.id] = item }
-        let merged = Array(byID.values)
+        for item in remote where !tombstones.contains(item.id.uuidString) { byID[item.id] = item }
+        let merged = Array(byID.values).filter { !tombstones.contains($0.id.uuidString) }
         if merged != store.groceryItems { store.groceryItems = merged }
     }
 }

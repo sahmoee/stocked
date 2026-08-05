@@ -212,8 +212,21 @@ nonisolated struct CookNowEngine: Sendable {
     private let confirmedSubs: Set<String>         // session-confirmed "ingredient→substitute" keys
     private let overrides: [String: IngredientOverride]  // meal-only Kitchen Check corrections
 
-    /// A precomputed lowercased in-stock set for fast membership.
-    private let inStockLower: [String]
+    /// A precomputed in-stock name index for fast membership.
+    ///
+    /// PERF (the July 2026 field export): this was an `[String]` of lowercased
+    /// names, and `[String]` selects `KitchenAvailability.isPresent`'s LINEAR
+    /// overload — a full fuzzy comparison against every inventory name, for
+    /// every ingredient of every recipe. `classifyAll` over the Discover catalog
+    /// is ~700 distinct ingredients against ~78 names, and this one line was
+    /// most of the 1230 ms the process log recorded for 134 recipes.
+    ///
+    /// It is now a token index, built once in `init` rather than consulted per
+    /// call, which skips every comparison that provably scores zero (see
+    /// `KitchenAvailability.NameIndex` for why that is exact and not a
+    /// heuristic). Membership was the only question ever asked of the old array,
+    /// so nothing is lost by not keeping it.
+    private let inStockIndex: KitchenAvailability.NameIndex
 
     /// - Parameters:
     ///   - recipes: the catalog to classify (typically store.cookCatalog).
@@ -230,7 +243,9 @@ nonisolated struct CookNowEngine: Sendable {
          overrides: [String: IngredientOverride] = [:]) {
         self.recipes = recipes
         self.inventoryNames = inStockNames
-        self.inStockLower = inStockNames.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }
+        self.inStockIndex = KitchenAvailability.index(
+            for: Set(inStockNames.map { $0.lowercased().trimmingCharacters(in: .whitespaces) })
+        )
         self.allergens = allergens.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 }
         self.dislikes = dislikes.map { $0.lowercased().trimmingCharacters(in: .whitespaces) }.filter { $0.count > 1 }
         self.confirmedSubs = confirmedSubstitutions
@@ -252,7 +267,7 @@ nonisolated struct CookNowEngine: Sendable {
     }
 
     private func nameInStock(_ ingredient: String) -> Bool {
-        KitchenAvailability.isPresent(ingredient, inNames: inStockLower)
+        KitchenAvailability.isPresent(ingredient, in: inStockIndex)
     }
 
     /// Stable key for a confirmed substitution decision.

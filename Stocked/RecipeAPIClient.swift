@@ -329,6 +329,15 @@ final class RecipeAPIClient {
             return []
         }()
 
+        let classification = RecipeClassifier.classify(
+            title: name,
+            rawCuisine: cuisine,
+            rawCategory: recipe["recipeCategory"] as? String ?? "Imported",
+            keywords: tags,
+            ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+            instructions: steps
+        )
+
         // Source name from catalogued sites
         let sourceName: String = {
             let host = URL(string: sourceURL)?.host?.replacingOccurrences(of: "www.", with: "") ?? ""
@@ -342,8 +351,8 @@ final class RecipeAPIClient {
             mealID:      UUID().uuidString,
             title:       name,
             imageURL:    imageURL,
-            category:    recipe["recipeCategory"] as? String ?? "Imported",
-            area:        cuisine ?? "",
+            category:    classification.category,
+            area:        classification.cuisine,
             ingredients: ingredients,
             steps:       steps,
             cachedAt:    Date(),
@@ -353,8 +362,8 @@ final class RecipeAPIClient {
             totalTime:   parseDuration("totalTime"),
             servings:    servings,
             description: recipe["description"] as? String,
-            cuisine:     cuisine,
-            tags:        tags,
+            cuisine:     classification.cuisine,
+            tags:        classification.tags + tags,
             sourceURL:   sourceURL
         )
     }

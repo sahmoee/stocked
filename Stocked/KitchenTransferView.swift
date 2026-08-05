@@ -20,12 +20,19 @@ struct KitchenTransferView: View {
     @State private var showDeviceExporter = false
     @State private var deviceBackupURL:   URL? = nil
 
+    // Recipe removal by CSV. This gets its own importer rather than sharing the one
+    // below, because that one hands the file to the manager's content sniffer, which
+    // would read a recipe CSV as a pantry list and import it.
+    @State private var showRemovalImporter = false
+    @State private var removalPlan: RecipeCSVPlan? = nil
+
     enum ActiveSheet: Identifiable {
-        case qr, transfer, importMode, share
+        case qr, transfer, importMode, share, removalPreview
         var id: Int {
             switch self {
             case .qr: return 0; case .transfer: return 1
             case .importMode: return 2; case .share: return 3
+            case .removalPreview: return 4
             }
         }
     }
@@ -122,6 +129,21 @@ struct KitchenTransferView: View {
                 manager.errorMessage = e.localizedDescription
             }
         }
+        // Recipe-removal importer. Separate from the one above on purpose: this file is
+        // read as a removal list, never as something to import.
+        .fileImporter(
+            isPresented: $showRemovalImporter,
+            allowedContentTypes: [.commaSeparatedText, .plainText, .text],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                loadRemovalCSV(from: url)
+            case .failure(let e):
+                manager.errorMessage = e.localizedDescription
+            }
+        }
         // All transfer-related sheets go through ONE .sheet(item:) — stacking a second
         // .sheet(isPresented:) for sharing alongside this one fires unreliably.
         .sheet(item: $activeSheet) { sheet in
@@ -151,9 +173,69 @@ struct KitchenTransferView: View {
                 if !shareItems.isEmpty {
                     ShareSheet(items: shareItems)
                 }
+            case .removalPreview:
+                if let plan = removalPlan {
+                    RecipeCSVRemovalSheet(plan: plan) { userIDs, savedIDs in
+                        applyRemoval(userIDs: userIDs, savedIDs: savedIDs)
+                    }
+                    .environment(session)
+                }
             }
         }
         .onAppear { manager.session = session }
+    }
+
+    // MARK: - CSV recipe removal
+
+    /// Reads the picked file and builds a plan. Nothing is deleted here — the plan is
+    /// only a description of what *could* be, and the user still has to say yes.
+    private func loadRemovalCSV(from url: URL) {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        guard let data = try? Data(contentsOf: url) else {
+            manager.errorMessage = "Couldn't open that file."
+            return
+        }
+        let text = String(data: data, encoding: .utf8)
+            ?? String(data: data, encoding: .isoLatin1)
+            ?? ""
+        guard !text.isEmpty else {
+            manager.errorMessage = "That file looks empty."
+            return
+        }
+
+        manager.errorMessage = ""
+        manager.statusMessage = ""
+        removalPlan = RecipeCSV.plan(from: text, store: store)
+        activeSheet = .removalPreview
+    }
+
+    /// Called by the confirmation sheet once the user has picked. The sheet dismisses
+    /// itself; we wait a beat before offering the backup so the share sheet doesn't
+    /// collide with a sheet that is still on its way out.
+    private func applyRemoval(userIDs: Set<UUID>, savedIDs: Set<UUID>) {
+        let result = RecipeCSV.remove(userRecipeIDs: userIDs,
+                                      savedRecipeIDs: savedIDs,
+                                      store: store)
+        removalPlan = nil
+        activeSheet = nil
+
+        guard result.removed > 0 else {
+            manager.statusMessage = "Nothing was removed."
+            return
+        }
+        manager.statusMessage = result.removed == 1
+            ? "1 recipe removed ✓"
+            : "\(result.removed) recipes removed ✓"
+
+        if let backup = result.backupURL {
+            Task {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                shareItems = [backup]
+                activeSheet = .share
+            }
+        }
     }
 
     // MARK: - Kitchen Summary Card
@@ -258,6 +340,21 @@ struct KitchenTransferView: View {
                     if let url { shareItems = [url]; activeSheet = .share }
                 }
             }
+
+            Divider().padding(.leading, 52)
+
+            actionRow(
+                icon: "tablecells.badge.ellipsis",
+                iconColor: Color.stockedGold,
+                title: "Export Recipes CSV",
+                subtitle: "Every recipe as a spreadsheet — edit it to remove them in bulk"
+            ) {
+                if let url = RecipeCSV.writeExportFile(store: store) {
+                    shareItems = [url]; activeSheet = .share
+                } else {
+                    manager.errorMessage = "Couldn't build the recipe spreadsheet."
+                }
+            }
         }
     }
 
@@ -271,6 +368,19 @@ struct KitchenTransferView: View {
                 subtitle: "Load a .stocked or .json kitchen file"
             ) {
                 activeSheet = .importMode
+            }
+
+            Divider().padding(.leading, 52)
+
+            actionRow(
+                icon: "trash.slash",
+                iconColor: Color.stockedError,
+                title: "Remove Recipes from CSV…",
+                subtitle: "Export the spreadsheet, mark what to drop, bring it back"
+            ) {
+                manager.statusMessage = ""
+                manager.errorMessage = ""
+                showRemovalImporter = true
             }
         }
     }

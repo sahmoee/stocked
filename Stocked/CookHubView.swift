@@ -330,6 +330,10 @@ struct CookNowHomeView: View {
     @State private var goMakeableNow  = false
     @State private var goUseItUp      = false
     @State private var goFinishServe  = false
+    // Two Cook Now pathways that drop straight into the illustrated sub-option screen rather
+    // than introducing a second planning surface.
+    @State private var goExpiringSoon = false
+    @State private var goLeftovers    = false
 
     // RL-001 — paused/interrupted cooking session resume + RL-002 discard.
     private var cookRecord: ActiveCookSessionStore { .shared }
@@ -378,6 +382,12 @@ struct CookNowHomeView: View {
             .navigationDestination(isPresented: $goUseItUp)     { UseSomethingUpView().environment(cookSession) }
             .navigationDestination(isPresented: $goFinishServe) { FinishAndServeView() }
             .navigationDestination(isPresented: $goBuildFood)  { BuildAroundFoodView(servings: cookSession.servings).environment(cookSession) }
+            .navigationDestination(isPresented: $goExpiringSoon) {
+                FoodsSubOptionView(category: "Expiring Soon", icon: "📅", servings: cookSession.servings)
+            }
+            .navigationDestination(isPresented: $goLeftovers) {
+                FoodsSubOptionView(category: "Leftovers", icon: "🥡", servings: cookSession.servings)
+            }
             .navigationDestination(isPresented: $goMood)       { MatchMyMoodFlowView().environment(cookSession) }
             .navigationDestination(isPresented: $goRefresh)    { RefreshKitchenView().environment(cookSession) }
             .navigationDestination(isPresented: $goReadyList)  { CookNowResultsView(focus: .readyFirst).environment(cookSession) }
@@ -423,6 +433,7 @@ struct CookNowHomeView: View {
             goBuildFood = false; goMood = false; goRefresh = false
             goReadyList = false; goAlmostList = false; goMoreList = false
             goSurpriseDetail = false; goChip = false; goResumeCook = false
+            goExpiringSoon = false; goLeftovers = false
         }
     }
 
@@ -826,14 +837,18 @@ struct CookNowHomeView: View {
                 .foregroundStyle(session.themeTextColor)
 
             // Broadest entry: begin with any item and decide what to do with it.
-            pathwayRow(emoji: "🧑\u{200d}🍳", title: "Start With Something",
+            pathwayRow(emoji: "🧑\u{200d}🍳", asset: "cook_row_ingredient", title: "Start With Something",
                        subtitle: "Pick an ingredient and choose what to do — from one item to a full meal.") { goStartWith = true }
-            pathwayRow(emoji: "🥩", title: "Build Around Food",
+            pathwayRow(emoji: "🥩", asset: "cook_row_build_food", title: "Build Around Food",
                        subtitle: "Use what you have or what you love.") { goBuildFood = true }
-            pathwayRow(emoji: "🙂", title: "Match My Mood",
+            pathwayRow(emoji: "⏳", asset: "cook_row_expiring", title: "Expiring Soon",
+                       subtitle: "Cook around what needs to go first.") { goExpiringSoon = true }
+            pathwayRow(emoji: "🙂", asset: "cook_row_mood", title: "Match My Mood",
                        subtitle: "Find recipes that fit how you feel.") { goMood = true }
-            pathwayRow(emoji: "🎁", title: "Surprise Me",
+            pathwayRow(emoji: "🎁", asset: "cook_row_surprise", title: "Surprise Me",
                        subtitle: "Let us pick the perfect recipe.") { rollSurprise() }
+            pathwayRow(emoji: "🥡", asset: "cook_row_leftovers", title: "Leftovers",
+                       subtitle: "Start with what's already cooked.") { goLeftovers = true }
         }
         .padding(.horizontal, CookStyle.screenHPad)
     }
@@ -844,42 +859,36 @@ struct CookNowHomeView: View {
             Text("More ways in")
                 .font(.system(size: 15, weight: .bold, design: .serif))
                 .foregroundStyle(session.themeTextColor)
-            pathwayRow(emoji: "✅", title: "Makeable Now",
+            pathwayRow(emoji: "✅", asset: "cook_row_makeable_now", title: "Makeable Now",
                        subtitle: "Browse entrées, sides, and meals you can make right now.") { goMakeableNow = true }
-            pathwayRow(emoji: "⏳", title: "Use Something Up",
+            pathwayRow(emoji: "⏳", asset: "cook_row_use_something_up", title: "Use Something Up",
                        subtitle: "Cook around what's expiring or already open.") { goUseItUp = true }
-            pathwayRow(emoji: "🍽️", title: "Finish & Serve",
+            pathwayRow(emoji: "🍽️", asset: "cook_row_finish_serve", title: "Finish & Serve",
                        subtitle: "Reheat and finish anything you cooked ahead.") { goFinishServe = true }
         }
         .padding(.horizontal, CookStyle.screenHPad)
     }
 
-    private func pathwayRow(emoji: String, title: String, subtitle: String,
+    /// `asset` names a transparent illustration in the catalog. When one is present the row uses
+    /// the illustrated treatment; when it is absent (or the asset has not shipped yet) the row
+    /// falls back to the original emoji layout, so nothing regresses.
+    private func pathwayRow(emoji: String, asset: String? = nil, title: String, subtitle: String,
                             action: @escaping () -> Void) -> some View {
-        Button {
-            action()
-            HapticManager.light()
-        } label: {
-            HStack(spacing: 12) {
-                Text(emoji).font(.system(size: 22)).frame(width: 34)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 14.5, weight: .semibold, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                    Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+        Group {
+            if cookAssetImage(asset) != nil {
+                CookIllustratedRow(title: title, subtitle: subtitle, assetName: asset,
+                                   fallbackEmoji: emoji, tone: .soft, artSize: 68) {
+                    action()
+                    HapticManager.light()
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+            } else {
+                CookIllustratedRow(title: title, subtitle: subtitle,
+                                   fallbackEmoji: emoji, tone: .soft, artSize: 68) {
+                    action()
+                    HapticManager.light()
+                }
             }
-            .padding(14)
-            .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
         }
-        .buttonStyle(.plain)
         .a11yButton("\(title). \(subtitle)")
     }
 

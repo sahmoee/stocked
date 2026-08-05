@@ -273,11 +273,19 @@ actor SpoonacularClient {
                 .filter { !$0.isEmpty }
             let cuisine = (r["cuisines"] as? [String])?.first ?? ""
             let dish = (r["dishTypes"] as? [String])?.first?.capitalized ?? ""
+            let classification = RecipeClassifier.classify(
+                title: title,
+                rawCuisine: cuisine,
+                rawCategory: dish,
+                keywords: (r["dishTypes"] as? [String]) ?? [],
+                ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: steps
+            )
             out.append(OnlineRecipe(
                 id: "spoon-\(id)",
                 title: title,
-                category: dish,
-                area: cuisine,
+                category: classification.category,
+                area: classification.cuisine,
                 instructions: steps.joined(separator: "\n"),
                 imageURL: r["image"] as? String ?? "",
                 ingredients: ingredients,
@@ -311,6 +319,14 @@ actor SpoonacularClient {
 
         let steps = r.analyzedInstructions.flatMap { $0.steps }.map { $0.step }
         let tags  = (r.cuisines + r.diets + r.dishTypes).map { $0.lowercased() }
+        let classification = RecipeClassifier.classify(
+            title: r.title,
+            rawCuisine: r.cuisines.first,
+            rawCategory: r.dishTypes.first,
+            keywords: tags,
+            ingredients: r.extendedIngredients.map { RecipeIngredient(name: $0.original, amount: "") },
+            instructions: steps
+        )
 
         let entry = RecipeDatabaseEntry(
             title:       r.title,
@@ -319,9 +335,9 @@ actor SpoonacularClient {
             sourceName:  r.sourceName ?? "Spoonacular",
             prepTime:    "", cookTime: "\(r.readyInMinutes) min", totalTime: "\(r.readyInMinutes) min",
             servings:    "\(r.servings)",
-            category:    r.dishTypes.first?.capitalized ?? "",
-            cuisine:     r.cuisines.first ?? "",
-            tags:        tags,
+            category:    classification.category,
+            cuisine:     classification.cuisine,
+            tags:        classification.tags + tags,
             ingredients: r.extendedIngredients.map { $0.original },
             steps:       steps,
             imageURL:    r.image,

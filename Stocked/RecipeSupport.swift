@@ -132,36 +132,59 @@ enum RecipeDedup {
 // One source of truth for cuisine/category names so DB, online, and filters agree.
 enum RecipeTaxonomy {
     nonisolated static let cuisines: [String] = [
-        "American","Italian","Mexican","Chinese","Japanese","Indian","Thai","French",
-        "Greek","Spanish","Korean","Vietnamese","Mediterranean","Middle Eastern",
-        "Caribbean","British","German","Moroccan","Turkish","Brazilian","Other"
+        "American","Southern","Cajun & Creole","Tex-Mex","BBQ","New England","Soul Food","Hawaiian",
+        "Mexican","Italian","French","Spanish","Greek","Mediterranean","Middle Eastern","Indian",
+        "Thai","Chinese","Japanese","Korean","Vietnamese","Filipino","Caribbean","African",
+        "German","British","Irish","Eastern European","Latin American","Fusion","Moroccan","Turkish","Brazilian","Other"
     ]
 
     nonisolated static let categories: [String] = [
-        "Breakfast","Lunch","Dinner","Dessert","Snack","Appetizer","Side","Soup",
-        "Salad","Beverage","Baked Goods","Other"
+        "Breakfast","Brunch","Lunch","Dinner","Appetizer","Side","Salad","Soup",
+        "Sandwich","Pasta","Seafood","Chicken","Beef","Pork","Vegetarian","Vegan",
+        "Bread","Dessert","Snack","Beverage","Cocktail","Sauce & Condiment","Baked Goods","Other"
     ]
+
+    /// Mood and occasion. Comfort, Healthy, Quick, One-Pot, Grilled, Baked, Slow-Cooker,
+    /// Air-Fryer, Holiday, Party, Kid-Friendly, Budget, Meal-Prep, Leftovers.
+    nonisolated static let styles: [String] = [
+        "Comfort","Healthy","Quick","One-Pot","Grilled","Baked","Slow-Cooker",
+        "Air-Fryer","Holiday","Party","Kid-Friendly","Budget","Meal-Prep","Leftovers"
+    ]
+
+    /// The parent a regional style rolls up to, so "Southern" and "Tex-Mex" both answer
+    /// a filter for "American" without collapsing into it on the recipe card.
+    nonisolated static func parentCuisine(_ cuisine: String) -> String? {
+        switch canonicalCuisine(cuisine) {
+        case "Southern", "Cajun & Creole", "Tex-Mex", "BBQ", "New England", "Soul Food", "Hawaiian":
+            return "American"
+        default:
+            return nil
+        }
+    }
 
     /// Map a raw cuisine string (any case / synonym) to a canonical value.
     nonisolated static func canonicalCuisine(_ raw: String) -> String {
-        let r = raw.trimmingCharacters(in: .whitespaces).lowercased()
+        let r = SearchNormalization.fold(raw)
         if r.isEmpty { return "Other" }
-        // direct match
-        if let hit = cuisines.first(where: { $0.lowercased() == r }) { return hit }
-        // common synonyms / country forms
-        let synonyms: [String: String] = [
-            "italy": "Italian", "mexico": "Mexican", "china": "Chinese",
-            "japan": "Japanese", "india": "Indian", "thailand": "Thai",
-            "france": "French", "greece": "Greek", "spain": "Spanish",
-            "korea": "Korean", "vietnam": "Vietnamese", "usa": "American",
-            "us": "American", "united states": "American", "britain": "British",
-            "england": "British", "uk": "British", "germany": "German",
-            "morocco": "Moroccan", "turkey": "Turkish", "brazil": "Brazilian",
-        ]
-        if let mapped = synonyms[r] { return mapped }
-        // fuzzy fallback
-        if let fuzzy = cuisines.max(by: { FuzzyMatch.score(r, $0.lowercased()) < FuzzyMatch.score(r, $1.lowercased()) }),
-           FuzzyMatch.score(r, fuzzy.lowercased()) >= 0.8 {
+        if let direct = canonicalCuisineSingle(r) { return direct }
+
+        let pieces = r
+            .components(separatedBy: CharacterSet(charactersIn: "-/,&"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if pieces.count > 1 {
+            var fallback: String?
+            for piece in pieces.reversed() {
+                if let hit = canonicalCuisineSingle(piece) {
+                    if parentCuisine(hit) != nil { return hit }
+                    fallback = fallback ?? hit
+                }
+            }
+            if let fallback { return fallback }
+        }
+
+        if let fuzzy = cuisines.max(by: { FuzzyMatch.score(r, SearchNormalization.fold($0)) < FuzzyMatch.score(r, SearchNormalization.fold($1)) }),
+           FuzzyMatch.score(r, SearchNormalization.fold(fuzzy)) >= 0.8 {
             return fuzzy
         }
         return "Other"
@@ -169,19 +192,155 @@ enum RecipeTaxonomy {
 
     /// Map a raw category string to a canonical value.
     nonisolated static func canonicalCategory(_ raw: String) -> String {
-        let r = raw.trimmingCharacters(in: .whitespaces).lowercased()
+        let r = SearchNormalization.fold(raw)
         if r.isEmpty { return "Other" }
-        if let hit = categories.first(where: { $0.lowercased() == r }) { return hit }
+        if let direct = canonicalCategorySingle(r) { return direct }
+
+        let pieces = r
+            .components(separatedBy: CharacterSet(charactersIn: "-/,&"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        for piece in pieces where pieces.count > 1 {
+            if let hit = canonicalCategorySingle(piece) { return hit }
+        }
+
+        if let fuzzy = categories.max(by: { FuzzyMatch.score(r, SearchNormalization.fold($0)) < FuzzyMatch.score(r, SearchNormalization.fold($1)) }),
+           FuzzyMatch.score(r, SearchNormalization.fold(fuzzy)) >= 0.8 {
+            return fuzzy
+        }
+        return "Other"
+    }
+
+    nonisolated static func canonicalStyle(_ raw: String) -> String? {
+        let r = SearchNormalization.fold(raw)
+        if r.isEmpty { return nil }
+        if let hit = styles.first(where: { SearchNormalization.fold($0) == r }) { return hit }
         let synonyms: [String: String] = [
-            "starter": "Appetizer", "starters": "Appetizer", "appetizers": "Appetizer",
-            "main": "Dinner", "main course": "Dinner", "mains": "Dinner",
-            "entree": "Dinner", "entrée": "Dinner", "sweets": "Dessert",
-            "desserts": "Dessert", "drinks": "Beverage", "drink": "Beverage",
-            "sides": "Side", "soups": "Soup", "salads": "Salad", "snacks": "Snack",
-            "baking": "Baked Goods", "bread": "Baked Goods",
+            "comfort food": "Comfort", "light": "Healthy", "healthy-ish": "Healthy",
+            "fast": "Quick", "easy": "Quick", "weeknight": "Quick", "30 minute": "Quick", "30-minute": "Quick",
+            "one pot": "One-Pot", "one pan": "One-Pot", "sheet pan": "One-Pot", "skillet": "One-Pot",
+            "grill": "Grilled", "barbecue": "Grilled", "bbq": "Grilled", "roasted": "Baked", "oven": "Baked",
+            "slow cooker": "Slow-Cooker", "crockpot": "Slow-Cooker", "crock pot": "Slow-Cooker",
+            "air fryer": "Air-Fryer", "christmas": "Holiday", "thanksgiving": "Holiday", "easter": "Holiday",
+            "game day": "Party", "potluck": "Party", "kids": "Kid-Friendly", "family": "Kid-Friendly",
+            "cheap": "Budget", "meal prep": "Meal-Prep", "make ahead": "Meal-Prep", "leftover": "Leftovers"
         ]
         if let mapped = synonyms[r] { return mapped }
-        return "Other"
+        if let fuzzy = styles.max(by: { FuzzyMatch.score(r, SearchNormalization.fold($0)) < FuzzyMatch.score(r, SearchNormalization.fold($1)) }),
+           FuzzyMatch.score(r, SearchNormalization.fold(fuzzy)) >= 0.8 {
+            return fuzzy
+        }
+        return nil
+    }
+
+    private nonisolated static func canonicalCuisineSingle(_ r: String) -> String? {
+        if let hit = cuisines.first(where: { SearchNormalization.fold($0) == r }) { return hit }
+        let synonyms: [String: String] = [
+            "usa": "American", "u s a": "American", "us": "American", "u s": "American", "united states": "American",
+            "states": "American", "america": "American", "american regional": "American",
+            "south": "Southern", "southern food": "Southern", "southern us": "Southern", "southern usa": "Southern",
+            "lowcountry": "Southern", "appalachian": "Southern", "soul": "Soul Food", "soulfood": "Soul Food",
+            "cajun": "Cajun & Creole", "creole": "Cajun & Creole", "louisiana": "Cajun & Creole", "new orleans": "Cajun & Creole",
+            "tex mex": "Tex-Mex", "texmex": "Tex-Mex", "southwestern": "Tex-Mex", "southwest": "Tex-Mex",
+            "barbecue": "BBQ", "barbeque": "BBQ", "bbq": "BBQ", "smoked": "BBQ", "smokehouse": "BBQ",
+            "new england": "New England", "hawaii": "Hawaiian", "aloha": "Hawaiian",
+            "mexico": "Mexican", "italy": "Italian", "france": "French", "greece": "Greek", "spain": "Spanish",
+            "china": "Chinese", "japan": "Japanese", "korea": "Korean", "vietnam": "Vietnamese", "viet": "Vietnamese",
+            "philippines": "Filipino", "pinoy": "Filipino", "india": "Indian", "thailand": "Thai", "thai food": "Thai",
+            "med": "Mediterranean", "levantine": "Middle Eastern", "levant": "Middle Eastern", "middle east": "Middle Eastern",
+            "persian": "Middle Eastern", "israeli": "Middle Eastern", "lebanese": "Middle Eastern", "turkish": "Turkish", "turkey": "Turkish",
+            "morocco": "Moroccan", "moroccan": "Moroccan", "brazil": "Brazilian", "brazilian": "Brazilian",
+            "caribbean islands": "Caribbean", "jamaican": "Caribbean", "cuban": "Caribbean", "africa": "African", "ethiopian": "African",
+            "britain": "British", "england": "British", "english": "British", "uk": "British", "u k": "British",
+            "ireland": "Irish", "germany": "German", "polish": "Eastern European", "russian": "Eastern European", "hungarian": "Eastern European",
+            "latin": "Latin American", "central american": "Latin American", "south american": "Latin American", "peruvian": "Latin American",
+            "fusion cuisine": "Fusion", "global": "Fusion"
+        ]
+        return synonyms[r]
+    }
+
+    private nonisolated static func canonicalCategorySingle(_ r: String) -> String? {
+        if let hit = categories.first(where: { SearchNormalization.fold($0) == r }) { return hit }
+        let synonyms: [String: String] = [
+            "morning": "Breakfast", "breakfasts": "Breakfast", "brunches": "Brunch",
+            "main": "Dinner", "main course": "Dinner", "mains": "Dinner", "entree": "Dinner", "entrée": "Dinner", "supper": "Dinner",
+            "starter": "Appetizer", "starters": "Appetizer", "appetizers": "Appetizer", "small plate": "Appetizer",
+            "sides": "Side", "side dish": "Side", "soups": "Soup", "stew": "Soup", "stews": "Soup",
+            "salads": "Salad", "sandwiches": "Sandwich", "burger": "Sandwich", "wrap": "Sandwich",
+            "noodle": "Pasta", "noodles": "Pasta", "spaghetti": "Pasta", "macaroni": "Pasta",
+            "fish": "Seafood", "shellfish": "Seafood", "shrimp": "Seafood", "prawn": "Seafood", "prawns": "Seafood",
+            "poultry": "Chicken", "chickens": "Chicken", "steak": "Beef", "steaks": "Beef", "ground beef": "Beef",
+            "pig": "Pork", "ham": "Pork", "bacon": "Pork", "plant based": "Vegan", "plant-based": "Vegan", "meatless": "Vegetarian",
+            "veggie": "Vegetarian", "breads": "Bread", "loaf": "Bread", "baking": "Baked Goods", "baked goods": "Baked Goods",
+            "sweet": "Dessert", "sweets": "Dessert", "desserts": "Dessert", "cake": "Dessert", "pie": "Dessert",
+            "snacks": "Snack", "drink": "Beverage", "drinks": "Beverage", "cocktails": "Cocktail", "mocktail": "Cocktail",
+            "sauce": "Sauce & Condiment", "sauces": "Sauce & Condiment", "condiment": "Sauce & Condiment", "condiments": "Sauce & Condiment", "dressing": "Sauce & Condiment"
+        ]
+        return synonyms[r]
+    }
+}
+
+/// The cuisines, categories and styles that at least `minimum` recipes actually carry,
+/// in taxonomy order, so a filter row never offers a dead end.
+///
+/// Regional cuisines roll up: a filter for "American" also matches recipes tagged
+/// "Southern" or "Tex-Mex", via RecipeTaxonomy.parentCuisine.
+enum RecipeFacets {
+    nonisolated static func availableCuisines(in recipes: [UserRecipe], minimum: Int = 1) -> [String] {
+        let counts = cuisineCounts(in: recipes)
+        return RecipeTaxonomy.cuisines.filter { (counts[$0] ?? 0) >= minimum }
+    }
+
+    nonisolated static func availableCategories(in recipes: [UserRecipe], minimum: Int = 1) -> [String] {
+        var counts: [String: Int] = [:]
+        for recipe in recipes {
+            for tag in recipe.tags {
+                let category = RecipeTaxonomy.canonicalCategory(tag)
+                if category != "Other" { counts[category, default: 0] += 1 }
+            }
+        }
+        return RecipeTaxonomy.categories.filter { (counts[$0] ?? 0) >= minimum }
+    }
+
+    nonisolated static func availableStyles(in recipes: [UserRecipe], minimum: Int = 1) -> [String] {
+        var counts: [String: Int] = [:]
+        for recipe in recipes {
+            for tag in recipe.tags {
+                if let style = RecipeTaxonomy.canonicalStyle(tag) {
+                    counts[style, default: 0] += 1
+                }
+            }
+        }
+        return RecipeTaxonomy.styles.filter { (counts[$0] ?? 0) >= minimum }
+    }
+
+    nonisolated static func matches(_ recipe: UserRecipe, cuisine: String) -> Bool {
+        let target = RecipeTaxonomy.canonicalCuisine(cuisine)
+        guard target != "Other" else { return false }
+        let recipeCuisine = RecipeTaxonomy.canonicalCuisine(recipe.cuisine)
+        if recipeCuisine == target { return true }
+        if RecipeTaxonomy.parentCuisine(recipeCuisine) == target { return true }
+        return recipe.tags.contains { tag in
+            let tagCuisine = RecipeTaxonomy.canonicalCuisine(tag)
+            return tagCuisine == target || RecipeTaxonomy.parentCuisine(tagCuisine) == target
+        }
+    }
+
+    nonisolated static func count(cuisine: String, in recipes: [UserRecipe]) -> Int {
+        cuisineCounts(in: recipes)[RecipeTaxonomy.canonicalCuisine(cuisine)] ?? 0
+    }
+
+    private nonisolated static func cuisineCounts(in recipes: [UserRecipe]) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for recipe in recipes {
+            let cuisine = RecipeTaxonomy.canonicalCuisine(recipe.cuisine)
+            guard cuisine != "Other" else { continue }
+            counts[cuisine, default: 0] += 1
+            if let parent = RecipeTaxonomy.parentCuisine(cuisine) {
+                counts[parent, default: 0] += 1
+            }
+        }
+        return counts
     }
 }
 

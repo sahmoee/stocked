@@ -324,13 +324,11 @@ struct RecipeVaultView: View {
                 }
 
                 // ── #244 — Top Categories (mockup) ──────────────────────
-                let cuisineCounts: [(String, Int)] = {
-                    var counts: [String: Int] = [:]
-                    for r in session.guestStore.userRecipes where !r.cuisine.isEmpty {
-                        counts[r.cuisine, default: 0] += 1
-                    }
-                    return counts.sorted { $0.value > $1.value }.prefix(4).map { ($0.key, $0.value) }
-                }()
+                let cuisineCounts: [(String, Int)] = RecipeFacets.availableCuisines(in: session.guestStore.userRecipes)
+                    .map { ($0, RecipeFacets.count(cuisine: $0, in: session.guestStore.userRecipes)) }
+                    .sorted { $0.1 > $1.1 }
+                    .prefix(4)
+                    .map { ($0.0, $0.1) }
                 if !cuisineCounts.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Top Categories")
@@ -1847,11 +1845,9 @@ struct CollectionsListView: View {
     @State private var goList = false
 
     private var cuisines: [(String, Int)] {
-        var counts: [String: Int] = [:]
-        for r in session.guestStore.userRecipes where !r.cuisine.isEmpty {
-            counts[r.cuisine, default: 0] += 1
-        }
-        return counts.sorted { $0.value > $1.value }
+        RecipeFacets.availableCuisines(in: session.guestStore.userRecipes)
+            .map { ($0, RecipeFacets.count(cuisine: $0, in: session.guestStore.userRecipes)) }
+            .sorted { $0.1 > $1.1 }
     }
 
     var body: some View {
@@ -1908,7 +1904,7 @@ struct CollectionsListView: View {
         .navigationDestination(isPresented: $goList) {
             if let selectedCuisine {
                 RecipeListView(title: selectedCuisine,
-                               recipes: session.guestStore.userRecipes.filter { $0.cuisine == selectedCuisine })
+                               recipes: session.guestStore.userRecipes.filter { RecipeFacets.matches($0, cuisine: selectedCuisine) })
                     .environment(session)
             }
         }

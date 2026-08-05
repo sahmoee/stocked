@@ -201,6 +201,12 @@ actor RecipeDatabase {
     /// main driver of the runaway disk-write / CPU resource terminations).
     @discardableResult
     private func upsertNoPersist(_ entry: RecipeDatabaseEntry) -> Bool {
+        // Retired sources are refused here rather than at each caller. Every ingestion
+        // path in the app ends up in this method — the bundled-JSON importer, the web
+        // catalogue merge, the offline cache merge, manual saves — so one guard closes
+        // all of them, including any path added later. See RecipeSourceBlocklist.swift.
+        guard !RecipeSourceBlocklist.isBlocked(entry) else { return false }
+
         let key = entry.title.lowercased()
         if let existing = titleIndex[key], let idx = entries.firstIndex(where: { $0.id == existing }) {
             // Overwrite only if the incoming entry has richer data
@@ -237,6 +243,23 @@ actor RecipeDatabase {
             titleIndex.removeValue(forKey: key)
             persist()
         }
+    }
+
+    /// Removes every stored entry that came from a retired source, in one pass with one
+    /// write. Returns how many went, so the caller can log it rather than guess.
+    ///
+    /// Deliberately not built out of `delete(id:)` in a loop: that method persists the
+    /// whole file per call, which on a 2000-entry database is 2000 full rewrites for one
+    /// sweep — the same O(N²) disk-write pattern that `upsertAll` exists to avoid.
+    @discardableResult
+    func purgeBlockedSources() -> Int {
+        let kept = entries.filter { !RecipeSourceBlocklist.isBlocked($0) }
+        let removed = entries.count - kept.count
+        guard removed > 0 else { return 0 }
+        entries = kept
+        rebuildIndex()
+        persist()
+        return removed
     }
 
     // MARK: Import helpers — merge from other caches
@@ -435,6 +458,16 @@ final class RecipeDatabaseManager {
     func delete(id: UUID) async {
         await db.delete(id: id)
         await refreshCount()
+    }
+
+    /// Drops every entry from a retired source. Called by the launch sweep in
+    /// `RecipePurge.run`; exposed here so a view can offer it too without reaching
+    /// through to the actor.
+    @discardableResult
+    func purgeBlockedSources() async -> Int {
+        let removed = await db.purgeBlockedSources()
+        if removed > 0 { await refreshCount() }
+        return removed
     }
 
     // MARK: Merge from all live caches

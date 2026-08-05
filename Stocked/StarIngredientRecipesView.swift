@@ -292,7 +292,16 @@ struct StarIngredientRecipesView: View {
     }
 
     private func databaseEntry(from web: WebRecipe) -> RecipeDatabaseEntry {
-        RecipeDatabaseEntry(
+        let steps = web.steps.map(\.text)
+        let classification = RecipeClassifier.classify(
+            title: web.title,
+            rawCuisine: web.cuisine,
+            rawCategory: web.category,
+            keywords: web.tags,
+            ingredients: web.ingredients.map { RecipeIngredient(name: $0, amount: "") },
+            instructions: steps
+        )
+        return RecipeDatabaseEntry(
             title: web.title,
             description: web.description,
             sourceURL: web.sourceURL,
@@ -301,11 +310,11 @@ struct StarIngredientRecipesView: View {
             cookTime: web.cookTime,
             totalTime: web.totalTime,
             servings: web.servings,
-            category: web.category,
-            cuisine: web.cuisine,
-            tags: web.tags,
+            category: classification.category,
+            cuisine: classification.cuisine,
+            tags: classification.tags + web.tags,
             ingredients: web.ingredients,
-            steps: web.steps.map(\.text),
+            steps: steps,
             imageURL: web.imageURL,
             calories: web.calories ?? "",
             rating: web.rating
@@ -317,6 +326,15 @@ struct StarIngredientRecipesView: View {
             let amount = line.amount.trimmingCharacters(in: .whitespacesAndNewlines)
             return amount.isEmpty ? line.name : "\(amount) \(line.name)"
         }
+        let rawTags = [category, selection] + searchTerms
+        let classification = RecipeClassifier.classify(
+            title: generated.title,
+            rawCuisine: generated.cuisine,
+            rawCategory: generated.mealCategory.isEmpty ? category : generated.mealCategory,
+            keywords: rawTags,
+            ingredients: generated.ingredients.map { RecipeIngredient(name: $0.name, amount: $0.amount) },
+            instructions: generated.steps
+        )
         return RecipeDatabaseEntry(
             title: generated.title,
             description: generated.tips,
@@ -326,9 +344,9 @@ struct StarIngredientRecipesView: View {
             cookTime: generated.cookTime,
             totalTime: generated.cookTime,
             servings: String(generated.servings),
-            category: category,
-            cuisine: "",
-            tags: [category, selection] + searchTerms,
+            category: classification.category,
+            cuisine: classification.cuisine,
+            tags: classification.tags + rawTags,
             ingredients: ingredientLines,
             steps: generated.steps,
             imageURL: generated.imageURL ?? ""

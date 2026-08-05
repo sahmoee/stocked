@@ -52,7 +52,7 @@ nonisolated private func addRRect(_ path: inout Path, _ x0: CGFloat, _ x1: CGFlo
 }
 
 struct ChefHatShape: Shape {
-    func path(in rect: CGRect) -> Path {
+    nonisolated func path(in rect: CGRect) -> Path {
         var raw = Path()
         // Billowy crown.
         raw.move(to: p(5.4, 17.6))

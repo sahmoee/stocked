@@ -1019,7 +1019,7 @@ struct SubcategoryDisclosure: View {
 // MARK: - Rounded corners helper
 struct RoundedCorners: Shape {
     var tl: CGFloat; var tr: CGFloat; var bl: CGFloat; var br: CGFloat
-    func path(in rect: CGRect) -> Path {
+    nonisolated func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.minX + tl, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX - tr, y: rect.minY))

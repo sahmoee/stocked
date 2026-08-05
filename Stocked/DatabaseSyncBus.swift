@@ -58,12 +58,20 @@ final class DatabaseSyncBus {
 
         case .userRecipeAdded(let title, let ingredients, let steps):
             guard !title.isEmpty else { break }
+            let classification = RecipeClassifier.classify(
+                title: title,
+                rawCuisine: nil,
+                rawCategory: "Dinner",
+                keywords: ["my recipe"],
+                ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: steps
+            )
             let entry = RecipeDatabaseEntry(
                 title: title, description: "",
                 sourceURL: "", sourceName: "My Recipes",
                 prepTime: "", cookTime: "", totalTime: "", servings: "4",
-                category: "Dinner", cuisine: "",
-                tags: ["my recipe"], ingredients: ingredients, steps: steps
+                category: classification.category, cuisine: classification.cuisine,
+                tags: classification.tags + ["my recipe"], ingredients: ingredients, steps: steps
             )
             await RecipeDatabase.shared.upsert(entry)
 
@@ -75,22 +83,38 @@ final class DatabaseSyncBus {
 
         case .webRecipeFetched(let title, let url, let source, let ingredients,
                                let steps, let category, let cuisine, let tags):
+            let classification = RecipeClassifier.classify(
+                title: title,
+                rawCuisine: cuisine,
+                rawCategory: category,
+                keywords: tags,
+                ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: steps
+            )
             let entry = RecipeDatabaseEntry(
                 title: title, description: "",
                 sourceURL: url, sourceName: source,
                 prepTime: "", cookTime: "", totalTime: "", servings: "4",
-                category: category, cuisine: cuisine,
-                tags: tags, ingredients: ingredients, steps: steps
+                category: classification.category, cuisine: classification.cuisine,
+                tags: classification.tags + tags, ingredients: ingredients, steps: steps
             )
             await RecipeDatabase.shared.upsert(entry)
 
         case .offlineRecipeCached(let title, let ingredients, let steps):
+            let classification = RecipeClassifier.classify(
+                title: title,
+                rawCuisine: nil,
+                rawCategory: "Dinner",
+                keywords: [],
+                ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: steps
+            )
             let entry = RecipeDatabaseEntry(
                 title: title, description: "",
                 sourceURL: "", sourceName: "TheMealDB",
                 prepTime: "", cookTime: "", totalTime: "", servings: "4",
-                category: "Dinner", cuisine: "",
-                tags: [], ingredients: ingredients, steps: steps
+                category: classification.category, cuisine: classification.cuisine,
+                tags: classification.tags, ingredients: ingredients, steps: steps
             )
             await RecipeDatabase.shared.upsert(entry)
 

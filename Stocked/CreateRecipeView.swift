@@ -465,14 +465,24 @@ struct CreateRecipeView: View {
         let steps = instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let classification = RecipeClassifier.classify(
+            title: trimmedTitle,
+            rawCuisine: cuisine,
+            rawCategory: nil,
+            keywords: [],
+            ingredients: ingredients,
+            instructions: steps
+        )
         var recipe = UserRecipe(
-            title:        title.trimmingCharacters(in: .whitespacesAndNewlines),
+            title:        trimmedTitle,
             description:  description,
             cookTime:     cookTime,
             prepTime:     prepTime,
             servings:     servings,
             difficulty:   difficulty,
-            cuisine:      cuisine,
+            cuisine:      classification.cuisine,
+            tags:         classification.tags,
             ingredients:  ingredients,
             instructions: steps,
             notes:        notes,

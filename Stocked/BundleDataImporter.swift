@@ -114,6 +114,11 @@ final class BundleDataImporter {
 
         return urls.filter { url in
             let name = url.lastPathComponent.lowercased()
+            // Retired datasets are skipped by filename, before the file is read. The
+            // upsert chokepoint would reject every row anyway, but the Kaggle seed is a
+            // multi-megabyte file and parsing it at launch to throw all of it away is a
+            // second of the user's time spent on nothing.
+            guard !RecipeSourceBlocklist.isBlockedFilename(name) else { return false }
             return supportedPrefixes.contains { name.hasPrefix($0) }
         }
         .sorted { $0.lastPathComponent < $1.lastPathComponent }

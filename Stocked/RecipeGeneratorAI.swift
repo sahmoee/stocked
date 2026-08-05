@@ -26,6 +26,11 @@ nonisolated enum RecipeGeneratorAI {
         var haveItems: [String] = []      // ingredients the user already has
         var dietary: String? = nil        // e.g. "vegetarian", "gluten-free"
         var maxTime: String? = nil        // e.g. "30 minutes"
+        var cuisinePreference: [String] = []
+        var mustUse: [String] = []
+        var avoidGeneric: Bool = true
+        var minIngredients: Int = 4
+        var minSteps: Int = 3
         /// SAFETY: the user's saved allergen/dislike profile. This was MISSING
         /// entirely — the generator only ever saw the free-text `dietary` chip,
         /// so it could compose a recipe around an ingredient the user had
@@ -59,6 +64,17 @@ nonisolated enum RecipeGeneratorAI {
             payload["allergens"] = options.dietaryRules.allergens
         }
         if let t = options.maxTime?.trimmingCharacters(in: .whitespaces), !t.isEmpty { payload["maxTime"] = t }
+        let cuisinePreference = options.cuisinePreference
+            .map { RecipeTaxonomy.canonicalCuisine($0) }
+            .filter { $0 != "Other" }
+        if !cuisinePreference.isEmpty { payload["cuisinePreference"] = Array(Set(cuisinePreference)).sorted() }
+        let mustUse = DietaryGuard.safeIngredients(options.mustUse, rules: options.dietaryRules)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !mustUse.isEmpty { payload["mustUse"] = Array(mustUse.prefix(5)) }
+        payload["avoidGeneric"] = options.avoidGeneric
+        payload["minIngredients"] = max(1, options.minIngredients)
+        payload["minSteps"] = max(1, options.minSteps)
 
         let responseText: String
         do {
@@ -135,15 +151,26 @@ nonisolated enum RecipeGeneratorAI {
         }()
         let cookTime = str("cookTime").isEmpty ? str("totalTime") : str("cookTime")
         let tips = str("description")
+        let recipeTitle = title.isEmpty ? "Untitled Recipe" : title
+        let classification = RecipeClassifier.classify(
+            title: recipeTitle,
+            rawCuisine: str("cuisine"),
+            rawCategory: str("category"),
+            keywords: [],
+            ingredients: lines.map { RecipeIngredient(name: $0.name, amount: $0.amount) },
+            instructions: steps
+        )
 
         return GeneratedRecipe(
-            title: title.isEmpty ? "Untitled Recipe" : title,
+            title: recipeTitle,
             cookTime: cookTime,
             servings: max(1, servings),
             difficulty: difficulty,
             ingredients: lines,
             steps: steps,
-            tips: tips
+            tips: tips,
+            mealCategory: classification.category,
+            cuisine: classification.cuisine
         )
         // source defaults to .generated, which is correct for an AI-generated recipe.
     }

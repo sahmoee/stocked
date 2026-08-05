@@ -4,7 +4,7 @@
 import Foundation
 import ActivityKit
 
-struct CookTimerAttributes: ActivityAttributes {
+nonisolated struct CookTimerAttributes: ActivityAttributes {
     // Dynamic — updated as the timer runs.
     public struct ContentState: Codable, Hashable {
         var stepNumber: Int      // 1-based, for display

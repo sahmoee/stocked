@@ -3,7 +3,7 @@
 // Screen + Dynamic Island count down on-device without per-second app updates.
 // ⚠️ Requires "NSSupportsLiveActivities = YES" in the app's Info.plist.
 import Foundation
-import ActivityKit
+@preconcurrency import ActivityKit
 import os
 
 @MainActor

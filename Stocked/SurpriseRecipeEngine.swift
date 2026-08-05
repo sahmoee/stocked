@@ -319,6 +319,16 @@ struct OnDeviceRecipeGenerator {
             inventory: Set(parsed.all.map { $0.lowercased() })
         )
 
+        let axes = RecipeTemplate.axes(for: data.category)
+        let classification = RecipeClassifier.classify(
+            title: data.title,
+            rawCuisine: axes.cuisine,
+            rawCategory: axes.category,
+            keywords: axes.styles,
+            ingredients: data.ingredients.map { RecipeIngredient(name: $0.name, amount: $0.amount) },
+            instructions: data.steps
+        )
+
         return GeneratedRecipe(
             title:              data.title,
             cookTime:           data.cookTime,
@@ -327,7 +337,8 @@ struct OnDeviceRecipeGenerator {
             ingredients:        data.ingredients,
             steps:              data.steps,
             tips:               data.tip,
-            mealCategory:       data.category,
+            mealCategory:       classification.category,
+            cuisine:            classification.cuisine,
             missingIngredients: data.ingredients.filter { !$0.inStock }.map { $0.name },
             imageURL:           "",  // no stored URL → AsyncFoodImage renders emoji placeholder
             source:             .surprise
@@ -535,6 +546,19 @@ enum RecipeTemplate: CaseIterable, Hashable, Sendable {
                     "Finish with a squeeze of citrus or a drizzle of good oil to brighten the dish."
                 ]
             )
+        }
+    }
+
+    nonisolated static func axes(for templateValue: String) -> (cuisine: String?, category: String?, styles: [String]) {
+        switch templateValue {
+        case "Asian": return ("Fusion", nil, [])
+        case "Bowl": return (nil, nil, ["Healthy"])
+        case "Main": return (nil, "Dinner", [])
+        case "Italian": return ("Italian", nil, [])
+        case "Comfort": return (nil, nil, ["Comfort"])
+        case "Vegetarian": return (nil, "Vegetarian", [])
+        case "Fusion": return ("Fusion", nil, [])
+        default: return (templateValue, templateValue, [])
         }
     }
 

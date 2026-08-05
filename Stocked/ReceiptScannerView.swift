@@ -1316,10 +1316,10 @@ struct LiveTextScannerPanel: UIViewControllerRepresentable {
             forName: .captureReceiptShutter,
             object: nil,
             queue: .main
-        ) { [weak vc, weak coordinator = context.coordinator] _ in
-            guard let vc, let coordinator else { return }
-            Task { @MainActor in
-                coordinator.captureAllText(from: vc)
+        ) { [weak coordinator = context.coordinator] _ in
+            guard let coordinator else { return }
+            MainActor.assumeIsolated {
+                coordinator.triggerCapture()
             }
         }
 
@@ -1352,6 +1352,12 @@ struct LiveTextScannerPanel: UIViewControllerRepresentable {
         // Tapping recognized text also triggers capture
         func dataScanner(_ scanner: DataScannerViewController, didTapOn item: RecognizedItem) {
             captureAllText(from: scanner)
+        }
+
+        @MainActor
+        func triggerCapture() {
+            guard let vc else { return }
+            captureAllText(from: vc)
         }
 
         @MainActor

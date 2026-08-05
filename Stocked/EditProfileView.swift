@@ -19,7 +19,7 @@ struct EditProfileView: View {
     private let goals = ["Eat Healthier","Cook Faster","Explore Cuisines","Reduce Waste","Stress Less","Decision Fatigue"]
     private let diets = ["Omnivore","Vegetarian","Vegan","Pescatarian","Keto","Paleo","Gluten-Free"]
     private let allergenOptions = ["Peanuts","Tree Nuts","Dairy","Eggs","Fish","Shellfish","Gluten","Soy","Corn"]
-    private let cuisineOptions = ["Italian","Mexican","Asian","Mediterranean","American","Indian","Caribbean","Middle Eastern","French"]
+    private let cuisineOptions = RecipeTaxonomy.cuisines
     private let skills = ["Beginner","Home Cook","Experienced","Enthusiast"]
     private let prepDays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
     private let equipmentOptions = ["Stovetop","Oven","Microwave","Air Fryer","Slow Cooker","Instant Pot","Grill / BBQ","Blender","Food Processor","Toaster Oven"]

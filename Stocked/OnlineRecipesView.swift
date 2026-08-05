@@ -235,8 +235,27 @@ class OnlineRecipesLoader {
         let cached = await OnlineRecipesPersistentCache.shared.load(
             cacheKey: cacheKey, timestampKey: cacheTimestampKey
         )
-        guard !cached.recipes.isEmpty, recipes.isEmpty else { return }
-        publish(cached.recipes)
+        // STK-69-0001 (Build 69, from the field) — "No recipe showing … needs a
+        // full recipe as they appear anywhere else in the app", on Cook Now
+        // results.
+        //
+        // This function published the persisted cache RAW. Every other path into
+        // `recipes` goes through `filterByProfile`, which drops recipes with no
+        // real instructions — empty, or one of the "see full recipe at source"
+        // placeholders that feeds without step licences emit. This one did not,
+        // and this is the path the Cook tab uses: both `CookHubView.bootstrap()`
+        // and `CookNowResultsView`'s `.task` call it on a cold launch.
+        //
+        // So Cook Now could classify, rank and offer a recipe that the Recipes
+        // tab would never have shown, and there was no method to render when the
+        // tester opened it. Filtering here means the Cook tab and the Recipes tab
+        // warm from the same cache and end up with the same pool, which is what
+        // "one source of truth" was supposed to mean.
+        let usable = cached.recipes.filter {
+            OnlineRecipeFacts.hasRealInstructions($0.instructions)
+        }
+        guard !usable.isEmpty, recipes.isEmpty else { return }
+        publish(usable)
     }
 
     private nonisolated static func filterByProfile(
@@ -669,11 +688,8 @@ struct OnlineRecipesView: View {
     ) -> [OnlineRecipe] {
         func cuisineFiltered(_ list: [OnlineRecipe]) -> [OnlineRecipe] {
             guard let cuisine = selectedCuisine else { return list }
-            let query = cuisine.lowercased()
-            return list.filter {
-                $0.area.lowercased().contains(query) ||
-                $0.category.lowercased().contains(query)
-            }
+            let target = RecipeTaxonomy.canonicalCuisine(cuisine)
+            return list.filter { RecipeTaxonomy.canonicalCuisine($0.area) == target }
         }
 
         let base: [OnlineRecipe]
@@ -901,9 +917,7 @@ struct OnlineRecipesView: View {
             .animation(.easeInOut(duration: 0.15), value: dbSuggestions.map(\.id))
 
             // ── Cuisine browsing grid (#20) ─────────────────────────────
-            let cuisines = ["🇮🇹 Italian","🇲🇽 Mexican","🇨🇳 Chinese","🇯🇵 Japanese",
-                            "🇮🇳 Indian","🇹🇭 Thai","🇬🇷 Greek","🇫🇷 French",
-                            "🇰🇷 Korean","🇻🇳 Vietnamese","🇺🇸 American","🇲🇦 Moroccan"]
+            let cuisines = RecipeTaxonomy.cuisines.map { "\(CuisineBrowseView.flag(for: $0)) \($0)" }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     // #251 — allergen hide toggle (only shown if the user set allergens).
@@ -941,7 +955,7 @@ struct OnlineRecipesView: View {
                         }.buttonStyle(.plain)
                     }
                     ForEach(cuisines, id: \.self) { cuisine in
-                        let name = String(cuisine.dropFirst(3)) // strip emoji flag
+                        let name = cuisine.components(separatedBy: " ").dropFirst().joined(separator: " ")
                         Button {
                             withAnimation(.spring(response: 0.2)) {
                                 selectedCuisine = selectedCuisine == name ? nil : name

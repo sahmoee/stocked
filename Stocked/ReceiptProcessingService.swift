@@ -83,8 +83,15 @@ nonisolated enum ReceiptProcessingService {
     private static func stripReceiptMetadata(from raw: String) -> String {
         var value = raw
         let patterns = [
+            // Leading receipt line-item or PLU numbers: "52 H-E-B SALT" → "H-E-B SALT"
+            // Matches 2-4 digit numbers at the start followed by a letter (avoids single-digit
+            // quantities like "2 MILK" which are handled separately by parseQuantity).
+            #"^\s*\d{2,4}\s+(?=[A-Za-z])"#,
+            // Quantity × unit prefix: "3 x ", "2 ct "
             #"^\s*\d{1,3}\s*(?:x|ct|count|pk|pack)\s+"#,
+            // Embedded weight/volume measurements
             #"\b\d+(?:\.\d+)?\s*(?:fl\s*oz|oz|lb|lbs|g|kg|ml|l)\b"#,
+            // Trailing prices
             #"\s+\$?\d+\.\d{2}\s*$"#
         ]
         for pattern in patterns {

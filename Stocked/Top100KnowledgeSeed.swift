@@ -606,7 +606,22 @@ extension StockedKnowledgeBase {
         let knownNames = Set(ingredients.map { $0.name.lowercased() })
         let newIngredients = Self.top100Ingredients.filter { !knownNames.contains($0.name.lowercased()) }
         ingredients.append(contentsOf: newIngredients)
-        Task { await RecipeDatabase.shared.upsertAll(Self.top100Recipes) }
+        let classifiedRecipes = Self.top100Recipes.map { recipe in
+            let classification = RecipeClassifier.classify(
+                title: recipe.title,
+                rawCuisine: recipe.cuisine,
+                rawCategory: recipe.category,
+                keywords: recipe.tags,
+                ingredients: recipe.ingredients.map { RecipeIngredient(name: $0, amount: "") },
+                instructions: recipe.steps
+            )
+            var updated = recipe
+            updated.cuisine = classification.cuisine
+            updated.category = classification.category
+            updated.tags = classification.tags + recipe.tags
+            return updated
+        }
+        Task { await RecipeDatabase.shared.upsertAll(classifiedRecipes) }
         saveIngredients()
     }
 }

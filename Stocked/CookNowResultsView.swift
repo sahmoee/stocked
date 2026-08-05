@@ -112,10 +112,11 @@ struct CookNowResultsView: View {
         snapshot = CookNowCompute.run(store: store, session: cookSession)
     }
 
-    private var isEmptyEverywhere: Bool {
-        snapshot.readyNow.isEmpty && snapshot.needsReview.isEmpty
-            && snapshot.almostReady.isEmpty && snapshot.morePossibilities.isEmpty
-    }
+    // PERF: this used to touch all four tier lists, and each of those was a
+    // computed property that re-filtered and re-sorted the whole catalog. Between
+    // this check and the sections below, one body pass ran ~10 full passes over
+    // ~150 recipes. The tiers are stored on Output now and this is a Bool read.
+    private var isEmptyEverywhere: Bool { snapshot.isEmptyEverywhere }
 
     // MARK: Sections
 
@@ -179,7 +180,10 @@ struct CookNowResultsView: View {
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                     }
-                    VStack(spacing: 10) {
+                    // PERF: LazyVStack. The eager VStack built all 12 CookRecipeCards
+                    // — each with an AsyncImage — the instant the section appeared,
+                    // for every section, whether or not any of them were on screen.
+                    LazyVStack(spacing: 10) {
                         ForEach(items.prefix(12)) { c in
                             CookRecipeCard(
                                 title: c.recipe.title,

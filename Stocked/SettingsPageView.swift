@@ -29,6 +29,7 @@ struct SettingsPageView: View {
         case transfer, notifications, dataStorage
         case helpCenter, editProfile
         case qa
+        case catalogImport
         var id: Int { rawValue }
     }
     @State private var activeSheet: Sheet? = nil
@@ -75,7 +76,7 @@ struct SettingsPageView: View {
                     // Worker bridge to the StockedQA companion app. Deliberately last.
                     settingsSectionRow(icon: "checklist", tint: Color.stockedCharcoal,
                                        title: "QA",
-                                       subtitle: "Release checklist · testers only") {
+                                       subtitle: "Everything QA · testers only") {
                         activeSheet = .qa
                     }
 
@@ -110,7 +111,13 @@ struct SettingsPageView: View {
             case .dataStorage:   DataStorageView().environment(session)
             case .helpCenter:    HelpCenterSheet().environment(session)
             case .editProfile:   EditProfileView().environment(session)
-            case .qa:            StockedQAGateView().environment(session)
+            case .qa:            StockedQAEntryView().environment(session)
+            case .catalogImport:
+                #if targetEnvironment(macCatalyst)
+                RecipeCatalogImportView().environment(session)
+                #else
+                EmptyView()
+                #endif
             }
         }
         .alert("Erase All Data?", isPresented: $showClearAlert) {
@@ -246,233 +253,50 @@ struct SettingsPageView: View {
     // MARK: - Preferences
 
     @ViewBuilder private var preferencesContent: some View {
-        Toggle(isOn: Binding(get: { session.isDarkMode }, set: { session.isDarkMode = $0 })) {
-            Label("Dark Mode", systemImage: "moon.fill")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-        }.tint(Color.stockedGold)
-
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Measurements", systemImage: "ruler")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-            HStack(spacing: 8) {
-                ForEach(UnitSystem.allCases, id: \.self) { sys in
-                    themeButton(sys.label, active: session.unitSystem == sys) {
-                        withAnimation(.spring(response: 0.25)) { session.unitSystem = sys }
-                    }
-                }
-            }
-        }
-
-        RecipeTextSizeControl()
-
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Cook Buttons", systemImage: "circle.grid.2x1.fill")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-            Text("Shape picks the Cook page look (Circle, Pill rows, Rounded photo cards); size scales it — updates live")
-                .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-            HStack(spacing: 6) {
-                ForEach(CookButtonShape.allCases, id: \.self) { shape in
-                    themeButton(shape.rawValue, active: session.cookButtonShape == shape) {
-                        withAnimation(.spring(response: 0.25)) { session.cookButtonShape = shape }
-                    }
-                }
-            }
-            HStack(spacing: 10) {
-                Image(systemName: "minus.magnifyingglass")
-                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
-                Slider(value: Binding(get: { session.cookButtonSize },
-                                      set: { session.cookButtonSize = $0 }),
-                       in: 150...400, step: 10)
-                    .tint(Color.stockedGold)
-                Image(systemName: "plus.magnifyingglass")
-                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
-            }
-        }
-
-        Toggle(isOn: Binding(
-            get: { UserDefaults.standard.bool(forKey: "crowdShareEnabled") },
-            set: { UserDefaults.standard.set($0, forKey: "crowdShareEnabled") }
-        )) {
-            VStack(alignment: .leading, spacing: 2) {
-                Label("Improve Stocked for Everyone", systemImage: "person.3.fill")
-                    .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                Text("Share anonymized item facts (name, unit, container, quantity) — never your identity, account, or location")
-                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-            }
-        }.tint(Color.stockedGold)
-
-        Button { activeSheet = .storePopout } label: {
-            HStack {
-                Label("Preferred Store", systemImage: "storefront")
-                    .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                Spacer()
-                Text(session.preferredStore).font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedGold)
-                Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.35))
-            }
-            .contentShape(Rectangle())
-        }.buttonStyle(.plain)
-
-        Toggle(isOn: Binding(get: { session.autoAddMissingToGrocery }, set: { session.autoAddMissingToGrocery = $0 })) {
-            Label("Auto-Add Missing to Grocery", systemImage: "cart.badge.plus")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-        }.tint(Color.stockedGold)
-
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Auto Backup", systemImage: "clock.arrow.2.circlepath")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-            HStack(spacing: 6) {
-                ForEach(BackupFrequency.allCases, id: \.self) { freq in
-                    themeButton(freq.rawValue, active: session.backupFrequency == freq) {
-                        session.backupFrequency = freq
-                    }
-                }
-            }
-        }
-
-        settingsButton(icon: "globe", color: Color.stockedGold,
-                       title: "Recipe Sources", detail: "Add websites or manage sources") {
-            activeSheet = .recipeSources
-        }
-        settingsButton(icon: "app.badge", color: Color.stockedGold,
-                       title: "App Icon", detail: "Choose an alternate Home Screen icon") {
-            activeSheet = .appIcon
-        }
-
-        if HealthKitManager.shared.isAvailable {
-            Toggle(isOn: Binding(
-                get: { HealthKitManager.shared.isEnabled },
-                set: { HealthKitManager.shared.isEnabled = $0 }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label("Apple Health", systemImage: "heart.fill")
-                        .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-                    Text("Log cooked-meal nutrition to Health")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                }
-            }.tint(Color.stockedGold)
-        }
+        PreferencesSectionView(
+            onPreferredStore: { activeSheet = .storePopout },
+            onRecipeSources: { activeSheet = .recipeSources },
+            onAppIcon: { activeSheet = .appIcon }
+        )
     }
 
     // MARK: - Notifications
 
     @ViewBuilder private var notificationsContent: some View {
-        Toggle(isOn: Binding(get: { session.notificationsEnabled }, set: { session.notificationsEnabled = $0 })) {
-            Label("Low Stock Reminders", systemImage: "exclamationmark.bubble.fill")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-        }.tint(Color.stockedGold)
-
-        settingsButton(icon: "bell.badge.fill", color: Color.stockedGold,
-                       title: "Reminders & Daily Brief",
-                       detail: "Schedule expiry, cook & prep reminders") {
-            activeSheet = .notifications
-        }
+        NotificationsSectionView(onNotificationSettings: { activeSheet = .notifications })
     }
 
     // MARK: - Data & Storage
 
     @ViewBuilder private var dataStorageContent: some View {
-        settingsButton(icon: "arrow.left.arrow.right.square.fill", color: Color.stockedGold,
-                       title: "Transfer Kitchen", detail: "Export or import data") {
-            activeSheet = .transfer
-        }
-        settingsButton(icon: "icloud.fill", color: Color.stockedInfo,
-                       title: "Backup to iCloud",
-                       detail: "Last backup: \(session.transferManager.lastBackupDate)") {
-            session.transferManager.backupToiCloud(store: session.guestStore)
-        }
-        if !session.transferManager.errorMessage.isEmpty {
-            Label(session.transferManager.errorMessage, systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 12)).foregroundStyle(.red)
-        } else if !session.transferManager.statusMessage.isEmpty {
-            Label(session.transferManager.statusMessage, systemImage: "checkmark.circle.fill")
-                .font(.system(size: 12)).foregroundStyle(Color.stockedGreen)
-        }
-        settingsButton(icon: "internaldrive", color: Color.stockedCharcoal,
-                       title: "Storage & Auto Backup",
-                       detail: "Usage, migration · Backs up \(session.backupFrequency.rawValue.lowercased())") {
-            activeSheet = .dataStorage
-        }
-        // Improvement #20 — one screen over the Worker, crash/hang history, sync conflicts, cache
-        // and storage. Also the only route to SyncDiagnosticsView, which was built and never linked.
-        NavigationLink {
-            StockedHealthView()
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7).fill(Color.stockedGreen).frame(width: 28, height: 28)
-                    Image(systemName: "waveform.path.ecg").font(.system(size: 13)).foregroundStyle(.white)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("App Health").font(.system(size: 14, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                    Text("Server, stability, sync and cache")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 11))
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
-            }
-        }
-        .buttonStyle(.plain)
-        Button { showClearAlert = true } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7).fill(Color.red).frame(width: 28, height: 28)
-                    Image(systemName: "trash.fill").font(.system(size: 13)).foregroundStyle(.white)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Erase All Data").font(.system(size: 14, design: .serif)).foregroundStyle(.red)
-                    Text("This device and iCloud").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
-                }
-                Spacer()
-            }
-            .contentShape(Rectangle())
-        }.buttonStyle(.plain)
+        DataStorageSectionView(
+            onTransferKitchen: { activeSheet = .transfer },
+            onDataStorage: { activeSheet = .dataStorage },
+            onCatalogImport: { activeSheet = .catalogImport },
+            onEraseAllData: { showClearAlert = true }
+        )
     }
 
     // MARK: - Account
 
     @ViewBuilder private var accountContent: some View {
-        settingsButton(icon: "person.crop.circle.badge.checkmark", color: Color.stockedGreen,
-                       title: "Edit Profile", detail: "Name, avatar, and account details") {
-            activeSheet = .editProfile
-        }
-        settingsButton(icon: "rectangle.portrait.and.arrow.right", color: Color.stockedGold,
-                       title: session.accountType == .guest ? "Exit Guest Mode" : "Log Out",
-                       detail: session.accountType == .guest ? "Leave guest mode" : "Sign out of this device") {
-            showLogoutConfirm = true
-        }
-        if session.accountType != .guest {
-            settingsButton(icon: "person.crop.circle.badge.xmark", color: .red,
-                           title: "Delete Account", detail: "Permanently delete your account") {
-                showDeleteAccountAlert = true
-            }
-        }
+        AccountSectionView(
+            onEditProfile: { activeSheet = .editProfile },
+            onLogOut: { showLogoutConfirm = true },
+            onDeleteAccount: { showDeleteAccountAlert = true }
+        )
     }
 
     // MARK: - Help
 
     @ViewBuilder private var helpContent: some View {
-        settingsButton(icon: "questionmark.circle", color: Color.stockedGold,
-                       title: "Help Center", detail: "Guides for every part of Stocked") {
-            activeSheet = .helpCenter
-        }
-        settingsButton(icon: "envelope.fill", color: Color.stockedInfo,
-                       title: "Contact Support", detail: BuildConfig.supportEmail) {
-            if let u = supportMailtoURL { openURL(u) }
-        }
-        settingsButton(icon: "lock.shield.fill", color: Color.stockedGreen,
-                       title: "Privacy Policy", detail: "How your data is handled") {
-            if let u = URL(string: BuildConfig.privacyURL) { openURL(u) }
-        }
-        settingsButton(icon: "doc.text.fill", color: Color.stockedCharcoal,
-                       title: "Terms of Service", detail: "The rules for using Stocked") {
-            if let u = URL(string: BuildConfig.termsURL) { openURL(u) }
-        }
-        settingsButton(icon: "globe", color: Color.stockedGold,
-                       title: "Website", detail: "sowensstudios.com") {
-            if let u = URL(string: BuildConfig.websiteURL) { openURL(u) }
-        }
+        HelpSectionView(
+            onHelpCenter: { activeSheet = .helpCenter },
+            onContactSupport: { if let u = supportMailtoURL { openURL(u) } },
+            onPrivacyPolicy: { if let u = URL(string: BuildConfig.privacyURL) { openURL(u) } },
+            onTermsOfService: { if let u = URL(string: BuildConfig.termsURL) { openURL(u) } },
+            onWebsite: { if let u = URL(string: BuildConfig.websiteURL) { openURL(u) } }
+        )
     }
 
     /// Pre-filled support email with app version + device context (no personal data).

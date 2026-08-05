@@ -533,6 +533,12 @@ final class HouseholdSync {
         if syncInventory {
             body.merge(FeatureSync.shared.pushPayload()) { _, new in new }
         }
+        // Fit the Worker's body limit before sending. Over it the server answers 413 and
+        // nothing syncs at all — not the recipe carrying the big photo, the entire kitchen.
+        // The Mac shed pictures to stay under; the phone did not, so a phone that had
+        // collected a dozen photographed recipes could stop syncing groceries.
+        body = HouseholdSync.trimmedForPush(body)
+
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             let message = lastPostFailure?.localizedDescription
@@ -796,6 +802,44 @@ final class HouseholdSync {
     // now included so the whole household sees the photo, but capped so one huge image can't bloat
     // the shared document — anything over the cap is dropped from the synced copy (stays local).
     private static let maxSyncedImageBytes = 200_000   // ~200 KB per recipe image
+
+    /// The whole push body has to fit the Worker's 2 MB limit, or the server answers 413 and
+    /// nothing syncs — see `MAX_BODY` in the Worker's household route. Kept under it with
+    /// headroom for the fields added after this check runs.
+    private static let maxPushBodyBytes = 1_700_000
+
+    /// Sheds `imageData` from the largest recipes until the encoded body fits.
+    ///
+    /// Recipes keep their `imageURL`, so a device that receives a stripped record still
+    /// shows the picture — it just loads it from the web rather than out of the payload.
+    /// Nothing is ever dropped: only pictures come off, never recipes. Mirrors
+    /// `MacHouseholdSync.trimmedForPush` so both ends degrade the same way.
+    private static func trimmedForPush(_ body: [String: Any]) -> [String: Any] {
+        func size(_ value: [String: Any]) -> Int {
+            (try? JSONSerialization.data(withJSONObject: value))?.count ?? 0
+        }
+        guard size(body) > maxPushBodyBytes else { return body }
+
+        var trimmed = body
+        for key in ["genRecipes", "userRecipes"] {
+            guard var rows = trimmed[key] as? [[String: Any]] else { continue }
+            // Heaviest first — one 200 KB photo buys back more room than ten small ones.
+            let order = rows.indices.sorted {
+                ((rows[$0]["imageData"] as? String)?.count ?? 0)
+                    > ((rows[$1]["imageData"] as? String)?.count ?? 0)
+            }
+            for index in order {
+                guard size(trimmed) > maxPushBodyBytes else { break }
+                guard rows[index]["imageData"] != nil else { continue }
+                rows[index]["imageData"] = nil
+                trimmed[key] = rows
+            }
+            trimmed[key] = rows
+            if size(trimmed) <= maxPushBodyBytes { break }
+        }
+        return trimmed
+    }
+
     private func userRecipeDict(_ r: UserRecipe) -> [String: Any] {
         var x = r
         if let d = x.imageData, d.count > Self.maxSyncedImageBytes { x.imageData = nil }
@@ -871,8 +915,15 @@ final class HouseholdSync {
 
         // Server-side tombstones: ids that were deleted somewhere in the household. Drop them
         // locally too so a delete on one device propagates to the others.
+        //
+        // Local pending tombstones are unioned in: a delete made on THIS device has
+        // not reached the server yet, so the snapshot coming back still contains the
+        // row. Without this union the pull cheerfully restores what the user just
+        // swiped away — the grocery resurrection bug, arriving by a third route.
         let invTombstones = Set((hh["invDeleted"] as? [String]) ?? [])
+            .union(store.pendingInvTombstones)
         let groTombstones = Set((hh["groDeleted"] as? [String]) ?? [])
+            .union(store.pendingGroTombstones)
 
         // Ids with an unsynced local edit queued. On a pull, an incoming DIFFERENT version of one
         // of these is a conflict (your edit vs someone else's), diverted for review rather than

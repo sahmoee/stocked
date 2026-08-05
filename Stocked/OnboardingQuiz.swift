@@ -429,9 +429,7 @@ struct OnboardingQuiz: View {
     // ── Step 5: Cuisines ────────────────────────────────────────────
     // Consolidated: Greek→Mediterranean, Korean/Japanese/Vietnamese/Thai/Chinese→Asian, Spanish→Mediterranean, Sri Lankan→Indian
     private var cuisineCard: some View {
-        let cuisines = [("🍝","Italian"),("🌮","Mexican"),("🥢","Asian"),
-                        ("🫒","Mediterranean"),("🍔","American"),("🫕","Indian"),
-                        ("🌴","Caribbean"),("🧆","Middle Eastern"),("🥐","French")]
+        let cuisines = RecipeTaxonomy.cuisines.map { (CuisineBrowseView.flag(for: $0), $0) }
         return VStack(spacing: 16) {
             cardHeader(emoji: "🌍", title: "Which cuisines\nexcite you?",
                        subtitle: "Pick your favourites. You can always explore more inside the app.")

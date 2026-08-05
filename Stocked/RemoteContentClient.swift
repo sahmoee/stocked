@@ -1,14 +1,25 @@
-// RemoteContentClient.swift — reads curated recipe content hosted as static files on the
-// Namecheap cPanel disk (<contentBaseURL>/content/recipes.json + /content/img/recipes/*).
+// RemoteContentClient.swift — the "Sowens" curated recipe feed.
 //
-// Why cPanel: static JSON + images are exactly what cheap shared hosting is good at — no
-// compute, just fast HTTPS file serving, cached hard on-device with ETag revalidation.
-// Everything here is non-fatal: any failure returns cached data or an empty list, so the
-// app is never blocked or broken if the files aren't up yet.
+// RETIRED — Build 89. This read a curated catalogue (originally static JSON on the
+// Namecheap cPanel disk, latterly GET /content/recipes on the Stocked Worker) and stamped
+// every row it returned with `id: "sowens-…"` and `source: "Sowens"`. Those recipes are
+// no longer wanted in the app, so the fetch is gone: `onlineRecipes(limit:)` and
+// `catalog()` return nothing, the on-disk cache is deleted the first time either is
+// called, and no network request is made at all.
+//
+// The type, the wire structs and `parse(_:)` are kept rather than deleted. `RemoteRecipe`
+// and `RemoteCatalog` describe a published file format, `OnlineRecipesView` still holds a
+// call site, and leaving compiling-but-empty scaffolding here is a smaller change than
+// unpicking both — a smaller change is a smaller chance of taking Discover down with it.
+//
+// If the feed is ever wanted again it needs a NEW source name, not this one. "Sowens" is
+// on the blocklist in RecipeSourceBlocklist.swift, so anything still carrying that source
+// is refused by RecipeDatabase before it can be stored, whatever fetches it.
 
 import Foundation
+import os
 
-// Wire format published to cPanel: /content/recipes.json
+// Wire format published to the content origin: /content/recipes.json
 nonisolated struct RemoteCatalog: Codable, Sendable {
     var version: Int? = nil
     var updated: String? = nil
@@ -52,16 +63,10 @@ nonisolated struct RemoteRecipe: Codable, Sendable {
 actor RemoteContentClient {
     static let shared = RemoteContentClient()
 
-    private var backoffUntil: Date? = nil   // after a 404/failure, don't re-hit the network until this passes
-
-    // WORKER-ONLY: all curated content is served by the Stocked Worker (GET /content/recipes and
-    // /content/img/* — edge-cached with ETag + stale-on-error). cPanel is no longer used; the
-    // Worker fetches recipes from the GitHub site-repo and caches them at Cloudflare's edge.
-    private var base: String { StockedWorkerClient.url()?.absoluteString ?? BuildConfig.receiptWorkerURL }
-    private var catalogURL: URL? {
-        guard let worker = StockedWorkerClient.url() ?? URL(string: BuildConfig.receiptWorkerURL) else { return nil }
-        return worker.appendingPathComponent("content/recipes")
-    }
+    /// The cache written by every build up to 88. Cleared once per app run, the first time
+    /// anything asks this client for recipes — deleting it is what stops a Mac or phone
+    /// that already pulled the catalogue from showing it out of storage forever.
+    private var didClearCache = false
 
     private var cacheURL: URL {
         let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -69,58 +74,35 @@ actor RemoteContentClient {
     }
     private var etagURL: URL { cacheURL.appendingPathExtension("etag") }
 
-    /// Curated recipes for the Discover feed. Returns [] if content isn't published yet.
+    /// Retired. Returns nothing, fetches nothing, and clears what an earlier build left
+    /// on disk. The `limit` parameter is kept so the call site in OnlineRecipesView still
+    /// compiles unchanged.
     func onlineRecipes(limit: Int = 40) async -> [OnlineRecipe] {
-        guard BuildConfig.contentEnabled, !base.isEmpty, let url = catalogURL else { return [] }
+        clearCacheOnce()
+        return []
+    }
 
-        // During backoff, serve whatever we cached without touching the network.
-        if let until = backoffUntil, until > Date() { return decodeCached(limit: limit) }
+    /// Retired, same as above. Was: the full catalogue for a "Sowens picks" section.
+    func catalog() async -> [RemoteRecipe] {
+        clearCacheOnce()
+        return []
+    }
 
-        var req = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 8)
-        if let tag = loadETag() { req.setValue(tag, forHTTPHeaderField: "If-None-Match") }
-        BuildConfig.authorizeWorkerRequest(&req)   // Worker routes are key-gated
-
-        do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            guard let http = resp as? HTTPURLResponse else { return decodeCached(limit: limit) }
-            switch http.statusCode {
-            case 304:
-                backoffUntil = nil
-                return decodeCached(limit: limit)
-            case 200:
-                try? data.write(to: cacheURL)
-                if let tag = http.value(forHTTPHeaderField: "ETag") { try? tag.write(to: etagURL, atomically: true, encoding: .utf8) }
-                backoffUntil = nil
-                return decode(data, limit: limit)
-            default:
-                // 404 (not published yet) / 5xx — back off an hour, serve cache meanwhile.
-                backoffUntil = Date().addingTimeInterval(3600)
-                return decodeCached(limit: limit)
-            }
-        } catch {
-            backoffUntil = Date().addingTimeInterval(1800)
-            return decodeCached(limit: limit)
+    private func clearCacheOnce() {
+        guard !didClearCache else { return }
+        didClearCache = true
+        let fm = FileManager.default
+        var cleared = 0
+        for url in [cacheURL, etagURL] where fm.fileExists(atPath: url.path) {
+            if (try? fm.removeItem(at: url)) != nil { cleared += 1 }
+        }
+        if cleared > 0 {
+            Log.data.notice("Curated feed retired; cleared \(cleared, privacy: .public) cached file(s)")
         }
     }
 
-    /// Full catalog (e.g. for a "Sowens picks" section). Non-fatal.
-    func catalog() async -> [RemoteRecipe] {
-        _ = await onlineRecipes(limit: .max)
-        guard let data = try? Data(contentsOf: cacheURL) else { return [] }
-        return Self.parse(data)
-    }
-
-    private func loadETag() -> String? { try? String(contentsOf: etagURL, encoding: .utf8) }
-
-    private func decodeCached(limit: Int) -> [OnlineRecipe] {
-        guard let data = try? Data(contentsOf: cacheURL) else { return [] }
-        return decode(data, limit: limit)
-    }
-    private func decode(_ data: Data, limit: Int) -> [OnlineRecipe] {
-        return Self.parse(data).prefix(limit).map { $0.toOnlineRecipe(base: base) }
-    }
-    /// Accept either a wrapped catalog {version, recipes:[…]} or a bare array [ … ] (what the
-    /// Recipe Studio feed publishes), so both formats work.
+    /// Kept because it describes the published file format and costs nothing. Accepts
+    /// either a wrapped catalogue {version, recipes:[…]} or a bare array [ … ].
     static func parse(_ data: Data) -> [RemoteRecipe] {
         let dec = JSONDecoder()
         if let cat = try? dec.decode(RemoteCatalog.self, from: data) { return cat.recipes }
