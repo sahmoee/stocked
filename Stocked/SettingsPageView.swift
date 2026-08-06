@@ -72,13 +72,13 @@ struct SettingsPageView: View {
                         helpContent
                     }
 
-                    // QA — code-gated release checklist (Checkbook v4.13.69) with the
-                    // Worker bridge to the StockedQA companion app. Deliberately last.
-                    settingsSectionRow(icon: "checklist", tint: Color.stockedCharcoal,
-                                       title: "QA",
-                                       subtitle: "Everything QA · testers only") {
-                        activeSheet = .qa
-                    }
+                    // QA ENTRY REMOVED (temporary — see _QA_REMOVAL_RESTORE.md).
+                    // The "QA · testers only" row that opened StockedQAEntryView was
+                    // the sole door into the QA hub; removing it takes QA out of the
+                    // shipping build. The `.qa` Sheet case and its `.sheet` arm below
+                    // are intentionally kept so the switch stays exhaustive and
+                    // restoring is a one-row paste. QARecorder stays compiled but,
+                    // with no door, can never enable.
 
                     BuildInfoFooter()
                         .padding(.top, 10)

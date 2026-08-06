@@ -26,6 +26,10 @@ enum StockedRefresh {
             break
         }
 
+        // Pull any newly Mac-harvested recipes on an explicit pull-to-refresh too, so the
+        // gesture that refreshes the household also picks up the shared recipe cache.
+        _ = await HarvestRecipeSync.shared.syncNow()
+
         // Rebuild derived caches from current data.
         await store.refreshInventory()
 

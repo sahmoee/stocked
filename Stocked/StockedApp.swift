@@ -101,6 +101,9 @@ struct StockedApp: App {
                 // Pull the latest household state right away so returning to the app shows
                 // changes other members made while we were backgrounded.
                 HouseholdSync.shared.syncOnForeground()
+                // Pull any recipes the Mac app has harvested and approved since we last looked
+                // (GET /harvest/recipes, ETag-revalidated, throttled to one pull per 5 min).
+                HarvestRecipeSync.shared.syncOnForeground()
                 // Remote configuration (kill switches / maintenance / min version) —
                 // throttled to one fetch per 15 min, ETag-revalidated.
                 Task { await StockedRemoteConfig.shared.refreshIfStale() }
@@ -185,65 +188,15 @@ struct RootView: View {
             .zIndex(1500)
             .allowsHitTesting(true)
 
-            // QA tap counter — a zero-size observer that installs a non-cancelling
-            // recognizer on the window, active only in QA mode.
-            QATapTracker()
-                .zIndex(2400)
-
-            // QA issue reporter — press and hold anywhere while QA mode is on to
-            // file a ticket about whatever is on screen. Like QATapTracker, this
-            // renders nothing: it installs a long-press recognizer on the window
-            // that neither cancels nor delays touches, so the app underneath keeps
-            // behaving exactly as it would with QA off. The sheet it presents is
-            // the only thing the tester ever sees.
-            QAIssueReporter()
-                .zIndex(2450)
-
-            // QA heads-up display — opt-in, read-only, cannot be tapped. Off by
-            // default even inside QA mode.
-            QAHUD()
-                .zIndex(2350)
-
-            // QA touch trail (Build 73) — a pure listener recogniser on the window
-            // that records where touches land so a report can say what was pressed
-            // and the screenshot can ring it. Records nothing while QA mode is off.
-            QATouchTrailTracker()
-                .zIndex(2410)
-
-            // Live touch rings (Build 73) — off by default, and hosted in a UIWindow
-            // ABOVE the level `QAScreenshot` photographs, so turning it on never
-            // double-draws a touch into a bug report.
-            QATouchOverlayMount()
-                .zIndex(2420)
-
-            // CONSOLIDATED (July 2026): the floating QA bubble used to be a second,
-            // parallel QA surface with its own subset of controls. Every QA feature
-            // now lives in one place — Settings → QA — so there is one
-            // screen to learn and one export to send. The reporter and HUD above are
-            // deliberately not a return of that bubble: one has no visual presence at
-            // all, the other has no touch presence at all.
-            //
-            // BUILD 73 REVISITS THAT, NARROWLY. What comes back is not the old
-            // parallel surface — it is a shortcut to the same single QA screen,
-            // available only after the passcode has been entered once. The reason
-            // the original was consolidated away was duplication of *controls*;
-            // this duplicates none. It exists because the QA screen lives four taps
-            // deep inside Settings, which is four taps a tester cannot take while
-            // reproducing the thing they are trying to report.
-            //
-            // Zero-size: it only hands the session to a UIWindow that lives above
-            // the app entirely, which is the only way a QA control can sit on top of
-            // a sheet, a cover, a popover or an alert.
-            QAFloatingButtonMount()
-                .zIndex(2460)
-
-            // Shake to report (Build 74) — zero-size, and the only reason it is a
-            // view at all is to get a lifetime tied to the app's and a place to
-            // watch QA mode and the toggle. The accelerometer only spins while QA
-            // mode is on; with QA off this mounts, reads two booleans and does
-            // nothing else for the life of the process.
-            QAShakeMount()
-                .zIndex(2470)
+            // QA ENTRY REMOVED (temporary — see _QA_REMOVAL_RESTORE.md in this delta).
+            // The eight zero-size QA window mounts that used to live here
+            // (QATapTracker, QAIssueReporter, QAHUD, QATouchTrailTracker,
+            // QATouchOverlayMount, QAFloatingButtonMount, QAShakeMount) were removed
+            // to take QA out of the shipping app. All QA*.swift files remain compiled
+            // and untouched; only the mounts and the Settings → QA row are gone, so
+            // QARecorder.isEnabled can no longer flip true and nothing here arms.
+            // To restore: paste the mount block back (verbatim in the restore doc)
+            // and re-add the Settings row. No other change needed.
 
             // Global household-sync progress prompt — shows on whichever device is syncing
             // (creator, joiner, or a member receiving a push), with success/failure.
@@ -343,6 +296,10 @@ struct RootView: View {
             // Start automatic household sync so changes from other members appear on their own,
             // with no manual sync. No-op if this device isn't in a household.
             HouseholdSync.shared.startAutoSync(store: session.guestStore)
+            // Start pulling Mac-harvested recipes from the Worker cache: once now, then every
+            // 15 min (plus on each foreground). Recipes the Mac approves show up here on their
+            // own. No-op if the Worker isn't configured or the device is offline.
+            HarvestRecipeSync.shared.start()
             HouseholdShareBridge.shared.store = session.guestStore
             Task { await HouseholdCloudKit.shared.ensureSubscriptionsForCurrentRole() }
             // Checkpoint 1: copy existing data into the SwiftData store (non-destructive,

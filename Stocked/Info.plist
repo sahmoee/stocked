@@ -222,7 +222,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<string>78</string>
 	<key>ChompAPIKey</key>
 	<string>$(CHOMP_API_KEY)</string>
 	<key>EdamamAppID</key>
@@ -263,13 +263,6 @@
 	<string>Stocked uses speech recognition to understand voice commands during cooking mode. Recognition runs on device when supported.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
-	<!-- Build 73: without this key the app's iCloud container exists but stays
-	     invisible — the QA folder would be written successfully and then be
-	     unreachable from the Mac, which is the entire point of writing it.
-	     IsDocumentScopePublic surfaces the container's Documents folder in
-	     Finder's iCloud Drive and in the Files app; SupportedFolderLevels Any
-	     lets the "Build 73 / STK-73-0004 — title" nesting show through rather
-	     than being flattened to one level. -->
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.Stocked</key>
