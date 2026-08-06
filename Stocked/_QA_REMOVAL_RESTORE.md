@@ -1,17 +1,19 @@
 # QA Removal — Restore Guide
 
-**What:** QA was taken out of the shipping app by cutting its two entry points.
-All 28 `QA*.swift` / `StockedQAView.swift` files remain in the tree, compiled and
-untouched. Nothing was deleted or stubbed. Re-enabling is two pastes.
+**What:** QA was taken out of the shipping app by (1) cutting its two entry points
+and (2) removing the user-facing changelog entries that advertised it. All 28
+`QA*.swift` / `StockedQAView.swift` files remain in the tree, compiled and untouched.
+Nothing was deleted or stubbed. Re-enabling the tool is two pastes; the changelog
+copy is optional to restore.
 
-**Why it's safe:** `QARecorder.shared.isEnabled` can only become true from inside
-the QA hub, which is only reachable through the Settings → QA row. With the row
-gone, `isEnabled` stays false forever, so every remaining QA hook in live code
-(`.qaScreen(...)`, `QARecorder.shared.enteredScreen`, `QAProcessTracker.shared.begin`,
-`QABackgroundRunner.shared.runSoon/start`) is a no-op. The window mounts self-gate
-too (`QAShakeDetector.sync()` needs `isEnabled`; `QAFloatingButtonWindow.syncFromGate()`
-needs `hasEverUnlocked`), so even left in place they would not arm — they were removed
-only to keep the root view tree clean.
+**Why the entry cut is safe:** `QARecorder.shared.isEnabled` can only become true
+from inside the QA hub, which is only reachable through the Settings → QA row. With
+the row gone, `isEnabled` stays false forever, so every remaining QA hook in live
+code (`.qaScreen(...)`, `QARecorder.shared.enteredScreen`,
+`QAProcessTracker.shared.begin`, `QABackgroundRunner.shared.runSoon/start`) is a
+no-op. The window mounts self-gate too (`QAShakeDetector.sync()` needs `isEnabled`;
+`QAFloatingButtonWindow.syncFromGate()` needs `hasEverUnlocked`), so even left in
+place they would not arm — they were removed only to keep the root view tree clean.
 
 ---
 
@@ -44,60 +46,54 @@ mounts below, in this order and with these exact zIndex values:
                 .zIndex(2400)
 
             // QA issue reporter — press and hold anywhere while QA mode is on to
-            // file a ticket about whatever is on screen. Like QATapTracker, this
-            // renders nothing: it installs a long-press recognizer on the window
-            // that neither cancels nor delays touches, so the app underneath keeps
-            // behaving exactly as it would with QA off. The sheet it presents is
-            // the only thing the tester ever sees.
+            // file a ticket about whatever is on screen.
             QAIssueReporter()
                 .zIndex(2450)
 
-            // QA heads-up display — opt-in, read-only, cannot be tapped. Off by
-            // default even inside QA mode.
+            // QA heads-up display — opt-in, read-only, cannot be tapped.
             QAHUD()
                 .zIndex(2350)
 
-            // QA touch trail (Build 73) — a pure listener recogniser on the window
-            // that records where touches land so a report can say what was pressed
-            // and the screenshot can ring it. Records nothing while QA mode is off.
+            // QA touch trail (Build 73) — pure listener recogniser on the window.
             QATouchTrailTracker()
                 .zIndex(2410)
 
-            // Live touch rings (Build 73) — off by default, and hosted in a UIWindow
-            // ABOVE the level `QAScreenshot` photographs, so turning it on never
-            // double-draws a touch into a bug report.
+            // Live touch rings (Build 73) — off by default, hosted above the
+            // level QAScreenshot photographs.
             QATouchOverlayMount()
                 .zIndex(2420)
 
-            // CONSOLIDATED (July 2026): the floating QA bubble used to be a second,
-            // parallel QA surface with its own subset of controls. Every QA feature
-            // now lives in one place — Settings → QA — so there is one
-            // screen to learn and one export to send. The reporter and HUD above are
-            // deliberately not a return of that bubble: one has no visual presence at
-            // all, the other has no touch presence at all.
-            //
-            // BUILD 73 REVISITS THAT, NARROWLY. What comes back is not the old
-            // parallel surface — it is a shortcut to the same single QA screen,
-            // available only after the passcode has been entered once. The reason
-            // the original was consolidated away was duplication of *controls*;
-            // this duplicates none. It exists because the QA screen lives four taps
-            // deep inside Settings, which is four taps a tester cannot take while
-            // reproducing the thing they are trying to report.
-            //
-            // Zero-size: it only hands the session to a UIWindow that lives above
-            // the app entirely, which is the only way a QA control can sit on top of
-            // a sheet, a cover, a popover or an alert.
+            // Floating QA button (Build 73) — shortcut to the single QA screen,
+            // available only after the passcode has been entered once.
             QAFloatingButtonMount()
                 .zIndex(2460)
 
-            // Shake to report (Build 74) — zero-size, and the only reason it is a
-            // view at all is to get a lifetime tied to the app's and a place to
-            // watch QA mode and the toggle. The accelerometer only spins while QA
-            // mode is on; with QA off this mounts, reads two booleans and does
-            // nothing else for the life of the process.
+            // Shake to report (Build 74) — accelerometer only spins while QA mode is on.
             QAShakeMount()
                 .zIndex(2470)
 ```
+
+(The original had longer explanatory comments on the FloatingButton and Shake mounts;
+they are shortened here for the restore. The behaviour is identical — the comment text
+was never load-bearing.)
+
+## Restore step 3 (optional) — AppChangelog.swift user-facing copy
+
+Four changelog version blocks were cleaned because they described QA/"testing mode"
+to end users, who now cannot reach it:
+- **v4.18 (Build 74)** — removed entirely (all 10 entries were QA).
+- **v4.17 (Build 73)** — removed entirely (all 6 entries were QA).
+- **v4.15 (Build 71)** — removed entirely (all 11 entries were QA, incl. the
+  "Press and hold to report a problem" entry).
+- **v4.16 (Build 72)** — kept only "Cook Now got dramatically faster"; removed its
+  3 QA entries.
+- **v4.14 (Build 70)** — kept its 3 real product entries; removed its 3 QA entries
+  ("One place for QA", "QA counts that are actually counted", "New process and flow
+  tracker").
+
+If QA becomes a shipping feature again, restore this copy from git history
+(`git show 9317a94:Stocked/AppChangelog.swift`). It is NOT required for the tool to
+work — it is only the What's New text.
 
 ## Nothing else
 
@@ -105,5 +101,3 @@ mounts below, in this order and with these exact zIndex values:
   are already compiled in).
 - The worker's `/qa/*` routes were NOT touched. They stay deployed and answer as
   before; the app simply never calls them while QA is off.
-- `Info.plist`'s `NSUbiquitousContainers` (`iCloud.Stocked`) was left intact — an
-  unrelated chat trimmed only the explanatory comment above it, not the keys.

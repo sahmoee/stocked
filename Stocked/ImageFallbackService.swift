@@ -169,9 +169,16 @@ struct AsyncFoodImage: View {
 
     private func loadFrom(_ key: String, allowResolveFallback: Bool) {
         if let cached = StockedImageCache.shared.get(key) { loadedImage = cached; return }
+        // A malformed key must never trap the app. URL(string:) returns nil on a bad
+        // string (spaces, an empty path, a scheme-less relative path), so guard it and
+        // route the miss through the same fallback a network failure would take.
+        guard let target = URL(string: key) else {
+            if allowResolveFallback { resolveAndLoad() } else { failed = true }
+            return
+        }
         Task {
             do {
-                let (data, _) = try await URLSession.shared.data(from: URL(string: key)!)
+                let (data, _) = try await URLSession.shared.data(from: target)
                 guard let img = UIImage(data: data) else { throw URLError(.badServerResponse) }
                 StockedImageCache.shared.set(img, for: key)
                 await MainActor.run { loadedImage = img }

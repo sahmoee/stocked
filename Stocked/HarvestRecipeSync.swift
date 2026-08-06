@@ -93,11 +93,17 @@ final class HarvestRecipeSync {
         if let inFlight { return await inFlight.value }
         let task = Task<Int, Never> { [weak self] in
             guard let self else { return 0 }
-            defer { Task { @MainActor in self.inFlight = nil } }
             return await self.performFetch()
         }
         inFlight = task
-        return await task.value
+        let result = await task.value
+        // Clear synchronously on this same main-actor turn. The earlier version deferred
+        // the clear onto a separate Task, which left a window where a caller arriving after
+        // the fetch finished but before that Task ran would coalesce onto a dead task and
+        // skip a fresh pull. Because the class is @MainActor and we are past the await here,
+        // no other sync() body can interleave between task completion and this line.
+        if inFlight === task { inFlight = nil }
+        return result
     }
 
     private func performFetch() async -> Int {
@@ -222,7 +228,13 @@ private struct HarvestWireRecipe: Decodable {
         tagList = Array(Set(tagList.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }))
 
         return RecipeDatabaseEntry(
-            id:          UUID(uuidString: id) ?? UUID(),   // stable across re-syncs when the Mac id is a UUID
+            // Stable across re-syncs. When the Mac id is already a UUID we keep it; when it
+            // is a slug/hash (harvested-from-web recipes often key on a URL hash, not a UUID)
+            // we DERIVE a UUID deterministically from that id string rather than minting a
+            // fresh random one every sync — a random id would churn the stored entry's id on
+            // each pull and break anything referencing it (favourites, open-count tracking),
+            // even though title-dedup keeps the row itself from duplicating.
+            id:          UUID(uuidString: id) ?? HarvestWireRecipe.stableUUID(from: id.isEmpty ? cleanTitle : id),
             title:       cleanTitle,
             description: description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
             sourceURL:   sourceURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
@@ -238,5 +250,29 @@ private struct HarvestWireRecipe: Decodable {
             steps:       steps,
             imageURL:    resolvedImage
         )
+    }
+
+    /// Derive a deterministic UUID from an arbitrary id string, so the same Mac-side id
+    /// always maps to the same recipe id on this device. Uses the app's FNV-1a scheme
+    /// (Swift's `Hasher` is per-launch seeded and unusable for anything that must persist).
+    /// Two salted 64-bit passes fill the 16 UUID bytes.
+    static func stableUUID(from s: String) -> UUID {
+        func fnv1a(_ input: String) -> UInt64 {
+            var hash: UInt64 = 0xcbf29ce484222325
+            for byte in input.utf8 {
+                hash ^= UInt64(byte)
+                hash = hash &* 0x100000001b3
+            }
+            return hash
+        }
+        let hi = fnv1a(s)
+        let lo = fnv1a("harvest-salt::" + s)
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for i in 0..<8 { bytes[i]     = UInt8((hi >> (8 * UInt64(7 - i))) & 0xff) }
+        for i in 0..<8 { bytes[8 + i] = UInt8((lo >> (8 * UInt64(7 - i))) & 0xff) }
+        return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3],
+                           bytes[4], bytes[5], bytes[6], bytes[7],
+                           bytes[8], bytes[9], bytes[10], bytes[11],
+                           bytes[12], bytes[13], bytes[14], bytes[15]))
     }
 }

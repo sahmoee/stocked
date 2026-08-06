@@ -64,8 +64,9 @@ final class SharedPantrySync {
     private func groceryKey(_ code: String)   -> String { "sharedGrocery_\(code)" }
 
     private func markSynced() {
-        lastSyncedAt = Date()
-        UserDefaults.standard.set(lastSyncedAt!.timeIntervalSince1970, forKey: "lastHouseholdSyncAt")
+        let now = Date()
+        lastSyncedAt = now
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: "lastHouseholdSyncAt")
     }
 
     /// Manually push + pull immediately (the "Sync now" button). Shows the syncing state
