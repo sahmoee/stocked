@@ -61,7 +61,7 @@ nonisolated enum BuildConfig {
     // Worker, which holds the Anthropic key server-side, picks models (with fallback),
     // rate-limits, validates output, and caches. No AI vendor key ships in the app.
     /// Receipt parsing proxied through a Cloudflare Worker that holds the Anthropic
-    /// key server-side (no key in the app). See _worker/stocked-receipt-worker/README.md.
+    /// key server-side (no key in the app). See the separate UnifiedWorker repository.
     static let receiptWorkerURL = "https://api.sowensstudios.com"
     /// Custom API domain via a Cloudflare Worker custom-domain route. Once
     /// `api.sowensstudios.com` is verified in Cloudflare (see SOWENS_STUDIOS.md), change

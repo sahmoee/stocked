@@ -18,7 +18,7 @@ import Foundation
 import SwiftUI
 import os
 
-// Wire format of GET /configuration (see stocked-receipt-worker/src/config.js).
+// Wire format of GET /configuration (see UnifiedWorker/src/apps/stocked/src/config.js).
 nonisolated struct RemoteAppConfig: Codable, Sendable, Equatable {
     struct Maintenance: Codable, Sendable, Equatable {
         var active: Bool = false
