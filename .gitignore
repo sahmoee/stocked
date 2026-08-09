@@ -1,5 +1,18 @@
 # ── Secrets — NEVER commit real keys ──
 Secrets.xcconfig
+Secrets.local.xcconfig
+.env
+.env.*
+!.env.example
+.dev.vars
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.mobileprovision
+AuthKey_*.p8
+GoogleService-Info.plist
 
 # ── Xcode ──
 xcuserdata/
