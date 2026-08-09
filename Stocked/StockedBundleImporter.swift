@@ -165,7 +165,7 @@ final class StockedBundleImporter {
 
         var total = 0
         for batch in batches {
-            await RecipeDatabase.shared.upsertAll(batch)
+            await RecipeDatabaseManager.shared.ingestHarvested(batch)
             total += batch.count
             // Yield so background thread doesn't monopolise CPU
             try? await Task.sleep(nanoseconds: 10_000_000)  // 10ms

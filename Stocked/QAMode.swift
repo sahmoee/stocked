@@ -98,13 +98,7 @@ nonisolated struct QAEvent: Identifiable, Codable, Sendable {
         (label + " " + screen + " " + detail).lowercased()
     }
 
-    // `nonisolated(unsafe)` because the enclosing struct is `nonisolated`, which
-    // makes this static nonisolated too, and Swift 6 requires a nonisolated
-    // static to be Sendable — DateFormatter is not. It is written once at first
-    // use and only ever read after that, which is the exact case the annotation
-    // exists for. (Without the `nonisolated` on the struct this would be
-    // implicitly @MainActor and would not need the escape hatch.)
-    nonisolated(unsafe) private static let formatter: DateFormatter = {
+    private static let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
         return f

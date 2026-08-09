@@ -90,7 +90,7 @@ final class BundleDataImporter {
 
                 // One actor hop and one coalesced persistence write per file. The old path
                 // upserted each recipe separately, repeatedly rebuilding and writing the store.
-                await RecipeDatabase.shared.upsertAll(payload.recipes)
+                await RecipeDatabaseManager.shared.ingestHarvested(payload.recipes)
                 _ = mergeIngredients(payload.ingredients)
                 updated[url.lastPathComponent] = hash
                 manifestChanged = true

@@ -621,7 +621,7 @@ extension StockedKnowledgeBase {
             updated.tags = classification.tags + recipe.tags
             return updated
         }
-        Task { await RecipeDatabase.shared.upsertAll(classifiedRecipes) }
+        Task { await RecipeDatabaseManager.shared.ingestHarvested(classifiedRecipes) }
         saveIngredients()
     }
 }

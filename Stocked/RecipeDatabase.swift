@@ -360,6 +360,12 @@ final class RecipeDatabaseManager {
 
     var totalCount: Int = 0
 
+    /// Bumped whenever the writable pool gains rows outside the per-recipe add paths —
+    /// today, the Mac-harvested cache landing via `ingestHarvested`. Views that hold a
+    /// snapshot can observe this and reload so newly synced recipes appear without waiting
+    /// for the screen to be dismissed and reopened.
+    var recipesVersion: Int = 0
+
     init() {
         Task { await refreshCount() }
         // Merge other caches on launch
@@ -440,6 +446,19 @@ final class RecipeDatabaseManager {
         await refreshCount()
     }
 
+    /// Fold a batch of externally-sourced recipes (the Mac-harvested cache) into the pool,
+    /// then refresh the count, bump the version token, and announce the change on the bus.
+    /// Callers that used to reach through to `RecipeDatabase.shared.upsertAll` directly
+    /// should use this so every surface — counts, Discover, search, planners — sees the new
+    /// rows instead of only the actor's private store gaining them silently.
+    func ingestHarvested(_ entries: [RecipeDatabaseEntry]) async {
+        guard !entries.isEmpty else { return }
+        await db.upsertAll(entries)
+        await refreshCount()
+        recipesVersion &+= 1
+        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: entries.count))
+    }
+
     /// Convert and save a UserRecipe into the database immediately.
     func save(userRecipe: UserRecipe) async {
         let entry = RecipeDatabaseEntry(
@@ -513,6 +532,9 @@ final class RecipeDatabaseManager {
         await BundleDataImporter.shared.importNewBundledFiles()
 
         await refreshCount()
+        // Let open surfaces refresh after a full merge (launch and .fullSync both land here).
+        recipesVersion &+= 1
+        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: 0))
     }
 
     // MARK: Autofill helper

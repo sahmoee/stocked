@@ -26,6 +26,11 @@ enum DatabaseEvent {
                           category: String, cuisine: String, tags: [String])
     case offlineRecipeCached(title: String, ingredients: [String], steps: [String])
     case groceryItemAdded(name: String)
+    /// Emitted after a batch of recipes is folded straight into RecipeDatabase (e.g. the
+    /// Mac-harvested cache) rather than through one of the per-recipe add paths above. It
+    /// carries no payload to re-import — the rows are already stored — and exists only to
+    /// tell observers (counts, open browse views) that the pool grew.
+    case recipeDatabaseChanged(count: Int)
     case fullSync  // trigger a complete re-sync of all sources
 }
 
@@ -145,6 +150,7 @@ extension DatabaseSyncBus {
             if case .userRecipeUpdated = $0 { return true }
             if case .webRecipeFetched = $0 { return true }
             if case .offlineRecipeCached = $0 { return true }
+            if case .recipeDatabaseChanged = $0 { return true }
             return false
         }.eraseToAnyPublisher()
     }

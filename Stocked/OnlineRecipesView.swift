@@ -1044,6 +1044,11 @@ struct OnlineRecipesView: View {
             loader.loadIfNeeded(profile: session.guestStore.cookingProfile)
             Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
         }
+        // Newly harvested recipes bump the pool's version; reload the snapshot in place so
+        // they surface here without the user leaving and reopening Discover.
+        .onChange(of: RecipeDatabaseManager.shared.recipesVersion) { _, _ in
+            Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
+        }
         .task(id: filterKey) {
             if !searchText.isEmpty {
                 try? await Task.sleep(nanoseconds: 90_000_000)

@@ -86,8 +86,12 @@ enum QAEnvironmentSnapshot {
     /// The *interface* orientation, not the device's. A phone lying face-up on a
     /// desk reports `.faceUp`, which tells you nothing about how the app is drawn.
     static var orientationLabel: String {
-        guard let o = QAScreenshot.appWindow()?.windowScene?.interfaceOrientation else {
-            return "orientation unknown"
+        guard let scene = QAScreenshot.appWindow()?.windowScene else { return "orientation unknown" }
+        let o: UIInterfaceOrientation
+        if #available(iOS 26.0, *) {
+            o = scene.effectiveGeometry.interfaceOrientation
+        } else {
+            o = scene.interfaceOrientation
         }
         switch o {
         case .portrait:           return "portrait"

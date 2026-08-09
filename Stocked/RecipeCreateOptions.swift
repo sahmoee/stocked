@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import SwiftUI
-import PhotosUI
+@preconcurrency import PhotosUI
 @preconcurrency import Vision
 import UIKit
 

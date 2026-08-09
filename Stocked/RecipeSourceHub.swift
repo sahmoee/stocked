@@ -240,8 +240,8 @@ enum RecipeSourceHub {
                 imageURL: r.imageURL
             )
         }
-        // upsertAll lives on the thread-safe RecipeDatabase actor; fire-and-forget so the
-        // caller (often a UI update path) never blocks on persistence.
-        Task { await RecipeDatabase.shared.upsertAll(entries) }
+        // Route through the manager so counts, the version token and the change bus all fire;
+        // fire-and-forget so the caller (often a UI update path) never blocks on persistence.
+        Task { await RecipeDatabaseManager.shared.ingestHarvested(entries) }
     }
 }

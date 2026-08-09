@@ -102,7 +102,7 @@ final class HarvestRecipeSync {
         // the fetch finished but before that Task ran would coalesce onto a dead task and
         // skip a fresh pull. Because the class is @MainActor and we are past the await here,
         // no other sync() body can interleave between task completion and this line.
-        if inFlight === task { inFlight = nil }
+        inFlight = nil
         return result
     }
 
@@ -138,7 +138,11 @@ final class HarvestRecipeSync {
             let entries = decoded.recipes.compactMap { $0.toDatabaseEntry(workerBase: base) }
 
             if !entries.isEmpty {
-                await RecipeDatabase.shared.upsertAll(entries)
+                // Route through the manager (not the actor directly) so the count refreshes,
+                // the version token bumps, and a bus event tells every open surface the pool
+                // grew — otherwise harvested recipes land silently and only appear the next
+                // time a view is reopened.
+                await RecipeDatabaseManager.shared.ingestHarvested(entries)
             }
             if let etag = http.value(forHTTPHeaderField: "ETag"), !etag.isEmpty {
                 UserDefaults.standard.set(etag, forKey: etagKey)

@@ -219,7 +219,7 @@ struct StarIngredientRecipesView: View {
             let webEntries = webRecipes.map { databaseEntry(from: $0) }
             appendUnique(webEntries, to: &pool, seen: &seen)
             if !webEntries.isEmpty {
-                await RecipeDatabase.shared.upsertAll(webEntries)
+                await RecipeDatabaseManager.shared.ingestHarvested(webEntries)
                 results = await rank(pool: pool, terms: terms, items: items, seed: seed)
             }
         }

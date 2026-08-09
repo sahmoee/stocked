@@ -44,9 +44,12 @@ final class ShareViewController: UIViewController {
             complete(); return
         }
 
-        var sharedURL: String?
-        var sharedText: String?
-        var sharedImage: Data?
+        final class SharedPayload: @unchecked Sendable {
+            var url: String?
+            var text: String?
+            var image: Data?
+        }
+        let payload = SharedPayload()
         let group = DispatchGroup()
 
         for provider in providers {
@@ -54,7 +57,7 @@ final class ShareViewController: UIViewController {
             if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { data, _ in
-                    if let url = data as? URL { sharedURL = url.absoluteString }
+                    if let url = data as? URL { payload.url = url.absoluteString }
                     group.leave()
                 }
             }
@@ -62,7 +65,7 @@ final class ShareViewController: UIViewController {
             else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { data, _ in
-                    if let s = data as? String { sharedText = s }
+                    if let s = data as? String { payload.text = s }
                     group.leave()
                 }
             }
@@ -70,15 +73,15 @@ final class ShareViewController: UIViewController {
             else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { data, _ in
-                    if let url = data as? URL, let d = try? Data(contentsOf: url) { sharedImage = d }
-                    else if let img = data as? UIImage { sharedImage = img.jpegData(compressionQuality: 0.85) }
+                    if let url = data as? URL, let d = try? Data(contentsOf: url) { payload.image = d }
+                    else if let img = data as? UIImage { payload.image = img.jpegData(compressionQuality: 0.85) }
                     group.leave()
                 }
             }
         }
 
         group.notify(queue: .main) { [weak self] in
-            self?.persistAndOpen(url: sharedURL, text: sharedText, image: sharedImage)
+            self?.persistAndOpen(url: payload.url, text: payload.text, image: payload.image)
         }
     }
 

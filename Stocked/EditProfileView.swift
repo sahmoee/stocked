@@ -6,7 +6,7 @@
 // to session.guestStore.cookingProfile, which the recommendation engines read live, so changes
 // take effect immediately.
 
-import SwiftUI
+@preconcurrency import SwiftUI
 
 struct EditProfileView: View {
     @Environment(AppSession.self) private var session

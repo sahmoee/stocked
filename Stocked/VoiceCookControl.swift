@@ -79,7 +79,7 @@ final class VoiceCookControl {
         let session = AVAudioSession.sharedInstance()
         // .mixWithOthers so step read-aloud + timer sounds keep working while we listen.
         try? session.setCategory(.playAndRecord, mode: .measurement,
-                                 options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
+                                 options: [.duckOthers, .defaultToSpeaker, .allowBluetoothHFP])
         try? session.setActive(true, options: .notifyOthersOnDeactivation)
 
         let engine = AVAudioEngine()

@@ -72,9 +72,9 @@ nonisolated enum BuildConfig {
     static let company        = "Sowens Studios"
     static let websiteURL     = "https://sowensstudios.com"
     static let supportEmail   = "support@sowensstudios.com"
-    static let privacyURL     = "https://sowensstudios.com/privacy"
-    static let termsURL       = "https://sowensstudios.com/terms"
-    static let supportPageURL = "https://sowensstudios.com/support"
+    static let privacyURL     = "https://sahmoee.github.io/stocked/privacy.html"
+    static let termsURL       = "https://sahmoee.github.io/stocked/license.html"
+    static let supportPageURL = "https://sahmoee.github.io/stocked/support.html"
 
     // ── Content CDN (Namecheap cPanel static hosting) ────────────────────────
     // Curated recipe JSON + images live at <contentBaseURL>/content/… served over
