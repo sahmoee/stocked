@@ -181,7 +181,7 @@ struct BarcodeScannerView: View {
                 // Fill the available space like the receipt scanner (which uses
                 // maxHeight: .infinity) so the live camera is full-size, not a small
                 // 280pt box. The hint sits as an overlay at the bottom.
-                SafeBarcodeScannerView { code in
+                LiveScannerView(recognizesBarcodes: true) { code in
                     guard code != lastScanned else { return }
                     lastScanned = code
                     resolveBarcode(code)
@@ -736,59 +736,6 @@ struct BarcodeConfirmSheet: View {
         }
     }
 }
-
-// MARK: - Safe Live Barcode Scanner (iOS 16+)
-// Wrapped in a separate struct so @available only applies here, avoiding crashes on older iOS.
-@available(iOS 16.0, *)
-struct SafeBarcodeScannerView: UIViewControllerRepresentable {
-    var onCode: (String) -> Void
-
-    func makeUIViewController(context: Context) -> DataScannerViewController {
-        let vc = DataScannerViewController(
-            recognizedDataTypes: [.barcode()],
-            qualityLevel: .balanced,
-            recognizesMultipleItems: false,
-            isHighFrameRateTrackingEnabled: false,
-            isGuidanceEnabled: true,
-            isHighlightingEnabled: true
-        )
-        vc.delegate = context.coordinator
-        // Start scanning safely
-        Task {
-            try? await Task.sleep(nanoseconds: 100000000)
-            try? vc.startScanning()
-        }
-        return vc
-    }
-
-    func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {}
-
-    // Stop scanning when view disappears — prevents camera staying open + memory leak
-    static func dismantleUIViewController(_ uiViewController: DataScannerViewController, coordinator: Coordinator) {
-        uiViewController.stopScanning()
-        uiViewController.delegate = nil
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(onCode: onCode) }
-
-    class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        let onCode: (String) -> Void
-        private var lastCode = ""; private var lastTime = Date.distantPast
-        init(onCode: @escaping (String) -> Void) { self.onCode = onCode }
-
-        func dataScanner(_ dataScanner: DataScannerViewController,
-                         didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
-            guard let item = addedItems.first,
-                  case .barcode(let bc) = item,
-                  let value = bc.payloadStringValue, !value.isEmpty else { return }
-            let now = Date()
-            guard value != lastCode || now.timeIntervalSince(lastTime) > 2 else { return }
-            lastCode = value; lastTime = now
-            Task { @MainActor in self.onCode(value) }
-        }
-    }
-}
-
 
 // MARK: - Bulk Scan Summary
 struct BulkScanSummaryView: View {
