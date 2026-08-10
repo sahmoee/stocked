@@ -41,3 +41,7 @@ node_modules/
 
 # Local Claude session settings
 .claude/settings.local.json
+
+# Local operating guide — not part of the shipped repo
+README-FIRST.md
+CROSS-PROJECT-SYNC.md

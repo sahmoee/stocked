@@ -18,6 +18,11 @@ struct CollectionGrid<Item: Hashable, Cell: View>: UIViewRepresentable {
     var onSelect: @MainActor (Item) -> Void = { _ in }
     @ViewBuilder var cell: (Item) -> Cell
 
+    // Non-isolated so its synthesized Hashable/Sendable conformance can satisfy
+    // NSDiffableDataSourceSnapshot's requirement. Nested in the @MainActor
+    // Coordinator it became main-actor-isolated, which Swift 6 rejects.
+    enum Section { case main }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(cell: cell, onSelect: onSelect)
     }
@@ -44,8 +49,6 @@ struct CollectionGrid<Item: Hashable, Cell: View>: UIViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, UICollectionViewDelegate {
-        enum Section { case main }
-
         var cell: (Item) -> Cell
         var onSelect: (Item) -> Void
         private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?

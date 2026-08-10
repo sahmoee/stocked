@@ -613,9 +613,9 @@ struct InventoryView: View {
     }
 
     @ViewBuilder private var inventoryListScroll: some View {
-        ScrollView(showsIndicators: false) {
+        if items.isEmpty {
+          ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                if items.isEmpty {
                     // #A5 receipt-first onboarding: an empty pantry's hero action is the
                     // one-photo bulk populate (receipt scan), with manual add secondary.
                     if session.guestStore.inventoryItems.isEmpty {
@@ -684,42 +684,26 @@ struct InventoryView: View {
                             onCTA: { activeSheet = .add }
                         )
                     }
-                } else {
-                    // #245 — exact mockup: a FLAT list (no subcategory groups), first 8
-                    // rows, then a "View All <zone> Items" footer that expands the rest.
-                    let visible = showAllRows ? items : Array(items.prefix(8))
-                    LazyVStack(spacing: 8) {
-                        ForEach(visible) { item in
-                            InventoryItemRow(item: item, onSelect: splitActive ? { id in
-                                withAnimation(.spring(response: 0.3)) {
-                                    detailItemID = id
-                                    if splitPreset == .wideList { splitPreset = .even; splitPreset.save() }
-                                }
-                            } : nil)
-                        }
-                    }.padding(.horizontal, 24)
-
-                    if items.count > 8 && !showAllRows {
-                        Button { withAnimation(.easeInOut(duration: 0.25)) { showAllRows = true } } label: {
-                            HStack {
-                                Text("View All \(selectedZone) Items")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(session.themeTextColor)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
-                            }
-                            .padding(.horizontal, 16).padding(.vertical, 13)
-                            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
-                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 24).padding(.top, 10)
-                    }
-                }
             }
             .padding(.bottom, 110)
+          }
+        } else {
+            // #UIKit — the populated pantry is a UICollectionView (real cell reuse, the
+            // whole list scrolls smoothly) instead of a LazyVStack capped at 8 rows.
+            // UIHostingConfiguration does not inherit the environment, so inject session.
+            CollectionGrid(items: items,
+                           columns: 1,
+                           interItemSpacing: 8,
+                           lineSpacing: 8,
+                           contentInsets: .init(top: 4, leading: 24, bottom: 110, trailing: 24)) { item in
+                InventoryItemRow(item: item, onSelect: splitActive ? { id in
+                    withAnimation(.spring(response: 0.3)) {
+                        detailItemID = id
+                        if splitPreset == .wideList { splitPreset = .even; splitPreset.save() }
+                    }
+                } : nil)
+                .environment(session)
+            }
         }
     }
 

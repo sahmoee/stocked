@@ -46,7 +46,10 @@ nonisolated enum StorageCategory: String, Codable, CaseIterable, Sendable {
 }
 
 // MARK: - Inventory Item
-nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatable {
+nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatable, Hashable {
+    // id-based hash so the UICollectionView diffable data source (CollectionGrid)
+    // can track items; equality stays full-field (synthesized).
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
     var id              = UUID()
     var name:           String = ""   // defaulted so a missing/null name can't fail decode (#5)
 
