@@ -45,3 +45,5 @@ node_modules/
 # Local operating guide — not part of the shipped repo
 README-FIRST.md
 CROSS-PROJECT-SYNC.md
+
+AGENT-HANDOFF.md
