@@ -4,7 +4,7 @@ Thank you for improving this project.
 
 ## Before starting
 
-1. Read `README.md` and `AGENTS.md`.
+1. Read `README.md` and the relevant product documentation.
 2. Run `python3 "../Reports/sync_qa_reports.py"` when working in the Sowens Studios multi-project workspace.
 3. Review unresolved tickets for this application, prioritizing blockers.
 4. Check the current branch and working tree. Do not overwrite unrelated local changes.

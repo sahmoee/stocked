@@ -38,12 +38,3 @@ node_modules/
 ._*
 **/._*
 *.tgz
-
-# Local Claude session settings
-.claude/settings.local.json
-
-# Local operating guide — not part of the shipped repo
-README-FIRST.md
-CROSS-PROJECT-SYNC.md
-
-AGENT-HANDOFF.md

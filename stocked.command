@@ -12,7 +12,7 @@ set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO" || { echo "Can't cd to repo at $REPO"; exit 1; }
 
-# Where you drop Claude's delivery zips (default: ~/Downloads).
+# Where you drop automated delivery archives (default: ~/Downloads).
 DELIVERY_DIR="${STOCKED_DELIVERY_DIR:-$HOME/Downloads}"
 
 BOLD="\033[1m"; DIM="\033[2m"; GREEN="\033[32m"; YELLOW="\033[33m"; RED="\033[31m"; CYAN="\033[36m"; RESET="\033[0m"
@@ -193,7 +193,7 @@ menu() {
     if dirty_check; then echo -e "Changes: ${YELLOW}uncommitted${RESET}"; else echo -e "Changes: ${DIM}clean${RESET}"; fi
     echo
     echo "  1) Pull latest (current branch)"
-    echo "  2) Apply Claude delivery  (+ commit + push)"
+    echo "  2) Apply delivery archive  (+ commit + push)"
     echo "  3) Commit & push my changes"
     echo "  4) Switch branch"
     echo "  5) New branch"

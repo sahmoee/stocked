@@ -122,7 +122,7 @@ When changing an endpoint:
 
 Internal builds expose **Settings → QA**. Tickets include screen/navigation context, runtime failures, environment details, optional screenshots, local-first persistence, and automatic retry. The lifecycle is **Open → Investigating → Fixed → Verified**, with a required “What was fixed” explanation and a history-preserving **Refile** action.
 
-Shared report intake is under `~/Documents/Reports/Stocked`. Coding agents must read [`AGENTS.md`](AGENTS.md) and the reports inbox before planning or building.
+Report synchronization is an internal development operation and is intentionally not documented in the public repository.
 
 ## Release process
 
@@ -148,7 +148,6 @@ Never commit credentials, private exports, receipt images, household data, or QA
 ## Contributing and project resources
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution process
-- [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md) — mandatory agent workflow
 - [`CHANGELOG.md`](CHANGELOG.md) — release history
 - [`APP_STORE_METADATA.md`](APP_STORE_METADATA.md) — store-facing copy
 - [`LICENSE.md`](LICENSE.md) — license
