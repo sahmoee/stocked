@@ -15,6 +15,7 @@ struct SettingsPageView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @AppStorage("stocked.qa.enabled") private var qaEnabled = false
 
     // ── Accordion state — one section open at a time ────────────────
     private enum SettingsSection: String, CaseIterable {
@@ -72,11 +73,21 @@ struct SettingsPageView: View {
                         helpContent
                     }
 
-                    settingsSectionRow(icon: "checklist", tint: Color.stockedCharcoal,
-                                       title: "QA",
-                                       subtitle: "Diagnostics, tickets, reports & sync · testers only") {
-                        activeSheet = .qa
+                    VStack(spacing: 8) {
+                        Toggle("Enable Stocked QA", isOn: $qaEnabled)
+                            .tint(Color.stockedGold)
+                        if qaEnabled {
+                            settingsSectionRow(icon: "checklist", tint: Color.stockedCharcoal,
+                                               title: "Open Stocked QA",
+                                               subtitle: "Recipe imports, pantry, grocery, sync, tickets & reports") {
+                                activeSheet = .qa
+                            }
+                        }
+                        Text("Disabled by default. Enable only on builds being tested.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
+                    .padding(14)
+                    .background(Color.stockedWhite.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
                     BuildInfoFooter()
                         .padding(.top, 10)

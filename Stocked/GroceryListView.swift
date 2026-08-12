@@ -75,6 +75,7 @@ struct GroceryListView: View {
     @State private var householdMemberNames: [String] = []
     // #E2 — "Mine" filter: show only items assigned to me (or unassigned).
     @State private var showMineOnly = false
+    @State private var selectedRecipe = "All Recipes"
     // Perf: the burn-rate prediction scans the consumption log; cached alongside the
     // section cache instead of recomputing in the suggestions area every render.
     @State private var cachedPredicted: [String] = []
@@ -178,8 +179,26 @@ struct GroceryListView: View {
 
     // MARK: - Grouped sections (search-filtered)
     private func filteredItems(_ items: [LocalGroceryItem]) -> [LocalGroceryItem] {
-        guard !searchText.isEmpty else { return items }
-        return items.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        var result = items
+        if selectedRecipe != "All Recipes" {
+            result = result.filter {
+                selectedRecipe == "Manual Items" ? $0.recipeSource.isEmpty
+                    : $0.recipeSource.localizedCaseInsensitiveContains(selectedRecipe)
+            }
+        }
+        guard !searchText.isEmpty else { return result }
+        return result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    private var recipeFilters: [String] {
+        let names = store.groceryItems.flatMap { item in
+            item.recipeSource.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        }.filter { !$0.isEmpty }
+        var values = ["All Recipes"] + Array(Set(names)).sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        if store.groceryItems.contains(where: { $0.recipeSource.isEmpty }) { values.append("Manual Items") }
+        return values
     }
 
     // Reads the cached value (rebuilt via rebuildSections on change). See #2.
@@ -385,6 +404,27 @@ struct GroceryListView: View {
                 .clipShape(Capsule())
                 .padding(.horizontal, 24).padding(.bottom, 12)
                 .coachmarkAnchor("grocery.segments")
+
+                if recipeFilters.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(recipeFilters, id: \.self) { recipe in
+                                Button {
+                                    selectedRecipe = recipe
+                                    rebuildSections()
+                                } label: {
+                                    Text(recipe).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                                        .foregroundStyle(selectedRecipe == recipe ? Color.stockedWhite : text.opacity(0.7))
+                                        .padding(.horizontal, 12).padding(.vertical, 8)
+                                        .background(selectedRecipe == recipe ? Color.stockedCharcoal : Color.clear)
+                                        .clipShape(Capsule())
+                                }.buttonStyle(.plain)
+                            }
+                        }.padding(.horizontal, 24)
+                    }
+                    .padding(.bottom, 10)
+                    .accessibilityLabel("Filter grocery list by recipe")
+                }
 
                 // ── #245 — stacked title + Sort pill (mockup) ───────────
                 HStack(alignment: .bottom) {
