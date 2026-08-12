@@ -61,7 +61,10 @@ enum RecipeSourceHub {
     /// A source is only exposed as a browsable source when it can provide a real library,
     /// not a nearly-empty row. Five-or-fewer sources are treated as failed sources; 6–19 are
     /// kept as internal/import data but remain hidden until the source reaches twenty full recipes.
-    nonisolated static let minimumVisibleRecipeCount = 20
+    // Six complete recipes is enough to make a useful source page. Requiring
+    // twenty hid legitimate imported sites and made Sources look artificially
+    // sparse even though their recipes were already available locally.
+    nonisolated static let minimumVisibleRecipeCount = 6
     nonisolated static let hardRemovalThreshold = 5
 
     /// Normalizes aliases created by different fetch paths so one real provider does not get

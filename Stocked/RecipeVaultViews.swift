@@ -136,7 +136,7 @@ struct RecipeVaultView: View {
         switch selectedTab {
         case 0: return "Based on what's in your kitchen"
         case 1: return "Your recipes and meal history"
-        default: return "Based on what's in your kitchen"
+        default: return "Discover recipes from trusted sources"
         }
     }
 

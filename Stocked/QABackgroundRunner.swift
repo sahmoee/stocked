@@ -60,8 +60,12 @@ final class QABackgroundRunner {
         guard QARecorder.shared.isEnabled else { return }
         guard timer == nil else { return }
         timer = Task { [weak self] in
-            // Baseline immediately, then settle into the slow loop.
-            await self?.runNow(force: true)
+            // Let launch hydration and the first visible transition settle before
+            // the expensive baseline. Running this on the first Home frame was a
+            // major contributor to the build 68/77 launch-stall tickets.
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            await self?.runNow(force: false)
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(120))
                 if Task.isCancelled { return }
@@ -252,7 +256,9 @@ final class QABackgroundRunner {
             // tester's actual words, the breadcrumb trail, and the screenshot name.
             // Sending them separately also means a rejected report does not silently
             // take three bug reports down with it.
-            if ok { await pushTickets() }
+            // Tickets are independent evidence. A temporary rejection of the
+            // aggregate health report must never strand bug reports behind it.
+            await pushTickets()
             // Mirror to the Logs folder so every successful worker publish has a
             // local archive on the Mac without the tester pressing anything.
             if ok {
@@ -264,6 +270,7 @@ final class QABackgroundRunner {
             lastPublish = Date()
             lastPublishOutcome = error.localizedDescription
             recorder.failed(attempt, error: error)
+            await pushTickets()
             return false
         }
     }

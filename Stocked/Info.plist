@@ -222,7 +222,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>78</string>
+	<string>80</string>
 	<key>ChompAPIKey</key>
 	<string>$(CHOMP_API_KEY)</string>
 	<key>EdamamAppID</key>

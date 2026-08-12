@@ -188,15 +188,13 @@ struct RootView: View {
             .zIndex(1500)
             .allowsHitTesting(true)
 
-            // QA ENTRY REMOVED (temporary — see _QA_REMOVAL_RESTORE.md in this delta).
-            // The eight zero-size QA window mounts that used to live here
-            // (QATapTracker, QAIssueReporter, QAHUD, QATouchTrailTracker,
-            // QATouchOverlayMount, QAFloatingButtonMount, QAShakeMount) were removed
-            // to take QA out of the shipping app. All QA*.swift files remain compiled
-            // and untouched; only the mounts and the Settings → QA row are gone, so
-            // QARecorder.isEnabled can no longer flip true and nothing here arms.
-            // To restore: paste the mount block back (verbatim in the restore doc)
-            // and re-add the Settings row. No other change needed.
+            QATapTracker().zIndex(2400)
+            QAIssueReporter().zIndex(2450)
+            QAHUD().zIndex(2350)
+            QATouchTrailTracker().zIndex(2410)
+            QATouchOverlayMount().zIndex(2420)
+            QAFloatingButtonMount().zIndex(2460)
+            QAShakeMount().zIndex(2470)
 
             // Global household-sync progress prompt — shows on whichever device is syncing
             // (creator, joiner, or a member receiving a push), with success/failure.

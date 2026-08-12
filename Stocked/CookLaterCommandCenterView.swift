@@ -1689,7 +1689,7 @@ struct CookLaterCommandCenterView: View {
 
   private func fillEmptyDays() {
     let suggestions = CookLaterPlanningEngine.suggestedMeals(
-      catalog: store.cookCatalog,
+      catalog: store.cookCatalog.filter(isCompleteRecipe),
       meals: activeMeals,
       householdSize: householdSize
     )
@@ -1738,7 +1738,7 @@ struct CookLaterCommandCenterView: View {
 
   private func openInventoryBasedRecipes(day: Int? = nil) {
     let targetDay = day ?? selectedDay
-    let recipes = store.cookCatalog.sorted { lhs, rhs in
+    let recipes = store.cookCatalog.filter(isCompleteRecipe).sorted { lhs, rhs in
       let lm = store.stockMatch(for: lhs)
       let rm = store.stockMatch(for: rhs)
       let l = lm.total == 0 ? 0 : Double(lm.have) / Double(lm.total)
@@ -1747,6 +1747,13 @@ struct CookLaterCommandCenterView: View {
     }
     activeSheet = .recipePicker(
       day: targetDay, title: "Based on Inventory", recipes: Array(recipes.prefix(30)))
+  }
+
+  private func isCompleteRecipe(_ recipe: UserRecipe) -> Bool {
+    let title = OnlineRecipeFacts.normalizedTitle(recipe.title)
+    let generic: Set<String> = ["dinner", "lunch", "breakfast", "meal", "recipe", "food"]
+    return !generic.contains(title) && recipe.ingredients.count >= 3 &&
+      OnlineRecipeFacts.hasRealInstructions(recipe.instructions.joined(separator: "\n"))
   }
 
   private func openMyRecipes(day: Int) {
@@ -2118,8 +2125,10 @@ private struct CookLaterCommandRecipePicker: View {
                 Task { @MainActor in onSelect(recipe) }
               } label: {
                 HStack(spacing: 11) {
-                  AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: 52).clipShape(
-                    RoundedRectangle(cornerRadius: 11))
+                  CachedAsyncImage(url: recipe.imageURL, imageData: recipe.imageData,
+                    height: 52, resolveName: recipe.title)
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 11))
                   VStack(alignment: .leading, spacing: 3) {
                     Text(recipe.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
                       session.themeTextColor

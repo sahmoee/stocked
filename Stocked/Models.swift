@@ -1,7 +1,7 @@
 // Models.swift
 import Foundation
 
-// Normalizes brand tokens for display — e.g. any casing of "HEB" becomes "H-E-B".
+// Normalizes brand tokens for display — e.g. any casing of "H-E-B" becomes "HEB".
 // Matches whole words only (so it won't touch substrings inside other words).
 nonisolated private let _hebDisplayRegex: NSRegularExpression? = {
     // Compiled ONCE and reused. Previously this regex was rebuilt on EVERY call to
@@ -20,7 +20,7 @@ nonisolated extension String {
         guard let re = _hebDisplayRegex,
               localizedCaseInsensitiveContains("h") else { return self }
         let range = NSRange(startIndex..., in: self)
-        return re.stringByReplacingMatches(in: self, range: range, withTemplate: "H-E-B")
+        return re.stringByReplacingMatches(in: self, range: range, withTemplate: "HEB")
     }
 }
 

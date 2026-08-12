@@ -50,6 +50,10 @@ final class NetworkMonitor {
                 // work syncs promptly on reconnect (the center coalesces duplicate reports
                 // from ConnectivityMonitor and rate-limits attempts to one per 10 s).
                 if changed { OfflineQueueCenter.shared.connectivityChanged(online: online) }
+                if changed, online, QARecorder.shared.isEnabled,
+                   !QATicketStore.shared.unsynced.isEmpty {
+                    Task { await QASyncCoordinator.shared.syncAllPending() }
+                }
             }
         }
         monitor.start(queue: queue)

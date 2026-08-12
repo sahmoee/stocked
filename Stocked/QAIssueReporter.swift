@@ -749,6 +749,7 @@ struct QATicketDetailView: View {
     @State private var importingFile = false
     @State private var mockupNote = ""
     @State private var copied: String?
+    @State private var resolutionDraft = ""
 
     private var ticket: QATicket? { store.tickets.first { $0.id == ticketID } }
 
@@ -783,6 +784,31 @@ struct QATicketDetailView: View {
                             ForEach(QATicketSeverity.allCases) { s in
                                 Label(s.title, systemImage: s.symbol).tag(s)
                             }
+                        }
+                    }
+
+                    Section("Fix verification") {
+                        if let resolution = t.resolution, !resolution.isEmpty {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("What was fixed").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                Text(resolution)
+                            }
+                        }
+                        if t.status == .fixed {
+                            Button("Verify Fix") { store.verifyFix(t.id) }
+                            Button("Refile — still broken", role: .destructive) { store.refile(t.id) }
+                        } else if t.status != .verified {
+                            TextField("What was fixed", text: $resolutionDraft, axis: .vertical)
+                                .lineLimit(2...6)
+                            Button("Mark Fixed — needs verification") {
+                                store.markFixed(t.id, resolution: resolutionDraft)
+                                resolutionDraft = ""
+                            }
+                            .disabled(resolutionDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                        if let verifiedAt = t.verifiedAt {
+                            Label("Verified \(verifiedAt.formatted(date: .abbreviated, time: .shortened))",
+                                  systemImage: "checkmark.seal.fill").foregroundStyle(.green)
                         }
                     }
 

@@ -27,7 +27,7 @@
 
 import SwiftUI
 
-nonisolated struct QASyncAttempt: Identifiable, Sendable {
+nonisolated struct QASyncAttempt: Identifiable, Codable, Sendable {
     var id = UUID()
     let at: Date
     let number: String
@@ -57,8 +57,13 @@ final class QASyncQueue {
 
     private(set) var attempts: [QASyncAttempt] = []
     private let cap = 300
+    private nonisolated static let storageKey = "qa.sync.attempts.v2"
 
-    private init() {}
+    private init() {
+        guard let data = UserDefaults.standard.data(forKey: Self.storageKey),
+              let saved = try? JSONDecoder().decode([QASyncAttempt].self, from: data) else { return }
+        attempts = Array(saved.prefix(cap))
+    }
 
     /// Called once per destination as `syncEverywhere` finishes. `detail` arrives
     /// as the coordinator already formats it — `"worker: failed"`,
@@ -78,6 +83,7 @@ final class QASyncQueue {
                                           note: note, ok: ok), at: 0)
         }
         if attempts.count > cap { attempts.removeLast(attempts.count - cap) }
+        persist()
     }
 
     /// `QASyncOutcome.note` is prose, and the only reliable markers of failure in
@@ -92,7 +98,18 @@ final class QASyncQueue {
         return true
     }
 
-    func clear() { attempts = [] }
+    func clear() { attempts = []; persist() }
+
+    private func persist() {
+        let snapshot = attempts
+        let logText = exportText
+        Task.detached(priority: .utility) {
+            guard let data = try? JSONEncoder().encode(snapshot) else { return }
+            UserDefaults.standard.set(data, forKey: Self.storageKey)
+        }
+        Task { _ = await QAFolderMirror.shared.writeStableLog(logText,
+                                                              name: "sync-history.txt") }
+    }
 
     // MARK: Reading it
 
@@ -170,7 +187,7 @@ struct QASyncQueueView: View {
             } header: {
                 Text("Status")
             } footer: {
-                Text("Every destination that a ticket sync touched this session, with whatever each one said. Held in memory only — this is for the sync happening now, not a permanent audit trail.")
+                Text("Every destination touched by recent ticket syncs, including failures that survived an app relaunch. The history is capped at 300 attempts.")
             }
 
             if !queue.health.isEmpty {

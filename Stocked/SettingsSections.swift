@@ -26,16 +26,6 @@ struct PreferencesSectionView: View {
                     set: { session.isDarkMode = $0 }
                 ))
 
-                segmentedRow(dark: dark, icon: "paintpalette.fill", title: "Theme", selection: Binding(
-                    get: { session.appTheme },
-                    set: { session.appTheme = $0 }
-                ), options: AppTheme.allCases) { $0.rawValue }
-
-                segmentedRow(dark: dark, icon: "photo.fill", title: "Background", selection: Binding(
-                    get: { session.appBackground.isDefaultTan ? "Classic" : "Custom" },
-                    set: { if $0 == "Classic" { session.appBackground = .defaultTan } }
-                ), options: ["Classic", "Custom"]) { $0 }
-
                 segmentedRow(dark: dark, icon: "textformat", title: "App Font", selection: Binding(
                     get: { session.appFont },
                     set: { session.appFont = $0 }

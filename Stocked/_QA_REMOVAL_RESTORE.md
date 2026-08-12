@@ -1,5 +1,8 @@
 # QA Removal — Restore Guide
 
+> Restored: the Settings entry and runtime mounts described below were re-enabled.
+> This file remains as history for the intentional removal/restoration boundary.
+
 **What:** QA was taken out of the shipping app by (1) cutting its two entry points
 and (2) removing the user-facing changelog entries that advertised it. All 28
 `QA*.swift` / `StockedQAView.swift` files remain in the tree, compiled and untouched.

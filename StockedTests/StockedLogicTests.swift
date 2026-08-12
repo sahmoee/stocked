@@ -30,6 +30,49 @@ final class StockedLogicTests: XCTestCase {
         XCTAssertTrue("anything".searchMatches(""))
     }
 
+    // MARK: Recipe import
+
+    func testRecipeImportNormalizesBareAndTrackedURLs() {
+        let normalized = RecipeImportCoordinator.normalizedURLString(
+            from: "example.com/chili?utm_source=newsletter&v=42#ingredients")
+        XCTAssertEqual(normalized, "https://example.com/chili?v=42")
+    }
+
+    func testRecipeImportExtractsURLFromSharedText() {
+        let normalized = RecipeImportCoordinator.normalizedURLString(
+            from: "Try this recipe https://example.com/pasta?fbclid=abc")
+        XCTAssertEqual(normalized, "https://example.com/pasta")
+    }
+
+    func testMultiScreenshotMergeRemovesRepeatedLines() {
+        let merged = RecipeTextParser.mergeOCRPages([
+            "Chocolate Cake\nIngredients\n1 cup flour",
+            "Chocolate Cake\nInstructions\n1. Mix well"
+        ])
+        XCTAssertEqual(merged.components(separatedBy: "Chocolate Cake").count - 1, 1)
+        XCTAssertTrue(merged.contains("1 cup flour"))
+        XCTAssertTrue(merged.contains("1. Mix well"))
+    }
+
+    func testQATicketRequiresWorkerAndFolderSync() {
+        var ticket = QATicket(number: "STK-TEST-1", title: "Sync test")
+        XCTAssertFalse(ticket.isFullySynced)
+        ticket.syncedAt = Date()
+        XCTAssertFalse(ticket.isFullySynced)
+        ticket.mirroredAt = Date()
+        XCTAssertEqual(ticket.isFullySynced, !QACPanelSettings.isConfigured)
+    }
+
+    func testQATicketWithScreenshotRequiresImageUpload() {
+        var ticket = QATicket(number: "STK-TEST-2", title: "Screenshot sync")
+        ticket.syncedAt = Date()
+        ticket.mirroredAt = Date()
+        ticket.screenshotFile = "shot.jpg"
+        XCTAssertFalse(ticket.isFullySynced)
+        ticket.shotSyncedAt = Date()
+        XCTAssertEqual(ticket.isFullySynced, !QACPanelSettings.isConfigured)
+    }
+
     // MARK: Grocery de-duplication (#17)
 
     func testGroceryDedupCollapsesCaseAndAccents() {

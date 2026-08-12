@@ -210,7 +210,8 @@ struct CookHubView: View {
 
     // ── Style 2: the photo hero cards ────────────────────────────────────
     private var cardOptions: some View {
-        VStack(spacing: CookStyle.sectionSpacing) {
+        let side = min(190, max(140, 162 * sizeScale))
+        return HStack(alignment: .top, spacing: 12) {
             CookHeroCard(
                 title: "Cook Now",
                 subtitle: "Solve tonight with what you already have.",
@@ -218,8 +219,9 @@ struct CookHubView: View {
                 assetName: "cook_now_hero",
                 tint: Color.stockedCharcoal,
                 textOnDark: true,
-                height: min(210, max(110, 150 * sizeScale))   // Cook Buttons size, live
+                height: side
             ) { goCookNow = true }
+            .frame(maxWidth: side)
             .coachmarkAnchor("cook.now")
 
             CookHeroCard(
@@ -229,10 +231,12 @@ struct CookHubView: View {
                 assetName: "cook_later_hero",
                 tint: Color.stockedGold,
                 textOnDark: true,
-                height: min(210, max(110, 150 * sizeScale))   // Cook Buttons size, live
+                height: side
             ) { goCookLater = true }
+            .frame(maxWidth: side)
             .coachmarkAnchor("cook.later")
         }
+        .frame(maxWidth: .infinity)
     }
 
     // ── Style 3: compact rows ─────────────────────────────────────────────

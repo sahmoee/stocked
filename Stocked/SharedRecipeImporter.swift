@@ -192,7 +192,7 @@ enum SharedRecipeImporter {
     /// Best-effort fallback for URLs with no structured recipe data: fetch the page, strip it
     /// to visible text, and run the same heuristic parser used by Text Manually. Returns a form
     /// only if it found enough to look like a recipe. The user reviews/edits before saving.
-    private static func parsePageText(_ urlStr: String) async -> AddRecipeForm? {
+    static func parsePageText(_ urlStr: String) async -> AddRecipeForm? {
         guard let url = URL(string: urlStr) else { return nil }
         var req = URLRequest(url: url)
         req.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")

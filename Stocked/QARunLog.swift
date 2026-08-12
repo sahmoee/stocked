@@ -68,6 +68,7 @@ final class QARunLog {
     private(set) var runs: [QARun] = []
     nonisolated private static let key = "qa.runs.v1"
     private let cap = 40
+    private var mirrorTask: Task<Void, Never>?
 
     private init() { load() }
 
@@ -249,6 +250,13 @@ final class QARunLog {
     private func save() {
         guard let data = try? JSONEncoder().encode(runs) else { return }
         UserDefaults.standard.set(data, forKey: Self.key)
+        mirrorTask?.cancel()
+        mirrorTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled, let self else { return }
+            _ = await QAFolderMirror.shared.writeStableLog(self.allRunsExport,
+                                                           name: "qa-runs.txt")
+        }
     }
 
     private func load() {

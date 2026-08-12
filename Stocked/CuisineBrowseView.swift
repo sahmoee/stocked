@@ -12,9 +12,14 @@ import SwiftUI
 
 struct CuisineBrowseView: View {
     @Environment(AppSession.self) var session
+    @State private var online = OnlineRecipesLoader.shared
 
     private var cuisines: [String] {
-        RecipeFacets.availableCuisines(in: session.guestStore.userRecipes)
+        let saved = RecipeFacets.availableCuisines(in: session.guestStore.userRecipes)
+        // Categories is a browsing entry point, not merely a facet of recipes the
+        // user already saved. Always include the curated online cuisines so a new
+        // kitchen and an offline launch never produce a blank destination.
+        return Array(Set(saved + Self.fallbackCuisines)).sorted()
     }
 
     var body: some View {
@@ -28,10 +33,7 @@ struct CuisineBrowseView: View {
                 LazyVStack(spacing: 10) {
                     ForEach(cuisines, id: \.self) { cuisine in
                         NavigationLink {
-                            RecipeListView(
-                                title: cuisine,
-                                recipes: session.guestStore.userRecipes.filter { RecipeFacets.matches($0, cuisine: cuisine) }
-                            )
+                            CuisineRecipesView(area: cuisine)
                             .environment(session)
                         } label: {
                             cuisineRow(cuisine)
@@ -56,7 +58,7 @@ struct CuisineBrowseView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(session.themeTextColor)
             Spacer()
-            Text("\(RecipeFacets.count(cuisine: cuisine, in: session.guestStore.userRecipes))")
+            Text("\(cuisineCount(cuisine))")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
             Image(systemName: "chevron.right")
@@ -67,6 +69,14 @@ struct CuisineBrowseView: View {
         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.18))
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .contentShape(Rectangle())
+    }
+
+    private func cuisineCount(_ cuisine: String) -> Int {
+        let saved = RecipeFacets.count(cuisine: cuisine, in: session.guestStore.userRecipes)
+        let remote = online.recipes.filter {
+            $0.area.localizedCaseInsensitiveCompare(cuisine) == .orderedSame
+        }.count
+        return max(saved, remote)
     }
 
     // Curated default list — used as a fallback and to rank the live area list.
@@ -130,7 +140,7 @@ struct CuisineBrowseView: View {
 }
 
 // MARK: - Recipes for one cuisine
-private struct CuisineRecipesView: View {
+struct CuisineRecipesView: View {
     @Environment(AppSession.self) var session
     let area: String
 
@@ -180,7 +190,16 @@ private struct CuisineRecipesView: View {
                 // mealDBByArea returns full recipes WITH steps, so they pass the
                 // app-wide no-steps filter. Belt-and-suspenders: filter here too.
                 let fetched = await RecipeSourcesPlus.mealDBByArea(area, limit: 20)
-                recipes = fetched.filter { OnlineRecipeFacts.hasRealInstructions($0.instructions) }
+                let complete = fetched.filter { OnlineRecipeFacts.hasRealInstructions($0.instructions) }
+                if complete.isEmpty {
+                    await OnlineRecipesLoader.shared.warmFromCacheIfNeeded()
+                    recipes = OnlineRecipesLoader.shared.recipes.filter {
+                        $0.area.localizedCaseInsensitiveCompare(area) == .orderedSame
+                            && OnlineRecipeFacts.hasRealInstructions($0.instructions)
+                    }
+                } else {
+                    recipes = complete
+                }
                 loading = false
             }
         }

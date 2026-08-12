@@ -635,6 +635,12 @@ enum MockCategory: String, CaseIterable, Identifiable, Hashable {
         // matter which zone (Fridge or Freezer) they were saved to.
         if item.isLeftover || n.contains("leftover") { return .leftovers }
 
+        // Stock, broth and bouillon often contain a vegetable or protein word
+        // ("beef broth", "vegetable stock") but are pantry cooking bases.
+        if ["broth", "stock", "bouillon", "consommé", "consomme"].contains(where: { n.contains($0) }) {
+            return .pantry
+        }
+
         // Frozen: zone first, then obvious frozen keywords.
         if item.zone == "Freezer" { return .frozen }
         if ["frozen", "ice cream", "popsicle", "sorbet"].contains(where: { n.contains($0) }) { return .frozen }
@@ -881,7 +887,7 @@ struct CategoryItemsView: View {
                 if let d = item.daysUntilExpiry, d <= KitchenThresholds.expiringSoonDays {
                     Text(d < 0 ? "Expired" : d == 0 ? "Today" : "\(d)d")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(d <= 1 ? Color.red.opacity(0.8) : Color.orange)
+                        .foregroundStyle(d <= 1 ? Color.red.opacity(0.85) : session.themeTextColor.opacity(0.78))
                         .lineLimit(1)
                         .fixedSize()
                 }
@@ -908,7 +914,7 @@ struct CategoryItemsView: View {
                     FoodIconView(name: item.name, size: 44, emojiSize: 26)
                     if let d = item.daysUntilExpiry, d <= KitchenThresholds.expiringSoonDays {
                         VStack { HStack { Spacer()
-                            Circle().fill(d <= 1 ? Color.red : Color.orange)
+                            Circle().fill(d <= 1 ? Color.red : Color.stockedGold)
                                 .frame(width: 8, height: 8).padding(5)
                         }; Spacer() }
                     }

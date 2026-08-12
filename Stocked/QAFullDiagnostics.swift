@@ -114,6 +114,13 @@ enum QAFullDiagnostics {
         sync.append(QAInvariantResult(name: "Offline queue", status: .ok,
             detail: oq.pendingCount == 0 ? "empty" : "\(oq.pendingCount) item(s) waiting\(oq.isOffline ? " (device offline — expected)" : "")",
             critical: false))
+        let tickets = QATicketStore.shared
+        sync.append(QAInvariantResult(name: "QA ticket delivery",
+            status: tickets.unsynced.isEmpty ? .ok : .violation,
+            detail: tickets.unsynced.isEmpty
+                ? "all \(tickets.tickets.count) ticket(s) reached every required destination"
+                : "\(tickets.unsynced.count) ticket(s) incomplete · \(QASyncQueue.shared.summary)",
+            critical: tickets.blockers.contains { !$0.isFullySynced }))
         sections.append(QADiagnosticsSection(title: "Sync", rows: sync))
 
         // 5 — Notifications.

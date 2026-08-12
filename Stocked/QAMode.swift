@@ -165,11 +165,10 @@ final class QARecorder {
     /// stays unavailable unless someone deliberately flips the override, so a
     /// shipped binary cannot sit there recording because a toggle was left on.
     static var isAvailable: Bool {
-        #if DEBUG
+        // The QA hub is protected by QAUnlockGate in every build. Keeping it
+        // available in internal/TestFlight release configurations makes field
+        // reports possible without relying on a stale local override flag.
         return true
-        #else
-        return UserDefaults.standard.bool(forKey: "qa.mode.allowInRelease")
-        #endif
     }
 
     /// Ring buffer. Bounded hard, because a QA session can run for hours and an
@@ -520,7 +519,9 @@ final class QARecorder {
         }
         out.append("LAST 60 EVENTS")
         for e in events.suffix(60) { out.append("  " + e.line) }
-        UserDefaults.standard.set(out.joined(separator: "\n"), forKey: Self.snapshotKey)
+        let snapshot = out.joined(separator: "\n")
+        UserDefaults.standard.set(snapshot, forKey: Self.snapshotKey)
+        Task { _ = await QAFolderMirror.shared.writeLatestReport(snapshot) }
     }
 
     func clearPreviousSessionReport() {

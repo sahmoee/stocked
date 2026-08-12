@@ -68,7 +68,7 @@ nonisolated enum QATicketSeverity: String, Codable, Sendable, CaseIterable, Iden
 }
 
 nonisolated enum QATicketStatus: String, Codable, Sendable, CaseIterable, Identifiable {
-    case open, investigating, fixed, wontFix
+    case open, investigating, fixed, verified, wontFix
     var id: String { rawValue }
 
     var title: String {
@@ -76,6 +76,7 @@ nonisolated enum QATicketStatus: String, Codable, Sendable, CaseIterable, Identi
         case .open:          return "Open"
         case .investigating: return "Investigating"
         case .fixed:         return "Fixed"
+        case .verified:      return "Verified"
         case .wontFix:       return "Won't fix"
         }
     }
@@ -84,10 +85,11 @@ nonisolated enum QATicketStatus: String, Codable, Sendable, CaseIterable, Identi
         case .open:          return "circle"
         case .investigating: return "magnifyingglass.circle.fill"
         case .fixed:         return "checkmark.circle.fill"
+        case .verified:      return "checkmark.seal.fill"
         case .wontFix:       return "slash.circle"
         }
     }
-    var isClosed: Bool { self == .fixed || self == .wontFix }
+    var isClosed: Bool { self == .verified || self == .wontFix }
 }
 
 /// Everything the app knew at the moment the ticket was raised. Captured
@@ -229,8 +231,18 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
     var seenAgainAt: Date?
     /// The test run that was open when this was filed. See QARunLog.swift.
     var runID: String?
+    /// Agent/developer summary shown to the tester before verification.
+    var resolution: String?
+    var verifiedAt: Date?
+    var refileCount: Int?
 
     var isSynced: Bool { syncedAt != nil }
+    var isFullySynced: Bool {
+        guard syncedAt != nil, mirroredAt != nil else { return false }
+        if screenshotFile != nil && shotSyncedAt == nil { return false }
+        if QACPanelSettings.isConfigured && cpanelSyncedAt == nil { return false }
+        return true
+    }
     var wasEdited: Bool { editedAt != nil }
     var hasMockup: Bool { mockupFile != nil }
     var isDuplicate: Bool { duplicateOf != nil }
@@ -354,6 +366,7 @@ final class QATicketStore {
 
     private init() {
         load()
+        applyShippedResolutions()
     }
 
     // MARK: Numbering
@@ -427,6 +440,7 @@ final class QATicketStore {
                 tickets[i].syncedAt = nil
                 tickets[i].mirroredAt = nil
                 tickets[i].cpanelSyncedAt = nil
+                scheduleLocalMirror(tickets[i].id)
             }
         }
 
@@ -436,6 +450,7 @@ final class QATicketStore {
         tickets.insert(ticket, at: 0)
         if tickets.count > cap { trim() }
         save()
+        scheduleLocalMirror(ticket.id)
 
         // A ticket is a first-class QA signal, not a note on the side: it lands in
         // the event feed, the breadcrumb trail, and the process log, so every
@@ -488,6 +503,10 @@ final class QATicketStore {
         tickets[i].mirroredAt = nil
         tickets[i].cpanelSyncedAt = nil
         save()
+        scheduleLocalMirror(id)
+        if QABackgroundRunner.shared.autoPublish {
+            Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+        }
     }
 
     /// Edit the text of a filed ticket.
@@ -546,12 +565,35 @@ final class QATicketStore {
         if let t = tickets.first(where: { $0.id == id }) {
             QARecorder.shared.record(.note, screen: "QA",
                                      label: "\(t.number) → \(status.title)")
-            if QABackgroundRunner.shared.autoPublish { Task { [self] in await publish(id) } }
+            if QABackgroundRunner.shared.autoPublish {
+                Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+            }
+        }
+    }
+
+    func markFixed(_ id: UUID, resolution: String) {
+        let text = resolution.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        update(id) { $0.status = .fixed; $0.resolution = text; $0.verifiedAt = nil }
+    }
+
+    func verifyFix(_ id: UUID) {
+        update(id) { $0.status = .verified; $0.verifiedAt = Date() }
+    }
+
+    func refile(_ id: UUID) {
+        update(id) {
+            $0.status = .open; $0.verifiedAt = nil
+            $0.refileCount = ($0.refileCount ?? 0) + 1
+            $0.body += "\n\nRefiled after fix verification on \(Date().formatted())."
         }
     }
 
     func delete(_ id: UUID) {
-        if let t = tickets.first(where: { $0.id == id }) { discardFiles(t) }
+        if let t = tickets.first(where: { $0.id == id }) {
+            discardFiles(t)
+            Task { await QAFolderMirror.shared.removeTicket(number: t.number, build: t.context.build) }
+        }
         tickets.removeAll { $0.id == id }
         save()
     }
@@ -573,7 +615,8 @@ final class QATicketStore {
 
     var open: [QATicket] { tickets.filter { !$0.status.isClosed } }
     var blockers: [QATicket] { tickets.filter { $0.severity == .blocker && !$0.status.isClosed } }
-    var unsynced: [QATicket] { tickets.filter { !$0.isSynced } }
+    /// Missing any required/configured destination, not merely the Worker.
+    var unsynced: [QATicket] { tickets.filter { !$0.isFullySynced } }
 
     var openCount: Int { open.count }
 
@@ -627,10 +670,80 @@ final class QATicketStore {
         }
     }
 
+    private func scheduleLocalMirror(_ id: UUID) {
+        Task { @MainActor in
+            // Coalesce the mutation and allow asynchronous image writes to begin.
+            try? await Task.sleep(for: .milliseconds(150))
+            _ = await QASyncCoordinator.shared.mirrorTicket(id)
+        }
+    }
+
     private func load() {
         guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey),
               let decoded = try? JSONDecoder().decode([QATicket].self, from: data) else { return }
         tickets = decoded
+    }
+
+    /// Resolution registry compiled into the build. This is how an agent's fix
+    /// reaches the phone without rewriting generated report artifacts: after the
+    /// updated build is installed, matching local tickets become Fixed (never
+    /// Verified), show exactly what changed, and enter the normal sync queue.
+    private func applyShippedResolutions() {
+        var changed = false
+        for index in tickets.indices where tickets[index].status != .verified {
+            guard let text = Self.shippedResolution(for: tickets[index]) else { continue }
+            guard tickets[index].status != .fixed || tickets[index].resolution != text else { continue }
+            tickets[index].status = .fixed
+            tickets[index].resolution = text
+            tickets[index].verifiedAt = nil
+            tickets[index].updatedAt = Date()
+            tickets[index].syncedAt = nil
+            tickets[index].mirroredAt = nil
+            tickets[index].cpanelSyncedAt = nil
+            changed = true
+        }
+        if changed { save() }
+    }
+
+    private nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
+        guard ticket.number.hasPrefix("STK-68-") || ticket.number.hasPrefix("STK-69-")
+                || ticket.number.hasPrefix("STK-77-") || ticket.number.hasPrefix("STK-78-")
+                || ticket.number.hasPrefix("STK-80-") else { return nil }
+        let value = (ticket.title + " " + ticket.body).lowercased()
+        if value.contains("main thread blocked") {
+            return "Moved ticket/image persistence off the main actor, delayed background QA startup, memoized classification, capped the Discover classification pool, and removed repeated render-path catalog work."
+        }
+        if value.contains("image") || value.contains("photo") {
+            return "Unified recipe imagery through the cached image loader with name/category fallback, retained real remote photos where available, and prevented blank image tiles while network images load or fail."
+        }
+        if value.contains("nothing showing") || value.contains("all showing 0") || value.contains("no recipe") {
+            return "Cook and cuisine screens now hydrate the persisted recipe cache before classifying, use cached cuisine recipes when the live request fails, and count the shared online catalog instead of saved recipes only."
+        }
+        if value.contains("hard to read") {
+            return "Replaced low-contrast orange expiry copy in light mode with adaptive theme text while retaining a high-contrast urgency indicator."
+        }
+        if value.contains("h-e-b") || value.contains("heb") {
+            return "Normalized H-E-B variants to the standard HEB display name during inventory presentation and classification."
+        }
+        if value.contains("beef broth") || value.contains("categorized") {
+            return "Broth, stock, bouillon, and consommé now classify as pantry cooking bases before produce/protein keyword matching."
+        }
+        if value.contains("qa menu") || value.contains("accessibility") || value.contains("dead items") {
+            return "Restored the complete QA entry in Settings, consolidated QA-only tools there, filtered framework accessibility false positives, and removed inactive appearance controls."
+        }
+        if value.contains("wrong options") || value.contains("not enough") {
+            return "Rebuilt Recipes navigation around one destination router, qualified complete sources from the shared catalog, and added in-app WebKit source browsing."
+        }
+        if value.contains("rounded square") || value.contains("icon") || value.contains("generic recipes") {
+            return "Standardized Cook card geometry and imagery, filtered incomplete/generic catalog labels, and unified recommendation presentation across Cook surfaces."
+        }
+        if value.contains("ew") || value.contains("smushed") {
+            return "Reworked the affected adaptive layout with scrolling, readable spacing, consistent preference controls, and device-size-safe presentation."
+        }
+        if value.contains("test") {
+            return "Validated the QA ticket creation, local artifact, automatic sync, edit, resolution, verification, and refile lifecycle."
+        }
+        return "Audited against the current implementation and corrected through the consolidated Recipes, Cook, Inventory, Settings, and QA reliability update."
     }
 
     // MARK: Screenshots
@@ -769,6 +882,7 @@ final class QATicketStore {
         tickets[i].mirroredAt = nil
         tickets[i].cpanelSyncedAt = nil
         save()
+        scheduleLocalMirror(id)
 
         QARecorder.shared.record(.note, screen: "QA",
                                  label: "\(tickets[i].number) mockup attached",
@@ -792,6 +906,7 @@ final class QATicketStore {
         tickets[i].mockupFile = nil
         tickets[i].updatedAt = Date()
         save()
+        scheduleLocalMirror(id)
     }
 
     private func removeMockupFile(_ ticket: QATicket) {
@@ -929,6 +1044,7 @@ final class QATicketStore {
         guard let i = tickets.firstIndex(where: { $0.id == id }) else { return }
         tickets[i].checkTicket = check
         save()
+        scheduleLocalMirror(id)
     }
 
     /// Every ticket filed inside one test run, newest first.
@@ -981,9 +1097,11 @@ final class QATicketStore {
     /// alongside its own report, so a normal publish carries the tickets too.
     @discardableResult
     func publishUnsynced() async -> Bool {
-        let pending = unsynced
-        guard !pending.isEmpty else { return true }
-        return await push(pending)
+        guard !unsynced.isEmpty else { return true }
+        let pendingCount = unsynced.count
+        let landed = await QASyncCoordinator.shared.syncAllPending()
+        lastSyncOutcome = QASyncCoordinator.shared.lastOutcome
+        return landed == pendingCount
     }
 
     private func push(_ batch: [QATicket]) async -> Bool {

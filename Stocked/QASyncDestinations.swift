@@ -54,6 +54,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Foundation
+import CryptoKit
 import SwiftUI
 import UIKit
 
@@ -266,6 +267,22 @@ actor QAFolderMirror {
         resolvedOnce = true
 
         let fm = FileManager.default
+        // Internal builds retain the compiler's source path. When that checkout
+        // is writable, use the application-neutral Documents/Reports workspace;
+        // each Unified Worker app owns a sibling folder beneath it.
+        // Physical-device/App Store sandboxes cannot write there and naturally
+        // continue to the iCloud/Documents fallback below.
+        let source = URL(fileURLWithPath: #filePath)
+        let project = source.deletingLastPathComponent().deletingLastPathComponent()
+        let reports = project.deletingLastPathComponent()
+            .appendingPathComponent("Reports", isDirectory: true)
+            .appendingPathComponent("Stocked", isDirectory: true)
+        if ensure(reports) && canWrite(reports) {
+            cachedRoot = reports
+            usingICloud = false
+            lastRootDescription = reports.path
+            return reports
+        }
         if let container = fm.url(forUbiquityContainerIdentifier: nil) {
             // `Documents` inside the container is the part that is visible to
             // the user in Finder and Files. Anything written beside it is
@@ -273,6 +290,7 @@ actor QAFolderMirror {
             // having written it.
             let docs = container.appendingPathComponent("Documents", isDirectory: true)
             let qa = docs.appendingPathComponent("QA", isDirectory: true)
+                .appendingPathComponent("Stocked", isDirectory: true)
             if ensure(qa) {
                 cachedRoot = qa
                 usingICloud = true
@@ -298,13 +316,22 @@ actor QAFolderMirror {
 
     private func ensure(_ dir: URL) -> Bool {
         let fm = FileManager.default
-        if fm.fileExists(atPath: dir.path) { return true }
+        if fm.fileExists(atPath: dir.path) { return fm.isWritableFile(atPath: dir.path) }
         do {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
             return true
         } catch {
             return false
         }
+    }
+
+    private func canWrite(_ dir: URL) -> Bool {
+        let probe = dir.appendingPathComponent(".stocked-qa-write-probe")
+        do {
+            try Data().write(to: probe, options: .atomic)
+            try FileManager.default.removeItem(at: probe)
+            return true
+        } catch { return false }
     }
 
     /// Human-readable description of where things are being written, for the QA
@@ -330,12 +357,26 @@ actor QAFolderMirror {
         guard ensure(buildDir) else { return .failed("could not create the build folder") }
 
         let dir = buildDir.appendingPathComponent(bundle.folderName, isDirectory: true)
+        // A title edit changes the friendly folder name. Remove the prior folder
+        // for the same immutable ticket number so stale versions do not linger.
+        if let siblings = try? FileManager.default.contentsOfDirectory(at: buildDir,
+                                                                        includingPropertiesForKeys: nil) {
+            for old in siblings where old.hasDirectoryPath && old.lastPathComponent.hasPrefix(bundle.number + " ") && old != dir {
+                try? FileManager.default.removeItem(at: old)
+            }
+        }
         guard ensure(dir) else { return .failed("could not create the ticket folder") }
 
         do {
             try write(bundle.reportText, to: dir.appendingPathComponent(QAMockupHandoff.reportFileName))
             try write(bundle.promptText, to: dir.appendingPathComponent(QAMockupHandoff.promptFileName))
             try write(bundle.handbackText, to: dir.appendingPathComponent(QAMockupHandoff.handbackFileName))
+
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            encoder.dateEncodingStrategy = .iso8601
+            let ticketJSON = try encoder.encode(bundle.ticket)
+            try ticketJSON.write(to: dir.appendingPathComponent("ticket.json"), options: .atomic)
 
             if let shot = bundle.shot {
                 try shot.write(to: dir.appendingPathComponent(QAMockupHandoff.shotFileName),
@@ -345,6 +386,18 @@ actor QAFolderMirror {
                 try mockup.write(to: dir.appendingPathComponent(QAMockupHandoff.mockupFileName),
                                  options: .atomic)
             }
+            var files: [[String: Any]] = []
+            for file in try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey]) {
+                guard !file.hasDirectoryPath, file.lastPathComponent != "manifest.json",
+                      let data = try? Data(contentsOf: file) else { continue }
+                files.append(["name": file.lastPathComponent, "bytes": data.count,
+                              "sha256": SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()])
+            }
+            let manifest: [String: Any] = ["ticket": bundle.number,
+                                           "updatedAt": ISO8601DateFormatter().string(from: Date()),
+                                           "files": files.sorted { ($0["name"] as? String ?? "") < ($1["name"] as? String ?? "") }]
+            let manifestData = try JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys])
+            try manifestData.write(to: dir.appendingPathComponent("manifest.json"), options: .atomic)
         } catch {
             return .failed(error.localizedDescription)
         }
@@ -366,10 +419,34 @@ actor QAFolderMirror {
         do {
             try write(out.joined(separator: "\n"),
                       to: buildDir.appendingPathComponent("index.md"))
+            try writeRootIndex()
         } catch {
             return .failed(error.localizedDescription)
         }
         return .ok
+    }
+
+    private func writeRootIndex() throws {
+        guard let root = root() else { return }
+        let builds = ((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.hasDirectoryPath && $0.lastPathComponent.hasPrefix("Build ") }
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+        var out = ["# Stocked QA Reports", "",
+                   "Tickets, screenshots, diagnostics, run logs, and machine-readable exports generated automatically by internal QA.", ""]
+        out += builds.map { "- [\($0.lastPathComponent)](<\($0.lastPathComponent)/index.md>)" }
+        out += ["", "- [Logs](<Logs/>)", "", "_Updated \(Date().formatted())._"]
+        try write(out.joined(separator: "\n"), to: root.appendingPathComponent("README.md"))
+    }
+
+    func removeTicket(number: String, build: Int) {
+        guard let root = root() else { return }
+        let buildDir = root.appendingPathComponent("Build \(build)", isDirectory: true)
+        guard let files = try? FileManager.default.contentsOfDirectory(at: buildDir,
+                                                                       includingPropertiesForKeys: nil) else { return }
+        for file in files where file.hasDirectoryPath && file.lastPathComponent.hasPrefix(number + " ") {
+            try? FileManager.default.removeItem(at: file)
+        }
+        try? writeRootIndex()
     }
 
     /// Drop a plain-text QA export (the logs half of the request) into `Logs/`.
@@ -393,6 +470,24 @@ actor QAFolderMirror {
             return .failed(error.localizedDescription)
         }
         return .ok
+    }
+
+    /// Continuously updated session report for tools that want one stable file.
+    func writeLatestReport(_ text: String) -> QASyncOutcome {
+        guard let root = root() else { return .failed(lastRootDescription) }
+        let dir = root.appendingPathComponent("Logs", isDirectory: true)
+        guard ensure(dir) else { return .failed("could not create the Logs folder") }
+        do { try write(text, to: dir.appendingPathComponent("latest-qa-session.txt")); return .ok }
+        catch { return .failed(error.localizedDescription) }
+    }
+
+    func writeStableLog(_ text: String, name: String) -> QASyncOutcome {
+        guard let root = root() else { return .failed(lastRootDescription) }
+        let dir = root.appendingPathComponent("Logs", isDirectory: true)
+        guard ensure(dir) else { return .failed("could not create the Logs folder") }
+        let safe = name.replacingOccurrences(of: "/", with: "-")
+        do { try write(text, to: dir.appendingPathComponent(safe)); return .ok }
+        catch { return .failed(error.localizedDescription) }
     }
 
     private func write(_ text: String, to url: URL) throws {
@@ -495,6 +590,23 @@ final class QASyncCoordinator {
 
     private init() {}
 
+    /// Unconditional local/project mirror. This is deliberately separate from
+    /// network fan-out so saving evidence never depends on connectivity or the
+    /// auto-publish preference.
+    @discardableResult
+    func mirrorTicket(_ id: UUID) async -> Bool {
+        await QATicketStore.shared.awaitScreenshotWrite(id)
+        guard let bundle = QATicketStore.shared.bundle(for: id) else { return false }
+        let outcome = await QAFolderMirror.shared.write(bundle)
+        folderLocation = await QAFolderMirror.shared.rootDescription()
+        if outcome.succeeded { QATicketStore.shared.stampMirrored(id) }
+        let index = QATicketStore.shared.indexLines(forBuild: bundle.ticket.context.build)
+        _ = await QAFolderMirror.shared.writeIndex(build: bundle.ticket.context.build,
+                                                   lines: index.lines, summary: index.summary)
+        QASyncQueue.shared.record(number: bundle.number, detail: ["folder: \(outcome.note)"])
+        return outcome.succeeded
+    }
+
     /// Refresh the human-readable folder location for the settings screen.
     func refreshFolderLocation() async {
         folderLocation = await QAFolderMirror.shared.rootDescription()
@@ -577,7 +689,7 @@ final class QASyncCoordinator {
     @discardableResult
     func syncAllPending() async -> Int {
         let pending = QATicketStore.shared.tickets
-            .filter { $0.syncedAt == nil || $0.mirroredAt == nil }
+            .filter { !$0.isFullySynced }
             .map(\.id)
         guard !pending.isEmpty else {
             lastOutcome = "everything is already everywhere"

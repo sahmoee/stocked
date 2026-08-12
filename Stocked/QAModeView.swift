@@ -680,7 +680,12 @@ struct QAModeView: View {
                 diagRunning = true
                 diagUploadResult = nil
                 Task { @MainActor in
-                    diagReport = await QAFullDiagnostics.run(store: store, session: nil)
+                    let report = await QAFullDiagnostics.run(store: store, session: nil)
+                    diagReport = report
+                    let stamp = ISO8601DateFormatter().string(from: report.startedAt)
+                        .replacingOccurrences(of: ":", with: "-")
+                    _ = await QASyncCoordinator.shared.mirrorLog(
+                        report.exportText, name: "full-diagnostics-\(stamp).txt")
                     diagRunning = false
                 }
             } label: {

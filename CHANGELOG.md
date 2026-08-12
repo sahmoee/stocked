@@ -1,3 +1,7 @@
+08:12:26 06:52 — v4.13 (build 80) — QA backlog repair
+Fixed empty recipe categories, unwanted My Recipes tabs, sparse source browsing, HEB naming, broth categorization, Cook card proportions, incomplete recommendations, mixed image fallbacks, launch-time QA stalls, and accessibility false positives. Added in-app source webpages and restored automatic report intake.
+
 08:04:26 20:06 — v4.13 (build 78) — Build
 Big change
-
+08:12:26 — v4.13 (build 80) — Unified QA lifecycle and documentation
+Added required fix resolutions, tester verification and history-preserving refiles; shipped resolution mappings for the current QA backlog; reduced Cook classification work; restored cached cuisine counts/results; improved light-mode inventory contrast; and documented setup, architecture, security, contribution, and QA workflows.

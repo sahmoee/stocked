@@ -3,6 +3,7 @@
 // on-device database), so what appears here matches what search, the mood finder, and cook
 // ranking see.
 import SwiftUI
+import WebKit
 
 // MARK: - Sources list
 
@@ -32,7 +33,7 @@ struct SourcesBrowserView: View {
                 let feeds = listings.filter { $0.isLiveFeed }
                 let sites = listings.filter { !$0.isLiveFeed }
 
-                Text("Sources appear after at least 20 unique, complete recipes are available. Counts are live.")
+                Text("Sources appear after at least 6 unique, complete recipes are available. Counts are live.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -53,7 +54,7 @@ struct SourcesBrowserView: View {
                         Text(query.isEmpty ? "No qualified sources yet" : "No matching qualified sources")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(session.themeTextColor)
-                        Text("A source is shown only after Stocked has cached 20 complete recipes from it.")
+                        Text("A source is shown after Stocked has cached 6 complete recipes from it.")
                             .font(.system(size: 12))
                             .foregroundStyle(session.themeSecondaryText)
                             .multilineTextAlignment(.center)
@@ -160,6 +161,7 @@ struct SourceRecipesView: View {
     let onOpenRecipe: (OnlineRecipe) -> Void
 
     @State private var dbPool: [OnlineRecipe] = []
+    @State private var showWebsite = false
 
     private var recipes: [OnlineRecipe] {
         // Loader pool + database, deduplicated by normalized title so the same dish
@@ -226,10 +228,59 @@ struct SourceRecipesView: View {
         .background(session.themeBgColor.ignoresSafeArea())
         .navigationTitle(sourceName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if sourceWebsite != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Visit Source") { showWebsite = true }
+                }
+            }
+        }
+        .sheet(isPresented: $showWebsite) {
+            if let sourceWebsite {
+                NavigationStack {
+                    RecipeSourceWebView(url: sourceWebsite)
+                        .navigationTitle(sourceName)
+                        .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+        }
         .task {
             let entries = await RecipeDatabaseManager.shared.loadSnapshot()
             dbPool = RecipeSourceHub.poolEntries(from: entries)
         }
+    }
+
+    private var sourceWebsite: URL? {
+        let known: [String: String] = [
+            "TheMealDB": "https://www.themealdb.com",
+            "TheCocktailDB": "https://www.thecocktaildb.com",
+            "DummyJSON": "https://dummyjson.com/recipes",
+            "Wikibooks Cookbook": "https://en.wikibooks.org/wiki/Cookbook:Table_of_Contents"
+        ]
+        if let value = known[RecipeSourceHub.canonicalSourceName(sourceName)] {
+            return URL(string: value)
+        }
+        if let site = RecipeSourceRegistry.everything.first(where: { $0.displayName == sourceName }) {
+            return URL(string: "https://\(site.domain)")
+        }
+        return nil
+    }
+}
+
+private struct RecipeSourceWebView: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        view.allowsBackForwardNavigationGestures = true
+        return view
+    }
+
+    func updateUIView(_ view: WKWebView, context: Context) {
+        guard view.url != url else { return }
+        view.load(URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 20))
     }
 }
 

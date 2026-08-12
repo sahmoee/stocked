@@ -9,7 +9,7 @@ import UIKit
 ///
 /// Item must be Hashable and stable so the diffable data source can track it.
 @available(iOS 16.0, *)
-struct CollectionGrid<Item: Hashable, Cell: View>: UIViewRepresentable {
+struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentable {
     var items: [Item]
     var columns: Int = 2
     var interItemSpacing: CGFloat = 12
@@ -21,7 +21,7 @@ struct CollectionGrid<Item: Hashable, Cell: View>: UIViewRepresentable {
     // Non-isolated so its synthesized Hashable/Sendable conformance can satisfy
     // NSDiffableDataSourceSnapshot's requirement. Nested in the @MainActor
     // Coordinator it became main-actor-isolated, which Swift 6 rejects.
-    enum Section { case main }
+    nonisolated enum Section: Hashable, Sendable { case main }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(cell: cell, onSelect: onSelect)

@@ -201,7 +201,7 @@ nonisolated enum RecipeAdapter {
     static func classificationPool(online: [OnlineRecipe],
                                    excludingTitles savedTitles: Set<String>,
                                    availableTokens: Set<String>,
-                                   limit: Int = 120) -> [UserRecipe] {
+                                   limit: Int = 24) -> [UserRecipe] {
         guard !online.isEmpty, limit > 0 else { return [] }
 
         var seen = savedTitles
@@ -223,6 +223,11 @@ nonisolated enum RecipeAdapter {
             // Build 69 (STK-69-0001). Checked BEFORE `seen.insert`, so a fuller
             // copy of the same title further down the pool can still get in.
             guard OnlineRecipeFacts.hasRealInstructions(r.instructions) else { continue }
+            // Thin/generated catalogue labels are not recipes. They produced rows
+            // such as a literal "Dinner" in Cook Later and should remain in source
+            // diagnostics rather than entering recommendations.
+            let genericTitles: Set<String> = ["dinner", "lunch", "breakfast", "meal", "recipe", "food"]
+            guard !genericTitles.contains(key), lines.count >= 3 else { continue }
             seen.insert(key)
 
             var matched = 0

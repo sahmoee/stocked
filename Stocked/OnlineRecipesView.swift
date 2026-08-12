@@ -627,6 +627,14 @@ class OnlineRecipesLoader {
 }
 
 // MARK: - Online Recipes View
+enum BrowseSort: String, CaseIterable, Identifiable {
+    case relevance = "Relevance"
+    case pantryMatch = "Pantry match"
+    case alphabetical = "A–Z"
+    case source = "Source"
+    var id: String { rawValue }
+}
+
 struct OnlineRecipesView: View {
     @Environment(AppSession.self) var session
     @State private var loader       = OnlineRecipesLoader.shared
@@ -636,6 +644,10 @@ struct OnlineRecipesView: View {
     @State private var selectedCuisine: String? = nil   // #20 cuisine filter
     @State private var hideAllergens = false             // #251 allergen filter toggle
     @State private var selectedDiet: String? = nil       // #261 diet filter chip
+    @State private var selectedCategory: String? = nil
+    @State private var selectedSource: String? = nil
+    @State private var sort: BrowseSort = .relevance
+    @State private var showFilters = false
     // #C1 — filters now SEED from the saved dietary profile so protection is the
     // default, not an every-session opt-in. The buttons still toggle per session.
     @State private var seededFromProfile = false
@@ -663,6 +675,10 @@ struct OnlineRecipesView: View {
         let hideAllergens: Bool
         let diet: String?
         let allergens: [String]
+        let category: String?
+        let source: String?
+        let sort: BrowseSort
+        let pantryNames: [String]
     }
 
     private var filterKey: RecipeFilterKey {
@@ -673,7 +689,11 @@ struct OnlineRecipesView: View {
             cuisine: selectedCuisine,
             hideAllergens: hideAllergens,
             diet: selectedDiet,
-            allergens: session.guestStore.cookingProfile.allergens
+            allergens: session.guestStore.cookingProfile.allergens,
+            category: selectedCategory,
+            source: selectedSource,
+            sort: sort,
+            pantryNames: Array(session.guestStore.inStockNameSet).sorted()
         )
     }
 
@@ -684,7 +704,11 @@ struct OnlineRecipesView: View {
         selectedCuisine: String?,
         hideAllergens: Bool,
         allergens: [String],
-        selectedDiet: String?
+        selectedDiet: String?,
+        selectedCategory: String?,
+        selectedSource: String?,
+        sort: BrowseSort,
+        pantryNames: [String]
     ) -> [OnlineRecipe] {
         func cuisineFiltered(_ list: [OnlineRecipe]) -> [OnlineRecipe] {
             guard let cuisine = selectedCuisine else { return list }
@@ -742,6 +766,28 @@ struct OnlineRecipesView: View {
                 default:            return true
                 }
             }
+        }
+        if let selectedCategory {
+            filtered = filtered.filter { $0.category.localizedCaseInsensitiveContains(selectedCategory) }
+        }
+        if let selectedSource {
+            filtered = filtered.filter { $0.source.caseInsensitiveCompare(selectedSource) == .orderedSame }
+        }
+        switch sort {
+        case .relevance: break
+        case .pantryMatch:
+            let pantry = pantryNames.map { $0.lowercased() }
+            func matches(_ recipe: OnlineRecipe) -> Int {
+                recipe.ingredients.reduce(into: 0) { count, ingredient in
+                    let name = ingredient.lowercased()
+                    if pantry.contains(where: { name.contains($0) || $0.contains(name) }) { count += 1 }
+                }
+            }
+            filtered.sort { matches($0) > matches($1) }
+        case .alphabetical:
+            filtered.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .source:
+            filtered.sort { $0.source.localizedCaseInsensitiveCompare($1.source) == .orderedAscending }
         }
         return filtered
     }
@@ -982,6 +1028,33 @@ struct OnlineRecipesView: View {
             .stockedHorizontalSnap()
 
             // ── Live search label ─────────────────────────────────────
+            HStack(spacing: 8) {
+                Button { showFilters = true } label: {
+                    Label(activeFilterCount == 0 ? "Filters" : "Filters (\(activeFilterCount))", systemImage: "line.3.horizontal.decrease.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                }.buttonStyle(.bordered).tint(Color.stockedGold)
+                Text("\(displayRecipes.count) recipe\(displayRecipes.count == 1 ? "" : "s")")
+                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                Spacer()
+                if activeFilterCount > 0 {
+                    Button("Clear all") { clearFilters() }
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                }
+            }
+            .padding(.horizontal, 24).padding(.bottom, 10)
+
+            if activeFilterCount > 0 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        if let selectedCuisine { filterToken(selectedCuisine) { self.selectedCuisine = nil } }
+                        if let selectedCategory { filterToken(selectedCategory) { self.selectedCategory = nil } }
+                        if let selectedSource { filterToken(selectedSource) { self.selectedSource = nil } }
+                        if let selectedDiet { filterToken(selectedDiet) { self.selectedDiet = nil } }
+                        if hideAllergens { filterToken("No allergens") { hideAllergens = false } }
+                    }.padding(.horizontal, 24)
+                }.padding(.bottom, 8)
+            }
+
             if !liveResults.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "wifi").font(.system(size: 11)).foregroundStyle(Color.stockedGold)
@@ -1026,13 +1099,25 @@ struct OnlineRecipesView: View {
                 )
                 .padding(.top, 10)
             } else {
+                if displayRecipes.isEmpty {
+                    StockedEmptyState(icon: "🥘", title: "No matching recipes",
+                                      subtitle: "Your search and filters are too narrow.",
+                                      tips: ["Clear one or more filters", "Try a broader ingredient or cuisine"])
+                    Button("Clear filters") { clearFilters() }
+                        .buttonStyle(.borderedProminent).tint(Color.stockedGold)
+                        .frame(maxWidth: .infinity).padding(.bottom, 12)
+                }
                 LazyVGrid(columns: cols, spacing: 12) {
                     ForEach(displayRecipes) { recipe in
-                        Button { selected = recipe } label: {
-                            OnlineRecipeCard(recipe: recipe)
+                        ZStack(alignment: .topTrailing) {
+                            Button { selected = recipe } label: { OnlineRecipeCard(recipe: recipe) }
+                                .buttonStyle(.plain).contentShape(Rectangle())
+                            Button { quickSave(recipe) } label: {
+                                Image(systemName: OnlineRecipeFacts.isSaved(recipe, savedTitles: session.guestStore.savedRecipeTitles) ? "bookmark.fill" : "bookmark")
+                                    .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                                    .padding(9).background(.black.opacity(0.58)).clipShape(Circle())
+                            }.padding(7).buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
                     }
                 }
                 .padding(.horizontal, 20)
@@ -1061,6 +1146,10 @@ struct OnlineRecipesView: View {
             let shouldHideAllergens = hideAllergens
             let allergens = session.guestStore.cookingProfile.allergens
             let diet = selectedDiet
+            let category = selectedCategory
+            let source = selectedSource
+            let selectedSort = sort
+            let pantryNames = Array(session.guestStore.inStockNameSet)
             let filtered = await Task.detached(priority: .userInitiated) {
                 Self.filteredRecipes(
                     loaderRecipes: loaderRecipes,
@@ -1069,7 +1158,11 @@ struct OnlineRecipesView: View {
                     selectedCuisine: cuisine,
                     hideAllergens: shouldHideAllergens,
                     allergens: allergens,
-                    selectedDiet: diet
+                    selectedDiet: diet,
+                    selectedCategory: category,
+                    selectedSource: source,
+                    sort: selectedSort,
+                    pantryNames: pantryNames
                 )
             }.value
             guard !Task.isCancelled else { return }
@@ -1081,9 +1174,41 @@ struct OnlineRecipesView: View {
             suggestionTask?.cancel()
             searchTask?.cancel()
         }
-        .sheet(item: $selected) { recipe in
+        .navigationDestination(item: $selected) { recipe in
             OnlineRecipeDetailView(recipe: recipe).environment(session)
         }
+        .sheet(isPresented: $showFilters) {
+            BrowseFilterSheet(selectedCuisine: $selectedCuisine, selectedCategory: $selectedCategory,
+                              selectedSource: $selectedSource, selectedDiet: $selectedDiet,
+                              hideAllergens: $hideAllergens, sort: $sort,
+                              recipes: loader.recipes, hasAllergens: hasAllergens)
+                .environment(session)
+        }
+    }
+
+    private var activeFilterCount: Int {
+        [selectedCuisine, selectedCategory, selectedSource, selectedDiet].compactMap { $0 }.count + (hideAllergens ? 1 : 0)
+    }
+
+    private func clearFilters() {
+        selectedCuisine = nil; selectedCategory = nil; selectedSource = nil
+        selectedDiet = nil; hideAllergens = false
+    }
+
+    private func quickSave(_ recipe: OnlineRecipe) {
+        guard !OnlineRecipeFacts.isSaved(recipe, savedTitles: session.guestStore.savedRecipeTitles) else { return }
+        _ = session.guestStore.importOnlineRecipe(recipe)
+    }
+
+    private func filterToken(_ label: String, remove: @escaping () -> Void) -> some View {
+        Button(action: remove) {
+            HStack(spacing: 4) {
+                Text(label).lineLimit(1)
+                Image(systemName: "xmark.circle.fill")
+            }.font(.system(size: 11, weight: .semibold))
+                .padding(.horizontal, 9).padding(.vertical, 6)
+                .background(Color.stockedGold.opacity(0.14)).clipShape(Capsule())
+        }.buttonStyle(.plain)
     }
 
     // MARK: - Predictive helpers
@@ -1172,6 +1297,48 @@ struct OnlineRecipesView: View {
             // Refresh snapshot so chips reflect new entries next time
             let fresh = await RecipeDatabaseManager.shared.loadSnapshot()
             await MainActor.run { dbSnapshot = fresh }
+        }
+    }
+}
+
+private struct BrowseFilterSheet: View {
+    @Environment(AppSession.self) var session
+    @Environment(\.dismiss) var dismiss
+    @Binding var selectedCuisine: String?
+    @Binding var selectedCategory: String?
+    @Binding var selectedSource: String?
+    @Binding var selectedDiet: String?
+    @Binding var hideAllergens: Bool
+    @Binding var sort: BrowseSort
+    let recipes: [OnlineRecipe]
+    let hasAllergens: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Sort") { Picker("Sort results", selection: $sort) { ForEach(BrowseSort.allCases) { Text($0.rawValue).tag($0) } } }
+                Section("Cuisine") { Picker("Cuisine", selection: $selectedCuisine) {
+                    Text("Any cuisine").tag(String?.none)
+                    ForEach(RecipeTaxonomy.cuisines, id: \.self) { Text($0).tag(String?.some($0)) }
+                } }
+                Section("Meal type") { Picker("Meal type", selection: $selectedCategory) {
+                    Text("Any type").tag(String?.none)
+                    ForEach(Array(Set(recipes.map(\.category).filter { !$0.isEmpty })).sorted(), id: \.self) { Text($0).tag(String?.some($0)) }
+                } }
+                Section("Source") { Picker("Source", selection: $selectedSource) {
+                    Text("Any source").tag(String?.none)
+                    ForEach(Array(Set(recipes.map(\.source).filter { !$0.isEmpty })).sorted(), id: \.self) { Text($0).tag(String?.some($0)) }
+                } }
+                Section("Diet") {
+                    Picker("Diet", selection: $selectedDiet) {
+                        Text("Any diet").tag(String?.none)
+                        ForEach(["Vegetarian", "Vegan", "Gluten-Free"], id: \.self) { Text($0).tag(String?.some($0)) }
+                    }
+                    if hasAllergens { Toggle("Hide my allergens", isOn: $hideAllergens) }
+                }
+            }
+            .navigationTitle("Browse Filters")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold) } }
         }
     }
 }
