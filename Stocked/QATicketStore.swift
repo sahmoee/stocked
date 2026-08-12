@@ -233,6 +233,10 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
     var runID: String?
     /// Agent/developer summary shown to the tester before verification.
     var resolution: String?
+    /// Tester-selected when the wording or design intent needs a person to
+    /// clarify it before an agent can safely infer a fix. Optional preserves
+    /// decoding of tickets created by earlier builds.
+    var requiresManualReview: Bool?
     var verifiedAt: Date?
     var refileCount: Int?
 
@@ -301,6 +305,7 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
         var out = ["── \(number) ──",
                    "\(severity.title) · \(status.title) · \(originPhrase) · \(createdAt.formatted())",
                    title]
+        if requiresManualReview == true { out.append("⚠ REQUIRES MANUAL REVIEW — ask the tester for specifics before changing code") }
         if !body.isEmpty { out.append(""); out.append(body) }
         out.append("")
         out.append(contentsOf: context.summaryLines.map { "  " + $0 })
@@ -390,6 +395,7 @@ final class QATicketStore {
     func open(title: String,
               body: String = "",
               severity: QATicketSeverity = .major,
+              requiresManualReview: Bool = false,
               context: QATicketContext,
               origin: QATicketOrigin = .tester,
               screenshot: UIImage? = nil) -> QATicket {
@@ -419,6 +425,7 @@ final class QATicketStore {
                               origin: origin,
                               severity: severity,
                               context: context)
+        ticket.requiresManualReview = requiresManualReview
         if let screenshot { ticket.screenshotFile = saveScreenshot(screenshot, for: ticket.id) }
 
         // Build 74: does this repeat something already open? The new ticket is
@@ -525,12 +532,14 @@ final class QATicketStore {
               title newTitle: String,
               body newBody: String,
               severity newSeverity: QATicketSeverity,
+              requiresManualReview newRequiresManualReview: Bool,
               keepHistory: Bool = true) {
         guard let i = tickets.firstIndex(where: { $0.id == id }) else { return }
         let old = tickets[i]
         let titleChanged = old.title != newTitle
         let bodyChanged  = old.body  != newBody
-        guard titleChanged || bodyChanged || old.severity != newSeverity else { return }
+        guard titleChanged || bodyChanged || old.severity != newSeverity ||
+                (old.requiresManualReview ?? false) != newRequiresManualReview else { return }
 
         var body = newBody
         if keepHistory, bodyChanged || titleChanged {
@@ -551,6 +560,7 @@ final class QATicketStore {
                 ? old.title : newTitle
             $0.body = body
             $0.severity = newSeverity
+            $0.requiresManualReview = newRequiresManualReview
             $0.editedAt = Date()
             $0.editCount = ($0.editCount ?? 0) + 1
         }
@@ -959,6 +969,10 @@ final class QATicketStore {
         out.append("# \(t.number) — \(t.title)")
         out.append("")
         out.append("**\(t.severity.title)** · \(t.status.title) · \(t.originPhrase) · \(t.createdAt.formatted())")
+        if t.requiresManualReview == true {
+            out.append("")
+            out.append("> **REQUIRES MANUAL REVIEW:** Ask the tester for specifics before changing code.")
+        }
         if t.wasEdited {
             out.append("")
             out.append("> Edited \(t.editCount ?? 1)× — last on \(t.editedAt?.formatted() ?? "—"). The original wording is preserved at the end of the report below.")

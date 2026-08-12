@@ -422,6 +422,7 @@ struct QAReportComposer: View {
     @State private var title = ""
     @State private var body_ = ""
     @State private var severity: QATicketSeverity = .major
+    @State private var requiresManualReview = false
     @State private var attachScreenshot = true
     @State private var created: QATicket?
     @FocusState private var titleFocused: Bool
@@ -483,6 +484,14 @@ struct QAReportComposer: View {
                 Text(severityHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Requires manual review", isOn: $requiresManualReview)
+            } header: {
+                Text("Review")
+            } footer: {
+                Text("Use this when the wording, visual intent, or expected behavior needs a person to interpret it. AI agents must ask for specifics instead of guessing.")
             }
 
             if let shot = draft.screenshot {
@@ -586,6 +595,7 @@ struct QAReportComposer: View {
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             body: body_.trimmingCharacters(in: .whitespacesAndNewlines),
             severity: severity,
+            requiresManualReview: requiresManualReview,
             context: draft.context,
             origin: .tester,
             screenshot: attachScreenshot ? draft.screenshot : nil)
@@ -718,6 +728,11 @@ struct QATicketListView: View {
                 .font(.subheadline)
                 .lineLimit(2)
                 .strikethrough(t.status.isClosed)
+            if t.requiresManualReview == true {
+                Label("Requires manual review", systemImage: "person.crop.circle.badge.questionmark")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
             Text("\(t.context.screen) · \(t.createdAt.formatted(date: .omitted, time: .shortened))")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -771,6 +786,9 @@ struct QATicketDetailView: View {
                     }
 
                     Section("Triage") {
+                        Toggle("Requires manual review", isOn: Binding(
+                            get: { t.requiresManualReview ?? false },
+                            set: { new in store.update(t.id) { $0.requiresManualReview = new } }))
                         Picker("Status", selection: Binding(
                             get: { t.status },
                             set: { store.setStatus(t.id, $0) })) {
@@ -1088,6 +1106,7 @@ struct QATicketEditSheet: View {
     @State private var title = ""
     @State private var body_ = ""
     @State private var severity: QATicketSeverity = .major
+    @State private var requiresManualReview = false
     @State private var keepHistory = true
     @State private var loaded = false
 
@@ -1111,6 +1130,7 @@ struct QATicketEditSheet: View {
                             Label(s.title, systemImage: s.symbol).tag(s)
                         }
                     }
+                    Toggle("Requires manual review", isOn: $requiresManualReview)
                     Toggle("Keep the original wording", isOn: $keepHistory)
                 } footer: {
                     Text(keepHistory
@@ -1142,13 +1162,15 @@ struct QATicketEditSheet: View {
                 title = t.title
                 body_ = t.body
                 severity = t.severity
+                requiresManualReview = t.requiresManualReview ?? false
             }
         }
     }
 
     private func save() {
         store.edit(ticketID, title: title, body: body_,
-                   severity: severity, keepHistory: keepHistory)
+                   severity: severity, requiresManualReview: requiresManualReview,
+                   keepHistory: keepHistory)
         let id = ticketID
         Task { await QASyncCoordinator.shared.syncEverywhere(id) }
         dismiss()
