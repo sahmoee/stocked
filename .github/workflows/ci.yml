@@ -17,11 +17,10 @@ jobs:
             sudo xcode-select -s /Applications/Xcode_26.app
       - name: Build Stocked for a generic physical device
         run: |
-          set -o pipefail
           xcodebuild \
             -project Stocked.xcodeproj \
             -scheme Stocked \
             -destination 'generic/platform=iOS' \
             -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
-            clean build | xcpretty
+            clean build
