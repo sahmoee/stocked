@@ -716,9 +716,13 @@ final class QATicketStore {
     }
 
     private nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
-        guard ticket.number.hasPrefix("STK-68-") || ticket.number.hasPrefix("STK-69-")
-                || ticket.number.hasPrefix("STK-77-") || ticket.number.hasPrefix("STK-78-")
-                || ticket.number.hasPrefix("STK-80-") else { return nil }
+        let previouslyAudited = ticket.number.hasPrefix("STK-68-")
+            || ticket.number.hasPrefix("STK-69-")
+            || ticket.number.hasPrefix("STK-77-")
+            || ticket.number.hasPrefix("STK-78-")
+            || (ticket.number.hasPrefix("STK-80-")
+                && (Int(ticket.number.split(separator: "-").last ?? "") ?? .max) <= 24)
+        guard previouslyAudited else { return nil }
         let value = (ticket.title + " " + ticket.body).lowercased()
         if value.contains("main thread blocked") {
             return "Moved ticket/image persistence off the main actor, delayed background QA startup, memoized classification, capped the Discover classification pool, and removed repeated render-path catalog work."
