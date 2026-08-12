@@ -76,16 +76,11 @@ nonisolated enum BuildConfig {
     static let termsURL       = "https://sahmoee.github.io/stocked/license.html"
     static let supportPageURL = "https://sahmoee.github.io/stocked/support.html"
 
-    // ── Content CDN (Namecheap cPanel static hosting) ────────────────────────
-    // Curated recipe JSON + images live at <contentBaseURL>/content/… served over
-    // HTTPS from the Namecheap Stellar Plus disk and cached on-device.
-    //
-    // NOTE: the apex sowensstudios.com points at Netlify, so cPanel content is served
-    // from a subdomain (cdn.sowensstudios.com) pointed at the cPanel server. If you'd
-    // rather host the same content/ folder on Netlify instead, set Info.plist
-    // ContentBaseURL to https://sowensstudios.com.
-    static var contentBaseURL: String { bundleString("ContentBaseURL") ?? "https://cdn.sowensstudios.com" }
-    static let contentEnabled = true
+    // The former Namecheap/cPanel curated recipe feed was retired in build 89.
+    // RemoteContentClient performs no network request, and current remote content is
+    // served through the Unified Worker/GitHub sources. Do not restore a cPanel or FTP
+    // content origin here; use an authenticated Worker storage contract for any future
+    // catalog or image-sync feature.
     /// Shared secret sent to the Worker as the `X-Stocked-Key` header so the public endpoint
     /// rejects drive-by callers. Injected via xcconfig STOCKED_WORKER_KEY → Info.plist
     /// StockedWorkerKey. Must match the Worker's STOCKED_SHARED_KEY secret. Never hardcode.
