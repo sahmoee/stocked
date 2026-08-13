@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 83) — Five-item Cook Now range and substitutions
+Meals Ready Now and Cook Now now classify saved, generated, newly synced and Discover recipes through one catalog. In-stock substitutes are applied before missing counts, and recipes missing five or fewer items remain actionable Cook Now options.
+
 08:13:26 — v4.13 (build 82) — Complete recipe sync and Meals Ready Now AI
 Stocked now receives the full Mac recipe catalog beyond the old 500-recipe ceiling. Meals Ready Now can create and save an inventory-aware recipe on demand and automatically makes one generation pass after inventory additions settle.
 

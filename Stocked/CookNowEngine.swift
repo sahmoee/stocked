@@ -146,6 +146,15 @@ nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
     var unconfirmedCount: Int {
         resolutions.filter { if case .unconfirmed = $0.status { return true }; return false }.count
     }
+    /// Conservative gap count used for eligibility. "Not sure" is unresolved until
+    /// Kitchen Check confirms it, so it belongs in the same five-item ceiling.
+    var unresolvedCount: Int { missingCount + unconfirmedCount }
+    /// Eligible to appear as a Cook Now choice: ready, one substitution review away,
+    /// or no more than five unresolved required ingredients after substitutions.
+    var isActionableCookNowOption: Bool {
+        readiness != .excluded && (readiness.isReadyNow || readiness == .swapNeedsReview
+            || (unresolvedCount > 0 && unresolvedCount <= 5))
+    }
 
     /// The unresolved required ingredient names, for grocery + missing-item UI.
     var missingNames: [String] {
@@ -172,8 +181,8 @@ nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
 nonisolated struct CookNowMetrics: Sendable, Equatable {
     var exactReady: Int = 0            // recipes at .exact
     var readyWithSwaps: Int = 0        // recipes at .readyWithSwap
-    var almostReady: Int = 0           // recipes at .missingOne or .missingTwo
-    var morePossibilities: Int = 0     // recipes at .missingMany
+    var almostReady: Int = 0           // recipes missing 1–5 after substitutions
+    var morePossibilities: Int = 0     // recipes missing 6+
 
     /// Total shown in the big "meals ready" number: exact + confirmed swaps.
     var readyNowTotal: Int { exactReady + readyWithSwaps }
@@ -416,7 +425,9 @@ nonisolated struct CookNowEngine: Sendable {
             case .exact:            m.exactReady += 1
             case .readyWithSwap:    m.readyWithSwaps += 1
             case .missingOne, .missingTwo: m.almostReady += 1
-            case .missingMany:      m.morePossibilities += 1
+            case .missingMany:
+                if c.unresolvedCount <= 5 { m.almostReady += 1 }
+                else { m.morePossibilities += 1 }
             case .swapNeedsReview, .excluded: break
             }
         }
@@ -439,10 +450,10 @@ nonisolated struct CookNowEngine: Sendable {
         classified.filter { $0.readiness == tier }
     }
 
-    /// The recipes to surface under "More possibilities": missing three or more,
+    /// The recipes to surface under "More possibilities": missing six or more,
     /// sorted by fewest unresolved ingredients first.
     static func morePossibilities(in classified: [ClassifiedRecipe]) -> [ClassifiedRecipe] {
-        classified.filter { $0.readiness == .missingMany }
-            .sorted { $0.missingCount < $1.missingCount }
+        classified.filter { $0.readiness == .missingMany && $0.unresolvedCount > 5 }
+            .sorted { $0.unresolvedCount < $1.unresolvedCount }
     }
 }

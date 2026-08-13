@@ -6,8 +6,8 @@
 //
 //   Ready now         — exact matches, then ready-with-in-stock-swap
 //   Swaps to review   — one confirmation away from ready
-//   Almost ready      — missing only 1–2 items (fewest first)
-//   More possibilities— missing 3+ (closest first), collapsed by default
+//   Almost ready      — missing 1–5 items after substitutions (fewest first)
+//   More possibilities— missing 6+ (closest first), collapsed by default
 //                       unless the caller focuses it
 //
 // Rows reuse CookRecipeCard and show the tier-appropriate status subtitle
@@ -134,7 +134,7 @@ struct CookNowResultsView: View {
 
     private var almostSection: some View {
         tierSection(title: "Almost ready",
-                    subtitle: "Missing only 1–2 items",
+                    subtitle: "Missing 5 or fewer items after substitutions",
                     items: snapshot.almostReady)
     }
 
@@ -160,7 +160,7 @@ struct CookNowResultsView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, CookStyle.screenHPad)
-                    .a11yButton("Show more possibilities, \(snapshot.morePossibilities.count) recipes missing three or more items")
+                    .a11yButton("Show more possibilities, \(snapshot.morePossibilities.count) recipes missing six or more items")
                 }
             }
         }

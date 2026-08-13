@@ -53,9 +53,9 @@ enum CookNowCompute {
         var readyNow: [ClassifiedRecipe] = []
         /// Recipes one review-tap away from ready.
         var needsReview: [ClassifiedRecipe] = []
-        /// Almost ready (missing 1–2), fewest missing first.
+        /// Actionable Cook Now options (missing 1–5 after substitutions), closest first.
         var almostReady: [ClassifiedRecipe] = []
-        /// More possibilities (missing 3+), closest first.
+        /// More possibilities (missing 6+), closest first.
         var morePossibilities: [ClassifiedRecipe] = []
 
         /// True when every tier is empty — one cheap check instead of touching
@@ -76,8 +76,10 @@ enum CookNowCompute {
                 return !$0.usesReservedIngredients && $1.usesReservedIngredients
             }
             needsReview = classified.filter { $0.readiness == .swapNeedsReview }
-            almostReady = classified.filter { $0.readiness.isAlmostReady }
-                .sorted { $0.missingCount < $1.missingCount }
+            almostReady = classified.filter {
+                $0.readiness != .excluded && $0.unresolvedCount > 0 && $0.unresolvedCount <= 5
+            }
+                .sorted { $0.unresolvedCount < $1.unresolvedCount }
             morePossibilities = CookNowEngine.morePossibilities(in: classified)
         }
     }
@@ -153,6 +155,10 @@ enum CookNowCompute {
         var k = "\(store.inventoryRevision)|\(store.recipeRevision)|\(store.planRevision)"
         k += "|\(OnlineRecipesLoader.shared.recipes.count)"
         k += "|\(store.cookingProfile.allergens.count)"
+        let substitutionKey = store.userSubstitutions
+            .map { "\($0.ingredient.lowercased())::\($0.substitute.lowercased())" }
+            .sorted().joined(separator: ",")
+        k += "|subs:\(substitutionKey)"
         k += "|\(FamilyProfileStore.shared.profiles.filter(\.isPresent).count)"
         k += "|" + sessionComponent(session)
         return k

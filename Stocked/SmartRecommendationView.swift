@@ -92,7 +92,7 @@ struct SmartRecommendationView: View {
         if case .ingredient(let ing) = mode { cookSession?.selectedIngredient = ing }
 
         var pool = CookNowCompute.run(store: store, session: cookSession).classified
-            .filter { $0.readiness != .excluded && $0.readiness != .missingMany }
+            .filter(\.isActionableCookNowOption)
 
         // Scope by the chosen ingredient: the recipe must actually use it.
         if case .ingredient(let ing) = mode {

@@ -2,13 +2,24 @@
 import SwiftUI
 import PhotosUI
 
+private struct ReadyRecipe: Identifiable {
+    let id: UUID
+    let title: String
+    let ingredients: [String]
+    let source: String
+    let score: Int
+    let missing: [String]
+    let substitutions: [String]
+    let substitutionsNeedReview: Bool
+}
+
 struct ReadyToCoookNowView: View {
     var onBrowseOnline: () -> Void = {}
     var onAddRecipe: () -> Void = {}
     @Environment(AppSession.self) var session
 
     // Async ready recipes — computed in background, not on main thread (#18)
-    @State private var cachedReadyRecipes: [(title: String, ingredients: [String], source: String, score: Int, missing: [String])] = []
+    @State private var cachedReadyRecipes: [ReadyRecipe] = []
     @State private var isComputingReady = false
     @State private var isGeneratingRecipe = false
     @State private var generationMessage: String?
@@ -20,7 +31,10 @@ struct ReadyToCoookNowView: View {
         let pantry = session.guestStore.pantrySet.sorted().joined(separator: ",")
         let recipeCounts = "\(session.guestStore.userRecipes.count)-\(session.guestStore.savedGeneratedRecipes.count)"
         let browseCount = OnlineRecipesLoader.shared.recipes.count
-        return "\(pantry)|\(recipeCounts)|\(browseCount)"
+        let substitutions = session.guestStore.userSubstitutions
+            .map { "\($0.ingredient.lowercased())::\($0.substitute.lowercased())" }
+            .sorted().joined(separator: ",")
+        return "\(pantry)|\(recipeCounts)|\(browseCount)|\(substitutions)"
     }
 
     // #12: lastComputedFingerprint guards against recompute when nothing changed
@@ -31,69 +45,62 @@ struct ReadyToCoookNowView: View {
         guard !isComputingReady, fp != lastComputedFingerprint else { return }
         isComputingReady = true
         defer { isComputingReady = false; lastComputedFingerprint = fp }
-        let pantrySet = session.guestStore.pantrySet
-        guard !pantrySet.isEmpty else { cachedReadyRecipes = []; return }
+        guard !session.guestStore.pantrySet.isEmpty else { cachedReadyRecipes = []; return }
 
-        var result: [(title: String, ingredients: [String], source: String, score: Int, missing: [String])] = []
-
-        // 1. User recipes — ALL included, no isReady gate
-        for r in session.guestStore.userRecipes {
-            let ings = r.ingredientNames
-            guard !ings.isEmpty else { continue }
-            let match = IngredientMatcher.score(recipeIngredients: ings, pantrySet: pantrySet)
-            result.append((r.title, ings, "My Recipes", match.score, match.missing))
+        // Use the same full catalog and classifier as Cook Now. This automatically includes
+        // saved recipes, newly generated recipes, and newly synced Mac/Discover recipes, and
+        // resolves in-stock substitutions before deciding how many ingredients are missing.
+        let snapshot = CookNowCompute.run(store: session.guestStore, session: nil)
+        let ownIDs = Set(session.guestStore.userRecipes.map(\.id))
+        let generatedIDs = Set(session.guestStore.savedGeneratedRecipes.map {
+            RecipeAdapter.userRecipe(from: $0).id
+        })
+        let result = snapshot.classified.compactMap { classified -> ReadyRecipe? in
+            guard classified.readiness != .excluded else { return nil }
+            let unresolved = classified.resolutions.compactMap { resolution -> String? in
+                switch resolution.status {
+                case .missing, .unconfirmed: return resolution.name
+                default: return nil
+                }
+            }
+            guard unresolved.count <= 5 else { return nil }
+            var substitutions: [String] = []
+            var needsReview = false
+            for resolution in classified.resolutions {
+                switch resolution.status {
+                case .substituted(let substitute):
+                    substitutions.append("\(resolution.name) → \(substitute)")
+                case .substituteNeedsReview(let suggestion):
+                    substitutions.append("\(resolution.name) → \(suggestion)")
+                    needsReview = true
+                default: break
+                }
+            }
+            let required = classified.resolutions.filter {
+                if case .optional = $0.status { return false }
+                return true
+            }.count
+            let score = required == 0 ? 0 : Int(Double(required - unresolved.count) / Double(required) * 100)
+            let source: String
+            if ownIDs.contains(classified.recipe.id) { source = "My Recipes" }
+            else if generatedIDs.contains(classified.recipe.id) { source = "AI Generated" }
+            else { source = "Recipe Database" }
+            return ReadyRecipe(
+                id: classified.recipe.id,
+                title: classified.recipe.title,
+                ingredients: classified.recipe.ingredientNames,
+                source: source,
+                score: score,
+                missing: unresolved,
+                substitutions: substitutions,
+                substitutionsNeedReview: needsReview
+            )
+        }.sorted {
+            if $0.missing.count != $1.missing.count { return $0.missing.count < $1.missing.count }
+            return $0.score > $1.score
         }
 
-        // 2. Saved generated recipes — ALL included
-        for r in session.guestStore.savedGeneratedRecipes {
-            let ings = r.ingredients.map { $0.name }
-            guard !ings.isEmpty else { continue }
-            let match = IngredientMatcher.score(recipeIngredients: ings, pantrySet: pantrySet)
-            result.append((r.title, ings, "AI Generated", match.score, match.missing))
-        }
-
-        // 3. Browse recipes — the SAME online pool the Browse tab shows (OnlineRecipesLoader),
-        // filtered to ones you can actually cook now (missing at most a couple of ingredients).
-        // Snapshot the array ONCE into a local so we don't read the @Observable repeatedly (which
-        // can register a SwiftUI dependency that re-triggers this view and feeds an allocation loop).
-        let browseSnapshot = OnlineRecipesLoader.shared.recipes
-        for r in browseSnapshot {
-            guard !r.ingredients.isEmpty else { continue }
-            let match = IngredientMatcher.score(recipeIngredients: r.ingredients, pantrySet: pantrySet)
-            // Only surface Browse recipes you have (most of) the ingredients for.
-            guard match.missing.count <= 2 else { continue }
-            result.append((r.title, r.ingredients, r.source, match.score, match.missing))
-        }
-
-        // 4. Smart combos — ALL included
-        let combos: [(String, [String])] = [
-            ("Quick Stir Fry",       ["chicken","garlic","soy sauce","oil","vegetables"]),
-            ("Pasta Aglio e Olio",   ["pasta","garlic","olive oil","parsley"]),
-            ("Fried Rice",           ["rice","eggs","soy sauce","garlic","oil"]),
-            ("Scrambled Eggs",       ["eggs","butter","salt"]),
-            ("Omelette",             ["eggs","butter","cheese"]),
-            ("Pan-Seared Steak",     ["beef","butter","garlic","salt"]),
-            ("Simple Tomato Soup",   ["tomato","broth","onion","garlic"]),
-            ("Dal",                  ["lentils","onion","garlic","turmeric","cumin"]),
-            ("Bean Quesadilla",      ["tortillas","black beans","cheese","salsa"]),
-            ("Avocado Toast",        ["bread","avocado","lemon","salt"]),
-            ("Pesto Pasta",          ["pasta","basil","garlic","olive oil","parmesan"]),
-            ("Chicken Salad",        ["chicken","lettuce","olive oil","lemon"]),
-        ]
-        for (title, reqs) in combos {
-            let match = IngredientMatcher.score(recipeIngredients: reqs, pantrySet: pantrySet)
-            result.append((title, reqs.map { $0.capitalized }, "Suggested", match.score, match.missing))
-        }
-
-        // Sort by score descending (most ingredients available first); de-duplicate
-        // with fuzzy matching so a "Suggested" combo never doubles a real DB recipe (#18).
-        // Uses RecipeDedup.dedupe, which parses each recipe's ingredient names ONCE and
-        // reuses them across the O(n²) comparisons — the inline version here re-parsed on
-        // every comparison, which was a major source of the runaway-memory allocations.
-        let sorted = result.sorted { $0.score > $1.score }
-        let deduped = RecipeDedup.dedupe(sorted, title: { $0.title }, ingredients: { $0.ingredients })
-
-        await MainActor.run { cachedReadyRecipes = deduped }
+        cachedReadyRecipes = result
     }
 
     var body: some View {
@@ -151,14 +158,16 @@ struct ReadyToCoookNowView: View {
 // MARK: - Ready to Cook content (extracted to fix type-check timeout)
 private struct ReadyToCoookContent: View {
     @Environment(AppSession.self) var session
-    let cachedReadyRecipes: [(title: String, ingredients: [String], source: String, score: Int, missing: [String])]
+    let cachedReadyRecipes: [ReadyRecipe]
     let isComputingReady: Bool
     let isGeneratingRecipe: Bool
     let generationMessage: String?
     let onGenerateRecipe: () -> Void
     let onBrowseOnline: () -> Void
 
-    private var readyNow: Int { cachedReadyRecipes.filter { $0.missing.isEmpty }.count }
+    private var readyNow: Int {
+        cachedReadyRecipes.filter { $0.missing.isEmpty && !$0.substitutionsNeedReview }.count
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -208,7 +217,7 @@ private struct ReadyToCoookContent: View {
                     LazyVStack(spacing: 10) {
                         // Unique id per row (title+source+index) — duplicate titles across
                         // sources would otherwise collide as SwiftUI IDs and thrash diffing.
-                        ForEach(Array(cachedReadyRecipes.enumerated()), id: \.offset) { _, recipe in
+                        ForEach(cachedReadyRecipes) { recipe in
                             ReadyToCoookRecipeRow(recipe: recipe)
                         }
                     }
@@ -253,10 +262,10 @@ private struct ReadyToCookThumb: View {
 // MARK: - Individual ready-to-cook recipe row
 private struct ReadyToCoookRecipeRow: View {
     @Environment(AppSession.self) var session
-    let recipe: (title: String, ingredients: [String], source: String, score: Int, missing: [String])
+    let recipe: ReadyRecipe
     @State private var addedToList: Int? = nil   // #3 feedback
 
-    private var isReady: Bool { recipe.missing.isEmpty }
+    private var isReady: Bool { recipe.missing.isEmpty && !recipe.substitutionsNeedReview }
     private var pct: Int {
         guard !recipe.ingredients.isEmpty else { return 100 }
         return Int(finite: safeDivide(Double(recipe.ingredients.count - recipe.missing.count), by: Double(recipe.ingredients.count)) * 100, fallback: 100)
@@ -346,12 +355,26 @@ private struct ReadyToCoookRecipeRow: View {
                 .buttonStyle(.plain)
                 .padding(.top, 2)
             }
+            if !recipe.substitutions.isEmpty {
+                Text((recipe.substitutionsNeedReview ? "Review swap: " : "Using swap: ")
+                     + recipe.substitutions.prefix(2).joined(separator: ", "))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.stockedGold)
+                    .lineLimit(2)
+            }
         }
     }
 
     private var statusPill: some View {
         Group {
-            if isReady {
+            if recipe.substitutionsNeedReview && recipe.missing.isEmpty {
+                Text("Review Swap")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.stockedGold)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Color.stockedGold.opacity(0.14))
+                    .clipShape(Capsule())
+            } else if isReady {
                 Text("Ready Now")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(Color.stockedWhite)

@@ -557,13 +557,13 @@ struct CookNowHomeView: View {
                                      enabled: snapshot.metrics.readyNowTotal > 0) { goReadyList = true }
                         metricColumn(count: snapshot.metrics.almostReady,
                                      title: "meals almost ready",
-                                     sub: snapshot.metrics.almostReady > 0 ? "Missing only 1–2 items" : "",
+                                     sub: snapshot.metrics.almostReady > 0 ? "Missing 5 or fewer items" : "",
                                      cta: "See meals",
                                      enabled: snapshot.metrics.almostReady > 0) { goAlmostList = true }
                     } else {
                         metricColumn(count: snapshot.metrics.almostReady,
                                      title: "meals almost ready",
-                                     sub: "Missing only 1–2 items",
+                                     sub: "Missing 5 or fewer items",
                                      cta: "See meals",
                                      enabled: true) { goAlmostList = true }
                         metricColumn(count: snapshot.metrics.readyNowTotal,
@@ -583,7 +583,7 @@ struct CookNowHomeView: View {
                 if snapshot.metrics.morePossibilities > 0 {
                     Button { goMoreList = true } label: {
                         HStack {
-                            Text("See more possibilities (3+ missing)")
+                            Text("See more possibilities (6+ missing)")
                                 .font(.system(size: 12.5, weight: .semibold))
                             Spacer()
                             Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
