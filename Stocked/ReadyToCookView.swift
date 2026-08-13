@@ -227,25 +227,26 @@ private struct ReadyToCoookContent: View {
     }
 }
 
-// MARK: - Resolved food-image thumbnail for list rows
-// Shows a real food image resolved by recipe title (CachedAsyncImage's built-in resolver:
-// TheMealDB → Spoonacular → category-matched Foodish). Falls to a clean placeholder only
-// while resolving / if everything fails. A small checkmark badge marks "ready now" so we
-// keep that status cue without replacing the whole thumbnail with a checkmark.
+// MARK: - Consistent recipe icon for list rows
+// This list deliberately avoids mixing food photography with ingredient emoji fallbacks.
+// Every recipe receives the same neutral symbol so the visual hierarchy stays cohesive.
 private struct ReadyToCookThumb: View {
-    @Environment(AppSession.self) var session
-    let recipeName: String
     let isReady: Bool
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            CachedAsyncImage(url: nil, imageData: nil, height: 52, resolveName: recipeName)
+            RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
+                .fill(Color.stockedGold.opacity(0.12))
                 .frame(width: 52, height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                .overlay(
+                .overlay {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 21, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                }
+                .overlay {
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
-                        .stroke(Color.stockedCharcoal.opacity(0.08), lineWidth: 1)
-                )
+                        .stroke(Color.stockedGold.opacity(0.18), lineWidth: 1)
+                }
             if isReady {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 16))
@@ -291,7 +292,7 @@ private struct ReadyToCoookRecipeRow: View {
     }
 
     private var iconView: some View {
-        ReadyToCookThumb(recipeName: recipe.title, isReady: isReady)
+        ReadyToCookThumb(isReady: isReady)
     }
 
     private var infoView: some View {

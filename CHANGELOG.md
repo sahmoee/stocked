@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 85) — Consistent Ready Now recipe icons
+Ready to Cook rows now use one cohesive recipe symbol instead of mixing food photos with ingredient emoji fallbacks.
+
 08:13:26 — v4.13 (build 84) — Correct Ready Now threshold
 Meals Ready Now now means every safe recipe with five or fewer unresolved ingredients after substitutions. Meals Almost Ready now means six or more, and the dashboard and result lists use that same split.
 
