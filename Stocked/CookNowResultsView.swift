@@ -30,6 +30,8 @@ struct CookNowResultsView: View {
     @State private var openRecipe: UserRecipe? = nil
     @State private var goRecipe = false
     @State private var showMore = false
+    @State private var isGeneratingRecipe = false
+    @State private var generationMessage: String?
     // RL-004 — Cook Anyway review for recipes that touch meal-plan reservations.
     @State private var overridePayload: ReservationOverridePayload? = nil
 
@@ -40,6 +42,10 @@ struct CookNowResultsView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
+
+                if focus == .readyFirst {
+                    inventoryRecipeButton
+                }
 
                 if isEmptyEverywhere {
                     CookEmptyState(
@@ -118,6 +124,60 @@ struct CookNowResultsView: View {
     // ~150 recipes. The tiers are stored on Output now and this is a Bool read.
     private var isEmptyEverywhere: Bool { snapshot.isEmptyEverywhere }
 
+    private var inventoryRecipeButton: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Button(action: generateInventoryRecipe) {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 15, weight: .bold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isGeneratingRecipe ? "Creating your recipe…" : "Create a recipe with AI")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Built from what's in your inventory")
+                            .font(.system(size: 11, weight: .medium))
+                            .opacity(0.72)
+                    }
+                    Spacer()
+                    if isGeneratingRecipe {
+                        ProgressView().tint(Color.stockedCharcoal)
+                    } else {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                }
+                .foregroundStyle(Color.stockedCharcoal)
+                .padding(.vertical, 12).padding(.horizontal, 14)
+                .background(Color.stockedGold)
+                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            }
+            .buttonStyle(.plain)
+            .disabled(isGeneratingRecipe || store.inventoryItems.isEmpty)
+            .opacity(store.inventoryItems.isEmpty ? 0.5 : 1)
+            .a11yButton("Create an AI recipe from available inventory")
+
+            if let generationMessage {
+                Text(generationMessage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+            }
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+    }
+
+    private func generateInventoryRecipe() {
+        guard !isGeneratingRecipe else { return }
+        isGeneratingRecipe = true
+        generationMessage = nil
+        Task {
+            let savedID = await MealsReadyNowGenerator.shared.generateAndStore(in: store)
+            generationMessage = savedID == nil
+                ? "Couldn't create a recipe right now. Check your connection and try again."
+                : "Recipe created and saved."
+            isGeneratingRecipe = false
+            if savedID != nil { recompute() }
+        }
+    }
+
     // MARK: Sections
 
     private var readySection: some View {
@@ -189,7 +249,8 @@ struct CookNowResultsView: View {
                                 title: c.recipe.title,
                                 subtitle: rowSubtitle(c),
                                 matchPercent: matchPercent(c),
-                                imageURL: c.recipe.imageURL
+                                imageURL: c.recipe.imageURL,
+                                usesUniformIcon: true
                             ) {
                                 // RL-004 — a recipe using reserved ingredients gets the
                                 // informative Cook Anyway review first (never blocking:

@@ -527,6 +527,7 @@ struct CookRecipeCard: View {
     var subtitle: String = ""
     var matchPercent: Int? = nil
     var imageURL: String? = nil
+    var usesUniformIcon: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -545,8 +546,23 @@ struct CookRecipeCard: View {
                 // shared card corner with a serif title. Same language here now,
                 // so a results row no longer reads as a different app from the
                 // screen that led to it.
-                AsyncFoodImage(name: title, url: imageURL, size: 68, resolveOnline: true)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                if usesUniformIcon {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.stockedGold.opacity(0.12))
+                        .frame(width: 68, height: 68)
+                        .overlay {
+                            Image(systemName: "fork.knife")
+                                .font(.system(size: 24, weight: .semibold))
+                                .foregroundStyle(Color.stockedGold)
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color.stockedGold.opacity(0.18), lineWidth: 1)
+                        }
+                } else {
+                    AsyncFoodImage(name: title, url: imageURL, size: 68, resolveOnline: true)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.system(size: 16, weight: .semibold, design: .serif))
                         .foregroundStyle(session.themeTextColor).lineLimit(1)

@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 86) — AI action on Meals Ready Now
+The Meals Ready Now results screen now has a prominent inventory-based AI recipe button with progress and result feedback. Its actual recipe rows now use the same consistent icon treatment instead of mixed photos and emoji.
+
 08:13:26 — v4.13 (build 85) — Consistent Ready Now recipe icons
 Ready to Cook rows now use one cohesive recipe symbol instead of mixing food photos with ingredient emoji fallbacks.
 
