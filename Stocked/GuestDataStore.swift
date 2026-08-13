@@ -851,6 +851,10 @@ class GuestDataStore {
 
     func addInventoryItem(_ item: LocalInventoryItem) {
         AppAnalytics.shared.log(.itemAdded)
+        // One automatic Meals Ready Now generation after this addition batch settles.
+        // Receipt/grocery imports call this method repeatedly, so the coordinator
+        // debounces those calls into one AI request and stores the successful recipe.
+        MealsReadyNowGenerator.shared.inventoryDidChange(store: self)
         Task { @MainActor in
             DatabaseSyncBus.shared.publish(.inventoryItemAdded(name: item.name))
             StockedKnowledgeBase.shared.learnFromInventoryItem(name: item.name)

@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 82) — Complete recipe sync and Meals Ready Now AI
+Stocked now receives the full Mac recipe catalog beyond the old 500-recipe ceiling. Meals Ready Now can create and save an inventory-aware recipe on demand and automatically makes one generation pass after inventory additions settle.
+
 08:13:26 — v4.13 (build 81) — Stocked Mac recipe sharing
 Approved Stocked Mac imports now enter the shared recipe database for every Stocked installation and create one deduplicated household activity row identifying Stocked Mac as the importer.
 

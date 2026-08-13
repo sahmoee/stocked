@@ -10,6 +10,8 @@ struct ReadyToCoookNowView: View {
     // Async ready recipes — computed in background, not on main thread (#18)
     @State private var cachedReadyRecipes: [(title: String, ingredients: [String], source: String, score: Int, missing: [String])] = []
     @State private var isComputingReady = false
+    @State private var isGeneratingRecipe = false
+    @State private var generationMessage: String?
 
     // Trigger recompute when anything that affects readiness changes. Item IDs alone aren't
     // enough — readiness is computed from the pantry NAMES (pantrySet) and the recipe
@@ -109,6 +111,9 @@ struct ReadyToCoookNowView: View {
                 ReadyToCoookContent(
                     cachedReadyRecipes: cachedReadyRecipes,
                     isComputingReady: isComputingReady,
+                    isGeneratingRecipe: isGeneratingRecipe,
+                    generationMessage: generationMessage,
+                    onGenerateRecipe: generateRecipe,
                     onBrowseOnline: onBrowseOnline
                 )
             }
@@ -128,6 +133,19 @@ struct ReadyToCoookNowView: View {
             }
         }
     }
+
+    private func generateRecipe() {
+        guard !isGeneratingRecipe else { return }
+        isGeneratingRecipe = true
+        generationMessage = nil
+        Task {
+            let savedID = await MealsReadyNowGenerator.shared.generateAndStore(in: session.guestStore)
+            generationMessage = savedID == nil
+                ? "Couldn't create a recipe right now. Check your connection and try again."
+                : "Created and saved a recipe from your inventory."
+            isGeneratingRecipe = false
+        }
+    }
 }
 
 // MARK: - Ready to Cook content (extracted to fix type-check timeout)
@@ -135,6 +153,9 @@ private struct ReadyToCoookContent: View {
     @Environment(AppSession.self) var session
     let cachedReadyRecipes: [(title: String, ingredients: [String], source: String, score: Int, missing: [String])]
     let isComputingReady: Bool
+    let isGeneratingRecipe: Bool
+    let generationMessage: String?
+    let onGenerateRecipe: () -> Void
     let onBrowseOnline: () -> Void
 
     private var readyNow: Int { cachedReadyRecipes.filter { $0.missing.isEmpty }.count }
@@ -155,8 +176,24 @@ private struct ReadyToCoookContent: View {
                 if isComputingReady {
                     ProgressView().tint(Color.stockedGold).scaleEffect(0.75)
                 }
+                Button(action: onGenerateRecipe) {
+                    Label(isGeneratingRecipe ? "Creating…" : "Create from inventory",
+                          systemImage: "sparkles")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.stockedGold)
+                .disabled(isGeneratingRecipe)
             }
             .padding(.horizontal, 24).padding(.bottom, 10)
+
+            if let generationMessage {
+                Text(generationMessage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 8)
+            }
 
             if cachedReadyRecipes.isEmpty && !isComputingReady {
                 StockedEmptyState(
@@ -347,4 +384,3 @@ private struct ReadyToCoookRecipeRow: View {
         }
     }
 }
-
