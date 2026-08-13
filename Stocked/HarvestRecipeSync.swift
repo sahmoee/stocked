@@ -135,14 +135,23 @@ final class HarvestRecipeSync {
 
             let decoded = try JSONDecoder().decode(HarvestWireResponse.self, from: data)
             let base = StockedUnifiedWorker.baseURLString
-            let entries = decoded.recipes.compactMap { $0.toDatabaseEntry(workerBase: base) }
+            let imports = decoded.recipes.compactMap { recipe -> HarvestImport? in
+                guard let entry = recipe.toDatabaseEntry(workerBase: base) else { return nil }
+                return HarvestImport(entry: entry, importedAt: recipe.importDate)
+            }
+            let entries = imports.map(\.entry)
 
             if !entries.isEmpty {
                 // Route through the manager (not the actor directly) so the count refreshes,
                 // the version token bumps, and a bus event tells every open surface the pool
                 // grew — otherwise harvested recipes land silently and only appear the next
                 // time a view is reopened.
-                await RecipeDatabaseManager.shared.ingestHarvested(entries)
+                let inserted = await RecipeDatabaseManager.shared.ingestHarvested(entries)
+                let insertedIDs = Set(inserted.map(\.id))
+                let activity = imports
+                    .filter { insertedIDs.contains($0.entry.id) }
+                    .map { (id: $0.entry.id, title: $0.entry.title, importedAt: $0.importedAt) }
+                await HouseholdSync.shared.logStockedMacImports(activity)
             }
             if let etag = http.value(forHTTPHeaderField: "ETag"), !etag.isEmpty {
                 UserDefaults.standard.set(etag, forKey: etagKey)
@@ -173,6 +182,11 @@ private struct HarvestWireIngredient: Decodable {
     var amount: String = ""
 }
 
+private struct HarvestImport {
+    var entry: RecipeDatabaseEntry
+    var importedAt: Date
+}
+
 private struct HarvestWireRecipe: Decodable {
     var id: String = ""
     var title: String = ""
@@ -182,6 +196,9 @@ private struct HarvestWireRecipe: Decodable {
     var ingredients: [HarvestWireIngredient]?
     var instructions: [String]?
     var sourceURL: String?
+    var importedBy: String?
+    var importedAt: String?
+    var storedAt: String?
     var attribution: String?
     var confidence: Double?
     var image: String?        // relative Worker path, e.g. "/harvest/img/<id>.jpg"
@@ -189,6 +206,16 @@ private struct HarvestWireRecipe: Decodable {
     var servings: Int?
     var prepTime: String?
     var cookTime: String?
+
+    var importDate: Date {
+        for value in [importedAt, storedAt].compactMap({ $0 }) {
+            if let date = ISO8601DateFormatter.harvestFractional.date(from: value)
+                ?? ISO8601DateFormatter.harvestStandard.date(from: value) {
+                return date
+            }
+        }
+        return Date()
+    }
 
     /// Convert one harvested recipe into the flat record every iOS ingestion path stores.
     /// Returns nil for a recipe with no title or no usable instructions — the same bar
@@ -279,4 +306,17 @@ private struct HarvestWireRecipe: Decodable {
                            bytes[8], bytes[9], bytes[10], bytes[11],
                            bytes[12], bytes[13], bytes[14], bytes[15]))
     }
+}
+
+private extension ISO8601DateFormatter {
+    static let harvestFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    static let harvestStandard: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 }

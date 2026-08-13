@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 81) — Stocked Mac recipe sharing
+Approved Stocked Mac imports now enter the shared recipe database for every Stocked installation and create one deduplicated household activity row identifying Stocked Mac as the importer.
+
 08:12:26 — v4.13 — Complete project documentation
 Expanded GitHub documentation to cover the full Stocked product, architecture, inventory, shopping, recipe importing, meal planning, cooking, household and cloud behavior, configuration, testing, backend contracts, release procedure, troubleshooting, privacy, and support resources.
 

@@ -13,7 +13,7 @@ nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable 
     nonisolated enum Kind: String, Codable, CaseIterable, Sendable {
         case groceryAdded, groceryRemoved, groceryChecked
         case inventoryAdded, inventoryUpdated, inventoryRemoved
-        case recipeAdded, recipeUpdated
+        case recipeAdded, recipeUpdated, recipeImported
         case memberJoined, memberLeft, householdCreated
         case memberRenamed
 
@@ -22,7 +22,7 @@ nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable 
             switch self {
             case .groceryAdded, .groceryRemoved, .groceryChecked: return .lists
             case .inventoryAdded, .inventoryUpdated, .inventoryRemoved: return .inventory
-            case .recipeAdded, .recipeUpdated: return .recipes
+            case .recipeAdded, .recipeUpdated, .recipeImported: return .recipes
             case .memberJoined, .memberLeft, .householdCreated: return .lists
             case .memberRenamed: return .lists
             }
@@ -38,6 +38,7 @@ nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable 
             case .inventoryRemoved:return "removed"
             case .recipeAdded:     return "created"
             case .recipeUpdated:   return "updated"
+            case .recipeImported:  return "imported"
             case .memberJoined:    return "joined"
             case .memberLeft:      return "left"
             case .householdCreated:return "created the household"
@@ -49,7 +50,7 @@ nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable 
             switch self {
             case .groceryAdded, .groceryRemoved, .groceryChecked: return "Grocery List"
             case .inventoryAdded, .inventoryUpdated, .inventoryRemoved: return "Inventory"
-            case .recipeAdded, .recipeUpdated: return "Recipe"
+            case .recipeAdded, .recipeUpdated, .recipeImported: return "Recipe"
             default: return ""
             }
         }
@@ -74,7 +75,7 @@ nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable 
         case .groceryAdded, .groceryRemoved:       return "\(itemName) to \(kind.target)"
         case .groceryChecked:                       return itemName
         case .inventoryAdded, .inventoryUpdated, .inventoryRemoved: return "\(itemName) in \(kind.target)"
-        case .recipeAdded, .recipeUpdated:          return itemName
+        case .recipeAdded, .recipeUpdated, .recipeImported: return itemName
         case .memberRenamed:                        return itemName
         default:                                     return itemName
         }

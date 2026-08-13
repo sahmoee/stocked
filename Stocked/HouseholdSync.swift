@@ -601,6 +601,28 @@ final class HouseholdSync {
         }
     }
 
+    /// Announces recipes arriving from the shared Stocked Mac catalogue. Every recipe
+    /// uses a deterministic event id, so multiple household devices ingesting the same
+    /// Worker response converge on one feed row instead of producing one row per phone.
+    func logStockedMacImports(_ recipes: [(id: UUID, title: String, importedAt: Date)]) async {
+        guard let code = joinCode, state == .owner || state == .member, !recipes.isEmpty else { return }
+        let activity: [[String: Any]] = recipes.map { recipe in
+            [
+                "eventId": "stocked-mac-recipe-\(recipe.id.uuidString.lowercased())",
+                "kind": HouseholdActivity.Kind.recipeImported.rawValue,
+                "itemName": recipe.title,
+                "actorName": "Stocked Mac",
+                "date": recipe.importedAt.timeIntervalSince1970 * 1000,
+            ]
+        }
+        let body: [String: Any] = ["code": code, "activity": activity]
+        if await post("/household/push", body) == nil {
+            OfflineQueueCenter.shared.enqueueWorkerMutation(kind: "activity",
+                                                            path: "/household/push",
+                                                            body: body)
+        }
+    }
+
     /// #3 Fire-and-forget activity emit for use from store didSets. No-op outside a household.
     /// Coalesced lightly: only emits when in a household and not applying a remote snapshot.
     func emitActivity(_ kind: HouseholdActivity.Kind, itemName: String) {

@@ -226,12 +226,20 @@ actor RecipeDatabase {
         return true   // new entry
     }
 
-    func upsertAll(_ batch: [RecipeDatabaseEntry]) {
-        guard !batch.isEmpty else { return }
+    @discardableResult
+    func upsertAll(_ batch: [RecipeDatabaseEntry]) -> [RecipeDatabaseEntry] {
+        guard !batch.isEmpty else { return [] }
         var changed = false
-        for e in batch { if upsertNoPersist(e) { changed = true } }
+        var inserted: [RecipeDatabaseEntry] = []
+        for e in batch {
+            if upsertNoPersist(e) {
+                changed = true
+                inserted.append(e)
+            }
+        }
         // Persist ONCE for the whole batch (was once per item → O(N²) writes).
         if changed || !batch.isEmpty { persist() }
+        return inserted
     }
 
     func delete(id: UUID) {
@@ -451,12 +459,14 @@ final class RecipeDatabaseManager {
     /// Callers that used to reach through to `RecipeDatabase.shared.upsertAll` directly
     /// should use this so every surface — counts, Discover, search, planners — sees the new
     /// rows instead of only the actor's private store gaining them silently.
-    func ingestHarvested(_ entries: [RecipeDatabaseEntry]) async {
-        guard !entries.isEmpty else { return }
-        await db.upsertAll(entries)
+    @discardableResult
+    func ingestHarvested(_ entries: [RecipeDatabaseEntry]) async -> [RecipeDatabaseEntry] {
+        guard !entries.isEmpty else { return [] }
+        let inserted = await db.upsertAll(entries)
         await refreshCount()
         recipesVersion &+= 1
-        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: entries.count))
+        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: inserted.count))
+        return inserted
     }
 
     /// Convert and save a UserRecipe into the database immediately.
