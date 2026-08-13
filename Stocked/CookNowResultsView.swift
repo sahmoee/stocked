@@ -4,9 +4,9 @@
 // "See meals" / "See All Options" / "More Possibilities". One list, real
 // classification, honest sections:
 //
-//   Ready now         — exact matches, then ready-with-in-stock-swap
+//   Ready now         — five or fewer unresolved after in-stock substitutions
 //   Swaps to review   — one confirmation away from ready
-//   Almost ready      — missing 1–5 items after substitutions (fewest first)
+//   Almost ready      — missing 6+ items after substitutions (fewest first)
 //   More possibilities— missing 6+ (closest first), collapsed by default
 //                       unless the caller focuses it
 //
@@ -61,9 +61,9 @@ struct CookNowResultsView: View {
                         reviewSection
                         almostSection
                     }
-                    if focus != .morePossibilities {
-                        moreSection(expanded: showMore)
-                    }
+                    // Six-plus recipes already live in Almost Ready. Keep the explicit
+                    // More Possibilities destination for legacy deep links, but do not
+                    // duplicate that same population below the normal results list.
                 }
 
                 Spacer(minLength: 20)
@@ -134,7 +134,7 @@ struct CookNowResultsView: View {
 
     private var almostSection: some View {
         tierSection(title: "Almost ready",
-                    subtitle: "Missing 5 or fewer items after substitutions",
+                    subtitle: "Missing 6 or more items after substitutions",
                     items: snapshot.almostReady)
     }
 

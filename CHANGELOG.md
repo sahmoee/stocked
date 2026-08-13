@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 84) — Correct Ready Now threshold
+Meals Ready Now now means every safe recipe with five or fewer unresolved ingredients after substitutions. Meals Almost Ready now means six or more, and the dashboard and result lists use that same split.
+
 08:13:26 — v4.13 (build 83) — Five-item Cook Now range and substitutions
 Meals Ready Now and Cook Now now classify saved, generated, newly synced and Discover recipes through one catalog. In-stock substitutes are applied before missing counts, and recipes missing five or fewer items remain actionable Cook Now options.
 

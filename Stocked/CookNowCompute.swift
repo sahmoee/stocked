@@ -48,14 +48,13 @@ enum CookNowCompute {
         var metrics = CookNowMetrics()
         var emphasis: CookNowMetrics.Emphasis = .noMatches
 
-        /// Recipes in the dashboard's Ready Now bucket (exact + confirmed swaps),
-        /// exact matches first.
+        /// Recipes in Ready Now: five or fewer unresolved after substitutions.
         var readyNow: [ClassifiedRecipe] = []
-        /// Recipes one review-tap away from ready.
+        /// Recipes with an in-stock substitution awaiting review (also Ready Now).
         var needsReview: [ClassifiedRecipe] = []
-        /// Actionable Cook Now options (missing 1–5 after substitutions), closest first.
+        /// Almost Ready: six or more unresolved after substitutions, closest first.
         var almostReady: [ClassifiedRecipe] = []
-        /// More possibilities (missing 6+), closest first.
+        /// Compatibility alias for the six-plus population.
         var morePossibilities: [ClassifiedRecipe] = []
 
         /// True when every tier is empty — one cheap check instead of touching
@@ -69,16 +68,16 @@ enum CookNowCompute {
 
         /// Derive the four tier lists from `classified`, once.
         fileprivate mutating func buildTiers() {
-            readyNow = classified.filter { $0.readiness.isReadyNow }.sorted {
-                if $0.readiness != $1.readiness { return $0.readiness < $1.readiness }
+            readyNow = classified.filter { $0.isActionableCookNowOption }.sorted {
+                if $0.unresolvedCount != $1.unresolvedCount {
+                    return $0.unresolvedCount < $1.unresolvedCount
+                }
                 // RL-004 — reservation-touching recipes sink below equally-ready
                 // free ones; they are "ready if plans change", not fully safe.
                 return !$0.usesReservedIngredients && $1.usesReservedIngredients
             }
             needsReview = classified.filter { $0.readiness == .swapNeedsReview }
-            almostReady = classified.filter {
-                $0.readiness != .excluded && $0.unresolvedCount > 0 && $0.unresolvedCount <= 5
-            }
+            almostReady = classified.filter { $0.readiness != .excluded && $0.unresolvedCount >= 6 }
                 .sorted { $0.unresolvedCount < $1.unresolvedCount }
             morePossibilities = CookNowEngine.morePossibilities(in: classified)
         }

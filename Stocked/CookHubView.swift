@@ -557,13 +557,13 @@ struct CookNowHomeView: View {
                                      enabled: snapshot.metrics.readyNowTotal > 0) { goReadyList = true }
                         metricColumn(count: snapshot.metrics.almostReady,
                                      title: "meals almost ready",
-                                     sub: snapshot.metrics.almostReady > 0 ? "Missing 5 or fewer items" : "",
+                                     sub: snapshot.metrics.almostReady > 0 ? "Missing 6 or more items" : "",
                                      cta: "See meals",
                                      enabled: snapshot.metrics.almostReady > 0) { goAlmostList = true }
                     } else {
                         metricColumn(count: snapshot.metrics.almostReady,
                                      title: "meals almost ready",
-                                     sub: "Missing 5 or fewer items",
+                                     sub: "Missing 6 or more items",
                                      cta: "See meals",
                                      enabled: true) { goAlmostList = true }
                         metricColumn(count: snapshot.metrics.readyNowTotal,
@@ -578,22 +578,6 @@ struct CookNowHomeView: View {
                     Text("\(snapshot.needsReview.count) more possible with swaps to review")
                         .font(.system(size: 12))
                         .foregroundStyle(Color.stockedWhite.opacity(0.6))
-                }
-
-                if snapshot.metrics.morePossibilities > 0 {
-                    Button { goMoreList = true } label: {
-                        HStack {
-                            Text("See more possibilities (6+ missing)")
-                                .font(.system(size: 12.5, weight: .semibold))
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundStyle(Color.stockedGold)
-                        .padding(.vertical, 9).padding(.horizontal, 12)
-                        .background(Color.stockedGold.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
-                    }
-                    .buttonStyle(.plain)
                 }
 
                 Text("Based on what's currently logged")

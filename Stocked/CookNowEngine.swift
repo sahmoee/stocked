@@ -181,19 +181,22 @@ nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
 nonisolated struct CookNowMetrics: Sendable, Equatable {
     var exactReady: Int = 0            // recipes at .exact
     var readyWithSwaps: Int = 0        // recipes at .readyWithSwap
-    var almostReady: Int = 0           // recipes missing 1–5 after substitutions
-    var morePossibilities: Int = 0     // recipes missing 6+
+    var readyWithinFive: Int = 0       // recipes with 1–5 unresolved after substitutions
+    var almostReady: Int = 0           // recipes missing 6+
+    var morePossibilities: Int = 0     // retained for compatibility; same 6+ population
 
-    /// Total shown in the big "meals ready" number: exact + confirmed swaps.
-    var readyNowTotal: Int { exactReady + readyWithSwaps }
+    /// Product rule: ready means no more than five unresolved ingredients after swaps.
+    var readyNowTotal: Int { exactReady + readyWithSwaps + readyWithinFive }
 
     /// Breakdown line, e.g. "8 exact · 4 with substitutions". Empty when there
     /// is nothing to break down.
     var readyBreakdown: String {
         guard readyNowTotal > 0 else { return "" }
-        if readyWithSwaps == 0 { return "\(exactReady) exact" }
-        if exactReady == 0 { return "\(readyWithSwaps) with substitutions" }
-        return "\(exactReady) exact · \(readyWithSwaps) with substitutions"
+        var parts: [String] = []
+        if exactReady > 0 { parts.append("\(exactReady) exact") }
+        if readyWithSwaps > 0 { parts.append("\(readyWithSwaps) with substitutions") }
+        if readyWithinFive > 0 { parts.append("\(readyWithinFive) need 1–5 items") }
+        return parts.joined(separator: " · ")
     }
 
     /// Which adaptive dashboard state to render. The dashboard changes emphasis
@@ -424,11 +427,12 @@ nonisolated struct CookNowEngine: Sendable {
             switch c.readiness {
             case .exact:            m.exactReady += 1
             case .readyWithSwap:    m.readyWithSwaps += 1
-            case .missingOne, .missingTwo: m.almostReady += 1
+            case .missingOne, .missingTwo: m.readyWithinFive += 1
             case .missingMany:
-                if c.unresolvedCount <= 5 { m.almostReady += 1 }
-                else { m.morePossibilities += 1 }
-            case .swapNeedsReview, .excluded: break
+                if c.unresolvedCount <= 5 { m.readyWithinFive += 1 }
+                else { m.almostReady += 1; m.morePossibilities += 1 }
+            case .swapNeedsReview: m.readyWithSwaps += 1
+            case .excluded: break
             }
         }
         return m

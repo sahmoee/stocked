@@ -165,9 +165,7 @@ private struct ReadyToCoookContent: View {
     let onGenerateRecipe: () -> Void
     let onBrowseOnline: () -> Void
 
-    private var readyNow: Int {
-        cachedReadyRecipes.filter { $0.missing.isEmpty && !$0.substitutionsNeedReview }.count
-    }
+    private var readyNow: Int { cachedReadyRecipes.count }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -265,7 +263,7 @@ private struct ReadyToCoookRecipeRow: View {
     let recipe: ReadyRecipe
     @State private var addedToList: Int? = nil   // #3 feedback
 
-    private var isReady: Bool { recipe.missing.isEmpty && !recipe.substitutionsNeedReview }
+    private var isReady: Bool { recipe.missing.count <= 5 }
     private var pct: Int {
         guard !recipe.ingredients.isEmpty else { return 100 }
         return Int(finite: safeDivide(Double(recipe.ingredients.count - recipe.missing.count), by: Double(recipe.ingredients.count)) * 100, fallback: 100)
@@ -367,7 +365,7 @@ private struct ReadyToCoookRecipeRow: View {
 
     private var statusPill: some View {
         Group {
-            if recipe.substitutionsNeedReview && recipe.missing.isEmpty {
+            if recipe.substitutionsNeedReview {
                 Text("Review Swap")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(Color.stockedGold)
@@ -375,7 +373,7 @@ private struct ReadyToCoookRecipeRow: View {
                     .background(Color.stockedGold.opacity(0.14))
                     .clipShape(Capsule())
             } else if isReady {
-                Text("Ready Now")
+                Text(recipe.missing.isEmpty ? "Ready Now" : "Ready Now · Needs \(recipe.missing.count)")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 7).padding(.vertical, 3)
