@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 91) — Working ingredient substitution shortcuts
+Tapping Sub beside a recipe ingredient now expands Substitutions, scrolls it into view, and highlights the matching ingredient instead of changing hidden state below the viewport.
+
 08:13:26 — v4.13 (build 90) — Cleaner Settings and collapsible recipes
 Removed inactive appearance and Home layout choices, kept dark-mode text adaptive, retained one complete QA destination, and made long Ingredients and Instructions cards independently collapsible from recipe detail.
 

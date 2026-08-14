@@ -741,7 +741,8 @@ final class QATicketStore {
             "STK-78-0011": "Removed the inactive Theme and Background appearance controls so Settings presents only appearance choices that change the current app.",
             "STK-80-0025": "Settings labels, segmented controls, and supporting text now use adaptive app text colors instead of fixed black foregrounds in dark mode.",
             "STK-80-0026": "Removed the inactive Home Buttons orientation selector; Home uses its supported adaptive layout rather than offering a control with no visible effect.",
-            "STK-86-0001": "Made recipe Ingredients and Instructions independently collapsible, collapsed by default, with animated disclosure controls and VoiceOver expand/collapse labels."
+            "STK-86-0001": "Made recipe Ingredients and Instructions independently collapsible, collapsed by default, with animated disclosure controls and VoiceOver expand/collapse labels.",
+            "STK-86-0002": "Connected each ingredient substitution button to the recipe detail scroll view so it expands Substitutions, scrolls the section into view after layout, and highlights the matching ingredient."
         ]
         if let resolution = settingsPresentationResolutions[ticket.number] {
             return resolution

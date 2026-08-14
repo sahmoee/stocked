@@ -373,7 +373,8 @@ struct UserRecipeDetailView: View {
     private var detailContent: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
-            ScrollView(showsIndicators: false) {
+            ScrollViewReader { scrollProxy in
+              ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
 
                     // Hero
@@ -612,6 +613,15 @@ struct UserRecipeDetailView: View {
                                                     substitutionScrollTarget = ing.name
                                                     showSubstitutions = true
                                                 }
+                                                Task { @MainActor in
+                                                    // Let the disclosure lay out before moving its anchor
+                                                    // into view; otherwise the scroll targets its collapsed
+                                                    // position and the tap appears to do nothing.
+                                                    await Task.yield()
+                                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                                        scrollProxy.scrollTo("recipe-substitutions", anchor: .top)
+                                                    }
+                                                }
                                             } label: {
                                                 HStack(spacing: 3) {
                                                     Text("Sub ↓").font(.system(size: 9, weight: .semibold))
@@ -734,6 +744,7 @@ struct UserRecipeDetailView: View {
                         isExpanded: $showSubstitutions,
                         scrollTarget: $substitutionScrollTarget
                     )
+                    .id("recipe-substitutions")
 
                     // Kitchen Tips
                     RecipeKitchenTipsSection()
@@ -787,6 +798,7 @@ struct UserRecipeDetailView: View {
                 }
                 .padding(.top, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
+              }
             }
         }
     }
