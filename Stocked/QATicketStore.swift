@@ -727,6 +727,15 @@ final class QATicketStore {
         if let tab = repeatedRootTabFreezeTickets[ticket.number] {
             return "Coalesced rapid taps on the already-selected \(tab) tab so one tap still pops to root while repeated taps during the transition no longer rebuild the complete \(tab) NavigationStack and screen tree multiple times on the main actor."
         }
+        let uniformRecipeImageTickets: Set<String> = [
+            "STK-68-0004",
+            "STK-78-0014",
+            "STK-80-0020",
+            "STK-80-0022"
+        ]
+        if uniformRecipeImageTickets.contains(ticket.number) {
+            return "Standardized compact recipe collections on one reusable fork-and-knife thumbnail across Cook Now, Based on Inventory, and Drinks, eliminating mixed remote photos, emoji, and empty Meal Photo placeholders while retaining real photography on recipe detail and hero screens."
+        }
         let previouslyAudited = ticket.number.hasPrefix("STK-68-")
             || ticket.number.hasPrefix("STK-69-")
             || ticket.number.hasPrefix("STK-77-")

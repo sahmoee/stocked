@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 89) — Uniform recipe collection imagery
+Cook Now, Based on Inventory, and Drinks now use one cohesive recipe thumbnail in compact collections instead of mixing loaded photos, emoji, and empty Meal Photo placeholders. Full recipe details and heroes retain real photography.
+
 08:13:26 — v4.13 (build 88) — Batched root-tab freeze repair
 Six QA reports with the same repeated-selected-tab evidence now receive precise shipped resolutions. Home, Cook, and Recipes tap storms coalesce to one pop-to-root rebuild, with expanded regression coverage for all three recorded surfaces.
 

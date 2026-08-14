@@ -353,10 +353,8 @@ struct DrinksBrowseView: View {
                                         onOpenRecipe(d)
                                     } label: {
                                         VStack(alignment: .leading, spacing: 6) {
-                                            CachedAsyncImage(url: d.imageURL, imageData: nil,
-                                                             height: 96, resolveName: d.title)
+                                            UniformRecipeIcon(size: 72)
                                                 .frame(width: 132, height: 96)
-                                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                                             Text(d.title)
                                                 .font(.system(size: 12.5, weight: .semibold))
                                                 .foregroundStyle(session.themeTextColor)

@@ -2125,10 +2125,7 @@ private struct CookLaterCommandRecipePicker: View {
                 Task { @MainActor in onSelect(recipe) }
               } label: {
                 HStack(spacing: 11) {
-                  CachedAsyncImage(url: recipe.imageURL, imageData: recipe.imageData,
-                    height: 52, resolveName: recipe.title)
-                    .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 11))
+                  UniformRecipeIcon(size: 52)
                   VStack(alignment: .leading, spacing: 3) {
                     Text(recipe.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
                       session.themeTextColor

@@ -428,6 +428,28 @@ actor ImageFetchLimiter {
 }
 
 // MARK: - CachedAsyncImage
+/// A deliberately uniform thumbnail for compact recipe lists.
+/// Use this where mixing remote photography with placeholders makes sibling rows look broken;
+/// full recipe detail and hero surfaces continue to use real photography.
+struct UniformRecipeIcon: View {
+    var size: CGFloat = 52
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: max(10, size * 0.21))
+            .fill(Color.stockedGold.opacity(0.12))
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: "fork.knife")
+                    .font(.system(size: size * 0.36, weight: .semibold))
+                    .foregroundStyle(Color.stockedGold)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: max(10, size * 0.21))
+                    .stroke(Color.stockedGold.opacity(0.18), lineWidth: 1)
+            }
+    }
+}
+
 struct CachedAsyncImage: View {
     let url:       String?
     let imageData: Data?
