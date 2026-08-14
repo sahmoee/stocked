@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 88) — Batched root-tab freeze repair
+Six QA reports with the same repeated-selected-tab evidence now receive precise shipped resolutions. Home, Cook, and Recipes tap storms coalesce to one pop-to-root rebuild, with expanded regression coverage for all three recorded surfaces.
+
 08:13:26 — v4.13 (build 87) — Home tab freeze protection
 Repeated taps on the selected Home tab now coalesce into one pop-to-root transition instead of rebuilding the complete Home navigation and widget tree several times on the main thread. Added regression coverage for the reselection gate.
 

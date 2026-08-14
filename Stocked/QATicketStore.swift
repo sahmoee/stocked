@@ -716,8 +716,16 @@ final class QATicketStore {
     }
 
     private nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
-        if ticket.number == "STK-68-0001" {
-            return "Coalesced rapid taps on the already-selected Home tab so one tap still pops to root while repeated taps during the transition no longer rebuild the complete Home NavigationStack and widget tree multiple times on the main actor."
+        let repeatedRootTabFreezeTickets: [String: String] = [
+            "STK-68-0001": "Home",
+            "STK-68-0002": "Home",
+            "STK-68-0008": "Cook",
+            "STK-68-0009": "Cook",
+            "STK-78-0005": "Recipes",
+            "STK-78-0008": "Recipes"
+        ]
+        if let tab = repeatedRootTabFreezeTickets[ticket.number] {
+            return "Coalesced rapid taps on the already-selected \(tab) tab so one tap still pops to root while repeated taps during the transition no longer rebuild the complete \(tab) NavigationStack and screen tree multiple times on the main actor."
         }
         let previouslyAudited = ticket.number.hasPrefix("STK-68-")
             || ticket.number.hasPrefix("STK-69-")
