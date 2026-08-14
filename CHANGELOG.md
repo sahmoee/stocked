@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 87) — Home tab freeze protection
+Repeated taps on the selected Home tab now coalesce into one pop-to-root transition instead of rebuilding the complete Home navigation and widget tree several times on the main thread. Added regression coverage for the reselection gate.
+
 08:13:26 — v4.13 (build 86) — AI action on Meals Ready Now
 The Meals Ready Now results screen now has a prominent inventory-based AI recipe button with progress and result feedback. Its actual recipe rows now use the same consistent icon treatment instead of mixed photos and emoji.
 

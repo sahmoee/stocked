@@ -4,6 +4,23 @@
 import SwiftUI
 import os
 
+/// Coalesces repeated taps on the already-selected tab into one pop-to-root rebuild.
+/// Rebuilding a NavigationStack is intentionally expensive; without this guard a quick
+/// double/triple tap rebuilt the complete Home widget tree several times on the main actor.
+struct TabRootPopGate {
+    static let minimumInterval: TimeInterval = 1
+    private(set) var lastAcceptedAt: Date?
+
+    mutating func shouldAccept(at now: Date = .now) -> Bool {
+        if let lastAcceptedAt,
+           now.timeIntervalSince(lastAcceptedAt) < Self.minimumInterval {
+            return false
+        }
+        lastAcceptedAt = now
+        return true
+    }
+}
+
 struct MainTabView: View {
     @Environment(AppSession.self) var session
     @State private var sharedRecipeForm: AddRecipeForm? = nil
@@ -13,6 +30,7 @@ struct MainTabView: View {
 
     @State private var selected:     StockedTab = .home
     @State private var rootPopID:    [StockedTab: UUID] = [:]   // bump to pop a specific tab's stack to root
+    @State private var rootPopGate = TabRootPopGate()
 
     // MARK: - Shared navigation — used by BOTH global nav bar AND drawer
     // Single source of truth: closes drawer, dismisses all overlays, switches tab.
@@ -67,6 +85,9 @@ struct MainTabView: View {
         // back exactly where you left. Tapping the tab you're ALREADY on pops it to its
         // main page — that's the explicit "take me back to the top" gesture.
         if selected == tab {
+            // One accepted re-tap still pops to root. Additional taps during the stack
+            // transition are ignored so they cannot queue multiple full-tree rebuilds.
+            guard rootPopGate.shouldAccept() else { return }
             rootPopID[tab] = UUID()   // iPhone: .id rebuild pops the current tab to root
             NotificationCenter.default.post(name: .stockedPopToRoot, object: nil)   // iPad path
             return
