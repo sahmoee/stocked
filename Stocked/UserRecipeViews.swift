@@ -77,6 +77,8 @@ struct UserRecipeDetailView: View {
     @State private var aiFixingIngredients    = false
     @State private var detailMetrics          = UserRecipeDetailMetrics.empty
     @State private var substitutionIngredientIDs: Set<UUID> = []
+    @State private var ingredientsExpanded = false
+    @State private var instructionsExpanded = false
 
     // ── Cook Now integration (Direction B) ────────────────────────
     // Present only when a CookNowSession is in the environment (the user
@@ -544,9 +546,15 @@ struct UserRecipeDetailView: View {
                     if !recipe.ingredients.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                Text("Ingredients")
-                                    .font(.system(size: 16, weight: .bold, design: .serif))
-                                    .foregroundStyle(session.themeTextColor)
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) { ingredientsExpanded.toggle() }
+                                } label: {
+                                    Label("Ingredients", systemImage: ingredientsExpanded ? "chevron.down" : "chevron.right")
+                                        .font(.system(size: 16, weight: .bold, design: .serif))
+                                        .foregroundStyle(session.themeTextColor)
+                                }
+                                .buttonStyle(.plain)
+                                .a11yButton(ingredientsExpanded ? "Collapse ingredients" : "Expand ingredients")
                                 Spacer()
                                 if RecipeImportAI.isAvailable {
                                     Button { Task { await fixIngredientsWithAI() } } label: {
@@ -583,6 +591,7 @@ struct UserRecipeDetailView: View {
                                          : "\(groceryPushCount) missing ingredient\(groceryPushCount == 1 ? "" : "s") added under \"\(recipe.title)\".")
                                 }
                             }
+                            if ingredientsExpanded {
                             ForEach(recipe.ingredients) { ing in
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack(spacing: 10) {
@@ -619,6 +628,7 @@ struct UserRecipeDetailView: View {
                                     }
                                 }
                             }
+                            }
                         }
                         .padding(16)
                         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
@@ -629,9 +639,15 @@ struct UserRecipeDetailView: View {
                     if !displaySteps.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
-                                Text("Instructions")
-                                    .font(.system(size: 16, weight: .bold, design: .serif))
-                                    .foregroundStyle(session.themeTextColor)
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) { instructionsExpanded.toggle() }
+                                } label: {
+                                    Label("Instructions", systemImage: instructionsExpanded ? "chevron.down" : "chevron.right")
+                                        .font(.system(size: 16, weight: .bold, design: .serif))
+                                        .foregroundStyle(session.themeTextColor)
+                                }
+                                .buttonStyle(.plain)
+                                .a11yButton(instructionsExpanded ? "Collapse instructions" : "Expand instructions")
                                 Spacer()
                                 // AI cleanup — reorders, de-dupes, and rewrites garbled or
                                 // missing steps via the Worker; falls back silently offline.
@@ -660,8 +676,10 @@ struct UserRecipeDetailView: View {
                             }
                             // #9 live cooking — steps mentioning a duration get a tappable
                             // timer chip (notification + Live Activity backed).
-                            ForEach(Array(displaySteps.enumerated()), id: \.offset) { i, step in
-                                TimedStepRow(stepNumber: i + 1, stepText: step, timerEngine: timerEngine)
+                            if instructionsExpanded {
+                                ForEach(Array(displaySteps.enumerated()), id: \.offset) { i, step in
+                                    TimedStepRow(stepNumber: i + 1, stepText: step, timerEngine: timerEngine)
+                                }
                             }
                         }
                         .padding(16)
@@ -987,4 +1005,3 @@ struct RecipeKitchenTipsSection: View {
         }
     }
 }
-

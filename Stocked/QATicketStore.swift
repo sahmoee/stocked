@@ -736,6 +736,16 @@ final class QATicketStore {
         if uniformRecipeImageTickets.contains(ticket.number) {
             return "Standardized compact recipe collections on one reusable fork-and-knife thumbnail across Cook Now, Based on Inventory, and Drinks, eliminating mixed remote photos, emoji, and empty Meal Photo placeholders while retaining real photography on recipe detail and hero screens."
         }
+        let settingsPresentationResolutions: [String: String] = [
+            "STK-68-0006": "Consolidated every QA control and tool behind the single Settings > QA entry; App Health now contains health information only and no duplicate QA menu.",
+            "STK-78-0011": "Removed the inactive Theme and Background appearance controls so Settings presents only appearance choices that change the current app.",
+            "STK-80-0025": "Settings labels, segmented controls, and supporting text now use adaptive app text colors instead of fixed black foregrounds in dark mode.",
+            "STK-80-0026": "Removed the inactive Home Buttons orientation selector; Home uses its supported adaptive layout rather than offering a control with no visible effect.",
+            "STK-86-0001": "Made recipe Ingredients and Instructions independently collapsible, collapsed by default, with animated disclosure controls and VoiceOver expand/collapse labels."
+        ]
+        if let resolution = settingsPresentationResolutions[ticket.number] {
+            return resolution
+        }
         let previouslyAudited = ticket.number.hasPrefix("STK-68-")
             || ticket.number.hasPrefix("STK-69-")
             || ticket.number.hasPrefix("STK-77-")

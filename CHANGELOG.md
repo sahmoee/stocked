@@ -1,3 +1,6 @@
+08:13:26 — v4.13 (build 90) — Cleaner Settings and collapsible recipes
+Removed inactive appearance and Home layout choices, kept dark-mode text adaptive, retained one complete QA destination, and made long Ingredients and Instructions cards independently collapsible from recipe detail.
+
 08:13:26 — v4.13 (build 89) — Uniform recipe collection imagery
 Cook Now, Based on Inventory, and Drinks now use one cohesive recipe thumbnail in compact collections instead of mixing loaded photos, emoji, and empty Meal Photo placeholders. Full recipe details and heroes retain real photography.
 

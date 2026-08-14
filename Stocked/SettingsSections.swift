@@ -116,10 +116,6 @@ struct PreferencesSectionView: View {
                     set: { session.cookButtonSize = $0 }
                 ), range: 150...400)
 
-                segmentedRow(dark: dark, icon: "rectangle.grid.1x2.fill", title: "Home Buttons", selection: Binding(
-                    get: { session.homeButtonLayout },
-                    set: { session.homeButtonLayout = $0 }
-                ), options: HomeButtonLayout.allCases) { $0.rawValue }
             }
         }
     }
