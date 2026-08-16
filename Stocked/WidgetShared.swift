@@ -13,10 +13,35 @@ struct StockedWidgetSnapshot: Codable {
     var todayMeal: String?          // today's planned, not-yet-cooked meal
     var groceryCount: Int           // unchecked grocery items
     var updatedAt: Date
+    // Additive option data. Optional keeps snapshots from older app builds decodable.
+    var inventoryCount: Int?
+    var lowStockNames: [String]?
+    var groceryNames: [String]?
+    var todayMealType: String?
+    var recipeCount: Int?
+    var favoriteRecipe: String?
 
     static let empty = StockedWidgetSnapshot(
         stockPercent: 0, expiringCount: 0, expiringNames: [],
-        lowStockCount: 0, todayMeal: nil, groceryCount: 0, updatedAt: .distantPast)
+        lowStockCount: 0, todayMeal: nil, groceryCount: 0, updatedAt: .distantPast,
+        inventoryCount: 0, lowStockNames: [], groceryNames: [], todayMealType: nil,
+        recipeCount: 0, favoriteRecipe: nil)
+
+    static let preview = StockedWidgetSnapshot(
+        stockPercent: 72, expiringCount: 3,
+        expiringNames: ["Spinach", "Greek yogurt", "Strawberries"],
+        lowStockCount: 2, todayMeal: "Lemon herb pasta", groceryCount: 4,
+        updatedAt: .now, inventoryCount: 28,
+        lowStockNames: ["Olive oil", "Rice"],
+        groceryNames: ["Milk", "Basil", "Garlic", "Bread"],
+        todayMealType: "Dinner", recipeCount: 46,
+        favoriteRecipe: "Roasted tomato soup")
+
+    var isEmpty: Bool {
+        updatedAt == .distantPast && stockPercent == 0 && (inventoryCount ?? 0) == 0
+    }
+
+    var isStale: Bool { Date().timeIntervalSince(updatedAt) > 6 * 60 * 60 }
 }
 
 /// Read/write the snapshot via the shared App Group. Same group the Share Extension uses.

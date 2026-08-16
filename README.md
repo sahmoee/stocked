@@ -26,6 +26,7 @@ Current app version: **4.13**. The project targets **iOS/iPadOS 26** and include
 
 - Optional Worker-backed receipt parsing, food normalization, recipe enrichment, recommendations, and daily briefs
 - Spotlight indexing, notifications, widgets, deep links, share extension, network monitoring, and offline-friendly local state
+- Five adaptive widgets for kitchen status, expiring food, groceries, today's meal, and recipes, plus a cooking timer Live Activity
 - Sign in with Apple, CloudKit backup/sync, guest mode, household membership, and storage diagnostics
 - Internal feature flags, diagnostics, health views, synchronized QA tickets, screenshots, verification, and refiling
 

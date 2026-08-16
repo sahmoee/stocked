@@ -28,12 +28,13 @@ struct StockedProvider: TimelineProvider {
         StockedEntry(date: Date(), snapshot: .empty)
     }
     func getSnapshot(in context: Context, completion: @escaping (StockedEntry) -> Void) {
-        completion(StockedEntry(date: Date(), snapshot: WidgetStore.load()))
+        completion(StockedEntry(date: Date(), snapshot: context.isPreview ? .preview : WidgetStore.load()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<StockedEntry>) -> Void) {
         let entry = StockedEntry(date: Date(), snapshot: WidgetStore.load())
-        // Hourly refresh as a backstop; the app force-reloads on real data changes.
-        let next = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date().addingTimeInterval(3600)
+        // App writes trigger immediate reloads; this backstop also recovers from stale/empty data.
+        let interval: TimeInterval = entry.snapshot.isEmpty ? 15 * 60 : (entry.snapshot.isStale ? 20 * 60 : 60 * 60)
+        let next = Date().addingTimeInterval(interval)
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
 }
@@ -48,11 +49,52 @@ struct StockedWidgetView: View {
         switch family {
         case .systemSmall:        small
         case .systemMedium:       medium
+        case .systemLarge:        large
         case .accessoryCircular:  circular
         case .accessoryInline:    inline
         case .accessoryRectangular: rectangular
         default:                  small
         }
+    }
+
+    private var large: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Kitchen dashboard", systemImage: "refrigerator.fill")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                Spacer()
+                if s.isStale { Label("Open to refresh", systemImage: "arrow.clockwise").font(.caption2).foregroundStyle(.secondary) }
+            }
+            HStack(spacing: 12) {
+                metric("\(s.stockPercent)%", "stocked", "chart.bar.fill", stockTint(s.stockPercent))
+                metric("\(s.expiringCount)", "use soon", "clock.badge.exclamationmark", .orange)
+                metric("\(s.groceryCount)", "to buy", "cart.fill", .wGold)
+            }
+            Divider()
+            if let meal = s.todayMeal, !meal.isEmpty {
+                row("fork.knife", .wGreen, s.todayMealType ?? "Today's meal", meal)
+            }
+            if !s.expiringNames.isEmpty {
+                row("clock.badge.exclamationmark", .orange, "Use next", s.expiringNames.prefix(4).joined(separator: " • "))
+            }
+            if let names = s.lowStockNames, !names.isEmpty {
+                row("chart.bar.fill", .wGold, "Running low", names.prefix(4).joined(separator: " • "))
+            }
+            Spacer(minLength: 0)
+            Text("Updated \(s.updatedAt, style: .relative)").font(.caption2).foregroundStyle(.secondary)
+        }
+        .widgetURL(URL(string: "stocked://home"))
+    }
+
+    private func metric(_ value: String, _ label: String, _ icon: String, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Image(systemName: icon).foregroundStyle(tint)
+            Text(value).font(.system(.title2, design: .rounded, weight: .bold)).contentTransition(.numericText())
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10).background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .combine)
     }
 
     // Home Screen — small: stock ring + headline alert.
@@ -182,7 +224,7 @@ struct StockedStatusWidget: Widget {
         }
         .configurationDisplayName("Kitchen Status")
         .description("Your stock level, what's expiring, and tonight's meal.")
-        .supportedFamilies([.systemSmall, .systemMedium,
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge,
                             .accessoryCircular, .accessoryInline, .accessoryRectangular])
     }
 }
@@ -190,26 +232,40 @@ struct StockedStatusWidget: Widget {
 // MARK: - Expiring Soon widget (improvement #1)
 
 struct ExpiringSoonWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     var entry: StockedEntry
     var body: some View {
         let s = entry.snapshot
-        VStack(alignment: .leading, spacing: 4) {
+        if family == .accessoryCircular {
+            Gauge(value: Double(min(s.expiringCount, 10)), in: 0...10) {
+                Image(systemName: "clock")
+            } currentValueLabel: { Text("\(s.expiringCount)").fontWeight(.bold) }
+            .gaugeStyle(.accessoryCircular)
+            .widgetURL(URL(string: "stocked://inventory"))
+        } else if family == .accessoryInline {
+            Label(s.expiringCount == 0 ? "Nothing expiring" : "\(s.expiringCount) to use soon", systemImage: "clock.badge.checkmark")
+                .widgetURL(URL(string: "stocked://inventory"))
+        } else {
+          VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "clock.badge.exclamationmark").font(.system(size: 12, weight: .semibold))
                 Text("Use soon").font(.system(size: 13, weight: .bold))
+                Spacer()
+                Text("\(s.expiringCount)").font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(.orange)
             }
             if s.expiringNames.isEmpty {
                 Text(s.expiringCount == 0 ? "Nothing expiring" : "\(s.expiringCount) expiring")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             } else {
-                ForEach(s.expiringNames.prefix(3), id: \.self) { n in
-                    Text("• \(n)").font(.system(size: 12)).lineLimit(1)
+                ForEach(s.expiringNames.prefix(family == .systemMedium ? 4 : 3), id: \.self) { n in
+                    Label(n, systemImage: "circle.fill").font(.system(size: 12)).lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .widgetURL(URL(string: "stocked://inventory"))
+        }
     }
 }
 
@@ -222,23 +278,45 @@ struct ExpiringSoonWidget: Widget {
         }
         .configurationDisplayName("Expiring Soon")
         .description("The items you should use up next.")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryInline, .accessoryRectangular])
     }
 }
 
 // MARK: - Grocery widget (improvement #1)
 
 struct GroceryWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     var entry: StockedEntry
     var body: some View {
         let s = entry.snapshot
-        VStack(spacing: 2) {
-            Image(systemName: "cart.fill").font(.system(size: 15, weight: .semibold))
-            Text("\(s.groceryCount)").font(.system(size: 22, weight: .bold))
-            Text(s.groceryCount == 1 ? "to buy" : "to buy").font(.system(size: 11)).foregroundStyle(.secondary)
+        if family == .accessoryInline {
+            Label("\(s.groceryCount) on grocery list", systemImage: "cart.fill")
+                .widgetURL(URL(string: "stocked://grocery"))
+        } else if family == .accessoryCircular {
+          VStack(spacing: 0) {
+            Image(systemName: "cart.fill")
+            Text("\(s.groceryCount)").font(.headline)
+          }.widgetURL(URL(string: "stocked://grocery"))
+        } else {
+          VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Label("Grocery list", systemImage: "cart.fill").font(.system(size: 13, weight: .bold))
+                Spacer()
+                Text("\(s.groceryCount)").font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(Color.wGold)
+            }
+            if let names = s.groceryNames, !names.isEmpty {
+                ForEach(names.prefix(family == .systemMedium ? 4 : 3), id: \.self) { name in
+                    Label(name, systemImage: "circle").font(.system(size: 12)).lineLimit(1)
+                }
+            } else {
+                Spacer(minLength: 0)
+                Label("List is clear", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Color.wGreen)
+            }
+            Spacer(minLength: 0)
+          }
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+          .widgetURL(URL(string: "stocked://grocery"))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .widgetURL(URL(string: "stocked://grocery"))
     }
 }
 
@@ -250,8 +328,95 @@ struct GroceryWidget: Widget {
                 .containerBackground(Color.wBg.opacity(0.0), for: .widget)
         }
         .configurationDisplayName("Grocery List")
-        .description("How many items are on your list.")
-        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline])
+        .description("Your next grocery items and remaining count.")
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryInline, .accessoryRectangular])
+    }
+}
+
+// MARK: - Meal and recipe options
+
+struct TodayMealWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: StockedEntry
+
+    var body: some View {
+        let meal = entry.snapshot.todayMeal
+        if family == .accessoryInline {
+            Label(meal.map { "Today: \($0)" } ?? "Plan today's meal", systemImage: "fork.knife")
+                .widgetURL(URL(string: "stocked://cook"))
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label(entry.snapshot.todayMealType ?? "Today's meal", systemImage: "fork.knife")
+                        .font(.system(size: 13, weight: .bold))
+                    Spacer()
+                    Image(systemName: meal == nil ? "plus.circle.fill" : "arrow.right.circle.fill").foregroundStyle(Color.wGreen)
+                }
+                Spacer(minLength: 0)
+                Text(meal ?? "Nothing planned yet")
+                    .font(.system(family == .systemMedium ? .title3 : .headline, design: .serif, weight: .bold))
+                    .lineLimit(family == .systemMedium ? 2 : 3)
+                Text(meal == nil ? "Tap to choose a recipe" : "Tap to start cooking")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .widgetURL(URL(string: "stocked://cook"))
+        }
+    }
+}
+
+struct TodayMealWidget: Widget {
+    let kind = "StockedTodayMealWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: StockedProvider()) { entry in
+            TodayMealWidgetView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+        }
+        .configurationDisplayName("Today's Meal")
+        .description("See your planned meal and jump straight into cooking.")
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryInline, .accessoryRectangular])
+    }
+}
+
+struct RecipeLibraryWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: StockedEntry
+
+    var body: some View {
+        let snapshot = entry.snapshot
+        if family == .accessoryInline {
+            Label("\(snapshot.recipeCount ?? 0) saved recipes", systemImage: "book.closed.fill")
+                .widgetURL(URL(string: "stocked://recipes"))
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Recipe library", systemImage: "book.closed.fill").font(.system(size: 13, weight: .bold))
+                    Spacer()
+                    Text("\(snapshot.recipeCount ?? 0)").font(.headline).foregroundStyle(Color.wGold)
+                }
+                Spacer(minLength: 0)
+                if let favorite = snapshot.favoriteRecipe, !favorite.isEmpty {
+                    Text("Favorite").font(.caption2).foregroundStyle(.secondary).textCase(.uppercase)
+                    Text(favorite).font(.system(.headline, design: .serif, weight: .bold)).lineLimit(2)
+                } else {
+                    Text("Find something delicious").font(.system(.headline, design: .serif, weight: .bold)).lineLimit(2)
+                    Text("Browse your recipes").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .widgetURL(URL(string: "stocked://recipes"))
+        }
+    }
+}
+
+struct RecipeLibraryWidget: Widget {
+    let kind = "StockedRecipeLibraryWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: StockedProvider()) { entry in
+            RecipeLibraryWidgetView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+        }
+        .configurationDisplayName("Recipe Library")
+        .description("Open your saved recipes or return to a favorite.")
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryInline, .accessoryRectangular])
     }
 }
 
@@ -261,6 +426,8 @@ struct StockedWidgetBundle: WidgetBundle {
         StockedStatusWidget()
         ExpiringSoonWidget()
         GroceryWidget()
+        TodayMealWidget()
+        RecipeLibraryWidget()
         CookTimerLiveActivity()
     }
 }

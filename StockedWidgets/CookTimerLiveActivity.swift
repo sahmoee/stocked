@@ -24,6 +24,8 @@ struct CookTimerLiveActivity: Widget {
                         .foregroundStyle(.primary).lineLimit(1)
                     Text("Step \(context.state.stepNumber) of \(context.state.totalSteps) · \(context.state.stepText)")
                         .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                    ProgressView(value: Double(context.state.stepNumber), total: Double(max(context.state.totalSteps, 1)))
+                        .tint(Color.ctGold)
                 }
                 Spacer(minLength: 8)
                 Text(timerInterval: Date()...context.state.endDate, countsDown: true)
@@ -34,8 +36,12 @@ struct CookTimerLiveActivity: Widget {
                     .minimumScaleFactor(0.7)
                     .multilineTextAlignment(.trailing)
                     .fixedSize()
+                    .contentTransition(.numericText(countsDown: true))
             }
             .padding(16)
+            .widgetURL(URL(string: "stocked://cook"))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Cooking \(context.attributes.recipeTitle), step \(context.state.stepNumber) of \(context.state.totalSteps)")
             .activityBackgroundTint(Color.black.opacity(0.55))
             .activitySystemActionForegroundColor(.white)
 
@@ -60,6 +66,8 @@ struct CookTimerLiveActivity: Widget {
                             .font(.system(size: 14, weight: .bold, design: .serif)).lineLimit(1)
                         Text("Step \(context.state.stepNumber) of \(context.state.totalSteps) · \(context.state.stepText)")
                             .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                        ProgressView(value: Double(context.state.stepNumber), total: Double(max(context.state.totalSteps, 1)))
+                            .tint(Color.ctGold)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -74,6 +82,8 @@ struct CookTimerLiveActivity: Widget {
             } minimal: {
                 Image(systemName: "timer").foregroundStyle(Color.ctGold)
             }
+            .widgetURL(URL(string: "stocked://cook"))
+            .keylineTint(Color.ctGold)
         }
     }
 }

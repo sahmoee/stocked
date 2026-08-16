@@ -21,8 +21,13 @@ enum WidgetBridge {
             .map { $0.name }
 
         let lowStock = store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }.count
-        let todayMeal = store.plannedMeals.first { $0.dayIndex == 0 && !$0.isCooked }?.title
-        let grocery = store.groceryItems.filter { !$0.isChecked }.count
+        let lowStockNames = store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }
+            .prefix(4).map(\.name)
+        let meal = store.plannedMeals.first { $0.dayIndex == 0 && !$0.isCooked }
+        let todayMeal = meal?.title
+        let uncheckedGrocery = store.groceryItems.filter { !$0.isChecked }
+        let grocery = uncheckedGrocery.count
+        let favorite = store.userRecipes.first(where: \.isFavorited)?.title
 
         let snap = StockedWidgetSnapshot(
             stockPercent: store.stockPercent,
@@ -31,7 +36,13 @@ enum WidgetBridge {
             lowStockCount: lowStock,
             todayMeal: todayMeal,
             groceryCount: grocery,
-            updatedAt: now)
+            updatedAt: now,
+            inventoryCount: store.inventoryItems.filter { $0.effectiveLevel > 0 }.count,
+            lowStockNames: Array(lowStockNames),
+            groceryNames: Array(uncheckedGrocery.prefix(4).map(\.name)),
+            todayMealType: meal?.mealType,
+            recipeCount: store.userRecipes.count,
+            favoriteRecipe: favorite)
 
         WidgetStore.save(snap)
         WidgetCenter.shared.reloadAllTimelines()
