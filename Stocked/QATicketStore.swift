@@ -715,7 +715,7 @@ final class QATicketStore {
         if changed { save() }
     }
 
-    private nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
+    nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
         let repeatedRootTabFreezeTickets: [String: String] = [
             "STK-68-0001": "Home",
             "STK-68-0002": "Home",
@@ -742,7 +742,9 @@ final class QATicketStore {
             "STK-80-0025": "Settings labels, segmented controls, and supporting text now use adaptive app text colors instead of fixed black foregrounds in dark mode.",
             "STK-80-0026": "Removed the inactive Home Buttons orientation selector; Home uses its supported adaptive layout rather than offering a control with no visible effect.",
             "STK-86-0001": "Made recipe Ingredients and Instructions independently collapsible, collapsed by default, with animated disclosure controls and VoiceOver expand/collapse labels.",
-            "STK-86-0002": "Connected each ingredient substitution button to the recipe detail scroll view so it expands Substitutions, scrolls the section into view after layout, and highlights the matching ingredient."
+            "STK-86-0002": "Connected each ingredient substitution button to the recipe detail scroll view so it expands Substitutions, scrolls the section into view after layout, and highlights the matching ingredient.",
+            "STK-107-0019": "Settings now fills its complete sheet with the same adaptive Stocked background, card, text, and accent colors as the rest of the app in both light and dark mode.",
+            "STK-110-0014": "Moved Cook Button shape and size controls into the themed Preferences card so the controls and their surrounding surface use the same adaptive Stocked appearance as Home and Cook."
         ]
         if let resolution = settingsPresentationResolutions[ticket.number] {
             return resolution

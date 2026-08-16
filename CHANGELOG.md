@@ -1,3 +1,6 @@
+08:16:26 — v4.13 (build 92) — Settings appearance QA resolution batch
+Added precise shipped resolutions for the Settings and Cook Button appearance reports. The app now transitions all three related tickets to Fixed while preserving tester-controlled verification.
+
 08:15:26 — v4.13 (build 92) — Expanded widget collection
 Reworked the widget extension into five focused choices: Kitchen Status, Use Soon, Grocery List, Today's Meal, and Recipe Library. Added a large kitchen dashboard, more Home and Lock Screen sizes, richer item and meal context, stale-data recovery, realistic previews, reliable deep links, and step progress plus accessibility improvements for the cooking Live Activity.
 
