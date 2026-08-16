@@ -248,6 +248,7 @@ private struct HarvestWireRecipe: Decodable {
             let base = workerBase.hasSuffix("/") ? String(workerBase.dropLast()) : workerBase
             return rel.hasPrefix("/") ? base + rel : base + "/" + rel
         }()
+        guard !resolvedImage.isEmpty else { return nil }
 
         // Attribution is the Mac's display source (host/author). Fall back to a neutral,
         // non-blocklisted label so the recipe still counts under a source in the browser.

@@ -405,13 +405,14 @@ actor RecipeImageResolver {
     // Fills missing images across the recipe DB. Runs once per install, throttled and
     // bounded so it's gentle on the Spoonacular quota (most hits are free TheMealDB/Foodish).
     static func backfillMissingImagesIfNeeded() {
-        let fillFlagKey = "didBackfillRecipeImages_v1"
         let repairFlagKey = "didRepairRecipeImages_v1"
-        guard !UserDefaults.standard.bool(forKey: fillFlagKey) || !UserDefaults.standard.bool(forKey: repairFlagKey) else { return }
         Task(priority: .background) {
-            if !UserDefaults.standard.bool(forKey: fillFlagKey) {
-                await shared.backfill(limit: 40)
-                UserDefaults.standard.set(true, forKey: fillFlagKey)
+            // Missing-image repair is deliberately versionless and repeatable: older
+            // recipes must benefit from future resolver improvements. Stop when no
+            // progress is possible; the next launch tries again with newer sources.
+            for _ in 0..<5 {
+                let result = await shared.backfill(limit: 40)
+                if result.remaining == 0 || result.filled == 0 { break }
             }
             if !UserDefaults.standard.bool(forKey: repairFlagKey) {
                 await shared.repairThemealDBImages(limit: 40)
@@ -420,10 +421,10 @@ actor RecipeImageResolver {
         }
     }
 
-    private func backfill(limit: Int) async {
+    private func backfill(limit: Int) async -> (filled: Int, remaining: Int) {
         let entries = await RecipeDatabase.shared.all()
         let missing = entries.filter { $0.imageURL.isEmpty }.prefix(limit)
-        guard !missing.isEmpty else { return }
+        guard !missing.isEmpty else { return (0, 0) }
         Log.net.notice("Backfilling images for \(missing.count, privacy: .public) recipes")
         var filled = 0
         for var entry in missing {
@@ -436,6 +437,8 @@ actor RecipeImageResolver {
             try? await Task.sleep(nanoseconds: 400_000_000)
         }
         Log.net.notice("Image backfill complete: \(filled, privacy: .public) filled")
+        let remaining = await RecipeDatabase.shared.all().filter { $0.imageURL.isEmpty }.count
+        return (filled, remaining)
     }
 
     private func repairThemealDBImages(limit: Int) async {

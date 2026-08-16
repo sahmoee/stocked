@@ -1917,6 +1917,8 @@ class GuestDataStore {
         // passes through here, so blank/whitespace steps are dropped once, centrally —
         // no recipe can render an empty numbered instruction row.
         var r = recipeIn
+        guard r.imageData != nil
+                || r.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         r.instructions = r.instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -1984,6 +1986,8 @@ class GuestDataStore {
     func deleteUserRecipe(id: UUID)     { var l = userRecipes; l.removeAll { $0.id == id }; userRecipes = l }
     func updateUserRecipe(_ recipeIn: UserRecipe) {
         var r = recipeIn
+        guard r.imageData != nil
+                || r.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         r.instructions = r.instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

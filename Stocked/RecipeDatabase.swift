@@ -461,8 +461,12 @@ final class RecipeDatabaseManager {
     /// rows instead of only the actor's private store gaining them silently.
     @discardableResult
     func ingestHarvested(_ entries: [RecipeDatabaseEntry]) async -> [RecipeDatabaseEntry] {
-        guard !entries.isEmpty else { return [] }
-        let inserted = await db.upsertAll(entries)
+        let imageComplete = entries.filter {
+            let value = $0.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            return URL(string: value)?.scheme == "https"
+        }
+        guard !imageComplete.isEmpty else { return [] }
+        let inserted = await db.upsertAll(imageComplete)
         await refreshCount()
         recipesVersion &+= 1
         DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: inserted.count))
@@ -471,6 +475,8 @@ final class RecipeDatabaseManager {
 
     /// Convert and save a UserRecipe into the database immediately.
     func save(userRecipe: UserRecipe) async {
+        guard userRecipe.imageData != nil
+                || userRecipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         let entry = RecipeDatabaseEntry(
             title: userRecipe.title, description: userRecipe.description,
             sourceURL: "", sourceName: "My Recipes",

@@ -513,8 +513,12 @@ final class HouseholdSync {
             body["invDeleted"] = Array(capturedTombstones.inventory)
         }
         if syncRecipes {
-            body["userRecipes"] = store.userRecipes.map { userRecipeDict($0) }
-            body["genRecipes"] = store.savedGeneratedRecipes.map { genRecipeDict($0) }
+            body["userRecipes"] = store.userRecipes
+                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+                .map { userRecipeDict($0) }
+            body["genRecipes"] = store.savedGeneratedRecipes
+                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+                .map { genRecipeDict($0) }
             body["userRecipeDeleted"] = Array(capturedTombstones.userRecipes)
             body["genRecipeDeleted"] = Array(capturedTombstones.generatedRecipes)
         }
@@ -1053,6 +1057,7 @@ final class HouseholdSync {
         let userRecipeTombstones = Set((hh["userRecipeDeleted"] as? [String]) ?? [])
         if syncRecipes, let raw = hh["userRecipes"] as? [[String: Any]] {
             let remote = raw.compactMap { parseUserRecipe($0) }
+                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
             var byID = Dictionary(keepingLastValues: store.userRecipes.map { ($0.id, $0) })
             var touched = false
             for r in remote {
@@ -1074,6 +1079,7 @@ final class HouseholdSync {
         let genRecipeTombstones = Set((hh["genRecipeDeleted"] as? [String]) ?? [])
         if syncRecipes, let raw = hh["genRecipes"] as? [[String: Any]] {
             let remote = raw.compactMap { parseGenRecipe($0) }
+                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
             var byID = Dictionary(keepingLastValues: store.savedGeneratedRecipes.map { ($0.id, $0) })
             var touched = false
             for r in remote {

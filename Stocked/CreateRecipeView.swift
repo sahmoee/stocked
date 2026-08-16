@@ -360,7 +360,8 @@ struct CreateRecipeView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveRecipe() }
-                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                  || (imageData == nil && imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                 }
             }
         }
@@ -462,6 +463,7 @@ struct CreateRecipeView: View {
     // MARK: - Save (with DB write-back)
     private func saveRecipe() {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard imageData != nil || !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let steps = instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
