@@ -80,7 +80,13 @@ struct StockedApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            // Feed the live window/container size to every screen. Without this wrapper,
+            // `stockedLayout` stayed on its 393pt fallback, so iPad, Split View, landscape,
+            // and larger iPhones all rendered a phone-width column in the middle of the
+            // available canvas.
+            DeviceAdaptiveRoot {
+                RootView()
+            }
                 .environment(session)
         }
         .onChange(of: scenePhase) { _, phase in
@@ -162,8 +168,6 @@ struct RootView: View {
                 // login (Apple or guest-with-name). quizCompleted alone used to be enough,
                 // which let stale onboarding state bypass the login screen entirely.
                 MainTabView()
-                    .environment(\.stockedDevice,
-                        UIDevice.current.userInterfaceIdiom == .pad ? .tablet : .regular)
                     .stockedToasts()
             } else if session.isLoggedIn {
                 // FR-02 FIX: the old "isCheckingForExistingAccount → SplashView()" branch was
