@@ -193,6 +193,7 @@ private struct HarvestWireRecipe: Decodable {
     var description: String?
     var cuisine: String?
     var tags: [String]?
+    var categories: [String]?
     var ingredients: [HarvestWireIngredient]?
     var instructions: [String]?
     var sourceURL: String?
@@ -251,7 +252,8 @@ private struct HarvestWireRecipe: Decodable {
         // Attribution is the Mac's display source (host/author). Fall back to a neutral,
         // non-blocklisted label so the recipe still counts under a source in the browser.
         let source = (attribution?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
-            ?? "Stocked Kitchen"
+            ?? URL(string: sourceURL ?? "")?.host
+            ?? "Personal recipe"
 
         let cuisineValue = cuisine?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         var tagList = tags ?? []
@@ -274,7 +276,7 @@ private struct HarvestWireRecipe: Decodable {
             cookTime:    cookTime ?? "",
             totalTime:   "",
             servings:    servings.map(String.init) ?? "",
-            category:    "",
+            category:    categories?.first ?? tagList.first ?? "",
             cuisine:     cuisineValue,
             tags:        tagList,
             ingredients: ingredientLines,

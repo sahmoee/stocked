@@ -221,6 +221,11 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var notes:        String   = ""
     var imageData:    Data?
     var imageURL:     String?
+    /// Original publisher metadata supplied by Stocked's recipe manager. Optional so
+    /// recipes written by every older app version remain decode-compatible.
+    var sourceURL:    String?   = nil
+    var sourceName:   String?   = nil
+    var categories:   [String]? = nil
     var isFavorited:  Bool     = false
     var dateCreated:  Date     = Date()
     var cookCount:    Int      = 0          // how many times this recipe has been cooked

@@ -41,3 +41,5 @@ Fixed empty recipe categories, unwanted My Recipes tabs, sparse source browsing,
 Big change
 08:12:26 — v4.13 (build 80) — Unified QA lifecycle and documentation
 Added required fix resolutions, tester verification and history-preserving refiles; shipped resolution mappings for the current QA backlog; reduced Cook classification work; restored cached cuisine counts/results; improved light-mode inventory contrast; and documented setup, architecture, security, contribution, and QA workflows.
+08:15:26 — Shared recipe provenance and categories
+Stocked iOS now preserves source publisher, source URL, and mined categories sent by the Mac recipe manager. Harvest imports use their original publisher instead of StockedMac attribution, and category labels populate the shared recipe database.
