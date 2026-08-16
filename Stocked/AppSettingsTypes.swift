@@ -37,6 +37,23 @@ enum AppFont: String, Codable, CaseIterable {
     }
 }
 
+/// App-wide control density. The default is deliberately comfortable so large
+/// phones and iPads do not inherit an undersized phone layout, while the user can
+/// still choose a denser presentation without changing the system text setting.
+enum InterfaceSize: String, Codable, CaseIterable {
+    case standard = "Standard"
+    case comfortable = "Comfortable"
+    case large = "Large"
+
+    var scale: CGFloat {
+        switch self {
+        case .standard: return 1.0
+        case .comfortable: return 1.08
+        case .large: return 1.16
+        }
+    }
+}
+
 enum CookButtonShape: String, Codable, CaseIterable {
     case circle      = "Circle"
     case pill        = "Pill"
@@ -104,4 +121,3 @@ enum AppBackground: Codable, Equatable {
         }
     }
 }
-

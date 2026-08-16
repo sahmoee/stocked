@@ -40,11 +40,15 @@ struct StockedLayoutMetrics: Equatable {
     var width: CGFloat
     var height: CGFloat
     var isAccessibilityText: Bool
+    var interfaceScale: CGFloat
 
-    var horizontalPadding: CGFloat { min(max(width * 0.05, 16), 40) }
+    /// Keep controls close enough to the edge to use the available canvas. The
+    /// former five-percent rule made Pro Max phones and iPads feel needlessly narrow.
+    var horizontalPadding: CGFloat { width >= 600 ? 24 : 16 }
     var sectionSpacing: CGFloat { min(max(width * 0.03, 10), 24) }
-    var readableContentWidth: CGFloat { min(width, 840) }
-    var formContentWidth: CGFloat { min(width, 620) }
+    var readableContentWidth: CGFloat { min(width, 1_180) }
+    var formContentWidth: CGFloat { min(width, 760) }
+    var minimumControlHeight: CGFloat { max(44, 48 * interfaceScale) }
     var prefersVerticalControls: Bool { width < 360 || isAccessibilityText }
 
     func gridColumns(minimum: CGFloat, maximum: Int = 3, spacing: CGFloat = 12) -> [GridItem] {
@@ -53,7 +57,9 @@ struct StockedLayoutMetrics: Equatable {
         return Array(repeating: GridItem(.flexible(minimum: minimum), spacing: spacing), count: count)
     }
 
-    static let fallback = StockedLayoutMetrics(width: 393, height: 852, isAccessibilityText: false)
+    static let fallback = StockedLayoutMetrics(width: 393, height: 852,
+                                               isAccessibilityText: false,
+                                               interfaceScale: InterfaceSize.comfortable.scale)
 }
 
 private struct StockedLayoutMetricsKey: EnvironmentKey {
@@ -204,6 +210,7 @@ extension EnvironmentValues {
 struct DeviceAdaptiveRoot<Content: View>: View {
     @Environment(\.horizontalSizeClass) var hSize
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AppStorage("stocked.interfaceSize") private var interfaceSizeRaw = InterfaceSize.comfortable.rawValue
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
 
@@ -216,7 +223,9 @@ struct DeviceAdaptiveRoot<Content: View>: View {
             let metrics = StockedLayoutMetrics(
                 width: width,
                 height: proxy.size.height,
-                isAccessibilityText: dynamicTypeSize.isAccessibilitySize
+                isAccessibilityText: dynamicTypeSize.isAccessibilitySize,
+                interfaceScale: InterfaceSize(rawValue: interfaceSizeRaw)?.scale
+                    ?? InterfaceSize.comfortable.scale
             )
             content
                 .environment(\.stockedDevice, device)

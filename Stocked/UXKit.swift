@@ -283,10 +283,11 @@ extension View {
 private struct StockedInteractiveSurfaceModifier: ViewModifier {
     @Environment(AppSession.self) private var session
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.stockedLayout) private var layout
 
     func body(content: Content) -> some View {
         content
-            .frame(minWidth: 44, minHeight: 44)
+            .frame(minWidth: 44, minHeight: layout.minimumControlHeight)
             .contentShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .overlay {
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)

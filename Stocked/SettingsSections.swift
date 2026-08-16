@@ -9,6 +9,7 @@ import SwiftUI
 /// on which screen you opened.
 struct PreferencesSectionView: View {
     @Environment(AppSession.self) private var session
+    @AppStorage("stocked.interfaceSize") private var interfaceSize = InterfaceSize.comfortable.rawValue
 
     var onPreferredStore: () -> Void = {}
     var onRecipeSources: () -> Void = {}
@@ -32,6 +33,11 @@ struct PreferencesSectionView: View {
                 ), options: AppFont.allCases) { $0.rawValue }
 
                 RecipeTextSizeControl()
+
+                segmentedRow(dark: dark, icon: "rectangle.expand.vertical", title: "Interface Size", selection: Binding(
+                    get: { InterfaceSize(rawValue: interfaceSize) ?? .comfortable },
+                    set: { interfaceSize = $0.rawValue }
+                ), options: InterfaceSize.allCases) { $0.rawValue }
             }
 
             settingsGroup(dark: dark, title: "Cooking", detail: "Tune recipes and suggestions around the way your kitchen cooks.") {

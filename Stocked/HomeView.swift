@@ -27,12 +27,16 @@ struct HomeView: View {
     @State private var seeding = false
     @State private var layout = HomeWidget.loadLayout()
     @State private var draggingWidget: HomeWidget? = nil   // #11 drag-to-reorder
+    @State private var kitchenMetrics = KitchenMetrics()
 
     private var greeting: String { StockedFormatters.timeOfDayGreeting }
     private var sub: Color { Color.appSubtextStrong(session.isDarkMode) }
 
-    private var expiringCount: Int { store.metrics.expiringSoonCount }
-    private var mealsAvailable: Int { store.metrics.mealsReady }
+    private var expiringCount: Int { kitchenMetrics.expiringSoonCount }
+    private var mealsAvailable: Int { kitchenMetrics.mealsReady }
+    private var metricsRevision: String {
+        "\(store.inventoryRevision):\(store.groceryRevision):\(store.recipeRevision):\(store.planRevision)"
+    }
 
     var body: some View {
         StockedShell(leadingTitle: true,
@@ -67,7 +71,7 @@ struct HomeView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24).padding(.top, 2)
+                .padding(.horizontal, layoutMetrics.horizontalPadding).padding(.top, 2)
                 .coachmarkAnchor("home.greeting")
 
                 // ── First-run activation (#18) ────────────────────────
@@ -75,7 +79,7 @@ struct HomeView: View {
                 // dashboard: one tap to scan a receipt or stock common staples, so the app
                 // has data to work with within the first minute.
                 if !editMode && session.guestStore.inventoryItems.isEmpty {
-                    gettingStartedCard.padding(.horizontal, 24)
+                    gettingStartedCard.padding(.horizontal, layoutMetrics.horizontalPadding)
                 }
 
                 // ── Customizable widget board ─────────────────────────
@@ -89,7 +93,7 @@ struct HomeView: View {
                                 .onEnded { _ in enterEditMode() }
                         )
                         .disabled(editMode)          // iOS-style: taps don't fire while editing
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, layoutMetrics.horizontalPadding)
                         .coachmarkAnchor("home.widget.\(widget.rawValue)")
                         .overlay(alignment: .topLeading) {
                             if editMode { removeBadge(widget).offset(x: 14, y: -6) }
@@ -122,9 +126,9 @@ struct HomeView: View {
 
                 // ── Add-widgets affordance (edit mode) ────────────────
                 if editMode {
-                    addWidgetTile.padding(.horizontal, 24)
+                    addWidgetTile.padding(.horizontal, layoutMetrics.horizontalPadding)
                 } else if visibleWidgets.isEmpty {
-                    emptyBoardHint.padding(.horizontal, 24)
+                    emptyBoardHint.padding(.horizontal, layoutMetrics.horizontalPadding)
                 }
 
                 Spacer(minLength: 24)
@@ -134,6 +138,13 @@ struct HomeView: View {
             .contentShape(Rectangle())
             .onLongPressGesture(minimumDuration: 0.5) { enterEditMode() }
             .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
+            .task(id: metricsRevision) {
+                // Let the first frame render before deriving recipe/inventory metrics.
+                // Large restored kitchens previously repeated these passes many times
+                // during Home's initial body evaluation and could block the main thread.
+                await Task.yield()
+                kitchenMetrics = store.metrics
+            }
             .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
                 goExpiringList = false
                 if editMode { exitEditMode() }
@@ -518,13 +529,13 @@ struct HomeView: View {
 
     // MARK: - #253 Widget data + builders
 
-    private var groceryToBuy: Int { store.metrics.groceryToBuy }
-    private var lowStockCount: Int { store.metrics.lowStockCount }
+    private var groceryToBuy: Int { kitchenMetrics.groceryToBuy }
+    private var lowStockCount: Int { kitchenMetrics.lowStockCount }
     private var favoriteCount: Int {
         store.userRecipes.filter(\.isFavorited).count + store.favoriteRecipes.count
     }
     private var plannedCount: Int { store.plannedMeals.filter { !$0.isCooked }.count }
-    private var stockLabel: String { store.metrics.stockStatusPhrase }
+    private var stockLabel: String { kitchenMetrics.stockStatusPhrase }
 
     // Compact stat card: big number + caption, gold icon chip, taps somewhere useful.
     private func statWidget(_ widget: HomeWidget, value: String, sub: String, tint: Color, action: @escaping () -> Void) -> some View {
@@ -761,8 +772,8 @@ struct HomeView: View {
                                  value: "\(mealsAvailable) makeable meal\(mealsAvailable == 1 ? "" : "s")",
                                  label: "You can cook right now")
                         briefRow(icon: "refrigerator",
-                                 value: "\(store.metrics.stockPercent)% stocked",
-                                 label: store.metrics.stockStatusSentence)
+                                 value: "\(kitchenMetrics.stockPercent)% stocked",
+                                 label: kitchenMetrics.stockStatusSentence)
                         briefRow(icon: "clock.badge.exclamationmark",
                                  value: "\(expiringCount) item\(expiringCount == 1 ? "" : "s") expiring soon",
                                  label: store.expiringSoonItems.first.map { "Use tonight: \($0.name.displayNormalized)" } ?? "Nothing urgent",

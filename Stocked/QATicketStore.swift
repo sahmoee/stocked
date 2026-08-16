@@ -749,6 +749,15 @@ final class QATicketStore {
         if let resolution = settingsPresentationResolutions[ticket.number] {
             return resolution
         }
+        let currentTicketResolutions: [String: String] = [
+            "STK-92-0001": "Home now renders its first frame before deriving the kitchen snapshot and computes that snapshot once per store revision, eliminating repeated inventory and recipe passes during a single body update.",
+            "STK-92-0002": "Home cards and buttons now use the live container width with smaller edge insets, a comfortable default control scale, and an Interface Size preference for Standard, Comfortable, or Large controls.",
+            "STK-92-0003": "All shell pages now use up to 1,180 points of live window width instead of the old narrow reading-column cap, while compact windows retain safe edge padding.",
+            "STK-93-0015": "Added an app-wide Interface Size preference and container-driven sizing so iPad controls default to Comfortable and can be enlarged without changing the device's system text size."
+        ]
+        if let resolution = currentTicketResolutions[ticket.number] {
+            return resolution
+        }
         let previouslyAudited = ticket.number.hasPrefix("STK-68-")
             || ticket.number.hasPrefix("STK-69-")
             || ticket.number.hasPrefix("STK-77-")
@@ -1269,6 +1278,7 @@ final class QATicketStore {
             "severity": t.severity.rawValue,
             "status": t.status.rawValue,
             "createdAt": ISO8601DateFormatter().string(from: t.createdAt),
+            "updatedAt": ISO8601DateFormatter().string(from: t.updatedAt),
             "screen": t.context.screen,
             "breadcrumbs": t.context.breadcrumbs,
             "runningProcesses": t.context.runningProcesses,
@@ -1301,6 +1311,16 @@ final class QATicketStore {
             ],
         ]
         if let trail = t.context.touchTrail, !trail.isEmpty { out["touchTrail"] = trail }
+        if let resolution = t.resolution, !resolution.isEmpty { out["resolution"] = resolution }
+        if let verifiedAt = t.verifiedAt {
+            out["verifiedAt"] = ISO8601DateFormatter().string(from: verifiedAt)
+        }
+        if let duplicateOf = t.duplicateOf { out["duplicateOf"] = duplicateOf }
+        if let seenAgain = t.seenAgain { out["seenAgain"] = seenAgain }
+        if let refileCount = t.refileCount { out["refileCount"] = refileCount }
+        if let requiresManualReview = t.requiresManualReview {
+            out["requiresManualReview"] = requiresManualReview
+        }
         if let thumbnail { out["thumbnail"] = thumbnail }
         return out
     }
