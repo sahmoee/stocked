@@ -47,7 +47,16 @@ nonisolated extension Color {
     static func appSecondary(_ dark: Bool) -> Color { dark ? secondaryDark : secondaryLight }
     static func appSubtext(_ dark: Bool) -> Color { dark ? darkLabel.opacity(0.55) : stockedBlack.opacity(0.55) }
     static func appButton(_ dark: Bool)  -> Color { dark ? Color(white: 0.22) : stockedCharcoal }
-    static func appSurface(_ dark: Bool) -> Color { dark ? darkSurface    : stockedWhite.opacity(0.30) }
+    // Elevated surfaces deliberately move in the opposite direction from their page:
+    // a deeper warm-tan accent in light mode and a lighter warm-charcoal accent in dark.
+    // This keeps sheets, cards, controls, and grouped areas visibly separated everywhere
+    // without replacing Stocked's restrained earth-tone atmosphere with stark white/black.
+    static let lightSurface = Color(red: 0.690, green: 0.590, blue: 0.445) // #B09671
+    static let darkElevatedSurface = Color(red: 0.176, green: 0.161, blue: 0.137) // #2D2923
+    static func appSurface(_ dark: Bool) -> Color { dark ? darkElevatedSurface : lightSurface }
+
+    /// High-contrast reciprocal accent for selected navigation and small focus treatments.
+    static func contrastAccent(_ dark: Bool) -> Color { dark ? stockedWhite : stockedCharcoal }
 }
 
 // MARK: - Corner Radii

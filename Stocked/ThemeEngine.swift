@@ -13,6 +13,7 @@ extension AppSession {
     var themeTextColor:   Color { Color.appText(isDarkMode) }
     var themeSecondaryText: Color { Color.appSecondary(isDarkMode) }
     var themeCardColor:   Color { Color.appSurface(isDarkMode) }
+    var themeContrastAccent: Color { Color.contrastAccent(isDarkMode) }
     var themeTabColor:    Color { isDarkMode ? Color.stockedCharcoal : Color.stockedCharcoal }
     var isAppleStockTheme: Bool { true }
 }

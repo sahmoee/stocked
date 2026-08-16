@@ -334,7 +334,7 @@ final class HouseholdSync {
         joinCode = code
         state = .owner
         persist()
-        if let hh = resp["household"] as? [String: Any] { applyHousehold(hh, into: nil) }
+        if let hh = resp["household"] as? [String: Any] { await applyHousehold(hh, into: nil) }
         syncStage = .done(invAdded: 0, groAdded: 0)
         lastError = nil
         // Begin automatic incoming sync for the owner too. pollStore was cached at app launch;
@@ -385,7 +385,7 @@ final class HouseholdSync {
         joinCode = code
         state = .member
         persist()
-        let counts = applyHousehold(hh, into: store)
+        let counts = await applyHousehold(hh, into: store)
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
         lastError = nil
         startAutoSync(store: store)   // begin automatic incoming sync
@@ -414,7 +414,7 @@ final class HouseholdSync {
         }
         guard let hh = resp["household"] as? [String: Any] else { return }
         detectConflictsOnApply = true          // pull path: guard local unsynced edits
-        _ = applyHousehold(hh, into: store)
+        _ = await applyHousehold(hh, into: store)
         detectConflictsOnApply = false
         if let u = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = u }
         if let revision = (hh["revision"] as? NSNumber)?.intValue {
@@ -555,7 +555,7 @@ final class HouseholdSync {
         store.acknowledgeHouseholdTombstones(capturedTombstones)
         FeatureSync.shared.acknowledgeTombstones(capturedFeatureTombstones)   // 1.4
         markQueueCompleted(operationIDs: capturedOperationIDs, route: .workerPush)
-        let counts = applyHousehold(hh, into: store)
+        let counts = await applyHousehold(hh, into: store)
         if let updated = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = updated }
         if let revision = (hh["revision"] as? NSNumber)?.intValue {
             syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
@@ -932,7 +932,7 @@ final class HouseholdSync {
     /// Merge a household document's grocery (and inventory for members) into the local store.
     /// Returns how many items were added so the sync prompt can report progress.
     @discardableResult
-    private func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) -> (inv: Int, gro: Int) {
+    private func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) async -> (inv: Int, gro: Int) {
         guard let store else { return (0, 0) }
         // Suppress the store's own household push while we write remote data in, so applying a
         // pulled snapshot doesn't immediately echo back out as another push (sync loop).
@@ -1074,7 +1074,10 @@ final class HouseholdSync {
                 }
             }
             for id in byID.keys where userRecipeTombstones.contains(id.uuidString) { byID[id] = nil; touched = true }
-            if touched { store.userRecipes = Array(byID.values) }
+            if touched {
+                store.userRecipes = Array(byID.values)
+                await RecipeDatabaseManager.shared.syncHouseholdRecipes(remote)
+            }
         }
         let genRecipeTombstones = Set((hh["genRecipeDeleted"] as? [String]) ?? [])
         if syncRecipes, let raw = hh["genRecipes"] as? [[String: Any]] {

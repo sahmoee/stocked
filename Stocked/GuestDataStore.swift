@@ -1949,11 +1949,7 @@ class GuestDataStore {
         var l = userRecipes; l.append(r); userRecipes = l
         Task { @MainActor in
             StockedKnowledgeBase.shared.learnFromRecipe(r)
-            DatabaseSyncBus.shared.publish(.userRecipeAdded(
-                title: r.title,
-                ingredients: r.ingredients.map { $0.name },
-                steps: r.instructions
-            ))
+            DatabaseSyncBus.shared.publish(.userRecipeChanged(r))
         }
     }
     func renameUserRecipe(id: UUID, name: String) {
@@ -1981,9 +1977,14 @@ class GuestDataStore {
             }
             if changed { groceryItems = g }
         }
-        Task { @MainActor in DatabaseSyncBus.shared.publish(.userRecipeUpdated(title: trimmed)) }
+        if let renamed = userRecipes.first(where: { $0.id == id }) {
+            Task { @MainActor in DatabaseSyncBus.shared.publish(.userRecipeChanged(renamed)) }
+        }
     }
-    func deleteUserRecipe(id: UUID)     { var l = userRecipes; l.removeAll { $0.id == id }; userRecipes = l }
+    func deleteUserRecipe(id: UUID) {
+        var l = userRecipes; l.removeAll { $0.id == id }; userRecipes = l
+        Task { @MainActor in DatabaseSyncBus.shared.publish(.userRecipeDeleted(id: id)) }
+    }
     func updateUserRecipe(_ recipeIn: UserRecipe) {
         var r = recipeIn
         guard r.imageData != nil
@@ -1993,6 +1994,7 @@ class GuestDataStore {
             .filter { !$0.isEmpty }
         guard let idx = userRecipes.firstIndex(where: { $0.id == r.id }) else { return }
         var l = userRecipes; l[idx] = r; userRecipes = l
+        Task { @MainActor in DatabaseSyncBus.shared.publish(.userRecipeChanged(r)) }
     }
     /// #5 — when a meal is logged, bump the matching saved recipe's cook count + last-cooked
     /// and hand back its id so the LocalPastMeal can be linked for per-recipe ratings.

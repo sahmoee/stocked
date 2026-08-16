@@ -143,16 +143,28 @@ struct StockedTabBar: View {
                     }
                 }
                 .frame(height: 26)
-                .foregroundStyle(isActive ? Color.stockedGold : session.themeTextColor.opacity(0.7))
+                .foregroundStyle(isActive ? (session.isDarkMode ? Color.stockedCharcoal : Color.stockedWhite) : session.themeTextColor.opacity(0.72))
 
                 Text(tab.rawValue)
                     .font(.system(size: 9, weight: isActive ? .semibold : .regular))
-                    .foregroundStyle(isActive ? Color.stockedGold : session.themeTextColor.opacity(0.7))
+                    .foregroundStyle(isActive ? (session.isDarkMode ? Color.stockedCharcoal : Color.stockedWhite) : session.themeTextColor.opacity(0.72))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
             .padding(.horizontal, 4)
+            .background {
+                if isActive {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(session.themeContrastAccent)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(session.isDarkMode ? Color.stockedGoldDark : Color.stockedGold,
+                                        lineWidth: tab == .home ? 2 : 1)
+                        }
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

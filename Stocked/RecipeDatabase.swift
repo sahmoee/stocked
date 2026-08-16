@@ -489,16 +489,45 @@ final class RecipeDatabaseManager {
         guard userRecipe.imageData != nil
                 || userRecipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         let entry = RecipeDatabaseEntry(
+            id: userRecipe.id,
             title: userRecipe.title, description: userRecipe.description,
-            sourceURL: "", sourceName: "My Recipes",
+            sourceURL: userRecipe.sourceURL ?? "", sourceName: userRecipe.sourceName ?? "My Recipes",
             prepTime: userRecipe.prepTime, cookTime: userRecipe.cookTime, totalTime: "",
-            servings: String(userRecipe.servings), category: userRecipe.tags.first ?? "",
-            cuisine: userRecipe.cuisine, tags: userRecipe.tags,
+            servings: String(userRecipe.servings), category: userRecipe.categories?.first ?? userRecipe.tags.first ?? "",
+            cuisine: userRecipe.cuisine, tags: Array(Set(userRecipe.tags + (userRecipe.categories ?? []))),
             ingredients: userRecipe.ingredients.map { "\($0.amount) \($0.name)" },
             steps: userRecipe.instructions, imageURL: userRecipe.imageURL ?? ""
         )
         await db.upsert(entry)
         await refreshCount()
+        recipesVersion &+= 1
+        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: 0))
+    }
+
+    /// Reconciles household-delivered recipes through the same dependency hub used by
+    /// local edits. This keeps Discover, search, source/category views, planners, and hub
+    /// counts current after a Worker pull instead of updating only GuestDataStore.
+    func syncHouseholdRecipes(_ recipes: [UserRecipe]) async {
+        let entries = recipes.compactMap { recipe -> RecipeDatabaseEntry? in
+            let image = recipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard URL(string: image)?.scheme == "https" else { return nil }
+            return RecipeDatabaseEntry(
+                id: recipe.id, title: recipe.title, description: recipe.description,
+                sourceURL: recipe.sourceURL ?? "", sourceName: recipe.sourceName ?? "My Recipes",
+                prepTime: recipe.prepTime, cookTime: recipe.cookTime, totalTime: "",
+                servings: String(recipe.servings),
+                category: recipe.categories?.first ?? recipe.tags.first ?? "",
+                cuisine: recipe.cuisine,
+                tags: Array(Set(recipe.tags + (recipe.categories ?? []))),
+                ingredients: recipe.ingredients.map { "\($0.amount) \($0.name)" },
+                steps: recipe.instructions, imageURL: image
+            )
+        }
+        guard !entries.isEmpty else { return }
+        _ = await db.upsertAll(entries)
+        await refreshCount()
+        recipesVersion &+= 1
+        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: entries.count))
     }
 
     func delete(id: UUID) async {

@@ -19,8 +19,8 @@ enum DatabaseEvent {
     case inventoryItemAdded(name: String)
     case inventoryItemUpdated(name: String)
     case inventoryItemRemoved(name: String)
-    case userRecipeAdded(title: String, ingredients: [String], steps: [String])
-    case userRecipeUpdated(title: String)
+    case userRecipeChanged(UserRecipe)
+    case userRecipeDeleted(id: UUID)
     case webRecipeFetched(title: String, sourceURL: String, sourceName: String,
                           ingredients: [String], steps: [String],
                           category: String, cuisine: String, tags: [String])
@@ -61,30 +61,11 @@ final class DatabaseSyncBus {
     private func handle(_ event: DatabaseEvent) async {
         switch event {
 
-        case .userRecipeAdded(let title, let ingredients, let steps):
-            guard !title.isEmpty else { break }
-            let classification = RecipeClassifier.classify(
-                title: title,
-                rawCuisine: nil,
-                rawCategory: "Dinner",
-                keywords: ["my recipe"],
-                ingredients: ingredients.map { RecipeIngredient(name: $0, amount: "") },
-                instructions: steps
-            )
-            let entry = RecipeDatabaseEntry(
-                title: title, description: "",
-                sourceURL: "", sourceName: "My Recipes",
-                prepTime: "", cookTime: "", totalTime: "", servings: "4",
-                category: classification.category, cuisine: classification.cuisine,
-                tags: classification.tags + ["my recipe"], ingredients: ingredients, steps: steps
-            )
-            await RecipeDatabase.shared.upsert(entry)
+        case .userRecipeChanged(let recipe):
+            await RecipeDatabaseManager.shared.save(userRecipe: recipe)
 
-        case .userRecipeUpdated(let title):
-            // Title rename only — look up existing entry and update it
-            if let existing = await RecipeDatabase.shared.entry(for: title) {
-                await RecipeDatabase.shared.upsert(existing)
-            }
+        case .userRecipeDeleted(let id):
+            await RecipeDatabaseManager.shared.delete(id: id)
 
         case .webRecipeFetched(let title, let url, let source, let ingredients,
                                let steps, let category, let cuisine, let tags):
@@ -146,8 +127,8 @@ extension DatabaseSyncBus {
 
     var recipeChanges: AnyPublisher<DatabaseEvent, Never> {
         subject.filter {
-            if case .userRecipeAdded = $0 { return true }
-            if case .userRecipeUpdated = $0 { return true }
+            if case .userRecipeChanged = $0 { return true }
+            if case .userRecipeDeleted = $0 { return true }
             if case .webRecipeFetched = $0 { return true }
             if case .offlineRecipeCached = $0 { return true }
             if case .recipeDatabaseChanged = $0 { return true }
