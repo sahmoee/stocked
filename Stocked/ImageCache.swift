@@ -64,10 +64,14 @@ final class ImageCache: @unchecked Sendable {
         // recipe screen that touched ImageCache.shared.
         let directory = cacheDir
         let legacyDirectory = legacyCacheDir
+        let recompressedDirectory = recompressedCacheDir
         let maxBytes = maxDiskBytes
         Task.detached(priority: .background) {
             if legacyDirectory != directory {
                 try? FileManager.default.removeItem(at: legacyDirectory)
+            }
+            if recompressedDirectory != directory {
+                try? FileManager.default.removeItem(at: recompressedDirectory)
             }
             Self.prune(directory: directory, maxBytes: maxBytes)
         }
@@ -92,6 +96,11 @@ final class ImageCache: @unchecked Sendable {
 
     private let maxDiskBytes = 250 * 1_048_576
     private let cacheDir: URL = {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("Stocked/ImageCacheOriginalsV2", isDirectory: true)
+    }()
+    private let recompressedCacheDir: URL = {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         return base.appendingPathComponent("Stocked/ImageCache", isDirectory: true)
@@ -191,6 +200,23 @@ final class ImageCache: @unchecked Sendable {
         }
     }
 
+    /// Cache publisher bytes exactly as received. Decoding may be view-sized for memory,
+    /// but the durable cache must not turn an original into a lower-quality JPEG.
+    private func storeRemoteOriginal(_ data: Data, decoded image: UIImage, for url: String) {
+        let k = key(for: url) as NSString
+        let cost = Int(image.size.width * image.size.height * 4)
+        memCache.setObject(image, forKey: k, cost: cost)
+        let path = cacheDir.appendingPathComponent(String(k))
+        let directory = cacheDir
+        let maxBytes = maxDiskBytes
+        Task.detached(priority: .background) {
+            try? data.write(to: path, options: .atomic)
+            if await ImageDiskPruneGate.shared.shouldPrune() {
+                Self.prune(directory: directory, maxBytes: maxBytes)
+            }
+        }
+    }
+
     // MARK: - Fetch (cache-first)
     @discardableResult
     func fetchImage(url urlString: String) async -> UIImage? {
@@ -244,7 +270,7 @@ final class ImageCache: @unchecked Sendable {
                 await ImageFetchLimiter.shared.release()
                 return nil
             }
-            store(image, for: urlString)
+            storeRemoteOriginal(data, decoded: image, for: urlString)
             result = image
         } catch {
             result = nil
@@ -266,7 +292,7 @@ final class ImageCache: @unchecked Sendable {
         if let scheme = url.scheme, let host = url.host {
             request.setValue("\(scheme)://\(host)/", forHTTPHeaderField: "Referer")
         }
-        request.setValue("image/avif,image/webp,image/jpeg,image/png,*/*;q=0.8",
+        request.setValue("image/jpeg,image/png,image/heic,image/webp;q=0.8,image/avif;q=0.7,image/*;q=0.5",
                          forHTTPHeaderField: "Accept")
         request.setValue(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
@@ -507,6 +533,11 @@ struct CachedAsyncImage: View {
         }
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
         .clipped()
+        .overlay {
+            Rectangle()
+                .stroke(Color.stockedCharcoal.opacity(0.82), lineWidth: 0.75)
+                .allowsHitTesting(false)
+        }
         .sheet(isPresented: $showPicker) { PhotoPickerSheet { onUpdate?($0) } }
         .task(id: loadID) { await loadImage() }
     }
@@ -517,8 +548,17 @@ struct CachedAsyncImage: View {
         isLoading = true
         defer { isLoading = false }
 
-        // User-selected recipe photos used to call UIImage(data:) directly from body,
-        // causing a full JPEG decode on every render. Decode once off the main actor.
+        // A harvested recipe's URL points to the publisher's original hero image. Prefer
+        // it over the compact household-sync fallback so old and new recipes render at
+        // source quality. The embedded bytes remain the offline/failure fallback.
+        if let u = url, !u.isEmpty,
+           let img = await ImageCache.shared.fetchImage(url: u) {
+            loadedImage = img
+            return
+        }
+
+        // User-selected/local recipe photos have no remote original. Decode them once
+        // off the main actor instead of repeatedly from SwiftUI's render path.
         if let data = imageData, let signature = ImageDataSignature(data) {
             let targetHeight = max(height, 96)
             if let cached = ImageCache.shared.localImage(for: signature, maxDimension: targetHeight) {
@@ -536,12 +576,6 @@ struct CachedAsyncImage: View {
             }
         }
 
-        // Try the stored URL first.
-        if let u = url, !u.isEmpty {
-            if let img = await ImageCache.shared.fetchImage(url: u) {
-                loadedImage = img; return
-            }
-        }
         // No URL, or it failed — resolve online by recipe name if we were given one.
         if let name = resolveName, !name.isEmpty,
            let resolved = await RecipeImageResolver.shared.imageURL(for: name, category: resolveCategory) {

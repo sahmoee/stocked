@@ -51,3 +51,7 @@ Added required fix resolutions, tester verification and history-preserving refil
 Stocked iOS now preserves source publisher, source URL, and mined categories sent by the Mac recipe manager. Harvest imports use their original publisher instead of StockedMac attribution, and category labels populate the shared recipe database.
 08:15:26 — Required recipe images and repeatable backfill
 Mac-harvest and household recipes without an image are rejected at iOS intake and sync boundaries, recipe creation requires an image, and the database image backfill now retries older recipes on future launches instead of permanently marking one partial batch complete.
+# 08:16:26 — Full-quality recipe images
+
+- Recipe photos now prefer the publisher's original image over compact embedded sync data, including recipes already in the library.
+- Added a thin charcoal border to loaded recipe and food images for clearer separation from cards and backgrounds.
