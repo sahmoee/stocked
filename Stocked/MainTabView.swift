@@ -199,6 +199,17 @@ struct MainTabView: View {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showSearch = true }
         }
         .background(keyboardShortcuts)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                                    to: nil, from: nil, for: nil)
+                }
+                .fontWeight(.semibold)
+                .accessibilityHint("Dismisses the keyboard")
+            }
+        }
         // Consume a recipe shared in via the Share Extension. We check on appear (covers a
         // cold launch where the share started the app) and whenever the flag flips (covers the
         // app already running). The payload is deciphered off the App Group, then shown in the

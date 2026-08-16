@@ -477,6 +477,8 @@ struct UniformRecipeIcon: View {
 }
 
 struct CachedAsyncImage: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let url:       String?
     let imageData: Data?
     var height:    CGFloat = 180
@@ -505,7 +507,9 @@ struct CachedAsyncImage: View {
             if let img = loadedImage {
                 Image(uiImage: img).resizable().scaledToFill()
                     .opacity(appeared ? 1 : 0)
-                    .onAppear { withAnimation(.easeOut(duration: 0.35)) { appeared = true } }
+                    .onAppear {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) { appeared = true }
+                    }
             } else {
                 ZStack {
                     // #10 — soft shimmering placeholder block instead of a flat color, so the
@@ -521,7 +525,7 @@ struct CachedAsyncImage: View {
                         VStack(spacing: 6) {
                             Image(systemName: "fork.knife")
                                 .font(.system(size: 28)).foregroundStyle(Color.stockedGold)
-                            Text("Meal Photo").font(.stockedSans(12))
+                            Text(isLoading ? "Loading photo…" : "Repairing photo…").font(.stockedSans(12))
                                 .foregroundStyle(Color.primary.opacity(0.5))
                         }
                     }
@@ -535,9 +539,12 @@ struct CachedAsyncImage: View {
         .clipped()
         .overlay {
             Rectangle()
-                .stroke(Color.stockedCharcoal.opacity(0.82), lineWidth: 0.75)
+                .stroke(session.themeContrastAccent.opacity(0.72), lineWidth: 0.75)
                 .allowsHitTesting(false)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(resolveName.map { "Photo for \($0)" } ?? "Recipe photo")
+        .accessibilityValue(loadedImage == nil ? "Photo is being loaded or repaired" : "Loaded")
         .sheet(isPresented: $showPicker) { PhotoPickerSheet { onUpdate?($0) } }
         .task(id: loadID) { await loadImage() }
     }

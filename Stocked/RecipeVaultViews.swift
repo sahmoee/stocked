@@ -1288,6 +1288,7 @@ private nonisolated struct RecipeCollectionSnapshotBuilder {
 // MARK: - My Collection Tab
 private struct RecipeMyCollectionView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Binding var showCreate: Bool
     @Binding var showBrowse: Bool
     // Identity-driven merge payload — .sheet(item:) presents reliably on the first tap.
@@ -1398,9 +1399,9 @@ private struct RecipeMyCollectionView: View {
                     ctaLabel: "Create Recipe", onCTA: { showCreate = true }
                 ).padding(.top, 16)
             } else {
-                // #8 iPad: 3 columns to use the wider canvas; 2 on iPhone.
-                let colCount = UIDevice.current.userInterfaceIdiom == .pad ? 3 : 2
-                let cols = Array(repeating: GridItem(.flexible(), spacing: 12), count: colCount)
+                // Container-driven columns adapt through rotation, Split View, Stage Manager,
+                // and accessibility text without relying on a physical-device check.
+                let cols = layoutMetrics.gridColumns(minimum: 160, maximum: 3, spacing: 12)
                 LazyVGrid(columns: cols, spacing: 12) {
                     ForEach(entries) { entry in
                         let recipe = entry.recipe
@@ -1549,7 +1550,8 @@ private struct RecipeMergeSheet: View {
                 Spacer()
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private func mergeOption(recipe: UserRecipe, keepLabel: String, action: @escaping () -> Void) -> some View {

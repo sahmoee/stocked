@@ -11,19 +11,30 @@ extension View {
     }
 }
 
+// MARK: - Compact counts
+// Large queue/library totals stay useful without forcing badges and toolbars wider.
+extension Int {
+    var stockedCompactCount: String {
+        switch self {
+        case 1_000...: return "999+"
+        default: return String(self)
+        }
+    }
+}
+
 /// The default boundary for every page, sheet, popover, and full-screen cover.
 /// SwiftUI presentations otherwise reveal the system white/gray host behind Forms and
 /// short content. The max width keeps large iPads readable without imposing a fixed
 /// phone-sized frame; compact windows continue to use every available point.
 struct StockedPresentationSurface: ViewModifier {
     @Environment(AppSession.self) private var session
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.stockedLayout) private var layoutMetrics
 
     func body(content: Content) -> some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
             content
-                .frame(maxWidth: horizontalSizeClass == .regular ? 760 : .infinity,
+                .frame(maxWidth: layoutMetrics.readableContentWidth,
                        maxHeight: .infinity,
                        alignment: .top)
         }
@@ -93,6 +104,7 @@ extension View {
 
 // MARK: - Primary / Secondary button styles (UI #13)
 struct StockedPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.colorSchemeContrast) private var accessibilityContrast
     var accent: Color = Color.stockedCharcoal
     var fg: Color = Color.stockedWhite
     func makeBody(configuration: Configuration) -> some View {
@@ -100,18 +112,22 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(fg).frame(maxWidth: .infinity).padding(.vertical, 16)
             .background(accent).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
-                .stroke(fg.opacity(0.48), lineWidth: 1.25))
+                .stroke(fg.opacity(accessibilityContrast == .increased ? 0.85 : 0.48),
+                        lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.18), value: configuration.isPressed)
     }
 }
 struct StockedSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.colorSchemeContrast) private var accessibilityContrast
     var accent: Color = Color.stockedGold
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 15, weight: .semibold, design: .serif))
             .foregroundStyle(accent).frame(maxWidth: .infinity).padding(.vertical, 14)
             .background(accent.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(accent.opacity(0.65), lineWidth: 1.25))
+            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                .stroke(accent.opacity(accessibilityContrast == .increased ? 1 : 0.65),
+                        lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.18), value: configuration.isPressed)
     }
@@ -163,7 +179,10 @@ struct SkeletonView: View {
             .fill(LinearGradient(
                 colors: [Color.stockedCharcoal.opacity(0.06), Color.stockedCharcoal.opacity(0.13), Color.stockedCharcoal.opacity(0.06)],
                 startPoint: .init(x: phase - 1, y: 0), endPoint: .init(x: phase, y: 0)))
-            .onAppear { withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) { phase = 2 } }
+            .onAppear {
+                guard !UIAccessibility.isReduceMotionEnabled else { return }
+                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) { phase = 2 }
+            }
     }
 }
 struct SkeletonRow: View {

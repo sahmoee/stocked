@@ -55,6 +55,13 @@ struct UserRecipeCard: View {
                 .stroke(session.themeContrastAccent.opacity(0.34), lineWidth: 1.25)
         }
         .shadow(color: .black.opacity(0.07), radius: 4, y: 2)
+        .a11yRow(recipeAccessibilitySummary, hint: "Opens recipe")
+    }
+
+    private var recipeAccessibilitySummary: String {
+        [recipe.title, recipe.sourceName ?? "", recipe.cookTime, recipe.cuisine]
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .joined(separator: ", ")
     }
 }
 

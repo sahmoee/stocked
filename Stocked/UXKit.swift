@@ -112,6 +112,7 @@ final class ToastCenter {
         }
         if toast.style == .success { HapticManager.success() }
         else { HapticManager.light() }
+        announceAccessibilityStatus(toast.message)
         dismissTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
             guard !Task.isCancelled else { return }
@@ -250,6 +251,8 @@ extension Color {
 // sight. Use .stockedCard() on grouped content instead of ad-hoc background+shadow combos.
 
 private struct StockedCardModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var accessibilityContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var isDark: Bool
     var padding: CGFloat
     var radius: CGFloat
@@ -257,11 +260,14 @@ private struct StockedCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(isDark ? Color.darkSurface : Color.stockedWhite.opacity(0.34))
+            .background(isDark ? Color.darkElevatedSurface :
+                Color.lightSurface.opacity(reduceTransparency ? 1 : 0.88))
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.30), lineWidth: 1.25)
+                    .stroke((isDark ? Color.stockedWhite : Color.stockedCharcoal)
+                        .opacity(accessibilityContrast == .increased ? 0.72 : 0.30),
+                        lineWidth: accessibilityContrast == .increased ? 2 : 1.25)
             )
             .shadow(color: .black.opacity(isDark ? 0.30 : 0.06), radius: 8, y: 3)
     }
@@ -271,6 +277,28 @@ extension View {
     func stockedCard(isDark: Bool, padding: CGFloat = StockedSpacing.md, radius: CGFloat = StockedUI.cornerRadiusLg) -> some View {
         modifier(StockedCardModifier(isDark: isDark, padding: padding, radius: radius))
     }
+}
+
+// MARK: - Minimal interactive-surface language
+private struct StockedInteractiveSurfaceModifier: ViewModifier {
+    @Environment(AppSession.self) private var session
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        content
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .overlay {
+                RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
+                    .stroke(session.themeContrastAccent.opacity(contrast == .increased ? 0.72 : 0.30),
+                            lineWidth: contrast == .increased ? 2 : 1)
+            }
+            .hoverEffect(.highlight)
+    }
+}
+
+extension View {
+    func stockedInteractiveSurface() -> some View { modifier(StockedInteractiveSurfaceModifier()) }
 }
 
 // MARK: - Horizontal scroll settling

@@ -38,6 +38,19 @@ extension View {
             .accessibilityHint(hint ?? "")
             .accessibilityAddTraits(isButton ? .isButton : [])
     }
+
+    func a11yStatus(_ label: String, value: String) -> some View {
+        self.accessibilityElement(children: .combine)
+            .accessibilityLabel(label)
+            .accessibilityValue(value)
+    }
+}
+
+/// Announces background completion without moving VoiceOver focus.
+@MainActor
+func announceAccessibilityStatus(_ message: String) {
+    guard UIAccessibility.isVoiceOverRunning else { return }
+    UIAccessibility.post(notification: .announcement, argument: message)
 }
 
 // MARK: - Reduce Motion

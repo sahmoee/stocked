@@ -20,6 +20,7 @@ struct StockedShell<Content: View>: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.stockedDismiss) private var stockedDismiss
     @Environment(\.stockedTitleTap) private var titleTap
+    @Environment(\.stockedLayout) private var layoutMetrics
 
     init(
         showBack:       Bool = false,
@@ -75,7 +76,8 @@ struct StockedShell<Content: View>: View {
                     ScrollViewReader { scrollProxy in
                         ScrollView(showsIndicators: false) {
                             content
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(maxWidth: layoutMetrics.readableContentWidth, alignment: .leading)
+                                .frame(maxWidth: .infinity, alignment: .center)
                                 .padding(.bottom, StockedUI.scrollBottomPad)
                         }
                         .scrollDismissesKeyboard(.interactively)

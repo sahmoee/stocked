@@ -7,6 +7,7 @@ import os
 struct HomeView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) var device
+    @Environment(\.stockedLayout) private var layoutMetrics
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
@@ -161,7 +162,7 @@ struct HomeView: View {
             Text("Action Center")
                 .font(.system(size: 16, weight: .bold, design: .serif))
                 .foregroundStyle(session.themeTextColor)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            LazyVGrid(columns: layoutMetrics.gridColumns(minimum: 150, maximum: 2, spacing: 10), spacing: 10) {
                 quickAction(icon: "viewfinder", title: "Scan Receipt", caption: "Add items fast") {
                     NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
                 }
@@ -328,6 +329,8 @@ struct HomeView: View {
             )
         }
         .buttonStyle(.plain)
+        .stockedInteractiveSurface()
+        .a11yRow(removedWidgets.isEmpty ? "All widgets added" : "Add widgets")
         .disabled(removedWidgets.isEmpty)
     }
 
@@ -371,13 +374,9 @@ struct HomeView: View {
             .buttonStyle(.plain)
 
             // Secondary: scan a receipt or barcode (reuses Action Center routing).
-            HStack(spacing: 10) {
-                gettingStartedSecondary(title: "Scan Receipt", icon: "doc.text.viewfinder") {
-                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
-                }
-                gettingStartedSecondary(title: "Scan Barcode", icon: "barcode.viewfinder") {
-                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
-                }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { gettingStartedActions }
+                VStack(spacing: 10) { gettingStartedActions }
             }
         }
         .padding(18)
@@ -387,6 +386,16 @@ struct HomeView: View {
         .overlay {
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
                 .stroke(session.themeContrastAccent.opacity(0.30), lineWidth: 1.25)
+        }
+    }
+
+    @ViewBuilder
+    private var gettingStartedActions: some View {
+        gettingStartedSecondary(title: "Scan Receipt", icon: "doc.text.viewfinder") {
+            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
+        }
+        gettingStartedSecondary(title: "Scan Barcode", icon: "barcode.viewfinder") {
+            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
         }
     }
 
@@ -403,6 +412,8 @@ struct HomeView: View {
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         }
         .buttonStyle(.plain)
+        .stockedInteractiveSurface()
+        .a11yButton(title)
     }
 
     private var emptyBoardHint: some View {
@@ -546,6 +557,8 @@ struct HomeView: View {
             .background(widgetBackground)
         }
         .buttonStyle(.plain)
+        .stockedInteractiveSurface()
+        .a11yRow("\(widget.title), \(value), \(sub)", hint: "Opens \(widget.title)")
     }
 
     // Compact action shortcut: icon + title + caption, charcoal-tinted, single tap.
@@ -574,6 +587,8 @@ struct HomeView: View {
             .background(widgetBackground)
         }
         .buttonStyle(.plain)
+        .stockedInteractiveSurface()
+        .a11yRow("\(widget.title). \(widget.blurb)", hint: "Opens \(widget.title)")
     }
 
     private var widgetBackground: some View {
@@ -840,6 +855,7 @@ struct HomeView: View {
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         }
         .buttonStyle(.plain)
+        .stockedInteractiveSurface()
         .a11yButton(title, hint: caption)
     }
 

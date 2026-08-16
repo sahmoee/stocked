@@ -34,6 +34,39 @@ enum StockedDevice {
     }
 }
 
+/// Live container metrics. Unlike physical-screen checks, this follows Split View,
+/// Stage Manager, rotation, and resizable windows without naming specific devices.
+struct StockedLayoutMetrics: Equatable {
+    var width: CGFloat
+    var height: CGFloat
+    var isAccessibilityText: Bool
+
+    var horizontalPadding: CGFloat { min(max(width * 0.05, 16), 40) }
+    var sectionSpacing: CGFloat { min(max(width * 0.03, 10), 24) }
+    var readableContentWidth: CGFloat { min(width, 840) }
+    var formContentWidth: CGFloat { min(width, 620) }
+    var prefersVerticalControls: Bool { width < 360 || isAccessibilityText }
+
+    func gridColumns(minimum: CGFloat, maximum: Int = 3, spacing: CGFloat = 12) -> [GridItem] {
+        let usable = max(1, width - horizontalPadding * 2)
+        let count = max(1, min(maximum, Int((usable + spacing) / (minimum + spacing))))
+        return Array(repeating: GridItem(.flexible(minimum: minimum), spacing: spacing), count: count)
+    }
+
+    static let fallback = StockedLayoutMetrics(width: 393, height: 852, isAccessibilityText: false)
+}
+
+private struct StockedLayoutMetricsKey: EnvironmentKey {
+    static let defaultValue = StockedLayoutMetrics.fallback
+}
+
+extension EnvironmentValues {
+    var stockedLayout: StockedLayoutMetrics {
+        get { self[StockedLayoutMetricsKey.self] }
+        set { self[StockedLayoutMetricsKey.self] = newValue }
+    }
+}
+
 // MARK: - Screen metrics (single source for window size / safe area)
 // #6 — every screen-width / safe-area read funnels through here instead of
 // being re-implemented with `UIApplication.shared.connectedScenes…` in each
@@ -170,15 +203,26 @@ extension EnvironmentValues {
 // MARK: - Root injection (used in RootView, wraps the entire app once)
 struct DeviceAdaptiveRoot<Content: View>: View {
     @Environment(\.horizontalSizeClass) var hSize
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
 
     var body: some View {
-        let width  = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.screen.bounds.width ?? 393   // 16 Pro default
-        let device = StockedDevice.current(width: width, hSize: hSize)
-        content.environment(\.stockedDevice, device)
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let adaptiveSizeClass: UserInterfaceSizeClass? =
+                UIDevice.current.userInterfaceIdiom == .pad && width >= 700 ? hSize : .compact
+            let device = StockedDevice.current(width: width, hSize: adaptiveSizeClass)
+            let metrics = StockedLayoutMetrics(
+                width: width,
+                height: proxy.size.height,
+                isAccessibilityText: dynamicTypeSize.isAccessibilitySize
+            )
+            content
+                .environment(\.stockedDevice, device)
+                .environment(\.stockedLayout, metrics)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+        }
     }
 }
 
