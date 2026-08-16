@@ -1751,6 +1751,11 @@ struct RecipePreviewCard: View {
         }
         .frame(width: 300)
         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite)
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd, style: .continuous)
+                .stroke(session.themeContrastAccent.opacity(0.34), lineWidth: 1.25)
+        }
     }
 }
 

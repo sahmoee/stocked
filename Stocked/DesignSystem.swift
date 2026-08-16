@@ -99,6 +99,8 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
         configuration.label.font(.system(size: 17, weight: .semibold, design: .serif))
             .foregroundStyle(fg).frame(maxWidth: .infinity).padding(.vertical, 16)
             .background(accent).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                .stroke(fg.opacity(0.48), lineWidth: 1.25))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.18), value: configuration.isPressed)
     }
@@ -109,9 +111,29 @@ struct StockedSecondaryButtonStyle: ButtonStyle {
         configuration.label.font(.system(size: 15, weight: .semibold, design: .serif))
             .foregroundStyle(accent).frame(maxWidth: .infinity).padding(.vertical, 14)
             .background(accent.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(accent.opacity(0.3), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(accent.opacity(0.65), lineWidth: 1.25))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.18), value: configuration.isPressed)
+    }
+}
+
+// MARK: - App-wide text-entry outline
+// MainTabView installs this once so plain TextFields inherit a visible reciprocal edge.
+// Explicit field styles can still opt out where a platform-native control is intentional.
+struct StockedOutlinedTextFieldStyle: TextFieldStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        let dark = colorScheme == .dark
+        configuration
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.appSurface(dark).opacity(0.82))
+            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm, style: .continuous)
+                    .stroke(Color.contrastAccent(dark).opacity(0.38), lineWidth: 1.25)
+            }
     }
 }
 extension View {

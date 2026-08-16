@@ -196,7 +196,6 @@ struct RecipeURLImportSheet: View {
                 .padding(.horizontal, 20).padding(.bottom, 12)
             }
             .onAppear {
-                focused = true
                 if let value = UIPasteboard.general.string,
                    RecipeImportCoordinator.normalizedURLString(from: value) != nil {
                     clipboardURL = value

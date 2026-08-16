@@ -358,7 +358,6 @@ struct GlobalSearchView: View {
             }
         }
         .onAppear {
-            focused = true
             loadOfflineCache()
             // Preload meal plan recipes in background (#20)
             Task { await preloadMealPlanRecipes() }

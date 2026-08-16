@@ -530,7 +530,6 @@ struct QAReportComposer: View {
                 }
             }
         }
-        .onAppear { titleFocused = true }
     }
 
     private var severityHint: String {

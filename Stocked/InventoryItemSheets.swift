@@ -96,7 +96,6 @@ struct EditItemSheet: View {
                             .a11yButton("Save name")
                         }
                         .padding(.horizontal, 28).padding(.bottom, 16)
-                        .onAppear { nameFieldFocused = true }
                     } else {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(editedName)

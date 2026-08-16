@@ -469,9 +469,11 @@ struct MainTabView: View {
         }
         .id("\(selected.rawValue)#\(rootPopID[selected]?.uuidString ?? "0")")
         .background(session.themeBgColor)
+        .textFieldStyle(StockedOutlinedTextFieldStyle())
         .scrollContentBackground(.hidden)
         .environment(\.stockedTitleTap, openBrief)
         .environment(\.stockedGoHome, { goHomeToRoot() })
+        .textFieldStyle(StockedOutlinedTextFieldStyle())
     }
 
     // MARK: - iPad tab area

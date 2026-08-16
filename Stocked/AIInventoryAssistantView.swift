@@ -65,7 +65,6 @@ struct AIInventoryAssistantView: View {
                 }
             }
         }
-        .onAppear { focused = true }
         .sheet(item: $reviewPayload) { payload in
             ReconcileSheet(
                 title: "Review Changes",

@@ -55,7 +55,6 @@ struct AIRecipeGeneratorView: View {
             }
         }
         .onAppear {
-            ideaFocused = true
             // #C1 — default the dietary choice from the saved profile (still changeable).
             if dietary == "Any" {
                 let style = session.guestStore.cookingProfile.dietaryStyle

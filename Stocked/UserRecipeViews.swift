@@ -49,7 +49,12 @@ struct UserRecipeCard: View {
             .padding(.horizontal, 8).padding(.vertical, 12)
             .background(Color.stockedBg.opacity(0.5))
         }
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).shadow(color: .black.opacity(0.07), radius: 4, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .overlay {
+            RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
+                .stroke(session.themeContrastAccent.opacity(0.34), lineWidth: 1.25)
+        }
+        .shadow(color: .black.opacity(0.07), radius: 4, y: 2)
     }
 }
 

@@ -384,6 +384,10 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+        .overlay {
+            RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                .stroke(session.themeContrastAccent.opacity(0.30), lineWidth: 1.25)
+        }
     }
 
     private func gettingStartedSecondary(title: String, icon: String, action: @escaping () -> Void) -> some View {
