@@ -19,6 +19,7 @@ struct InventoryHubView: View {
     @State private var showSortDialog = false
     @State private var goAllInventory = false
     @State private var goExpiringList = false
+    @State private var goCookFromInventory = false
     @State private var selectedCategory: MockCategory? = nil
     // #251 — empty-state seed flow
     @State private var seeding = false
@@ -86,6 +87,30 @@ struct InventoryHubView: View {
                         .coachmarkAnchor("inv.status")
                     // RL-003 — surface Available vs Reserved where people look first.
                     reservedSummaryRow
+                    Button { goCookFromInventory = true } label: {
+                        HStack(spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.stockedGold).frame(width: 34, height: 34)
+                                Image(systemName: "fork.knife.circle.fill")
+                                    .font(.system(size: 16)).foregroundStyle(Color.stockedCharcoal)
+                            }
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Find meals from inventory")
+                                    .font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
+                                Text("Scans every available item, saved recipe, and substitution")
+                                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        }
+                        .padding(10)
+                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    }
+                    .buttonStyle(.plain)
+                    .a11yButton("Find recipes using all available inventory and substitutions")
                     // AI assistant: change inventory in plain language (use/remove/clear items).
                     Button { showAIAssistant = true } label: {
                         HStack(spacing: 10) {
@@ -119,6 +144,9 @@ struct InventoryHubView: View {
         }
         .navigationDestination(isPresented: $goAllInventory) { InventoryView() }
         .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
+        .navigationDestination(isPresented: $goCookFromInventory) {
+            CookNowResultsView(focus: .readyFirst)
+        }
         .navigationDestination(item: $selectedCategory) { cat in
             CategoryItemsView(category: cat)
         }
@@ -163,7 +191,7 @@ struct InventoryHubView: View {
             Button("Cancel", role: .cancel) {}
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
-            goAllInventory = false; goExpiringList = false
+            goAllInventory = false; goExpiringList = false; goCookFromInventory = false
             selectedCategory = nil
             showSearchField = false; searchText = ""
         }

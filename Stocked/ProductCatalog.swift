@@ -5,39 +5,79 @@
 import Foundation
 
 // MARK: - Catalog Entry
-struct CatalogEntry {
+nonisolated struct CatalogEntry: Sendable {
     let name:     String
     let brand:    String
     let category: String   // matches StorageCategory.rawValue
     let emoji:    String
-    var searchTerms: [String] { [name.lowercased(), brand.lowercased()] }
+    let aisle: GroceryAisle?
+    let retailerIDs: [String]
+    let aliases: [String]
+
+    init(name: String, brand: String, category: String, emoji: String,
+         aisle: GroceryAisle? = nil, retailerIDs: [String] = [], aliases: [String] = []) {
+        self.name = name
+        self.brand = brand
+        self.category = category
+        self.emoji = emoji
+        self.aisle = aisle
+        self.retailerIDs = retailerIDs
+        self.aliases = aliases
+    }
+
+    var searchTerms: [String] { ([name, brand] + aliases).map(GroceryKnowledgeBase.normalize) }
+    var identityTerms: [String] { ([name] + aliases).map(GroceryKnowledgeBase.normalize) }
+    var resolvedAisle: GroceryAisle { aisle ?? GroceryKnowledgeBase.inferAisle(for: name) }
 }
 
 // MARK: - Product Catalog
-struct ProductCatalog {
+nonisolated struct ProductCatalog {
     // #14: O(1) lookup dictionary — keyed on normalised name
     static let lookup: [String: CatalogEntry] = {
-        Dictionary(keepingLastValues: all.map { ($0.name.lowercased(), $0) })
+        var result: [String: CatalogEntry] = [:]
+        for entry in all {
+            for term in entry.identityTerms where !term.isEmpty { result[term] = entry }
+        }
+        return result
     }()
 
     // Exact lookup (O(1))
     static func entry(for name: String) -> CatalogEntry? {
-        lookup[name.lowercased()]
+        lookup[GroceryKnowledgeBase.normalize(name)]
     }
 
     // Prefix/fuzzy search — only runs on the sorted keys array, not re-scanning all
     static let sortedNames: [String] = all.map { $0.name }.sorted()
 
     static func search(_ query: String, limit: Int = 8) -> [CatalogEntry] {
-        let q = query.lowercased()
+        let q = GroceryKnowledgeBase.normalize(query)
         let exact   = lookup[q].map { [$0] } ?? []
-        let prefix  = sortedNames.filter { $0.lowercased().hasPrefix(q) && $0.lowercased() != q }
-                                 .prefix(limit - exact.count)
-                                 .compactMap { lookup[$0.lowercased()] }
-        let contains = sortedNames.filter { $0.lowercased().contains(q) && !$0.lowercased().hasPrefix(q) }
-                                  .prefix(limit - exact.count - prefix.count)
-                                  .compactMap { lookup[$0.lowercased()] }
-        return Array((exact + prefix + contains).prefix(limit))
+        let prefix  = sortedNames.filter { GroceryKnowledgeBase.normalize($0).hasPrefix(q) && GroceryKnowledgeBase.normalize($0) != q }
+                                 .prefix(max(0, limit - exact.count))
+                                 .compactMap { lookup[GroceryKnowledgeBase.normalize($0)] }
+        let contains = sortedNames.filter { GroceryKnowledgeBase.normalize($0).contains(q) && !GroceryKnowledgeBase.normalize($0).hasPrefix(q) }
+                                  .prefix(max(0, limit - exact.count - prefix.count))
+                                  .compactMap { lookup[GroceryKnowledgeBase.normalize($0)] }
+        let seen = Set((exact + prefix + contains).map { GroceryKnowledgeBase.normalize($0.name) })
+        let brands = all.filter { entry in
+            !seen.contains(GroceryKnowledgeBase.normalize(entry.name))
+                && ([entry.brand] + entry.aliases).contains {
+                    GroceryKnowledgeBase.normalize($0).contains(q)
+                }
+        }
+        return Array((exact + prefix + contains + brands).prefix(max(0, limit)))
+    }
+
+    /// Receipt/OCR-safe catalog match. Exact aliases win; otherwise a catalog name can be
+    /// embedded in the noisy receipt line. Longest terms win to avoid matching "milk" before
+    /// "Mootopia Lactose-Free Milk".
+    static func bestMatch(for raw: String) -> CatalogEntry? {
+        let normalized = GroceryKnowledgeBase.normalize(raw)
+        if let exact = lookup[normalized] { return exact }
+        return all
+            .flatMap { entry in entry.identityTerms.map { ($0, entry) } }
+            .filter { term, _ in term.count >= 5 && GroceryKnowledgeBase.containsPhrase(term, in: normalized) }
+            .max { $0.0.count < $1.0.count }?.1
     }
 
     static let all: [CatalogEntry] = chips + crackers + cookies + candy + chocolate
@@ -53,7 +93,7 @@ struct ProductCatalog {
         + produce + fruits + vegetables
         + snacks + nuts + protein
         + babyFood + petFood
-        + hebBrands
+        + hebBrands + retailerBrandItems
 
     // MARK: H-E-B store brands (Texas) — helps recognize HEB-specific items when
     // scanning receipts or typing. Covers HEB's own labels: H-E-B, Hill Country Fare
@@ -809,11 +849,4 @@ struct ProductCatalog {
         .init(name: "Milk-Bone Dog Biscuits",        brand: "Milk-Bone",    category: "Pantry",  emoji: "🦴"),
     ]
 
-    // MARK: - Search
-    static func search(_ query: String) -> [CatalogEntry] {
-        let q = query.lowercased()
-        return all.filter {
-            $0.name.lowercased().contains(q) || $0.brand.lowercased().contains(q)
-        }
-    }
 }

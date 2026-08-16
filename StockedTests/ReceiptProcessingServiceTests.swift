@@ -41,4 +41,33 @@ final class ReceiptProcessingServiceTests: XCTestCase {
         XCTAssertEqual(consolidated.count, 1)
         XCTAssertEqual(consolidated.first?.1, 3)
     }
+
+    func testStoreAwarePrivateLabelDetection() throws {
+        let item = try XCTUnwrap(ReceiptProcessingService.normalize(
+            raw: "KIRKLAND SIGNATURE GREEK YOGURT 48 OZ 11.99",
+            aiResolved: nil, storeName: "Costco Wholesale", learnedTranslation: nil,
+            abbreviationTranslation: nil
+        ))
+        XCTAssertEqual(item.resolved, "Greek Yogurt")
+        XCTAssertEqual(item.brand, "Kirkland Signature")
+        XCTAssertEqual(item.sizeAmount, 48)
+        XCTAssertEqual(item.sizeUnit, "oz")
+    }
+
+    func testRetailerBrandExpansionIsExactlyOneHundredUniqueItems() {
+        XCTAssertEqual(ProductCatalog.retailerBrandItems.count, 100)
+        let names = ProductCatalog.retailerBrandItems.map { GroceryKnowledgeBase.normalize($0.name) }
+        XCTAssertEqual(Set(names).count, 100)
+        let retailerIDs = Set(GroceryKnowledgeBase.retailers.map(\.id))
+        XCTAssertTrue(ProductCatalog.retailerBrandItems.allSatisfy {
+            !$0.retailerIDs.isEmpty && Set($0.retailerIDs).isSubset(of: retailerIDs)
+        })
+    }
+
+    func testRetailerAliasesAndTypicalAisles() {
+        XCTAssertEqual(GroceryKnowledgeBase.retailer(matching: "Fred Meyer #215")?.id, "kroger")
+        XCTAssertEqual(GroceryKnowledgeBase.retailer(matching: "Walmart Supercenter")?.id, "walmart")
+        XCTAssertEqual(ProductCatalog.entry(for: "Great Value Frosted Flakes Cereal")?.resolvedAisle, .breakfast)
+        XCTAssertEqual(CommonGroceryDB.aisle(for: "organic sparkling water"), "Beverages")
+    }
 }

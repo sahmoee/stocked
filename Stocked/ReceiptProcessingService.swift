@@ -23,7 +23,9 @@ nonisolated enum ReceiptProcessingService {
         let quantity = parseQuantity(cleanedRaw)
         let size = parseSize(cleanedRaw)
         let displaySeed = stripReceiptMetadata(from: seed)
-        let separated = separateBrand(from: displaySeed.isEmpty ? seed : displaySeed, storeName: storeName)
+        let display = displaySeed.isEmpty ? seed : displaySeed
+        let catalogMatch = ProductCatalog.bestMatch(for: display)
+        let separated = separateBrand(from: catalogMatch?.name ?? display, storeName: storeName)
         let name = normalizeName(separated.name)
         guard name.count >= 2 else { return nil }
         return ReceiptNormalizedItem(raw: cleanedRaw, resolved: name, brand: separated.brand,
@@ -111,19 +113,16 @@ nonisolated enum ReceiptProcessingService {
     }
 
     private static func separateBrand(from raw: String, storeName: String) -> (name: String, brand: String?) {
-        let commonBrands = ["H-E-B", "Hill Country Fare", "Great Value", "Kroger", "Kirkland", "Member's Mark",
-                            "Market Pantry", "Good & Gather", "365", "Signature Select"]
-        for brand in commonBrands.sorted(by: { $0.count > $1.count }) where FoodNameMatcher.containsPhrase(brand, in: raw) {
-            let pieces = brand.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-            let pattern = #"\b"# + pieces.map(NSRegularExpression.escapedPattern(for:)).joined(separator: #"[\s-]*"#) + #"\b"#
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+        guard let brand = GroceryKnowledgeBase.brand(in: raw, storeName: storeName) else { return (raw, nil) }
+        let pieces = brand.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        let pattern = #"\b"# + pieces.map(NSRegularExpression.escapedPattern(for:)).joined(separator: #"[\s&'’-]*"#) + #"\b"#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
             let range = NSRange(raw.startIndex..., in: raw)
             let remaining = regex.stringByReplacingMatches(in: raw, range: range, withTemplate: " ")
                 .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             return (remaining.isEmpty ? raw : remaining, brand)
         }
-        _ = storeName // reserved for retailer-specific private-label mappings learned later
         return (raw, nil)
     }
 }

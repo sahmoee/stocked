@@ -9,6 +9,7 @@ struct NearbyGroceryStore: Identifiable {
     let id = UUID()
     let name: String; let address: String; let distance: String
     let coordinate: CLLocationCoordinate2D
+    let retailer: GroceryRetailerProfile?
 }
 
 @MainActor
@@ -142,7 +143,8 @@ class GroceryStoreFinder: NSObject, CLLocationManagerDelegate {
                             ? String(format: "%.0f ft", d * 3.281)
                             : String(format: "%.1f mi", d / 1609.34)
                         let adr   = self.displayAddress(of: item, fallbackName: name)
-                        return NearbyGroceryStore(name: name, address: adr, distance: ds, coordinate: coord)
+                        return NearbyGroceryStore(name: name, address: adr, distance: ds, coordinate: coord,
+                                                  retailer: GroceryKnowledgeBase.retailer(matching: name))
                     }
                     .sorted {
                         let da = Double($0.distance.components(separatedBy: CharacterSet(charactersIn: "0123456789.").inverted).joined()) ?? 999
@@ -310,6 +312,11 @@ struct GroceryStoreFinderView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text(store.address).font(.system(size: 11))
                             .foregroundStyle(session.themeTextColor.opacity(0.5)).lineLimit(1)
+                        if let retailer = store.retailer {
+                            Text("Known labels: " + retailer.privateLabels.prefix(3).joined(separator: " · "))
+                                .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.42))
+                                .lineLimit(1)
+                        }
                     }
                     Spacer()
                     Text(store.distance).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.stockedGold)

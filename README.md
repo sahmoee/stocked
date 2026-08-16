@@ -11,7 +11,7 @@ Current app version: **4.13**. The project targets **iOS/iPadOS 26** and include
 - Pantry, refrigerator, freezer, and custom storage zones
 - Quantity, freshness, expiration, low-stock, confidence, and “use first” tracking
 - Receipt capture, barcode scanning, shelf scanning, camera/Live Text intake, and review-before-save
-- Grocery lists, multi-store organization, purchase deduplication, price intelligence, and inventory reconciliation
+- Grocery lists, multi-store organization, purchase deduplication, price intelligence, inventory reconciliation, and a local retailer/private-label catalog with receipt aliases and learned store layouts
 - Household-aware merge and conflict handling, activity history, kitchen transfer, export, and restore tools
 
 ### Recipes and meal planning

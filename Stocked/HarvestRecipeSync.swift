@@ -210,8 +210,8 @@ private struct HarvestWireRecipe: Decodable {
 
     var importDate: Date {
         for value in [importedAt, storedAt].compactMap({ $0 }) {
-            if let date = ISO8601DateFormatter.harvestFractional.date(from: value)
-                ?? ISO8601DateFormatter.harvestStandard.date(from: value) {
+            if let date = StockedFormatters.iso8601Fractional.date(from: value)
+                ?? StockedFormatters.iso8601.date(from: value) {
                 return date
             }
         }
@@ -309,17 +309,4 @@ private struct HarvestWireRecipe: Decodable {
                            bytes[8], bytes[9], bytes[10], bytes[11],
                            bytes[12], bytes[13], bytes[14], bytes[15]))
     }
-}
-
-private extension ISO8601DateFormatter {
-    static let harvestFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-    static let harvestStandard: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
 }

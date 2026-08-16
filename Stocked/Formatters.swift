@@ -10,7 +10,12 @@ import Foundation
 /// dates from any actor without recreating the formatter for every conversion.
 nonisolated final class StockedISO8601Formatter: @unchecked Sendable {
     private let lock = NSLock()
-    private let formatter = ISO8601DateFormatter()
+    private let formatter: ISO8601DateFormatter
+
+    init(formatOptions: ISO8601DateFormatter.Options = [.withInternetDateTime]) {
+        formatter = ISO8601DateFormatter()
+        formatter.formatOptions = formatOptions
+    }
 
     func string(from date: Date) -> String {
         lock.lock()
@@ -53,6 +58,9 @@ nonisolated enum StockedFormatters {
 
     /// Shared ISO-8601 formatter for backup/transfer encoding.
     static let iso8601 = StockedISO8601Formatter()
+    static let iso8601Fractional = StockedISO8601Formatter(
+        formatOptions: [.withInternetDateTime, .withFractionalSeconds]
+    )
 
     /// Time-of-day greeting ("Good Morning" / "Good Afternoon" / "Good Evening"), based on the
     /// current hour. Single source of truth — previously duplicated as a private computed

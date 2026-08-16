@@ -11,14 +11,14 @@
 import Foundation
 
 /// One known common item and the aisle/category it belongs to.
-struct CommonGroceryItem: Equatable {
+nonisolated struct CommonGroceryItem: Equatable, Sendable {
     let name: String
     let category: StorageCategory
     /// Typical aisle label for grocery sorting (kept simple and store-agnostic).
     let aisle: String
 }
 
-enum CommonGroceryDB {
+nonisolated enum CommonGroceryDB {
 
     /// The canonical common-items table. Names are already in canonical form
     /// (lowercase, singular-ish) so they line up with IngredientMatcher.canonical output.
@@ -80,6 +80,26 @@ enum CommonGroceryDB {
         .init(name: "water",       category: .pantry,  aisle: "Beverages"),
         .init(name: "juice",       category: .fridge,  aisle: "Beverages"),
         .init(name: "soda",        category: .pantry,  aisle: "Beverages"),
+        .init(name: "sparkling water", category: .pantry, aisle: "Beverages"),
+        .init(name: "coconut water", category: .pantry, aisle: "Beverages"),
+        .init(name: "ground coffee", category: .pantry, aisle: "Breakfast & Cereal"),
+        .init(name: "granola bar", category: .pantry, aisle: "Breakfast & Cereal"),
+        .init(name: "oatmeal", category: .pantry, aisle: "Breakfast & Cereal"),
+        .init(name: "tortilla chip", category: .pantry, aisle: "Snacks"),
+        .init(name: "potato chip", category: .pantry, aisle: "Snacks"),
+        .init(name: "cracker", category: .pantry, aisle: "Snacks"),
+        .init(name: "trail mix", category: .pantry, aisle: "Snacks"),
+        .init(name: "hummus", category: .fridge, aisle: "Deli & Prepared Foods"),
+        .init(name: "rotisserie chicken", category: .fridge, aisle: "Deli & Prepared Foods"),
+        .init(name: "salad kit", category: .fridge, aisle: "Produce"),
+        .init(name: "chicken breast", category: .fridge, aisle: "Meat & Seafood"),
+        .init(name: "ground beef", category: .fridge, aisle: "Meat & Seafood"),
+        .init(name: "flour tortilla", category: .pantry, aisle: "Bakery"),
+        .init(name: "pasta sauce", category: .pantry, aisle: "Condiments & Sauces"),
+        .init(name: "salad dressing", category: .fridge, aisle: "Condiments & Sauces"),
+        .init(name: "apple cider vinegar", category: .pantry, aisle: "Condiments & Sauces"),
+        .init(name: "chicken broth", category: .pantry, aisle: "Canned Goods & Soup"),
+        .init(name: "black bean", category: .pantry, aisle: "Canned Goods & Soup"),
     ]
 
     /// Fast lookup by canonical name. Built once.
@@ -94,6 +114,11 @@ enum CommonGroceryDB {
     static func lookup(_ rawName: String) -> CommonGroceryItem? {
         let canon = IngredientMatcher.canonical(rawName)
         if let hit = byCanonical[canon] { return hit }
+        // Prefer the longest embedded phrase. Receipt descriptions frequently add a brand,
+        // preparation, or package word around the useful product identity.
+        if let contained = items
+            .filter({ GroceryKnowledgeBase.containsPhrase($0.name, in: canon) })
+            .max(by: { $0.name.count < $1.name.count }) { return contained }
         // Try the first word (e.g. "chicken breast" -> "chicken")
         if let first = canon.components(separatedBy: .whitespaces).first, first != canon {
             return byCanonical[first]

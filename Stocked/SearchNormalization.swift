@@ -31,7 +31,7 @@ nonisolated enum SearchNormalization {
     }
 }
 
-extension String {
+nonisolated extension String {
     /// Convenience: `item.name.searchMatches(query)`.
     func searchMatches(_ query: String) -> Bool {
         SearchNormalization.matches(self, query: query)

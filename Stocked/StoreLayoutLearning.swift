@@ -49,8 +49,8 @@ nonisolated struct StoreLayout: Codable, Hashable, Sendable {
 // MARK: - Engine (pure)
 
 nonisolated enum StoreRouting {
-    /// Sort a list into walking order. Unknown items sink to the end (grouped, not scattered) so the
-    /// user can teach them on this trip.
+    /// Sort a list into walking order. Learned positions always win. Unknown items remain grouped
+    /// after learned items, but use the common department database instead of an arbitrary order.
     static func sort(_ items: [String], layout: StoreLayout) -> [String] {
         items.enumerated().sorted { a, b in
             let pa = layout.position(of: a.element)
@@ -59,7 +59,10 @@ nonisolated enum StoreRouting {
             case let (x?, y?): return x == y ? a.offset < b.offset : x < y
             case (_?, nil):    return true
             case (nil, _?):    return false
-            default:           return a.offset < b.offset
+            default:
+                let aa = GroceryKnowledgeBase.inferAisle(for: a.element).defaultOrder
+                let ab = GroceryKnowledgeBase.inferAisle(for: b.element).defaultOrder
+                return aa == ab ? a.offset < b.offset : aa < ab
             }
         }.map(\.element)
     }

@@ -69,7 +69,10 @@ fi
 # Flag stored static vars with explicit initializers. The only intentional mutable
 # static state in production is promptTask inside @MainActor NotificationPermissionCoordinator,
 # which has no explicit initializer and is actor protected.
-stored_static_vars=$(grep -RInE --include='*.swift' '^[[:space:]]*(public[[:space:]]+|private[[:space:]]+|fileprivate[[:space:]]+|internal[[:space:]]+|package[[:space:]]+)?(nonisolated[[:space:]]+)?static[[:space:]]+var[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[^\{]*=' "${existing_dirs[@]}" 2>/dev/null || true)
+# CookNowCompute is an @MainActor namespace; its bounded LRU is actor-protected rather
+# than shared nonisolated state. Keep that explicit, narrow exception visible here.
+stored_static_vars=$(grep -RInE --include='*.swift' '^[[:space:]]*(public[[:space:]]+|private[[:space:]]+|fileprivate[[:space:]]+|internal[[:space:]]+|package[[:space:]]+)?(nonisolated[[:space:]]+)?static[[:space:]]+var[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[^\{]*=' "${existing_dirs[@]}" 2>/dev/null \
+  | grep -vE '/CookNowCompute\.swift:.*private static var memo:' || true)
 if [ -n "$stored_static_vars" ]; then
   echo "SWIFT 6 CONCURRENCY GUARD FAILED: stored static var found"
   echo "$stored_static_vars"
