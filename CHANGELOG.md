@@ -1,3 +1,6 @@
+08:16:26 — v4.13 (build 92) — Continuous recipe image enforcement
+All recipe-database ingestion now requires a usable HTTPS image, including bulk imports. Every persisted database load and shared-recipe migration continuously removes older imported image-less records while preserving personal recipes.
+
 08:16:26 — v4.13 (build 92) — Settings appearance QA resolution batch
 Added precise shipped resolutions for the Settings and Cook Button appearance reports. The app now transitions all three related tickets to Fixed while preserving tester-controlled verification.
 

@@ -206,6 +206,10 @@ actor RecipeDatabase {
         // catalogue merge, the offline cache merge, manual saves — so one guard closes
         // all of them, including any path added later. See RecipeSourceBlocklist.swift.
         guard !RecipeSourceBlocklist.isBlocked(entry) else { return false }
+        let image = entry.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let imageURL = URL(string: image), imageURL.scheme == "https", imageURL.host != nil else {
+            return false
+        }
 
         let key = entry.title.lowercased()
         if let existing = titleIndex[key], let idx = entries.firstIndex(where: { $0.id == existing }) {
@@ -285,8 +289,9 @@ actor RecipeDatabase {
 
     private func load() {
         if let decoded = LocalDatabase.shared.loadArray(RecipeDatabaseEntry.self, key: storageKey) {
-            entries = decoded
+            entries = decoded.filter(Self.hasUsableImage)
             rebuildIndex()
+            if entries.count != decoded.count { persist() }
             return
         }
 
@@ -294,10 +299,16 @@ actor RecipeDatabase {
         guard let data = UserDefaults.standard.data(forKey: legacyDefaultsKey),
               let decoded = try? JSONDecoder().decode([RecipeDatabaseEntry].self, from: data)
         else { return }
-        entries = decoded
+        entries = decoded.filter(Self.hasUsableImage)
         rebuildIndex()
-        LocalDatabase.shared.save(decoded, key: storageKey)
+        persist()
         UserDefaults.standard.removeObject(forKey: legacyDefaultsKey)
+    }
+
+    private static func hasUsableImage(_ entry: RecipeDatabaseEntry) -> Bool {
+        let raw = entry.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: raw) else { return false }
+        return url.scheme == "https" && url.host != nil
     }
 
     private func rebuildIndex() {
