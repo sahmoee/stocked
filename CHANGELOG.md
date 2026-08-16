@@ -1,3 +1,6 @@
+08:16:26 — v4.13 — Adaptive themed presentation surfaces
+Centralized sheets now fill their complete host with the active Stocked theme instead of revealing system white. Sheet content responds to live window width, iPad multitasking, safe areas, and the full accessibility text range without a fixed phone-sized layout or unnecessary forced scrolling. STK-110-0014 receives the precise shipped resolution while verification remains tester-controlled.
+
 08:16:26 — v4.13 (build 92) — Continuous recipe image enforcement
 All recipe-database ingestion now requires a usable HTTPS image, including bulk imports. Every persisted database load and shared-recipe migration continuously removes older imported image-less records while preserving personal recipes.
 

@@ -744,7 +744,7 @@ final class QATicketStore {
             "STK-86-0001": "Made recipe Ingredients and Instructions independently collapsible, collapsed by default, with animated disclosure controls and VoiceOver expand/collapse labels.",
             "STK-86-0002": "Connected each ingredient substitution button to the recipe detail scroll view so it expands Substitutions, scrolls the section into view after layout, and highlights the matching ingredient.",
             "STK-107-0019": "Settings now fills its complete sheet with the same adaptive Stocked background, card, text, and accent colors as the rest of the app in both light and dark mode.",
-            "STK-110-0014": "Moved Cook Button shape and size controls into the themed Preferences card so the controls and their surrounding surface use the same adaptive Stocked appearance as Home and Cook."
+            "STK-110-0014": "Moved Cook Button controls into the themed Preferences card and added a reusable presentation surface that fills centralized sheets with the active Stocked background, colors, Dynamic Type, and live width-class layout instead of the system-white host."
         ]
         if let resolution = settingsPresentationResolutions[ticket.number] {
             return resolution

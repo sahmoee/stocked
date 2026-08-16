@@ -11,6 +11,37 @@ extension View {
     }
 }
 
+/// The default boundary for every page, sheet, popover, and full-screen cover.
+/// SwiftUI presentations otherwise reveal the system white/gray host behind Forms and
+/// short content. The max width keeps large iPads readable without imposing a fixed
+/// phone-sized frame; compact windows continue to use every available point.
+struct StockedPresentationSurface: ViewModifier {
+    @Environment(AppSession.self) private var session
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    func body(content: Content) -> some View {
+        ZStack {
+            session.themeBgColor.ignoresSafeArea()
+            content
+                .frame(maxWidth: horizontalSizeClass == .regular ? 760 : .infinity,
+                       maxHeight: .infinity,
+                       alignment: .top)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(session.themeBgColor)
+        .presentationBackground(session.themeBgColor)
+        .tint(session.accentColor)
+        .foregroundStyle(session.themeTextColor)
+        .dynamicTypeSize(.xSmall ... .accessibility5)
+    }
+}
+
+extension View {
+    func stockedPresentationSurface() -> some View {
+        modifier(StockedPresentationSurface())
+    }
+}
+
 // MARK: - Semantic type scale (#7)
 // Use these instead of .system(size: N) for Dynamic Type compatibility
 extension Font {

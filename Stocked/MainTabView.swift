@@ -245,22 +245,26 @@ struct MainTabView: View {
         )) { box in
             CreateRecipeView(prefill: box.form, prefillSource: sharedRecipeSource)
                 .environment(session)
+                .stockedPresentationSurface()
         }
         // Account sheets — presented from the stable root (not from inside the drawer's
         // List), so they open first-tap and the system dismiss() works.
         .sheet(item: $activeDrawerSheet) { sheet in
-            switch sheet {
-            case .editProfile:      QuizEditView().environment(session)
-            case .notifications:    NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
-            case .quickUpdate:      QuickUpdateSheet().environment(session)
-            case .household:        HouseholdHomeView().environment(session)
-            case .householdPaywall: HouseholdPaywallView(onUnlocked: { activeDrawerSheet = .household }).environment(session)
-            case .activity:         ActivityFeedSheet().environment(session)
-            case .dataStorage:      DataStorageView().environment(session)
-            case .transferKitchen:  KitchenTransferView().environment(session)
-            case .recipeSources:    RecipeSourcesManagerView().environment(session)
-            case .storePopout:      PreferredStorePopout().environment(session)
+            Group {
+                switch sheet {
+                case .editProfile:      QuizEditView().environment(session)
+                case .notifications:    NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
+                case .quickUpdate:      QuickUpdateSheet().environment(session)
+                case .household:        HouseholdHomeView().environment(session)
+                case .householdPaywall: HouseholdPaywallView(onUnlocked: { activeDrawerSheet = .household }).environment(session)
+                case .activity:         ActivityFeedSheet().environment(session)
+                case .dataStorage:      DataStorageView().environment(session)
+                case .transferKitchen:  KitchenTransferView().environment(session)
+                case .recipeSources:    RecipeSourcesManagerView().environment(session)
+                case .storePopout:      PreferredStorePopout().environment(session)
+                }
             }
+            .stockedPresentationSurface()
         }
         // #228/#229 — floating "In Progress" pill, isolated in its own view. Crucially,
         // MainTabView's body must NOT read session.activeCook directly: if it did,
