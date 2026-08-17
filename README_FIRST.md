@@ -27,4 +27,4 @@ same enrichment pipeline. Barcode identity uses Worker/Open Food Facts product d
 reconciled by confidence across publisher labels, USDA, FatSecret, and local knowledge. Provider
 failure preserves partial results and advances the cursor so one item cannot stall the database.
 
-The managed Stocked AI service and its automatic model remain the default. A user may opt into a private UnifiedWorker endpoint, optional Stocked-Keychain Worker token, and explicit model ID. Provider credentials stay in the user's private Worker secrets; never copy credentials between Stocked, StockedMac, or another app.
+AI is Apple-first for supported local work. Included cloud AI is only unlocked on Jessie's production/test devices with the local `Joo` gate; public installs use Apple Intelligence or a private UnifiedWorker. Private Workers may select Claude or OpenAI model IDs and keep provider keys in Worker secrets, never in the app.
