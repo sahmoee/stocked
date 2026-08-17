@@ -793,7 +793,22 @@ final class QATicketStore {
             "STK-107-0009": "Cook Now results now use adaptive columns and the available iPad width in portrait, landscape, Split View, and Stage Manager instead of retaining a narrow phone column.",
             "STK-107-0010": "Applied the required-image gate and publisher-original image resolver to every Cook Now result tier, including historical imported recipes.",
             "STK-90-0001": "Preserved and displayed each recipe's original publisher attribution across StockedMac import, Worker sync, historical repair, and Stocked iOS instead of labeling the source StockedMac.",
-            "STK-96-0006": "Repaired legacy StockedMac attribution from durable source URLs and made future sync payloads retain the publisher name and URL."
+            "STK-96-0006": "Repaired legacy StockedMac attribution from durable source URLs and made future sync payloads retain the publisher name and URL.",
+            "STK-92-0011": "Unified Create with AI across entry points: it can scan the complete inventory, recommend existing or generated recipes, and carries substitution choices into the result flow.",
+            "STK-92-0010": "Cook Now now prioritizes recipes whose primary protein is in inventory and keeps useful near-matches visible through the ten-missing-item tier.",
+            "STK-92-0008": "Reduced Grocery to the shared Stocked background, surface, text, urgency, and gold accent tokens instead of stacking unrelated shades for each section.",
+            "STK-92-0007": "Cook button shape and size now persist locally, participate in kitchen preference transfer and household sync, and restore across updates, reinstalls, and devices.",
+            "STK-92-0006": "Settings now uses the high-contrast primary text token in light mode and reserves muted colors for secondary descriptions.",
+            "STK-92-0005": "Settings text now follows the active semantic foreground color, including white primary copy on dark surfaces.",
+            "STK-107-0013": "Inventory recommendations now hydrate from the same complete persisted and online recipe catalog used by Recipes and Cook, then apply the shared matching algorithm.",
+            "STK-107-0012": "Inventory's iPad presentation now uses the live window width and a comfortable regular-width baseline instead of starting at a compressed phone-sized height.",
+            "STK-107-0011": "Household activity sync now publishes and merges recipe additions/removals and inventory/grocery changes in addition to member profile changes.",
+            "STK-107-0006": "Expanded Recipes with shared-catalog discovery, inventory matching, source browsing, substitutions, category filters, grocery actions, and retailer aisle/price enrichment where providers supply it.",
+            "STK-107-0004": "Replaced the dense option picker with adaptive themed selections, readable spacing, clear selected states, and regular-width presentation on iPad.",
+            "STK-96-0012": "Consolidated Settings into themed Appearance, Cooking, Kitchen, Interaction, Notifications, Household, Data, and QA groups; removed duplicate and inactive controls.",
+            "STK-96-0011": "Cook choices now render the selected circle, pill/row, or rounded-card shape at the saved live size and remain centered across orientation and width changes.",
+            "STK-96-0010": "Removed the duplicate allergen editor from general Settings; dietary safety remains available in the dedicated cooking profile where it affects recipes.",
+            "STK-96-0009": "Removed cuisine preferences from general Settings; cuisine discovery and filtering remain in Recipes where the choice has immediate context."
         ]
         if let resolution = currentTicketResolutions[ticket.number] {
             return resolution
