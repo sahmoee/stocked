@@ -370,17 +370,18 @@ struct BarcodeScannerView: View {
                 }
             }
             if let p = product, !p.name.isEmpty {
-                resolvedName    = formatProductTitle(p.name, brand: p.brand)
+                let enriched = await RetailEnrichmentClient.reconcile(product: p)
+                resolvedName    = formatProductTitle(enriched.name, brand: enriched.brand)
                 // If this household previously corrected this product's name, honor that.
                 resolvedName    = UserCorrections.shared.apply(.productName, to: resolvedName)
-                resolvedProduct = p
+                resolvedProduct = enriched
                 let learned = ReceiptDatabase.shared.learnedItems[FoodNameMatcher.normalized(resolvedName)]
                 let decision = ZoneDecisionEngine.decide(
                     name: resolvedName,
-                    current: StorageCategory(rawValue: p.suggestedZone),
+                    current: StorageCategory(rawValue: enriched.suggestedZone),
                     learnedZone: learned.flatMap { StorageCategory(rawValue: $0.zone) },
                     learnedCount: learned?.scanCount ?? 0,
-                    productCategories: p.categories?.split(separator: ",").map(String.init) ?? []
+                    productCategories: enriched.categories?.split(separator: ",").map(String.init) ?? []
                 )
                 zone = decision.zone.rawValue
                 BarcodeCache.shared.save(code, name: resolvedName)         // #9 cache

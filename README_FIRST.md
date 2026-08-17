@@ -11,3 +11,9 @@ Recipe views prefer publisher-original image URLs, retain exact downloaded bytes
 Retail enrichment uses authenticated UnifiedWorker `/retail/*` routes. Kroger and RapidAPI credentials remain server-side. Keep official provider location/product IDs optional, preserve original product images and exact aisle data, and treat price, availability, and inventory as short-lived store-specific metadata rather than household truth.
 
 Kroger is the default store for new or reset installations and grocery-cart handoff. FatSecret is an additive server-side brand/nutrition source; enrichment fills missing or lower-confidence fields across historical repairs and future imports without replacing publisher provenance or stronger nutrition.
+
+iOS uses MapKit for live nearby food-market discovery and merges Kroger catalog locations when
+available. Barcode scans, inventory maintenance, grocery suggestions, substitutions, recipe
+backfill, and serving calculations share a bounded USDA/FatSecret/publisher reconciliation cache.
+Apple Foundation Models may normalize grocery lookup terms on eligible devices, but never changes
+a user-visible name without review and always falls back deterministically when unavailable.

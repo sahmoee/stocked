@@ -291,6 +291,8 @@ struct RootView: View {
                 await RecipePurge.run(store: session.guestStore)
                 RecipeImageResolver.backfillMissingImagesIfNeeded()
                 NutritionBackfill.runIfNeeded()
+                Task { await FoodRecallMonitor.shared.refreshIfNeeded(items: session.guestStore.inventoryItems) }
+                RetailEnrichmentMaintenance.runIfNeeded(store: session.guestStore)
                 // #17 — index recipes + inventory for system Spotlight search.
                 SpotlightIndexer.reindex(store: session.guestStore)
             }
