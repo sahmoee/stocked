@@ -64,6 +64,13 @@ final class ReceiptProcessingServiceTests: XCTestCase {
         })
     }
 
+    func testCatalogExpansionAdds150DistinctBrandsAcrossEveryAisle() {
+        XCTAssertEqual(ProductCatalog.catalogExpansion.count, 150)
+        XCTAssertEqual(Set(ProductCatalog.catalogExpansion.map(\.brand)).count, 150)
+        XCTAssertEqual(Set(ProductCatalog.catalogExpansion.map(\.resolvedAisle)), Set(GroceryAisle.allCases))
+        XCTAssertTrue(ProductCatalog.catalogExpansion.allSatisfy { !$0.name.isEmpty && !$0.brand.isEmpty })
+    }
+
     func testRetailerAliasesAndTypicalAisles() {
         XCTAssertEqual(GroceryKnowledgeBase.retailer(matching: "Fred Meyer #215")?.id, "kroger")
         XCTAssertEqual(GroceryKnowledgeBase.retailer(matching: "Walmart Supercenter")?.id, "walmart")

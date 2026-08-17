@@ -20,6 +20,8 @@ struct AIRecipeGeneratorView: View {
     @State private var haveText: String = ""        // comma-separated on-hand ingredients
     @State private var dietary: String = "Any"
     @State private var maxTime: String = "Any"
+    @State private var servings: Int = 4
+    @State private var useExpiringInventory = true
 
     // Flow
     @State private var isGenerating = false
@@ -124,6 +126,25 @@ struct AIRecipeGeneratorView: View {
                 fieldLabel("Time")
                 chipRow(timeOptions, selection: $maxTime)
             }
+
+            Stepper(value: $servings, in: 1...24) {
+                HStack {
+                    fieldLabel("Servings")
+                    Spacer()
+                    Text("\(servings)").font(.system(size: 14, weight: .bold)).foregroundStyle(ink)
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(fieldBg))
+
+            Toggle(isOn: $useExpiringInventory) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Use expiring inventory").font(.system(size: 14, weight: .semibold)).foregroundStyle(ink)
+                    Text("Prioritize up to five safe items that need using soon")
+                        .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                }
+            }
+            .tint(Color.stockedGold)
 
             if let errorText {
                 Text(errorText)
@@ -267,15 +288,18 @@ struct AIRecipeGeneratorView: View {
         let have = haveText.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
         // Pass the saved allergen profile through — the generator previously only
         // saw the free-text dietary chip, so an allergen was invisible to it.
-        let mustUse = session.guestStore.inventoryItems
-            .filter { $0.effectiveLevel > 0 }
-            .sorted { ($0.daysUntilExpiry ?? Int.max) < ($1.daysUntilExpiry ?? Int.max) }
-            .prefix(5)
-            .map(\.name)
+        let mustUse = useExpiringInventory
+            ? Array(session.guestStore.inventoryItems
+                .filter { $0.effectiveLevel > 0 }
+                .sorted { ($0.daysUntilExpiry ?? Int.max) < ($1.daysUntilExpiry ?? Int.max) }
+                .prefix(5)
+                .map(\.name))
+            : []
         let opts = RecipeGeneratorAI.Options(
             haveItems: have,
             dietary: dietary == "Any" ? nil : dietary,
             maxTime: maxTime == "Any" ? nil : maxTime,
+            servings: servings,
             cuisinePreference: session.guestStore.cookingProfile.cuisinePrefs,
             mustUse: Array(mustUse),
             dietaryRules: DietaryGuard.Rules(allergens: session.guestStore.cookingProfile.allergens)
@@ -337,5 +361,17 @@ struct AIRecipeGeneratorView: View {
             Text(text).font(.system(size: 12, weight: .medium))
         }
         .foregroundStyle(session.themeTextColor.opacity(0.6))
+    }
+}
+
+/// The single presentation surface for Create with AI. Every tab uses this wrapper,
+/// so new controls and behavior cannot drift between Recipes, Cook, or future entry points.
+struct AIRecipeGeneratorSheet: View {
+    @Environment(AppSession.self) private var session
+
+    var body: some View {
+        NavigationStack {
+            AIRecipeGeneratorView().environment(session)
+        }
     }
 }

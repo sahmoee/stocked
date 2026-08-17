@@ -204,7 +204,7 @@ struct RecipeResultsView: View {
             if let r = openRecipe { UserRecipeDetailView(recipe: r) }
         }
         .sheet(isPresented: $showAIGenerator) {
-            NavigationStack { AIRecipeGeneratorView().environment(session) }
+            AIRecipeGeneratorSheet().environment(session)
         }
     }
 }

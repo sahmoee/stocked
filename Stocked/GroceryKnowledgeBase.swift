@@ -72,7 +72,9 @@ nonisolated enum GroceryKnowledgeBase {
               officialLocatorURL: URL(string: "https://local.safeway.com/safeway.html")!),
     ]
 
-    static let allBrandNames: [String] = Array(Set(retailers.flatMap(\.privateLabels))).sorted { $0.count > $1.count }
+    static let allBrandNames: [String] = Array(Set(
+        retailers.flatMap(\.privateLabels) + ProductCatalog.catalogExpansionBrandNames
+    )).sorted { $0.count > $1.count }
 
     static func normalize(_ value: String) -> String {
         value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)

@@ -76,6 +76,8 @@ struct GroceryListView: View {
     // #E2 — "Mine" filter: show only items assigned to me (or unassigned).
     @State private var showMineOnly = false
     @State private var selectedRecipe = "All Recipes"
+    @State private var selectedStore = "All Stores"
+    @State private var selectedAisle: GroceryAisle? = nil
     // Perf: the burn-rate prediction scans the consumption log; cached alongside the
     // section cache instead of recomputing in the suggestions area every render.
     @State private var cachedPredicted: [String] = []
@@ -108,6 +110,21 @@ struct GroceryListView: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    private func filterPill(icon: String, title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+            Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            if icon != "xmark" {
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+            }
+        }
+        .foregroundStyle(text.opacity(0.78))
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(dark ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.42))
+        .overlay(Capsule().stroke(text.opacity(0.14), lineWidth: 1))
+        .clipShape(Capsule())
     }
 
     private let aisleOrder: [String: Int] = [
@@ -180,6 +197,12 @@ struct GroceryListView: View {
     // MARK: - Grouped sections (search-filtered)
     private func filteredItems(_ items: [LocalGroceryItem]) -> [LocalGroceryItem] {
         var result = items
+        if selectedStore != "All Stores" {
+            result = result.filter { resolvedStore(for: $0) == selectedStore }
+        }
+        if let selectedAisle {
+            result = result.filter { aisle(for: $0.name) == selectedAisle }
+        }
         if selectedRecipe != "All Recipes" {
             result = result.filter {
                 selectedRecipe == "Manual Items" ? $0.recipeSource.isEmpty
@@ -188,6 +211,17 @@ struct GroceryListView: View {
         }
         guard !searchText.isEmpty else { return result }
         return result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    private var storeFilters: [String] {
+        let assigned = Set(store.groceryItems.map { resolvedStore(for: $0) }.filter { !$0.isEmpty })
+        return ["All Stores"] + assigned.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+    }
+
+    private func aisle(for name: String) -> GroceryAisle {
+        ProductCatalog.bestMatch(for: name)?.resolvedAisle ?? GroceryKnowledgeBase.inferAisle(for: name)
     }
 
     private var recipeFilters: [String] {
@@ -207,36 +241,27 @@ struct GroceryListView: View {
     // #244 — mockup store category for an item name. Frozen wins first so
     // "frozen peas" / "chicken nuggets" land in Frozen, not Produce/Meat.
     private func categoryFor(_ name: String) -> (title: String, icon: String, order: Int) {
-        let n = name.lowercased()
-        func has(_ words: [String]) -> Bool { words.contains { n.contains($0) } }
-        if has(["frozen", "ice cream", "nugget", "popsicle"]) { return ("Frozen", "snowflake", 5) }
-        // Spices / seasonings / baking → Pantry, checked BEFORE Produce so "ground
-        // pepper", "black pepper", "seasoned salt", "cajun seasoning" etc. aren't
-        // miscaught by Produce's "pepper" (bell pepper) match.
-        if has(["salt","pepper corn","peppercorn","black pepper","white pepper","ground pepper",
-                "lemon pepper","cayenne","paprika","cumin","oregano","thyme","rosemary","basil",
-                "cinnamon","turmeric","nutmeg","seasoning","seasoned","spice","garlic powder",
-                "onion powder","chili powder","curry","vanilla","baking soda","baking powder",
-                "sugar","honey","syrup","vinegar","olive oil","vegetable oil","sauce"]) {
-            return ("Pantry", "cabinet", 6)
+        let aisle = aisle(for: name)
+        let icon: String
+        switch aisle {
+        case .produce: icon = "leaf"
+        case .bakery: icon = "basket"
+        case .deli: icon = "takeoutbag.and.cup.and.straw"
+        case .meat: icon = "fork.knife"
+        case .dairy: icon = "drop"
+        case .frozen: icon = "snowflake"
+        case .breakfast: icon = "sunrise"
+        case .pantry: icon = "cabinet"
+        case .canned: icon = "cylinder"
+        case .baking: icon = "birthday.cake"
+        case .condiments: icon = "takeoutbag.and.cup.and.straw"
+        case .snacks: icon = "popcorn"
+        case .beverages: icon = "waterbottle"
+        case .household: icon = "house"
+        case .baby: icon = "figure.and.child.holdinghands"
+        case .pets: icon = "pawprint"
         }
-        if has(["vegetable","fruit","apple","banana","berry","lettuce","tomato","onion","garlic",
-                "broccoli","carrot","spinach","avocado","potato","lemon","lime","cucumber",
-                "celery","mushroom","corn","pea","grape","orange","melon","kale","zucchini","cilantro"]) {
-            return ("Produce", "leaf", 1)
-        }
-        // Fresh peppers only (not ground/seasoning pepper, handled above) → Produce.
-        if has(["bell pepper","jalapeño","jalapeno","poblano","serrano","habanero","fresh herb"]) {
-            return ("Produce", "leaf", 1)
-        }
-        if has(["bread","bagel","tortilla","roll","muffin","bun","croissant","pita","baguette"]) {
-            return ("Bakery", "basket", 2)
-        }
-        if has(["milk","cheese","yogurt","butter","cream","egg"]) { return ("Dairy", "drop", 3) }
-        if has(["chicken","beef","pork","fish","salmon","shrimp","turkey","steak","bacon","sausage","ham","deli","lamb","tuna"]) {
-            return ("Meat", "fork.knife", 4)
-        }
-        return ("Pantry", "cabinet", 6)
+        return (aisle.rawValue, icon, aisle.defaultOrder)
     }
 
     private func rebuildSections() {
@@ -425,6 +450,60 @@ struct GroceryListView: View {
                     .padding(.bottom, 10)
                     .accessibilityLabel("Filter grocery list by recipe")
                 }
+
+                // Store and department filters compose with recipe, household, search,
+                // and To Buy/Bought filters. Only stores that own at least one current
+                // row are offered, so this stays useful instead of becoming a directory.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        Menu {
+                            ForEach(storeFilters, id: \.self) { storeName in
+                                Button {
+                                    selectedStore = storeName
+                                    rebuildSections()
+                                } label: {
+                                    Label(storeName, systemImage: selectedStore == storeName ? "checkmark" : "storefront")
+                                }
+                            }
+                        } label: {
+                            filterPill(icon: "storefront", title: selectedStore)
+                        }
+
+                        Menu {
+                            Button {
+                                selectedAisle = nil
+                                rebuildSections()
+                            } label: {
+                                Label("All Aisles", systemImage: selectedAisle == nil ? "checkmark" : "square.grid.2x2")
+                            }
+                            ForEach(GroceryAisle.allCases, id: \.self) { aisle in
+                                Button {
+                                    selectedAisle = aisle
+                                    rebuildSections()
+                                } label: {
+                                    Label(aisle.rawValue, systemImage: selectedAisle == aisle ? "checkmark" : "square.grid.2x2")
+                                }
+                            }
+                        } label: {
+                            filterPill(icon: "square.grid.2x2", title: selectedAisle?.rawValue ?? "All Aisles")
+                        }
+
+                        if selectedStore != "All Stores" || selectedAisle != nil {
+                            Button {
+                                selectedStore = "All Stores"
+                                selectedAisle = nil
+                                rebuildSections()
+                            } label: {
+                                filterPill(icon: "xmark", title: "Clear")
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Clear store and aisle filters")
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+                .padding(.bottom, 10)
+                .accessibilityLabel("Filter grocery list by store or aisle")
 
                 // ── #245 — stacked title + Sort pill (mockup) ───────────
                 HStack(alignment: .bottom) {
@@ -760,6 +839,8 @@ struct GroceryListView: View {
         .onChange(of: showMineOnly) { _, _ in rebuildSections() } // #E2 — Mine filter
         .onChange(of: sortAZ) { _, _ in rebuildSections() }        // #245 — sort pill
         .onChange(of: groupByStore) { _, _ in rebuildSections() }  // RL-010 — store grouping
+        .onChange(of: selectedStore) { _, _ in rebuildSections() }
+        .onChange(of: selectedAisle) { _, _ in rebuildSections() }
         // #245 — header ··· hosts the relocated chrome (store / share / scan / move).
         .confirmationDialog("Grocery List", isPresented: $showMoreDialog, titleVisibility: .visible) {
             Button("Shopping at \(session.preferredStore) — change store") { grocerySheet = .storePicker }

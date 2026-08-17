@@ -93,7 +93,7 @@ nonisolated struct ProductCatalog {
         + produce + fruits + vegetables
         + snacks + nuts + protein
         + babyFood + petFood
-        + hebBrands + retailerBrandItems
+        + hebBrands + retailerBrandItems + catalogExpansion
 
     // MARK: H-E-B store brands (Texas) — helps recognize HEB-specific items when
     // scanning receipts or typing. Covers HEB's own labels: H-E-B, Hill Country Fare

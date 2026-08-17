@@ -26,6 +26,7 @@ nonisolated enum RecipeGeneratorAI {
         var haveItems: [String] = []      // ingredients the user already has
         var dietary: String? = nil        // e.g. "vegetarian", "gluten-free"
         var maxTime: String? = nil        // e.g. "30 minutes"
+        var servings: Int? = nil
         var cuisinePreference: [String] = []
         var mustUse: [String] = []
         var avoidGeneric: Bool = true
@@ -64,6 +65,7 @@ nonisolated enum RecipeGeneratorAI {
             payload["allergens"] = options.dietaryRules.allergens
         }
         if let t = options.maxTime?.trimmingCharacters(in: .whitespaces), !t.isEmpty { payload["maxTime"] = t }
+        if let servings = options.servings { payload["servings"] = max(1, min(servings, 24)) }
         let cuisinePreference = options.cuisinePreference
             .map { RecipeTaxonomy.canonicalCuisine($0) }
             .filter { $0 != "Other" }
