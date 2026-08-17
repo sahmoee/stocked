@@ -49,9 +49,9 @@ nonisolated enum StockedWorkerRoute: String, Sendable {
 
 nonisolated enum StockedWorkerClient {
     static func url() -> URL? {
-        let value = BuildConfig.receiptWorkerURL
-        guard !value.contains("REPLACE-WITH-YOUR-WORKER"), let url = URL(string: value) else { return nil }
-        return url
+        let value = StockedAIConfiguration.baseURL?.absoluteString ?? ""
+        guard !value.contains("REPLACE-WITH-YOUR-WORKER") else { return nil }
+        return StockedAIConfiguration.baseURL
     }
 
     static var isConfigured: Bool { url() != nil }
@@ -114,12 +114,16 @@ nonisolated enum StockedWorkerClient {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        BuildConfig.authorizeWorkerRequest(&request)
+        if StockedAIConfiguration.backend == .managed {
+            BuildConfig.authorizeWorkerRequest(&request)
+        }
         // Additive short-lived session credential (best-effort; X-Stocked-Key still authorizes
         // the request if this is nil). See StockedSession.
-        if let session = await StockedSession.shared.currentToken() {
+        if StockedAIConfiguration.backend == .managed,
+           let session = await StockedSession.shared.currentToken() {
             request.setValue(session, forHTTPHeaderField: "X-Stocked-Session")
         }
+        StockedAIConfiguration.apply(to: &request)
         request.httpBody = payloadData
         request.timeoutInterval = timeout
 

@@ -107,6 +107,24 @@ struct PreferencesSectionView: View {
                 ), range: 150...400)
 
             }
+
+            NavigationLink {
+                StockedAISettingsView().environment(session)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles").foregroundStyle(Color.stockedGold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("AI Agent & Model").foregroundStyle(session.themeTextColor)
+                        Text(StockedAIConfiguration.backend.rawValue)
+                            .font(.caption).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(session.themeTextColor.opacity(0.4))
+                }
+                .padding(14)
+                .background(session.themeTextColor.opacity(dark ? 0.08 : 0.05), in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
         }
     }
 

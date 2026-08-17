@@ -26,3 +26,5 @@ receipt, barcode, grocery-transfer, sync, or confirmed AI inventory change immed
 same enrichment pipeline. Barcode identity uses Worker/Open Food Facts product data; nutrition is
 reconciled by confidence across publisher labels, USDA, FatSecret, and local knowledge. Provider
 failure preserves partial results and advances the cursor so one item cannot stall the database.
+
+The managed Stocked AI service and its automatic model remain the default. A user may opt into a private UnifiedWorker endpoint, optional Stocked-Keychain Worker token, and explicit model ID. Provider credentials stay in the user's private Worker secrets; never copy credentials between Stocked, StockedMac, or another app.
