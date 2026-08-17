@@ -86,7 +86,9 @@ nonisolated enum StockedWorkerClient {
                             payload: [String: Any],
                             timeout: TimeInterval = 30,
                             cacheTTL: TimeInterval? = nil) async throws -> Data {
-        guard let endpoint = url() else { throw StockedServiceError.notConfigured("Stocked AI") }
+        guard let endpoint = url() else {
+            throw StockedServiceError.notConfigured("AI. Open Settings → AI Agent & Model. Use Apple Intelligence on a supported device, or choose My Private Worker, add your own Claude/OpenAI API key to UnifiedWorker, paste its HTTPS URL, and select a model. Your own key provides more usage and higher-model options")
+        }
         guard ConnectivityMonitor.isOnlineFlag else { throw StockedServiceError.offline }
         // Remote kill switch (GET /configuration): a broken/runaway AI feature can be turned
         // off server-side without an app update. Fails open when no config was fetched.
@@ -114,12 +116,12 @@ nonisolated enum StockedWorkerClient {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if StockedAIConfiguration.backend == .managed {
+        if StockedAIConfiguration.backend != .custom {
             BuildConfig.authorizeWorkerRequest(&request)
         }
         // Additive short-lived session credential (best-effort; X-Stocked-Key still authorizes
         // the request if this is nil). See StockedSession.
-        if StockedAIConfiguration.backend == .managed,
+        if StockedAIConfiguration.backend != .custom,
            let session = await StockedSession.shared.currentToken() {
             request.setValue(session, forHTTPHeaderField: "X-Stocked-Session")
         }
