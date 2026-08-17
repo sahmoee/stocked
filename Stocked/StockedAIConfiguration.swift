@@ -4,6 +4,7 @@ import Security
 nonisolated enum StockedAIBackend: String, CaseIterable, Identifiable {
     case automatic = "Automatic — Apple on-device first"
     case managed = "Stocked managed service"
+    case credits = "Prepaid managed AI credits"
     case custom = "My private Worker"
     var id: String { rawValue }
 }
@@ -46,7 +47,7 @@ nonisolated enum StockedAIConfiguration {
     }
     static var baseURL: URL? {
         if backend == .custom, let url = URL(string: endpoint), url.scheme == "https" { return url }
-        guard managedSettingsUnlocked else { return nil }
+        guard managedSettingsUnlocked || backend == .credits else { return nil }
         return URL(string: BuildConfig.receiptWorkerURL)
     }
     static var token: String { keychainRead() ?? "" }
@@ -67,7 +68,8 @@ nonisolated enum StockedAIConfiguration {
         if backend == .custom, !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if !model.isEmpty { request.setValue(model, forHTTPHeaderField: "X-AI-Model") }
         request.setValue(provider.headerValue, forHTTPHeaderField: "X-AI-Provider")
-        request.setValue(backend == .custom ? "custom-worker" : "managed", forHTTPHeaderField: "X-AI-Agent")
+        request.setValue(backend == .custom ? "custom-worker" : backend == .credits ? "managed-credit" : "managed-owner", forHTTPHeaderField: "X-AI-Agent")
+        if backend == .credits { AICreditStore.applyAccount(to: &request) }
     }
     private static func safeModel(_ value: String) -> String {
         String(value.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
@@ -134,6 +136,10 @@ struct StockedAISettingsView: View {
                      ? "Choose any model supported by your own Worker and provider account."
                      : "Included AI is reserved for registered production/test devices and keeps its current credentials and standard model. Enter the device passcode once, or use your own private Worker credentials for more usage or a higher model.")
                     .font(.caption)
+            }
+            Section("AI credits") {
+                NavigationLink("Buy or view AI credits") { AICreditStoreView().environment(session) }
+                Text("For people who do not want to configure a private Worker. Purchases unlock the existing managed AI and are charged by successful action.").font(.caption)
             }
         }
         .scrollContentBackground(.hidden)

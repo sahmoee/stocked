@@ -28,3 +28,5 @@ reconciled by confidence across publisher labels, USDA, FatSecret, and local kno
 failure preserves partial results and advances the cursor so one item cannot stall the database.
 
 AI is Apple-first for supported local work. Included cloud AI is only unlocked on Jessie's production/test devices with the local `Joo` gate; public installs use Apple Intelligence or a private UnifiedWorker. Private Workers may select Claude or OpenAI model IDs and keep provider keys in Worker secrets, never in the app.
+
+Public users may alternatively buy consumable managed-AI credits through StoreKit. Credit purchases use localized App Store prices, an iCloud Keychain-synchronized account token, Apple server verification, duplicate-transaction protection, a visible remaining balance, and fixed per-action estimates. Failed requests do not consume credits and credits do not expire. Keep the App Store product IDs and Worker allowlist synchronized.
