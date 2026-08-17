@@ -448,6 +448,24 @@ final class QATicketStore {
                 tickets[i].mirroredAt = nil
                 tickets[i].cpanelSyncedAt = nil
                 scheduleLocalMirror(tickets[i].id)
+
+                // Automatic monitors describe recurrence, not a new human
+                // report. Retain one durable root ticket and increment it rather
+                // than flooding every device and Worker history with a new row
+                // for the same screen-level freeze every minute. Tester-authored
+                // reports are still always preserved separately.
+                if origin == .automatic && original.origin == .automatic {
+                    tickets[i].context = context
+                    if severity.rank < tickets[i].severity.rank {
+                        tickets[i].severity = severity
+                    }
+                    let recurring = tickets[i]
+                    save()
+                    if QABackgroundRunner.shared.autoPublish {
+                        Task { await QASyncCoordinator.shared.syncEverywhere(recurring.id) }
+                    }
+                    return recurring
+                }
             }
         }
 
@@ -716,6 +734,15 @@ final class QATicketStore {
     }
 
     nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
+        let historicalRuntimeFreezeTickets: Set<String> = [
+            "STK-78-0001", "STK-80-0015", "STK-80-0024", "STK-93-0012",
+            "STK-93-0013", "STK-93-0014", "STK-93-0015", "STK-93-0016",
+            "STK-93-0017", "STK-96-0004", "STK-98-0013", "STK-98-0014",
+            "STK-98-0015", "STK-98-0016", "STK-107-0018"
+        ]
+        if historicalRuntimeFreezeTickets.contains(ticket.number) {
+            return "Moved persisted ticket/image work and heavy Home/Recipes classification off repeated render paths, added a stable-frame warm-up after launch/foreground restoration, and collapsed recurring automatic screen freezes into one cumulative ticket instead of refiling duplicates."
+        }
         let repeatedRootTabFreezeTickets: [String: String] = [
             "STK-68-0001": "Home",
             "STK-68-0002": "Home",

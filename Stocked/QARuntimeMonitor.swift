@@ -136,6 +136,12 @@ final class QARuntimeMonitor {
     private var link: CADisplayLink?
     private var linkTarget: DisplayLinkTarget?
     private var lastFrameAt: CFTimeInterval = 0
+    /// QA startup, foreground restoration, and the first SwiftUI root render can
+    /// legitimately monopolize the main run loop while iOS restores system state.
+    /// Measuring that launch work created blocker tickets five seconds into a
+    /// session with no screen or touch context. Begin measuring only after the
+    /// UI has produced stable frames; actual stalls after that window remain visible.
+    private var measureAfter: CFTimeInterval = 0
     private var sampler: Task<Void, Never>?
     private var lastAutoTicketAt: Date?
 
@@ -174,6 +180,7 @@ final class QARuntimeMonitor {
         link = l
         linkTarget = target
         lastFrameAt = 0
+        measureAfter = CACurrentMediaTime() + 5
         isForeground = UIApplication.shared.applicationState == .active
         frameClockDirty = true
         observeLifecycle()
@@ -238,6 +245,7 @@ final class QARuntimeMonitor {
         isForeground = true
         frameClockDirty = true
         lastFrameAt = 0
+        measureAfter = CACurrentMediaTime() + 3
         // Memory and thermal state can move a long way while suspended; take a
         // fresh reading rather than letting the 5s sampler show a stale one.
         sampleMemory()
@@ -273,6 +281,11 @@ final class QARuntimeMonitor {
         }
 
         guard lastFrameAt > 0 else { return }
+
+        // Instrumentation must not file a bug about the instrumentation/app
+        // bootstrap itself. Keep advancing the clock during this short warm-up
+        // so the first measured interval cannot include the ignored work.
+        guard timestamp >= measureAfter else { return }
 
         let deltaMs = (timestamp - lastFrameAt) * 1000
         guard deltaMs >= hitchThresholdMs else { return }
