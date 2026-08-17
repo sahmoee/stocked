@@ -890,11 +890,13 @@ class GuestDataStore {
                     }
                 }
             }
+            RetailEnrichmentMaintenance.enqueueInventoryItem(id: inventoryItems[idx].id, store: self)
             return
         }
         var stamped = item
         stamped.lastConfirmedAt = Date()   // freshly added = freshly confirmed
         withAnimation { inventoryItems.append(stamped) }
+        RetailEnrichmentMaintenance.enqueueInventoryItem(id: stamped.id, store: self)
         // #B4 crowd shelf-life defaults — when the item arrives with no expiry, ask the
         // anonymized crowd DB how long this item typically lasts and fill a sensible
         // default. Applies only if the user still hasn't set a date by the time the

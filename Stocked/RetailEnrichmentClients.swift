@@ -164,24 +164,85 @@ nonisolated final class RetailNutritionCache: @unchecked Sendable {
 
 @MainActor
 enum RetailEnrichmentMaintenance {
-    private static let key = "retailEnrichmentMaintenance.lastRun.v1"
+    private static let key = "retailEnrichmentMaintenance.lastRun.v2"
+    private static let inventoryCursorKey = "retailEnrichmentMaintenance.inventoryCursor.v2"
+    private static let groceryCursorKey = "retailEnrichmentMaintenance.groceryCursor.v2"
 
     static func runIfNeeded(store: GuestDataStore) {
         let last = UserDefaults.standard.object(forKey: key) as? Date ?? .distantPast
         guard Date().timeIntervalSince(last) >= 24 * 3600 else { return }
         UserDefaults.standard.set(Date(), forKey: key)
-        let inventory = Array(store.inventoryItems.prefix(30))
-        let grocery = Array(store.groceryItems.filter { !$0.isChecked }.prefix(20))
+        let inventory = rotatingBatch(store.inventoryItems, cursorKey: inventoryCursorKey, limit: 30)
+        let grocery = rotatingBatch(store.groceryItems.filter { !$0.isChecked }, cursorKey: groceryCursorKey, limit: 20)
         Task(priority: .background) {
             let groceryAliases = await AppleOnDeviceAI.normalizeFoodNames(grocery.map(\.name))
             for item in inventory {
-                let query = [item.brand, item.name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
-                _ = await RetailEnrichmentClient.reconciledFacts(for: query, publisherFacts: item.nutrition)
+                await enrichInventoryItem(id: item.id, store: store)
             }
             for item in grocery {
                 _ = await RetailEnrichmentClient.reconciledFacts(for: groceryAliases[item.name] ?? item.name)
             }
         }
+    }
+
+    /// Used by every future add/import path and by confirmed AI inventory edits.
+    /// Calls are cheap to enqueue; the shared API caches and Worker rate limits
+    /// prevent duplicate upstream work.
+    static func enqueueInventoryItem(id: UUID, store: GuestDataStore) {
+        Task(priority: .utility) { await enrichInventoryItem(id: id, store: store) }
+    }
+
+    static func enqueueInventoryItems(ids: [UUID], store: GuestDataStore) {
+        Task(priority: .utility) {
+            for id in ids {
+                await enrichInventoryItem(id: id, store: store)
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
+    }
+
+    private static func enrichInventoryItem(id: UUID, store: GuestDataStore) async {
+        guard let snapshot = store.inventoryItems.first(where: { $0.id == id }) else { return }
+        var product: OpenFoodProduct?
+        if let barcode = snapshot.barcode?.trimmingCharacters(in: .whitespacesAndNewlines), !barcode.isEmpty {
+            product = await WorkerBarcodeResolver.resolve(barcode)
+            if product == nil { product = await OpenFoodFactsClient.shared.lookup(barcode: barcode) }
+        }
+        let query = [snapshot.brand, snapshot.name].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        let reconciled: OpenFoodProduct?
+        if let product {
+            reconciled = await RetailEnrichmentClient.reconcile(product: product)
+        } else if let result = await RetailEnrichmentClient.reconciledFacts(for: query, publisherFacts: snapshot.nutrition) {
+            reconciled = OpenFoodProduct(barcode: snapshot.barcode ?? "", name: snapshot.name, brand: snapshot.brand ?? "",
+                imageURL: nil, nutriScore: nil, allergens: snapshot.productLabels ?? [], nutrition: result.facts,
+                quantity: nil, categories: nil, labels: snapshot.productLabels ?? [],
+                ingredientsText: snapshot.productIngredients, sourceName: result.source)
+        } else {
+            reconciled = nil
+        }
+        guard let enriched = reconciled, let index = store.inventoryItems.firstIndex(where: { $0.id == id }) else { return }
+        if store.inventoryItems[index].brand?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+           !enriched.brand.isEmpty { store.inventoryItems[index].brand = enriched.brand }
+        if let nutrition = enriched.nutrition, nutrition.calories > 0 {
+            store.inventoryItems[index].nutrition = nutrition
+            store.inventoryItems[index].nutritionSource = enriched.sourceName
+        }
+        if store.inventoryItems[index].productLabels?.isEmpty != false, !enriched.labels.isEmpty {
+            store.inventoryItems[index].productLabels = enriched.labels
+        }
+        if store.inventoryItems[index].productIngredients?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+           let ingredients = enriched.ingredientsText?.trimmingCharacters(in: .whitespacesAndNewlines), !ingredients.isEmpty {
+            store.inventoryItems[index].productIngredients = ingredients
+        }
+    }
+
+    private static func rotatingBatch<T>(_ values: [T], cursorKey: String, limit: Int) -> [T] {
+        guard !values.isEmpty else { return [] }
+        let start = UserDefaults.standard.integer(forKey: cursorKey) % values.count
+        let count = min(limit, values.count)
+        let result = (0..<count).map { values[(start + $0) % values.count] }
+        UserDefaults.standard.set((start + count) % values.count, forKey: cursorKey)
+        return result
     }
 }
 

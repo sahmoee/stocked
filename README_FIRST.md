@@ -17,3 +17,9 @@ available. Barcode scans, inventory maintenance, grocery suggestions, substituti
 backfill, and serving calculations share a bounded USDA/FatSecret/publisher reconciliation cache.
 Apple Foundation Models may normalize grocery lookup terms on eligible devices, but never changes
 a user-visible name without review and always falls back deterministically when unavailable.
+
+Every existing inventory item is revisited in rotating bounded batches, and every future manual,
+receipt, barcode, grocery-transfer, sync, or confirmed AI inventory change immediately enters the
+same enrichment pipeline. Barcode identity uses Worker/Open Food Facts product data; nutrition is
+reconciled by confidence across publisher labels, USDA, FatSecret, and local knowledge. Provider
+failure preserves partial results and advances the cursor so one item cannot stall the database.

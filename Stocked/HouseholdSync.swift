@@ -1028,7 +1028,12 @@ final class HouseholdSync {
                 }
             }
             let merged = Array(byID.values)
-            if merged != store.inventoryItems { store.inventoryItems = merged }
+            if merged != store.inventoryItems {
+                let previous = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0.updatedAt) })
+                store.inventoryItems = merged
+                let changed = merged.filter { previous[$0.id] != $0.updatedAt }.map(\.id)
+                RetailEnrichmentMaintenance.enqueueInventoryItems(ids: changed, store: store)
+            }
             // #12 — undo across the household: when another member's delete lands here via a
             // pull, offer a 10s undo. Re-adding uses a FRESH id (the old id is tombstoned
             // server-side, so restoring it would just be deleted again on the next pull);

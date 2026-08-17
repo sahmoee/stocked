@@ -251,6 +251,8 @@ extension GuestDataStore {
         }
         if touched > 0 {
             withAnimation { inventoryItems = list }
+            RetailEnrichmentMaintenance.enqueueInventoryItems(
+                ids: updates.filter(\.isConfirmed).map(\.itemID), store: self)
         }
         return touched
     }
