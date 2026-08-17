@@ -392,7 +392,9 @@ class AppSession {
         } else {
             self.appBackground = .defaultTan
         }
-        self.preferredStore = ud.string(forKey: DBKey.preferredStore.rawValue) ?? "Walmart"
+        self.preferredStore = ud.string(forKey: DBKey.preferredStore.rawValue)
+            .flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+            ?? "Kroger"
         self.appleUserID    = ud.string(forKey: DBKey.appleUserID.rawValue) ?? ""
 
         if ud.bool(forKey: "wasGuest") {
@@ -536,7 +538,7 @@ class AppSession {
 
             // Reset all AppSession preferences to factory defaults
             isDarkMode           = false
-            preferredStore       = "Walmart"
+            preferredStore       = "Kroger"
             appleUserID          = ""
             cookStreak           = 0
             longestStreak        = 0

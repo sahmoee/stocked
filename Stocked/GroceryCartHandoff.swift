@@ -32,10 +32,10 @@ nonisolated struct CartRetailer: Identifiable, Hashable, Sendable {
     static let affiliateSuffix = ""
 
     static let all: [CartRetailer] = [
+        .init(id: "kroger",     name: "Kroger",      searchTemplate: "https://www.kroger.com/search?query={q}",            appTemplate: nil),
         .init(id: "instacart",  name: "Instacart",   searchTemplate: "https://www.instacart.com/store/s?k={q}",            appTemplate: "instacart://search?query={q}"),
         .init(id: "walmart",    name: "Walmart",     searchTemplate: "https://www.walmart.com/search?q={q}",               appTemplate: "walmart://search?query={q}"),
         .init(id: "target",     name: "Target",      searchTemplate: "https://www.target.com/s?searchTerm={q}",            appTemplate: "target://search?searchTerm={q}"),
-        .init(id: "kroger",     name: "Kroger",      searchTemplate: "https://www.kroger.com/search?query={q}",            appTemplate: nil),
         .init(id: "heb",        name: "H-E-B",       searchTemplate: "https://www.heb.com/search/?q={q}",                  appTemplate: nil),
         .init(id: "amazonfresh",name: "Amazon Fresh",searchTemplate: "https://www.amazon.com/s?k={q}&i=amazonfresh",       appTemplate: nil),
         .init(id: "wholefoods", name: "Whole Foods", searchTemplate: "https://www.wholefoodsmarket.com/search?text={q}",   appTemplate: nil),
@@ -43,7 +43,7 @@ nonisolated struct CartRetailer: Identifiable, Hashable, Sendable {
     ]
 
     static func preferred() -> CartRetailer {
-        let saved = UserDefaults.standard.string(forKey: "cartRetailerID") ?? "instacart"
+        let saved = UserDefaults.standard.string(forKey: "cartRetailerID") ?? "kroger"
         return all.first { $0.id == saved } ?? all[0]
     }
     static func setPreferred(_ r: CartRetailer) { UserDefaults.standard.set(r.id, forKey: "cartRetailerID") }
