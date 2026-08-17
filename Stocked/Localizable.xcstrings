@@ -3255,6 +3255,9 @@
     "Find in store" : {
 
     },
+    "Find meals from inventory" : {
+
+    },
     "Find substitutes" : {
 
     },
@@ -5918,6 +5921,9 @@
 
     },
     "Scanning your inventory…" : {
+
+    },
+    "Scans every available item, saved recipe, and substitution" : {
 
     },
     "Scheduled" : {

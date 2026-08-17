@@ -1,5 +1,7 @@
 # Cross-project sync
 
+Also apply the ten additive cross-project safeguards in `PROJECT_GUIDE_ADDITIONS.md`; existing ownership and compatibility rules remain authoritative.
+
 - `StockedMac`: creates/edits/imports the shared image-complete recipe library.
 - `UnifiedWorker`: AI, household, recipe/harvest content, QA, queues, and compatibility routes.
 - `site-repo`: public product pages and content feeds.
