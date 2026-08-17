@@ -4,6 +4,13 @@ import Security
 import StoreKit
 import SwiftUI
 
+/// Archived until the App Store products and server verification credentials are ready.
+/// Keeping this as one explicit switch preserves the complete implementation without
+/// exposing an unavailable storefront during normal development builds.
+nonisolated enum AICreditStorefront {
+    static let isEnabled = false
+}
+
 @MainActor @Observable
 final class AICreditStore {
     static let shared = AICreditStore()

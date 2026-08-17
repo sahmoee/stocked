@@ -7,6 +7,10 @@ nonisolated enum StockedAIBackend: String, CaseIterable, Identifiable {
     case credits = "Prepaid managed AI credits"
     case custom = "My private Worker"
     var id: String { rawValue }
+
+    static var availableCases: [StockedAIBackend] {
+        allCases.filter { $0 != .credits || AICreditStorefront.isEnabled }
+    }
 }
 
 nonisolated enum StockedAIProvider: String, CaseIterable, Identifiable {
@@ -47,7 +51,7 @@ nonisolated enum StockedAIConfiguration {
     }
     static var baseURL: URL? {
         if backend == .custom, let url = URL(string: endpoint), url.scheme == "https" { return url }
-        guard managedSettingsUnlocked || backend == .credits else { return nil }
+        guard managedSettingsUnlocked || (backend == .credits && AICreditStorefront.isEnabled) else { return nil }
         return URL(string: BuildConfig.receiptWorkerURL)
     }
     static var token: String { keychainRead() ?? "" }
@@ -102,7 +106,7 @@ struct StockedAISettingsView: View {
         Form {
             Section("Agent") {
                 Picker("AI service", selection: $backend) {
-                    ForEach(StockedAIBackend.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(StockedAIBackend.availableCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.inline)
                 if backend == .automatic {
                     Label(AppleOnDeviceAI.isAvailable ? "Apple Intelligence is ready" : (AppleOnDeviceAI.unavailableReason ?? "Apple Intelligence unavailable; hosted fallback will be used"), systemImage: AppleOnDeviceAI.isAvailable ? "apple.intelligence" : "icloud")
@@ -137,14 +141,22 @@ struct StockedAISettingsView: View {
                      : "Included AI is reserved for registered production/test devices and keeps its current credentials and standard model. Enter the device passcode once, or use your own private Worker credentials for more usage or a higher model.")
                     .font(.caption)
             }
-            Section("AI credits") {
-                NavigationLink("Buy or view AI credits") { AICreditStoreView().environment(session) }
-                Text("For people who do not want to configure a private Worker. Purchases unlock the existing managed AI and are charged by successful action.").font(.caption)
+            if AICreditStorefront.isEnabled {
+                Section("AI credits") {
+                    NavigationLink("Buy or view AI credits") { AICreditStoreView().environment(session) }
+                    Text("For people who do not want to configure a private Worker. Purchases unlock the existing managed AI and are charged by successful action.").font(.caption)
+                }
             }
         }
         .scrollContentBackground(.hidden)
         .background(session.backgroundView.ignoresSafeArea())
         .navigationTitle("AI Agent & Model")
+        .onAppear {
+            if backend == .credits && !AICreditStorefront.isEnabled {
+                backend = .automatic
+                StockedAIConfiguration.backend = .automatic
+            }
+        }
         .onDisappear {
             StockedAIConfiguration.backend = backend
             StockedAIConfiguration.endpoint = endpoint
