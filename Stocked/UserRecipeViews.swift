@@ -89,6 +89,7 @@ struct UserRecipeDetailView: View {
     @State private var aiFixingIngredients    = false
     @State private var detailMetrics          = UserRecipeDetailMetrics.empty
     @State private var substitutionIngredientIDs: Set<UUID> = []
+    @State private var substitutionPickerIngredient: RecipeIngredient? = nil
     @State private var ingredientsExpanded = false
     @State private var instructionsExpanded = false
 
@@ -155,9 +156,7 @@ struct UserRecipeDetailView: View {
                 // #9 — context for step timers surfaced on the Lock Screen / Dynamic Island.
                 timerEngine.recipeTitle = recipe.title
                 timerEngine.totalSteps  = displaySteps.count
-                substitutionIngredientIDs = Set(recipe.ingredients.compactMap {
-                    StockedDatabase.shared.hasSubstitution(for: $0.name) ? $0.id : nil
-                })
+                refreshSubstitutionAvailability()
             }
             .task(id: "\(recipe.id.uuidString)-\(recipe.updatedAt)-\(session.guestStore.pastMeals.count)-\(session.guestStore.priceHistory.count)") {
                 detailMetrics = await UserRecipeMetricsCache.shared.metrics(
@@ -174,6 +173,15 @@ struct UserRecipeDetailView: View {
             .sheet(isPresented: $showSubReview, onDismiss: { recomputeCookClassification() }) {
                 SubstitutionReviewSheet(recipe: recipe)
                     .environment(session)
+            }
+            .sheet(item: $substitutionPickerIngredient) { ingredient in
+                RecipeSubstitutionPickerSheet(
+                    ingredient: ingredient,
+                    allowsCookOnly: cookSession != nil,
+                    onReplaceRecipe: { applySubstitution($0, to: ingredient, permanent: true) },
+                    onUseForCook: { applySubstitution($0, to: ingredient, permanent: false) }
+                )
+                .environment(session)
             }
             .sheet(item: $planningContext) { context in
                 NavigationStack {
@@ -201,6 +209,43 @@ struct UserRecipeDetailView: View {
             } message: {
                 Text("\"\(recipe.title)\" will be removed from your collection. This can't be undone.")
             }
+    }
+
+    private func refreshSubstitutionAvailability() {
+        let userEntries = session.guestStore.userSubstitutions
+        substitutionIngredientIDs = Set(recipe.ingredients.compactMap { ingredient in
+            SubstitutionEngine.hasAny(for: ingredient.name, userEntries: userEntries)
+                ? ingredient.id : nil
+        })
+    }
+
+    private func applySubstitution(_ substitution: Substitution,
+                                   to ingredient: RecipeIngredient,
+                                   permanent: Bool) {
+        let originalName = ingredient.name
+        if permanent {
+            guard let index = recipe.ingredients.firstIndex(where: { $0.id == ingredient.id }) else { return }
+            var updated = recipe
+            updated.ingredients[index].name = substitution.substitute
+            updated.ingredients[index].brand = nil
+            updated.ingredients[index].nutrition = nil
+            let provenance = "Substituted for \(originalName.displayNormalized)"
+            let existing = updated.ingredients[index].notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            updated.ingredients[index].notes = existing.isEmpty ? provenance : "\(existing) · \(provenance)"
+            updated.updatedAt = Date().timeIntervalSince1970 * 1000
+            session.guestStore.updateUserRecipe(updated)
+            recipe = updated
+            refreshSubstitutionAvailability()
+            ToastCenter.shared.success("Recipe now uses \(substitution.substitute.displayNormalized)")
+        } else if let cookSession {
+            cookSession.confirmSubstitution(ingredient: originalName, substitute: substitution.substitute)
+            cookSession.stage(StagedInventoryChange(
+                ingredientName: originalName, kind: .recordSubstitute,
+                note: "Used \(substitution.substitute.displayNormalized) instead"))
+            ToastCenter.shared.success("Using \(substitution.substitute.displayNormalized) for this cook")
+        }
+        recomputeCookClassification()
+        HapticManager.success()
     }
 
     @ToolbarContentBuilder
@@ -307,9 +352,7 @@ struct UserRecipeDetailView: View {
         updated.updatedAt = Date().timeIntervalSince1970 * 1000
         session.guestStore.updateUserRecipe(updated)
         recipe = updated
-        substitutionIngredientIDs = Set(rebuilt.compactMap {
-            StockedDatabase.shared.hasSubstitution(for: $0.name) ? $0.id : nil
-        })
+        refreshSubstitutionAvailability()
         detailMetrics = await UserRecipeMetricsCache.shared.metrics(
             recipe: updated, pastMeals: session.guestStore.pastMeals,
             priceHistory: session.guestStore.priceHistory)
@@ -619,31 +662,19 @@ struct UserRecipeDetailView: View {
                                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                                         }
                                         Spacer()
-                                        if substitutionIngredientIDs.contains(ing.id) {
-                                            Button {
-                                                withAnimation(.spring(response: 0.25)) {
-                                                    substitutionScrollTarget = ing.name
-                                                    showSubstitutions = true
-                                                }
-                                                Task { @MainActor in
-                                                    // Let the disclosure lay out before moving its anchor
-                                                    // into view; otherwise the scroll targets its collapsed
-                                                    // position and the tap appears to do nothing.
-                                                    await Task.yield()
-                                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                                        scrollProxy.scrollTo("recipe-substitutions", anchor: .top)
-                                                    }
-                                                }
-                                            } label: {
-                                                HStack(spacing: 3) {
-                                                    Text("Sub ↓").font(.system(size: 9, weight: .semibold))
-                                                    Image(systemName: "arrow.down.circle").font(.system(size: 9))
-                                                }
-                                                .foregroundStyle(Color.stockedGold)
-                                                .padding(.horizontal, 6).padding(.vertical, 3)
-                                                .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
-                                            }.buttonStyle(.plain)
-                                        }
+                                        Button {
+                                            substitutionPickerIngredient = ing
+                                        } label: {
+                                            HStack(spacing: 3) {
+                                                Text(substitutionIngredientIDs.contains(ing.id) ? "Choose Sub" : "Add Sub")
+                                                    .font(.system(size: 9, weight: .semibold))
+                                                Image(systemName: "arrow.left.arrow.right.circle").font(.system(size: 9))
+                                            }
+                                            .foregroundStyle(Color.stockedGold)
+                                            .padding(.horizontal, 6).padding(.vertical, 3)
+                                            .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+                                        }.buttonStyle(.plain)
+                                            .a11yButton("Choose or add a substitution for \(ing.name)")
                                     }
                                     if let brand = ing.brand {
                                         Text(brand).font(.system(size: 11)).foregroundStyle(Color.stockedGold).padding(.leading, 16)
