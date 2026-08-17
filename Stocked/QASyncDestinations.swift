@@ -688,6 +688,8 @@ final class QASyncCoordinator {
     /// Sequential for the same reason as above.
     @discardableResult
     func syncAllPending() async -> Int {
+        let imported = await QATicketStore.shared.pullDeviceTickets()
+        if imported > 0 { lastDetail = ["devices: imported \(imported) ticket(s)"] }
         let pending = QATicketStore.shared.tickets
             .filter { !$0.isFullySynced }
             .map(\.id)

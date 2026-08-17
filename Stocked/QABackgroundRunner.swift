@@ -293,6 +293,22 @@ final class QABackgroundRunner {
 /// mean either corrupting the envelope or special-casing it.
 nonisolated enum QAReportTransport {
 
+    static func fetchDeviceTickets(source: String = "stocked-app") async throws -> [[String: Any]] {
+        guard let base = URL(string: BuildConfig.receiptWorkerURL) else {
+            throw StockedServiceError.notConfigured("QA bridge")
+        }
+        var components = URLComponents(url: base.appendingPathComponent("_unified/qa/tickets/sync"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "source", value: source), URLQueryItem(name: "limit", value: "1000")]
+        var request = URLRequest(url: components.url!, timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue("Joo", forHTTPHeaderField: "X-QA-Passcode")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard (200...299).contains(code) else { throw StockedServiceError.httpStatus(code, "QA device sync was rejected") }
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return object?["tickets"] as? [[String: Any]] ?? []
+    }
+
     static func post(_ payload: [String: Any]) async throws -> Bool {
         guard let base = URL(string: BuildConfig.receiptWorkerURL) else {
             throw StockedServiceError.notConfigured("QA bridge")

@@ -1146,6 +1146,85 @@ final class QATicketStore {
     private(set) var lastSyncOutcome: String = "never published"
     private(set) var isSyncing = false
 
+    /// Merge the Worker collection from every Stocked device. Ticket numbers are
+    /// the cross-device identity; the newest `updatedAt` wins while any local
+    /// screenshot path is retained because screenshots travel on their own route.
+    @discardableResult
+    func pullDeviceTickets() async -> Int {
+        guard QAAccessGate.shared.isUnlocked else { return 0 }
+        do {
+            let rows = try await QAReportTransport.fetchDeviceTickets()
+            var imported = 0
+            for row in rows {
+                guard let number = row["number"] as? String, !number.isEmpty,
+                      let title = row["title"] as? String else { continue }
+                let updated = Self.remoteDate(row["updatedAt"]) ?? .distantPast
+                if let index = tickets.firstIndex(where: { $0.number == number }) {
+                    guard updated >= tickets[index].updatedAt else { continue }
+                    let localShot = tickets[index].screenshotFile
+                    let localMockup = tickets[index].mockupFile
+                    tickets[index] = Self.remoteTicket(row, number: number, title: title)
+                    tickets[index].screenshotFile = localShot
+                    tickets[index].mockupFile = localMockup
+                } else {
+                    tickets.append(Self.remoteTicket(row, number: number, title: title))
+                    imported += 1
+                }
+            }
+            tickets.sort { $0.updatedAt > $1.updatedAt }
+            if tickets.count > cap { trim() }
+            save()
+            return imported
+        } catch {
+            lastSyncOutcome = "device pull failed: \(error.localizedDescription)"
+            return 0
+        }
+    }
+
+    private nonisolated static func remoteDate(_ value: Any?) -> Date? {
+        guard let text = value as? String else { return nil }
+        return ISO8601DateFormatter().date(from: text)
+    }
+
+    private nonisolated static func remoteTicket(_ row: [String: Any], number: String, title: String) -> QATicket {
+        let env = row["environment"] as? [String: Any] ?? [:]
+        var context = QATicketContext()
+        context.screen = row["screen"] as? String ?? "—"
+        context.breadcrumbs = row["breadcrumbs"] as? [String] ?? []
+        context.runningProcesses = row["runningProcesses"] as? [String] ?? []
+        context.stalledProcesses = row["stalledProcesses"] as? [String] ?? []
+        context.recentFailures = row["recentFailures"] as? [String] ?? []
+        context.openViolations = row["openViolations"] as? [String] ?? []
+        context.appVersion = env["appVersion"] as? String ?? ""
+        context.build = env["build"] as? Int ?? 0
+        context.device = env["device"] as? String ?? ""
+        context.os = env["os"] as? String ?? ""
+        context.memoryMB = Double(env["memoryMB"] as? Int ?? 0)
+        context.thermal = env["thermal"] as? String ?? ""
+        context.lowPower = env["lowPower"] as? Bool ?? false
+        context.online = env["online"] as? Bool ?? true
+        context.freeDiskMB = Double(env["freeDiskMB"] as? Int ?? 0)
+        context.sessionDuration = env["sessionDuration"] as? String ?? ""
+        context.tapsOnScreen = env["tapsOnScreen"] as? Int ?? 0
+        context.worstHitchMs = Double(env["worstHitchMs"] as? Int ?? 0)
+        context.touchTrail = row["touchTrail"] as? String
+        var ticket = QATicket(number: number, title: title)
+        ticket.body = row["body"] as? String ?? ""
+        ticket.severity = QATicketSeverity(rawValue: row["severity"] as? String ?? "") ?? .major
+        ticket.status = QATicketStatus(rawValue: row["status"] as? String ?? "") ?? .open
+        ticket.createdAt = remoteDate(row["createdAt"]) ?? Date()
+        ticket.updatedAt = remoteDate(row["updatedAt"]) ?? ticket.createdAt
+        ticket.context = context
+        ticket.resolution = row["resolution"] as? String
+        ticket.verifiedAt = remoteDate(row["verifiedAt"])
+        ticket.duplicateOf = row["duplicateOf"] as? String
+        ticket.seenAgain = row["seenAgain"] as? Int
+        ticket.refileCount = row["refileCount"] as? Int
+        ticket.requiresManualReview = row["requiresManualReview"] as? Bool
+        ticket.syncedAt = Date()
+        return ticket
+    }
+
     /// Push one ticket to the QA bridge.
     @discardableResult
     func publish(_ id: UUID) async -> Bool {
