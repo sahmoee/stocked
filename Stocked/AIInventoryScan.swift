@@ -93,6 +93,7 @@ final class AIInventoryScanner {
         defer { isScanning = false }
         var allUpdates: [InventoryScanUpdate] = []
         var lastChunkError: Error?
+        var completedLocalAudit = false
         let corrections = AICorrectionStore.shared.promptCorrections()
         let cloudReachable = StockedWorkerClient.isConfigured && ConnectivityMonitor.isOnlineFlag
 
@@ -138,16 +139,57 @@ final class AIInventoryScanner {
                 }
                 // nil = timed out; fall through keeping prior lastChunkError
             }
-            // Neither path worked for this chunk. Keep whatever earlier chunks already
-            // produced and move on — a partial scan beats none — but remember the
-            // failure so it can be reported if the whole scan comes up empty.
+
+            // Foundation Models is not present on every supported device, and a cloud
+            // provider can be unavailable for billing, quota, or network reasons. The
+            // deterministic audit still corrects safe zone and shelf-life metadata from
+            // Stocked's local knowledge. It deliberately does not invent nutrition or
+            // rename products, and an empty result means "already tidy", not failure.
+            allUpdates.append(contentsOf: Self.deterministicAudit(items: chunk))
+            completedLocalAudit = true
+            usedOnDeviceFallback = true
         }
 
-        if allUpdates.isEmpty, let lastChunkError {
+        if allUpdates.isEmpty, let lastChunkError, !completedLocalAudit {
             lastError = lastChunkError.localizedDescription
             return nil
         }
         return allUpdates
+    }
+
+    nonisolated private static func deterministicAudit(items: [LocalInventoryItem]) -> [InventoryScanUpdate] {
+        let calendar = Calendar(identifier: .gregorian)
+        let today = calendar.startOfDay(for: Date())
+        return items.compactMap { item in
+            let zoneDecision = ZoneDecisionEngine.decide(name: item.name, current: item.storageCategory)
+            let newZone: StorageCategory? = !zoneDecision.needsConfirmation && zoneDecision.zone != item.storageCategory
+                ? zoneDecision.zone : nil
+
+            var expiryDays: Int?
+            var reasons: [String] = []
+            if let newZone { reasons.append("Move to \(newZone.rawValue) using on-device food classification") }
+            if item.expirationDate == nil,
+               let estimate = ShelfLifeEstimator.estimate(name: item.name, zone: newZone ?? item.storageCategory).date {
+                let days = calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: estimate)).day ?? 0
+                if (1...730).contains(days) {
+                    expiryDays = days
+                    reasons.append("Add shelf life from Stocked's on-device food table")
+                }
+            }
+            guard newZone != nil || expiryDays != nil else { return nil }
+            return InventoryScanUpdate(
+                itemID: item.id,
+                currentName: item.name,
+                newName: nil,
+                currentZone: item.zone,
+                newZone: newZone,
+                calories: nil,
+                protein: nil,
+                servingSize: nil,
+                expiryDays: expiryDays,
+                reason: reasons.joined(separator: ". ")
+            )
+        }
     }
 
     /// Parses the Worker's response ({updates:[…]} — possibly inside an Anthropic

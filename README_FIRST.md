@@ -17,6 +17,9 @@ available. Barcode scans, inventory maintenance, grocery suggestions, substituti
 backfill, and serving calculations share a bounded USDA/FatSecret/publisher reconciliation cache.
 Apple Foundation Models may normalize grocery lookup terms on eligible devices, but never changes
 a user-visible name without review and always falls back deterministically when unavailable.
+Inventory Scan follows the same rule: after a Worker or Foundation Models failure, its local
+deterministic audit may propose safe storage-zone and shelf-life corrections but never invents
+nutrition or silently renames an item.
 
 Every existing inventory item is revisited in rotating bounded batches, and every future manual,
 receipt, barcode, grocery-transfer, sync, or confirmed AI inventory change immediately enters the

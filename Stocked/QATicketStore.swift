@@ -780,7 +780,20 @@ final class QATicketStore {
             "STK-92-0001": "Home now renders its first frame before deriving the kitchen snapshot and computes that snapshot once per store revision, eliminating repeated inventory and recipe passes during a single body update.",
             "STK-92-0002": "Home cards and buttons now use the live container width with smaller edge insets, a comfortable default control scale, and an Interface Size preference for Standard, Comfortable, or Large controls.",
             "STK-92-0003": "All shell pages now use up to 1,180 points of live window width instead of the old narrow reading-column cap, while compact windows retain safe edge padding.",
-            "STK-93-0015": "Added an app-wide Interface Size preference and container-driven sizing so iPad controls default to Comfortable and can be enlarged without changing the device's system text size."
+            "STK-93-0015": "Added an app-wide Interface Size preference and container-driven sizing so iPad controls default to Comfortable and can be enlarged without changing the device's system text size.",
+            "STK-93-0018": "Inventory Scan now falls back from a failed cloud provider to Apple Foundation Models and then to Stocked's deterministic on-device zone and shelf-life audit, so exhausted provider credit no longer blocks inventory correction.",
+            "STK-92-0004": "Required image-backed recipes in every recipe collection and routed Drinks through the same original-image resolver and cache as the rest of the library.",
+            "STK-92-0009": "Cook Now now excludes recipes without usable images and renders publisher-original photography through the shared lossless image cache.",
+            "STK-107-0001": "Applied the active Stocked theme to the complete popover and sheet presentation surface instead of leaving a stock system background.",
+            "STK-107-0002": "Centralized themed presentation styling across pages, sheets, popovers, alerts, text fields, and controls in light and dark mode.",
+            "STK-107-0003": "Replaced narrow fixed sheet geometry with container-driven sizing, adaptive detents, and scrolling only when the available iPad window actually requires it.",
+            "STK-107-0005": "Filtered every Recipes collection through the shared image-completeness gate and continuously removes historical recipes whose image cannot be recovered.",
+            "STK-107-0007": "Made recipe controls and cards use the live window metrics, accessible minimum targets, and the app-wide Interface Size preference on iPhone and iPad.",
+            "STK-107-0008": "Cook Now now hydrates and classifies the full shared recipe library before rendering tiers, with persisted results available while remote refreshes run.",
+            "STK-107-0009": "Cook Now results now use adaptive columns and the available iPad width in portrait, landscape, Split View, and Stage Manager instead of retaining a narrow phone column.",
+            "STK-107-0010": "Applied the required-image gate and publisher-original image resolver to every Cook Now result tier, including historical imported recipes.",
+            "STK-90-0001": "Preserved and displayed each recipe's original publisher attribution across StockedMac import, Worker sync, historical repair, and Stocked iOS instead of labeling the source StockedMac.",
+            "STK-96-0006": "Repaired legacy StockedMac attribution from durable source URLs and made future sync payloads retain the publisher name and URL."
         ]
         if let resolution = currentTicketResolutions[ticket.number] {
             return resolution
