@@ -754,7 +754,9 @@ final class HouseholdSync {
             guard (200...299).contains(http.statusCode) else {
                 let detail = object?["error"] as? String
                 let code = object?["code"] as? String
-                if code == "kvQuota" || http.statusCode == 503 {
+                if code == "householdCrash" {
+                    lastPostFailure = .quotaExhausted("Household sync paused temporarily. Try again shortly.")
+                } else if code == "kvQuota" || http.statusCode == 503 {
                     lastPostFailure = .quotaExhausted(detail ?? "Household sync storage is temporarily unavailable.")
                 } else if http.statusCode == 429 {
                     let retry = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
