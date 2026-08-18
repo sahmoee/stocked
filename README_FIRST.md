@@ -26,3 +26,7 @@ receipt, barcode, grocery-transfer, sync, or confirmed AI inventory change immed
 same enrichment pipeline. Barcode identity uses Worker/Open Food Facts product data; nutrition is
 reconciled by confidence across publisher labels, USDA, FatSecret, and local knowledge. Provider
 failure preserves partial results and advances the cursor so one item cannot stall the database.
+
+Recoverable household storage failures retry automatically with capped 0.5, 1, and 2 second
+backoff while UI diagnostics report `Repairing household storage…`. Exhausted repair uses ordinary
+queue backoff rather than the hour-long quota pause, and later polling continues automatically.

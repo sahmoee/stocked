@@ -196,6 +196,7 @@ final class HouseholdSync {
         }
     }
     private(set) var syncStage: SyncStage? = nil
+    private(set) var isRepairingHouseholdStorage = false
     func clearStage() { syncStage = nil }
 
     /// Display name used for attribution and the member list. Set from the app.
@@ -744,7 +745,10 @@ final class HouseholdSync {
             return nil
         }
         request.httpBody = encoded
-        do {
+        let repairDelays: [Duration] = [.milliseconds(500), .seconds(1), .seconds(2)]
+        defer { isRepairingHouseholdStorage = false }
+        for attempt in 0...repairDelays.count {
+          do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 lastPostFailure = .malformedResponse("Household sync returned no HTTP response.")
@@ -754,9 +758,16 @@ final class HouseholdSync {
             guard (200...299).contains(http.statusCode) else {
                 let detail = object?["error"] as? String
                 let code = object?["code"] as? String
-                if code == "householdCrash" {
-                    lastPostFailure = .quotaExhausted("Household sync paused temporarily. Try again shortly.")
-                } else if code == "kvQuota" || http.statusCode == 503 {
+                if code == "householdCrash" || (http.statusCode == 503 && code != "kvQuota") {
+                    if attempt < repairDelays.count {
+                        isRepairingHouseholdStorage = true
+                        lastError = "Repairing household storage…"
+                        try? await Task.sleep(for: repairDelays[attempt])
+                        guard !Task.isCancelled else { lastPostFailure = .cancelled; return nil }
+                        continue
+                    }
+                    lastPostFailure = .transport(detail ?? "Household storage repair couldn't finish. Sync will retry automatically.")
+                } else if code == "kvQuota" {
                     lastPostFailure = .quotaExhausted(detail ?? "Household sync storage is temporarily unavailable.")
                 } else if http.statusCode == 429 {
                     let retry = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
@@ -767,6 +778,7 @@ final class HouseholdSync {
                 Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
                 return nil
             }
+            lastError = nil
             return object
         } catch is CancellationError {
             lastPostFailure = .cancelled
@@ -774,7 +786,9 @@ final class HouseholdSync {
         } catch {
             lastPostFailure = .transport(error.localizedDescription)
             return nil
+          }
         }
+        return nil
     }
 
     private func fail(_ message: String) {
