@@ -698,7 +698,7 @@ struct HouseholdSettingsView: View {
     }
     private var statusIcon: String {
         if household.isRepairingHouseholdStorage { return "wrench.and.screwdriver.fill" }
-        statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
+        return statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
     }
     private var lastSyncedText: String {
         let dates = [household.syncStatus.lastSuccessfulPush, household.syncStatus.lastSuccessfulPull].compactMap { $0 }
