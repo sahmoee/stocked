@@ -26,9 +26,3 @@ receipt, barcode, grocery-transfer, sync, or confirmed AI inventory change immed
 same enrichment pipeline. Barcode identity uses Worker/Open Food Facts product data; nutrition is
 reconciled by confidence across publisher labels, USDA, FatSecret, and local knowledge. Provider
 failure preserves partial results and advances the cursor so one item cannot stall the database.
-
-AI is Apple-first for supported local work. Included cloud AI is only unlocked on Jessie's production/test devices with the local `Joo` gate; public installs use Apple Intelligence or a private UnifiedWorker. Private Workers may select Claude or OpenAI model IDs and keep provider keys in Worker secrets, never in the app.
-
-Public users may alternatively buy consumable managed-AI credits through StoreKit. Credit purchases use localized App Store prices, an iCloud Keychain-synchronized account token, Apple server verification, duplicate-transaction protection, a visible remaining balance, and fixed per-action estimates. Failed requests do not consume credits and credits do not expire. Keep the App Store product IDs and Worker allowlist synchronized.
-
-The AI-credit storefront and managed-credit backend are archived with `AICreditStorefront.isEnabled = false`; neither appears in the active AI selector nor sends purchase or credit requests. Keep the implementation intact for possible later use. The active settings must continue to let users choose Apple-first automatic AI, the owner/test managed service, or their own private Worker, plus Claude/OpenAI provider and supported model ID where applicable.
