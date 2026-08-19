@@ -34,7 +34,7 @@ struct CookHubIllustratedButton: View {
     let assetName: String
     let action: () -> Void
 
-    private var imageWidth: CGFloat { dynamicTypeSize.isAccessibilitySize ? 104 : 152 }
+    private var imageWidth: CGFloat { dynamicTypeSize.isAccessibilitySize ? 118 : 154 }
 
     var body: some View {
         Button(action: action) {
@@ -43,11 +43,11 @@ struct CookHubIllustratedButton: View {
                 verticalContent
             }
             .padding(.horizontal, 18)
-            .padding(.vertical, 20)
-            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 250 : 205)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 250 : 202)
             .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -56,7 +56,7 @@ struct CookHubIllustratedButton: View {
     }
 
     private var horizontalContent: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 16) {
             illustration.frame(width: imageWidth)
             copy
             chevron
@@ -81,16 +81,16 @@ struct CookHubIllustratedButton: View {
     }
 
     private var copy: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 9) {
             Text(title)
-                .font(.system(.title, design: .serif, weight: .bold))
+                .font(.system(size: 27, weight: .bold, design: .serif))
                 .foregroundStyle(session.themeTextColor)
             Text(primaryDetail)
-                .font(.body)
+                .font(.system(size: 15))
                 .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Text(secondaryDetail)
-                .font(.body)
+                .font(.system(size: 14))
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }

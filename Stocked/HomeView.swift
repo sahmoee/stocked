@@ -8,6 +8,7 @@ struct HomeView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) var device
     @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
@@ -37,27 +38,43 @@ struct HomeView: View {
     private var metricsRevision: String {
         "\(store.inventoryRevision):\(store.groceryRevision):\(store.recipeRevision):\(store.planRevision)"
     }
+    private var usesReferencePhoneGeometry: Bool {
+        layoutMetrics.width < 600 && !dynamicTypeSize.isAccessibilitySize
+    }
+    private var homeHorizontalPadding: CGFloat {
+        usesReferencePhoneGeometry ? 20 : layoutMetrics.horizontalPadding
+    }
 
     var body: some View {
-        StockedShell(leadingTitle: true) {
-            VStack(alignment: .leading, spacing: 24) {
+        StockedShell(
+            leadingTitle: false,
+            headerTopPadding: usesReferencePhoneGeometry ? -9 : 8,
+            // The reference wordmark is optically smaller than the earlier shell title.
+            // Preserve the content baseline while using that exact smaller mark.
+            headerBottomPadding: usesReferencePhoneGeometry ? 18 : 14
+        ) {
+            VStack(alignment: .leading, spacing: 0) {
                 referenceHero
+                    .padding(.bottom, usesReferencePhoneGeometry ? 15 : 18)
                 referenceStockLevel
+                    .padding(.bottom, usesReferencePhoneGeometry ? 17 : 24)
                 referenceActions
+                    .padding(.bottom, usesReferencePhoneGeometry ? 13 : 22)
                 referenceUseItSoon
+                    .padding(.bottom, usesReferencePhoneGeometry ? 16 : 20)
                 referenceSnapshot
-                Spacer(minLength: 24)
+                Spacer(minLength: 12)
             }
             .frame(maxWidth: 760)
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, layoutMetrics.horizontalPadding)
+            .padding(.horizontal, homeHorizontalPadding)
             .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
             .task(id: metricsRevision) {
                 // Let the first frame render before deriving recipe/inventory metrics.
                 // Large restored kitchens previously repeated these passes many times
                 // during Home's initial body evaluation and could block the main thread.
                 await Task.yield()
-                kitchenMetrics = store.metrics
+                kitchenMetrics = store.lightweightMetrics
             }
             .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
                 goExpiringList = false
@@ -75,35 +92,66 @@ struct HomeView: View {
     }
 
     private var referenceHero: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("\(greeting), Chef 👋")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(Color.stockedGold)
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .bottom, spacing: 12) {
+        Group {
+            if usesReferencePhoneGeometry {
+                ZStack(alignment: .topLeading) {
+                    Text("\(greeting), Chef 👋")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                        .offset(y: 1)
+
                     referenceHeroCopy
+                        .frame(width: 210, alignment: .leading)
+                        .offset(y: 21)
+
                     Image("home_kitchen_still_life")
-                        .resizable().scaledToFit()
-                        .frame(width: 245, height: 180, alignment: .bottom)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 172, height: 120, alignment: .bottomTrailing)
+                        .scaleEffect(x: 0.95, y: 1.04)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .offset(x: 8, y: 15)
                         .accessibilityHidden(true)
                 }
-                referenceHeroCopy
+                .frame(height: 124, alignment: .top)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("\(greeting), Chef 👋")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(Color.stockedGold)
+                    HStack(alignment: .bottom, spacing: 20) {
+                        referenceHeroCopy
+                        Spacer(minLength: 8)
+                        Image("home_kitchen_still_life")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: min(250, layoutMetrics.width * 0.34), height: 170, alignment: .bottom)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
         }
         .coachmarkAnchor("home.greeting")
     }
 
     private var referenceHeroCopy: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(kitchenMetrics.stockPercent >= 80 ? "Your kitchen is\nin good shape." : "Let’s get your kitchen\nin good shape.")
-                .font(.system(.largeTitle, design: .serif, weight: .bold))
+        VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 6 : 12) {
+            Text(kitchenMetrics.stockPercent >= 80 ? "Your kitchen is\nin good shape." : "Let’s refresh\nyour kitchen.")
+                .font(usesReferencePhoneGeometry
+                      ? .system(size: 29, weight: .bold, design: .serif)
+                      : .system(.largeTitle, design: .serif, weight: .bold))
                 .foregroundStyle(session.themeTextColor)
+                .lineLimit(2)
+                .lineSpacing(usesReferencePhoneGeometry ? -5 : 0)
+                .minimumScaleFactor(0.88)
                 .fixedSize(horizontal: false, vertical: true)
             Text(kitchenMetrics.stockPercent >= 80
                  ? "Everything you need to cook, plus a little extra. Keep it up."
                  : "A few smart updates will unlock more meals and keep the week moving.")
-                .font(.body)
+                .font(usesReferencePhoneGeometry ? .system(size: 11.5) : .body)
                 .foregroundStyle(session.themeTextColor.opacity(0.62))
+                .lineLimit(usesReferencePhoneGeometry ? 2 : nil)
+                .lineSpacing(usesReferencePhoneGeometry ? 1 : 0)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -113,17 +161,26 @@ struct HomeView: View {
         Button {
             NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.stats)
         } label: {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 18) { referenceStockIcon; referenceStockValue; divider; referenceStockSummary }
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(spacing: 16) { referenceStockIcon; referenceStockValue }
-                    referenceStockSummary
+            Group {
+                if usesReferencePhoneGeometry {
+                    HStack(spacing: 0) {
+                        referenceStockIcon
+                        Spacer().frame(width: 14)
+                        referenceStockValue.frame(width: 62, alignment: .leading)
+                        Spacer().frame(width: 14)
+                        divider
+                        Spacer().frame(width: 16)
+                        referenceStockSummary
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, minHeight: 94, maxHeight: 94, alignment: .leading)
+                } else {
+                    HStack(spacing: 18) { referenceStockIcon; referenceStockValue; divider; referenceStockSummary }
+                        .padding(18)
                 }
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 14 : 24, style: .continuous))
         }
         .buttonStyle(.plain)
         .a11yButton("Stock level \(kitchenMetrics.stockPercent) percent. \(stockLabel)")
@@ -131,64 +188,152 @@ struct HomeView: View {
 
     private var referenceStockIcon: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.stockedCharcoal)
+            RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 14 : 20, style: .continuous).fill(Color.stockedCharcoal)
             Image(systemName: "gauge.with.dots.needle.67percent")
-                .font(.system(size: 38, weight: .medium)).foregroundStyle(Color.stockedGold)
-        }.frame(width: 82, height: 92)
+                .font(.system(size: usesReferencePhoneGeometry ? 27 : 38, weight: .medium)).foregroundStyle(Color.stockedGold)
+        }
+        .frame(width: usesReferencePhoneGeometry ? 58 : 82,
+               height: usesReferencePhoneGeometry ? 64 : 92)
     }
 
     private var referenceStockValue: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Stock Level").font(.subheadline.weight(.semibold)).foregroundStyle(session.themeTextColor.opacity(0.72))
-            Text("\(kitchenMetrics.stockPercent)%").font(.system(size: 42, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-            Text(stockLabel).font(.subheadline.weight(.semibold)).foregroundStyle(Color.stockedGold)
-        }.frame(minWidth: 130, alignment: .leading)
+        VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 0 : 2) {
+            Text("Stock Level")
+                .font(.system(size: usesReferencePhoneGeometry ? 10.5 : 15, weight: .semibold))
+                .foregroundStyle(session.themeTextColor.opacity(0.72))
+                .lineLimit(1)
+            Text("\(kitchenMetrics.stockPercent)%")
+                .font(.system(size: usesReferencePhoneGeometry ? 28 : 38, weight: .bold, design: .serif))
+                .foregroundStyle(session.themeTextColor)
+                .minimumScaleFactor(0.72)
+                .lineLimit(1)
+            Text(stockLabel)
+                .font(.system(size: usesReferencePhoneGeometry ? 9.5 : 15, weight: .semibold))
+                .foregroundStyle(Color.stockedGold)
+                .lineLimit(1)
+        }
+        .frame(minWidth: usesReferencePhoneGeometry ? 0 : (layoutMetrics.width < 390 ? 104 : 122), alignment: .leading)
     }
 
     private var divider: some View {
-        Rectangle().fill(session.themeTextColor.opacity(0.18)).frame(width: 1, height: 100)
+        Rectangle().fill(session.themeTextColor.opacity(0.18))
+            .frame(width: 1, height: usesReferencePhoneGeometry ? 64 : 100)
     }
 
     private var referenceStockSummary: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 5 : 8) {
             HStack {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 3 : 6) {
                     Text(lowStockCount == 0 ? "You’re all set!" : "A few things are running low")
-                        .font(.headline).foregroundStyle(session.themeTextColor)
+                        .font(.system(size: usesReferencePhoneGeometry ? 10.5 : 17, weight: .semibold))
+                        .foregroundStyle(session.themeTextColor)
+                        .lineLimit(usesReferencePhoneGeometry ? 1 : 2)
+                        .minimumScaleFactor(0.8)
                     Text(lowStockCount == 0 ? "Nothing running low right now. Keep cooking."
                                             : "\(lowStockCount) item\(lowStockCount == 1 ? "" : "s") could use attention.")
-                        .font(.subheadline).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .font(.system(size: usesReferencePhoneGeometry ? 10 : 15))
+                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").foregroundStyle(session.themeTextColor.opacity(0.6))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: usesReferencePhoneGeometry ? 11 : 15, weight: .semibold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.6))
             }
             ProgressView(value: Double(kitchenMetrics.stockPercent), total: 100)
                 .tint(Color.stockedGold)
+                .scaleEffect(x: 1, y: usesReferencePhoneGeometry ? 0.72 : 1, anchor: .center)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var referenceActions: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Keep your kitchen moving").font(.system(.title2, design: .serif, weight: .bold)).foregroundStyle(session.themeTextColor)
+                Text("Keep your kitchen moving")
+                    .font(usesReferencePhoneGeometry
+                          ? .system(size: 13, weight: .bold, design: .serif)
+                          : .system(.title2, design: .serif, weight: .bold))
+                    .foregroundStyle(session.themeTextColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Spacer()
-                Text("Shortcuts to save you time.").font(.subheadline).foregroundStyle(session.themeTextColor.opacity(0.58))
+                Text("Shortcuts to save you time.")
+                    .font(.system(size: usesReferencePhoneGeometry ? 9 : 15))
+                    .foregroundStyle(session.themeTextColor.opacity(0.58))
+                    .lineLimit(1)
             }
-            HStack(alignment: .bottom, spacing: 14) {
+            .frame(height: usesReferencePhoneGeometry ? 20 : nil)
+            .padding(.bottom, usesReferencePhoneGeometry ? 6 : 14)
+
+            HStack(alignment: .center, spacing: 0) {
                 referencePrimaryAction
-                Image("home_grocery_bag").resizable().scaledToFit().frame(width: 150, height: 150).accessibilityHidden(true)
+                    .frame(width: usesReferencePhoneGeometry
+                           ? (layoutMetrics.width - (homeHorizontalPadding * 2)) * 0.618
+                           : nil)
+                if usesReferencePhoneGeometry {
+                    Spacer()
+                        .frame(width: 15)
+                } else {
+                    Spacer(minLength: 12)
+                }
+                Image("home_grocery_bag")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: usesReferencePhoneGeometry ? 84 : min(150, layoutMetrics.width * 0.22),
+                           height: usesReferencePhoneGeometry ? 77 : 140)
+                    .scaleEffect(x: usesReferencePhoneGeometry ? 1.45 : 1,
+                                 y: usesReferencePhoneGeometry ? 1.10 : 1)
+                    .accessibilityHidden(true)
+                if usesReferencePhoneGeometry {
+                    Spacer(minLength: 0)
+                }
             }
-            HStack(spacing: 8) {
-                referenceCompactAction("Scan Barcode", "Look up a product", "barcode.viewfinder") {
-                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
+            .frame(height: usesReferencePhoneGeometry ? 77 : nil)
+            .padding(.bottom, usesReferencePhoneGeometry ? 6 : 8)
+
+            if usesReferencePhoneGeometry || !layoutMetrics.prefersVerticalControls {
+                if usesReferencePhoneGeometry {
+                    referencePhoneActionButtons
+                } else {
+                    HStack(spacing: 8) { referenceActionButtons }
                 }
-                referenceCompactAction("Add Item", "Add by hand", "plus") {
-                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
-                }
-                referenceCompactAction("Quick Update", "Tell me what changed", "scribble.variable") {
-                    activeHomeSheet = .quickUpdate
-                }
+            } else {
+                VStack(spacing: 8) { referenceActionButtons }
             }
+        }
+    }
+
+    private var referencePhoneActionButtons: some View {
+        let available = layoutMetrics.width - (homeHorizontalPadding * 2) - 10
+        return HStack(spacing: 5) {
+            referenceCompactAction("Scan Barcode", "Look up a product", "barcode.viewfinder") {
+                NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
+            }
+            .frame(width: available * 0.34)
+
+            referenceCompactAction("Add Item", "Add by hand", "plus") {
+                NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
+            }
+            .frame(width: available * 0.32)
+
+            referenceCompactAction("Quick Update", "Tell me what changed", "scribble.variable") {
+                activeHomeSheet = .quickUpdate
+            }
+            .frame(width: available * 0.34)
+        }
+    }
+
+    @ViewBuilder
+    private var referenceActionButtons: some View {
+        referenceCompactAction("Scan Barcode", "Look up a product", "barcode.viewfinder") {
+            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
+        }
+        referenceCompactAction("Add Item", "Add by hand", "plus") {
+            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
+        }
+        referenceCompactAction("Quick Update", "Tell me what changed", "scribble.variable") {
+            activeHomeSheet = .quickUpdate
         }
     }
 
@@ -196,73 +341,138 @@ struct HomeView: View {
         Button {
             NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
         } label: {
-            HStack(spacing: 16) {
+            HStack(spacing: usesReferencePhoneGeometry ? 10 : 16) {
                 referenceDarkIcon("doc.text.viewfinder")
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Scan Receipt").font(.system(.title3, design: .serif, weight: .bold))
-                    Text("Add items fast").font(.subheadline).opacity(0.72)
+                VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 2 : 4) {
+                    Text("Scan Receipt")
+                        .font(usesReferencePhoneGeometry
+                              ? .system(size: 13, weight: .bold, design: .serif)
+                              : .system(.title3, design: .serif, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                        .allowsTightening(true)
+                    Text("Add items fast")
+                        .font(.system(size: usesReferencePhoneGeometry ? 10.5 : 15))
+                        .opacity(0.72)
                 }
                 Spacer()
-                Circle().fill(Color.white.opacity(0.08)).frame(width: 48, height: 48)
-                    .overlay(Image(systemName: "chevron.right").foregroundStyle(Color.stockedGold))
+                Circle().fill(Color.white.opacity(0.08))
+                    .frame(width: usesReferencePhoneGeometry ? 28 : 48,
+                           height: usesReferencePhoneGeometry ? 28 : 48)
+                    .overlay(Image(systemName: "chevron.right")
+                        .font(.system(size: usesReferencePhoneGeometry ? 11 : 15, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold))
             }
             .foregroundStyle(Color.stockedWhite)
-            .padding(18).frame(maxWidth: .infinity, minHeight: 112)
+            .padding(.horizontal, usesReferencePhoneGeometry ? 14 : 18)
+            .frame(maxWidth: .infinity,
+                   minHeight: usesReferencePhoneGeometry ? 66 : 112,
+                   maxHeight: usesReferencePhoneGeometry ? 66 : nil)
             .background(Color.stockedCharcoal)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 12 : 24, style: .continuous))
         }.buttonStyle(.plain)
     }
 
     private func referenceCompactAction(_ title: String, _ subtitle: String, _ icon: String,
                                         action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 10) {
-                referenceDarkIcon(icon).scaleEffect(0.78)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.subheadline.weight(.bold)).foregroundStyle(session.themeTextColor).lineLimit(2)
-                    Text(subtitle).font(.caption).foregroundStyle(session.themeTextColor.opacity(0.58)).lineLimit(2)
+            HStack(spacing: usesReferencePhoneGeometry ? 6 : 10) {
+                referenceDarkIcon(icon, compact: true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: usesReferencePhoneGeometry ? 8.8 : 12, weight: .bold))
+                        .foregroundStyle(session.themeTextColor)
+                        .lineLimit(title == "Quick Update" && usesReferencePhoneGeometry ? 2 : 1)
+                        .minimumScaleFactor(0.72)
+                        .allowsTightening(true)
+                    Text(subtitle)
+                        .font(.system(size: usesReferencePhoneGeometry ? 8.5 : 10))
+                        .foregroundStyle(session.themeTextColor.opacity(0.58))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.72)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(session.themeTextColor.opacity(0.6))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: usesReferencePhoneGeometry ? 8 : 10, weight: .bold))
+                    .foregroundStyle(session.themeTextColor.opacity(0.6))
             }
-            .padding(12).frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
+            .padding(.horizontal, usesReferencePhoneGeometry ? 6 : 10)
+            .frame(maxWidth: .infinity,
+                   minHeight: usesReferencePhoneGeometry ? 65 : (layoutMetrics.prefersVerticalControls ? 70 : 84),
+                   maxHeight: usesReferencePhoneGeometry ? 65 : nil,
+                   alignment: .leading)
             .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 12 : 22, style: .continuous))
         }.buttonStyle(.plain)
     }
 
-    private func referenceDarkIcon(_ icon: String) -> some View {
-        Circle().fill(Color.stockedCharcoal).frame(width: 58, height: 58)
-            .overlay(Image(systemName: icon).font(.system(size: 22, weight: .medium)).foregroundStyle(Color.stockedGold))
+    private func referenceDarkIcon(_ icon: String, compact: Bool = false) -> some View {
+        let side: CGFloat = usesReferencePhoneGeometry ? (compact ? 28 : 40) : (compact ? (layoutMetrics.width < 390 ? 34 : 40) : 58)
+        return Circle().fill(Color.stockedCharcoal).frame(width: side, height: side)
+            .overlay(Image(systemName: icon)
+                .font(.system(size: usesReferencePhoneGeometry ? (compact ? 12 : 17) : (compact ? 16 : 22), weight: .medium))
+                .foregroundStyle(Color.stockedGold))
     }
 
     private var referenceUseItSoon: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 7 : 12) {
             HStack {
-                Text("Use It Soon").font(.system(.title2, design: .serif, weight: .bold)).foregroundStyle(session.themeTextColor)
+                Text("Use It Soon")
+                    .font(usesReferencePhoneGeometry
+                          ? .system(size: 13, weight: .bold, design: .serif)
+                          : .system(.title2, design: .serif, weight: .bold))
+                    .foregroundStyle(session.themeTextColor)
                 Spacer()
-                Button("View All") { goExpiringList = true }.font(.subheadline.weight(.semibold)).foregroundStyle(Color.stockedGold)
-                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(Color.stockedGold)
+                Button("View All") { goExpiringList = true }
+                    .font(.system(size: usesReferencePhoneGeometry ? 11 : 15, weight: .semibold))
+                    .foregroundStyle(Color.stockedGold)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: usesReferencePhoneGeometry ? 9 : 12, weight: .bold))
+                    .foregroundStyle(Color.stockedGold)
             }
+            .frame(height: usesReferencePhoneGeometry ? 20 : nil)
             Button { goExpiringList = true } label: {
-                HStack(spacing: 18) {
-                    Image("home_produce_crate").resizable().scaledToFit().frame(width: 180, height: 130).accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: usesReferencePhoneGeometry ? 10 : 18) {
+                    Image("home_produce_crate")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: usesReferencePhoneGeometry ? 100 : min(150, layoutMetrics.width * 0.32),
+                               height: usesReferencePhoneGeometry ? 72 : 120)
+                        .scaleEffect(usesReferencePhoneGeometry ? 1.12 : 1)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 3 : 8) {
                         Text(expiringCount == 0 ? "Nothing expiring soon" : "\(expiringCount) item\(expiringCount == 1 ? "" : "s") expiring soon")
-                            .font(.system(.title3, design: .serif, weight: .bold)).foregroundStyle(session.themeTextColor)
+                            .font(usesReferencePhoneGeometry
+                                  ? .system(size: 14.25, weight: .bold, design: .serif)
+                                  : .system(.headline, design: .serif, weight: .bold))
+                            .foregroundStyle(session.themeTextColor)
+                            .lineLimit(usesReferencePhoneGeometry ? 1 : 2)
+                            .minimumScaleFactor(0.72)
+                            .allowsTightening(true)
                         Text(expiringCount == 0 ? "You’re in good shape!" : "Use these first to waste less.")
-                            .font(.body).foregroundStyle(session.themeTextColor)
+                            .font(.system(size: usesReferencePhoneGeometry ? 11 : 17))
+                            .foregroundStyle(session.themeTextColor)
                         Text(expiringCount == 0 ? "We’ll let you know when something is close to expiring."
                                                 : "Tap to see what needs attention.")
-                            .font(.subheadline).foregroundStyle(session.themeTextColor.opacity(0.58))
+                            .font(.system(size: usesReferencePhoneGeometry ? 10 : 15))
+                            .foregroundStyle(session.themeTextColor.opacity(0.58))
+                            .lineLimit(2)
                     }
                     Spacer()
-                    Circle().fill(session.themeTextColor.opacity(0.06)).frame(width: 58, height: 58)
-                        .overlay(Image(systemName: expiringCount == 0 ? "checkmark" : "chevron.right").foregroundStyle(session.themeTextColor))
+                    Circle().fill(session.themeTextColor.opacity(0.06))
+                        .frame(width: usesReferencePhoneGeometry ? 38 : 58,
+                               height: usesReferencePhoneGeometry ? 38 : 58)
+                        .overlay(Image(systemName: expiringCount == 0 ? "checkmark" : "chevron.right")
+                            .font(.system(size: usesReferencePhoneGeometry ? 14 : 17, weight: .semibold))
+                            .foregroundStyle(session.themeTextColor))
                 }
-                .padding(18).frame(maxWidth: .infinity, minHeight: 154, alignment: .leading)
+                .padding(.horizontal, usesReferencePhoneGeometry ? 10 : 18)
+                .frame(maxWidth: .infinity,
+                       minHeight: usesReferencePhoneGeometry ? 90 : 154,
+                       maxHeight: usesReferencePhoneGeometry ? 90 : nil,
+                       alignment: .leading)
                 .background(session.themeCardColor)
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 14 : 24, style: .continuous))
             }.buttonStyle(.plain)
         }
     }
@@ -271,12 +481,17 @@ struct HomeView: View {
         Button {
             NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.stats)
         } label: {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 6 : 16) {
                 HStack {
-                    Text("Kitchen Snapshot").font(.headline).foregroundStyle(Color.stockedGold)
-                    Spacer(); Image(systemName: "chevron.right").foregroundStyle(Color.stockedGold)
+                    Text("Kitchen Snapshot")
+                        .font(.system(size: usesReferencePhoneGeometry ? 11 : 17, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: usesReferencePhoneGeometry ? 10 : 15, weight: .semibold))
+                        .foregroundStyle(Color.stockedGold)
                 }
-                HStack(spacing: 12) {
+                HStack(spacing: usesReferencePhoneGeometry ? 6 : 12) {
                     snapshotMetric("refrigerator", "\(store.inventoryItems.count)", "Items in inventory", "Well stocked")
                     snapshotDivider
                     snapshotMetric("bag", "\(lowStockCount)", "Low stock items", "You’re good")
@@ -284,25 +499,45 @@ struct HomeView: View {
                     snapshotMetric("list.clipboard", "\(groceryToBuy)", "On grocery list", "Ready to shop")
                 }
             }
-            .padding(20).frame(maxWidth: .infinity)
+            .padding(usesReferencePhoneGeometry ? 10 : 20)
+            .frame(maxWidth: .infinity,
+                   minHeight: usesReferencePhoneGeometry ? 95 : nil,
+                   maxHeight: usesReferencePhoneGeometry ? 95 : nil)
             .background(Color.stockedCharcoal)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 14 : 24, style: .continuous))
         }.buttonStyle(.plain)
     }
 
     private func snapshotMetric(_ icon: String, _ value: String, _ label: String, _ status: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 10) {
-                Circle().fill(Color.white.opacity(0.07)).frame(width: 46, height: 46)
-                    .overlay(Image(systemName: icon).foregroundStyle(Color.stockedGold))
-                Text(value).font(.system(size: 28, weight: .bold, design: .serif)).foregroundStyle(Color.stockedWhite)
+        VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 1 : 4) {
+            HStack(spacing: usesReferencePhoneGeometry ? 6 : 10) {
+                Circle().fill(Color.white.opacity(0.07))
+                    .frame(width: usesReferencePhoneGeometry ? 32 : 46,
+                           height: usesReferencePhoneGeometry ? 32 : 46)
+                    .overlay(Image(systemName: icon)
+                        .font(.system(size: usesReferencePhoneGeometry ? 13 : 17))
+                        .foregroundStyle(Color.stockedGold))
+                Text(value)
+                    .font(.system(size: usesReferencePhoneGeometry ? 19 : 28, weight: .bold, design: .serif))
+                    .foregroundStyle(Color.stockedWhite)
             }
-            Text(label).font(.caption).foregroundStyle(Color.stockedWhite)
-            Text(status).font(.caption.weight(.semibold)).foregroundStyle(Color.stockedGold)
+            Text(label)
+                .font(.system(size: usesReferencePhoneGeometry ? 8.5 : 12))
+                .foregroundStyle(Color.stockedWhite)
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
+            Text(status)
+                .font(.system(size: usesReferencePhoneGeometry ? 8.5 : 12, weight: .semibold))
+                .foregroundStyle(Color.stockedGold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var snapshotDivider: some View { Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1, height: 84) }
+    private var snapshotDivider: some View {
+        Rectangle().fill(Color.white.opacity(0.18))
+            .frame(width: 1, height: usesReferencePhoneGeometry ? 48 : 84)
+    }
 
     private func enterEditMode() {
         guard !editMode else { return }

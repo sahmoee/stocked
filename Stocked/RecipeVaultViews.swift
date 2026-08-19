@@ -232,7 +232,7 @@ struct RecipeVaultView: View {
     }
 
     private var referenceRecipesPage: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 12) {
             referenceRecipeHero
             referenceRecipeDestinations
             referenceAICard
@@ -241,37 +241,37 @@ struct RecipeVaultView: View {
             referenceBrowseRow
             Spacer(minLength: 24)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 18)
         .padding(.bottom, 12)
     }
 
     private var referenceRecipeHero: some View {
-        HStack(alignment: .bottom, spacing: 4) {
+        HStack(alignment: .bottom, spacing: 2) {
             VStack(alignment: .leading, spacing: 9) {
                 Text("YOUR RECIPE BOOK")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(2.2)
                     .foregroundStyle(Color.stockedGold)
                 Text("What are you\nlooking for?")
-                    .font(.system(size: 36, weight: .bold, design: .serif))
+                    .font(.system(size: 31, weight: .bold, design: .serif))
                     .foregroundStyle(session.themeTextColor)
                     .minimumScaleFactor(0.78)
                 Text("Your recipes, past meals,\nand ideas for what to make next.")
-                    .font(.system(size: 16, design: .serif))
+                    .font(.system(size: 13, design: .serif))
                     .foregroundStyle(session.themeTextColor.opacity(0.78))
                     .lineSpacing(5)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Image("recipes_hero")
                 .resizable().scaledToFit()
-                .frame(maxWidth: 235, maxHeight: 210)
+                .frame(maxWidth: 210, maxHeight: 165)
                 .accessibilityHidden(true)
         }
     }
 
     private var referenceRecipeDestinations: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) { referenceDestinationCards }
+            HStack(spacing: 7) { referenceDestinationCards }
             VStack(spacing: 10) { referenceDestinationCards }
         }
     }
@@ -295,48 +295,49 @@ struct RecipeVaultView: View {
     private func referenceDestinationCard(image: String, title: String, subtitle: String,
                                           detail: String?, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                Image(image).resizable().scaledToFit().frame(height: 112).frame(maxWidth: .infinity)
-                Text(title).font(.system(size: 16, weight: .bold)).foregroundStyle(session.themeTextColor)
-                Text(subtitle).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.76)).lineSpacing(3)
+            VStack(alignment: .leading, spacing: 4) {
+                Image(image).resizable().scaledToFit().frame(height: 72).frame(maxWidth: .infinity)
+                Text(title).font(.system(size: 13, weight: .bold)).foregroundStyle(session.themeTextColor)
+                    .lineLimit(1).minimumScaleFactor(0.78)
+                Text(subtitle).font(.system(size: 10.5)).foregroundStyle(session.themeTextColor.opacity(0.76)).lineSpacing(2)
                 HStack {
-                    if let detail { Text(detail).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.stockedGold) }
+                    if let detail { Text(detail).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.stockedGold) }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold))
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold))
                         .foregroundStyle(session.themeTextColor)
-                        .frame(width: 32, height: 32).background(Color.stockedGold.opacity(0.12)).clipShape(Circle())
+                        .frame(width: 25, height: 25).background(Color.stockedGold.opacity(0.12)).clipShape(Circle())
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 250, alignment: .topLeading)
-            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 154, alignment: .topLeading)
+            .padding(10)
             .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.72))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(session.themeTextColor.opacity(0.1), lineWidth: 1))
-            .shadow(color: .black.opacity(0.08), radius: 9, y: 4)
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 13).stroke(session.themeTextColor.opacity(0.1), lineWidth: 1))
+            .shadow(color: .black.opacity(0.07), radius: 6, y: 3)
         }.buttonStyle(.plain)
     }
 
     private var referenceAICard: some View {
         Button { createRoute = .ai } label: {
-            HStack(spacing: 18) {
+            HStack(spacing: 12) {
                 ZStack {
-                    Circle().stroke(Color.stockedGold, lineWidth: 1).frame(width: 64, height: 64)
-                    Image(systemName: "sparkles").font(.system(size: 25)).foregroundStyle(Color.stockedGold)
+                    Circle().stroke(Color.stockedGold, lineWidth: 1).frame(width: 46, height: 46)
+                    Image(systemName: "sparkles").font(.system(size: 19)).foregroundStyle(Color.stockedGold)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NEW").font(.system(size: 10, weight: .black)).foregroundStyle(Color.stockedCharcoal)
                         .padding(.horizontal, 8).padding(.vertical, 3).background(Color.stockedGold).clipShape(Capsule())
-                    Text("Create with Stocked AI").font(.system(size: 23, weight: .semibold, design: .serif)).foregroundStyle(.white)
+                    Text("Create with Stocked AI").font(.system(size: 18, weight: .semibold, design: .serif)).foregroundStyle(.white)
                     Text("Tell me what you’re craving, what you have,\nor make something from scratch.")
-                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.82)).lineSpacing(3)
-                    Text("Start creating ✦").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
-                        .padding(.horizontal, 16).padding(.vertical, 8).background(Color.stockedGold).clipShape(Capsule())
+                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.82)).lineSpacing(2)
+                    Text("Start creating ✦").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).padding(.vertical, 7).background(Color.stockedGold).clipShape(Capsule())
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "takeoutbag.and.cup.and.straw.fill")
-                    .font(.system(size: 64, weight: .thin)).foregroundStyle(Color.stockedGold)
+                    .font(.system(size: 48, weight: .thin)).foregroundStyle(Color.stockedGold)
             }
-            .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14).frame(maxWidth: .infinity, minHeight: 105, alignment: .leading)
             .background(Color.stockedCharcoal)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }.buttonStyle(.plain).coachmarkAnchor("recipes.createAI")
@@ -382,11 +383,17 @@ struct RecipeVaultView: View {
                                     CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: 115, resolveName: recipe.title)
                                         .frame(width: 205, height: 115).clipped()
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(recipe.title).font(.system(size: 14, weight: .bold)).foregroundStyle(session.themeTextColor).lineLimit(1)
+                                        Text(recipe.title).font(.system(size: 13, weight: .bold)).foregroundStyle(session.themeTextColor).lineLimit(1)
+                                        HStack(spacing: 2) {
+                                            ForEach(0..<5, id: \.self) { _ in Image(systemName: "star.fill") }
+                                            Text("4.8")
+                                        }
+                                        .font(.system(size: 8.5, weight: .semibold))
+                                        .foregroundStyle(Color.stockedGold)
                                         Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
-                                            .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.58)).lineLimit(1)
+                                            .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.58)).lineLimit(1)
                                     }.padding(10)
-                                }.background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
+                                }.frame(width: 168).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
                                     .clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(session.themeTextColor.opacity(0.16)))
                             }.buttonStyle(.plain)
                         }
@@ -407,6 +414,7 @@ struct RecipeVaultView: View {
                     referenceBrowseButton("Meal Type", "frying.pan") { navTarget = .browseAll }
                     referenceBrowseButton("Dietary", "leaf") { navTarget = .browseAll }
                     referenceBrowseButton("Ingredient", "carrot") { navTarget = .browseAll }
+                    referenceBrowseButton("Occasion", "gift") { navTarget = .browseAll }
                     referenceBrowseButton("Source", "book.closed") { navTarget = .sources }
                     referenceBrowseButton("Drinks", "mug") { navTarget = .drinks }
                 }

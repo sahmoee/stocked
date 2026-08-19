@@ -23,20 +23,24 @@ struct CookHubView: View {
     @State private var showDiscardConfirm = false
 
     var body: some View {
-        StockedShell(titleText: "Cook", leadingTitle: true) {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
+        StockedShell(titleText: "Cook", leadingTitle: false,
+                     headerTopPadding: 2, headerBottomPadding: 22) {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 9) {
                     Text(greeting)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.stockedGold)
                     Text("What's on the menu tonight?")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .font(.system(size: 34, weight: .bold, design: .serif))
                         .foregroundStyle(session.themeTextColor)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.86)
                     Text("Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead.")
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .lineSpacing(5)
                 }
-                .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
+                .padding(.horizontal, CookStyle.screenHPad).padding(.top, 8)
                 .coachmarkAnchor("cook.header")
 
                 // RL-001 — a paused (or force-closed) cooking session surfaces
@@ -71,7 +75,7 @@ struct CookHubView: View {
                 .padding(.horizontal, CookStyle.screenHPad)
                 .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: 760)
+            .frame(maxWidth: 620)
             .frame(maxWidth: .infinity)
             .padding(.bottom, 20)
         }
