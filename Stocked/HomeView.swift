@@ -39,104 +39,18 @@ struct HomeView: View {
     }
 
     var body: some View {
-        StockedShell(leadingTitle: true,
-                     trailingIcon: editMode ? "checkmark" : nil,
-                     trailingLabel: editMode ? "Done" : "",
-                     onTrailing: {
-                         if editMode { exitEditMode() }
-                     }) {
-            VStack(alignment: .leading, spacing: 20) {
-
-                // ── Greeting (fixed header — like the iPhone, not a removable widget) ──
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("\(greeting), \(session.userName)")
-                            .font(.system(size: 26, weight: .bold, design: .serif))
-                            .dynamicTypeSize(.xSmall ... .accessibility2)
-                            .foregroundStyle(session.isDarkMode ? session.accentColor : Color.stockedWhite)
-                        Text(editMode ? "Tap − to remove, + to add widgets." : "Here's what's happening in your kitchen.")
-                            .font(.system(size: 14.5))
-                            .foregroundStyle(sub)
-                    }
-                    Spacer()
-                    if editMode {
-                        Button { exitEditMode() } label: {
-                            Text("Done")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(Color.stockedCharcoal)
-                                .padding(.horizontal, 14).padding(.vertical, 7)
-                                .background(Color.stockedGold)
-                                .clipShape(Capsule())
-                        }.buttonStyle(.plain)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, layoutMetrics.horizontalPadding).padding(.top, 2)
-                .coachmarkAnchor("home.greeting")
-
-                // ── First-run activation (#18) ────────────────────────
-                // When the kitchen is empty, show a guided card instead of a dead "0/0/0"
-                // dashboard: one tap to scan a receipt or stock common staples, so the app
-                // has data to work with within the first minute.
-                if !editMode && session.guestStore.inventoryItems.isEmpty {
-                    gettingStartedCard.padding(.horizontal, layoutMetrics.horizontalPadding)
-                }
-
-                // ── Customizable widget board ─────────────────────────
-                ForEach(visibleWidgets, id: \.self) { widget in
-                    widgetView(widget)
-                        // Keep the original press-and-hold customization gesture available even
-                        // when a widget contains its own buttons or navigation links.
-                        .contentShape(Rectangle())
-                        .simultaneousGesture(
-                            LongPressGesture(minimumDuration: 0.5)
-                                .onEnded { _ in enterEditMode() }
-                        )
-                        .disabled(editMode)          // iOS-style: taps don't fire while editing
-                        .padding(.horizontal, layoutMetrics.horizontalPadding)
-                        .coachmarkAnchor("home.widget.\(widget.rawValue)")
-                        .overlay(alignment: .topLeading) {
-                            if editMode { removeBadge(widget).offset(x: 14, y: -6) }
-                        }
-                        .overlay(alignment: .topTrailing) {
-                            if editMode {
-                                Image(systemName: "line.3.horizontal")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
-                                    .padding(8)
-                                    .offset(x: -28, y: 2)
-                            }
-                        }
-                        .opacity(draggingWidget == widget ? 0.4 : 1)
-                        .modifier(JiggleEffect(active: editMode))
-                        // #11 — in edit mode, drag a widget to reorder the board.
-                        .if(editMode) { view in
-                            view
-                                .onDrag {
-                                    draggingWidget = widget
-                                    return NSItemProvider(object: widget.rawValue as NSString)
-                                }
-                                .onDrop(of: [.text],
-                                        delegate: WidgetDropDelegate(item: widget,
-                                                                     layout: $layout,
-                                                                     dragging: $draggingWidget,
-                                                                     onCommit: { HomeWidget.saveLayout(layout); UsageMetrics.shared.record(.widgetsReordered) }))
-                        }
-                }
-
-                // ── Add-widgets affordance (edit mode) ────────────────
-                if editMode {
-                    addWidgetTile.padding(.horizontal, layoutMetrics.horizontalPadding)
-                } else if visibleWidgets.isEmpty {
-                    emptyBoardHint.padding(.horizontal, layoutMetrics.horizontalPadding)
-                }
-
+        StockedShell(leadingTitle: true) {
+            VStack(alignment: .leading, spacing: 24) {
+                referenceHero
+                referenceStockLevel
+                referenceActions
+                referenceUseItSoon
+                referenceSnapshot
                 Spacer(minLength: 24)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            // Long-press anywhere enters customize mode (iPhone-style).
-            .contentShape(Rectangle())
-            .onLongPressGesture(minimumDuration: 0.5) { enterEditMode() }
+            .frame(maxWidth: 760)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, layoutMetrics.horizontalPadding)
             .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
             .task(id: metricsRevision) {
                 // Let the first frame render before deriving recipe/inventory metrics.
@@ -159,6 +73,236 @@ struct HomeView: View {
         }
         .coachmarks(page: .home, steps: HomeCoachmarks.steps)
     }
+
+    private var referenceHero: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("\(greeting), Chef 👋")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(Color.stockedGold)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .bottom, spacing: 12) {
+                    referenceHeroCopy
+                    Image("home_kitchen_still_life")
+                        .resizable().scaledToFit()
+                        .frame(width: 245, height: 180, alignment: .bottom)
+                        .accessibilityHidden(true)
+                }
+                referenceHeroCopy
+            }
+        }
+        .coachmarkAnchor("home.greeting")
+    }
+
+    private var referenceHeroCopy: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(kitchenMetrics.stockPercent >= 80 ? "Your kitchen is\nin good shape." : "Let’s get your kitchen\nin good shape.")
+                .font(.system(.largeTitle, design: .serif, weight: .bold))
+                .foregroundStyle(session.themeTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(kitchenMetrics.stockPercent >= 80
+                 ? "Everything you need to cook, plus a little extra. Keep it up."
+                 : "A few smart updates will unlock more meals and keep the week moving.")
+                .font(.body)
+                .foregroundStyle(session.themeTextColor.opacity(0.62))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var referenceStockLevel: some View {
+        Button {
+            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.stats)
+        } label: {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 18) { referenceStockIcon; referenceStockValue; divider; referenceStockSummary }
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 16) { referenceStockIcon; referenceStockValue }
+                    referenceStockSummary
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(session.themeCardColor)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .a11yButton("Stock level \(kitchenMetrics.stockPercent) percent. \(stockLabel)")
+    }
+
+    private var referenceStockIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.stockedCharcoal)
+            Image(systemName: "gauge.with.dots.needle.67percent")
+                .font(.system(size: 38, weight: .medium)).foregroundStyle(Color.stockedGold)
+        }.frame(width: 82, height: 92)
+    }
+
+    private var referenceStockValue: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Stock Level").font(.subheadline.weight(.semibold)).foregroundStyle(session.themeTextColor.opacity(0.72))
+            Text("\(kitchenMetrics.stockPercent)%").font(.system(size: 42, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
+            Text(stockLabel).font(.subheadline.weight(.semibold)).foregroundStyle(Color.stockedGold)
+        }.frame(minWidth: 130, alignment: .leading)
+    }
+
+    private var divider: some View {
+        Rectangle().fill(session.themeTextColor.opacity(0.18)).frame(width: 1, height: 100)
+    }
+
+    private var referenceStockSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(lowStockCount == 0 ? "You’re all set!" : "A few things are running low")
+                        .font(.headline).foregroundStyle(session.themeTextColor)
+                    Text(lowStockCount == 0 ? "Nothing running low right now. Keep cooking."
+                                            : "\(lowStockCount) item\(lowStockCount == 1 ? "" : "s") could use attention.")
+                        .font(.subheadline).foregroundStyle(session.themeTextColor.opacity(0.6))
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(session.themeTextColor.opacity(0.6))
+            }
+            ProgressView(value: Double(kitchenMetrics.stockPercent), total: 100)
+                .tint(Color.stockedGold)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var referenceActions: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Keep your kitchen moving").font(.system(.title2, design: .serif, weight: .bold)).foregroundStyle(session.themeTextColor)
+                Spacer()
+                Text("Shortcuts to save you time.").font(.subheadline).foregroundStyle(session.themeTextColor.opacity(0.58))
+            }
+            HStack(alignment: .bottom, spacing: 14) {
+                referencePrimaryAction
+                Image("home_grocery_bag").resizable().scaledToFit().frame(width: 150, height: 150).accessibilityHidden(true)
+            }
+            HStack(spacing: 8) {
+                referenceCompactAction("Scan Barcode", "Look up a product", "barcode.viewfinder") {
+                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
+                }
+                referenceCompactAction("Add Item", "Add by hand", "plus") {
+                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
+                }
+                referenceCompactAction("Quick Update", "Tell me what changed", "scribble.variable") {
+                    activeHomeSheet = .quickUpdate
+                }
+            }
+        }
+    }
+
+    private var referencePrimaryAction: some View {
+        Button {
+            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
+        } label: {
+            HStack(spacing: 16) {
+                referenceDarkIcon("doc.text.viewfinder")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Scan Receipt").font(.system(.title3, design: .serif, weight: .bold))
+                    Text("Add items fast").font(.subheadline).opacity(0.72)
+                }
+                Spacer()
+                Circle().fill(Color.white.opacity(0.08)).frame(width: 48, height: 48)
+                    .overlay(Image(systemName: "chevron.right").foregroundStyle(Color.stockedGold))
+            }
+            .foregroundStyle(Color.stockedWhite)
+            .padding(18).frame(maxWidth: .infinity, minHeight: 112)
+            .background(Color.stockedCharcoal)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }.buttonStyle(.plain)
+    }
+
+    private func referenceCompactAction(_ title: String, _ subtitle: String, _ icon: String,
+                                        action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                referenceDarkIcon(icon).scaleEffect(0.78)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.subheadline.weight(.bold)).foregroundStyle(session.themeTextColor).lineLimit(2)
+                    Text(subtitle).font(.caption).foregroundStyle(session.themeTextColor.opacity(0.58)).lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(session.themeTextColor.opacity(0.6))
+            }
+            .padding(12).frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
+            .background(session.themeCardColor)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }.buttonStyle(.plain)
+    }
+
+    private func referenceDarkIcon(_ icon: String) -> some View {
+        Circle().fill(Color.stockedCharcoal).frame(width: 58, height: 58)
+            .overlay(Image(systemName: icon).font(.system(size: 22, weight: .medium)).foregroundStyle(Color.stockedGold))
+    }
+
+    private var referenceUseItSoon: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Use It Soon").font(.system(.title2, design: .serif, weight: .bold)).foregroundStyle(session.themeTextColor)
+                Spacer()
+                Button("View All") { goExpiringList = true }.font(.subheadline.weight(.semibold)).foregroundStyle(Color.stockedGold)
+                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(Color.stockedGold)
+            }
+            Button { goExpiringList = true } label: {
+                HStack(spacing: 18) {
+                    Image("home_produce_crate").resizable().scaledToFit().frame(width: 180, height: 130).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(expiringCount == 0 ? "Nothing expiring soon" : "\(expiringCount) item\(expiringCount == 1 ? "" : "s") expiring soon")
+                            .font(.system(.title3, design: .serif, weight: .bold)).foregroundStyle(session.themeTextColor)
+                        Text(expiringCount == 0 ? "You’re in good shape!" : "Use these first to waste less.")
+                            .font(.body).foregroundStyle(session.themeTextColor)
+                        Text(expiringCount == 0 ? "We’ll let you know when something is close to expiring."
+                                                : "Tap to see what needs attention.")
+                            .font(.subheadline).foregroundStyle(session.themeTextColor.opacity(0.58))
+                    }
+                    Spacer()
+                    Circle().fill(session.themeTextColor.opacity(0.06)).frame(width: 58, height: 58)
+                        .overlay(Image(systemName: expiringCount == 0 ? "checkmark" : "chevron.right").foregroundStyle(session.themeTextColor))
+                }
+                .padding(18).frame(maxWidth: .infinity, minHeight: 154, alignment: .leading)
+                .background(session.themeCardColor)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            }.buttonStyle(.plain)
+        }
+    }
+
+    private var referenceSnapshot: some View {
+        Button {
+            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.stats)
+        } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Kitchen Snapshot").font(.headline).foregroundStyle(Color.stockedGold)
+                    Spacer(); Image(systemName: "chevron.right").foregroundStyle(Color.stockedGold)
+                }
+                HStack(spacing: 12) {
+                    snapshotMetric("refrigerator", "\(store.inventoryItems.count)", "Items in inventory", "Well stocked")
+                    snapshotDivider
+                    snapshotMetric("bag", "\(lowStockCount)", "Low stock items", "You’re good")
+                    snapshotDivider
+                    snapshotMetric("list.clipboard", "\(groceryToBuy)", "On grocery list", "Ready to shop")
+                }
+            }
+            .padding(20).frame(maxWidth: .infinity)
+            .background(Color.stockedCharcoal)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }.buttonStyle(.plain)
+    }
+
+    private func snapshotMetric(_ icon: String, _ value: String, _ label: String, _ status: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Circle().fill(Color.white.opacity(0.07)).frame(width: 46, height: 46)
+                    .overlay(Image(systemName: icon).foregroundStyle(Color.stockedGold))
+                Text(value).font(.system(size: 28, weight: .bold, design: .serif)).foregroundStyle(Color.stockedWhite)
+            }
+            Text(label).font(.caption).foregroundStyle(Color.stockedWhite)
+            Text(status).font(.caption.weight(.semibold)).foregroundStyle(Color.stockedGold)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var snapshotDivider: some View { Rectangle().fill(Color.white.opacity(0.18)).frame(width: 1, height: 84) }
 
     private func enterEditMode() {
         guard !editMode else { return }
@@ -541,10 +685,7 @@ struct HomeView: View {
     private func statWidget(_ widget: HomeWidget, value: String, sub: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.15)).frame(width: 46, height: 46)
-                    Image(systemName: widget.icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(tint)
-                }
+                widgetIllustration(widget, width: 76, height: 62)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(widget.title)
                         .font(.system(size: 12.5, weight: .semibold))
@@ -576,10 +717,7 @@ struct HomeView: View {
     private func actionWidget(_ widget: HomeWidget, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12).fill(tint.opacity(0.15)).frame(width: 46, height: 46)
-                    Image(systemName: widget.icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(tint)
-                }
+                widgetIllustration(widget, width: 82, height: 66)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(widget.title)
                         .font(.system(size: 15.5, weight: .bold, design: .serif))
@@ -600,6 +738,14 @@ struct HomeView: View {
         .buttonStyle(.plain)
         .stockedInteractiveSurface()
         .a11yRow("\(widget.title). \(widget.blurb)", hint: "Opens \(widget.title)")
+    }
+
+    private func widgetIllustration(_ widget: HomeWidget, width: CGFloat, height: CGFloat) -> some View {
+        Image(widget.illustrationAsset)
+            .resizable()
+            .scaledToFit()
+            .frame(width: width, height: height)
+            .accessibilityHidden(true)
     }
 
     private var widgetBackground: some View {
@@ -651,10 +797,7 @@ struct HomeView: View {
             NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.stats)
         } label: {
             HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12).fill(Color.stockedGreen.opacity(0.15)).frame(width: 46, height: 46)
-                    Image(systemName: "leaf.fill").font(.system(size: 20, weight: .semibold)).foregroundStyle(Color.stockedGreen)
-                }
+                widgetIllustration(.wasteSaved, width: 92, height: 72)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Waste Tracker").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.55))
                     Text("\(used) used · \(wasted) wasted")
@@ -673,10 +816,7 @@ struct HomeView: View {
     private var preferredStoreWidget: some View {
         Button { NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.grocery) } label: {
             HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12).fill(Color.stockedGold.opacity(0.15)).frame(width: 46, height: 46)
-                    Image(systemName: "mappin.and.ellipse").font(.system(size: 20, weight: .semibold)).foregroundStyle(Color.stockedGold)
-                }
+                widgetIllustration(.preferredStore, width: 92, height: 72)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Preferred Store").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.55))
                     Text(session.preferredStore.isEmpty ? "Not set" : session.preferredStore)
@@ -704,10 +844,7 @@ struct HomeView: View {
         ]
         let idx = Calendar.current.ordinality(of: .day, in: .era, for: Date()).map { $0 % tips.count } ?? 0
         return HStack(alignment: .top, spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color.stockedGold.opacity(0.15)).frame(width: 46, height: 46)
-                Image(systemName: "lightbulb.fill").font(.system(size: 20, weight: .semibold)).foregroundStyle(Color.stockedGold)
-            }
+            widgetIllustration(.tipOfDay, width: 104, height: 82)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Kitchen Tip").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.55))
                 Text(tips[idx]).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
@@ -1218,6 +1355,26 @@ enum HomeWidget: String, CaseIterable, Hashable, Codable {
         case .preferredStore:return "Your go-to store, one tap away."
         case .searchW:      return "Search across your whole kitchen."
         case .tipOfDay:     return "A little kitchen wisdom, refreshed daily."
+        }
+    }
+
+    /// Related widgets share a small, cohesive illustration family. Keeping these
+    /// project-local cutouts reusable avoids decoding dozens of near-duplicate assets.
+    var illustrationAsset: String {
+        switch self {
+        case .mealsReady, .cookStreak, .cookNow, .discover, .readyToCook, .favorites:
+            return "home_widget_cooking"
+        case .stockLevel, .expiringCount, .lowStock, .totalItems, .useItSoon, .dailyBrief:
+            return "home_widget_pantry"
+        case .groceryCount, .nextRun, .shoppingList, .preferredStore:
+            return "home_widget_shopping"
+        case .plannedMeals:
+            return "home_widget_planning"
+        case .wasteSaved:
+            return "home_widget_waste"
+        case .actionCenter, .whatsNew, .quickAdd, .scanReceiptW, .scanBarcodeW,
+             .quickUpdateW, .searchW, .tipOfDay:
+            return "home_widget_tools"
         }
     }
 

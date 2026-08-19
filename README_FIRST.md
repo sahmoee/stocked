@@ -27,6 +27,10 @@ same enrichment pipeline. Barcode identity uses Worker/Open Food Facts product d
 reconciled by confidence across publisher labels, USDA, FatSecret, and local knowledge. Provider
 failure preserves partial results and advances the cursor so one item cannot stall the database.
 
+The Cook hub has one approved primary-action treatment: the large cream illustrated Cook Now and
+Cook Later cards. Do not reintroduce circle, pill, compact-row, or photo-tile alternatives for
+these two controls; adapt the card contents for width and Dynamic Type without changing its shape.
+
 Recoverable household storage failures retry automatically with capped 0.5, 1, and 2 second
 backoff while UI diagnostics report `Repairing household storage…`. Exhausted repair uses ordinary
 queue backoff rather than the hour-long quota pause, and later polling continues automatically.

@@ -21,6 +21,90 @@ enum CookStyle {
     static let screenHPad: CGFloat = 22
 }
 
+// The Cook hub has one intentional control shape: the large cream illustrated card from the
+// approved Stocked design. Keep this separate from generic action cards so future appearance
+// settings cannot silently turn these primary choices into circles, pills, or photo tiles.
+struct CookHubIllustratedButton: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    let title: String
+    let primaryDetail: String
+    let secondaryDetail: String
+    let assetName: String
+    let action: () -> Void
+
+    private var imageWidth: CGFloat { dynamicTypeSize.isAccessibilitySize ? 104 : 152 }
+
+    var body: some View {
+        Button(action: action) {
+            ViewThatFits(in: .horizontal) {
+                horizontalContent
+                verticalContent
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 250 : 205)
+            .background(session.themeCardColor)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(primaryDetail) \(secondaryDetail)")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var horizontalContent: some View {
+        HStack(spacing: 20) {
+            illustration.frame(width: imageWidth)
+            copy
+            chevron
+        }
+    }
+
+    private var verticalContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            illustration.frame(maxWidth: .infinity).frame(height: 132)
+            HStack(alignment: .center, spacing: 12) {
+                copy
+                chevron
+            }
+        }
+    }
+
+    private var illustration: some View {
+        Image(assetName)
+            .resizable()
+            .scaledToFit()
+            .accessibilityHidden(true)
+    }
+
+    private var copy: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(.title, design: .serif, weight: .bold))
+                .foregroundStyle(session.themeTextColor)
+            Text(primaryDetail)
+                .font(.body)
+                .foregroundStyle(session.themeTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(secondaryDetail)
+                .font(.body)
+                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(session.themeTextColor.opacity(0.32))
+            .accessibilityHidden(true)
+    }
+}
+
 // Returns a bundled asset image only if it actually exists in the catalog, so cards can show a
 // photo when one has been added and gracefully fall back to color/emoji when it has not.
 func cookAssetImage(_ name: String?) -> Image? {

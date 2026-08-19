@@ -90,22 +90,11 @@ struct PreferencesSectionView: View {
                 }
             }
 
-            settingsGroup(dark: dark, title: "Interaction", detail: "Shape the buttons, taps, and feedback you use most often.") {
+            settingsGroup(dark: dark, title: "Interaction", detail: "Choose the feedback you use most often.") {
                 segmentedRow(dark: dark, icon: "hand.tap.fill", title: "Haptics", selection: Binding(
                     get: { session.hapticIntensity },
                     set: { session.hapticIntensity = $0 }
                 ), options: HapticIntensity.allCases) { $0.rawValue }
-
-                segmentedRow(dark: dark, icon: "circle.grid.2x1.fill", title: "Cook Buttons", selection: Binding(
-                    get: { session.cookButtonShape },
-                    set: { session.cookButtonShape = $0 }
-                ), options: CookButtonShape.allCases) { $0.rawValue }
-
-                sliderRow(dark: dark, icon: "arrow.up.left.and.arrow.down.right", title: "Cook Button Size", value: Binding(
-                    get: { session.cookButtonSize },
-                    set: { session.cookButtonSize = $0 }
-                ), range: 150...400)
-
             }
         }
     }
