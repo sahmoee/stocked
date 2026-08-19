@@ -24,23 +24,23 @@ struct CookHubView: View {
 
     var body: some View {
         StockedShell(titleText: "Cook", leadingTitle: false,
-                     headerTopPadding: 2, headerBottomPadding: 22) {
-            VStack(alignment: .leading, spacing: 22) {
+                     headerTopPadding: 35, headerBottomPadding: 14) {
+            VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 9) {
                     Text(greeting)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color.stockedGold)
                     Text("What's on the menu tonight?")
-                        .font(.system(size: 34, weight: .bold, design: .serif))
+                        .font(.system(size: 32, weight: .bold, design: .serif))
                         .foregroundStyle(session.themeTextColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.86)
                     Text("Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead.")
-                        .font(.system(size: 15))
+                        .font(.system(size: 14))
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .lineSpacing(5)
                 }
-                .padding(.horizontal, CookStyle.screenHPad).padding(.top, 8)
+                .padding(.horizontal, CookStyle.screenHPad).padding(.top, 28)
                 .coachmarkAnchor("cook.header")
 
                 // RL-001 — a paused (or force-closed) cooking session surfaces
@@ -55,7 +55,7 @@ struct CookHubView: View {
                     .padding(.top, 12)
                 }
 
-                VStack(spacing: CookStyle.sectionSpacing) {
+                VStack(spacing: 14) {
                     CookHubIllustratedButton(
                         title: "Cook Now",
                         primaryDetail: "Solve tonight with what you already have.",

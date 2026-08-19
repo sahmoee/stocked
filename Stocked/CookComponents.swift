@@ -34,20 +34,24 @@ struct CookHubIllustratedButton: View {
     let assetName: String
     let action: () -> Void
 
-    private var imageWidth: CGFloat { dynamicTypeSize.isAccessibilitySize ? 118 : 154 }
+    private var imageWidth: CGFloat { dynamicTypeSize.isAccessibilitySize ? 118 : 142 }
 
     var body: some View {
         Button(action: action) {
-            ViewThatFits(in: .horizontal) {
-                horizontalContent
-                verticalContent
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    verticalContent
+                } else {
+                    horizontalContent
+                }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 18)
-            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 250 : 202)
+            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 18 : 14)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 18 : 14)
+            .frame(maxWidth: .infinity)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 250 : 182)
             .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -56,8 +60,9 @@ struct CookHubIllustratedButton: View {
     }
 
     private var horizontalContent: some View {
-        HStack(spacing: 16) {
-            illustration.frame(width: imageWidth)
+        HStack(spacing: 8) {
+            illustration
+                .frame(width: imageWidth, height: 148)
             copy
             chevron
         }
@@ -81,25 +86,28 @@ struct CookHubIllustratedButton: View {
     }
 
     private var copy: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 27, weight: .bold, design: .serif))
+                .font(.system(size: 24, weight: .bold, design: .serif))
                 .foregroundStyle(session.themeTextColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
             Text(primaryDetail)
-                .font(.system(size: 15))
+                .font(.system(size: 14))
                 .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Text(secondaryDetail)
-                .font(.system(size: 14))
+                .font(.system(size: 13))
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .layoutPriority(1)
     }
 
     private var chevron: some View {
         Image(systemName: "chevron.right")
-            .font(.system(size: 18, weight: .semibold))
+            .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(session.themeTextColor.opacity(0.32))
             .accessibilityHidden(true)
     }

@@ -381,9 +381,13 @@ struct RecipeVaultView: View {
                             Button { openOnlineRecipe(recipe) } label: {
                                 VStack(alignment: .leading, spacing: 0) {
                                     CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: 115, resolveName: recipe.title)
-                                        .frame(width: 205, height: 115).clipped()
+                                        .frame(width: 168, height: 115).clipped()
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(recipe.title).font(.system(size: 13, weight: .bold)).foregroundStyle(session.themeTextColor).lineLimit(1)
+                                        Text(recipe.title)
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundStyle(session.themeTextColor)
+                                            .lineLimit(2, reservesSpace: true)
+                                            .minimumScaleFactor(0.82)
                                         HStack(spacing: 2) {
                                             ForEach(0..<5, id: \.self) { _ in Image(systemName: "star.fill") }
                                             Text("4.8")
@@ -674,6 +678,11 @@ struct RecipeVaultView: View {
         }
         .onChange(of: onlineLoader.revision) { _, _ in
             scheduleDiscoverSnapshotRebuild()
+        }
+        .onReceive(DatabaseSyncBus.shared.recipeChanges.debounce(for: .milliseconds(350), scheduler: RunLoop.main)) { _ in
+            // HarvestRecipeSync writes StockedMac/Worker recipes into RecipeDatabase after
+            // launch. Refresh the visible pool even when its six-hour cache is still fresh.
+            onlineLoader.refreshFromSharedDatabase(profile: session.guestStore.cookingProfile)
         }
         // #3 — recompute prepared hub stats only when their real inputs change (cheap
         // Int signature avoids comparing recipe image blobs every render).

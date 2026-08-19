@@ -94,6 +94,43 @@ enum RecipeSourceHub {
         OnlineRecipeFacts.hasRealInstructions(recipe.instructions)
     }
 
+    /// Keeps a large provider from monopolizing Discover merely because it completed first.
+    /// Network feeds, the Mac harvest, household recipes, and the local database all enter the
+    /// same pool, so selection must be fair at this boundary rather than at individual call sites.
+    /// Encounter order is retained within each source and sources are round-robined until `limit`.
+    nonisolated static func balancedRecipes(_ recipes: [OnlineRecipe], limit: Int) -> [OnlineRecipe] {
+        guard limit > 0 else { return [] }
+
+        var sourceOrder: [String] = []
+        var buckets: [String: [OnlineRecipe]] = [:]
+        var seenRecipeKeys = Set<String>()
+        for recipe in recipes {
+            let source = canonicalSourceName(recipe.source)
+            let titleKey = OnlineRecipeFacts.normalizedTitle(recipe.title)
+            guard !titleKey.isEmpty else { continue }
+            let uniqueKey = "\(source.lowercased())|\(titleKey)"
+            guard seenRecipeKeys.insert(uniqueKey).inserted else { continue }
+            if buckets[source] == nil { sourceOrder.append(source) }
+            buckets[source, default: []].append(recipe)
+        }
+
+        var offsets = Dictionary(uniqueKeysWithValues: sourceOrder.map { ($0, 0) })
+        var output: [OnlineRecipe] = []
+        output.reserveCapacity(min(limit, recipes.count))
+        while output.count < limit {
+            var appended = false
+            for source in sourceOrder where output.count < limit {
+                let offset = offsets[source, default: 0]
+                guard let bucket = buckets[source], offset < bucket.count else { continue }
+                output.append(bucket[offset])
+                offsets[source] = offset + 1
+                appended = true
+            }
+            if !appended { break }
+        }
+        return output
+    }
+
     struct SourceListing: Identifiable {
         var id: String { name }
         let name: String

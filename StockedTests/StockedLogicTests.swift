@@ -54,6 +54,24 @@ final class StockedLogicTests: XCTestCase {
         XCTAssertTrue(merged.contains("1. Mix well"))
     }
 
+    func testRecipeSourceBalancingPreventsOneProviderFromFillingThePool() {
+        func recipe(_ id: String, source: String) -> OnlineRecipe {
+            OnlineRecipe(id: id, title: "Recipe \(id)", category: "Dinner", area: "",
+                         instructions: "Prepare ingredients.\nCook until done.",
+                         imageURL: "https://example.com/\(id).jpg",
+                         ingredients: ["one", "two", "three"], measures: ["", "", ""],
+                         source: source)
+        }
+        let mealDB = (0..<8).map { recipe("meal-\($0)", source: "TheMealDB Database") }
+        let harvested = (0..<3).map { recipe("publisher-\($0)", source: "Publisher") }
+
+        let result = RecipeSourceHub.balancedRecipes(mealDB + harvested, limit: 6)
+
+        XCTAssertEqual(result.count, 6)
+        XCTAssertEqual(result.filter { RecipeSourceHub.canonicalSourceName($0.source) == "TheMealDB" }.count, 3)
+        XCTAssertEqual(result.filter { $0.source == "Publisher" }.count, 3)
+    }
+
     func testQATicketRequiresWorkerAndFolderSync() {
         var ticket = QATicket(number: "STK-TEST-1", title: "Sync test")
         XCTAssertFalse(ticket.isFullySynced)

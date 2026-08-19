@@ -777,6 +777,9 @@ final class QATicketStore {
             return resolution
         }
         let currentTicketResolutions: [String: String] = [
+            "STK-97-0001": "Recipe recommendation cards now reserve two title lines, scale long titles safely, and keep the image inside the card width so names remain readable without clipping.",
+            "STK-97-0002": "Home now defers and memoizes kitchen metrics outside repeated render passes, preventing the reported main-thread stall while keeping the first frame responsive.",
+            "STK-97-0006": "Home now uses the available phone and iPad width with compact reference spacing, larger useful controls, and no fixed empty gutters around the content or tab bar.",
             "STK-92-0001": "Home now renders its first frame before deriving the kitchen snapshot and computes that snapshot once per store revision, eliminating repeated inventory and recipe passes during a single body update.",
             "STK-92-0002": "Home cards and buttons now use the live container width with smaller edge insets, a comfortable default control scale, and an Interface Size preference for Standard, Comfortable, or Large controls.",
             "STK-92-0003": "All shell pages now use up to 1,180 points of live window width instead of the old narrow reading-column cap, while compact windows retain safe edge padding.",
