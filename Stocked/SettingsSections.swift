@@ -16,7 +16,6 @@ struct PreferencesSectionView: View {
     var onAppIcon: () -> Void = {}
 
     private let dietaryStyles = ["Omnivore", "Vegetarian", "Vegan", "Pescatarian"]
-    private let commonAllergens = ["Milk", "Eggs", "Fish", "Shellfish", "Tree Nuts", "Peanuts", "Wheat", "Soy", "Sesame"]
 
     var body: some View {
         let dark = session.isDarkMode
@@ -60,25 +59,10 @@ struct PreferencesSectionView: View {
                     set: { selected in updateProfile { $0.dietaryStyle = selected == "Omnivore" ? "" : selected } }
                 ), options: dietaryStyles)
 
-                chipPicker(dark: dark, title: "Cuisine Preferences", icon: "globe.americas.fill", options: RecipeTaxonomy.cuisines, selected: session.guestStore.cookingProfile.cuisinePrefs) { cuisine in
-                    updateProfile { profile in
-                        if profile.cuisinePrefs.contains(cuisine) {
-                            profile.cuisinePrefs.removeAll { $0 == cuisine }
-                        } else {
-                            profile.cuisinePrefs.append(cuisine)
-                        }
-                    }
-                }
-
-                chipPicker(dark: dark, title: "Allergens", icon: "allergens", options: commonAllergens, selected: session.guestStore.cookingProfile.allergens) { allergen in
-                    updateProfile { profile in
-                        if let index = profile.allergens.firstIndex(where: { $0.caseInsensitiveCompare(allergen) == .orderedSame }) {
-                            profile.allergens.remove(at: index)
-                        } else {
-                            profile.allergens.append(allergen)
-                        }
-                    }
-                }
+                Text("Dietary details are edited with the cooking profile, while cuisines stay in Recipes where they are immediately useful.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(session.themeTextColor.opacity(0.62))
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             settingsGroup(dark: dark, title: "Kitchen", detail: "Keep shopping and pantry defaults close to the tools that use them.") {
@@ -106,22 +90,11 @@ struct PreferencesSectionView: View {
                 }
             }
 
-            settingsGroup(dark: dark, title: "Interaction", detail: "Shape the buttons, taps, and feedback you use most often.") {
+            settingsGroup(dark: dark, title: "Interaction", detail: "Choose the feedback you use most often.") {
                 segmentedRow(dark: dark, icon: "hand.tap.fill", title: "Haptics", selection: Binding(
                     get: { session.hapticIntensity },
                     set: { session.hapticIntensity = $0 }
                 ), options: HapticIntensity.allCases) { $0.rawValue }
-
-                segmentedRow(dark: dark, icon: "circle.grid.2x1.fill", title: "Cook Buttons", selection: Binding(
-                    get: { session.cookButtonShape },
-                    set: { session.cookButtonShape = $0 }
-                ), options: CookButtonShape.allCases) { $0.rawValue }
-
-                sliderRow(dark: dark, icon: "arrow.up.left.and.arrow.down.right", title: "Cook Button Size", value: Binding(
-                    get: { session.cookButtonSize },
-                    set: { session.cookButtonSize = $0 }
-                ), range: 150...400)
-
             }
         }
     }

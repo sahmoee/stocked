@@ -226,8 +226,7 @@ nonisolated enum RecipeAdapter {
             // Thin/generated catalogue labels are not recipes. They produced rows
             // such as a literal "Dinner" in Cook Later and should remain in source
             // diagnostics rather than entering recommendations.
-            let genericTitles: Set<String> = ["dinner", "lunch", "breakfast", "meal", "recipe", "food"]
-            guard !genericTitles.contains(key), lines.count >= 3 else { continue }
+            guard RecipeQuality.hasMeaningfulTitle(r.title), lines.count >= 3 else { continue }
             seen.insert(key)
 
             var matched = 0

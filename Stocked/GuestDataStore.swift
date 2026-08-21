@@ -890,11 +890,13 @@ class GuestDataStore {
                     }
                 }
             }
+            RetailEnrichmentMaintenance.enqueueInventoryItem(id: inventoryItems[idx].id, store: self)
             return
         }
         var stamped = item
         stamped.lastConfirmedAt = Date()   // freshly added = freshly confirmed
         withAnimation { inventoryItems.append(stamped) }
+        RetailEnrichmentMaintenance.enqueueInventoryItem(id: stamped.id, store: self)
         // #B4 crowd shelf-life defaults — when the item arrives with no expiry, ask the
         // anonymized crowd DB how long this item typically lasts and fill a sensible
         // default. Applies only if the user still hasn't set a date by the time the
@@ -2108,12 +2110,20 @@ class GuestDataStore {
     /// Canonical expired list.
     var expiredItems: [LocalInventoryItem] { inventoryItems.filter(\.isExpired) }
 
-    /// The one metrics snapshot every screen reads. Building it is a few cheap passes.
-    var metrics: KitchenMetrics {
+    /// The one metrics snapshot every screen reads.
+    ///
+    /// Recipe readiness is intentionally optional: matching every recipe against a large
+    /// restored inventory is substantially more expensive than the inventory-only metrics.
+    /// Screens that do not display `mealsReady` must use `lightweightMetrics` so navigation
+    /// and the first frame never wait for the recipe classifier.
+    var lightweightMetrics: KitchenMetrics { makeMetrics(includeMealsReady: false) }
+    var metrics: KitchenMetrics { makeMetrics(includeMealsReady: true) }
+
+    private func makeMetrics(includeMealsReady: Bool) -> KitchenMetrics {
         var m = KitchenMetrics()
         m.totalItems        = inventoryItems.count
         m.stockPercent      = stockPercent
-        m.mealsReady        = availableMeals
+        if includeMealsReady { m.mealsReady = availableMeals }
         m.expiringSoonCount = expiringSoonItems.count
         m.expiredCount      = inventoryItems.reduce(0) { $0 + ($1.isExpired ? 1 : 0) }
         m.lowStockCount     = lowStockItems.count

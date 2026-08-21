@@ -85,6 +85,7 @@ struct ChefHatShape: Shape {
 
 struct StockedTabBar: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Binding var selected: StockedTab
     var onTap:     ((StockedTab) -> Void)? = nil  // called on every tap (overrides default)
     var onSameTap: (() -> Void)? = nil            // called when tapping current tab
@@ -96,7 +97,7 @@ struct StockedTabBar: View {
                     tabCell(tab)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             .padding(.top, 10)
             .padding(.bottom, 4)
         }
@@ -113,6 +114,7 @@ struct StockedTabBar: View {
     @ViewBuilder
     private func tabCell(_ tab: StockedTab) -> some View {
         let isActive = selected == tab
+        let cellWidth = min(70, max(56, (layoutMetrics.width - 32) / 5))
 
         Button {
             if let handler = onTap {
@@ -151,20 +153,19 @@ struct StockedTabBar: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .padding(.horizontal, 4)
+            .frame(width: cellWidth, height: 50)
             .background {
                 if isActive {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(session.themeContrastAccent)
                         .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
                                 .stroke(session.isDarkMode ? Color.stockedGoldDark : Color.stockedGold,
-                                        lineWidth: tab == .home ? 2 : 1)
+                                        lineWidth: 1)
                         }
                 }
             }
+            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

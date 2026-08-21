@@ -15,6 +15,8 @@ struct StockedShell<Content: View>: View {
     var trailingLabel2: String
     var onTrailing2:    (() -> Void)?
     var onRefresh:      (() async -> Void)?  // custom pull-to-refresh; nil = standard app refresh
+    var headerTopPadding: CGFloat
+    var headerBottomPadding: CGFloat
     var content:        Content
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -35,6 +37,8 @@ struct StockedShell<Content: View>: View {
         trailingLabel2: String = "",
         onTrailing2:    (() -> Void)? = nil,
         onRefresh:      (() async -> Void)? = nil,
+        headerTopPadding: CGFloat = 8,
+        headerBottomPadding: CGFloat = 14,
         @ViewBuilder content: () -> Content
     ) {
         self.showBack       = showBack
@@ -49,6 +53,8 @@ struct StockedShell<Content: View>: View {
         self.trailingLabel2 = trailingLabel2
         self.onTrailing2    = onTrailing2
         self.onRefresh      = onRefresh
+        self.headerTopPadding = headerTopPadding
+        self.headerBottomPadding = headerBottomPadding
         self.content        = content()
     }
 
@@ -75,10 +81,20 @@ struct StockedShell<Content: View>: View {
                     // with the id. Purely additive — normal scrolling is unaffected.
                     ScrollViewReader { scrollProxy in
                         ScrollView(showsIndicators: false) {
-                            content
-                                .frame(maxWidth: layoutMetrics.readableContentWidth, alignment: .leading)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.bottom, StockedUI.scrollBottomPad)
+                            VStack(spacing: 0) {
+                                // A concrete first child is more reliable than using the generic
+                                // content view itself as a scroll target, particularly when a tab
+                                // root rebuild and the reselect notification happen together.
+                                Color.clear
+                                    .frame(height: 1)
+                                    .id("stocked-shell-top")
+                                    .accessibilityHidden(true)
+
+                                content
+                                    .frame(maxWidth: layoutMetrics.readableContentWidth, alignment: .leading)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.bottom, StockedUI.scrollBottomPad)
+                            }
                         }
                         .scrollDismissesKeyboard(.interactively)
                         // App-wide pull-to-refresh. Screens with their own refresh needs pass
@@ -97,6 +113,11 @@ struct StockedShell<Content: View>: View {
                                 scrollProxy.scrollTo(id, anchor: .center)
                             }
                         }
+                        .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                scrollProxy.scrollTo("stocked-shell-top", anchor: .top)
+                            }
+                        }
                     }
                 }
             }
@@ -113,22 +134,25 @@ struct StockedShell<Content: View>: View {
             // doesn't swallow taps meant for the back button.
             Group {
                 // #246 — mockup headers: each tab pins its OWN wordmark left ("Stocked.",
-                // "Cook.", "Inventory.") with no chevron. The trailing period now matches the
-                // wordmark text color (black in light mode) rather than the gold accent.
+                // "Cook.", "Inventory.") with no chevron. The brand period remains the single
+                // gold accent while the word continues to use the active theme text color.
                 // Centered mode (sub-screens) keeps "Stocked." + chevron.
                 // The header brand wordmark is ALWAYS "Stocked." on every screen — it
                 // never switches to the section name (Cook / Inventory / Recipes / …).
                 // `titleText` is kept only for the VoiceOver label so screen-reader users
                 // still hear which screen they're on.
-                let wordmark = Text("Stocked.").foregroundColor(session.themeTextColor)
-                    .font(.stockedSerif(26, weight: .bold))
+                let wordmark = StockedWordmark(
+                    size: 20,
+                    color: session.themeTextColor,
+                    dotColor: .stockedGold
+                )
 
                 let titleCore = Button { (titleTap ?? onTitleTap)?() } label: {
                     HStack(spacing: 5) {
                         wordmark
                         if !leadingTitle {
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                     }
@@ -204,8 +228,8 @@ struct StockedShell<Content: View>: View {
         // it), so we just need a small gap below the status bar — NOT another full
         // safeTopInset, which double-counted the inset and left a large empty band
         // above the wordmark on every screen.
-        .padding(.top, 8)
-        .padding(.bottom, 14)
+        .padding(.top, headerTopPadding)
+        .padding(.bottom, headerBottomPadding)
     }
 }
 

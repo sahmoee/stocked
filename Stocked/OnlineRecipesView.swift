@@ -114,7 +114,8 @@ class OnlineRecipesLoader {
             self.didBootstrapCache = true
             if self.recipes.isEmpty, !cached.recipes.isEmpty {
                 let filtered = await Task.detached(priority: .utility) {
-                    Self.filterByProfile(cached.recipes, preferredCuisines: preferredCuisines)
+                    let balanced = RecipeSourceHub.balancedRecipes(cached.recipes, limit: 400)
+                    return Self.filterByProfile(balanced, preferredCuisines: preferredCuisines)
                 }.value
                 guard !Task.isCancelled else { return }
                 self.publish(filtered)
@@ -138,7 +139,7 @@ class OnlineRecipesLoader {
             let entries = await RecipeDatabaseManager.shared.loadSnapshot()
             guard !Task.isCancelled else { return }
             let presentableCount = await Task.detached(priority: .utility) {
-                entries.lazy.filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }.prefix(12).count
+                entries.lazy.filter { Self.isPresentable($0) }.prefix(12).count
             }.value
             let corpus: [RecipeDatabaseEntry]
             if presentableCount < 12 {
@@ -148,13 +149,13 @@ class OnlineRecipesLoader {
             }
 
             let local = await Task.detached(priority: .utility) {
-                var mapped = entries
-                    .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
-                    .prefix(60)
+                let mappedEntries = entries
+                    .filter { Self.isPresentable($0) }
                     .map { Self.makeOnlineRecipe(from: $0) }
+                var mapped = RecipeSourceHub.balancedRecipes(mappedEntries, limit: 60)
                 if mapped.count < 12 {
                     mapped += corpus
-                        .filter { !$0.steps.isEmpty }
+                        .filter { Self.isPresentable($0) }
                         .map { Self.makeOnlineRecipe(from: $0) }
                 }
                 return Self.filterByProfile(Array(mapped), preferredCuisines: preferredCuisines)
@@ -162,6 +163,29 @@ class OnlineRecipesLoader {
 
             guard !Task.isCancelled, self.recipes.isEmpty, !local.isEmpty else { return }
             self.publish(local)
+        }
+    }
+
+    /// Incorporate database writes (especially StockedMac harvest pulls) without launching a
+    /// second network discovery pass. A fresh six-hour cache must not hide recipes that arrived
+    /// from the Worker moments after it was decoded.
+    func refreshFromSharedDatabase(profile: UserCookingProfile? = nil) {
+        let preferredCuisines = profile?.cuisinePrefs ?? []
+        Task { [weak self] in
+            guard let self else { return }
+            let entries = await RecipeDatabaseManager.shared.loadSnapshot()
+            let current = self.recipes
+            let refreshed = await Task.detached(priority: .utility) {
+                let databaseRecipes = entries
+                    .filter { Self.isPresentable($0) }
+                    .map { Self.makeOnlineRecipe(from: $0) }
+                let merged = Self.deduplicateAndMerge(databaseRecipes + current)
+                let balanced = RecipeSourceHub.balancedRecipes(merged, limit: 400)
+                return Self.filterByProfile(balanced, preferredCuisines: preferredCuisines)
+            }.value
+            guard !Task.isCancelled, !refreshed.isEmpty else { return }
+            self.publish(refreshed)
+            self.saveCacheAsync(refreshed)
         }
     }
 
@@ -178,6 +202,10 @@ class OnlineRecipesLoader {
             measures: Array(repeating: "", count: entry.ingredients.count),
             source: entry.sourceName.isEmpty ? "My Database" : entry.sourceName
         )
+    }
+
+    nonisolated private static func isPresentable(_ entry: RecipeDatabaseEntry) -> Bool {
+        !entry.steps.isEmpty && URL(string: entry.imageURL)?.scheme?.lowercased() == "https"
     }
 
     /// Map a live JSON-LD publisher recipe into the shared Discover model.
@@ -255,7 +283,7 @@ class OnlineRecipesLoader {
             OnlineRecipeFacts.hasRealInstructions($0.instructions)
         }
         guard !usable.isEmpty, recipes.isEmpty else { return }
-        publish(usable)
+        publish(RecipeSourceHub.balancedRecipes(usable, limit: 400))
     }
 
     private nonisolated static func filterByProfile(
@@ -292,10 +320,6 @@ class OnlineRecipesLoader {
 
             var fetched: [OnlineRecipe] = []
 
-            // Phase 0: Sowens curated content hosted on Namecheap cPanel (static JSON + images,
-            // cached on-device with ETag). Cheap, offline-friendly, and returns [] until published.
-            fetched += await RemoteContentClient.shared.onlineRecipes(limit: 40)
-
             let spoonacularRemainingPoints = await SpoonacularClient.shared.remainingPointsToday
             let sourcePlan = RecipeDiscoveryPlan.make(
                 cacheCount: self.recipes.count,
@@ -303,6 +327,18 @@ class OnlineRecipesLoader {
                 mealDBHealth: SourceHealth.shared.score("TheMealDB"),
                 isForced: false
             )
+
+            // Phase 0: begin with the shared database. It contains StockedMac harvests,
+            // household sync, imports, and earlier providers; putting it first also gives an
+            // offline launch useful cross-source content while live feeds refresh below.
+            let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
+            let dbRecipes = await Task.detached(priority: .utility) {
+                let mapped = dbEntries
+                    .filter { Self.isPresentable($0) }
+                    .map { Self.makeOnlineRecipe(from: $0) }
+                return RecipeSourceHub.balancedRecipes(mapped, limit: 120)
+            }.value
+            fetched.append(contentsOf: dbRecipes)
 
             // Phase 1: pull from ALL DB categories (was 11 of 11 — now the full list every
             // refresh for maximum fill), bounded so we don't hammer MealDB.
@@ -316,16 +352,6 @@ class OnlineRecipesLoader {
                 { if let recipe = await Self.fetchOne(session: session) { return [recipe] } else { return [] } }
             }
             fetched += await RecipeDiscoveryCoordinator.boundedGather(randomTasks)
-
-            // Phase 3: Pull from local RecipeDatabase (Spoonacular/CocktailDB already synced there)
-            let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
-            let dbRecipes = await Task.detached(priority: .utility) {
-                dbEntries
-                    .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
-                    .shuffled().prefix(60)
-                    .map { Self.makeOnlineRecipe(from: $0) }
-            }.value
-            fetched.append(contentsOf: dbRecipes)
 
             // Phase 4: DummyJSON removed — fake placeholder data, not real recipes
 
@@ -361,10 +387,6 @@ class OnlineRecipesLoader {
                 supplementalTasks.append { await RecipeSourcesPlus.mealDBByIngredient(term, limit: 5) }
             }
             supplementalTasks.append { await CocktailDBClient.shared.discoverRecipes(limit: 8) }
-            supplementalTasks.append { await RecipeSourcesPlus.dummyJSONRecipes(limit: 20) }
-            for term in seedTerms {
-                supplementalTasks.append { await RecipeSourcesPlus.dummyJSONSearch(term, limit: 6) }
-            }
             for ingredient in pantrySeeds {
                 supplementalTasks.append { await RecipeSourcesPlus.mealDBByIngredient(ingredient, limit: 5) }
             }
@@ -423,7 +445,7 @@ class OnlineRecipesLoader {
             if !unique.isEmpty {
                 let existingIds = Set(self.recipes.map(\.id))
                 let newOnes = unique.filter { !existingIds.contains($0.id) }
-                let combined = Array((newOnes + self.recipes).prefix(400))
+                let combined = RecipeSourceHub.balancedRecipes(newOnes + self.recipes, limit: 400)
                 let filtered = await Task.detached(priority: .utility) {
                     Self.filterByProfile(combined, preferredCuisines: preferredCuisines)
                 }.value
@@ -567,7 +589,7 @@ class OnlineRecipesLoader {
 
         for raw in input {
             guard RecipeSourceHub.isFullRecipe(raw) else { continue }
-            if raw.imageURL.isEmpty && RecipeSourceHub.canonicalSourceName(raw.source) != "Wikibooks Cookbook" { continue }
+            guard URL(string: raw.imageURL)?.scheme == "https" else { continue }
 
             let recipe = OnlineRecipe(
                 id: raw.id,

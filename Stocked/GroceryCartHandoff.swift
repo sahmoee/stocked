@@ -32,21 +32,59 @@ nonisolated struct CartRetailer: Identifiable, Hashable, Sendable {
     static let affiliateSuffix = ""
 
     static let all: [CartRetailer] = [
+        .init(id: "kroger",     name: "Kroger",      searchTemplate: "https://www.kroger.com/search?query={q}",            appTemplate: nil),
         .init(id: "instacart",  name: "Instacart",   searchTemplate: "https://www.instacart.com/store/s?k={q}",            appTemplate: "instacart://search?query={q}"),
         .init(id: "walmart",    name: "Walmart",     searchTemplate: "https://www.walmart.com/search?q={q}",               appTemplate: "walmart://search?query={q}"),
         .init(id: "target",     name: "Target",      searchTemplate: "https://www.target.com/s?searchTerm={q}",            appTemplate: "target://search?searchTerm={q}"),
-        .init(id: "kroger",     name: "Kroger",      searchTemplate: "https://www.kroger.com/search?query={q}",            appTemplate: nil),
         .init(id: "heb",        name: "H-E-B",       searchTemplate: "https://www.heb.com/search/?q={q}",                  appTemplate: nil),
         .init(id: "amazonfresh",name: "Amazon Fresh",searchTemplate: "https://www.amazon.com/s?k={q}&i=amazonfresh",       appTemplate: nil),
         .init(id: "wholefoods", name: "Whole Foods", searchTemplate: "https://www.wholefoodsmarket.com/search?text={q}",   appTemplate: nil),
         .init(id: "safeway",    name: "Safeway",     searchTemplate: "https://www.safeway.com/shop/search-results.html?q={q}", appTemplate: nil),
+        .init(id: "costco",     name: "Costco",      searchTemplate: "https://www.costco.com/CatalogSearch?keyword={q}",     appTemplate: nil),
+        .init(id: "samsclub",   name: "Sam's Club",  searchTemplate: "https://www.samsclub.com/s/{q}",                     appTemplate: nil),
+        .init(id: "publix",     name: "Publix",      searchTemplate: "https://www.publix.com/search?query={q}",            appTemplate: nil),
+        .init(id: "aldi",       name: "ALDI",        searchTemplate: "https://www.aldi.us/results?q={q}",                  appTemplate: nil),
+        .init(id: "meijer",     name: "Meijer",      searchTemplate: "https://www.meijer.com/shopping/search.html?text={q}", appTemplate: nil),
+        .init(id: "foodlion",   name: "Food Lion",   searchTemplate: "https://shop.foodlion.com/search?search_term={q}",   appTemplate: nil),
+        .init(id: "stopshop",   name: "Stop & Shop", searchTemplate: "https://stopandshop.com/product-search/{q}",         appTemplate: nil),
+        .init(id: "giant",      name: "Giant Food",  searchTemplate: "https://giantfood.com/product-search/{q}",           appTemplate: nil),
+        .init(id: "shoprite",   name: "ShopRite",    searchTemplate: "https://www.shoprite.com/search?query={q}",          appTemplate: nil),
+        .init(id: "bjs",        name: "BJ's",        searchTemplate: "https://www.bjs.com/search?q={q}",                   appTemplate: nil),
     ]
 
     static func preferred() -> CartRetailer {
-        let saved = UserDefaults.standard.string(forKey: "cartRetailerID") ?? "instacart"
+        let saved = UserDefaults.standard.string(forKey: "cartRetailerID") ?? "kroger"
         return all.first { $0.id == saved } ?? all[0]
     }
     static func setPreferred(_ r: CartRetailer) { UserDefaults.standard.set(r.id, forKey: "cartRetailerID") }
+
+    // MARK: - Location-aware ordering
+
+    /// Bridges a handoff retailer id to its `GroceryKnowledgeBase` region footprint id. Aggregators
+    /// and delivery marketplaces (Instacart, Amazon Fresh) map to "" and are always treated national.
+    private static let regionBridge: [String: String] = [
+        "kroger": "kroger", "walmart": "walmart", "target": "target", "heb": "heb",
+        "wholefoods": "whole-foods", "safeway": "safeway", "costco": "costco",
+        "samsclub": "sams-club", "publix": "publix", "aldi": "aldi", "meijer": "meijer",
+        "foodlion": "ahold-delhaize", "stopshop": "ahold-delhaize", "giant": "ahold-delhaize",
+        "shoprite": "shoprite", "bjs": "bjs", "instacart": "", "amazonfresh": "",
+    ]
+
+    /// The user's saved two-letter home state, if the store finder has resolved one.
+    static var homeState: String? { UserDefaults.standard.string(forKey: "stockedHomeState") }
+
+    /// Retailers ordered in-region first, then national, then out-of-region — stable within tiers.
+    /// With no state the canonical order is returned unchanged (no behavior change).
+    static func ordered(forState state: String?) -> [CartRetailer] {
+        guard let state, !state.isEmpty else { return all }
+        func rank(_ r: CartRetailer) -> Int {
+            guard let kbID = regionBridge[r.id], !kbID.isEmpty else { return 1 }
+            return GroceryKnowledgeBase.regionAvailable(kbID, state: state) ? 0 : 2
+        }
+        return all.enumerated()
+            .sorted { rank($0.element) != rank($1.element) ? rank($0.element) < rank($1.element) : $0.offset < $1.offset }
+            .map(\.element)
+    }
 }
 
 // MARK: - Handoff view
@@ -67,7 +105,7 @@ struct GroceryCartHandoffView: View {
                 // Retailer picker
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(CartRetailer.all) { r in
+                        ForEach(CartRetailer.ordered(forState: CartRetailer.homeState)) { r in
                             Button {
                                 retailer = r; CartRetailer.setPreferred(r); HapticManager.light()
                             } label: {

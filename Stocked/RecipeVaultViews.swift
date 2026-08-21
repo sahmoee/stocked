@@ -231,12 +231,230 @@ struct RecipeVaultView: View {
         .environment(session)
     }
 
+    private var referenceRecipesPage: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            referenceRecipeHero
+            referenceRecipeDestinations
+            referenceAICard
+            referenceMoodRow
+            referenceForYou
+            referenceBrowseRow
+            Spacer(minLength: 24)
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 12)
+    }
+
+    private var referenceRecipeHero: some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("YOUR RECIPE BOOK")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(2.2)
+                    .foregroundStyle(Color.stockedGold)
+                Text("What are you\nlooking for?")
+                    .font(.system(size: 31, weight: .bold, design: .serif))
+                    .foregroundStyle(session.themeTextColor)
+                    .minimumScaleFactor(0.78)
+                Text("Your recipes, past meals,\nand ideas for what to make next.")
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundStyle(session.themeTextColor.opacity(0.78))
+                    .lineSpacing(5)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image("recipes_hero")
+                .resizable().scaledToFit()
+                .frame(maxWidth: 210, maxHeight: 165)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var referenceRecipeDestinations: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 7) { referenceDestinationCards }
+            VStack(spacing: 10) { referenceDestinationCards }
+        }
+    }
+
+    @ViewBuilder private var referenceDestinationCards: some View {
+        referenceDestinationCard(image: "recipes_collection", title: "My Collection",
+                                 subtitle: "Recipes you’ve saved,\ncreated & loved.",
+                                 detail: "\(hubStats.saved) recipe\(hubStats.saved == 1 ? "" : "s")") {
+            navTarget = .saved
+        }
+        referenceDestinationCard(image: "recipes_ready", title: "Ready to Cook",
+                                 subtitle: "Recipes that match\nyour kitchen.", detail: nil) {
+            navTarget = .browseAll
+        }
+        referenceDestinationCard(image: "recipes_past", title: "Past Meals",
+                                 subtitle: "Find something\nworth making again.", detail: nil) {
+            navTarget = .cooked
+        }
+    }
+
+    private func referenceDestinationCard(image: String, title: String, subtitle: String,
+                                          detail: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                Image(image).resizable().scaledToFit().frame(height: 72).frame(maxWidth: .infinity)
+                Text(title).font(.system(size: 13, weight: .bold)).foregroundStyle(session.themeTextColor)
+                    .lineLimit(1).minimumScaleFactor(0.78)
+                Text(subtitle).font(.system(size: 10.5)).foregroundStyle(session.themeTextColor.opacity(0.76)).lineSpacing(2)
+                HStack {
+                    if let detail { Text(detail).font(.system(size: 10, weight: .semibold)).foregroundStyle(Color.stockedGold) }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(session.themeTextColor)
+                        .frame(width: 25, height: 25).background(Color.stockedGold.opacity(0.12)).clipShape(Circle())
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 154, alignment: .topLeading)
+            .padding(10)
+            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 13).stroke(session.themeTextColor.opacity(0.1), lineWidth: 1))
+            .shadow(color: .black.opacity(0.07), radius: 6, y: 3)
+        }.buttonStyle(.plain)
+    }
+
+    private var referenceAICard: some View {
+        Button { createRoute = .ai } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().stroke(Color.stockedGold, lineWidth: 1).frame(width: 46, height: 46)
+                    Image(systemName: "sparkles").font(.system(size: 19)).foregroundStyle(Color.stockedGold)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("NEW").font(.system(size: 10, weight: .black)).foregroundStyle(Color.stockedCharcoal)
+                        .padding(.horizontal, 8).padding(.vertical, 3).background(Color.stockedGold).clipShape(Capsule())
+                    Text("Create with Stocked AI").font(.system(size: 18, weight: .semibold, design: .serif)).foregroundStyle(.white)
+                    Text("Tell me what you’re craving, what you have,\nor make something from scratch.")
+                        .font(.system(size: 11)).foregroundStyle(.white.opacity(0.82)).lineSpacing(2)
+                    Text("Start creating ✦").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).padding(.vertical, 7).background(Color.stockedGold).clipShape(Capsule())
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "takeoutbag.and.cup.and.straw.fill")
+                    .font(.system(size: 48, weight: .thin)).foregroundStyle(Color.stockedGold)
+            }
+            .padding(14).frame(maxWidth: .infinity, minHeight: 105, alignment: .leading)
+            .background(Color.stockedCharcoal)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }.buttonStyle(.plain).coachmarkAnchor("recipes.createAI")
+    }
+
+    private var referenceMoodRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            referenceSectionHeader("Discover by mood", actionTitle: "See all") { navTarget = .browseAll }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 9) {
+                    referenceMoodChip("Quick", icon: "bolt.fill")
+                    referenceMoodChip("Comfort", icon: "heart.fill")
+                    referenceMoodChip("One Pot", icon: "frying.pan.fill")
+                    referenceMoodChip("Feeling Lazy", icon: "moon.zzz.fill")
+                    referenceMoodChip("Surprise Me", icon: "sparkles")
+                }.padding(.horizontal, 1)
+            }
+        }
+    }
+
+    private func referenceMoodChip(_ title: String, icon: String) -> some View {
+        NavigationLink {
+            QuickPickListView(pick: title, pool: discoverSnapshot.pool, onOpenRecipe: { openOnlineRecipe($0) }).environment(session)
+        } label: {
+            HStack(spacing: 8) { Image(systemName: icon); Text(title) }
+                .font(.system(size: 13, weight: .medium)).foregroundStyle(session.themeTextColor)
+                .padding(.horizontal, 17).padding(.vertical, 10)
+                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.76))
+                .clipShape(Capsule()).overlay(Capsule().stroke(session.themeTextColor.opacity(0.12)))
+        }.buttonStyle(.plain)
+    }
+
+    @ViewBuilder private var referenceForYou: some View {
+        let recipes = Array(discoverSnapshot.popular.prefix(3))
+        if !recipes.isEmpty {
+            VStack(alignment: .leading, spacing: 9) {
+                referenceSectionHeader("For you", actionTitle: "See all") { navTarget = .browseAll }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(recipes) { recipe in
+                            Button { openOnlineRecipe(recipe) } label: {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: 115, resolveName: recipe.title)
+                                        .frame(width: 168, height: 115).clipped()
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(recipe.title)
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundStyle(session.themeTextColor)
+                                            .lineLimit(2, reservesSpace: true)
+                                            .minimumScaleFactor(0.82)
+                                        HStack(spacing: 2) {
+                                            ForEach(0..<5, id: \.self) { _ in Image(systemName: "star.fill") }
+                                            Text("4.8")
+                                        }
+                                        .font(.system(size: 8.5, weight: .semibold))
+                                        .foregroundStyle(Color.stockedGold)
+                                        Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
+                                            .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.58)).lineLimit(1)
+                                    }.padding(10)
+                                }.frame(width: 168).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
+                                    .clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(session.themeTextColor.opacity(0.16)))
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var referenceBrowseRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            referenceSectionHeader("Browse recipes", actionTitle: "Browse all") { navTarget = .browseAll }
+            Text("Explore by cuisine, meal type, dietary needs, ingredients, and more.")
+                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.72))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    referenceBrowseButton("Cuisine", "globe") { navTarget = .cuisineBrowse }
+                    referenceBrowseButton("Meal Type", "frying.pan") { navTarget = .browseAll }
+                    referenceBrowseButton("Dietary", "leaf") { navTarget = .browseAll }
+                    referenceBrowseButton("Ingredient", "carrot") { navTarget = .browseAll }
+                    referenceBrowseButton("Occasion", "gift") { navTarget = .browseAll }
+                    referenceBrowseButton("Source", "book.closed") { navTarget = .sources }
+                    referenceBrowseButton("Drinks", "mug") { navTarget = .drinks }
+                }
+            }
+        }
+    }
+
+    private func referenceBrowseButton(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) { Image(systemName: icon); Text(title) }
+                .font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor)
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.72))
+                .clipShape(RoundedRectangle(cornerRadius: 10)).overlay(RoundedRectangle(cornerRadius: 10).stroke(session.themeTextColor.opacity(0.13)))
+        }.buttonStyle(.plain)
+    }
+
+    private func referenceSectionHeader(_ title: String, actionTitle: String, action: @escaping () -> Void) -> some View {
+        HStack {
+            Text(title).font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
+            Spacer()
+            Button(action: action) {
+                HStack(spacing: 5) { Text(actionTitle); Image(systemName: "chevron.right") }
+                    .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
+            }.buttonStyle(.plain)
+        }
+    }
+
     var body: some View {
         StockedShell(showBack: false, scrollDisabled: false,
-                     titleText: "Recipes",
-                     leadingTitle: true,
+                     titleText: "Stocked.",
+                     leadingTitle: false,
                      trailingIcon: "magnifyingglass", trailingLabel: "Search",
                      onTrailing: { showRecipeSearch = true }) {
+            referenceRecipesPage
+            if false {
             VStack(alignment: .leading, spacing: 0) {
 
                 // ── #245 — mockup title ──
@@ -371,6 +589,7 @@ struct RecipeVaultView: View {
 
                 Spacer(minLength: 24)
             }
+            }
         }
         // Both bools still exist (child views bind to them), but they feed ONE
         // .sheet(item:) — two stacked .sheet modifiers fire unreliably in SwiftUI.
@@ -459,6 +678,11 @@ struct RecipeVaultView: View {
         }
         .onChange(of: onlineLoader.revision) { _, _ in
             scheduleDiscoverSnapshotRebuild()
+        }
+        .onReceive(DatabaseSyncBus.shared.recipeChanges.debounce(for: .milliseconds(350), scheduler: RunLoop.main)) { _ in
+            // HarvestRecipeSync writes StockedMac/Worker recipes into RecipeDatabase after
+            // launch. Refresh the visible pool even when its six-hour cache is still fresh.
+            onlineLoader.refreshFromSharedDatabase(profile: session.guestStore.cookingProfile)
         }
         // #3 — recompute prepared hub stats only when their real inputs change (cheap
         // Int signature avoids comparing recipe image blobs every render).

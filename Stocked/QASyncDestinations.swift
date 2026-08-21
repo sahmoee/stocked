@@ -96,8 +96,16 @@ nonisolated enum QACPanelSettings {
     /// the sync rather than an unfinished setting.
     static var isConfigured: Bool {
         let e = endpoint
-        guard !e.isEmpty, !token.isEmpty, let u = URL(string: e), u.scheme != nil, u.host != nil
+        guard !e.isEmpty, !token.isEmpty, let u = URL(string: e), let host = u.host, !host.isEmpty
         else { return false }
+        // The token is sent as a cleartext multipart field on every sync (see
+        // `QACPanelClient.upload` below). Scheme used to be checked only for
+        // non-nil, which accepted `http://`, so a pasted or autofilled plain
+        // HTTP endpoint would silently send that token unencrypted on every
+        // ticket. Require https unless the host is local — matches what the
+        // token actually protects.
+        let isLocal = host == "localhost" || host == "127.0.0.1" || host.hasSuffix(".local")
+        guard u.scheme == "https" || isLocal else { return false }
         return true
     }
 
@@ -588,6 +596,16 @@ final class QASyncCoordinator {
     private(set) var lastDetail: [String] = []
     private(set) var folderLocation = "not resolved yet"
 
+    // `isRunning` only gates the settings-screen button; nothing stopped two
+    // calls to `syncEverywhere` for the *same* ticket from overlapping — e.g.
+    // `QATicketStore.setStatus`'s auto-publish task racing a manual "send
+    // everything" tap, or (before that duplicate schedule was fixed) the
+    // status-change path itself. An overlap meant a double POST to the
+    // Worker, a double multipart upload to cPanel, and two folder-mirror
+    // writes racing each other. Track in-flight ticket ids and no-op a
+    // re-entrant call for the same id rather than let it double-send.
+    private var inFlight: Set<UUID> = []
+
     private init() {}
 
     /// Unconditional local/project mirror. This is deliberately separate from
@@ -624,17 +642,36 @@ final class QASyncCoordinator {
             lastOutcome = "ticket not found"
             return false
         }
+        guard !inFlight.contains(id) else {
+            // A sync for this exact ticket is already running — this is the
+            // overlap this method used to allow through. Let the one already
+            // in flight own the fan-out; a second run would duplicate every
+            // network side effect for no benefit.
+            return false
+        }
+        inFlight.insert(id)
         isRunning = true
-        defer { isRunning = false }
+        defer { isRunning = false; inFlight.remove(id) }
 
         var detail: [String] = []
         var anyLanded = false
+        // Counted separately from `detail` so the "N of M destinations" line
+        // below always reflects the 3 conceptual destinations (folder/worker/
+        // cPanel), not however many optional screenshot/mockup upload lines
+        // happen to also be in `detail` that sync — attaching a screenshot
+        // used to silently change both the numerator and denominator of that
+        // ratio, so "2 of 3 destinations" could read as "3 of 5" once a
+        // screenshot was present.
+        var coreTotal = 0
+        var coreOk = 0
 
         // 1. Folder — local, instant, no credential.
         let folder = await QAFolderMirror.shared.write(bundle)
         detail.append("folder: \(folder.note)")
+        coreTotal += 1
         if folder.succeeded {
             anyLanded = true
+            coreOk += 1
             QATicketStore.shared.stampMirrored(id)
         }
         folderLocation = await QAFolderMirror.shared.rootDescription()
@@ -651,7 +688,8 @@ final class QASyncCoordinator {
         // 2. Worker — text envelope, then the full image on its own route.
         let posted = await QATicketStore.shared.publish(id)
         detail.append("worker: \(posted ? "ok" : "failed")")
-        if posted { anyLanded = true }
+        coreTotal += 1
+        if posted { anyLanded = true; coreOk += 1 }
 
         if let shot = bundle.shot {
             let up = await QAShotUploader.upload(shot, number: bundle.number, kind: "screenshot")
@@ -667,8 +705,10 @@ final class QASyncCoordinator {
         if QACPanelSettings.isConfigured {
             let cp = await QACPanelClient.upload(bundle)
             detail.append("cPanel: \(cp.note)")
+            coreTotal += 1
             if cp.succeeded {
                 anyLanded = true
+                coreOk += 1
                 QATicketStore.shared.stampCPanelSynced(id)
             }
         }
@@ -679,7 +719,7 @@ final class QASyncCoordinator {
         // Every attempt is kept in the queue log instead.
         QASyncQueue.shared.record(number: bundle.number, detail: detail)
         lastOutcome = anyLanded
-            ? "\(bundle.number) → \(detail.filter { $0.hasSuffix("ok") }.count) of \(detail.count) destinations"
+            ? "\(bundle.number) → \(coreOk) of \(coreTotal) destinations"
             : "\(bundle.number) reached nowhere"
         return anyLanded
     }

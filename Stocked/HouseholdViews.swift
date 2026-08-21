@@ -692,11 +692,13 @@ struct HouseholdSettingsView: View {
 
     private var statusIsHealthy: Bool { household.syncStatus.lastError == nil }
     private var statusLine: String {
+        if household.isRepairingHouseholdStorage { return "Repairing household storage…" }
         if !statusIsHealthy { return "Offline. Changes will sync later." }
         return household.pendingOps.isEmpty ? "Up to date" : "\(household.pendingOps.count) change\(household.pendingOps.count == 1 ? "" : "s") waiting to sync"
     }
     private var statusIcon: String {
-        statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
+        if household.isRepairingHouseholdStorage { return "wrench.and.screwdriver.fill" }
+        return statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
     }
     private var lastSyncedText: String {
         let dates = [household.syncStatus.lastSuccessfulPush, household.syncStatus.lastSuccessfulPull].compactMap { $0 }
@@ -772,7 +774,7 @@ struct HouseholdSettingsView: View {
                 } label: {
                     HStack {
                         if isSyncing { ProgressView().tint(Color.stockedWhite) }
-                        Text(isSyncing ? "Syncing…" : "Sync Now")
+                        Text(household.isRepairingHouseholdStorage ? "Repairing…" : (isSyncing ? "Syncing…" : "Sync Now"))
                             .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 12)

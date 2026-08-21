@@ -589,13 +589,17 @@ final class QATicketStore {
     }
 
     func setStatus(_ id: UUID, _ status: QATicketStatus) {
+        // `update(_:_:)` already clears the sync stamps and, when auto-publish
+        // is on, schedules its own `Task { syncEverywhere(id) }` (see above).
+        // This used to schedule a second, independent sync task after `update`
+        // returned, so every status change fired two concurrent fan-outs to
+        // the Worker/cPanel/folder mirror for the same ticket — a double POST,
+        // a double multipart upload, and two overlapping mirror writes racing
+        // each other. Only record the note here; let `update` own the sync.
         update(id) { $0.status = status }
         if let t = tickets.first(where: { $0.id == id }) {
             QARecorder.shared.record(.note, screen: "QA",
                                      label: "\(t.number) → \(status.title)")
-            if QABackgroundRunner.shared.autoPublish {
-                Task { await QASyncCoordinator.shared.syncEverywhere(id) }
-            }
         }
     }
 
@@ -707,9 +711,55 @@ final class QATicketStore {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey),
-              let decoded = try? JSONDecoder().decode([QATicket].self, from: data) else { return }
-        tickets = decoded
+        guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey) else { return }
+
+        // Fast path: the common case, every ticket decodes cleanly.
+        if let decoded = try? JSONDecoder().decode([QATicket].self, from: data) {
+            tickets = decoded
+            return
+        }
+
+        // The array used to decode as one unit: a single malformed or
+        // truncated ticket (a bad write, a future non-Optional field added
+        // without remembering to make it Optional) threw, `try?` swallowed
+        // it, and every OTHER ticket — including anything filed by other
+        // tools writing into this same store, such as automated ticket
+        // fixers — was silently dropped along with it. Fall back to
+        // decoding element-by-element so one bad ticket only costs that one
+        // ticket, never the whole history. This only changes local recovery
+        // behavior; it doesn't touch sync, triage, or any network path, so
+        // it can't affect in-flight work from another tool against the same
+        // ticket store.
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            QARecorder.shared.record(.note, screen: "QA",
+                                     label: "ticket store unreadable",
+                                     detail: "top-level JSON was not an array of objects; kept in place, not overwritten")
+            return
+        }
+
+        var recovered: [QATicket] = []
+        var lostCount = 0
+        let decoder = JSONDecoder()
+        for element in raw {
+            guard let elementData = try? JSONSerialization.data(withJSONObject: element),
+                  let ticket = try? decoder.decode(QATicket.self, from: elementData) else {
+                lostCount += 1
+                continue
+            }
+            recovered.append(ticket)
+        }
+
+        tickets = recovered
+        if lostCount > 0 {
+            QARecorder.shared.record(.note, screen: "QA",
+                                     label: "ticket store partially recovered",
+                                     detail: "\(recovered.count) tickets recovered, \(lostCount) could not be decoded and were dropped")
+        }
+        // Do not `save()` here: writing the recovered subset back out before
+        // anything else touches the store would make the drop permanent on
+        // disk even if the "bad" tickets were actually fine and the failure
+        // was something transient. Leave the on-disk copy as-is; the next
+        // real mutation persists the recovered set naturally.
     }
 
     /// Resolution registry compiled into the build. This is how an agent's fix
@@ -777,10 +827,41 @@ final class QATicketStore {
             return resolution
         }
         let currentTicketResolutions: [String: String] = [
+            "STK-97-0001": "Recipe recommendation cards now reserve two title lines, scale long titles safely, and keep the image inside the card width so names remain readable without clipping.",
+            "STK-97-0002": "Home now defers and memoizes kitchen metrics outside repeated render passes, preventing the reported main-thread stall while keeping the first frame responsive.",
+            "STK-97-0006": "Home now uses the available phone and iPad width with compact reference spacing, larger useful controls, and no fixed empty gutters around the content or tab bar.",
             "STK-92-0001": "Home now renders its first frame before deriving the kitchen snapshot and computes that snapshot once per store revision, eliminating repeated inventory and recipe passes during a single body update.",
             "STK-92-0002": "Home cards and buttons now use the live container width with smaller edge insets, a comfortable default control scale, and an Interface Size preference for Standard, Comfortable, or Large controls.",
             "STK-92-0003": "All shell pages now use up to 1,180 points of live window width instead of the old narrow reading-column cap, while compact windows retain safe edge padding.",
-            "STK-93-0015": "Added an app-wide Interface Size preference and container-driven sizing so iPad controls default to Comfortable and can be enlarged without changing the device's system text size."
+            "STK-93-0015": "Added an app-wide Interface Size preference and container-driven sizing so iPad controls default to Comfortable and can be enlarged without changing the device's system text size.",
+            "STK-93-0018": "Inventory Scan now falls back from a failed cloud provider to Apple Foundation Models and then to Stocked's deterministic on-device zone and shelf-life audit, so exhausted provider credit no longer blocks inventory correction.",
+            "STK-92-0004": "Required image-backed recipes in every recipe collection and routed Drinks through the same original-image resolver and cache as the rest of the library.",
+            "STK-92-0009": "Cook Now now excludes recipes without usable images and renders publisher-original photography through the shared lossless image cache.",
+            "STK-107-0001": "Applied the active Stocked theme to the complete popover and sheet presentation surface instead of leaving a stock system background.",
+            "STK-107-0002": "Centralized themed presentation styling across pages, sheets, popovers, alerts, text fields, and controls in light and dark mode.",
+            "STK-107-0003": "Replaced narrow fixed sheet geometry with container-driven sizing, adaptive detents, and scrolling only when the available iPad window actually requires it.",
+            "STK-107-0005": "Filtered every Recipes collection through the shared image-completeness gate and continuously removes historical recipes whose image cannot be recovered.",
+            "STK-107-0007": "Made recipe controls and cards use the live window metrics, accessible minimum targets, and the app-wide Interface Size preference on iPhone and iPad.",
+            "STK-107-0008": "Cook Now now hydrates and classifies the full shared recipe library before rendering tiers, with persisted results available while remote refreshes run.",
+            "STK-107-0009": "Cook Now results now use adaptive columns and the available iPad width in portrait, landscape, Split View, and Stage Manager instead of retaining a narrow phone column.",
+            "STK-107-0010": "Applied the required-image gate and publisher-original image resolver to every Cook Now result tier, including historical imported recipes.",
+            "STK-90-0001": "Preserved and displayed each recipe's original publisher attribution across StockedMac import, Worker sync, historical repair, and Stocked iOS instead of labeling the source StockedMac.",
+            "STK-96-0006": "Repaired legacy StockedMac attribution from durable source URLs and made future sync payloads retain the publisher name and URL.",
+            "STK-92-0011": "Unified Create with AI across entry points: it can scan the complete inventory, recommend existing or generated recipes, and carries substitution choices into the result flow.",
+            "STK-92-0010": "Cook Now now prioritizes recipes whose primary protein is in inventory and keeps useful near-matches visible through the ten-missing-item tier.",
+            "STK-92-0008": "Reduced Grocery to the shared Stocked background, surface, text, urgency, and gold accent tokens instead of stacking unrelated shades for each section.",
+            "STK-92-0007": "Cook button shape and size now persist locally, participate in kitchen preference transfer and household sync, and restore across updates, reinstalls, and devices.",
+            "STK-92-0006": "Settings now uses the high-contrast primary text token in light mode and reserves muted colors for secondary descriptions.",
+            "STK-92-0005": "Settings text now follows the active semantic foreground color, including white primary copy on dark surfaces.",
+            "STK-107-0013": "Inventory recommendations now hydrate from the same complete persisted and online recipe catalog used by Recipes and Cook, then apply the shared matching algorithm.",
+            "STK-107-0012": "Inventory's iPad presentation now uses the live window width and a comfortable regular-width baseline instead of starting at a compressed phone-sized height.",
+            "STK-107-0011": "Household activity sync now publishes and merges recipe additions/removals and inventory/grocery changes in addition to member profile changes.",
+            "STK-107-0006": "Expanded Recipes with shared-catalog discovery, inventory matching, source browsing, substitutions, category filters, grocery actions, and retailer aisle/price enrichment where providers supply it.",
+            "STK-107-0004": "Replaced the dense option picker with adaptive themed selections, readable spacing, clear selected states, and regular-width presentation on iPad.",
+            "STK-96-0012": "Consolidated Settings into themed Appearance, Cooking, Kitchen, Interaction, Notifications, Household, Data, and QA groups; removed duplicate and inactive controls.",
+            "STK-96-0011": "Cook choices now render the selected circle, pill/row, or rounded-card shape at the saved live size and remain centered across orientation and width changes.",
+            "STK-96-0010": "Removed the duplicate allergen editor from general Settings; dietary safety remains available in the dedicated cooking profile where it affects recipes.",
+            "STK-96-0009": "Removed cuisine preferences from general Settings; cuisine discovery and filtering remain in Recipes where the choice has immediate context."
         ]
         if let resolution = currentTicketResolutions[ticket.number] {
             return resolution
@@ -966,6 +1047,14 @@ final class QATicketStore {
         tickets[i].cpanelSyncedAt = nil
         save()
         scheduleLocalMirror(id)
+        // The stamps above correctly mark the ticket unsynced, but nothing
+        // used to act on that: `update`/`setStatus` push to the Worker and
+        // cPanel when auto-publish is on, this path only mirrored locally.
+        // A mockup would sit "unsynced" to those two destinations until some
+        // unrelated edit happened to touch the ticket again.
+        if QABackgroundRunner.shared.autoPublish {
+            Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+        }
 
         QARecorder.shared.record(.note, screen: "QA",
                                  label: "\(tickets[i].number) mockup attached",
@@ -988,8 +1077,22 @@ final class QATicketStore {
         removeMockupFile(tickets[i])
         tickets[i].mockupFile = nil
         tickets[i].updatedAt = Date()
+        // Mirrors `attachMockup`: removing a mockup changes what every
+        // destination should be holding just as much as adding one does.
+        // This used to leave the sync stamps untouched, so the Worker and
+        // cPanel copies — which already received the old mockup — never got
+        // told to drop it. `isFullySynced` kept reporting the ticket as fully
+        // synced even though the remote copies now permanently disagreed
+        // with local state.
+        tickets[i].syncedAt = nil
+        tickets[i].shotSyncedAt = nil
+        tickets[i].mirroredAt = nil
+        tickets[i].cpanelSyncedAt = nil
         save()
         scheduleLocalMirror(id)
+        if QABackgroundRunner.shared.autoPublish {
+            Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+        }
     }
 
     private func removeMockupFile(_ ticket: QATicket) {
@@ -1190,9 +1293,22 @@ final class QATicketStore {
                     guard updated >= tickets[index].updatedAt else { continue }
                     let localShot = tickets[index].screenshotFile
                     let localMockup = tickets[index].mockupFile
+                    // `remoteTicket` builds a fresh `QATicket` with every sync
+                    // stamp nil. Only `syncedAt` used to get re-stamped below,
+                    // so `mirroredAt`/`cpanelSyncedAt`/`shotSyncedAt` were lost
+                    // on every merge — a ticket that was already fully synced
+                    // to the folder mirror and cPanel would look unsynced to
+                    // them again after pulling from another device, causing
+                    // needless re-uploads and a wrong `destinationLine`.
+                    let localMirroredAt = tickets[index].mirroredAt
+                    let localCPanelSyncedAt = tickets[index].cpanelSyncedAt
+                    let localShotSyncedAt = tickets[index].shotSyncedAt
                     tickets[index] = Self.remoteTicket(row, number: number, title: title)
                     tickets[index].screenshotFile = localShot
                     tickets[index].mockupFile = localMockup
+                    tickets[index].mirroredAt = localMirroredAt
+                    tickets[index].cpanelSyncedAt = localCPanelSyncedAt
+                    tickets[index].shotSyncedAt = localShotSyncedAt
                 } else {
                     tickets.append(Self.remoteTicket(row, number: number, title: title))
                     imported += 1

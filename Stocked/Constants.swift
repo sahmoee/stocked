@@ -53,7 +53,9 @@ enum StockedAPI {
     static let mealByID     = "\(mealDBBase)/lookup.php?i="
     static let openFoodFacts = "https://world.openfoodfacts.org/api/v0/product"
     static let anthropicMessages = "https://api.anthropic.com/v1/messages"
-    static let anthropicModel    = "claude-sonnet-4-20250514"
+    // Legacy direct-call fallback only. Normal AI traffic is owned by the
+    // Unified Worker, which also enforces the lowest-credit-first policy.
+    static let anthropicModel    = "claude-haiku-4-5-20251001"
 }
 
 enum StockedUI {

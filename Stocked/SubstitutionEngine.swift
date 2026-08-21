@@ -111,9 +111,13 @@ enum SubstitutionEngine {
         onLocal?(localResults)
 
         let remote = await SmartClient.shared.substitutions(for: ingredient, diet: diet)
-        let mapped = remote.map {
-            Substitution(substitute: $0.sub, ratio: $0.ratio, notes: "", source: .worker,
-                         vegan: $0.vegan, glutenFree: $0.glutenFree)
+        let mapped = remote.map { remoteSub in
+            let nutritionNote: String = {
+                guard let facts = RetailNutritionCache.shared.facts(for: remoteSub.sub), facts.calories > 0 else { return "" }
+                return "~\(facts.calories) cal per \(facts.servingSize.isEmpty ? "serving" : facts.servingSize)"
+            }()
+            return Substitution(substitute: remoteSub.sub, ratio: remoteSub.ratio, notes: nutritionNote, source: .worker,
+                                vegan: remoteSub.vegan, glutenFree: remoteSub.glutenFree)
         }
         return merge(localResults + mapped)
     }

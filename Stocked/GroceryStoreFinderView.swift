@@ -10,6 +10,8 @@ struct NearbyGroceryStore: Identifiable {
     let name: String; let address: String; let distance: String
     let coordinate: CLLocationCoordinate2D
     let retailer: GroceryRetailerProfile?
+    var providerLocationID: String? = nil
+    var hasLiveCatalog: Bool = false
 }
 
 @MainActor
@@ -93,8 +95,19 @@ class GroceryStoreFinder: NSObject, CLLocationManagerDelegate {
         return fallbackName
     }
 
+    /// Reverse-geocode the searched location once and persist the two-letter home state, so the
+    /// grocery cart-handoff picker can rank in-region banners first. Best-effort and non-blocking.
+    private func persistHomeState(from location: CLLocation) {
+        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
+            guard let admin = placemarks?.first?.administrativeArea, !admin.isEmpty else { return }
+            let code = GroceryKnowledgeBase.stateCode(admin)
+            UserDefaults.standard.set(code, forKey: "stockedHomeState")
+        }
+    }
+
     private func searchStores(near location: CLLocation) {
         isSearching = true; error = nil; stores = []
+        persistHomeState(from: location)
         // Start at 5 mi (~0.072°), expand to 10 mi then 20 mi if fewer than 3 results
         searchWithRadius(near: location, latDelta: 0.072, attempt: 1)
     }
@@ -151,8 +164,43 @@ class GroceryStoreFinder: NSObject, CLLocationManagerDelegate {
                         let db = Double($1.distance.components(separatedBy: CharacterSet(charactersIn: "0123456789.").inverted).joined()) ?? 999
                         return da < db
                     }
+                Task { await self.mergeKrogerStores(near: location, radiusMiles: max(5, Int(latDelta * 86))) }
             }
         }
+    }
+
+    private func mergeKrogerStores(near location: CLLocation, radiusMiles: Int) async {
+        let kroger = await KrogerRetailClient.shared.locations(near: location.coordinate,
+                                                               radiusMiles: min(100, radiusMiles), limit: 30)
+        guard !kroger.isEmpty else { return }
+        var merged = stores
+        for locationRecord in kroger {
+            guard let lat = locationRecord.latitude, let lon = locationRecord.longitude else { continue }
+            let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            let storeLocation = CLLocation(latitude: lat, longitude: lon)
+            let meters = location.distance(from: storeLocation)
+            let distance = meters < 1609 ? String(format: "%.0f ft", meters * 3.281)
+                                         : String(format: "%.1f mi", meters / 1609.34)
+            if let index = merged.firstIndex(where: {
+                $0.name.localizedCaseInsensitiveContains(locationRecord.name)
+                || locationRecord.name.localizedCaseInsensitiveContains($0.name)
+                || CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)
+                    .distance(from: storeLocation) < 80
+            }) {
+                merged[index].providerLocationID = locationRecord.locationId
+                merged[index].hasLiveCatalog = true
+            } else {
+                merged.append(NearbyGroceryStore(
+                    name: locationRecord.name, address: locationRecord.address.display,
+                    distance: distance, coordinate: coordinate,
+                    retailer: GroceryKnowledgeBase.retailer(matching: locationRecord.name),
+                    providerLocationID: locationRecord.locationId, hasLiveCatalog: true))
+            }
+        }
+        stores = merged.sorted {
+            CLLocation(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude).distance(from: location)
+            < CLLocation(latitude: $1.coordinate.latitude, longitude: $1.coordinate.longitude).distance(from: location)
+        }.prefix(30).map { $0 }
     }
 
     // CLLocationManagerDelegate
@@ -315,6 +363,11 @@ struct GroceryStoreFinderView: View {
                         if let retailer = store.retailer {
                             Text("Known labels: " + retailer.privateLabels.prefix(3).joined(separator: " · "))
                                 .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.42))
+                                .lineLimit(1)
+                        }
+                        if store.hasLiveCatalog {
+                            Label("Live price, availability, images & aisle data", systemImage: "checkmark.seal.fill")
+                                .font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Color.stockedGold)
                                 .lineLimit(1)
                         }
                     }

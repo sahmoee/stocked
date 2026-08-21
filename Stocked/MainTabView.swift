@@ -226,6 +226,7 @@ struct MainTabView: View {
             Task { await runShareImport() }
         }
         .task {
+            Task { await SharedGroceryCatalog.shared.refreshIfNeeded() }
             // LAG FIX: notification rescheduling + widget refresh used to run on the very
             // first frame of the main UI, stacked on top of household sync, migrations and
             // image backfill. Defer them a few seconds — they are background maintenance and

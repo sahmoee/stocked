@@ -714,7 +714,9 @@ struct BrandDatabase {
         let fromCatalog = ProductCatalog.all
             .filter { $0.name.lowercased().contains(itemName.lowercased()) && !$0.brand.isEmpty }
             .map { e in BrandEntry(brand: e.brand, itemName: itemName) }
-        let allBrands = direct + fromCatalog
+        let fromSharedCatalog = SharedGroceryCatalog.shared.brandNames(for: itemName)
+            .map { BrandEntry(brand: $0, itemName: itemName) }
+        let allBrands = direct + fromCatalog + fromSharedCatalog
         var seen = Set<String>()
         return allBrands.filter { seen.insert($0.brand.lowercased()).inserted }
     }

@@ -266,7 +266,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					7B52645D2FD8B1A700ABE8B1 = {
 						CreatedOnToolsVersion = 26.3;
@@ -367,7 +367,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 99;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -397,7 +397,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 99;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -429,7 +429,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = StockedWidgets/StockedWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 99;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -461,7 +461,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = StockedWidgets/StockedWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 99;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -545,6 +545,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -602,6 +603,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -615,7 +617,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 99;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -653,7 +655,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 99;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
