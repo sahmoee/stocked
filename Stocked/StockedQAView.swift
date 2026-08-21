@@ -783,6 +783,7 @@ struct StockedQAHomeView: View {
             } label: {
                 Label("Reports, logs and where they go", systemImage: "externaldrive.badge.icloud")
             }
+            QAAIOverrideView(app: "stocked")
         } header: {
             Text("QA access & capture")
         } footer: {

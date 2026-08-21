@@ -89,7 +89,7 @@ enum RecipeSourceHub {
     /// cooking directions. Source counts use this stricter definition so users never open a
     /// source that claims twenty recipes but mostly contains links or incomplete stubs.
     nonisolated static func isFullRecipe(_ recipe: OnlineRecipe) -> Bool {
-        !recipe.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        RecipeQuality.hasMeaningfulTitle(recipe.title) &&
         recipe.ingredients.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count >= 3 &&
         OnlineRecipeFacts.hasRealInstructions(recipe.instructions)
     }

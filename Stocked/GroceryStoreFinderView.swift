@@ -95,8 +95,19 @@ class GroceryStoreFinder: NSObject, CLLocationManagerDelegate {
         return fallbackName
     }
 
+    /// Reverse-geocode the searched location once and persist the two-letter home state, so the
+    /// grocery cart-handoff picker can rank in-region banners first. Best-effort and non-blocking.
+    private func persistHomeState(from location: CLLocation) {
+        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
+            guard let admin = placemarks?.first?.administrativeArea, !admin.isEmpty else { return }
+            let code = GroceryKnowledgeBase.stateCode(admin)
+            UserDefaults.standard.set(code, forKey: "stockedHomeState")
+        }
+    }
+
     private func searchStores(near location: CLLocation) {
         isSearching = true; error = nil; stores = []
+        persistHomeState(from: location)
         // Start at 5 mi (~0.072°), expand to 10 mi then 20 mi if fewer than 3 results
         searchWithRadius(near: location, latDelta: 0.072, attempt: 1)
     }

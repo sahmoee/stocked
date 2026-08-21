@@ -589,13 +589,17 @@ final class QATicketStore {
     }
 
     func setStatus(_ id: UUID, _ status: QATicketStatus) {
+        // `update(_:_:)` already clears the sync stamps and, when auto-publish
+        // is on, schedules its own `Task { syncEverywhere(id) }` (see above).
+        // This used to schedule a second, independent sync task after `update`
+        // returned, so every status change fired two concurrent fan-outs to
+        // the Worker/cPanel/folder mirror for the same ticket — a double POST,
+        // a double multipart upload, and two overlapping mirror writes racing
+        // each other. Only record the note here; let `update` own the sync.
         update(id) { $0.status = status }
         if let t = tickets.first(where: { $0.id == id }) {
             QARecorder.shared.record(.note, screen: "QA",
                                      label: "\(t.number) → \(status.title)")
-            if QABackgroundRunner.shared.autoPublish {
-                Task { await QASyncCoordinator.shared.syncEverywhere(id) }
-            }
         }
     }
 
@@ -707,9 +711,55 @@ final class QATicketStore {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey),
-              let decoded = try? JSONDecoder().decode([QATicket].self, from: data) else { return }
-        tickets = decoded
+        guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey) else { return }
+
+        // Fast path: the common case, every ticket decodes cleanly.
+        if let decoded = try? JSONDecoder().decode([QATicket].self, from: data) {
+            tickets = decoded
+            return
+        }
+
+        // The array used to decode as one unit: a single malformed or
+        // truncated ticket (a bad write, a future non-Optional field added
+        // without remembering to make it Optional) threw, `try?` swallowed
+        // it, and every OTHER ticket — including anything filed by other
+        // tools writing into this same store, such as automated ticket
+        // fixers — was silently dropped along with it. Fall back to
+        // decoding element-by-element so one bad ticket only costs that one
+        // ticket, never the whole history. This only changes local recovery
+        // behavior; it doesn't touch sync, triage, or any network path, so
+        // it can't affect in-flight work from another tool against the same
+        // ticket store.
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            QARecorder.shared.record(.note, screen: "QA",
+                                     label: "ticket store unreadable",
+                                     detail: "top-level JSON was not an array of objects; kept in place, not overwritten")
+            return
+        }
+
+        var recovered: [QATicket] = []
+        var lostCount = 0
+        let decoder = JSONDecoder()
+        for element in raw {
+            guard let elementData = try? JSONSerialization.data(withJSONObject: element),
+                  let ticket = try? decoder.decode(QATicket.self, from: elementData) else {
+                lostCount += 1
+                continue
+            }
+            recovered.append(ticket)
+        }
+
+        tickets = recovered
+        if lostCount > 0 {
+            QARecorder.shared.record(.note, screen: "QA",
+                                     label: "ticket store partially recovered",
+                                     detail: "\(recovered.count) tickets recovered, \(lostCount) could not be decoded and were dropped")
+        }
+        // Do not `save()` here: writing the recovered subset back out before
+        // anything else touches the store would make the drop permanent on
+        // disk even if the "bad" tickets were actually fine and the failure
+        // was something transient. Leave the on-disk copy as-is; the next
+        // real mutation persists the recovered set naturally.
     }
 
     /// Resolution registry compiled into the build. This is how an agent's fix
@@ -997,6 +1047,14 @@ final class QATicketStore {
         tickets[i].cpanelSyncedAt = nil
         save()
         scheduleLocalMirror(id)
+        // The stamps above correctly mark the ticket unsynced, but nothing
+        // used to act on that: `update`/`setStatus` push to the Worker and
+        // cPanel when auto-publish is on, this path only mirrored locally.
+        // A mockup would sit "unsynced" to those two destinations until some
+        // unrelated edit happened to touch the ticket again.
+        if QABackgroundRunner.shared.autoPublish {
+            Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+        }
 
         QARecorder.shared.record(.note, screen: "QA",
                                  label: "\(tickets[i].number) mockup attached",
@@ -1019,8 +1077,22 @@ final class QATicketStore {
         removeMockupFile(tickets[i])
         tickets[i].mockupFile = nil
         tickets[i].updatedAt = Date()
+        // Mirrors `attachMockup`: removing a mockup changes what every
+        // destination should be holding just as much as adding one does.
+        // This used to leave the sync stamps untouched, so the Worker and
+        // cPanel copies — which already received the old mockup — never got
+        // told to drop it. `isFullySynced` kept reporting the ticket as fully
+        // synced even though the remote copies now permanently disagreed
+        // with local state.
+        tickets[i].syncedAt = nil
+        tickets[i].shotSyncedAt = nil
+        tickets[i].mirroredAt = nil
+        tickets[i].cpanelSyncedAt = nil
         save()
         scheduleLocalMirror(id)
+        if QABackgroundRunner.shared.autoPublish {
+            Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+        }
     }
 
     private func removeMockupFile(_ ticket: QATicket) {
@@ -1221,9 +1293,22 @@ final class QATicketStore {
                     guard updated >= tickets[index].updatedAt else { continue }
                     let localShot = tickets[index].screenshotFile
                     let localMockup = tickets[index].mockupFile
+                    // `remoteTicket` builds a fresh `QATicket` with every sync
+                    // stamp nil. Only `syncedAt` used to get re-stamped below,
+                    // so `mirroredAt`/`cpanelSyncedAt`/`shotSyncedAt` were lost
+                    // on every merge — a ticket that was already fully synced
+                    // to the folder mirror and cPanel would look unsynced to
+                    // them again after pulling from another device, causing
+                    // needless re-uploads and a wrong `destinationLine`.
+                    let localMirroredAt = tickets[index].mirroredAt
+                    let localCPanelSyncedAt = tickets[index].cpanelSyncedAt
+                    let localShotSyncedAt = tickets[index].shotSyncedAt
                     tickets[index] = Self.remoteTicket(row, number: number, title: title)
                     tickets[index].screenshotFile = localShot
                     tickets[index].mockupFile = localMockup
+                    tickets[index].mirroredAt = localMirroredAt
+                    tickets[index].cpanelSyncedAt = localCPanelSyncedAt
+                    tickets[index].shotSyncedAt = localShotSyncedAt
                 } else {
                     tickets.append(Self.remoteTicket(row, number: number, title: title))
                     imported += 1

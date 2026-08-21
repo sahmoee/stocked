@@ -44,6 +44,16 @@ enum RecipeIngredients {
 // A 0…1 score used to rank recipes by completeness/quality rather than recency.
 // nonisolated: pure scoring, called from the RecipeDatabase actor.
 nonisolated enum RecipeQuality {
+    /// Thin catalogue labels are categories, not dishes. Keep this check at the
+    /// shared quality boundary so Discover, Sources, and Cook Now cannot drift
+    /// into showing a literal "Dinner" or "Recipe" as something to cook.
+    nonisolated static func hasMeaningfulTitle(_ title: String) -> Bool {
+        let key = OnlineRecipeFacts.normalizedTitle(title)
+        guard !key.isEmpty else { return false }
+        let genericTitles: Set<String> = ["dinner", "lunch", "breakfast", "meal", "recipe", "food"]
+        return !genericTitles.contains(key)
+    }
+
     /// Score from the parts a recipe has: image, steps, sensible ingredient count, title.
     nonisolated static func score(title: String, ingredients: [String], steps: [String],
                       imageURL: String, baseScore: Double? = nil) -> Double {
