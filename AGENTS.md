@@ -19,6 +19,8 @@ This is the single authoritative instruction contract for Codex, Claude, and any
 
 Every page, sheet, popover, and cover must fill its presentation with the active Stocked theme, never the stock white host background. Layouts and controls must adapt to available window width, device class, orientation, Split View/Stage Manager, safe areas, and Dynamic Type. Prefer flexible frames, adaptive grids, `ViewThatFits`, and minimum hit targets; fixed dimensions are reserved for intentional artwork/media geometry. Do not force scrolling when content fits or disable scrolling needed by smaller screens or accessibility text.
 
+App-level headers and root tab bars have one shared implementation and one geometry source. Feature pages must not locally override brand placement, chrome height, safe-area spacing, icon slots, labels, or selected-tab geometry.
+
 ## Cross-project ownership and synchronization
 
 

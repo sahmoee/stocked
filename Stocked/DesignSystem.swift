@@ -100,6 +100,21 @@ enum StockedFont {
 }
 extension View {
     func stocked(_ s: StockedFont) -> some View { font(s.font) }
+
+    /// Wrap-first text policy for labels inside buttons, cards, fields, and compact rows.
+    /// SwiftUI otherwise inherits a surprising number of one-line constraints from a
+    /// surrounding control.  We preserve the requested Dynamic Type size, use another
+    /// line when space is available, and only scale after `maxLines` has been exhausted.
+    func stockedAdaptiveLabel(
+        maxLines: Int = 3,
+        alignment: TextAlignment = .leading,
+        minimumScale: CGFloat = 0.78
+    ) -> some View {
+        multilineTextAlignment(alignment)
+            .lineLimit(maxLines)
+            .minimumScaleFactor(minimumScale)
+            .allowsTightening(true)
+    }
 }
 
 // MARK: - Primary / Secondary button styles (UI #13)
@@ -109,6 +124,7 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
     var fg: Color = Color.stockedWhite
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 17, weight: .semibold, design: .serif))
+            .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(fg).frame(maxWidth: .infinity).padding(.vertical, 16)
             .background(accent).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
@@ -123,6 +139,7 @@ struct StockedSecondaryButtonStyle: ButtonStyle {
     var accent: Color = Color.stockedGold
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 15, weight: .semibold, design: .serif))
+            .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(accent).frame(maxWidth: .infinity).padding(.vertical, 14)
             .background(accent.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
@@ -142,6 +159,7 @@ struct StockedOutlinedTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         let dark = colorScheme == .dark
         configuration
+            .lineLimit(1...4)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(Color.appSurface(dark).opacity(0.82))
@@ -245,10 +263,20 @@ struct StockedEmptyState: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            // Animated icon
-            Text(icon)
-                .font(.system(size: 72))
-                .padding(.bottom, 20)
+            // Callers may provide either an emoji or an SF Symbol name. Rendering
+            // every value as Text exposed names such as "checkmark.seal" verbatim.
+            Group {
+                if icon.unicodeScalars.allSatisfy({ $0.isASCII }) {
+                    Image(systemName: icon)
+                        .font(.system(size: 58, weight: .regular))
+                        .accessibilityHidden(true)
+                } else {
+                    Text(icon)
+                        .font(.system(size: 72))
+                        .accessibilityHidden(true)
+                }
+            }
+            .padding(.bottom, 20)
             Text(title)
                 .stocked(.headline)
                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)

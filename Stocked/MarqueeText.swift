@@ -1,13 +1,10 @@
-// MarqueeText.swift — a one-line label that auto-scrolls horizontally when the
-// text is wider than its container, instead of wrapping or truncating.
+// MarqueeText.swift — retained as a source-compatible name for grocery rows.
+// Labels now wrap before scaling so larger Dynamic Type sizes never turn a useful
+// item name into "xyz…" or require motion to reveal the value.
 //
-// Grocery rows use it so long names ("Enchilada sauce (14 oz)") stay on a single
-// line and glide back and forth to reveal the tail. Short text renders statically.
-// Respects Reduce Motion (falls back to a static truncated line).
-//
-// Implementation note: the text is measured by an invisible copy that is ALWAYS
-// present — the first version only measured inside the overflow branch, so the
-// width stayed 0 and the glide never started.
+// The old marquee was inaccessible with Reduce Motion and still truncated in that
+// mode.  A wrap-first layout is deterministic, readable, and grows with the user's
+// preferred content size.
 import SwiftUI
 
 struct MarqueeText: View {
@@ -15,68 +12,20 @@ struct MarqueeText: View {
     var font: Font = .system(size: 15)
     var color: Color = .primary
     var strikethrough: Bool = false
-    /// Points per second of glide; the loop pauses briefly at each end.
+    /// Kept for API compatibility with existing callers. No motion is performed.
     var speed: CGFloat = 30
 
-    @State private var textWidth: CGFloat = 0
-    @State private var offset: CGFloat = 0
-    @State private var animating = false
-
     var body: some View {
-        GeometryReader { geo in
-            let container = geo.size.width
-            let overflows = textWidth > container + 1
-
-            ZStack(alignment: .leading) {
-                // Invisible measurer — always laid out at natural width.
-                styled(Text(text))
-                    .fixedSize(horizontal: true, vertical: false)
-                    .hidden()
-                    .background(
-                        GeometryReader { tg in
-                            Color.clear
-                                .onAppear { textWidth = tg.size.width }
-                                .onChange(of: tg.size.width) { _, w in textWidth = w }
-                        }
-                    )
-
-                if overflows && !UIAccessibility.isReduceMotionEnabled {
-                    styled(Text(text))
-                        .fixedSize(horizontal: true, vertical: false)
-                        .offset(x: offset)
-                        .onAppear { glide(container: container) }
-                        .onChange(of: text) { _, _ in
-                            animating = false; offset = 0
-                            glide(container: container)
-                        }
-                } else {
-                    styled(Text(text))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-            }
-            .frame(width: container, alignment: .leading)
-            .clipped()
-        }
-        .frame(height: UIFont.preferredFont(forTextStyle: .body).lineHeight + 2)
+        styled(Text(text))
+            .stockedAdaptiveLabel(maxLines: 3, alignment: .leading, minimumScale: 0.82)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func styled(_ t: Text) -> some View {
         t.font(font)
             .foregroundStyle(color)
             .strikethrough(strikethrough)
-            .lineLimit(1)
-    }
-
-    /// Glide left to reveal the tail, pause, glide back, pause, repeat.
-    private func glide(container: CGFloat) {
-        let distance = max(0, textWidth - container + 8)
-        guard distance > 0, !animating else { return }
-        animating = true
-        withAnimation(.linear(duration: Double(distance / speed)).delay(0.9)
-                        .repeatForever(autoreverses: true)) {
-            offset = -distance
-        }
     }
 }
 

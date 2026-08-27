@@ -131,6 +131,9 @@ struct MainTabView: View {
             case .transferKitchen: activeDrawerSheet = .transferKitchen
             case .recipeSources:   activeDrawerSheet = .recipeSources
             case .storePopout:     activeDrawerSheet = .storePopout
+            case .homeWidgets:
+                selected = .home
+                NotificationCenter.default.post(name: .stockedOpenHomeWidgets, object: nil)
             }
         }
     }
@@ -186,6 +189,9 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedSwitchTab)) { note in
             if let tab = note.object as? StockedTab { navigate(to: tab) }
+        }
+        .onChange(of: selected) { _, tab in
+            NotificationCenter.default.post(name: .stockedTabDidBecomeActive, object: tab)
         }
         // #235 — Home's redesigned cards fire drawer quick actions + the Daily Brief
         // without needing MainTabView bindings threaded through.
@@ -622,6 +628,8 @@ extension Notification.Name {
     static let stockedQuickAction = Notification.Name("stockedQuickAction")   // #235 — Home cards → drawer quick actions
     static let stockedShowBrief = Notification.Name("stockedShowBrief")       // #235 — Home row → Daily Brief
     static let stockedOpenSearch = Notification.Name("stockedOpenSearch")     // header search button (#7)
+    static let stockedOpenHomeWidgets = Notification.Name("stockedOpenHomeWidgets")
+    static let stockedTabDidBecomeActive = Notification.Name("stockedTabDidBecomeActive")
     static let stockedOpenCookRightNow = Notification.Name("stockedOpenCookRightNow") // #13/#14 notif → Cook Right Now
 }
 
@@ -841,7 +849,7 @@ private struct InProgressCookPill: View {
                         Text("Cooking: \(cook.title)")
                             .font(.system(size: 13, weight: .semibold, design: .serif))
                             .foregroundStyle(Color.stockedWhite)
-                            .lineLimit(1)
+                            .stockedAdaptiveLabel(maxLines: 2, alignment: .leading, minimumScale: 0.82)
                         Image(systemName: "chevron.up")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(Color.stockedWhite.opacity(0.5))
@@ -850,7 +858,7 @@ private struct InProgressCookPill: View {
                     .background(Color.stockedCharcoal.opacity(0.95))
                     .clipShape(Capsule())
                     .shadow(color: .black.opacity(0.25), radius: 10, y: 3)
-                    .frame(maxWidth: 280)
+                    .frame(maxWidth: 320)
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, bottomInset)

@@ -65,7 +65,11 @@ struct QAIssueReporter: View {
     var body: some View {
         Group {
             if recorder.isEnabled {
-                LongPressCatcher { screenshot, context in
+                // One-finger holds belong to the app (widget editing, context
+                // menus, text selection). Keeping QA on two fingers removes the
+                // window-level recognizer race entirely instead of trying to win
+                // it with narrowly timed suppression.
+                LongPressCatcher(fingerCount: 2) { screenshot, context in
                     QAReporterPresenter.shared.present(
                         QAReportDraft(screenshot: screenshot, context: context))
                 }
@@ -74,6 +78,20 @@ struct QAIssueReporter: View {
             }
         }
     }
+}
+
+/// Short-lived arbitration for app gestures that deliberately own a long press (notably
+/// Home widget editing). The UIWindow observer remains installed and two-finger reporting
+/// remains available; it simply does not present over the gesture that just entered wiggle.
+@MainActor
+enum QAReporterGestureArbiter {
+    private static var suppressedUntil = ContinuousClock.now
+
+    static func suppress(for duration: Duration = .seconds(1)) {
+        suppressedUntil = ContinuousClock.now.advanced(by: duration)
+    }
+
+    static var isSuppressed: Bool { ContinuousClock.now < suppressedUntil }
 }
 
 // MARK: - Presentation
@@ -196,6 +214,7 @@ struct QAReportDraft: Identifiable {
 // MARK: - Window gesture
 
 private struct LongPressCatcher: UIViewRepresentable {
+    let fingerCount: Int
     let onFire: (UIImage?, QATicketContext) -> Void
 
     func makeUIView(context: Context) -> UIView {
@@ -208,21 +227,25 @@ private struct LongPressCatcher: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.onFire = onFire
-        context.coordinator.refreshFingerCount()
+        context.coordinator.refreshFingerCount(fingerCount)
     }
 
     static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
         coordinator.detach()
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator(onFire: onFire) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(fingerCount: fingerCount, onFire: onFire)
+    }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onFire: (UIImage?, QATicketContext) -> Void
         private weak var window: UIWindow?
         private var recognizer: UILongPressGestureRecognizer?
+        private var configuredFingerCount: Int
 
-        init(onFire: @escaping (UIImage?, QATicketContext) -> Void) {
+        init(fingerCount: Int, onFire: @escaping (UIImage?, QATicketContext) -> Void) {
+            self.configuredFingerCount = Self.sanitized(fingerCount)
             self.onFire = onFire
         }
 
@@ -234,7 +257,7 @@ private struct LongPressCatcher: UIViewRepresentable {
             // 0.65s: long enough that nobody triggers it by resting a thumb while
             // scrolling, short enough that it does not feel broken when you mean it.
             press.minimumPressDuration = 0.65
-            press.numberOfTouchesRequired = Self.fingerCount()
+            press.numberOfTouchesRequired = configuredFingerCount
             // Allow a generous wobble — testers are usually holding the phone in
             // one hand and pointing at the bug with the other.
             press.allowableMovement = 24
@@ -249,14 +272,12 @@ private struct LongPressCatcher: UIViewRepresentable {
             self.recognizer = press
         }
 
-        func refreshFingerCount() {
-            recognizer?.numberOfTouchesRequired = Self.fingerCount()
+        func refreshFingerCount(_ value: Int) {
+            configuredFingerCount = Self.sanitized(value)
+            recognizer?.numberOfTouchesRequired = configuredFingerCount
         }
 
-        static func fingerCount() -> Int {
-            let n = UserDefaults.standard.integer(forKey: QAIssueReporterSettings.fingerKey)
-            return n == 2 ? 2 : 1
-        }
+        static func sanitized(_ value: Int) -> Int { value == 2 ? 2 : 1 }
 
         func detach() {
             if let r = recognizer { window?.removeGestureRecognizer(r) }
@@ -268,6 +289,7 @@ private struct LongPressCatcher: UIViewRepresentable {
             guard g.state == .began else { return }
             MainActor.assumeIsolated {
                 guard QARecorder.shared.isEnabled else { return }
+                guard !QAReporterGestureArbiter.isSuppressed else { return }
                 // Already composing — a long press inside the composer is just a
                 // long press. Bail before the haptic so it does not feel like the
                 // gesture was swallowed.

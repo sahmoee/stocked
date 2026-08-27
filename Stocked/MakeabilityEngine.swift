@@ -73,7 +73,10 @@ nonisolated enum MakeabilityEngine {
 
         // ── Readiness-scoped buckets (role-agnostic) ────────────────────
         case .almost:
-            result = classified.filter { $0.readiness != .excluded && $0.unresolvedCount >= 6 }
+            result = classified.filter {
+                $0.readiness == .missingOne || $0.readiness == .missingTwo ||
+                ($0.readiness != .excluded && $0.unresolvedCount >= 6)
+            }
         case .withSubstitution:
             result = classified.filter { $0.readiness == .readyWithSwap || $0.readiness == .swapNeedsReview }
         case .useSoon:

@@ -10,13 +10,10 @@ struct StockedShell<Content: View>: View {
     var trailingIcon:   String?          // optional top-right action (e.g. search) (#7)
     var trailingLabel:  String           // VoiceOver label for the trailing action
     var onTrailing:     (() -> Void)?
-    var leadingTitle:   Bool                 // #245 — Home: wordmark pinned left (mockup)
     var trailingIcon2:  String?              // #245 — optional second top-right action
     var trailingLabel2: String
     var onTrailing2:    (() -> Void)?
     var onRefresh:      (() async -> Void)?  // custom pull-to-refresh; nil = standard app refresh
-    var headerTopPadding: CGFloat
-    var headerBottomPadding: CGFloat
     var content:        Content
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -28,7 +25,6 @@ struct StockedShell<Content: View>: View {
         showBack:       Bool = false,
         scrollDisabled: Bool = false,
         titleText:      String = "Stocked",
-        leadingTitle:   Bool = false,
         onTitleTap:     (() -> Void)? = nil,
         trailingIcon:   String? = nil,
         trailingLabel:  String = "",
@@ -37,8 +33,6 @@ struct StockedShell<Content: View>: View {
         trailingLabel2: String = "",
         onTrailing2:    (() -> Void)? = nil,
         onRefresh:      (() async -> Void)? = nil,
-        headerTopPadding: CGFloat = 8,
-        headerBottomPadding: CGFloat = 14,
         @ViewBuilder content: () -> Content
     ) {
         self.showBack       = showBack
@@ -48,13 +42,10 @@ struct StockedShell<Content: View>: View {
         self.trailingIcon   = trailingIcon
         self.trailingLabel  = trailingLabel
         self.onTrailing     = onTrailing
-        self.leadingTitle   = leadingTitle
         self.trailingIcon2  = trailingIcon2
         self.trailingLabel2 = trailingLabel2
         self.onTrailing2    = onTrailing2
         self.onRefresh      = onRefresh
-        self.headerTopPadding = headerTopPadding
-        self.headerBottomPadding = headerBottomPadding
         self.content        = content()
     }
 
@@ -142,7 +133,7 @@ struct StockedShell<Content: View>: View {
                 // `titleText` is kept only for the VoiceOver label so screen-reader users
                 // still hear which screen they're on.
                 let wordmark = StockedWordmark(
-                    size: 20,
+                    size: StockedChrome.wordmarkSize,
                     color: session.themeTextColor,
                     dotColor: .stockedGold
                 )
@@ -150,11 +141,9 @@ struct StockedShell<Content: View>: View {
                 let titleCore = Button { (titleTap ?? onTitleTap)?() } label: {
                     HStack(spacing: 5) {
                         wordmark
-                        if !leadingTitle {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
-                        }
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: StockedChrome.wordmarkChevronSize, weight: .semibold))
+                            .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     .contentShape(Rectangle())
                 }
@@ -164,14 +153,7 @@ struct StockedShell<Content: View>: View {
                 .accessibilityLabel(titleText == "Stocked" ? "Stocked" : "Stocked, \(titleText)")
                 .coachmarkAnchor("shell.title")
 
-                if leadingTitle {
-                    // #4 — headers are centered app-wide (tab roots included). The
-                    // wordmark sits centered; trailing icons remain pinned right via the
-                    // separate overlay below.
-                    titleCore
-                } else {
-                    titleCore
-                }
+                titleCore
             }
 
             // Back button pinned left — only the chevron is tappable; the Spacer is inert
@@ -228,9 +210,19 @@ struct StockedShell<Content: View>: View {
         // it), so we just need a small gap below the status bar — NOT another full
         // safeTopInset, which double-counted the inset and left a large empty band
         // above the wordmark on every screen.
-        .padding(.top, headerTopPadding)
-        .padding(.bottom, headerBottomPadding)
+        .frame(height: StockedChrome.headerHeight)
+        .padding(.top, StockedChrome.headerTopPadding)
+        .padding(.bottom, StockedChrome.headerBottomPadding)
     }
+}
+
+/// Stable app chrome geometry. Page content may adapt, but the brand header must not.
+enum StockedChrome {
+    static let wordmarkSize: CGFloat = 20
+    static let wordmarkChevronSize: CGFloat = 10
+    static let headerHeight: CGFloat = 32
+    static let headerTopPadding: CGFloat = 8
+    static let headerBottomPadding: CGFloat = 14
 }
 
 

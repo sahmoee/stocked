@@ -77,10 +77,10 @@ nonisolated enum ReadinessCalculator {
         items.filter { $0.name.lowercased().contains("water") }.reduce(0) { sum, item in
             let qty = Double(max(1, item.quantity))
             if let amount = item.sizeAmount, let unit = item.sizeUnit?.lowercased() {
-                if unit.contains("l") && !unit.contains("ml") { return sum + amount * qty }
-                if unit.contains("ml") { return sum + (amount / 1000) * qty }
                 if unit.contains("gal") { return sum + amount * 3.785 * qty }
+                if unit.contains("ml") { return sum + (amount / 1000) * qty }
                 if unit.contains("oz") { return sum + (amount * 0.0296) * qty }
+                if unit == "l" || unit.contains("liter") || unit.contains("litre") { return sum + amount * qty }
             }
             return sum + 1.0 * qty   // assume a 1 L bottle
         }

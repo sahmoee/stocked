@@ -32,19 +32,19 @@ final class StockedLogicTests: XCTestCase {
 
     // MARK: Recipe import
 
-    func testRecipeImportNormalizesBareAndTrackedURLs() {
+    @MainActor func testRecipeImportNormalizesBareAndTrackedURLs() {
         let normalized = RecipeImportCoordinator.normalizedURLString(
             from: "example.com/chili?utm_source=newsletter&v=42#ingredients")
         XCTAssertEqual(normalized, "https://example.com/chili?v=42")
     }
 
-    func testRecipeImportExtractsURLFromSharedText() {
+    @MainActor func testRecipeImportExtractsURLFromSharedText() {
         let normalized = RecipeImportCoordinator.normalizedURLString(
             from: "Try this recipe https://example.com/pasta?fbclid=abc")
         XCTAssertEqual(normalized, "https://example.com/pasta")
     }
 
-    func testMultiScreenshotMergeRemovesRepeatedLines() {
+    @MainActor func testMultiScreenshotMergeRemovesRepeatedLines() {
         let merged = RecipeTextParser.mergeOCRPages([
             "Chocolate Cake\nIngredients\n1 cup flour",
             "Chocolate Cake\nInstructions\n1. Mix well"
@@ -93,17 +93,18 @@ final class StockedLogicTests: XCTestCase {
 
     // MARK: Grocery de-duplication (#17)
 
-    func testGroceryDedupCollapsesCaseAndAccents() {
+    @MainActor func testGroceryDedupCollapsesCaseAndAccents() {
         let existing = ["Milk", "Eggs"]
         XCTAssertTrue(GroceryDedup.isDuplicate("milk", in: existing))
         XCTAssertTrue(GroceryDedup.isDuplicate("MILK", in: existing))
         XCTAssertFalse(GroceryDedup.isDuplicate("Almond Milk", in: existing))
     }
 
-    func testGroceryDedupHandlesBrandPrefix() {
+    @MainActor func testGroceryDedupHandlesBrandPrefix() {
         // "Great Value Milk" should be treated as a duplicate of "Milk" only if the policy says
-        // so. Current policy: exact normalized match, so it is NOT a dup. This documents intent.
-        XCTAssertFalse(GroceryDedup.isDuplicate("Great Value Milk", in: ["Milk"]))
+        // Brand prefixes are deliberately ignored so the same underlying ingredient
+        // cannot create duplicate shopping rows.
+        XCTAssertTrue(GroceryDedup.isDuplicate("Great Value Milk", in: ["Milk"]))
     }
 
     // MARK: Expiry math (#16 / inventory)
@@ -130,7 +131,8 @@ private struct TestExpiry {
     var expirationDate: Date?
     var daysUntilExpiry: Int? {
         guard let exp = expirationDate else { return nil }
-        return Calendar.current.dateComponents([.day], from: Date(), to: exp).day
+        let cal = Calendar.current
+        return cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: exp)).day
     }
     var isExpiringSoon: Bool { (daysUntilExpiry ?? 999) <= 3 }
 }

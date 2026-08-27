@@ -50,8 +50,32 @@ nonisolated enum RecipeQuality {
     nonisolated static func hasMeaningfulTitle(_ title: String) -> Bool {
         let key = OnlineRecipeFacts.normalizedTitle(title)
         guard !key.isEmpty else { return false }
-        let genericTitles: Set<String> = ["dinner", "lunch", "breakfast", "meal", "recipe", "food"]
-        return !genericTitles.contains(key)
+        let genericTitles: Set<String> = [
+            "dinner", "lunch", "breakfast", "brunch", "meal", "recipe", "recipes", "food",
+            "dish", "menu", "main dish", "side dish", "dessert", "appetizer", "snack",
+            "collection", "favorites", "favourites", "featured recipes", "popular recipes",
+            "latest recipes", "all recipes", "recipe index", "recipe archive"
+        ]
+        guard !genericTitles.contains(key) else { return false }
+        let words = key.split(separator: " ")
+        // Source/category pages sometimes arrive as numbered catalogue labels rather
+        // than dishes. Keep legitimate names containing quantities ("7 layer dip")
+        // while rejecting bare IDs and labels such as "recipes 12345".
+        if words.allSatisfy({ $0.allSatisfy(\.isNumber) }) { return false }
+        if words.count <= 2,
+           words.contains(where: { ["recipe", "recipes", "menu", "collection"].contains(String($0)) }),
+           words.contains(where: { $0.allSatisfy(\.isNumber) }) { return false }
+        // Roundups, plans, and broad prep pages can contain ingredients and steps but
+        // still are not one cookable dish. Keep them out at the same shared boundary
+        // used by import, Discover, Cook Now, and the continuous launch-time cleanup.
+        let broadPagePhrases = [
+            "protein prep", "recipe roundup", "recipes roundup", "recipe collection",
+            "recipes collection", "recipe ideas", "meal ideas", "dinner ideas",
+            "lunch ideas", "breakfast ideas", "weekly menu", "holiday menu",
+            "meal plan", "ways to use", "what to cook"
+        ]
+        if broadPagePhrases.contains(where: { key.contains($0) }) { return false }
+        return true
     }
 
     /// Score from the parts a recipe has: image, steps, sensible ingredient count, title.

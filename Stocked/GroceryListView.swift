@@ -394,7 +394,6 @@ struct GroceryListView: View {
     var body: some View {
         StockedShell(scrollDisabled: true,
                      titleText: "Grocery List",
-                     leadingTitle: true,
                      trailingIcon: "ellipsis", trailingLabel: "More",
                      onTrailing: { showMoreDialog = true }) {
             VStack(alignment: .leading, spacing: 0) {

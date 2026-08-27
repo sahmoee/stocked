@@ -67,7 +67,7 @@ nonisolated enum ContainerCode {
     /// `nonisolated(unsafe)` is correct here rather than a workaround: CIContext is documented as
     /// thread-safe for concurrent rendering, it's immutable after creation, and we never mutate it.
     /// The compiler can't see that guarantee because CIContext predates Sendable.
-    nonisolated(unsafe) private static let context = CIContext()
+    private static let context = CIContext()
 
     static func qr(for text: String, scale: CGFloat = 10) -> UIImage? {
         let filter = CIFilter.qrCodeGenerator()

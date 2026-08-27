@@ -109,7 +109,14 @@ enum StockedType {
         case ..<34:   style = .title1
         default:      style = .largeTitle
         }
-        return UIFontMetrics(forTextStyle: style).scaledValue(for: size)
+        let selected = UserDefaults.standard.string(forKey: "stocked.interfaceSize")
+        let interfaceMultiplier: CGFloat
+        switch InterfaceSize(rawValue: selected ?? InterfaceSize.comfortable.rawValue) ?? .comfortable {
+        case .standard: interfaceMultiplier = 0.94
+        case .comfortable: interfaceMultiplier = 1
+        case .large: interfaceMultiplier = 1.18
+        }
+        return UIFontMetrics(forTextStyle: style).scaledValue(for: size * interfaceMultiplier)
     }
 }
 

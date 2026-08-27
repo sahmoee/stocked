@@ -542,12 +542,14 @@ enum RecipeImportCoordinator {
         guard var components = URLComponents(string: candidate),
               let scheme = components.scheme?.lowercased(), ["http", "https"].contains(scheme),
               components.host != nil else { return nil }
+        components.scheme = "https"
         components.fragment = nil
         let preserved = Set(["v", "id", "p"])
         components.queryItems = components.queryItems?.filter {
             preserved.contains($0.name.lowercased()) || !$0.name.lowercased().hasPrefix("utm_") &&
             !["fbclid", "gclid", "igsh", "ref", "source"].contains($0.name.lowercased())
         }
+        if components.queryItems?.isEmpty != false { components.query = nil }
         return components.url?.absoluteString
     }
 

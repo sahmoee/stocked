@@ -17,7 +17,12 @@ struct HomeView: View {
         case quickUpdate, activityFeed, widgetGallery
         var id: Int { rawValue }
     }
+    private enum HomeActionMenu: Int, Identifiable {
+        case scan, add, log
+        var id: Int { rawValue }
+    }
     @State private var activeHomeSheet: HomeScreenSheet? = nil
+    @State private var activeActionMenu: HomeActionMenu? = nil
     @State private var goExpiringList   = false
     // #250 — Daily Brief collapse state, remembered across launches.
     private let briefCollapsedKey = "stocked.homeBriefCollapsed"
@@ -46,23 +51,36 @@ struct HomeView: View {
     }
 
     var body: some View {
-        StockedShell(
-            leadingTitle: false,
-            headerTopPadding: usesReferencePhoneGeometry ? -9 : 8,
-            // The reference wordmark is optically smaller than the earlier shell title.
-            // Preserve the content baseline while using that exact smaller mark.
-            headerBottomPadding: usesReferencePhoneGeometry ? 18 : 14
-        ) {
+        StockedShell {
             VStack(alignment: .leading, spacing: 0) {
                 referenceHero
                     .padding(.bottom, usesReferencePhoneGeometry ? 15 : 18)
-                referenceStockLevel
-                    .padding(.bottom, usesReferencePhoneGeometry ? 17 : 24)
-                referenceActions
-                    .padding(.bottom, usesReferencePhoneGeometry ? 13 : 22)
-                referenceUseItSoon
-                    .padding(.bottom, usesReferencePhoneGeometry ? 16 : 20)
-                referenceSnapshot
+                if editMode {
+                    HStack {
+                        Spacer()
+                        Button("Done") { exitEditMode() }
+                            .font(.system(size: usesReferencePhoneGeometry ? 11 : 15, weight: .bold))
+                            .foregroundStyle(Color.stockedGold)
+                    }
+                    .padding(.bottom, usesReferencePhoneGeometry ? 6 : 10)
+                }
+                if layout.contains(.stockLevel) {
+                    editableReferenceWidget(.stockLevel) { referenceStockLevel }
+                        .padding(.bottom, usesReferencePhoneGeometry ? 17 : 24)
+                }
+                if layout.contains(.actionCenter) {
+                    editableReferenceWidget(.actionCenter) { referenceActions }
+                        .padding(.bottom, usesReferencePhoneGeometry ? 13 : 22)
+                }
+                if layout.contains(.useItSoon) {
+                    editableReferenceWidget(.useItSoon) { referenceUseItSoon }
+                        .padding(.bottom, usesReferencePhoneGeometry ? 16 : 20)
+                }
+                if layout.contains(.tipOfDay) {
+                    editableReferenceWidget(.tipOfDay) { referenceSnapshot }
+                }
+                supplementalWidgetBoard
+                    .padding(.top, supplementalWidgets.isEmpty && !editMode ? 0 : (usesReferencePhoneGeometry ? 14 : 20))
                 Spacer(minLength: 12)
             }
             .frame(maxWidth: 760)
@@ -80,6 +98,9 @@ struct HomeView: View {
                 goExpiringList = false
                 if editMode { exitEditMode() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .stockedOpenHomeWidgets)) { _ in
+                activeHomeSheet = .widgetGallery
+            }
             .sheet(item: $activeHomeSheet) { sheet in
                 switch sheet {
                 case .quickUpdate:   QuickUpdateSheet().environment(session)
@@ -88,6 +109,9 @@ struct HomeView: View {
                 }
             }
         }
+        .confirmationDialog(actionMenuTitle, isPresented: actionMenuPresented, titleVisibility: .visible) {
+            if let menu = activeActionMenu { actionMenuButtons(menu) }
+        }
         .coachmarks(page: .home, steps: HomeCoachmarks.steps)
     }
 
@@ -95,8 +119,8 @@ struct HomeView: View {
         Group {
             if usesReferencePhoneGeometry {
                 ZStack(alignment: .topLeading) {
-                    Text("\(greeting), Chef 👋")
-                        .font(.system(size: 10, weight: .semibold))
+                    Text("\(greeting), Chef")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.stockedGold)
                         .offset(y: 1)
 
@@ -116,7 +140,7 @@ struct HomeView: View {
                 .frame(height: 124, alignment: .top)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("\(greeting), Chef 👋")
+                    Text("\(greeting), Chef")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(Color.stockedGold)
                     HStack(alignment: .bottom, spacing: 20) {
@@ -146,10 +170,10 @@ struct HomeView: View {
                 .minimumScaleFactor(0.88)
                 .fixedSize(horizontal: false, vertical: true)
             Text(kitchenMetrics.stockPercent >= 80
-                 ? "Everything you need to cook, plus a little extra. Keep it up."
+                 ? "Everything you need is already inside of your kitchen"
                  : "A few smart updates will unlock more meals and keep the week moving.")
                 .font(usesReferencePhoneGeometry ? .system(size: 11.5) : .body)
-                .foregroundStyle(session.themeTextColor.opacity(0.62))
+                .foregroundStyle(session.themeTextColor.opacity(0.76))
                 .lineLimit(usesReferencePhoneGeometry ? 2 : nil)
                 .lineSpacing(usesReferencePhoneGeometry ? 1 : 0)
                 .fixedSize(horizontal: false, vertical: true)
@@ -258,10 +282,9 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Spacer()
-                Text("Shortcuts to save you time.")
-                    .font(.system(size: usesReferencePhoneGeometry ? 9 : 15))
-                    .foregroundStyle(session.themeTextColor.opacity(0.58))
-                    .lineLimit(1)
+                Button("Edit widgets") { enterEditMode() }
+                    .font(.system(size: usesReferencePhoneGeometry ? 9 : 15, weight: .semibold))
+                    .foregroundStyle(Color.stockedGold)
             }
             .frame(height: usesReferencePhoneGeometry ? 20 : nil)
             .padding(.bottom, usesReferencePhoneGeometry ? 6 : 14)
@@ -307,51 +330,97 @@ struct HomeView: View {
     private var referencePhoneActionButtons: some View {
         let available = layoutMetrics.width - (homeHorizontalPadding * 2) - 10
         return HStack(spacing: 5) {
-            referenceCompactAction("Scan Barcode", "Look up a product", "barcode.viewfinder") {
-                NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
+            referenceCompactAction("Scan", "Barcode or receipt", "viewfinder") {
+                activeActionMenu = .scan
             }
             .frame(width: available * 0.34)
 
-            referenceCompactAction("Add Item", "Add by hand", "plus") {
-                NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
+            referenceCompactAction("Add", "Kitchen or recipe", "plus") {
+                activeActionMenu = .add
             }
             .frame(width: available * 0.32)
 
-            referenceCompactAction("Quick Update", "Tell me what changed", "scribble.variable") {
-                activeHomeSheet = .quickUpdate
+            referenceCompactAction("Log", "Cooked or used", "clock.arrow.circlepath") {
+                activeActionMenu = .log
             }
             .frame(width: available * 0.34)
         }
     }
 
+    private var actionMenuTitle: String {
+        switch activeActionMenu {
+        case .scan: return "What would you like to scan?"
+        case .add: return "What would you like to add?"
+        case .log: return "What would you like to log?"
+        case nil: return "Kitchen action"
+        }
+    }
+
+    private var actionMenuPresented: Binding<Bool> {
+        Binding(
+            get: { activeActionMenu != nil },
+            set: { if !$0 { activeActionMenu = nil } }
+        )
+    }
+
+    @ViewBuilder
+    private func actionMenuButtons(_ menu: HomeActionMenu) -> some View {
+        switch menu {
+        case .scan:
+            Button("Scan Receipt") { postQuick(.scanReceipt) }
+            Button("Scan Barcode") { postQuick(.scanBarcode) }
+        case .add:
+            Button("Add Inventory Item") { postQuick(.addItems) }
+            Button("Quick Add or Update") { activeHomeSheet = .quickUpdate }
+            Button("Add Grocery Item") { switchTab(.grocery) }
+            Button("Add Recipe") {
+                session.pendingRecipeImport = true
+                switchTab(.recipes)
+            }
+        case .log:
+            Button("Past Meals") { switchTab(.recipes) }
+            Button("Log Cooked Meal") { switchTab(.cook) }
+            Button("Log Items Used Recently") { activeHomeSheet = .quickUpdate }
+        }
+        Button("Cancel", role: .cancel) {}
+    }
+
+    private func postQuick(_ action: DrawerQuickAction) {
+        NotificationCenter.default.post(name: .stockedQuickAction, object: action)
+    }
+
+    private func switchTab(_ tab: StockedTab) {
+        NotificationCenter.default.post(name: .stockedSwitchTab, object: tab)
+    }
+
     @ViewBuilder
     private var referenceActionButtons: some View {
-        referenceCompactAction("Scan Barcode", "Look up a product", "barcode.viewfinder") {
-            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
+        referenceCompactAction("Scan", "Barcode or receipt", "viewfinder") {
+            activeActionMenu = .scan
         }
-        referenceCompactAction("Add Item", "Add by hand", "plus") {
-            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
+        referenceCompactAction("Add", "Kitchen or recipe", "plus") {
+            activeActionMenu = .add
         }
-        referenceCompactAction("Quick Update", "Tell me what changed", "scribble.variable") {
-            activeHomeSheet = .quickUpdate
+        referenceCompactAction("Log", "Cooked or used", "clock.arrow.circlepath") {
+            activeActionMenu = .log
         }
     }
 
     private var referencePrimaryAction: some View {
         Button {
-            NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
+            activeActionMenu = .scan
         } label: {
             HStack(spacing: usesReferencePhoneGeometry ? 10 : 16) {
                 referenceDarkIcon("doc.text.viewfinder")
                 VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 2 : 4) {
-                    Text("Scan Receipt")
+                    Text("Scan")
                         .font(usesReferencePhoneGeometry
                               ? .system(size: 13, weight: .bold, design: .serif)
                               : .system(.title3, design: .serif, weight: .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
                         .allowsTightening(true)
-                    Text("Add items fast")
+                    Text("Receipt or barcode")
                         .font(.system(size: usesReferencePhoneGeometry ? 10.5 : 15))
                         .opacity(0.72)
                 }
@@ -540,10 +609,23 @@ struct HomeView: View {
     }
 
     private func enterEditMode() {
+        // The app-wide QA recognizer observes the same UIWindow touches. Claim this
+        // intentional Home gesture before its longer recognition interval elapses so
+        // wiggle mode appears instead of the report composer.
+        QAReporterGestureArbiter.suppress()
         guard !editMode else { return }
         HapticManager.medium()
         UsageMetrics.shared.record(.homeEditModeEntered)
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { editMode = true }
+    }
+
+    /// Widget bodies are commonly buttons and supplemental widgets also install a
+    /// drag recognizer. A regular `onLongPressGesture` loses arbitration to either
+    /// of those, so entering edit mode must claim the press at higher priority.
+    /// The gesture is excluded once editing begins, leaving drag-to-reorder free.
+    private var widgetEditGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.42, maximumDistance: 28)
+            .onEnded { _ in enterEditMode() }
     }
 
     // ── Action Center (extracted so every widget is a uniform view) ──
@@ -572,8 +654,90 @@ struct HomeView: View {
     // MARK: - #252 Widget board
 
     private var visibleWidgets: [HomeWidget] { layout }
+    /// The master Home mockup already represents the essential widgets with its
+    /// purpose-built Stock Level, action, Use It Soon, and snapshot sections. Any
+    /// additional gallery choices still need a real place in that layout; the old
+    /// customizable board was accidentally dropped when Home adopted the reference
+    /// design, which left successful gallery additions invisible.
+    private var supplementalWidgets: [HomeWidget] {
+        visibleWidgets.filter { !HomeWidget.referenceRepresented.contains($0) }
+    }
     private var removedWidgets: [HomeWidget] {
         HomeWidget.allCases.filter { !layout.contains($0) }
+    }
+
+    @ViewBuilder
+    private var supplementalWidgetBoard: some View {
+        if !supplementalWidgets.isEmpty || editMode {
+            VStack(spacing: usesReferencePhoneGeometry ? 10 : 14) {
+                ForEach(supplementalWidgets, id: \.self) { widget in
+                    widgetView(widget)
+                        // A widget can itself be a Button (Cook Now, Recipes, Grocery,
+                        // etc.). Keep that underlying action inert while its remove
+                        // badge is on top; otherwise one tap removes the widget and can
+                        // also activate the button underneath, switching tabs.
+                        .allowsHitTesting(!editMode)
+                        .frame(maxWidth: .infinity)
+                        .overlay(alignment: .topLeading) {
+                            if editMode { removeBadge(widget).offset(x: -7, y: -7) }
+                        }
+                        .modifier(JiggleEffect(active: editMode))
+                        .contentShape(Rectangle())
+                        .highPriorityGesture(
+                            widgetEditGesture,
+                            including: editMode ? .none : .all
+                        )
+                        .onDrag {
+                            draggingWidget = widget
+                            return NSItemProvider(object: widget.rawValue as NSString)
+                        }
+                        .onDrop(of: [UTType.text], delegate: WidgetDropDelegate(
+                            item: widget,
+                            layout: $layout,
+                            dragging: $draggingWidget,
+                            onCommit: { HomeWidget.saveLayout(layout) }
+                        ))
+                }
+                if editMode { addWidgetTile }
+            }
+        }
+    }
+
+    private func editableReferenceWidget<Content: View>(
+        _ widget: HomeWidget,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            // Reference widgets also contain navigation/action buttons. The edit
+            // controls remain interactive because they are added by the overlay
+            // below, after hit testing is disabled for the widget content itself.
+            .allowsHitTesting(!editMode)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .topLeading) {
+                if editMode { removeBadge(widget).offset(x: -7, y: -7) }
+            }
+            .modifier(JiggleEffect(active: editMode))
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                widgetEditGesture,
+                including: editMode ? .none : .all
+            )
+    }
+
+    private func addWidget(_ widget: HomeWidget) {
+        guard !layout.contains(widget) else { return }
+        let updatedLayout = layout + [widget]
+        HapticManager.success()
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            layout = updatedLayout
+        }
+        // Persist the exact value assigned above. Saving the captured pre-animation
+        // array could race the state update and lose the newly selected widget.
+        HomeWidget.saveLayout(updatedLayout)
+        UsageMetrics.shared.record(.widgetAdded, detail: widget.rawValue)
+        if HomeWidget.allCases.allSatisfy(updatedLayout.contains) {
+            activeHomeSheet = nil
+        }
     }
 
     @ViewBuilder
@@ -667,10 +831,11 @@ struct HomeView: View {
     private func removeBadge(_ widget: HomeWidget) -> some View {
         Button {
             HapticManager.light()
+            let updatedLayout = layout.filter { $0 != widget }
             withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                layout.removeAll { $0 == widget }
+                layout = updatedLayout
             }
-            HomeWidget.saveLayout(layout)
+            HomeWidget.saveLayout(updatedLayout)
             UsageMetrics.shared.record(.widgetRemoved, detail: widget.rawValue)
         } label: {
             ZStack {
@@ -847,13 +1012,7 @@ struct HomeView: View {
                     } else {
                         ForEach(removedWidgets, id: \.self) { widget in
                             Button {
-                                HapticManager.success()
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    layout.append(widget)
-                                }
-                                HomeWidget.saveLayout(layout)
-                                UsageMetrics.shared.record(.widgetAdded, detail: widget.rawValue)
-                                if removedWidgets.isEmpty { activeHomeSheet = nil }
+                                addWidget(widget)
                             } label: {
                                 HStack(spacing: 14) {
                                     ZStack {
@@ -910,10 +1069,8 @@ struct HomeView: View {
 
     private var groceryToBuy: Int { kitchenMetrics.groceryToBuy }
     private var lowStockCount: Int { kitchenMetrics.lowStockCount }
-    private var favoriteCount: Int {
-        store.userRecipes.filter(\.isFavorited).count + store.favoriteRecipes.count
-    }
-    private var plannedCount: Int { store.plannedMeals.filter { !$0.isCooked }.count }
+    private var favoriteCount: Int { kitchenMetrics.favoriteRecipeCount }
+    private var plannedCount: Int { kitchenMetrics.plannedMealCount }
     private var stockLabel: String { kitchenMetrics.stockStatusPhrase }
 
     // Compact stat card: big number + caption, gold icon chip, taps somewhere useful.
@@ -1616,6 +1773,11 @@ enum HomeWidget: String, CaseIterable, Hashable, Codable {
     // #253 — Default board no longer includes the Daily Brief; it's now optional and
     // can be added from the gallery. Default is the everyday essentials.
     static let defaultLayout: [HomeWidget] = [.stockLevel, .actionCenter, .useItSoon, .tipOfDay]
+
+    /// Widgets already expressed by the fixed master-mockup Home composition. They
+    /// remain in the persisted model for compatibility but must not be duplicated
+    /// underneath the matching reference sections.
+    static let referenceRepresented: Set<HomeWidget> = Set(defaultLayout)
 
     private static let layoutKey = "stocked.homeWidgetLayout_v3"   // v3: new default order (Stock Level, Action Center, Use It Soon, Kitchen Tip)
 

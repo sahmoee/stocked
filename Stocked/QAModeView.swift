@@ -42,9 +42,9 @@ struct QAModeView: View {
     @State private var eventFilter: QAEventKind?
     @State private var showClearConfirm = false
     @State private var copied: String?
+    @State private var fullExportSnapshot = ""
 
     @AppStorage(QAIssueReporterSettings.enabledKey) private var reporterEnabled = true
-    @AppStorage(QAIssueReporterSettings.fingerKey) private var reporterFingers = 1
     @AppStorage(QAHUDSettings.enabledKey) private var hudEnabled = false
     @AppStorage(QAHUDSettings.positionKey) private var hudAtTop = false
     @AppStorage(QAShakeSettings.enabledKey) private var shakeEnabled = true
@@ -91,10 +91,13 @@ struct QAModeView: View {
 
             checklistSection
         }
+        .scrollContentBackground(.hidden)
+        .background(session.themeBgColor)
         .navigationTitle("QA")
         .qaScreen("Settings > QA")
         .onAppear {
             if recorder.isEnabled { runner.start(store: store, session: nil) }
+            refreshFullExport()
         }
         .overlay(alignment: .bottom) { copiedToast }
         .confirmationDialog("Clear the whole session?", isPresented: $showClearConfirm, titleVisibility: .visible) {
@@ -106,6 +109,7 @@ struct QAModeView: View {
         } message: {
             Text("Tickets are kept — they are the part worth keeping. Everything else resets.")
         }
+        .presentationBackground(session.themeBgColor)
     }
 
     // MARK: Search
@@ -259,14 +263,8 @@ struct QAModeView: View {
         Section {
             Toggle("Press and hold to report", isOn: $reporterEnabled)
             if reporterEnabled {
-                Picker("Fingers", selection: $reporterFingers) {
-                    Text("One finger").tag(1)
-                    Text("Two fingers").tag(2)
-                }
-                .pickerStyle(.segmented)
-                Text(reporterFingers == 2
-                     ? "Two fingers never collides with context menus or text selection. The safer choice on iPad and on menu-heavy screens."
-                     : "One finger is quicker, but screens with context menus or selectable text will show those as well as the report sheet.")
+                LabeledContent("Gesture", value: "Two-finger hold")
+                Text("Two fingers keeps one-finger widget editing, context menus, and text selection available without opening the QA report sheet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -973,20 +971,35 @@ struct QAModeView: View {
 
     private var exportSection: some View {
         Section {
-            ShareLink(item: recorder.fullExportText) {
+            ShareLink(item: fullExportSnapshot) {
                 Label("Share full QA report", systemImage: "square.and.arrow.up")
             }
-            copyButton("Copy full QA report", recorder.fullExportText)
+            .disabled(fullExportSnapshot.isEmpty)
+            copyButton("Copy full QA report", fullExportSnapshot)
+                .disabled(fullExportSnapshot.isEmpty)
             NavigationLink {
-                QATextReportView(title: "Full QA report", text: recorder.fullExportText)
+                QATextReportView(title: "Full QA report", text: fullExportSnapshot)
             } label: {
                 Label("Read it here", systemImage: "doc.text.magnifyingglass")
+            }
+            .disabled(fullExportSnapshot.isEmpty)
+            Button {
+                refreshFullExport()
+            } label: {
+                Label("Refresh report", systemImage: "arrow.clockwise")
             }
         } header: {
             Text("Export")
         } footer: {
             Text("One report with everything: triage, tickets, runtime, processes, invariants, taps, crashes, breadcrumbs, the event log, and the previous session's snapshot if there is one. The per-section copy buttons above are for when you only want one part.")
         }
+    }
+
+    private func refreshFullExport() {
+        // Intentionally snapshot on demand. Keeping this computed value directly
+        // in three view builders rebuilt a complete multi-section report whenever
+        // any observed runtime counter changed.
+        fullExportSnapshot = recorder.fullExportText
     }
 
     private var checklistSection: some View {

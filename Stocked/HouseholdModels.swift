@@ -182,7 +182,7 @@ nonisolated struct HouseholdNotificationPrefs: Codable, Equatable, Sendable {
 // survive relaunch and retry) and leave room for future routes without model changes.
 
 /// What kind of household data an operation touches.
-nonisolated enum HouseholdEntityType: String, Codable, Sendable {
+nonisolated enum HouseholdEntityType: String, Codable, Sendable, Hashable {
     case inventoryItem
     case groceryItem
     case userRecipe

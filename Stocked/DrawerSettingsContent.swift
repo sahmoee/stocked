@@ -301,7 +301,7 @@ struct SidebarContent: View {
 
 // MARK: - Drawer Content (iPhone)
 // Quick actions the drawer can request; MainTabView performs them after closing the drawer.
-enum DrawerQuickAction { case scanReceipt, scanBarcode, quickUpdate, addItems, search, stats, databases, editProfile, notifications, household, activity, dataStorage, transferKitchen, recipeSources, storePopout }
+enum DrawerQuickAction { case scanReceipt, scanBarcode, quickUpdate, addItems, search, stats, databases, editProfile, notifications, household, activity, dataStorage, transferKitchen, recipeSources, storePopout, homeWidgets }
 
 struct DrawerContent: View {
     // One enum drives a SINGLE .sheet(item:) (see DrawerSheet note above) so these present
@@ -420,6 +420,7 @@ struct DrawerContent: View {
                 } header: { drawerHeader("Insights") }
 
                 Section {
+                    drawerButton("Home Widgets", icon: "square.grid.2x2") { runQuick(.homeWidgets) {} }
                     // The full Settings home — Preferences, Notifications, Data & Storage,
                     // Account (Log Out / Delete Account), and Help Center all live there now.
                     drawerButton("Settings", icon: "gearshape.fill") { activeHomeSheet = .settingsPage }

@@ -66,7 +66,6 @@ struct InventoryHubView: View {
     var body: some View {
         StockedShell(scrollDisabled: false,
                      titleText: "Inventory",
-                     leadingTitle: true,
                      trailingIcon: "magnifyingglass", trailingLabel: "Search",
                      onTrailing: { withAnimation(.easeInOut(duration: 0.2)) { showSearchField.toggle(); if !showSearchField { searchText = "" } } },
                      trailingIcon2: "line.3.horizontal.decrease", trailingLabel2: "Sort",

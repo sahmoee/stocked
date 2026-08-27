@@ -103,14 +103,50 @@ actor RecipeDatabase {
     private let maxEntries       = 2000         // hard cap before LRU eviction
     private var entries: [RecipeDatabaseEntry] = []
     private var titleIndex: [String: UUID] = [:]   // lowercase title → id for dedup
+    private var sourceIndex: [String: UUID] = [:]  // canonical publisher URL → id
+    private var entriesByID: [UUID: RecipeDatabaseEntry] = [:]
     // #9 in-memory token index: search token → set of entry IDs. Rebuilt on load and
     // kept in sync on upsert/delete so search() doesn't scan the whole array each call.
     private var tokenIndex: [String: Set<UUID>] = [:]
+    // Quality is derived entirely from immutable entry fields. Ranking used to recompute it
+    // repeatedly inside sort comparators (O(n log n) expensive string/array work).
+    private var qualityScores: [UUID: Double] = [:]
+
+    private static func standardizedRecipeTitle(_ raw: String) -> String {
+        let cleaned = OnlineRecipeFacts.normalizedTitle(raw)
+        let letters = cleaned.filter(\.isLetter)
+        guard !letters.isEmpty,
+              letters == letters.lowercased() || letters == letters.uppercased() else { return cleaned }
+        let minor: Set<String> = ["a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "of", "on", "or", "the", "to", "via", "with"]
+        let acronyms = ["bbq": "BBQ", "blt": "BLT", "pb&j": "PB&J", "diy": "DIY", "ipa": "IPA"]
+        let words = cleaned.split(separator: " ")
+        return words.enumerated().map { index, rawWord in
+            let lower = rawWord.lowercased()
+            if let acronym = acronyms[lower] { return acronym }
+            if index > 0, index < words.count - 1, minor.contains(lower) { return lower }
+            return lower.prefix(1).uppercased() + lower.dropFirst()
+        }.joined(separator: " ")
+    }
+
+    private static func canonicalSourceKey(_ raw: String) -> String? {
+        guard var components = URLComponents(string: raw),
+              components.scheme?.lowercased() == "https", components.host != nil else { return nil }
+        components.fragment = nil
+        components.queryItems = components.queryItems?.filter {
+            let key = $0.name.lowercased()
+            return !key.hasPrefix("utm_") && key != "fbclid" && key != "gclid" && key != "ref"
+        }
+        return components.url?.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
+    }
 
     // Tokenize an entry's searchable text into lowercase word stems.
     private func tokens(for entry: RecipeDatabaseEntry) -> Set<String> {
+        // Search indexing only needs words. Parsing every ingredient's amount/unit here
+        // turned a bulk recipe sync into thousands of MeasureParser calls and was the hot
+        // stack behind the reported freeze. Raw ingredient lines contain the same searchable
+        // food names; harmless amount/unit tokens are discarded by the tokenizer below.
         let text = ([entry.title, entry.description, entry.category, entry.cuisine]
-                    + entry.tags + RecipeIngredients.names(entry.ingredients) + [entry.sourceName])
+                    + entry.tags + entry.ingredients + [entry.sourceName])
             .joined(separator: " ").lowercased()
             .folding(options: .diacriticInsensitive, locale: nil)
         let raw = text.components(separatedBy: CharacterSet.alphanumerics.inverted)
@@ -118,13 +154,24 @@ actor RecipeDatabase {
     }
 
     private func indexEntry(_ entry: RecipeDatabaseEntry) {
+        entriesByID[entry.id] = entry
         for t in tokens(for: entry) { tokenIndex[t, default: []].insert(entry.id) }
+        qualityScores[entry.id] = RecipeQuality.score(
+            title: entry.title, ingredients: entry.ingredients,
+            steps: entry.steps, imageURL: entry.imageURL)
     }
     private func unindexEntry(_ entry: RecipeDatabaseEntry) {
-        for t in tokens(for: entry) { tokenIndex[t]?.remove(entry.id) }
+        entriesByID.removeValue(forKey: entry.id)
+        for t in tokens(for: entry) {
+            tokenIndex[t]?.remove(entry.id)
+            if tokenIndex[t]?.isEmpty == true { tokenIndex.removeValue(forKey: t) }
+        }
+        qualityScores.removeValue(forKey: entry.id)
     }
     private func rebuildTokenIndex() {
         tokenIndex = [:]
+        qualityScores = [:]
+        entriesByID = [:]
         for e in entries { indexEntry(e) }
     }
 
@@ -168,8 +215,9 @@ actor RecipeDatabase {
 
     /// Cached/derived quality score for ranking (#10).
     private func qualityScore(_ e: RecipeDatabaseEntry) -> Double {
-        RecipeQuality.score(title: e.title, ingredients: e.ingredients,
-                            steps: e.steps, imageURL: e.imageURL)
+        qualityScores[e.id] ?? RecipeQuality.score(
+            title: e.title, ingredients: e.ingredients,
+            steps: e.steps, imageURL: e.imageURL)
     }
 
     /// Snapshot ranked by quality — used by views that want "best first".
@@ -178,7 +226,8 @@ actor RecipeDatabase {
     }
 
     func entry(for title: String) -> RecipeDatabaseEntry? {
-        entries.first { $0.title.lowercased() == title.lowercased() }
+        guard let id = titleIndex[title.lowercased()] else { return nil }
+        return entriesByID[id]
     }
 
     func count() -> Int { entries.count }
@@ -200,7 +249,9 @@ actor RecipeDatabase {
     /// instead of rewriting the entire recipe file per item (was O(N²) disk writes, the
     /// main driver of the runaway disk-write / CPU resource terminations).
     @discardableResult
-    private func upsertNoPersist(_ entry: RecipeDatabaseEntry) -> Bool {
+    private func upsertNoPersist(_ incoming: RecipeDatabaseEntry) -> Bool {
+        var entry = incoming
+        entry.title = Self.standardizedRecipeTitle(entry.title)
         // Retired sources are refused here rather than at each caller. Every ingestion
         // path in the app ends up in this method — the bundled-JSON importer, the web
         // catalogue merge, the offline cache merge, manual saves — so one guard closes
@@ -212,19 +263,26 @@ actor RecipeDatabase {
         }
 
         let key = entry.title.lowercased()
-        if let existing = titleIndex[key], let idx = entries.firstIndex(where: { $0.id == existing }) {
+        let sourceKey = Self.canonicalSourceKey(entry.sourceURL)
+        let existingID = titleIndex[key] ?? sourceKey.flatMap { sourceIndex[$0] }
+        if let existing = existingID, let idx = entries.firstIndex(where: { $0.id == existing }) {
             // Overwrite only if the incoming entry has richer data
             let current = entries[idx]
             if entry.steps.count >= current.steps.count && entry.ingredients.count >= current.ingredients.count {
                 unindexEntry(current)
+                titleIndex.removeValue(forKey: current.title.lowercased())
+                if let oldSource = Self.canonicalSourceKey(current.sourceURL) { sourceIndex.removeValue(forKey: oldSource) }
+                entry.id = current.id
                 entries[idx] = entry
                 titleIndex[key] = entry.id
+                if let sourceKey { sourceIndex[sourceKey] = entry.id }
                 indexEntry(entry)
             }
             return false   // was duplicate
         }
         entries.insert(entry, at: 0)
         titleIndex[key] = entry.id
+        if let sourceKey { sourceIndex[sourceKey] = entry.id }
         indexEntry(entry)
         evictIfNeeded()
         return true   // new entry
@@ -253,6 +311,7 @@ actor RecipeDatabase {
             unindexEntry(removed)
             entries.remove(at: idx)
             titleIndex.removeValue(forKey: key)
+            if let sourceKey = Self.canonicalSourceKey(removed.sourceURL) { sourceIndex.removeValue(forKey: sourceKey) }
             persist()
         }
     }
@@ -265,7 +324,10 @@ actor RecipeDatabase {
     /// sweep — the same O(N²) disk-write pattern that `upsertAll` exists to avoid.
     @discardableResult
     func purgeBlockedSources() -> Int {
-        let kept = entries.filter { !RecipeSourceBlocklist.isBlocked($0) }
+        let kept = entries.filter {
+            !RecipeSourceBlocklist.isBlocked($0)
+                && RecipeQuality.hasMeaningfulTitle($0.title)
+        }
         let removed = entries.count - kept.count
         guard removed > 0 else { return 0 }
         entries = kept
@@ -289,9 +351,15 @@ actor RecipeDatabase {
 
     private func load() {
         if let decoded = LocalDatabase.shared.loadArray(RecipeDatabaseEntry.self, key: storageKey) {
-            entries = decoded.filter(Self.hasUsableImage)
+            var repairedTitle = false
+            entries = decoded.filter(Self.hasUsableImage).map { existing in
+                var repaired = existing
+                repaired.title = Self.standardizedRecipeTitle(existing.title)
+                repairedTitle = repairedTitle || repaired.title != existing.title
+                return repaired
+            }
             rebuildIndex()
-            if entries.count != decoded.count { persist() }
+            if repairedTitle || entries.count != decoded.count { persist() }
             return
         }
 
@@ -299,7 +367,11 @@ actor RecipeDatabase {
         guard let data = UserDefaults.standard.data(forKey: legacyDefaultsKey),
               let decoded = try? JSONDecoder().decode([RecipeDatabaseEntry].self, from: data)
         else { return }
-        entries = decoded.filter(Self.hasUsableImage)
+        entries = decoded.filter(Self.hasUsableImage).map { existing in
+            var repaired = existing
+            repaired.title = Self.standardizedRecipeTitle(existing.title)
+            return repaired
+        }
         rebuildIndex()
         persist()
         UserDefaults.standard.removeObject(forKey: legacyDefaultsKey)
@@ -313,7 +385,17 @@ actor RecipeDatabase {
 
     private func rebuildIndex() {
         titleIndex = [:]
-        for e in entries { titleIndex[e.title.lowercased()] = e.id }
+        sourceIndex = [:]
+        var deduplicated: [RecipeDatabaseEntry] = []
+        for entry in entries {
+            let titleKey = entry.title.lowercased()
+            let sourceKey = Self.canonicalSourceKey(entry.sourceURL)
+            if titleIndex[titleKey] != nil || sourceKey.flatMap({ sourceIndex[$0] }) != nil { continue }
+            titleIndex[titleKey] = entry.id
+            if let sourceKey { sourceIndex[sourceKey] = entry.id }
+            deduplicated.append(entry)
+        }
+        entries = deduplicated
         rebuildTokenIndex()   // #9 keep the search token index in sync
     }
 
@@ -425,15 +507,35 @@ final class RecipeDatabaseManager {
     /// Load `snapshot` once on view appear; keep it fresh with a background task.
     func suggestions(for query: String, in snapshot: [RecipeDatabaseEntry], limit: Int = 8) -> [RecipeDatabaseEntry] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard q.count >= 1 else { return [] }
-        let byTitle    = snapshot.filter { $0.title.lowercased().hasPrefix(q) }
-        let byAnywhere = snapshot.filter { entry in
-            let idx = ([entry.title, entry.description, entry.category, entry.cuisine]
-                + entry.tags + entry.ingredients + [entry.sourceName])
-                .joined(separator: " ").lowercased()
-            return !entry.title.lowercased().hasPrefix(q) && idx.contains(q)
+        guard !q.isEmpty, limit > 0 else { return [] }
+
+        // Keep the two-pass relevance order without allocating two full filtered arrays or
+        // building a giant joined search string for every row. Most UI calls now finish in
+        // the prefix pass and stop as soon as the visible result budget is satisfied.
+        var results: [RecipeDatabaseEntry] = []
+        results.reserveCapacity(limit)
+        var prefixIDs = Set<UUID>()
+        for entry in snapshot {
+            if entry.title.lowercased().hasPrefix(q) {
+                results.append(entry)
+                prefixIDs.insert(entry.id)
+                if results.count == limit { return results }
+            }
         }
-        return Array((byTitle + byAnywhere).prefix(limit))
+
+        for entry in snapshot where !prefixIDs.contains(entry.id) {
+            if entry.title.localizedCaseInsensitiveContains(q)
+                || entry.description.localizedCaseInsensitiveContains(q)
+                || entry.category.localizedCaseInsensitiveContains(q)
+                || entry.cuisine.localizedCaseInsensitiveContains(q)
+                || entry.sourceName.localizedCaseInsensitiveContains(q)
+                || entry.tags.contains(where: { $0.localizedCaseInsensitiveContains(q) })
+                || entry.ingredients.contains(where: { $0.localizedCaseInsensitiveContains(q) }) {
+                results.append(entry)
+                if results.count == limit { break }
+            }
+        }
+        return results
     }
 
     // MARK: Snapshot for Views
@@ -475,6 +577,9 @@ final class RecipeDatabaseManager {
         let imageComplete = entries.filter {
             let value = $0.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
             return URL(string: value)?.scheme == "https"
+                && RecipeQuality.hasMeaningfulTitle($0.title)
+                && $0.ingredients.count >= 3
+                && !$0.steps.isEmpty
         }
         guard !imageComplete.isEmpty else { return [] }
         let inserted = await db.upsertAll(imageComplete)

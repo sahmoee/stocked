@@ -12,50 +12,6 @@
 
 import SwiftUI
 
-// MARK: - Memory-Aware Image Cache
-
-final class StockedImageCache {
-    static let shared = StockedImageCache()
-
-    // NSCache auto-evicts on memory pressure — perfect for images
-    private let cache = NSCache<NSString, UIImage>()
-    private let maxImages = 200
-
-    // #13: Tiered eviction — thumbnails purged first, detail images kept longer
-    private let thumbnailSizeThreshold: Int = 100 * 100 * 4  // ~40KB
-    private var thumbnailKeys: [String] = []
-    private var detailKeys:    [String] = []
-
-    private init() {
-        cache.countLimit     = maxImages
-        cache.totalCostLimit = 80 * 1024 * 1024  // 80 MB cap (raised — tiered eviction handles pressure)
-        NotificationCenter.default.addObserver(
-            forName: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil, queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            // Tier 1: remove thumbnails first
-            self.thumbnailKeys.forEach { self.cache.removeObject(forKey: $0 as NSString) }
-            self.thumbnailKeys.removeAll()
-            // Tier 2: only remove detail images if still under pressure
-            if ProcessInfo.processInfo.physicalMemory < 200_000_000 {
-                self.detailKeys.forEach { self.cache.removeObject(forKey: $0 as NSString) }
-                self.detailKeys.removeAll()
-            }
-        }
-    }
-
-    func get(_ url: String) -> UIImage?    { cache.object(forKey: url as NSString) }
-    func set(_ image: UIImage, for url: String, isThumbnail: Bool = false) {
-        let cost = Int(image.size.width * image.size.height * 4)
-        cache.setObject(image, forKey: url as NSString, cost: cost)
-        // #13: Track by tier for eviction ordering
-        if isThumbnail || cost < thumbnailSizeThreshold { thumbnailKeys.append(url) }
-        else { detailKeys.append(url) }
-    }
-    func clear() { cache.removeAllObjects() }
-}
-
 // MARK: - Fallback URL Builder
 
 enum ImageFallbackService {
@@ -168,7 +124,7 @@ struct AsyncFoodImage: View {
     }
 
     private func loadFrom(_ key: String, allowResolveFallback: Bool) {
-        if let cached = StockedImageCache.shared.get(key) { loadedImage = cached; return }
+        if let cached = ImageCache.shared.memoryImage(for: key) { loadedImage = cached; return }
         // A malformed key must never trap the app. URL(string:) returns nil on a bad
         // string (spaces, an empty path, a scheme-less relative path), so guard it and
         // route the miss through the same fallback a network failure would take.
@@ -177,12 +133,9 @@ struct AsyncFoodImage: View {
             return
         }
         Task {
-            do {
-                let (data, _) = try await URLSession.shared.data(from: target)
-                guard let img = UIImage(data: data) else { throw URLError(.badServerResponse) }
-                StockedImageCache.shared.set(img, for: key)
+            if let img = await ImageCache.shared.fetchImage(url: target.absoluteString) {
                 await MainActor.run { loadedImage = img }
-            } catch {
+            } else {
                 if allowResolveFallback {
                     resolveAndLoad()
                 } else {
@@ -198,15 +151,12 @@ struct AsyncFoodImage: View {
                 await MainActor.run { failed = true }; return
             }
             let key = resolved.absoluteString
-            if let cached = StockedImageCache.shared.get(key) {
+            if let cached = ImageCache.shared.memoryImage(for: key) {
                 await MainActor.run { loadedImage = cached }; return
             }
-            do {
-                let (data, _) = try await URLSession.shared.data(from: resolved)
-                guard let img = UIImage(data: data) else { throw URLError(.badServerResponse) }
-                StockedImageCache.shared.set(img, for: key)
+            if let img = await ImageCache.shared.fetchImage(url: key) {
                 await MainActor.run { loadedImage = img }
-            } catch {
+            } else {
                 await MainActor.run { failed = true }
             }
         }

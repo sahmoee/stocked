@@ -250,7 +250,7 @@ struct CookNowResultsView: View {
                                 subtitle: rowSubtitle(c),
                                 matchPercent: matchPercent(c),
                                 imageURL: c.recipe.imageURL,
-                                usesUniformIcon: true
+                                usesUniformIcon: false
                             ) {
                                 // RL-004 — a recipe using reserved ingredients gets the
                                 // informative Cook Anyway review first (never blocking:

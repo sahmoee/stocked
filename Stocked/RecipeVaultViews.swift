@@ -237,7 +237,7 @@ struct RecipeVaultView: View {
             referenceRecipeDestinations
             referenceAICard
             referenceMoodRow
-            referenceForYou
+            referenceRecipeRails
             referenceBrowseRow
             Spacer(minLength: 24)
         }
@@ -370,11 +370,22 @@ struct RecipeVaultView: View {
         }.buttonStyle(.plain)
     }
 
-    @ViewBuilder private var referenceForYou: some View {
-        let recipes = Array(discoverSnapshot.popular.prefix(3))
+    @ViewBuilder private var referenceRecipeRails: some View {
+        let firstRail = Array(discoverSnapshot.popular.prefix(3))
+        let firstIDs = Set(firstRail.map(\.id))
+        let secondRail = Array(
+            Self.uniqueRecipes(discoverSnapshot.dinners + discoverSnapshot.sweets + discoverSnapshot.pool)
+                .filter { !firstIDs.contains($0.id) }
+                .prefix(3)
+        )
+        referenceRecipeRail(title: "For you", recipes: firstRail)
+        referenceRecipeRail(title: "More to explore", recipes: secondRail)
+    }
+
+    @ViewBuilder private func referenceRecipeRail(title: String, recipes: [OnlineRecipe]) -> some View {
         if !recipes.isEmpty {
             VStack(alignment: .leading, spacing: 9) {
-                referenceSectionHeader("For you", actionTitle: "See all") { navTarget = .browseAll }
+                referenceSectionHeader(title, actionTitle: "See all") { navTarget = .browseAll }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(recipes) { recipe in
@@ -450,7 +461,6 @@ struct RecipeVaultView: View {
     var body: some View {
         StockedShell(showBack: false, scrollDisabled: false,
                      titleText: "Stocked.",
-                     leadingTitle: false,
                      trailingIcon: "magnifyingglass", trailingLabel: "Search",
                      onTrailing: { showRecipeSearch = true }) {
             referenceRecipesPage
@@ -672,17 +682,24 @@ struct RecipeVaultView: View {
             // start must not land on an index that no longer exists.
             selectedTab = min(session.preferredRecipeTab, tabNames.count - 1)
             onlineLoader.loadIfNeeded(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })  // #248
+            discoverVisitSeed &+= 1
             scheduleDiscoverSnapshotRebuild()
             consumePendingImportIfNeeded()
             recomputeHubStats()
         }
         .onChange(of: onlineLoader.revision) { _, _ in
+            discoverVisitSeed &+= 1
             scheduleDiscoverSnapshotRebuild()
         }
         .onReceive(DatabaseSyncBus.shared.recipeChanges.debounce(for: .milliseconds(350), scheduler: RunLoop.main)) { _ in
             // HarvestRecipeSync writes StockedMac/Worker recipes into RecipeDatabase after
             // launch. Refresh the visible pool even when its six-hour cache is still fresh.
             onlineLoader.refreshFromSharedDatabase(profile: session.guestStore.cookingProfile)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockedTabDidBecomeActive)) { note in
+            guard note.object as? StockedTab == .recipes else { return }
+            discoverVisitSeed &+= 1
+            scheduleDiscoverSnapshotRebuild()
         }
         // #3 — recompute prepared hub stats only when their real inputs change (cheap
         // Int signature avoids comparing recipe image blobs every render).
@@ -751,6 +768,12 @@ struct RecipeVaultView: View {
 
     @State private var discoverSnapshot = DiscoverSnapshot()
     @State private var discoverSnapshotTask: Task<Void, Never>?
+    @State private var discoverVisitSeed: UInt64 = 0
+
+    private nonisolated static func uniqueRecipes(_ recipes: [OnlineRecipe]) -> [OnlineRecipe] {
+        var seen = Set<String>()
+        return recipes.filter { seen.insert($0.id).inserted }
+    }
 
     private var discoverSavedTitles: Set<String> {
         session.guestStore.savedRecipeTitles
@@ -767,13 +790,15 @@ struct RecipeVaultView: View {
         }
         let inStock = session.guestStore.inStockNameSet
         let interestWeights = RecipeInterest.shared.weights
+        let visitSeed = discoverVisitSeed
 
         discoverSnapshotTask = Task {
             let snapshot = await Task.detached(priority: .userInitiated) {
                 Self.makeDiscoverSnapshot(
                     recipes: recipes,
                     inStock: inStock,
-                    interestWeights: interestWeights
+                    interestWeights: interestWeights,
+                    visitSeed: visitSeed
                 )
             }.value
             guard !Task.isCancelled else { return }
@@ -785,7 +810,8 @@ struct RecipeVaultView: View {
     private nonisolated static func makeDiscoverSnapshot(
         recipes: [OnlineRecipe],
         inStock: Set<String>,
-        interestWeights: [String: Double]
+        interestWeights: [String: Double],
+        visitSeed: UInt64
     ) -> DiscoverSnapshot {
         let drinkWords = ["cocktail", "drink", "beverage", "shake", "smoothie",
                           "coffee", "tea", "punch", "shot", "mocktail", "juice"]
@@ -814,6 +840,18 @@ struct RecipeVaultView: View {
                 food.append(recipe)
             }
         }
+
+        // Rotate the verified pool on every page visit. The seed is captured before
+        // detached work begins, so switching away and back yields fresh rails without
+        // introducing a timer, network loop, or unstable SwiftUI identity.
+        func rotated(_ values: [OnlineRecipe], multiplier: UInt64) -> [OnlineRecipe] {
+            guard values.count > 1 else { return values }
+            let offset = Int((visitSeed &* multiplier) % UInt64(values.count))
+            guard offset > 0 else { return values }
+            return Array(values[offset...]) + Array(values[..<offset])
+        }
+        food = rotated(food, multiplier: 7)
+        drinks = rotated(drinks, multiplier: 3)
 
         var remaining = food
         let hero = remaining.first
@@ -902,6 +940,7 @@ struct RecipeVaultView: View {
                     ProgressView().scaleEffect(0.7).tint(Color.stockedGold)
                 } else {
                     Button {
+                        discoverVisitSeed &+= 1
                         onlineLoader.forceRefresh(profile: session.guestStore.cookingProfile,
                                                   pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })
                     } label: {

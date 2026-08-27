@@ -15,6 +15,12 @@ import Observation
 import os
 import UIKit
 
+/// The JSON graph is immutable while boxed. Foundation's `[String: Any]` cannot express
+/// Sendable, so this narrowly-scoped wrapper lets expensive serialization run off MainActor.
+nonisolated private struct HouseholdJSONBox: @unchecked Sendable {
+    let value: [String: Any]
+}
+
 @MainActor
 @Observable
 final class HouseholdSync {
@@ -96,10 +102,21 @@ final class HouseholdSync {
     /// Batch variant: one persist for a bulk mutation (receipt import, AI assistant apply).
     func enqueueBatch(_ ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)]) {
         guard state == .owner || state == .member, !ops.isEmpty else { return }
-        for o in ops {
-            pendingOps.removeAll { $0.entityID == o.id && $0.entityType == o.type }
-            pendingOps.append(PendingHouseholdOperation(entityID: o.id, entityType: o.type,
-                                                        operationType: o.op))
+        struct EntityKey: Hashable { let id: UUID; let type: HouseholdEntityType }
+        // Last mutation wins for each entity in this batch. Filtering the durable queue once
+        // avoids O(existing × batch) `removeAll` work during large receipt/recipe imports.
+        var replacements: [EntityKey: HouseholdOperationType] = [:]
+        replacements.reserveCapacity(ops.count)
+        for operation in ops {
+            replacements[EntityKey(id: operation.id, type: operation.type)] = operation.op
+        }
+        pendingOps.removeAll {
+            replacements[EntityKey(id: $0.entityID, type: $0.entityType)] != nil
+        }
+        pendingOps.reserveCapacity(pendingOps.count + replacements.count)
+        for (key, operation) in replacements {
+            pendingOps.append(PendingHouseholdOperation(entityID: key.id, entityType: key.type,
+                                                        operationType: operation))
         }
         persistQueue()
     }
@@ -542,7 +559,7 @@ final class HouseholdSync {
         // nothing syncs at all — not the recipe carrying the big photo, the entire kitchen.
         // The Mac shed pictures to stay under; the phone did not, so a phone that had
         // collected a dozen photographed recipes could stop syncing groceries.
-        body = HouseholdSync.trimmedForPush(body)
+        body = await HouseholdSync.trimmedForPush(body)
 
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
@@ -740,7 +757,10 @@ final class HouseholdSync {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         BuildConfig.authorizeWorkerRequest(&request)
         request.timeoutInterval = 12
-        guard let encoded = try? JSONSerialization.data(withJSONObject: body) else {
+        let boxedBody = HouseholdJSONBox(value: body)
+        guard let encoded = await Task.detached(priority: .utility, operation: {
+            try? JSONSerialization.data(withJSONObject: boxedBody.value)
+        }).value else {
             lastPostFailure = .invalidRequest("Household sync couldn't encode the local snapshot.")
             return nil
         }
@@ -848,7 +868,7 @@ final class HouseholdSync {
     /// The whole push body has to fit the Worker's 2 MB limit, or the server answers 413 and
     /// nothing syncs — see `MAX_BODY` in the Worker's household route. Kept under it with
     /// headroom for the fields added after this check runs.
-    private static let maxPushBodyBytes = 1_700_000
+    nonisolated private static let maxPushBodyBytes = 1_700_000
 
     /// Sheds `imageData` from the largest recipes until the encoded body fits.
     ///
@@ -856,30 +876,33 @@ final class HouseholdSync {
     /// shows the picture — it just loads it from the web rather than out of the payload.
     /// Nothing is ever dropped: only pictures come off, never recipes. Mirrors
     /// `MacHouseholdSync.trimmedForPush` so both ends degrade the same way.
-    private static func trimmedForPush(_ body: [String: Any]) -> [String: Any] {
-        func size(_ value: [String: Any]) -> Int {
-            (try? JSONSerialization.data(withJSONObject: value))?.count ?? 0
-        }
-        guard size(body) > maxPushBodyBytes else { return body }
+    nonisolated private static func trimmedForPush(_ body: [String: Any]) async -> [String: Any] {
+        let boxed = HouseholdJSONBox(value: body)
+        let result = await Task.detached(priority: .utility) { () -> HouseholdJSONBox in
+            func size(_ value: [String: Any]) -> Int {
+                (try? JSONSerialization.data(withJSONObject: value))?.count ?? 0
+            }
+            guard size(boxed.value) > maxPushBodyBytes else { return boxed }
 
-        var trimmed = body
-        for key in ["genRecipes", "userRecipes"] {
-            guard var rows = trimmed[key] as? [[String: Any]] else { continue }
-            // Heaviest first — one 200 KB photo buys back more room than ten small ones.
-            let order = rows.indices.sorted {
-                ((rows[$0]["imageData"] as? String)?.count ?? 0)
-                    > ((rows[$1]["imageData"] as? String)?.count ?? 0)
-            }
-            for index in order {
-                guard size(trimmed) > maxPushBodyBytes else { break }
-                guard rows[index]["imageData"] != nil else { continue }
-                rows[index]["imageData"] = nil
+            var trimmed = boxed.value
+            for key in ["genRecipes", "userRecipes"] {
+                guard var rows = trimmed[key] as? [[String: Any]] else { continue }
+                let order = rows.indices.sorted {
+                    ((rows[$0]["imageData"] as? String)?.count ?? 0)
+                        > ((rows[$1]["imageData"] as? String)?.count ?? 0)
+                }
+                for index in order {
+                    guard size(trimmed) > maxPushBodyBytes else { break }
+                    guard rows[index]["imageData"] != nil else { continue }
+                    rows[index]["imageData"] = nil
+                    trimmed[key] = rows
+                }
                 trimmed[key] = rows
+                if size(trimmed) <= maxPushBodyBytes { break }
             }
-            trimmed[key] = rows
-            if size(trimmed) <= maxPushBodyBytes { break }
-        }
-        return trimmed
+            return HouseholdJSONBox(value: trimmed)
+        }.value
+        return result.value
     }
 
     private func userRecipeDict(_ r: UserRecipe) -> [String: Any] {

@@ -361,6 +361,7 @@ final class QATicketStore {
     private let cap = 200
 
     private nonisolated static let ticketsKey = "qa.tickets.v1"
+    private nonisolated static let ticketsDiskKey = "qa.tickets.v2"
     private nonisolated static let seqKey     = "qa.ticket.sequence.v1"
 
     // Build 84 - see save(): the encode-and-write is coalesced and off-main.
@@ -696,9 +697,7 @@ final class QATicketStore {
         saveTask?.cancel()
         saveTask = Task.detached(priority: .utility) {
             guard !Task.isCancelled else { return }
-            guard let data = try? JSONEncoder().encode(snapshot) else { return }
-            guard !Task.isCancelled else { return }
-            UserDefaults.standard.set(data, forKey: Self.ticketsKey)
+            LocalDatabase.shared.save(snapshot, key: Self.ticketsDiskKey)
         }
     }
 
@@ -711,11 +710,17 @@ final class QATicketStore {
     }
 
     private func load() {
+        if let decoded = LocalDatabase.shared.loadArray(QATicket.self, key: Self.ticketsDiskKey) {
+            tickets = decoded
+            return
+        }
         guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey) else { return }
 
         // Fast path: the common case, every ticket decodes cleanly.
         if let decoded = try? JSONDecoder().decode([QATicket].self, from: data) {
             tickets = decoded
+            LocalDatabase.shared.save(decoded, key: Self.ticketsDiskKey)
+            UserDefaults.standard.removeObject(forKey: Self.ticketsKey)
             return
         }
 
@@ -750,6 +755,12 @@ final class QATicketStore {
         }
 
         tickets = recovered
+        if !recovered.isEmpty {
+            LocalDatabase.shared.save(recovered, key: Self.ticketsDiskKey)
+            // Retain the legacy blob only when nothing could be recovered; otherwise the
+            // corruption-tolerant disk store is now the authoritative copy.
+            UserDefaults.standard.removeObject(forKey: Self.ticketsKey)
+        }
         if lostCount > 0 {
             QARecorder.shared.record(.note, screen: "QA",
                                      label: "ticket store partially recovered",
@@ -788,7 +799,7 @@ final class QATicketStore {
             "STK-78-0001", "STK-80-0015", "STK-80-0024", "STK-93-0012",
             "STK-93-0013", "STK-93-0014", "STK-93-0015", "STK-93-0016",
             "STK-93-0017", "STK-96-0004", "STK-98-0013", "STK-98-0014",
-            "STK-98-0015", "STK-98-0016", "STK-107-0018"
+            "STK-98-0015", "STK-98-0016", "STK-98-0019", "STK-107-0018"
         ]
         if historicalRuntimeFreezeTickets.contains(ticket.number) {
             return "Moved persisted ticket/image work and heavy Home/Recipes classification off repeated render paths, added a stable-frame warm-up after launch/foreground restoration, and collapsed recurring automatic screen freezes into one cumulative ticket instead of refiling duplicates."
@@ -827,6 +838,27 @@ final class QATicketStore {
             return resolution
         }
         let currentTicketResolutions: [String: String] = [
+            "STK-89-0041": "Made the largest in-app size apply to Settings' complete presentation and retained multiline wrapping so labels, descriptions, and controls remain readable instead of staying at compact fixed sizes.",
+            "STK-89-0040": "Recipes now rerolls its verified image-backed recommendations whenever the Recipes tab becomes active on iPhone or iPad, when shared recipes change, and when Refresh is tapped instead of retaining one launch-time ordering.",
+            "STK-1-0032": "Recipes now presents two independently populated rails and rotates the verified, image-backed pool on every visit so the same cards do not remain stagnant.",
+            "STK-1-0030": "Removed broad roundup, meal-plan, recipe-ideas, ways-to-use, and protein-prep pages from Cook results, future imports, and the continuous launch-time cleanup while preserving concrete dishes.",
+            "STK-1-0029": "Long-pressing any Home widget now enters wiggle mode; every reference and supplemental widget has a working remove control, an always-reachable Done action, and an Add Widgets tile for restoration.",
+            "STK-100-0030": "Removed the QA instrumentation feedback loop behind the iPad Settings > QA stall: frame telemetry no longer invalidates SwiftUI every display frame, the monitor is capped at 30 Hz, the HUD no longer runs an extra timer, report exports are cached, and burst failure snapshots are coalesced.",
+            "STK-100-0029": "The saved one- or two-finger QA preference now directly reconfigures the installed window gesture recognizer, allowing normal one-finger widget editing while two-finger QA invocation remains available.",
+            "STK-100-0028": "Reduced Settings main-thread work by rate-limiting memory incidents, coalescing QA persistence snapshots, caching the full QA export, and preventing frame-count observation from rebuilding Settings and QA continuously.",
+            "STK-100-0026": "Restored the customizable Home widget board beneath the master reference sections and made gallery insertion atomic and persistent, so newly selected widgets appear immediately on iPhone and iPad and remain after relaunch.",
+            "STK-100-0023": "Restored an explicit Home Widgets entry in the drawer and an Edit widgets action on Home, opening the complete existing widget gallery while preserving every widget's designed artwork.",
+            "STK-100-0022": "Cook Now result cards now render each recipe's required real image instead of forcing the generic fork-and-knife thumbnail on iPad.",
+            "STK-100-0021": "The QA gate, checklist, list background, and iPad sheet host now inherit Stocked's active background and presentation theme instead of the system gray/white surface.",
+            "STK-100-0010": "Consolidated Home actions into Scan, Add, and Log. Each opens the requested focused choices for receipts/barcodes, grocery/recipe/inventory/quick updates, and past meals/cooked/used-recently logging.",
+            "STK-100-0008": "The Kitchen Report/Daily Brief remains an optional Home widget and is not part of the default board; the restored widget gallery lets the user add or remove it deliberately.",
+            "STK-100-0006": "Removed the generic shortcuts prompt from Home and replaced it with the useful Edit widgets control.",
+            "STK-100-0005": "Home now uses the requested subtitle: Everything you need is already inside of your kitchen.",
+            "STK-100-0003": "Home's time-aware greeting is larger, spans the intended hero width, and no longer appends the hand emoji.",
+            "STK-100-0002": "Home supporting copy keeps the active theme color at stronger contrast instead of a washed-out fixed secondary color.",
+            "STK-100-0001": "Reduced retained recipe bitmap memory by decoding thumbnails near display size with true pixel-cost cache limits, throttled repeated QA memory report persistence, and kept Home metrics deferred outside the first render.",
+            "STK-98-0017": "Empty states now distinguish SF Symbol names from emoji and render checkmark.seal as an actual icon instead of exposing its internal symbol name as text.",
+            "STK-98-0011": "Expanded the shared recipe-quality gate to reject generic category, archive, collection, menu, bare-ID, and numbered recipe labels before they can appear in Recipes or enter future imports.",
             "STK-97-0001": "Recipe recommendation cards now reserve two title lines, scale long titles safely, and keep the image inside the card width so names remain readable without clipping.",
             "STK-97-0002": "Home now defers and memoizes kitchen metrics outside repeated render passes, preventing the reported main-thread stall while keeping the first frame responsive.",
             "STK-97-0006": "Home now uses the available phone and iPad width with compact reference spacing, larger useful controls, and no fixed empty gutters around the content or tab bar.",
@@ -865,6 +897,10 @@ final class QATicketStore {
         ]
         if let resolution = currentTicketResolutions[ticket.number] {
             return resolution
+        }
+        let currentValue = (ticket.title + " " + ticket.body).lowercased()
+        if currentValue.contains("cannot remove") && currentValue.contains("wiggle") {
+            return "Home widget long presses now enter wiggle mode and suppress the overlapping one-finger QA report gesture. While editing, each widget's underlying navigation action is disabled so tapping its remove badge cannot also switch tabs; two-finger QA reporting remains available and the updated layout persists."
         }
         let previouslyAudited = ticket.number.hasPrefix("STK-68-")
             || ticket.number.hasPrefix("STK-69-")

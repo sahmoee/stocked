@@ -23,8 +23,7 @@ struct CookHubView: View {
     @State private var showDiscardConfirm = false
 
     var body: some View {
-        StockedShell(titleText: "Cook", leadingTitle: false,
-                     headerTopPadding: 35, headerBottomPadding: 14) {
+        StockedShell(titleText: "Cook") {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 9) {
                     Text(greeting)

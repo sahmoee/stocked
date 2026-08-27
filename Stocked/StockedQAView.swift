@@ -639,6 +639,7 @@ enum StockedQABridge {
 // sliding.
 
 struct StockedQAGateView: View {
+    @Environment(AppSession.self) private var session
     var body: some View {
         // BUILD 74: this used to carry its own copy of the passcode pane, the
         // expiry tick and the unlock handler — a second implementation of the
@@ -654,6 +655,8 @@ struct StockedQAGateView: View {
                 StockedQAHomeView()
             }
         }
+        .background(session.themeBgColor.ignoresSafeArea())
+        .presentationBackground(session.themeBgColor)
     }
 }
 
@@ -731,6 +734,9 @@ struct StockedQAHomeView: View {
         }
         .navigationTitle("QA Checkbook")
         .navigationBarTitleDisplayMode(.inline)
+        .scrollContentBackground(.hidden)
+        .background(session.themeBgColor.ignoresSafeArea())
+        .presentationBackground(session.themeBgColor)
         .task {
             showTouchesLive = QATouchTrailSettings.overlayEnabled
             ringTapsInShots = QATouchTrailSettings.annotateShots
@@ -885,6 +891,7 @@ nonisolated enum QACheckFilter: String, CaseIterable, Identifiable {
 
 struct StockedQASectionView: View {
     let section: QAChecklistSection
+    @Environment(AppSession.self) private var session
     @State private var store = StockedQAStore.shared
     @State private var noteEditing: QACheckItem? = nil
     @State private var noteDraft = ""
@@ -928,6 +935,8 @@ struct StockedQASectionView: View {
                     .id(item.ticket)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(session.themeBgColor)
         .navigationTitle("\(section.number). \(section.title)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -957,6 +966,7 @@ struct StockedQASectionView: View {
             }
         }
         .qaScreen("QA > Checkbook > \(section.number)")
+        .presentationBackground(session.themeBgColor)
     }
 
     // MARK: Filtering

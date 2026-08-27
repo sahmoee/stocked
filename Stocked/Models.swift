@@ -120,7 +120,11 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
     // ── Computed helpers ──────────────────────────────────────────
     var daysUntilExpiry: Int? {
         guard let exp = expirationDate else { return nil }
-        return LocalInventoryItem.cal.dateComponents([.day], from: Date(), to: exp).day
+        return LocalInventoryItem.cal.dateComponents(
+            [.day],
+            from: LocalInventoryItem.cal.startOfDay(for: Date()),
+            to: LocalInventoryItem.cal.startOfDay(for: exp)
+        ).day
     }
     /// Canonical "expiring soon" test. Routes through the single shared threshold
     /// (KitchenThresholds.expiringSoonDays) so Home, Inventory, Cook, and the Daily Brief
@@ -165,6 +169,49 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
         self.sizeAmount    = sizeAmount
         self.sizeUnit      = sizeUnit
         self.storageCategory = StorageCategory(rawValue: zone) ?? .pantry
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, updatedAt, lastWriterID, quantity, containerType, sizeAmount, sizeUnit,
+             level, quantityUsed, storageCategory, subZone, customCategory, expirationDate,
+             brand, price, purchaseDate, addedBy, storePurchasedAt, nutrition, barcode,
+             productLabels, productIngredients, nutritionSource, isLeftover, leftoverMeal,
+             hasStash, imageData, parQuantity, sourceBadge, lastConfirmedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
+        lastWriterID = try c.decodeIfPresent(String.self, forKey: .lastWriterID) ?? ""
+        quantity = try c.decodeIfPresent(Int.self, forKey: .quantity) ?? 1
+        containerType = try c.decodeIfPresent(String.self, forKey: .containerType) ?? "item"
+        sizeAmount = try c.decodeIfPresent(Double.self, forKey: .sizeAmount)
+        sizeUnit = try c.decodeIfPresent(String.self, forKey: .sizeUnit)
+        level = try c.decodeIfPresent(Double.self, forKey: .level) ?? 1
+        quantityUsed = try c.decodeIfPresent(Double.self, forKey: .quantityUsed)
+        storageCategory = try c.decodeIfPresent(StorageCategory.self, forKey: .storageCategory) ?? .pantry
+        subZone = try c.decodeIfPresent(String.self, forKey: .subZone)
+        customCategory = try c.decodeIfPresent(String.self, forKey: .customCategory)
+        expirationDate = try c.decodeIfPresent(Date.self, forKey: .expirationDate)
+        brand = try c.decodeIfPresent(String.self, forKey: .brand)
+        price = try c.decodeIfPresent(Double.self, forKey: .price)
+        purchaseDate = try c.decodeIfPresent(Date.self, forKey: .purchaseDate)
+        addedBy = try c.decodeIfPresent(String.self, forKey: .addedBy)
+        storePurchasedAt = try c.decodeIfPresent(String.self, forKey: .storePurchasedAt)
+        nutrition = try c.decodeIfPresent(NutritionFacts.self, forKey: .nutrition)
+        barcode = try c.decodeIfPresent(String.self, forKey: .barcode)
+        productLabels = try c.decodeIfPresent([String].self, forKey: .productLabels)
+        productIngredients = try c.decodeIfPresent(String.self, forKey: .productIngredients)
+        nutritionSource = try c.decodeIfPresent(String.self, forKey: .nutritionSource)
+        isLeftover = try c.decodeIfPresent(Bool.self, forKey: .isLeftover) ?? false
+        leftoverMeal = try c.decodeIfPresent(String.self, forKey: .leftoverMeal)
+        hasStash = try c.decodeIfPresent(Bool.self, forKey: .hasStash) ?? false
+        imageData = try c.decodeIfPresent(Data.self, forKey: .imageData)
+        parQuantity = try c.decodeIfPresent(Int.self, forKey: .parQuantity)
+        sourceBadge = try c.decodeIfPresent(SourceBadge.self, forKey: .sourceBadge)
+        lastConfirmedAt = try c.decodeIfPresent(Date.self, forKey: .lastConfirmedAt)
     }
 }
 
@@ -267,6 +314,36 @@ nonisolated struct LocalGroceryItem: Identifiable, Codable, Sendable, Equatable 
     var sizeText:      String = ""   // measured size for display, e.g. "14 oz" ("" = none)
     var updatedAt:     Double = 0    // last-modified ms since epoch, for household last-write-wins
     var lastWriterID:  String = ""   // deterministic tie-breaker when timestamps tie
+
+    init(quantity: Int = 1, id: UUID = UUID(), name: String = "", isChecked: Bool = false,
+         isRecommended: Bool = false, recipeSource: String = "", recipeId: String = "",
+         addedByName: String = "", assignedTo: String = "", sizeText: String = "",
+         updatedAt: Double = 0, lastWriterID: String = "") {
+        self.quantity = quantity; self.id = id; self.name = name; self.isChecked = isChecked
+        self.isRecommended = isRecommended; self.recipeSource = recipeSource; self.recipeId = recipeId
+        self.addedByName = addedByName; self.assignedTo = assignedTo; self.sizeText = sizeText
+        self.updatedAt = updatedAt; self.lastWriterID = lastWriterID
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case quantity, id, name, isChecked, isRecommended, recipeSource, recipeId,
+             addedByName, assignedTo, sizeText, updatedAt, lastWriterID
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        quantity = try c.decodeIfPresent(Int.self, forKey: .quantity) ?? 1
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        isChecked = try c.decodeIfPresent(Bool.self, forKey: .isChecked) ?? false
+        isRecommended = try c.decodeIfPresent(Bool.self, forKey: .isRecommended) ?? false
+        recipeSource = try c.decodeIfPresent(String.self, forKey: .recipeSource) ?? ""
+        recipeId = try c.decodeIfPresent(String.self, forKey: .recipeId) ?? ""
+        addedByName = try c.decodeIfPresent(String.self, forKey: .addedByName) ?? ""
+        assignedTo = try c.decodeIfPresent(String.self, forKey: .assignedTo) ?? ""
+        sizeText = try c.decodeIfPresent(String.self, forKey: .sizeText) ?? ""
+        updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
+        lastWriterID = try c.decodeIfPresent(String.self, forKey: .lastWriterID) ?? ""
+    }
 }
 
 // MARK: - User-added substitution entry
@@ -302,10 +379,34 @@ nonisolated struct UserCookingProfile: Codable, Sendable {
     // saved profiles (which never encoded this key) decode cleanly.
     var avatarPhotoData:  Data?    = nil
     var completedSetup:   Bool     = false
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case householdSize, cookingGoal, dietaryStyle, allergens, cuisinePrefs, skillLevel,
+             weeklyMealCount, mealPrepDay, budgetLevel, cookingEquipment, avatarEmoji,
+             avatarPhotoData, completedSetup
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        householdSize = try c.decodeIfPresent(Int.self, forKey: .householdSize) ?? 2
+        cookingGoal = try c.decodeIfPresent(String.self, forKey: .cookingGoal) ?? ""
+        dietaryStyle = try c.decodeIfPresent(String.self, forKey: .dietaryStyle) ?? ""
+        allergens = try c.decodeIfPresent([String].self, forKey: .allergens) ?? []
+        cuisinePrefs = try c.decodeIfPresent([String].self, forKey: .cuisinePrefs) ?? []
+        skillLevel = try c.decodeIfPresent(String.self, forKey: .skillLevel) ?? "Home Cook"
+        weeklyMealCount = try c.decodeIfPresent(Int.self, forKey: .weeklyMealCount) ?? 5
+        mealPrepDay = try c.decodeIfPresent(String.self, forKey: .mealPrepDay) ?? "Sunday"
+        budgetLevel = try c.decodeIfPresent(String.self, forKey: .budgetLevel) ?? "Moderate"
+        cookingEquipment = try c.decodeIfPresent([String].self, forKey: .cookingEquipment) ?? []
+        avatarEmoji = try c.decodeIfPresent(String.self, forKey: .avatarEmoji) ?? "👨‍🍳"
+        avatarPhotoData = try c.decodeIfPresent(Data.self, forKey: .avatarPhotoData)
+        completedSetup = try c.decodeIfPresent(Bool.self, forKey: .completedSetup) ?? false
+    }
 }
 
 // MARK: - Price Record (tracks purchase price history per item)
-nonisolated struct PriceRecord: Identifiable, Codable, Sendable {
+nonisolated struct PriceRecord: Identifiable, Codable, Sendable, Equatable {
     var id        = UUID()
     var itemName: String
     var price:    Double
@@ -365,7 +466,48 @@ nonisolated struct GeneratedRecipe: Identifiable, Codable, Sendable, Equatable {
     var updatedAt:          Double = 0    // last-modified ms since epoch, for household last-write-wins
     var lastWriterID:       String = ""  // deterministic tie-breaker when timestamps tie
 
+    init(id: UUID = UUID(), title: String, cookTime: String, servings: Int, difficulty: String,
+         ingredients: [RecipeIngredientLine], steps: [String], tips: String,
+         mealCategory: String = "", cuisine: String = "", missingIngredients: [String] = [],
+         isFavorited: Bool = false, isHidden: Bool = false, imageURL: String? = nil,
+         imageData: Data? = nil, source: RecipeSource = .generated, updatedAt: Double = 0,
+         lastWriterID: String = "") {
+        self.id = id; self.title = title; self.cookTime = cookTime; self.servings = servings
+        self.difficulty = difficulty; self.ingredients = ingredients; self.steps = steps; self.tips = tips
+        self.mealCategory = mealCategory; self.cuisine = cuisine; self.missingIngredients = missingIngredients
+        self.isFavorited = isFavorited; self.isHidden = isHidden; self.imageURL = imageURL
+        self.imageData = imageData; self.source = source; self.updatedAt = updatedAt
+        self.lastWriterID = lastWriterID
+    }
+
     nonisolated enum RecipeSource: String, Codable, Sendable { case generated, manual, surprise }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, cookTime, servings, difficulty, ingredients, steps, tips, mealCategory,
+             cuisine, missingIngredients, isFavorited, isHidden, imageURL, imageData, source,
+             updatedAt, lastWriterID
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? "Untitled Recipe"
+        cookTime = try c.decodeIfPresent(String.self, forKey: .cookTime) ?? ""
+        servings = try c.decodeIfPresent(Int.self, forKey: .servings) ?? 4
+        difficulty = try c.decodeIfPresent(String.self, forKey: .difficulty) ?? "Medium"
+        ingredients = try c.decodeIfPresent([RecipeIngredientLine].self, forKey: .ingredients) ?? []
+        steps = try c.decodeIfPresent([String].self, forKey: .steps) ?? []
+        tips = try c.decodeIfPresent(String.self, forKey: .tips) ?? ""
+        mealCategory = try c.decodeIfPresent(String.self, forKey: .mealCategory) ?? ""
+        cuisine = try c.decodeIfPresent(String.self, forKey: .cuisine) ?? ""
+        missingIngredients = try c.decodeIfPresent([String].self, forKey: .missingIngredients) ?? []
+        isFavorited = try c.decodeIfPresent(Bool.self, forKey: .isFavorited) ?? false
+        isHidden = try c.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+        imageURL = try c.decodeIfPresent(String.self, forKey: .imageURL)
+        imageData = try c.decodeIfPresent(Data.self, forKey: .imageData)
+        source = try c.decodeIfPresent(RecipeSource.self, forKey: .source) ?? .generated
+        updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
+        lastWriterID = try c.decodeIfPresent(String.self, forKey: .lastWriterID) ?? ""
+    }
 }
 
 nonisolated struct RecipeIngredientLine: Identifiable, Codable, Sendable, Equatable {

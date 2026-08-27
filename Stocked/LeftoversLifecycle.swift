@@ -30,6 +30,30 @@ nonisolated struct LeftoverEntry: Codable, Identifiable, Hashable, Sendable, Hou
     var daysLeft: Int { Calendar.current.dateComponents([.day], from: Date(), to: expiresAt).day ?? 0 }
     var isExpired: Bool { expiresAt < Date() }
 
+    init(updatedAt: Double = 0, lastWriterID: String = "", id: UUID = UUID(), title: String,
+         portions: Int, cookedAt: Date, storage: String, expiresAt: Date, note: String = "") {
+        self.updatedAt = updatedAt; self.lastWriterID = lastWriterID; self.id = id; self.title = title
+        self.portions = portions; self.cookedAt = cookedAt; self.storage = storage
+        self.expiresAt = expiresAt; self.note = note
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case updatedAt, lastWriterID, id, title, portions, cookedAt, storage, expiresAt, note
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
+        lastWriterID = try c.decodeIfPresent(String.self, forKey: .lastWriterID) ?? ""
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? "Leftovers"
+        portions = try c.decodeIfPresent(Int.self, forKey: .portions) ?? 1
+        cookedAt = try c.decodeIfPresent(Date.self, forKey: .cookedAt) ?? Date()
+        storage = try c.decodeIfPresent(String.self, forKey: .storage) ?? "Fridge"
+        expiresAt = try c.decodeIfPresent(Date.self, forKey: .expiresAt)
+            ?? Self.defaultExpiry(from: cookedAt, storage: storage)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+    }
+
     /// Default shelf life for a cooked dish. Deliberately conservative — food safety, not optimism.
     static func defaultExpiry(from date: Date, storage: String) -> Date {
         let days = storage == "Freezer" ? 90 : 4

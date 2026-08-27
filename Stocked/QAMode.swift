@@ -175,6 +175,8 @@ final class QARecorder {
     /// unbounded log is a memory leak with a friendly name.
     private(set) var events: [QAEvent] = []
     private let cap = 600
+    private var lastFailureSnapshotAt: Date?
+    private var pendingFailureSnapshot: Task<Void, Never>?
 
     /// Current screen, so `attempt` calls do not each have to name it.
     private(set) var currentScreen: String = "—"
@@ -270,7 +272,7 @@ final class QARecorder {
             dropCrumb("\(kind == .failure ? "✗" : "!") \(e.screen): \(label)")
             // A failure is exactly the moment the session becomes worth keeping,
             // and exactly the moment the app is most likely to be killed next.
-            persistSnapshot(reason: "after \(kind.rawValue)")
+            scheduleFailureSnapshot(reason: "after \(kind.rawValue)")
         case .note:
             dropCrumb("• \(label)")
         default:
@@ -443,6 +445,9 @@ final class QARecorder {
     // MARK: Session control
 
     func clear() {
+        pendingFailureSnapshot?.cancel()
+        pendingFailureSnapshot = nil
+        lastFailureSnapshotAt = nil
         events = []
         invariantResults = []
         previousInvariantResults = []
@@ -493,6 +498,32 @@ final class QARecorder {
 
     private static let snapshotKey = "qa.lastSessionSnapshot.v1"
     private(set) var previousSessionReport: String?
+
+    /// Save the first failure immediately, then collapse a burst into at most one
+    /// snapshot every 30 seconds. The old per-event path could serialize, mirror,
+    /// and republish a report every five seconds while memory was already high.
+    private func scheduleFailureSnapshot(reason: String) {
+        let minimumInterval: TimeInterval = 30
+        let now = Date()
+        let elapsed = lastFailureSnapshotAt.map { now.timeIntervalSince($0) } ?? minimumInterval
+        if elapsed >= minimumInterval {
+            pendingFailureSnapshot?.cancel()
+            pendingFailureSnapshot = nil
+            lastFailureSnapshotAt = now
+            persistSnapshot(reason: reason)
+            return
+        }
+
+        guard pendingFailureSnapshot == nil else { return }
+        let delay = minimumInterval - elapsed
+        pendingFailureSnapshot = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            self.pendingFailureSnapshot = nil
+            self.lastFailureSnapshotAt = Date()
+            self.persistSnapshot(reason: "coalesced failure burst")
+        }
+    }
 
     func persistSnapshot(reason: String) {
         // NOT gated on `isEnabled`. The two moments most worth snapshotting are

@@ -39,7 +39,7 @@ nonisolated struct QASyncAttempt: Identifiable, Codable, Sendable {
     // per line, and `exportText` maps it over every attempt inside a `body` that
     // ShareLink evaluates eagerly — hundreds of formatter allocations per redraw
     // of the Sync queue screen. Same pattern as QAEvent.line.
-    nonisolated(unsafe) private static let timeFormatter: DateFormatter = {
+    private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
         return f

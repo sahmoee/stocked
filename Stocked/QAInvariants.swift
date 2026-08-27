@@ -248,8 +248,10 @@ enum QAInvariants {
             guard let reserved = ledger.reserved(for: item), reserved > 0,
                   let available = ledger.available(for: item) else { continue }
             checked += 1
-            // item.quantity is Int (container count); the ledger deals in Double amounts.
-            let expected = max(0, Double(item.quantity) - reserved)
+            // The engine may convert a container count into ounces/grams before reserving.
+            // Compare like-for-like against the ledger's canonical display-unit total rather
+            // than subtracting a converted reservation from the raw container count.
+            let expected = max(0, (ledger.breakdown(for: item)?.totalOwned ?? 0) - reserved)
             if abs(available - expected) > 0.001 {
                 bad.append("\(item.name): available \(available), expected \(expected)")
             }

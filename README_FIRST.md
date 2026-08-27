@@ -2,11 +2,15 @@
 
 Stocked is a local-first iOS/iPadOS 26 kitchen app with widgets and a share extension. Local inventory and user work are authoritative. Recipes entering or leaving the app require usable images, durable provenance, categories, and backward-compatible repair.
 
+Read `PERFORMANCE_ARCHITECTURE.md` before changing persistence, imports, sync, images, QA, Home metrics, or any potentially unbounded collection. Its 20 protections are required invariants, not optional cleanup.
+
 `Secrets.xcconfig` is local and ignored. Production services use `https://api.sowensstudios.com`; never ship provider keys. Start in the feature named by the task, include extensions when affected, and run the narrowest tests plus the `Stocked` build.
 
 Recipe views prefer publisher-original image URLs, retain exact downloaded bytes in cache, and fall back to embedded data only when offline or the source fails. Keep the thin charcoal image border consistent.
 
 Discover starts with the shared RecipeDatabase populated by StockedMac/UnifiedWorker, refreshes when that database changes even if the UI cache is fresh, and round-robins qualified recipes by canonical publisher before applying the visible cap. MealDB is one fallback provider, never the exclusive or monopolizing feed. Every displayed recipe requires HTTPS imagery and real instructions.
+
+RecipeDatabase is the canonical app-wide recipe view. Normalize clearly broken title casing at ingress and load, deduplicate by canonical source URL before normalized title, and preserve the surviving stable identifier. Every screen, widget, search, and suggestion must read this shared view rather than building a parallel recipe cache.
 
 Retail enrichment uses authenticated UnifiedWorker `/retail/*` routes. Kroger and RapidAPI credentials remain server-side. Keep official provider location/product IDs optional, preserve original product images and exact aisle data, and treat price, availability, and inventory as short-lived store-specific metadata rather than household truth.
 
@@ -30,6 +34,11 @@ failure preserves partial results and advances the cursor so one item cannot sta
 The Cook hub has one approved primary-action treatment: the large cream illustrated Cook Now and
 Cook Later cards. Do not reintroduce circle, pill, compact-row, or photo-tile alternatives for
 these two controls; adapt the card contents for width and Dynamic Type without changing its shape.
+
+Every post-login page uses `StockedShell` for app chrome. The centered `Stocked.` wordmark,
+chevron, header height, safe-area spacing, and top position are fixed by `StockedChrome`; pages may
+not override them. Root navigation uses the single `StockedTabBar` implementation so icon slots,
+labels, selected shapes, hit targets, and placement remain identical while content changes.
 
 Recoverable household storage failures retry automatically with capped 0.5, 1, and 2 second
 backoff while UI diagnostics report `Repairing household storage…`. Exhausted repair uses ordinary

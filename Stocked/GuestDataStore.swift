@@ -5,6 +5,43 @@ import Combine
 import os
 @preconcurrency import UserNotifications
 
+/// Immutable launch snapshot decoded on a utility executor. The model types are persisted value
+/// types; the snapshot never mutates after construction and crosses to MainActor exactly once.
+nonisolated private struct GuestDataDiskSnapshot: @unchecked Sendable {
+    let inventory: [LocalInventoryItem]
+    let grocery: [LocalGroceryItem]
+    let preferences: [String: ItemPreference]
+    let pastMeals: [LocalPastMeal]
+    let plannedMeals: [PlannedMeal]
+    let generatedRecipes: [GeneratedRecipe]
+    let userRecipes: [UserRecipe]
+    let substitutions: [UserSubstitutionEntry]
+    let prices: [PriceRecord]
+    let storeHistory: [String: String]
+    let consumption: [ConsumptionRecord]
+    let staples: [String]
+
+    static func read() -> Self {
+        let db = LocalDatabase.shared
+        return Self(
+            inventory: db.loadArray(LocalInventoryItem.self, key: DBKey.inventoryItems.rawValue) ?? [],
+            grocery: db.loadArray(LocalGroceryItem.self, key: DBKey.groceryItems.rawValue) ?? [],
+            preferences: db.load([String: ItemPreference].self, key: "itemPrefs_v1") ?? [:],
+            pastMeals: db.loadArray(LocalPastMeal.self, key: DBKey.pastMeals.rawValue) ?? [],
+            plannedMeals: db.loadArray(PlannedMeal.self, key: DBKey.plannedMeals.rawValue) ?? [],
+            generatedRecipes: db.loadArray(GeneratedRecipe.self, key: DBKey.savedGeneratedRecipes.rawValue) ?? [],
+            userRecipes: db.loadArray(UserRecipe.self, key: DBKey.userRecipes.rawValue) ?? [],
+            substitutions: db.loadArray(UserSubstitutionEntry.self, key: "userSubstitutions_v1") ?? [],
+            prices: GrowthDatabase.shared.load(PriceRecord.self, collection: .priceHistory)
+                ?? db.loadArray(PriceRecord.self, key: DBKey.priceHistory.rawValue) ?? [],
+            storeHistory: db.load([String: String].self, key: "itemStoreHistory_v1") ?? [:],
+            consumption: GrowthDatabase.shared.load(ConsumptionRecord.self, collection: .consumptionLog)
+                ?? db.loadArray(ConsumptionRecord.self, key: DBKey.consumptionLog.rawValue) ?? [],
+            staples: db.loadArray(String.self, key: "stockStaples_v1") ?? []
+        )
+    }
+}
+
 // MARK: - GuestDataStore
 @Observable
 @MainActor
@@ -21,6 +58,7 @@ class GuestDataStore {
     @ObservationIgnored private var isLoadingFromDisk = false
     @ObservationIgnored private let mutationScheduler = StoreMutationScheduler()
     @ObservationIgnored private let persistenceScheduler = StorePersistenceScheduler()
+    private(set) var hasCompletedInitialHydration = false
 
     /// Coalesce rapid mutations into one widget reload without escaping actor-isolated store
     /// state into a DispatchWorkItem closure.
@@ -45,6 +83,9 @@ class GuestDataStore {
         guard !isApplyingHouseholdRemote else { return }
         mutationScheduler.schedule(.householdPush, delay: .milliseconds(1_200)) { [weak self] in
             guard let self else { return }
+            // Never publish the deliberately empty launch placeholders while the real local
+            // snapshot is still decoding. A slow restore must not look like a household wipe.
+            guard self.hasCompletedInitialHydration else { return }
             let household = HouseholdSync.shared
             guard household.state == .owner || household.state == .member else { return }
             await household.syncNow(store: self)
@@ -339,9 +380,21 @@ class GuestDataStore {
             pushHouseholdDebounced()
         }
     }
-    var priceHistory:          [PriceRecord]        = [] { didSet { saveDebounced(DBKey.priceHistory.rawValue, priceHistory) } }
+    var priceHistory:          [PriceRecord]        = [] {
+        didSet {
+            guard !isLoadingFromDisk else { return }
+            GrowthDatabase.shared.applyDelta(current: priceHistory, previous: oldValue,
+                                             collection: .priceHistory)
+        }
+    }
     var itemStoreHistory:      [String: String]     = [:] { didSet { saveDebounced("itemStoreHistory_v1", itemStoreHistory) } }
-    var consumptionLog:        [ConsumptionRecord]  = [] { didSet { saveDebounced(DBKey.consumptionLog.rawValue, consumptionLog) } }   // close-the-loop #1
+    var consumptionLog:        [ConsumptionRecord]  = [] {
+        didSet {
+            guard !isLoadingFromDisk else { return }
+            GrowthDatabase.shared.applyDelta(current: consumptionLog, previous: oldValue,
+                                             collection: .consumptionLog)
+        }
+    }   // close-the-loop #1
     var displayName: String = "" { didSet { ud.set(displayName, forKey: "guestName") } }
     var groceryDayOfWeek: Int = 6 { didSet { ud.set(groceryDayOfWeek, forKey: "groceryDay") } }
     var quizCompleted: Bool = false { didSet { ud.set(quizCompleted, forKey: "quizCompleted") } }
@@ -374,16 +427,12 @@ class GuestDataStore {
     /// Force any pending debounced saves to disk immediately (called on background/terminate).
     func flushPendingSaves() { persistenceScheduler.flush() }
     private func save<T: Encodable>(_ key: String, value: T) {
-        guard let data = try? JSONEncoder().encode(value) else {
-            LocalDatabase.shared.save(value, key: key)   // still attempt disk write
-            return
-        }
-        LocalDatabase.shared.saveData(data, key: key)
-        if data.count <= Self.udMirrorMaxBytes {
-            ud.set(data, forKey: key)        // small → keep fast same-session mirror
-        } else {
-            ud.removeObject(forKey: key)     // large → drop stale mirror, read from disk
-        }
+        // Encoding is deliberately owned by LocalDatabase's utility queue. Encoding here
+        // ran on MainActor after the debounce and still froze large receipt/recipe batches.
+        LocalDatabase.shared.save(value, key: key)
+        // Collection files are authoritative. Removing a stale preferences mirror also keeps
+        // cfprefsd out of the large-value path and makes future launches use background hydration.
+        ud.removeObject(forKey: key)
     }
     /// Debounced variant of `save` for hot, frequently-mutated collections (#4).
     /// Takes the value directly (NOT an autoclosure): in a didSet the property is already in
@@ -415,38 +464,52 @@ class GuestDataStore {
         return LocalDatabase.shared.loadArray(Element.self, key: key) ?? []
     }
     private func load() {
-        isLoadingFromDisk = true
-        defer { isLoadingFromDisk = false }
+        // Small preference scalars are safe to make available immediately. Growth-heavy arrays
+        // are decoded from their files away from MainActor, allowing the first frame to render.
         displayName           = ud.string(forKey: "guestName") ?? ""
         quizCompleted         = ud.bool(forKey: "quizCompleted")
         cookingProfile        = (ud.data(forKey: DBKey.cookingProfile.rawValue).flatMap { try? JSONDecoder().decode(UserCookingProfile.self, from: $0) }) ?? UserCookingProfile()
         groceryDayOfWeek      = ud.integer(forKey: "groceryDay") == 0 ? 6 : ud.integer(forKey: "groceryDay")
-        // #6 — Run-once versioned migration instead of an every-launch inline transform.
-        let loadedInventory = loadDecodedArray(DBKey.inventoryItems.rawValue, of: LocalInventoryItem.self)
-            .filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
-        inventoryItems        = DBMigrations.migrateInventory(loadedInventory)
-        groceryItems          = DBMigrations.migrateGrocery(
-            loadDecodedArray(DBKey.groceryItems.rawValue, of: LocalGroceryItem.self)
-                .filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
-        )
-        itemPreferences       = loadDecoded("itemPrefs_v1", as: [String: ItemPreference].self) ?? [:]
-        pastMeals             = DBMigrations.migratePastMeals(
-            loadDecodedArray(DBKey.pastMeals.rawValue, of: LocalPastMeal.self)
-        )
-        plannedMeals          = loadDecodedArray(DBKey.plannedMeals.rawValue, of: PlannedMeal.self)
-        savedGeneratedRecipes = loadDecodedArray(DBKey.savedGeneratedRecipes.rawValue, of: GeneratedRecipe.self)
-        userRecipes           = DBMigrations.migrateRecipes(
-            loadDecodedArray(DBKey.userRecipes.rawValue, of: UserRecipe.self)
-        )
-        userSubstitutions     = loadDecodedArray("userSubstitutions_v1", of: UserSubstitutionEntry.self)
-        priceHistory          = loadDecodedArray(DBKey.priceHistory.rawValue, of: PriceRecord.self)
-        itemStoreHistory      = loadDecoded("itemStoreHistory_v1", as: [String: String].self) ?? [:]
-        consumptionLog        = loadDecodedArray(DBKey.consumptionLog.rawValue, of: ConsumptionRecord.self)
         stockGoalsConfigured  = ud.bool(forKey: "stockGoalsConfigured")
-        stockStaples          = loadDecodedArray("stockStaples_v1", of: String.self)
-        // #8 — Retention pruning so unbounded logs can't grow forever (each is fully
-        // rewritten on change, so size directly drives write cost).
+        Task { [weak self] in
+            let snapshot = await Task.detached(priority: .userInitiated) {
+                GuestDataDiskSnapshot.read()
+            }.value
+            self?.applyInitialSnapshot(snapshot)
+        }
+    }
+
+    private func applyInitialSnapshot(_ snapshot: GuestDataDiskSnapshot) {
+        isLoadingFromDisk = true
+        defer {
+            isLoadingFromDisk = false
+            hasCompletedInitialHydration = true
+            inventoryRevision &+= 1
+            groceryRevision &+= 1
+            recipeRevision &+= 1
+            planRevision &+= 1
+        }
+        inventoryItems = DBMigrations.migrateInventory(snapshot.inventory.filter {
+            !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
+        })
+        groceryItems = DBMigrations.migrateGrocery(snapshot.grocery.filter {
+            !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
+        })
+        itemPreferences = snapshot.preferences
+        pastMeals = DBMigrations.migratePastMeals(snapshot.pastMeals)
+        plannedMeals = snapshot.plannedMeals
+        savedGeneratedRecipes = snapshot.generatedRecipes
+        userRecipes = DBMigrations.migrateRecipes(snapshot.userRecipes)
+        userSubstitutions = snapshot.substitutions
+        priceHistory = snapshot.prices
+        itemStoreHistory = snapshot.storeHistory
+        consumptionLog = snapshot.consumption
+        stockStaples = snapshot.staples
         pruneRetainedData()
+        // One-time migration from the legacy whole-array JSON files. Future mutations update
+        // independent SQLite rows and no longer rewrite an ever-growing history document.
+        GrowthDatabase.shared.reconcile(priceHistory, collection: .priceHistory)
+        GrowthDatabase.shared.reconcile(consumptionLog, collection: .consumptionLog)
     }
 
     // MARK: - Retention (#8)
@@ -1486,13 +1549,16 @@ class GuestDataStore {
     }
 
     func classifiableCatalog(discover: [OnlineRecipe] = []) -> [UserRecipe] {
-        let mine = cookCatalog
+        // Apply the shared quality boundary to already-saved rows as well as newly
+        // discovered recipes. This removes old roundup/category pages from Cook Now
+        // immediately without waiting for them to be re-imported.
+        let mine = cookCatalog.filter { RecipeQuality.hasMeaningfulTitle($0.title) }
         var seen = Set(mine.map { OnlineRecipeFacts.normalizedTitle($0.title) })
 
         var generated: [UserRecipe] = []
         for g in savedGeneratedRecipes where !g.isHidden {
             let key = OnlineRecipeFacts.normalizedTitle(g.title)
-            guard !key.isEmpty, !seen.contains(key) else { continue }
+            guard RecipeQuality.hasMeaningfulTitle(g.title), !seen.contains(key) else { continue }
             seen.insert(key)
             generated.append(RecipeAdapter.userRecipe(from: g))
         }
@@ -2124,15 +2190,24 @@ class GuestDataStore {
         m.totalItems        = inventoryItems.count
         m.stockPercent      = stockPercent
         if includeMealsReady { m.mealsReady = availableMeals }
-        m.expiringSoonCount = expiringSoonItems.count
-        m.expiredCount      = inventoryItems.reduce(0) { $0 + ($1.isExpired ? 1 : 0) }
-        m.lowStockCount     = lowStockItems.count
-        m.freshCount        = inventoryItems.reduce(0) { acc, it in
-            if let d = it.daysUntilExpiry { return acc + (d > KitchenThresholds.expiringSoonDays ? 1 : 0) }
-            return acc + (it.effectiveLevel > 0 ? 1 : 0)
+        // Home reads this snapshot often. Keep all inventory aggregates in one pass so a
+        // large household does not trigger four full collection scans per render.
+        for item in inventoryItems {
+            if item.isExpiringSoon() { m.expiringSoonCount += 1 }
+            if item.isExpired { m.expiredCount += 1 }
+            if item.isLow { m.lowStockCount += 1 }
+            if let days = item.daysUntilExpiry {
+                if days > KitchenThresholds.expiringSoonDays { m.freshCount += 1 }
+            } else if item.effectiveLevel > 0 {
+                m.freshCount += 1
+            }
         }
         m.groceryToBuy      = groceryItems.reduce(0) { $0 + ($1.isChecked ? 0 : 1) }
         m.groceryRunDays    = groceryRunDays
+        m.favoriteRecipeCount = userRecipes.reduce(favoriteRecipes.count) {
+            $0 + ($1.isFavorited ? 1 : 0)
+        }
+        m.plannedMealCount = plannedMeals.reduce(0) { $0 + ($1.isCooked ? 0 : 1) }
         return m
     }
     var groceryRunLabel: String {

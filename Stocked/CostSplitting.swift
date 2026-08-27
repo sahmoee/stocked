@@ -24,6 +24,28 @@ nonisolated struct SharedExpense: Codable, Identifiable, Hashable, Sendable, Hou
     var date: Date = Date()
     var store: String = ""
 
+    init(updatedAt: Double = 0, lastWriterID: String = "", id: UUID = UUID(), label: String,
+         amount: Double, paidBy: String, sharedWith: [String] = [], date: Date = Date(), store: String = "") {
+        self.updatedAt = updatedAt; self.lastWriterID = lastWriterID; self.id = id; self.label = label
+        self.amount = amount; self.paidBy = paidBy; self.sharedWith = sharedWith; self.date = date; self.store = store
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case updatedAt, lastWriterID, id, label, amount, paidBy, sharedWith, date, store
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
+        lastWriterID = try c.decodeIfPresent(String.self, forKey: .lastWriterID) ?? ""
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        label = try c.decodeIfPresent(String.self, forKey: .label) ?? "Expense"
+        amount = try c.decodeIfPresent(Double.self, forKey: .amount) ?? 0
+        paidBy = try c.decodeIfPresent(String.self, forKey: .paidBy) ?? ""
+        sharedWith = try c.decodeIfPresent([String].self, forKey: .sharedWith) ?? []
+        date = try c.decodeIfPresent(Date.self, forKey: .date) ?? Date()
+        store = try c.decodeIfPresent(String.self, forKey: .store) ?? ""
+    }
+
     func participants(all: [String]) -> [String] {
         let list = sharedWith.isEmpty ? all : sharedWith
         return list.isEmpty ? [paidBy] : list
