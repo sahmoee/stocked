@@ -33,6 +33,7 @@ enum RecipeVaultSheet: Identifiable {
 
 struct RecipeVaultView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var selectedTab       = 0
     @State private var showBrowseOnline  = false
     @State private var showCreate        = false
@@ -384,6 +385,12 @@ struct RecipeVaultView: View {
 
     @ViewBuilder private func referenceRecipeRail(title: String, recipes: [OnlineRecipe]) -> some View {
         if !recipes.isEmpty {
+            let cardWidth = layoutMetrics.horizontalCardWidth(
+                preferred: 168,
+                minimum: 144,
+                maximum: 220
+            )
+            let imageHeight = cardWidth * (115 / 168)
             VStack(alignment: .leading, spacing: 9) {
                 referenceSectionHeader(title, actionTitle: "See all") { navTarget = .browseAll }
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -392,7 +399,7 @@ struct RecipeVaultView: View {
                             Button { openOnlineRecipe(recipe) } label: {
                                 VStack(alignment: .leading, spacing: 0) {
                                     CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: 115, resolveName: recipe.title)
-                                        .frame(width: 168, height: 115).clipped()
+                                        .frame(width: cardWidth, height: imageHeight).clipped()
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(recipe.title)
                                             .font(.system(size: 12, weight: .bold))
@@ -408,7 +415,7 @@ struct RecipeVaultView: View {
                                         Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
                                             .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.58)).lineLimit(1)
                                     }.padding(10)
-                                }.frame(width: 168).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
+                                }.frame(width: cardWidth).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
                                     .clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(session.themeTextColor.opacity(0.16)))
                             }.buttonStyle(.plain)
                         }

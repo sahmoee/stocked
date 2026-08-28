@@ -48,4 +48,24 @@ final class AdaptiveUIFoundationTests: XCTestCase {
         XCTAssertGreaterThan(accessibility.tabBarItemMinimumHeight, standard.tabBarItemMinimumHeight)
         XCTAssertTrue(accessibility.prefersVerticalControls)
     }
+
+    func testHorizontalRecipeCardsAdaptWithoutExceedingContainer() {
+        let narrow = StockedLayoutMetrics(
+            width: 320, height: 700, isAccessibilityText: false, interfaceScale: 1
+        )
+        let reference = StockedLayoutMetrics(
+            width: 393, height: 852, isAccessibilityText: false, interfaceScale: 1
+        )
+        let tablet = StockedLayoutMetrics(
+            width: 1_024, height: 768, isAccessibilityText: false, interfaceScale: 1
+        )
+
+        XCTAssertEqual(narrow.horizontalCardWidth(preferred: 168, minimum: 144, maximum: 220), 144)
+        XCTAssertEqual(reference.horizontalCardWidth(preferred: 168, minimum: 144, maximum: 220), 168)
+        XCTAssertEqual(tablet.horizontalCardWidth(preferred: 168, minimum: 144, maximum: 220), 218.4, accuracy: 0.01)
+        XCTAssertLessThanOrEqual(
+            narrow.horizontalCardWidth(preferred: 500, minimum: 144, maximum: 500),
+            narrow.contentWidth - narrow.horizontalPadding * 2
+        )
+    }
 }

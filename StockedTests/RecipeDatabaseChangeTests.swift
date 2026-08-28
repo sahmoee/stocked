@@ -125,17 +125,63 @@ final class RecipeDatabaseChangeTests: XCTestCase {
         XCTAssertFalse(RecipeDatabase.hasSameRecipeContent(original, rediscovered))
     }
 
+    func testCanonicalIngestionStandardizesTitleAndAcceptsHTTPSArtwork() throws {
+        let incoming = entry(
+            id: UUID(),
+            title: "  GARLIC   BUTTER SALMON  ",
+            description: "Dinner"
+        )
+
+        let canonical = try RecipeDatabase.canonicalizedForIngestion(
+            incoming,
+            origin: .harvested
+        ).get()
+
+        XCTAssertEqual(canonical.title, "Garlic Butter Salmon")
+        XCTAssertEqual(canonical.imageURL, "https://example.com/image.jpg")
+        XCTAssertEqual(
+            RecipeDatabase.stableDedupKey(forTitle: "Gárlíc—Butter  SALMON"),
+            RecipeDatabase.stableDedupKey(forTitle: canonical.title)
+        )
+    }
+
+    func testCanonicalIngestionQuarantinesBlockedAndImagelessRows() {
+        let blocked = entry(
+            id: UUID(),
+            title: "Valid Dinner",
+            description: "",
+            sourceName: "Kaggle Food Dataset"
+        )
+        let imageless = entry(
+            id: UUID(),
+            title: "Another Dinner",
+            description: "",
+            imageURL: ""
+        )
+
+        switch RecipeDatabase.canonicalizedForIngestion(blocked, origin: .harvested) {
+        case .failure(let record): XCTAssertEqual(record.reason, .blockedSource)
+        case .success: XCTFail("Blocked provenance entered the canonical store")
+        }
+        switch RecipeDatabase.canonicalizedForIngestion(imageless, origin: .harvested) {
+        case .failure(let record): XCTAssertEqual(record.reason, .missingImage)
+        case .success: XCTFail("Imageless row entered the canonical store")
+        }
+    }
+
     private func entry(
         id: UUID,
         title: String,
-        description: String
+        description: String,
+        sourceName: String = "Test",
+        imageURL: String = "https://example.com/image.jpg"
     ) -> RecipeDatabaseEntry {
         RecipeDatabaseEntry(
             id: id,
             title: title,
             description: description,
             sourceURL: "https://example.com/\(id.uuidString)",
-            sourceName: "Test",
+            sourceName: sourceName,
             prepTime: "",
             cookTime: "",
             totalTime: "",
@@ -145,7 +191,7 @@ final class RecipeDatabaseChangeTests: XCTestCase {
             tags: [],
             ingredients: ["1 ingredient"],
             steps: ["Cook it."],
-            imageURL: "https://example.com/image.jpg"
+            imageURL: imageURL
         )
     }
 }

@@ -56,6 +56,39 @@ final class PerformanceBudgetTests: XCTestCase {
         XCTAssertFalse(RecipeStore.isValidRemoteImageURL("data:image/png;base64,AA=="))
     }
 
+    func testArtworkOverlayIsBoundedAndPrefersStableIdentity() {
+        let stableID = UUID()
+        var index = RecipeArtworkOverlayIndex(maximumRecordCount: 2)
+        XCTAssertTrue(index.record(RecipeArtworkRecord(
+            recipeID: nil,
+            titleKey: "apple pie",
+            imageURL: "https://images.example.com/apple-v1.jpg",
+            updatedAt: Date(timeIntervalSince1970: 1)
+        )))
+        XCTAssertTrue(index.record(RecipeArtworkRecord(
+            recipeID: stableID,
+            titleKey: "apple pie",
+            imageURL: "https://images.example.com/apple-v2.jpg",
+            updatedAt: Date(timeIntervalSince1970: 2)
+        )))
+        XCTAssertEqual(index.count, 1)
+        XCTAssertEqual(
+            index.imageURL(recipeID: stableID, titleKey: "apple pie"),
+            "https://images.example.com/apple-v2.jpg"
+        )
+
+        for offset in 3...5 {
+            _ = index.record(RecipeArtworkRecord(
+                recipeID: UUID(),
+                titleKey: "recipe \(offset)",
+                imageURL: "https://images.example.com/\(offset).jpg",
+                updatedAt: Date(timeIntervalSince1970: TimeInterval(offset))
+            ))
+        }
+        XCTAssertEqual(index.count, 2)
+        XCTAssertEqual(index.persistedRecords.count, 2)
+    }
+
     func testLocalDatabaseAsyncReadAfterExplicitFlush() async {
         let db = LocalDatabase.shared
         let key = "performance_async_read_\(UUID().uuidString)"

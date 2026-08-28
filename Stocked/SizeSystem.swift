@@ -72,6 +72,21 @@ struct StockedLayoutMetrics: Equatable {
     }
     var tabBarCornerRadius: CGFloat { min(max(11 * interfaceScale, 11), 16) }
 
+    /// Width for cards in horizontally scrolling rails. The approved 393-point phone
+    /// composition remains the baseline while narrow windows shrink and iPad/landscape
+    /// windows use their additional room. Callers no longer need device-specific literals.
+    func horizontalCardWidth(
+        preferred: CGFloat,
+        minimum: CGFloat,
+        maximum: CGFloat
+    ) -> CGFloat {
+        let usable = max(1, contentWidth - horizontalPadding * 2)
+        let relativeScale = min(max(contentWidth / 393, 0.85), 1.30)
+        let lower = min(max(minimum, 1), usable)
+        let upper = min(max(maximum, lower), usable)
+        return min(max(preferred * relativeScale, lower), upper)
+    }
+
     func gridColumns(minimum: CGFloat, maximum: Int = 3, spacing: CGFloat = 12) -> [GridItem] {
         let usable = max(1, contentWidth - horizontalPadding * 2)
         let safeMaximum = max(1, maximum)
