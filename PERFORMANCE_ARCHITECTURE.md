@@ -6,7 +6,9 @@ The following protections are the implementation checklist for every future feat
 1. `GuestDataStore` restores scalar preferences synchronously and hydrates large collections from an immutable disk snapshot off the main actor.
 2. `LocalDatabase` performs JSON encoding and coalesced file replacement on its serialized utility queue.
 3. Price and consumption histories use row-addressable SQLite storage through `GrowthDatabase`, with legacy JSON migration.
-4. The recipe corpus uses SQLite/FTS rather than decoding the complete bundled catalog into view state.
+4. The recipe corpus uses SQLite/FTS rather than decoding the complete bundled catalog into view state;
+   discovery samples rotate through capped, indexed primary-key windows, require validated remote
+   artwork, and never sort the corpus with `ORDER BY RANDOM()`.
 5. Recipe screens request bounded summaries and resolve full recipe details only for visible or selected content.
 6. Recipe lookup structures are incrementally updated during batch upserts instead of being rebuilt for every row.
 7. Large household domains persist independently so a small preference edit does not rewrite unrelated recipe history.

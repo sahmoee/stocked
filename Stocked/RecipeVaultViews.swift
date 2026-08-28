@@ -691,7 +691,7 @@ struct RecipeVaultView: View {
             discoverVisitSeed &+= 1
             scheduleDiscoverSnapshotRebuild()
         }
-        .onReceive(DatabaseSyncBus.shared.recipeChanges.debounce(for: .milliseconds(350), scheduler: RunLoop.main)) { _ in
+        .onReceive(DatabaseSyncBus.shared.recipeMutations.debounce(for: .milliseconds(350), scheduler: RunLoop.main)) { _ in
             // HarvestRecipeSync writes StockedMac/Worker recipes into RecipeDatabase after
             // launch. Refresh the visible pool even when its six-hour cache is still fresh.
             onlineLoader.refreshFromSharedDatabase(profile: session.guestStore.cookingProfile)

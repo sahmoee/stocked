@@ -97,9 +97,9 @@ struct StockedTabBar: View {
                     tabCell(tab)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 4)
+            .padding(.horizontal, layoutMetrics.tabBarHorizontalPadding)
+            .padding(.top, layoutMetrics.tabBarTopPadding)
+            .padding(.bottom, layoutMetrics.tabBarBottomPadding)
         }
         // Flat bar that sits directly on the app background (no dark pill), matching
         // the mockup. A hairline top divider separates it from content.
@@ -114,7 +114,9 @@ struct StockedTabBar: View {
     @ViewBuilder
     private func tabCell(_ tab: StockedTab) -> some View {
         let isActive = selected == tab
-        let cellWidth = min(70, max(56, (layoutMetrics.width - 32) / 5))
+        let foreground = isActive
+            ? (session.isDarkMode ? Color.stockedCharcoal : Color.stockedWhite)
+            : session.themeTextColor.opacity(0.72)
 
         Button {
             if let handler = onTap {
@@ -127,52 +129,66 @@ struct StockedTabBar: View {
                 }
             }
         } label: {
-            VStack(spacing: 4) {
-                // Fixed-height icon slot keeps every icon centred on the same line.
+            VStack(spacing: layoutMetrics.tabBarItemSpacing) {
+                // One adaptive icon slot keeps every symbol on the same baseline.
                 Group {
                     if tab == .cook {
                         ChefHatShape()
-                            .stroke(style: StrokeStyle(lineWidth: isActive ? 1.7 : 1.4,
+                            .stroke(style: StrokeStyle(lineWidth: isActive ? 1.8 : 1.45,
                                                        lineCap: .round, lineJoin: .round))
-                            .frame(width: 22, height: 22)
+                            .frame(width: layoutMetrics.tabBarIconSize,
+                                   height: layoutMetrics.tabBarIconSize)
                     } else if tab == .home {
                         // Home uses the filled house when active, outline when not.
                         Image(systemName: isActive ? tab.iconFilled : tab.icon)
-                            .font(.system(size: 17, weight: isActive ? .semibold : .regular))
+                            .font(.system(size: layoutMetrics.tabBarIconSize,
+                                          weight: isActive ? .semibold : .regular))
                     } else {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 17, weight: isActive ? .semibold : .regular))
+                            .font(.system(size: layoutMetrics.tabBarIconSize,
+                                          weight: isActive ? .semibold : .regular))
                     }
                 }
-                .frame(height: 26)
-                .foregroundStyle(isActive ? (session.isDarkMode ? Color.stockedCharcoal : Color.stockedWhite) : session.themeTextColor.opacity(0.72))
+                .frame(minHeight: layoutMetrics.tabBarIconSize)
+                .foregroundStyle(foreground)
+                .accessibilityHidden(true)
 
                 Text(tab.rawValue)
-                    .font(.system(size: 9, weight: isActive ? .semibold : .regular))
-                    .foregroundStyle(isActive ? (session.isDarkMode ? Color.stockedCharcoal : Color.stockedWhite) : session.themeTextColor.opacity(0.72))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .font(.stockedSans(10,
+                                       weight: isActive ? .semibold : .regular,
+                                       relativeTo: .caption2))
+                    .foregroundStyle(foreground)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
             }
-            .frame(width: cellWidth, height: 50)
+            .padding(.horizontal, 3)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, minHeight: layoutMetrics.tabBarItemMinimumHeight)
             .background {
                 if isActive {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
+                                     style: .continuous)
                         .fill(session.themeContrastAccent)
                         .overlay {
-                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
+                                             style: .continuous)
                                 .stroke(session.isDarkMode ? Color.stockedGoldDark : Color.stockedGold,
                                         lineWidth: 1)
                         }
                 }
             }
-            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         // #6 — VoiceOver: the icons (esp. the custom chef hat) have no inherent label.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(tab.rawValue)
-        .accessibilityHint("Opens the \(tab.rawValue) tab")
+        .accessibilityValue(isActive ? "Selected" : "")
+        .accessibilityHint(isActive
+            ? "Returns to the \(tab.rawValue) tab root"
+            : "Opens the \(tab.rawValue) tab")
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 }

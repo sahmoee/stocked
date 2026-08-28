@@ -87,7 +87,12 @@ actor RecipeImageResolver {
     /// Resolve an image URL for a recipe title. Returns nil if every source struck out
     /// (caller should then render the emoji placeholder). `category` optionally biases the
     /// Foodish generic fallback (e.g. "dessert", "pasta", "rice").
-    func imageURL(for title: String, category: String? = nil, storedURL: String? = nil) async -> URL? {
+    func imageURL(
+        for title: String,
+        category: String? = nil,
+        storedURL: String? = nil,
+        recipeID: UUID? = nil
+    ) async -> URL? {
         loadCacheIfNeeded()
         let key = normalize(title)
         guard !key.isEmpty else { return nil }
@@ -97,23 +102,25 @@ actor RecipeImageResolver {
            await isReachableImage(storedURL) == .reachable {
             cache[key] = stored.absoluteString
             persist()
-            return stored
+            return await persistResolvedArtwork(stored, recipeID: recipeID, title: title)
         }
 
         // Curated feed first: images.json from the stocked-recipes repo (zero API quota).
         if let curated = await RemoteImageFeed.shared.lookup(title: title), let u = URL(string: curated) {
             cache[key] = curated
-            return u
+            return await persistResolvedArtwork(u, recipeID: recipeID, title: title)
         }
 
         // Cache hit (including a remembered genuine "nothing found" → "").
         if let hit = cache[key] {
-            return hit.isEmpty ? nil : URL(string: hit)
+            guard !hit.isEmpty else { return nil }
+            return await persistResolvedArtwork(URL(string: hit), recipeID: recipeID, title: title)
         }
 
         // Coalesce: if this title is already resolving, await that instead of duplicating work.
         if let existing = inFlight[key] {
-            return await existing.value
+            let result = await existing.value
+            return await persistResolvedArtwork(result, recipeID: recipeID, title: title)
         }
 
         let task = Task<URL?, Never> { [self] in
@@ -122,7 +129,23 @@ actor RecipeImageResolver {
         inFlight[key] = task
         let result = await task.value
         inFlight[key] = nil
-        return result
+        return await persistResolvedArtwork(result, recipeID: recipeID, title: title)
+    }
+
+    /// The resolver already verifies source/reachability policy. Persisting the final URL in the
+    /// bounded corpus overlay makes that work survive relaunch without mutating the bundled DB.
+    private func persistResolvedArtwork(
+        _ url: URL?,
+        recipeID: UUID?,
+        title: String
+    ) async -> URL? {
+        guard let url, RecipeStore.isValidRemoteImageURL(url.absoluteString) else { return url }
+        _ = await RecipeStore.shared.recordArtwork(
+            imageURL: url.absoluteString,
+            recipeID: recipeID,
+            title: title
+        )
+        return url
     }
 
     /// The actual waterfall, run once per title (guarded by `inFlight`).

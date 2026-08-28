@@ -6,8 +6,7 @@ import SwiftUI
 // Adds relative: true to system fonts so they scale with the user's text size setting
 extension View {
     func dynamicFont(_ style: Font.TextStyle, size: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
-        self.font(.system(size: size, weight: weight, design: design))
-            .dynamicTypeSize(.xSmall ... .accessibility2)
+        font(StockedType.font(size: size, weight: weight, design: design, relativeTo: style))
     }
 }
 
@@ -57,14 +56,14 @@ extension View {
 // Use these instead of .system(size: N) for Dynamic Type compatibility
 extension Font {
     // Serif display
-    static let stockedDisplay  = Font.system(size: 28, weight: .bold,      design: .serif)
-    static let stockedTitle    = Font.system(size: 22, weight: .bold,      design: .serif)
-    static let stockedHeadline = Font.system(size: 18, weight: .semibold,  design: .serif)
+    static var stockedDisplay: Font  { .stockedSerif(28, weight: .bold, relativeTo: .title) }
+    static var stockedTitle: Font    { .stockedSerif(22, weight: .bold, relativeTo: .title2) }
+    static var stockedHeadline: Font { .stockedSerif(18, weight: .semibold, relativeTo: .headline) }
     // Sans body
-    static let stockedBody     = Font.system(size: 15, weight: .regular,   design: .default)
-    static let stockedBodyBold = Font.system(size: 15, weight: .semibold,  design: .default)
-    static let stockedCaption  = Font.system(size: 12, weight: .regular,   design: .default)
-    static let stockedLabel    = Font.system(size: 11, weight: .semibold,  design: .default)
+    static var stockedBody: Font     { .stockedSans(15, relativeTo: .body) }
+    static var stockedBodyBold: Font { .stockedSans(15, weight: .semibold, relativeTo: .body) }
+    static var stockedCaption: Font  { .stockedSans(12, relativeTo: .caption) }
+    static var stockedLabel: Font    { .stockedSans(11, weight: .semibold, relativeTo: .caption2) }
 }
 
 
@@ -88,13 +87,13 @@ enum StockedFont {
     case display, title, headline, body, callout, caption, label
     var font: Font {
         switch self {
-        case .display:  return .system(size: 40, weight: .bold,     design: .serif)
-        case .title:    return .system(size: 28, weight: .bold,     design: .serif)
-        case .headline: return .system(size: 22, weight: .semibold, design: .serif)
-        case .body:     return .system(size: 15, weight: .regular)
-        case .callout:  return .system(size: 13, weight: .semibold)
-        case .caption:  return .system(size: 11, weight: .regular)
-        case .label:    return .system(size: 10, weight: .bold)
+        case .display:  return .stockedSerif(40, weight: .bold, relativeTo: .largeTitle)
+        case .title:    return .stockedSerif(28, weight: .bold, relativeTo: .title)
+        case .headline: return .stockedSerif(22, weight: .semibold, relativeTo: .title2)
+        case .body:     return .stockedSans(15, relativeTo: .body)
+        case .callout:  return .stockedSans(13, weight: .semibold, relativeTo: .callout)
+        case .caption:  return .stockedSans(11, relativeTo: .caption)
+        case .label:    return .stockedSans(10, weight: .bold, relativeTo: .caption2)
         }
     }
 }
@@ -114,18 +113,24 @@ extension View {
             .lineLimit(maxLines)
             .minimumScaleFactor(minimumScale)
             .allowsTightening(true)
+            .fixedSize(horizontal: false, vertical: true)
+            .layoutPriority(1)
     }
 }
 
 // MARK: - Primary / Secondary button styles (UI #13)
 struct StockedPrimaryButtonStyle: ButtonStyle {
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
+    @Environment(\.stockedLayout) private var layoutMetrics
     var accent: Color = Color.stockedCharcoal
     var fg: Color = Color.stockedWhite
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 17, weight: .semibold, design: .serif))
+        configuration.label.font(.stockedSerif(17, weight: .semibold, relativeTo: .headline))
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
-            .foregroundStyle(fg).frame(maxWidth: .infinity).padding(.vertical, 16)
+            .foregroundStyle(fg).frame(maxWidth: .infinity)
+            .padding(.horizontal, StockedSpacing.sm)
+            .padding(.vertical, 14)
+            .frame(minHeight: layoutMetrics.minimumControlHeight)
             .background(accent).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
                 .stroke(fg.opacity(accessibilityContrast == .increased ? 0.85 : 0.48),
@@ -136,11 +141,15 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
 }
 struct StockedSecondaryButtonStyle: ButtonStyle {
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
+    @Environment(\.stockedLayout) private var layoutMetrics
     var accent: Color = Color.stockedGold
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.system(size: 15, weight: .semibold, design: .serif))
+        configuration.label.font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
-            .foregroundStyle(accent).frame(maxWidth: .infinity).padding(.vertical, 14)
+            .foregroundStyle(accent).frame(maxWidth: .infinity)
+            .padding(.horizontal, StockedSpacing.sm)
+            .padding(.vertical, 12)
+            .frame(minHeight: layoutMetrics.minimumControlHeight)
             .background(accent.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
                 .stroke(accent.opacity(accessibilityContrast == .increased ? 1 : 0.65),

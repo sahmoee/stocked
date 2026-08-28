@@ -108,6 +108,29 @@ class GuestDataStore {
     private(set) var recipeRevision: Int = 0
     private(set) var planRevision: Int = 0
 
+    /// Derived headline counts are requested by several screens during one render
+    /// transaction. Keep one immutable snapshot per revision tuple so those reads
+    /// do not repeatedly rescan a large restored household on the main actor.
+    @ObservationIgnored private var lightweightMetricsCache: MetricsCache?
+    @ObservationIgnored private var completeMetricsCache: MetricsCache?
+
+    private struct MetricsCache {
+        let inventoryRevision: Int
+        let groceryRevision: Int
+        let recipeRevision: Int
+        let planRevision: Int
+        let calendarDay: Date
+        let value: KitchenMetrics
+
+        func matches(inventory: Int, grocery: Int, recipes: Int, plans: Int, day: Date) -> Bool {
+            inventoryRevision == inventory &&
+                groceryRevision == grocery &&
+                recipeRevision == recipes &&
+                planRevision == plans &&
+                calendarDay == day
+        }
+    }
+
     func householdTombstoneSnapshot() -> HouseholdTombstoneState {
         HouseholdTombstoneState(inventory: pendingInvTombstones,
                                 grocery: pendingGroTombstones,
@@ -2182,8 +2205,35 @@ class GuestDataStore {
     /// restored inventory is substantially more expensive than the inventory-only metrics.
     /// Screens that do not display `mealsReady` must use `lightweightMetrics` so navigation
     /// and the first frame never wait for the recipe classifier.
-    var lightweightMetrics: KitchenMetrics { makeMetrics(includeMealsReady: false) }
-    var metrics: KitchenMetrics { makeMetrics(includeMealsReady: true) }
+    var lightweightMetrics: KitchenMetrics { cachedMetrics(includeMealsReady: false) }
+    var metrics: KitchenMetrics { cachedMetrics(includeMealsReady: true) }
+
+    private func cachedMetrics(includeMealsReady: Bool) -> KitchenMetrics {
+        let today = Calendar.current.startOfDay(for: Date())
+        let cached = includeMealsReady ? completeMetricsCache : lightweightMetricsCache
+        if let cached,
+           cached.matches(inventory: inventoryRevision,
+                          grocery: groceryRevision,
+                          recipes: recipeRevision,
+                          plans: planRevision,
+                          day: today) {
+            return cached.value
+        }
+
+        let value = makeMetrics(includeMealsReady: includeMealsReady)
+        let snapshot = MetricsCache(inventoryRevision: inventoryRevision,
+                                    groceryRevision: groceryRevision,
+                                    recipeRevision: recipeRevision,
+                                    planRevision: planRevision,
+                                    calendarDay: today,
+                                    value: value)
+        if includeMealsReady {
+            completeMetricsCache = snapshot
+        } else {
+            lightweightMetricsCache = snapshot
+        }
+        return value
+    }
 
     private func makeMetrics(includeMealsReady: Bool) -> KitchenMetrics {
         var m = KitchenMetrics()

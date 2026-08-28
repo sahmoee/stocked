@@ -254,6 +254,22 @@ final class ImageCache: @unchecked Sendable {
         if let disk = await diskImage(for: urlString) { return disk }
         guard !Task.isCancelled, let url = URL(string: urlString) else { return nil }
 
+        // User-selected recipe photos are retained losslessly by RecipeMediaStore. They
+        // deliberately use a container-independent custom URL, so resolve and decode them
+        // locally instead of sending an unsupported scheme through URLSession.
+        if url.scheme?.lowercased() == RecipeMediaStore.scheme {
+            let data = await Task.detached(priority: .userInitiated) {
+                try? RecipeMediaStore.shared.retainedData(for: urlString)
+            }.value
+            guard !Task.isCancelled, let data else { return nil }
+            let image = Self.downsample(data, maxDimension: 320) ?? UIImage(data: data)
+            if let image {
+                let cost = Self.memoryCost(of: image)
+                memCache.setObject(image, forKey: key(for: urlString) as NSString, cost: cost)
+            }
+            return image
+        }
+
         await ImageFetchLimiter.shared.acquire()
         if Task.isCancelled {
             await ImageFetchLimiter.shared.release()

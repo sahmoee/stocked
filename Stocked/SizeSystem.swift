@@ -41,20 +41,43 @@ struct StockedLayoutMetrics: Equatable {
     var height: CGFloat
     var isAccessibilityText: Bool
     var interfaceScale: CGFloat
+    var safeAreaInsets: EdgeInsets = EdgeInsets()
+
+    var contentWidth: CGFloat {
+        max(1, width - safeAreaInsets.leading - safeAreaInsets.trailing)
+    }
+
+    var contentHeight: CGFloat {
+        max(1, height - safeAreaInsets.top - safeAreaInsets.bottom)
+    }
 
     /// Keep controls close enough to the edge to use the available canvas. The
     /// former five-percent rule made Pro Max phones and iPads feel needlessly narrow.
-    var horizontalPadding: CGFloat { width >= 600 ? 24 : 16 }
-    var sectionSpacing: CGFloat { min(max(width * 0.03, 10), 24) }
-    var readableContentWidth: CGFloat { min(width, 1_180) }
-    var formContentWidth: CGFloat { min(width, 760) }
+    var horizontalPadding: CGFloat { contentWidth >= 600 ? 24 : contentWidth < 350 ? 12 : 16 }
+    var sectionSpacing: CGFloat { min(max(contentWidth * 0.03, 10), 24) }
+    var readableContentWidth: CGFloat { min(contentWidth, 1_180) }
+    var formContentWidth: CGFloat { min(contentWidth, 760) }
     var minimumControlHeight: CGFloat { max(44, 48 * interfaceScale) }
-    var prefersVerticalControls: Bool { width < 360 || isAccessibilityText }
+    var prefersVerticalControls: Bool { contentWidth < 360 || isAccessibilityText }
+
+    /// Shared bottom-navigation geometry. Labels may use two lines instead of
+    /// truncating, while the selected shape and touch target still match across tabs.
+    var tabBarHorizontalPadding: CGFloat { contentWidth < 350 ? 8 : min(16, horizontalPadding) }
+    var tabBarTopPadding: CGFloat { isAccessibilityText ? 6 : 8 }
+    var tabBarBottomPadding: CGFloat { 4 }
+    var tabBarItemSpacing: CGFloat { isAccessibilityText ? 2 : 3 }
+    var tabBarIconSize: CGFloat { min(max(18 * interfaceScale, 18), 24) }
+    var tabBarItemMinimumHeight: CGFloat {
+        max(minimumControlHeight, isAccessibilityText ? 68 : 50 * interfaceScale)
+    }
+    var tabBarCornerRadius: CGFloat { min(max(11 * interfaceScale, 11), 16) }
 
     func gridColumns(minimum: CGFloat, maximum: Int = 3, spacing: CGFloat = 12) -> [GridItem] {
-        let usable = max(1, width - horizontalPadding * 2)
-        let count = max(1, min(maximum, Int((usable + spacing) / (minimum + spacing))))
-        return Array(repeating: GridItem(.flexible(minimum: minimum), spacing: spacing), count: count)
+        let usable = max(1, contentWidth - horizontalPadding * 2)
+        let safeMaximum = max(1, maximum)
+        let safeMinimum = max(1, minimum)
+        let count = max(1, min(safeMaximum, Int((usable + spacing) / (safeMinimum + spacing))))
+        return Array(repeating: GridItem(.flexible(minimum: safeMinimum), spacing: spacing), count: count)
     }
 
     static let fallback = StockedLayoutMetrics(width: 393, height: 852,
@@ -225,7 +248,8 @@ struct DeviceAdaptiveRoot<Content: View>: View {
                 height: proxy.size.height,
                 isAccessibilityText: dynamicTypeSize.isAccessibilitySize,
                 interfaceScale: InterfaceSize(rawValue: interfaceSizeRaw)?.scale
-                    ?? InterfaceSize.comfortable.scale
+                    ?? InterfaceSize.comfortable.scale,
+                safeAreaInsets: proxy.safeAreaInsets
             )
             content
                 .environment(\.stockedDevice, device)
@@ -241,11 +265,12 @@ extension View {
 }
 struct AdaptiveDeviceModifier: ViewModifier {
     @Environment(\.horizontalSizeClass) var hSize
+    @Environment(\.stockedLayout) private var layoutMetrics
     func body(content: Content) -> some View {
-        let width  = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.screen.bounds.width ?? 393
-        let device = StockedDevice.current(width: width, hSize: hSize)
+        let width = layoutMetrics.contentWidth
+        let adaptiveSizeClass: UserInterfaceSizeClass? =
+            UIDevice.current.userInterfaceIdiom == .pad && width >= 700 ? hSize : .compact
+        let device = StockedDevice.current(width: width, hSize: adaptiveSizeClass)
         content.environment(\.stockedDevice, device)
     }
 }
@@ -262,6 +287,6 @@ extension View {
         weight: Font.Weight = .regular,
         device: StockedDevice
     ) -> some View {
-        font(.system(size: size.value(for: device), weight: weight, design: .serif))
+        font(.stockedSerif(size.value(for: device), weight: weight))
     }
 }

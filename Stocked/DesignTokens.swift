@@ -79,14 +79,23 @@ enum StockedSpacing {
 
 // MARK: - Typography helpers
 extension Font {
-    // These now scale with the user's Dynamic Type setting. Each raw point size is scaled by
-    // UIFontMetrics anchored to the nearest text style, so existing call sites get Dynamic Type
-    // support with no change. The app's root clamp keeps the result within a safe ceiling.
-    static func stockedSerif(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: StockedType.scaled(size), weight: weight, design: .serif)
+    /// The canonical Stocked font constructors. All semantic and compatibility
+    /// typography APIs delegate here so Dynamic Type and the in-app interface-size
+    /// preference cannot drift between screens.
+    static func stockedSerif(
+        _ size: CGFloat,
+        weight: Font.Weight = .regular,
+        relativeTo style: Font.TextStyle? = nil
+    ) -> Font {
+        StockedType.font(size: size, weight: weight, design: .serif, relativeTo: style)
     }
-    static func stockedSans(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: StockedType.scaled(size), weight: weight, design: .default)
+
+    static func stockedSans(
+        _ size: CGFloat,
+        weight: Font.Weight = .regular,
+        relativeTo style: Font.TextStyle? = nil
+    ) -> Font {
+        StockedType.font(size: size, weight: weight, design: .default, relativeTo: style)
     }
 }
 
@@ -95,28 +104,64 @@ extension Font {
 // stockedSans helpers. UIFontMetrics is used (rather than ScaledMetric) so this works inside a
 // plain function that returns a Font value.
 enum StockedType {
-    static func scaled(_ size: CGFloat) -> CGFloat {
-        let style: UIFont.TextStyle
-        switch size {
-        case ..<11.5: style = .caption2
-        case ..<12.5: style = .caption1
-        case ..<14.5: style = .footnote
-        case ..<16.5: style = .subheadline
-        case ..<18:   style = .body
-        case ..<20:   style = .callout
-        case ..<23:   style = .title3
-        case ..<28:   style = .title2
-        case ..<34:   style = .title1
-        default:      style = .largeTitle
-        }
+    static func font(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default,
+        relativeTo style: Font.TextStyle? = nil
+    ) -> Font {
+        .system(size: scaled(size, relativeTo: style), weight: weight, design: design)
+    }
+
+    static func scaled(_ size: CGFloat, relativeTo style: Font.TextStyle? = nil) -> CGFloat {
+        let uiStyle = style.map(uiKitStyle) ?? inferredUIKitStyle(for: size)
         let selected = UserDefaults.standard.string(forKey: "stocked.interfaceSize")
-        let interfaceMultiplier: CGFloat
-        switch InterfaceSize(rawValue: selected ?? InterfaceSize.comfortable.rawValue) ?? .comfortable {
-        case .standard: interfaceMultiplier = 0.94
-        case .comfortable: interfaceMultiplier = 1
-        case .large: interfaceMultiplier = 1.18
+        let interfaceSize = InterfaceSize(rawValue: selected ?? InterfaceSize.comfortable.rawValue)
+            ?? .comfortable
+        return UIFontMetrics(forTextStyle: uiStyle)
+            .scaledValue(for: size * typographyScale(for: interfaceSize))
+    }
+
+    private static func inferredUIKitStyle(for size: CGFloat) -> UIFont.TextStyle {
+        switch size {
+        case ..<11.5: return .caption2
+        case ..<12.5: return .caption1
+        case ..<14.5: return .footnote
+        case ..<16.5: return .subheadline
+        case ..<18:   return .body
+        case ..<20:   return .callout
+        case ..<23:   return .title3
+        case ..<28:   return .title2
+        case ..<34:   return .title1
+        default:      return .largeTitle
         }
-        return UIFontMetrics(forTextStyle: style).scaledValue(for: size * interfaceMultiplier)
+    }
+
+    private static func uiKitStyle(for style: Font.TextStyle) -> UIFont.TextStyle {
+        switch style {
+        case .largeTitle: return .largeTitle
+        case .title:      return .title1
+        case .title2:     return .title2
+        case .title3:     return .title3
+        case .headline:   return .headline
+        case .subheadline:return .subheadline
+        case .callout:    return .callout
+        case .caption:    return .caption1
+        case .caption2:   return .caption2
+        case .footnote:   return .footnote
+        default:          return .body
+        }
+    }
+
+    /// Typography uses a gentler density curve than controls. Keeping the curve
+    /// here gives every font API one source of truth and avoids unexpectedly
+    /// inflating the default comfortable layout.
+    private static func typographyScale(for size: InterfaceSize) -> CGFloat {
+        switch size {
+        case .standard:    return 0.94
+        case .comfortable: return 1
+        case .large:       return 1.18
+        }
     }
 }
 

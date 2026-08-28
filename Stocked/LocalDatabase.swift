@@ -89,6 +89,20 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
         return nil
     }
 
+    /// Reads a potentially large value on the database utility queue.
+    ///
+    /// Keep the synchronous `load` API for small launch-time preferences and legacy callers,
+    /// but use this variant from async feature work so JSON file I/O and decoding cannot occupy
+    /// the main actor. The `Sendable` constraint makes the decoded value safe to transfer back
+    /// across the queue boundary under Swift 6 concurrency checking.
+    func loadAsync<T: Decodable & Sendable>(_ type: T.Type, key: String) async -> T? {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                continuation.resume(returning: self?.load(type, key: key))
+            }
+        }
+    }
+
     /// Corruption-tolerant array read: one malformed row does not discard the collection.
     func loadArray<Element: Decodable>(_ type: Element.Type, key: String) -> [Element]? {
         let url = DBFile.url(for: key)
@@ -101,6 +115,18 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
             return arr
         }
         return nil
+    }
+
+    /// Corruption-tolerant array decoding on the database utility queue.
+    func loadArrayAsync<Element: Decodable & Sendable>(
+        _ type: Element.Type,
+        key: String
+    ) async -> [Element]? {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                continuation.resume(returning: self?.loadArray(type, key: key))
+            }
+        }
     }
 
     // MARK: Write — one coalescing, serialized file queue
@@ -155,6 +181,30 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
             }
         } catch {
             Log.data.error("Disk write failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Persists every write pending when this call reaches the serialized database queue.
+    /// This is intended for lifecycle boundaries, tests, and explicit durability points; normal
+    /// model writes should continue using the coalesced `save` path.
+    func flush() async {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                guard let self else {
+                    continuation.resume()
+                    return
+                }
+                let snapshot: [String: Any] = self.withStateLock {
+                    self.writeGeneration &+= 1
+                    self.writeWorkItem?.cancel()
+                    self.writeWorkItem = nil
+                    let snapshot = self.pendingWrites
+                    self.pendingWrites.removeAll()
+                    return snapshot
+                }
+                for (key, value) in snapshot { self.write(value, key: key) }
+                continuation.resume()
+            }
         }
     }
 

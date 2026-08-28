@@ -44,7 +44,14 @@ struct HomeView: View {
         "\(store.inventoryRevision):\(store.groceryRevision):\(store.recipeRevision):\(store.planRevision)"
     }
     private var usesReferencePhoneGeometry: Bool {
-        layoutMetrics.width < 600 && !dynamicTypeSize.isAccessibilitySize
+        // Preserve the approved phone composition at its intended scale, but do
+        // not force that fixed geometry into narrow Split View windows or when
+        // the user has asked Stocked to enlarge its interface. Those contexts
+        // need to reflow instead of clipping or shrinking copy into ellipses.
+        layoutMetrics.width >= 375 &&
+            layoutMetrics.width < 600 &&
+            !dynamicTypeSize.isAccessibilitySize &&
+            layoutMetrics.interfaceScale <= 1.05
     }
     private var homeHorizontalPadding: CGFloat {
         usesReferencePhoneGeometry ? 20 : layoutMetrics.horizontalPadding
@@ -83,7 +90,7 @@ struct HomeView: View {
                     .padding(.top, supplementalWidgets.isEmpty && !editMode ? 0 : (usesReferencePhoneGeometry ? 14 : 20))
                 Spacer(minLength: 12)
             }
-            .frame(maxWidth: 760)
+            .frame(maxWidth: layoutMetrics.readableContentWidth)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal, homeHorizontalPadding)
             .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
@@ -143,19 +150,30 @@ struct HomeView: View {
                     Text("\(greeting), Chef")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(Color.stockedGold)
-                    HStack(alignment: .bottom, spacing: 20) {
-                        referenceHeroCopy
-                        Spacer(minLength: 8)
-                        Image("home_kitchen_still_life")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: min(250, layoutMetrics.width * 0.34), height: 170, alignment: .bottom)
-                            .accessibilityHidden(true)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .bottom, spacing: 20) {
+                            referenceHeroCopy
+                            Spacer(minLength: 8)
+                            referenceHeroArtwork
+                        }
+                        VStack(alignment: .leading, spacing: 12) {
+                            referenceHeroCopy
+                            referenceHeroArtwork
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
                     }
                 }
             }
         }
         .coachmarkAnchor("home.greeting")
+    }
+
+    private var referenceHeroArtwork: some View {
+        Image("home_kitchen_still_life")
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: min(300, layoutMetrics.width * 0.42), maxHeight: 190, alignment: .bottom)
+            .accessibilityHidden(true)
     }
 
     private var referenceHeroCopy: some View {
@@ -199,8 +217,25 @@ struct HomeView: View {
                     .padding(14)
                     .frame(maxWidth: .infinity, minHeight: 94, maxHeight: 94, alignment: .leading)
                 } else {
-                    HStack(spacing: 18) { referenceStockIcon; referenceStockValue; divider; referenceStockSummary }
-                        .padding(18)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 18) {
+                            referenceStockIcon
+                            referenceStockValue
+                            divider
+                            referenceStockSummary
+                        }
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(alignment: .center, spacing: 18) {
+                                referenceStockIcon
+                                referenceStockValue
+                            }
+                            Rectangle()
+                                .fill(session.themeTextColor.opacity(0.18))
+                                .frame(height: 1)
+                            referenceStockSummary
+                        }
+                    }
+                    .padding(18)
                 }
             }
             .background(session.themeCardColor)
@@ -279,8 +314,9 @@ struct HomeView: View {
                           ? .system(size: 13, weight: .bold, design: .serif)
                           : .system(.title2, design: .serif, weight: .bold))
                     .foregroundStyle(session.themeTextColor)
-                    .lineLimit(1)
+                    .lineLimit(usesReferencePhoneGeometry ? 1 : nil)
                     .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Button("Edit widgets") { enterEditMode() }
                     .font(.system(size: usesReferencePhoneGeometry ? 9 : 15, weight: .semibold))
@@ -417,7 +453,7 @@ struct HomeView: View {
                         .font(usesReferencePhoneGeometry
                               ? .system(size: 13, weight: .bold, design: .serif)
                               : .system(.title3, design: .serif, weight: .bold))
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.82)
                         .allowsTightening(true)
                     Text("Receipt or barcode")
@@ -451,9 +487,10 @@ struct HomeView: View {
                     Text(title)
                         .font(.system(size: usesReferencePhoneGeometry ? 8.8 : 12, weight: .bold))
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(title == "Quick Update" && usesReferencePhoneGeometry ? 2 : 1)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.72)
                         .allowsTightening(true)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(subtitle)
                         .font(.system(size: usesReferencePhoneGeometry ? 8.5 : 10))
                         .foregroundStyle(session.themeTextColor.opacity(0.58))
@@ -515,17 +552,19 @@ struct HomeView: View {
                                   ? .system(size: 14.25, weight: .bold, design: .serif)
                                   : .system(.headline, design: .serif, weight: .bold))
                             .foregroundStyle(session.themeTextColor)
-                            .lineLimit(usesReferencePhoneGeometry ? 1 : 2)
+                            .lineLimit(usesReferencePhoneGeometry ? 2 : nil)
                             .minimumScaleFactor(0.72)
                             .allowsTightening(true)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(expiringCount == 0 ? "You’re in good shape!" : "Use these first to waste less.")
                             .font(.system(size: usesReferencePhoneGeometry ? 11 : 17))
                             .foregroundStyle(session.themeTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text(expiringCount == 0 ? "We’ll let you know when something is close to expiring."
                                                 : "Tap to see what needs attention.")
                             .font(.system(size: usesReferencePhoneGeometry ? 10 : 15))
                             .foregroundStyle(session.themeTextColor.opacity(0.58))
-                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Circle().fill(session.themeTextColor.opacity(0.06))
@@ -538,7 +577,6 @@ struct HomeView: View {
                 .padding(.horizontal, usesReferencePhoneGeometry ? 10 : 18)
                 .frame(maxWidth: .infinity,
                        minHeight: usesReferencePhoneGeometry ? 90 : 154,
-                       maxHeight: usesReferencePhoneGeometry ? 90 : nil,
                        alignment: .leading)
                 .background(session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 14 : 24, style: .continuous))
@@ -561,20 +599,34 @@ struct HomeView: View {
                         .foregroundStyle(Color.stockedGold)
                 }
                 HStack(spacing: usesReferencePhoneGeometry ? 6 : 12) {
-                    snapshotMetric("refrigerator", "\(store.inventoryItems.count)", "Items in inventory", "Well stocked")
-                    snapshotDivider
-                    snapshotMetric("bag", "\(lowStockCount)", "Low stock items", "You’re good")
-                    snapshotDivider
-                    snapshotMetric("list.clipboard", "\(groceryToBuy)", "On grocery list", "Ready to shop")
+                    if usesReferencePhoneGeometry {
+                        snapshotMetric("refrigerator", "\(store.inventoryItems.count)", "Items in inventory", "Well stocked")
+                        snapshotDivider
+                        snapshotMetric("bag", "\(lowStockCount)", "Low stock items", "You’re good")
+                        snapshotDivider
+                        snapshotMetric("list.clipboard", "\(groceryToBuy)", "On grocery list", "Ready to shop")
+                    } else {
+                        adaptiveSnapshotMetrics
+                    }
                 }
             }
             .padding(usesReferencePhoneGeometry ? 10 : 20)
             .frame(maxWidth: .infinity,
                    minHeight: usesReferencePhoneGeometry ? 95 : nil,
-                   maxHeight: usesReferencePhoneGeometry ? 95 : nil)
+                   alignment: .topLeading)
             .background(Color.stockedCharcoal)
             .clipShape(RoundedRectangle(cornerRadius: usesReferencePhoneGeometry ? 14 : 24, style: .continuous))
         }.buttonStyle(.plain)
+    }
+
+    private var adaptiveSnapshotMetrics: some View {
+        LazyVGrid(columns: layoutMetrics.gridColumns(minimum: 150, maximum: 3, spacing: 16),
+                  alignment: .leading,
+                  spacing: 16) {
+            snapshotMetric("refrigerator", "\(store.inventoryItems.count)", "Items in inventory", "Well stocked")
+            snapshotMetric("bag", "\(lowStockCount)", "Low stock items", "You’re good")
+            snapshotMetric("list.clipboard", "\(groceryToBuy)", "On grocery list", "Ready to shop")
+        }
     }
 
     private func snapshotMetric(_ icon: String, _ value: String, _ label: String, _ status: String) -> some View {
@@ -593,13 +645,15 @@ struct HomeView: View {
             Text(label)
                 .font(.system(size: usesReferencePhoneGeometry ? 8.5 : 12))
                 .foregroundStyle(Color.stockedWhite)
-                .lineLimit(1)
+                .lineLimit(2)
                 .minimumScaleFactor(0.68)
+                .fixedSize(horizontal: false, vertical: true)
             Text(status)
                 .font(.system(size: usesReferencePhoneGeometry ? 8.5 : 12, weight: .semibold))
                 .foregroundStyle(Color.stockedGold)
-                .lineLimit(1)
+                .lineLimit(2)
                 .minimumScaleFactor(0.68)
+                .fixedSize(horizontal: false, vertical: true)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 

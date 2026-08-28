@@ -677,6 +677,7 @@ struct OnlineRecipesView: View {
 
     // Predictive suggestions from local RecipeDatabase
     @State private var dbSnapshot:    [RecipeDatabaseEntry] = []
+    @State private var dbRevision:    UInt64 = 0
     @State private var dbSuggestions: [RecipeDatabaseEntry] = []
 
     @State private var displayRecipes: [OnlineRecipe] = []
@@ -1149,12 +1150,12 @@ struct OnlineRecipesView: View {
         } // end ScrollView
         .onAppear {
             loader.loadIfNeeded(profile: session.guestStore.cookingProfile)
-            Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
+            reloadDatabaseSnapshot()
         }
-        // Newly harvested recipes bump the pool's version; reload the snapshot in place so
-        // they surface here without the user leaving and reopening Discover.
-        .onChange(of: RecipeDatabaseManager.shared.recipesVersion) { _, _ in
-            Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
+        // Adjacent actor revisions are applied as deltas. A complete reload is reserved for
+        // an actual revision gap (for example, this screen was suspended between writes).
+        .onReceive(DatabaseSyncBus.shared.recipeMutations) { change in
+            applyDatabaseChange(change)
         }
         .task(id: filterKey) {
             if !searchText.isEmpty {
@@ -1283,8 +1284,6 @@ struct OnlineRecipesView: View {
         )
         dbSuggestions = []
         selected = recipe
-        // Snapshot keeps growing as user discovers more
-        Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
     }
 
     // MARK: - Live TheMealDB search
@@ -1316,9 +1315,28 @@ struct OnlineRecipesView: View {
             }
             // Learn all results into RecipeDatabase for future predictive use
             for r in parsed { StockedKnowledgeBase.shared.learnFromOnlineRecipe(r) }
-            // Refresh snapshot so chips reflect new entries next time
-            let fresh = await RecipeDatabaseManager.shared.loadSnapshot()
-            await MainActor.run { dbSnapshot = fresh }
+            // Each successful learn publishes an exact actor-owned delta. The mutation
+            // subscription above updates this snapshot without a redundant full reload.
+        }
+    }
+
+    private func applyDatabaseChange(_ change: RecipeDatabaseChange) {
+        guard change.revision > dbRevision else { return }
+        guard change.revision == dbRevision &+ 1 else {
+            reloadDatabaseSnapshot()
+            return
+        }
+        dbSnapshot = change.applying(to: dbSnapshot)
+        dbRevision = change.revision
+    }
+
+    private func reloadDatabaseSnapshot() {
+        let requestedAfter = dbRevision
+        Task {
+            let snapshot = await RecipeDatabaseManager.shared.loadVersionedSnapshot()
+            guard snapshot.revision >= requestedAfter, snapshot.revision >= dbRevision else { return }
+            dbSnapshot = snapshot.entries
+            dbRevision = snapshot.revision
         }
     }
 }
