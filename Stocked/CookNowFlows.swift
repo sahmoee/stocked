@@ -37,10 +37,10 @@ struct BuildAroundFoodView: View {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("What do you want to start with?")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Pick a category and we'll show you what's in your kitchen.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -102,10 +102,10 @@ struct MatchMyMoodFlowView: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Let's get a feel for tonight.")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Your answers help us find the perfect recipes for you.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -123,7 +123,7 @@ struct MatchMyMoodFlowView: View {
                 Button { goResults = true } label: {
                     HStack {
                         Image(systemName: "sparkles")
-                        Text("Show My Recipes").font(.system(size: 16, weight: .semibold))
+                        Text("Show My Recipes").scaledFont(16, weight: .semibold)
                     }
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
@@ -171,7 +171,7 @@ struct RecipeResultsView: View {
         StockedShell(showBack: true, titleText: "Recipe Results") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Based on what you have")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 

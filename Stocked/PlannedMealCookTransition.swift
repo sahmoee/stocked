@@ -70,7 +70,7 @@ struct PlannedMealCookTransitionView: View {
                         }
                     }
                     Text("However you cook it, the meal keeps its place on your plan until you serve it.")
-                        .font(.system(size: 11.5))
+                        .scaledFont(11.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -80,16 +80,16 @@ struct PlannedMealCookTransitionView: View {
                 .padding(20)
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(meal.title)
-                .font(.system(size: 20, weight: .bold, design: .serif))
+                .scaledFont(20, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("Planned for \(dayLabel(meal.dayIndex)) · \(meal.mealType)")
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(12.5, weight: .semibold)
                 .foregroundStyle(Color.stockedGold)
         }
     }
@@ -104,19 +104,19 @@ struct PlannedMealCookTransitionView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(primary ? Color.stockedGold.opacity(0.2) : Color.stockedGold.opacity(0.1))
                         .frame(width: 40, height: 40)
-                    Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: icon).scaledFont(16, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)

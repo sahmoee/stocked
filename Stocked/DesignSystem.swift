@@ -21,34 +21,85 @@ extension Int {
     }
 }
 
+/// The inherited visual language for Lists, Forms, fields, and navigation content.
+/// Installing this once at the app boundary also covers system-created sheet hosts; the
+/// explicit screen/presentation wrappers below additionally own their background canvas.
+struct StockedThemeEnvironmentModifier: ViewModifier {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    let clearScrollBackground: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let themed = content
+            .listStyle(.insetGrouped)
+            .formStyle(.grouped)
+            // AppSession is the live owner of the font-family preference. Reading it at this
+            // shared boundary invalidates every page/sheet in place when the user changes it.
+            .fontDesign(session.appFont.design)
+            .environment(\.defaultMinListRowHeight, layoutMetrics.listRowMinimumHeight)
+            .textFieldStyle(StockedThemedTextFieldStyle())
+            .tint(session.accentColor)
+            .foregroundStyle(session.themeTextColor)
+            .preferredColorScheme(session.isDarkMode ? .dark : .light)
+
+        if clearScrollBackground {
+            themed.scrollContentBackground(.hidden)
+        } else {
+            themed
+        }
+    }
+}
+
+extension View {
+    func stockedThemeEnvironment(clearScrollBackground: Bool = true) -> some View {
+        modifier(StockedThemeEnvironmentModifier(clearScrollBackground: clearScrollBackground))
+    }
+}
+
+enum StockedPresentationWidth: Sendable {
+    case form
+    case readable
+    case full
+
+    func resolved(in layout: StockedLayoutMetrics) -> CGFloat? {
+        switch self {
+        case .form: return layout.formContentWidth
+        case .readable: return layout.readableContentWidth
+        case .full: return nil
+        }
+    }
+}
+
 /// The default boundary for every page, sheet, popover, and full-screen cover.
 /// SwiftUI presentations otherwise reveal the system white/gray host behind Forms and
-/// short content. The max width keeps large iPads readable without imposing a fixed
-/// phone-sized frame; compact windows continue to use every available point.
+/// short content. The default form width keeps large iPads readable without imposing a
+/// fixed phone-sized frame; compact windows continue to use every available point.
 struct StockedPresentationSurface: ViewModifier {
     @Environment(AppSession.self) private var session
     @Environment(\.stockedLayout) private var layoutMetrics
+    let width: StockedPresentationWidth
 
     func body(content: Content) -> some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
             content
-                .frame(maxWidth: layoutMetrics.readableContentWidth,
+                .stockedAdaptiveInterface()
+                .stockedSizeAwareScrollBounce([.vertical, .horizontal])
+                .frame(maxWidth: width.resolved(in: layoutMetrics),
                        maxHeight: .infinity,
                        alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(session.themeBgColor)
         .presentationBackground(session.themeBgColor)
-        .tint(session.accentColor)
-        .foregroundStyle(session.themeTextColor)
-        .dynamicTypeSize(.xSmall ... .accessibility5)
+        .stockedThemeEnvironment()
     }
 }
 
 extension View {
-    func stockedPresentationSurface() -> some View {
-        modifier(StockedPresentationSurface())
+    func stockedPresentationSurface(width: StockedPresentationWidth = .form) -> some View {
+        modifier(StockedPresentationSurface(width: width))
     }
 }
 
@@ -110,8 +161,6 @@ extension View {
         minimumScale: CGFloat = 0.78
     ) -> some View {
         multilineTextAlignment(alignment)
-            .lineLimit(maxLines)
-            .minimumScaleFactor(minimumScale)
             .allowsTightening(true)
             .fixedSize(horizontal: false, vertical: true)
             .layoutPriority(1)
@@ -128,15 +177,15 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
         configuration.label.font(.stockedSerif(17, weight: .semibold, relativeTo: .headline))
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(fg).frame(maxWidth: .infinity)
-            .padding(.horizontal, StockedSpacing.sm)
-            .padding(.vertical, 14)
+            .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
+            .padding(.vertical, max(14, 10 * layoutMetrics.textScale))
             .frame(minHeight: layoutMetrics.minimumControlHeight)
-            .background(accent).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+            .background(accent).clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius)
                 .stroke(fg.opacity(accessibilityContrast == .increased ? 0.85 : 0.48),
                         lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.18), value: configuration.isPressed)
+            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
     }
 }
 struct StockedSecondaryButtonStyle: ButtonStyle {
@@ -147,38 +196,127 @@ struct StockedSecondaryButtonStyle: ButtonStyle {
         configuration.label.font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(accent).frame(maxWidth: .infinity)
-            .padding(.horizontal, StockedSpacing.sm)
-            .padding(.vertical, 12)
+            .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
+            .padding(.vertical, max(12, 9 * layoutMetrics.textScale))
             .frame(minHeight: layoutMetrics.minimumControlHeight)
-            .background(accent.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+            .background(accent.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius)
                 .stroke(accent.opacity(accessibilityContrast == .increased ? 1 : 0.65),
                         lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.18), value: configuration.isPressed)
+            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
     }
 }
 
-// MARK: - App-wide text-entry outline
-// MainTabView installs this once so plain TextFields inherit a visible reciprocal edge.
-// Explicit field styles can still opt out where a platform-native control is intentional.
-struct StockedOutlinedTextFieldStyle: TextFieldStyle {
-    @Environment(\.colorScheme) private var colorScheme
+/// Shared Home-widget interaction language. The content owns its semantic surface;
+/// this style adds touch/keyboard/pointer feedback without changing layout.
+struct StockedWidgetButtonStyle: ButtonStyle {
+    @Environment(AppSession.self) private var session
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
+                    .fill(Color.widgetPressedSurface(session.isDarkMode))
+                    .opacity(configuration.isPressed ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
+    }
+}
+
+// MARK: - App-wide themed text entry
+// Inputs use a quiet surface rather than a boxed outline. The shared style is installed at
+// every app and presentation boundary so pages and sheets cannot drift into stock controls.
+struct StockedThemedTextFieldStyle: TextFieldStyle {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
 
     func _body(configuration: TextField<Self._Label>) -> some View {
-        let dark = colorScheme == .dark
         configuration
-            .lineLimit(1...4)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color.appSurface(dark).opacity(0.82))
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm, style: .continuous)
-                    .stroke(Color.contrastAccent(dark).opacity(0.38), lineWidth: 1.25)
-            }
+            .foregroundStyle(session.themeTextColor)
+            .tint(session.accentColor)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
+            .padding(.vertical, max(10, 8 * layoutMetrics.textScale))
+            .frame(minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+            .background(session.themeCardColor.opacity(session.isDarkMode ? 0.76 : 0.64))
+            .clipShape(RoundedRectangle(
+                cornerRadius: layoutMetrics.controlCornerRadius,
+                style: .continuous
+            ))
     }
 }
+
+/// TextEditor does not participate in TextFieldStyle. These two modifiers keep every
+/// multiline field on the same borderless, theme-aware surface while preserving native
+/// vertical scrolling and focus behavior.
+private struct StockedTextEditorContentModifier: ViewModifier {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    let minimumHeight: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .font(.stockedBody)
+            .foregroundStyle(session.themeTextColor)
+            .tint(session.accentColor)
+            .scrollContentBackground(.hidden)
+            .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
+            .padding(.vertical, max(10, 8 * layoutMetrics.textScale))
+            .frame(
+                minHeight: max(minimumHeight, layoutMetrics.textEditorMinimumHeight),
+                alignment: .topLeading
+            )
+    }
+}
+
+private struct StockedTextEditorPlaceholderModifier: ViewModifier {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+
+    func body(content: Content) -> some View {
+        content
+            .font(.stockedBody)
+            .foregroundStyle(session.themeTextColor.opacity(0.42))
+            .padding(.horizontal, layoutMetrics.controlHorizontalPadding + 4)
+            .padding(.vertical, max(14, 12 * layoutMetrics.textScale))
+            .fixedSize(horizontal: false, vertical: true)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct StockedInputSurfaceModifier: ViewModifier {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+
+    func body(content: Content) -> some View {
+        content
+            .background(session.themeCardColor.opacity(session.isDarkMode ? 0.76 : 0.64))
+            .clipShape(RoundedRectangle(
+                cornerRadius: layoutMetrics.surfaceCornerRadius,
+                style: .continuous
+            ))
+    }
+}
+
+extension View {
+    func stockedTextEditorContent(minimumHeight: CGFloat = 96) -> some View {
+        modifier(StockedTextEditorContentModifier(minimumHeight: minimumHeight))
+    }
+
+    func stockedTextEditorPlaceholder() -> some View {
+        modifier(StockedTextEditorPlaceholderModifier())
+    }
+
+    func stockedInputSurface() -> some View {
+        modifier(StockedInputSurfaceModifier())
+    }
+}
+
+@available(*, deprecated, renamed: "StockedThemedTextFieldStyle")
+typealias StockedOutlinedTextFieldStyle = StockedThemedTextFieldStyle
 extension View {
     func stockedPrimary(accent: Color = Color.stockedCharcoal, fg: Color = Color.stockedWhite) -> some View {
         buttonStyle(StockedPrimaryButtonStyle(accent: accent, fg: fg))
@@ -200,6 +338,7 @@ struct HapticManager {
 
 // MARK: - Skeleton loading (UI #1)
 struct SkeletonView: View {
+    @Environment(\.stockedMotion) private var motion
     @State private var phase: CGFloat = 0
     var body: some View {
         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
@@ -207,7 +346,7 @@ struct SkeletonView: View {
                 colors: [Color.stockedCharcoal.opacity(0.06), Color.stockedCharcoal.opacity(0.13), Color.stockedCharcoal.opacity(0.06)],
                 startPoint: .init(x: phase - 1, y: 0), endPoint: .init(x: phase, y: 0)))
             .onAppear {
-                guard !UIAccessibility.isReduceMotionEnabled else { return }
+                guard motion.permitsContinuousMotion else { return }
                 withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) { phase = 2 }
             }
     }
@@ -277,11 +416,11 @@ struct StockedEmptyState: View {
             Group {
                 if icon.unicodeScalars.allSatisfy({ $0.isASCII }) {
                     Image(systemName: icon)
-                        .font(.system(size: 58, weight: .regular))
+                        .scaledFont(58, weight: .regular)
                         .accessibilityHidden(true)
                 } else {
                     Text(icon)
-                        .font(.system(size: 72))
+                        .scaledFont(72)
                         .accessibilityHidden(true)
                 }
             }
@@ -305,14 +444,14 @@ struct StockedEmptyState: View {
             if !tips.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Quick tips")
-                        .font(.system(size: 11, weight: .bold))
+                        .scaledFont(11, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.bottom, 2)
                     ForEach(tips, id: \.self) { tip in
                         HStack(alignment: .top, spacing: 8) {
                             Text("·").foregroundStyle(Color.stockedGold)
                             Text(tip)
-                                .font(.system(size: 13))
+                                .scaledFont(13)
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite.opacity(0.6) : Color.stockedCharcoal.opacity(0.6))
                         }
                     }
@@ -333,6 +472,7 @@ struct StockedEmptyState: View {
 // MARK: - Completion celebration (UX #15)
 struct CelebrationOverlay: View {
     @Environment(AppSession.self) private var _dsSession
+    @Environment(\.stockedMotion) private var motion
     @Binding var isShowing: Bool
     let title: String; let message: String; let emoji: String
     @State private var scale: CGFloat = 0.3; @State private var opacity: Double = 0
@@ -340,7 +480,7 @@ struct CelebrationOverlay: View {
         ZStack {
             Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { dismiss() }
             VStack(spacing: 20) {
-                Text(emoji).font(.system(size: 80)).scaleEffect(scale)
+                Text(emoji).scaledFont(80).scaleEffect(scale)
                 Text(title).stocked(.title).foregroundStyle(_dsSession.themeTextColor).multilineTextAlignment(.center)
                 Text(message).stocked(.body).foregroundStyle(_dsSession.themeTextColor.opacity(0.6)).multilineTextAlignment(.center).padding(.horizontal, 32)
                 Button("Continue") { dismiss() }.padding(.horizontal, 40).stockedPrimary()
@@ -350,13 +490,15 @@ struct CelebrationOverlay: View {
         }
         .onAppear {
             HapticManager.success()
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) { scale = 1; opacity = 1 }
+            motion.animate(.settle, intent: .spatial) { scale = 1; opacity = 1 }
         }
     }
     private func dismiss() {
-        withAnimation(.spring(response: 0.3)) { scale = 0.8; opacity = 0 }
+        motion.animate(.standard, intent: .spatial) { scale = 0.8; opacity = 0 }
         Task {
-            try? await Task.sleep(nanoseconds: 300000000)
+            if motion.permitsSpatialMotion {
+                try? await Task.sleep(nanoseconds: 300000000)
+            }
             isShowing = false
         }
     }
@@ -403,7 +545,7 @@ struct PressableStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1)
-            .animation(.spring(response: 0.18, dampingFraction: 0.7), value: configuration.isPressed)
+            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
     }
 }
 extension View {
@@ -413,6 +555,7 @@ extension View {
 
 // MARK: - List item spring-in modifier
 struct SpringInModifier: ViewModifier {
+    @Environment(\.stockedMotion) private var motion
     @State private var appeared = false
     let delay: Double
     func body(content: Content) -> some View {
@@ -421,12 +564,98 @@ struct SpringInModifier: ViewModifier {
             .offset(y: appeared ? 0 : 12)
             .scaleEffect(appeared ? 1 : 0.97)
             .onAppear {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.78).delay(delay)) {
+                let animation = motion.animation(.settle, intent: .decorative).map { $0.delay(delay) }
+                withAnimation(animation) {
                     appeared = true
                 }
             }
     }
 }
+
+// MARK: - Equal-height adaptive control rows
+
+/// Measures every child with its natural Dynamic Type height, then gives all
+/// controls in the row the tallest measurement. Labels may wrap, but paired
+/// actions never look misaligned or move to a second row because one is longer.
+struct StockedEqualHeightRow: Layout {
+    var spacing: CGFloat = 10
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews,
+                      cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let available = proposal.width ?? 0
+        let childWidth = available > 0
+            ? max(0, (available - spacing * CGFloat(subviews.count - 1)) / CGFloat(subviews.count))
+            : nil
+        let sizes = subviews.map { $0.sizeThatFits(.init(width: childWidth, height: nil)) }
+        let width = available > 0 ? available : sizes.map(\.width).reduce(0, +) + spacing * CGFloat(subviews.count - 1)
+        return CGSize(width: width, height: sizes.map(\.height).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize,
+                       subviews: Subviews, cache: inout ()) {
+        guard !subviews.isEmpty else { return }
+        let childWidth = max(0, (bounds.width - spacing * CGFloat(subviews.count - 1)) / CGFloat(subviews.count))
+        let childProposal = ProposedViewSize(width: childWidth, height: bounds.height)
+        for (index, subview) in subviews.enumerated() {
+            let x = bounds.minX + CGFloat(index) * (childWidth + spacing)
+            subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: childProposal)
+        }
+    }
+}
+
+/// Shared internal row geometry for icon + copy + accessory controls. A stable
+/// icon column and trailing slot make Settings, sheets, cards, and widget rows
+/// line up even when labels wrap at accessibility sizes.
+struct StockedAlignedControlLabel<Accessory: View>: View {
+    @Environment(AppSession.self) private var session
+    let icon: String
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color? = nil
+    var titleColor: Color? = nil
+    private let accessory: () -> Accessory
+
+    init(
+        icon: String,
+        title: String,
+        subtitle: String? = nil,
+        tint: Color? = nil,
+        titleColor: Color? = nil,
+        @ViewBuilder accessory: @escaping () -> Accessory
+    ) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+        self.tint = tint
+        self.titleColor = titleColor
+        self.accessory = accessory
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: icon)
+                .scaledFont(16, weight: .semibold)
+                .foregroundStyle(tint ?? session.accentColor)
+                .frame(width: 28, alignment: .center)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).scaledFont(15, weight: .semibold)
+                    .foregroundStyle(titleColor ?? session.themeTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let subtitle {
+                    Text(subtitle).scaledFont(12)
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            accessory().frame(minWidth: 28, alignment: .trailing)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+}
+
 extension View {
     func springIn(delay: Double = 0) -> some View { modifier(SpringInModifier(delay: delay)) }
 }
@@ -456,7 +685,7 @@ struct StockedWordmark: View {
         var dot = AttributedString(".")
         dot.foregroundColor = dotColor ?? base
         return Text(word + dot)
-            .font(.system(size: size, weight: .bold, design: .serif))
+            .font(.stockedSystem(size: size, weight: .bold, design: .serif))
     }
 }
 
@@ -470,14 +699,18 @@ struct SectionHeader: View {
     let text: String
     var padded: Bool = true
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10.5, weight: .bold))
+            .scaledFont(10.5, weight: .bold)
             .tracking(1)
             .foregroundStyle(session.themeTextColor.opacity(0.4))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(padded ? EdgeInsets(top: 10, leading: 24, bottom: 4, trailing: 24)
+            .padding(padded ? EdgeInsets(top: 10,
+                                         leading: layoutMetrics.horizontalPadding,
+                                         bottom: 4,
+                                         trailing: layoutMetrics.horizontalPadding)
                              : EdgeInsets())
     }
 }
@@ -509,7 +742,7 @@ extension View {
                         to: nil, from: nil, for: nil
                     )
                 }
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(15, weight: .semibold)
                 .foregroundStyle(Color.stockedGold)
             }
         }
@@ -525,41 +758,46 @@ extension View {
 struct StockedSheet<Content: View>: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedLayout) private var layoutMetrics
     let title: String
     var showClose: Bool = true
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         VStack(spacing: 0) {
-                // Handle
-                Capsule()
-                    .fill(session.themeTextColor.opacity(0.18))
-                    .frame(width: 40, height: 4)
-                    .padding(.top, 12)
-                // Header
-                HStack(alignment: .center) {
-                    Text(title)
-                        .font(.system(size: 22, weight: .bold, design: .serif))
-                        .foregroundStyle(session.themeTextColor)
-                    Spacer()
-                    if showClose {
-                        Button { dismiss() } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundStyle(session.themeTextColor.opacity(0.22))
-                        }.buttonStyle(.plain)
+            // Handle
+            Capsule()
+                .fill(session.themeTextColor.opacity(0.18))
+                .frame(width: 40, height: 4)
+                .padding(.top, 12)
+            // Header
+            HStack(alignment: .top, spacing: 12) {
+                Text(title)
+                    .font(.stockedTitle)
+                    .stockedAdaptiveLabel()
+                Spacer()
+                if showClose {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .scaledFont(24)
+                            .foregroundStyle(session.themeTextColor.opacity(0.22))
+                            .frame(minWidth: 44, minHeight: layoutMetrics.minimumControlHeight)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 14)
-                .padding(.bottom, 14)
-                Divider().padding(.horizontal, 24)
-                // Content
-                content()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(session.themeBgColor.ignoresSafeArea())
-            .presentationDragIndicator(.hidden)
+            .padding(.horizontal, layoutMetrics.presentationHorizontalPadding)
+            .padding(.top, 14)
+            .padding(.bottom, 14)
+            Divider().padding(.horizontal, layoutMetrics.presentationHorizontalPadding)
+            // Content
+            content()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .stockedPresentationSurface(width: .form)
+        .presentationDragIndicator(.hidden)
     }
 }
 
@@ -689,7 +927,7 @@ struct StockedTopShell<Content: View>: View {
                 if let onBack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .scaledFont(20, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                     }.buttonStyle(.plain)
                 } else {
@@ -697,7 +935,7 @@ struct StockedTopShell<Content: View>: View {
                 }
                 Spacer()
                 Text("Stocked.")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 Color.clear.frame(width: 24)
@@ -708,7 +946,7 @@ struct StockedTopShell<Content: View>: View {
 
             if !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(.system(size: 18, weight: .regular, design: .serif))
+                    .scaledFont(18, weight: .regular, design: .serif)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .padding(.bottom, 14)
             }

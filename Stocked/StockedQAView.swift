@@ -718,7 +718,7 @@ struct StockedQAHomeView: View {
                 if bridgeBusy {
                     HStack(spacing: 10) { ProgressView(); Text("Talking to the Worker…").foregroundStyle(.secondary) }
                 } else if let bridgeStatus {
-                    Text(bridgeStatus).font(.caption).foregroundStyle(.secondary)
+                    Text(bridgeStatus).font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
             }
 
@@ -753,7 +753,7 @@ struct StockedQAHomeView: View {
                 Label("Access", systemImage: gate.isUnlocked ? "lock.open.fill" : "lock.fill")
                 Spacer()
                 Text(gate.remainingText)
-                    .font(.caption.monospaced())
+                    .font(.stocked(.caption).monospaced())
                     .foregroundStyle(gate.isUnlocked ? Color.stockedGreen : .secondary)
             }
             if gate.isUnlocked {
@@ -800,7 +800,7 @@ struct StockedQAHomeView: View {
     private var signOffCard: some View {
         let sign = store.signOff
         return VStack(alignment: .leading, spacing: 10) {
-            Text("Sign-off").font(.system(size: 16, weight: .bold, design: .serif))
+            Text("Sign-off").scaledFont(16, weight: .bold, design: .serif)
             HStack(spacing: 14) {
                 signStat("\(sign.passed)", "Passed", Color.stockedGreen)
                 signStat("\(sign.failed)", "Failed", .red)
@@ -810,7 +810,7 @@ struct StockedQAHomeView: View {
             Label(sign.openBlockers == 0 ? "SHIP-eligible — no open blockers"
                                          : "HOLD — \(sign.openBlockers) open blocker\(sign.openBlockers == 1 ? "" : "s")",
                   systemImage: sign.openBlockers == 0 ? "checkmark.seal.fill" : "xmark.seal.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .scaledFont(13, weight: .semibold)
                 .foregroundStyle(sign.openBlockers == 0 ? Color.stockedGreen : .red)
         }
         .padding(.vertical, 4)
@@ -818,8 +818,8 @@ struct StockedQAHomeView: View {
 
     private func signStat(_ value: String, _ label: String, _ color: Color) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 18, weight: .bold, design: .monospaced)).foregroundStyle(color)
-            Text(label).font(.system(size: 9)).foregroundStyle(.secondary)
+            Text(value).scaledFont(18, weight: .bold, design: .monospaced).foregroundStyle(color)
+            Text(label).scaledFont(9).foregroundStyle(.secondary)
         }
     }
 
@@ -828,7 +828,7 @@ struct StockedQAHomeView: View {
         let blockers = section.items.filter(\.blocker).count
         return VStack(alignment: .leading, spacing: 3) {
             Text("\(section.number). \(section.title)")
-                .font(.system(size: 14, weight: .medium))
+                .scaledFont(14, weight: .medium)
             HStack(spacing: 10) {
                 Label("\(prog.pass)", systemImage: "checkmark.circle").foregroundStyle(Color.stockedGreen)
                 if prog.fail > 0 { Label("\(prog.fail)", systemImage: "xmark.circle").foregroundStyle(.red) }
@@ -836,13 +836,13 @@ struct StockedQAHomeView: View {
                 Text("of \(prog.total)").foregroundStyle(.secondary)
                 if blockers > 0 {
                     Text("\(blockers) blocker\(blockers == 1 ? "" : "s")")
-                        .font(.system(size: 9, weight: .bold))
+                        .scaledFont(9, weight: .bold)
                         .padding(.horizontal, 5).padding(.vertical, 2)
                         .background(Capsule().fill(Color.red.opacity(0.15)))
                         .foregroundStyle(.red)
                 }
             }
-            .font(.caption)
+            .font(.stocked(.caption))
         }
     }
 
@@ -913,20 +913,20 @@ struct StockedQASectionView: View {
     var body: some View {
         List {
             if !section.note.isEmpty {
-                Text(section.note).font(.caption).foregroundStyle(.secondary)
+                Text(section.note).font(.stocked(.caption)).foregroundStyle(.secondary)
             }
 
             filterBar
 
             if !justFiled.isEmpty {
-                Text(justFiled).font(.caption).foregroundStyle(Color.stockedGreen)
+                Text(justFiled).font(.stocked(.caption)).foregroundStyle(Color.stockedGreen)
             }
 
             if visibleItems.isEmpty {
                 Label(filter == .untested ? "Every row in this section has a verdict."
                       : "Nothing here matches \"\(filter.title)\".",
                       systemImage: "checkmark.circle")
-                    .font(.caption)
+                    .font(.stocked(.caption))
                     .foregroundStyle(Color.stockedGreen)
             }
 
@@ -981,7 +981,7 @@ struct StockedQASectionView: View {
                             filter = f
                         } label: {
                             Text("\(f.title) \(n)")
-                                .font(.system(size: 11, weight: .semibold))
+                                .scaledFont(11, weight: .semibold)
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(Capsule().fill(filter == f
                                                            ? Color.stockedGold
@@ -993,8 +993,10 @@ struct StockedQASectionView: View {
                         .opacity(n == 0 && f != .all ? 0.4 : 1)
                     }
                 }
+                .stockedScrollTargetLayout()
                 .padding(.vertical, 2)
             }
+            .stockedHorizontalSnap()
             if let next = firstUntested, filter != .untested {
                 Button {
                     // Switching the filter is the jump: the untested rows become
@@ -1004,7 +1006,7 @@ struct StockedQASectionView: View {
                     filter = .untested
                 } label: {
                     Label("Jump to next untested — \(next.ticket)", systemImage: "arrow.down.to.line")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .buttonStyle(.plain)
@@ -1032,27 +1034,27 @@ struct StockedQASectionView: View {
                     }
                 } label: {
                     Image(systemName: state.verdict.symbol)
-                        .font(.title3)
+                        .font(.stocked(.title3))
                         .foregroundStyle(state.verdict.color)
                 }
                 .buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(item.ticket)
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .scaledFont(9, weight: .bold, design: .monospaced)
                             .padding(.horizontal, 5).padding(.vertical, 2)
                             .background(Capsule().fill(Color.gray.opacity(0.15)))
                             .foregroundStyle(.secondary)
                         if item.blocker {
                             Text("BLOCKER")
-                                .font(.system(size: 9, weight: .bold))
+                                .scaledFont(9, weight: .bold)
                                 .padding(.horizontal, 5).padding(.vertical, 2)
                                 .background(Capsule().fill(Color.red.opacity(0.15)))
                                 .foregroundStyle(.red)
                         }
                     }
                     Text(item.text)
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(item.blocker ? .red : .primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1067,11 +1069,11 @@ struct StockedQASectionView: View {
                 .buttonStyle(.plain)
             }
             if !state.note.isEmpty {
-                Text(state.note).font(.caption).foregroundStyle(Color.stockedGold)
+                Text(state.note).font(.stocked(.caption)).foregroundStyle(Color.stockedGold)
             }
             if let number = state.ticketNumber {
                 Label(number, systemImage: "ticket")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .scaledFont(10, weight: .semibold, design: .monospaced)
                     .foregroundStyle(Color.stockedInfo)
             }
         }

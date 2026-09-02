@@ -59,7 +59,7 @@ struct StockedApp: App {
         // This is the only reliable way to override environment-inherited colors
         UITextField.appearance().textColor = nil  // let system handle dark mode
         // We control via overrideUserInterfaceStyle instead
-        
+
         // Global keyboard dismissal
         UIScrollView.appearance().keyboardDismissMode = .onDrag
         // Clear ALL system backgrounds so nothing bleeds through
@@ -86,8 +86,11 @@ struct StockedApp: App {
             // available canvas.
             DeviceAdaptiveRoot {
                 RootView()
+                    .stockedAdaptiveInterface()
+                    .stockedSizeAwareScrollBounce([.vertical, .horizontal])
+                    .appWideExperience()
             }
-                .environment(session)
+            .environment(session)
         }
         .onChange(of: scenePhase) { _, phase in
             // Persist any pending debounced settings writes before we lose foreground.
@@ -260,7 +263,7 @@ struct RootView: View {
         // accessibility3 to support larger accessibility text sizes while still capping the two
         // largest steps (accessibility4/5), which most often break dense fixed layouts. This makes
         // the app usable across the accessibility text-size range and Display Zoom (Default/Zoomed).
-        .dynamicTypeSize(.xSmall ... .accessibility3)
+
         .onAppear {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
             // Deferred remote-config fetch (kill switches, maintenance, min version).

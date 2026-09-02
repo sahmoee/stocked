@@ -68,7 +68,7 @@ struct CreateRecipeView: View {
                                         applyAutofill(from: autofillForm, sourceName: entry.sourceName)
                                     }
                                 )
-                                .font(.system(size: 17, weight: .semibold))
+                                .scaledFont(17, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                                 .padding(16)
 
@@ -86,7 +86,7 @@ struct CreateRecipeView: View {
                                     HStack(spacing: 8) {
                                         ProgressView().controlSize(.small)
                                         Text("Tidying up the import…")
-                                            .font(.system(size: 12))
+                                            .scaledFont(12)
                                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                                     }
                                     .padding(.horizontal, 16).padding(.bottom, 10)
@@ -95,7 +95,7 @@ struct CreateRecipeView: View {
                                 if !originalText.isEmpty {
                                     Button { showOriginal = true } label: {
                                         Label("Show original text", systemImage: "doc.plaintext")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .scaledFont(12, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                                     }
                                     .buttonStyle(.plain)
@@ -116,20 +116,20 @@ struct CreateRecipeView: View {
                             HStack(spacing: 0) {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Prep Time")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                                     TextField("15 min", text: $prepTime)
-                                        .font(.system(size: 17))
+                                        .scaledFont(17)
                                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 }
                                 .padding(16)
                                 Divider().frame(height: 48)
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Cook Time")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                                     TextField("30 min", text: $cookTime)
-                                        .font(.system(size: 17))
+                                        .scaledFont(17)
                                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 }
                                 .padding(16)
@@ -138,12 +138,12 @@ struct CreateRecipeView: View {
                             formDivider
                             HStack {
                                 Text("Servings")
-                                    .font(.system(size: 16))
+                                    .scaledFont(16)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Stepper("", value: $servings, in: 1...50).labelsHidden()
                                 Text("\(servings)")
-                                    .font(.system(size: 17, weight: .semibold, design: .serif))
+                                    .scaledFont(17, weight: .semibold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                     .frame(minWidth: 30)
                             }
@@ -152,13 +152,13 @@ struct CreateRecipeView: View {
                             formDivider
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Difficulty")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .scaledFont(12, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                                 HStack(spacing: 8) {
                                     ForEach(difficulties, id: \.self) { d in
                                         Button { difficulty = d } label: {
                                             Text(d)
-                                                .font(.system(size: 13, weight: .semibold))
+                                                .scaledFont(13, weight: .semibold)
                                                 .foregroundStyle(difficulty == d ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
                                                 .padding(.horizontal, 14).padding(.vertical, 9)
                                                 .background(difficulty == d ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
@@ -176,7 +176,7 @@ struct CreateRecipeView: View {
                         formSection("Ingredients") {
                             if ingredients.isEmpty {
                                 Text("No ingredients yet — tap below to add some.")
-                                    .font(.system(size: 14))
+                                    .scaledFont(14)
                                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
@@ -187,8 +187,8 @@ struct CreateRecipeView: View {
                                     }
                                     if flaggedIngredientIDs.contains(ing.id) {
                                         HStack(spacing: 5) {
-                                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10))
-                                            Text("Double-check this one").font(.system(size: 11, weight: .semibold))
+                                            Image(systemName: "exclamationmark.triangle.fill").scaledFont(10)
+                                            Text("Double-check this one").scaledFont(11, weight: .semibold)
                                         }
                                         .foregroundStyle(Color.stockedGold)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -201,7 +201,7 @@ struct CreateRecipeView: View {
                                 withAnimation { ingredients.append(RecipeIngredient(name: "", amount: "")) }
                             } label: {
                                 Label("Add Ingredient", systemImage: "plus.circle.fill")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(15, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
@@ -220,7 +220,7 @@ struct CreateRecipeView: View {
                                     }
                                 } label: {
                                     Label("Add missing to grocery list", systemImage: "cart.badge.plus")
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .scaledFont(15, weight: .semibold)
                                         .foregroundStyle(Color.stockedGreen)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(16)
@@ -228,7 +228,7 @@ struct CreateRecipeView: View {
                                 .buttonStyle(.plain)
                                 if let msg = groceryPushMsg {
                                     Text(msg)
-                                        .font(.system(size: 12))
+                                        .scaledFont(12)
                                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                                         .padding(.horizontal, 16).padding(.bottom, 12)
                                 }
@@ -240,7 +240,7 @@ struct CreateRecipeView: View {
                             ForEach(instructions.indices, id: \.self) { idx in
                                 HStack(alignment: .top, spacing: 12) {
                                     Text("\(idx + 1)")
-                                        .font(.system(size: 14, weight: .bold, design: .serif))
+                                        .scaledFont(14, weight: .bold, design: .serif)
                                         .foregroundStyle(Color.stockedWhite)
                                         .frame(width: 26, height: 26)
                                         .background(Circle().fill(Color.stockedGold))
@@ -249,8 +249,8 @@ struct CreateRecipeView: View {
                                         bigEditor(placeholder: "Describe step \(idx + 1)…", text: $instructions[idx], minHeight: 60)
                                         if let secs = StepTimerEngine.detectSeconds(in: instructions[idx]), secs > 0 {
                                             HStack(spacing: 5) {
-                                                Image(systemName: "timer").font(.system(size: 10))
-                                                Text("\(timerLabel(secs)) timer").font(.system(size: 11, weight: .semibold))
+                                                Image(systemName: "timer").scaledFont(10)
+                                                Text("\(timerLabel(secs)) timer").scaledFont(11, weight: .semibold)
                                             }
                                             .foregroundStyle(Color.stockedGold)
                                             .padding(.horizontal, 14).padding(.bottom, 8)
@@ -273,7 +273,7 @@ struct CreateRecipeView: View {
                                 withAnimation { instructions.append("") }
                             } label: {
                                 Label("Add Step", systemImage: "plus.circle.fill")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(15, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
@@ -297,7 +297,7 @@ struct CreateRecipeView: View {
                 NavigationStack {
                     ScrollView {
                         Text(originalText)
-                            .font(.system(size: 14))
+                            .scaledFont(14)
                             .foregroundStyle(session.themeTextColor)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -536,7 +536,7 @@ struct CreateRecipeView: View {
     /// A small section/field label.
     private func fieldLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .scaledFont(12, weight: .semibold)
             .foregroundStyle(session.themeTextColor.opacity(0.45))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 2)
@@ -545,7 +545,7 @@ struct CreateRecipeView: View {
     /// A larger single-line text field — roomier tap target and bigger type.
     private func bigField(_ placeholder: String, text: Binding<String>) -> some View {
         TextField(placeholder, text: text)
-            .font(.system(size: 16))
+            .scaledFont(16)
             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
             .padding(.horizontal, 18).padding(.vertical, 16)
     }
@@ -556,18 +556,12 @@ struct CreateRecipeView: View {
         ZStack(alignment: .topLeading) {
             if text.wrappedValue.isEmpty {
                 Text(placeholder)
-                    .font(.system(size: 16))
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
-                    .padding(.horizontal, 18).padding(.vertical, 16)
-                    .allowsHitTesting(false)
+                    .stockedTextEditorPlaceholder()
             }
             TextEditor(text: text)
-                .font(.system(size: 16))
-                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: minHeight)
-                .padding(.horizontal, 14).padding(.vertical, 8)
+                .stockedTextEditorContent(minimumHeight: minHeight)
         }
+        .stockedInputSurface()
     }
 
     private var formDivider: some View {
@@ -580,7 +574,7 @@ struct CreateRecipeView: View {
     @ViewBuilder
     private func formSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .bold))
+            .scaledFont(12, weight: .bold)
             .tracking(0.3)
             .foregroundStyle(session.themeTextColor.opacity(0.5))
             .padding(.horizontal, 28)
@@ -614,10 +608,10 @@ struct CreateRecipeView: View {
                 } else {
                     VStack(spacing: 8) {
                         Image(systemName: "photo.badge.plus")
-                            .font(.system(size: 34))
+                            .scaledFont(34)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                         Text("Add a photo")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                 }
@@ -628,7 +622,7 @@ struct CreateRecipeView: View {
             HStack(spacing: 18) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
                     Label(imageData == nil ? "Choose Photo" : "Change Photo", systemImage: "photo.on.rectangle")
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 if imageData != nil {
@@ -636,7 +630,7 @@ struct CreateRecipeView: View {
                         withAnimation { imageData = nil; selectedPhoto = nil }
                     } label: {
                         Label("Remove", systemImage: "trash")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(.red.opacity(0.7))
                     }
                     .buttonStyle(.plain)

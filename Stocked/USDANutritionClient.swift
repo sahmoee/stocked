@@ -87,14 +87,29 @@ actor USDANutritionClient {
             URLQueryItem(name: "pageSize", value: String(pageSize)),
             URLQueryItem(name: "api_key", value: apiKey)
         ]
-        guard let url = components.url,
-              let (data, response) = try? await session.data(from: url) else { return [] }
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            Log.net.error("USDA lookup failed (HTTP \(http.statusCode, privacy: .public))")
+        guard let url = components.url else { return [] }
+        let startedAt = Date()
+        do {
+            let (data, response) = try await session.data(from: url)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                await SourceHealth.shared.record("usda", success: false,
+                                                 latency: Date().timeIntervalSince(startedAt))
+                Log.net.error("USDA lookup failed (HTTP \(http.statusCode, privacy: .public))")
+                return []
+            }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                await SourceHealth.shared.record("usda", success: false,
+                                                 latency: Date().timeIntervalSince(startedAt))
+                return []
+            }
+            await SourceHealth.shared.record("usda", success: true,
+                                             latency: Date().timeIntervalSince(startedAt))
+            return json["foods"] as? [[String: Any]] ?? []
+        } catch {
+            await SourceHealth.shared.record("usda", success: false,
+                                             latency: Date().timeIntervalSince(startedAt))
             return []
         }
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
-        return json["foods"] as? [[String: Any]] ?? []
     }
 
     private func parseFood(_ food: [String: Any], servingSize: String = "100 g") -> NutritionFacts? {

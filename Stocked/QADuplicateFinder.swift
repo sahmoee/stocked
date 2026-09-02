@@ -135,27 +135,27 @@ struct QARecurringTicketsView: View {
                             HStack(alignment: .top, spacing: 10) {
                                 VStack(spacing: 1) {
                                     Text("\(t.recurrenceCount + 1)")
-                                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                                        .scaledFont(15, weight: .bold, design: .rounded)
                                         .foregroundStyle(t.recurrenceCount >= 2 ? Color.stockedError : Color.stockedWarning)
-                                    Text("times").font(.system(size: 8)).foregroundStyle(.secondary)
+                                    Text("times").scaledFont(8).foregroundStyle(.secondary)
                                 }
                                 .frame(width: 34)
 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("\(t.number) \(t.title)")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .scaledFont(13, weight: .medium)
                                         .fixedSize(horizontal: false, vertical: true)
                                     Text(t.context.screen)
-                                        .font(.caption2)
+                                        .font(.stocked(.caption2))
                                         .foregroundStyle(.secondary)
                                     if let again = t.seenAgainAt {
                                         Text("last seen \(again.formatted(date: .abbreviated, time: .shortened))")
-                                            .font(.system(size: 10))
+                                            .scaledFont(10)
                                             .foregroundStyle(.tertiary)
                                     }
                                     if t.status.isClosed {
                                         Text("\(t.status.title.uppercased()) — and filed again since")
-                                            .font(.system(size: 9, weight: .bold))
+                                            .scaledFont(9, weight: .bold)
                                             .foregroundStyle(Color.stockedError)
                                     }
                                 }

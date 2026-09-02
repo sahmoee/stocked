@@ -67,9 +67,20 @@ enum ImageFallbackService {
 
 // MARK: - AsyncFoodImage View
 
+private struct AsyncFoodImageTaskID: Hashable {
+    let name: String
+    let url: String?
+    let resolveOnline: Bool
+    let category: String?
+    let mayLoadVisibleImages: Bool
+    let isOnline: Bool
+}
+
 /// Drop-in image view with automatic fallback chain.
 /// Usage: AsyncFoodImage(name: "Chicken Breast", url: item.imageURL, size: 60)
 struct AsyncFoodImage: View {
+    @Environment(\.stockedScrollActivity) private var scrollActivity
+    @State private var connectivity = ConnectivityMonitor.shared
     let name:    String
     let url:     String?
     var size:    CGFloat    = 56
@@ -82,6 +93,23 @@ struct AsyncFoodImage: View {
 
     @State private var loadedImage: UIImage? = nil
     @State private var failed = false
+    @State private var loadedContentID: String?
+
+    private var contentID: String {
+        [name, url ?? "", resolveOnline ? "resolve" : "local", category ?? ""]
+            .joined(separator: "|")
+    }
+
+    private var taskID: AsyncFoodImageTaskID {
+        AsyncFoodImageTaskID(
+            name: name,
+            url: url,
+            resolveOnline: resolveOnline,
+            category: category,
+            mayLoadVisibleImages: scrollActivity.mayLoadVisibleImages,
+            isOnline: connectivity.isOnline
+        )
+    }
 
     var body: some View {
         Group {
@@ -101,64 +129,122 @@ struct AsyncFoodImage: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: radius)
                         .fill(Color.stockedWhite.opacity(0.2))
-                    if !failed {
+                    if !failed && scrollActivity.mayLoadVisibleImages {
                         ProgressView().scaleEffect(0.6)
                     }
                 }
                 .frame(width: size, height: size)
             }
         }
-        .onAppear { loadImage() }
+        .task(id: taskID) { await loadImage(activity: scrollActivity) }
     }
 
-    private func loadImage() {
-        // Fast path: a usable stored URL (or barcode-derived URL).
+    private func loadImage(activity: StockedScrollActivity) async {
+        let requestedID = contentID
+        if loadedContentID == requestedID, loadedImage != nil { return }
+        if loadedContentID != requestedID {
+            loadedImage = nil
+            loadedContentID = nil
+            failed = false
+        }
+
+        // Fast path: a usable stored URL (or barcode-derived URL). Memory is safe
+        // during direct manipulation; disk, network, resolution, and decode follow
+        // the same scroll/offline policy as every other Stocked image surface.
         if let target = ImageFallbackService.imageURL(for: name, storedURL: url) {
-            loadFrom(target.absoluteString, allowResolveFallback: resolveOnline)
+            let key = URLCanonicalizer.canonicalString(target.absoluteString)
+            if let cached = ImageCache.shared.memoryImage(for: key) {
+                loadedImage = cached
+                loadedContentID = requestedID
+                return
+            }
+            let directive = StockedImageWorkPolicy().directive(
+                for: .init(source: .remote, purpose: .visible),
+                activity: activity,
+                remoteAccessAllowed: ConnectivityMonitor.isOnlineFlag
+            )
+            let image: UIImage?
+            switch directive {
+            case .displayNow:
+                image = ImageCache.shared.memoryImage(for: key)
+            case .loadNow(let priority):
+                image = await ImageCache.shared.fetchImage(
+                    url: key,
+                    priority: priority.taskPriority
+                )
+            case .localOnly:
+                image = await ImageCache.shared.cachedImage(for: key, priority: .utility)
+            case .deferUntilDeceleration, .deferUntilIdle:
+                return
+            }
+            if let image {
+                guard !Task.isCancelled, contentID == requestedID else { return }
+                loadedImage = image
+                loadedContentID = requestedID
+                return
+            }
+            guard resolveOnline, ConnectivityMonitor.isOnlineFlag else {
+                if !Task.isCancelled { failed = true }
+                return
+            }
+            await resolveAndLoad(requestedID: requestedID, directive: directive)
         } else if resolveOnline {
             // No stored image — resolve one online by recipe name.
-            resolveAndLoad()
+            let directive = StockedImageWorkPolicy().directive(
+                for: .init(source: .remote, purpose: .visible),
+                activity: activity,
+                remoteAccessAllowed: ConnectivityMonitor.isOnlineFlag
+            )
+            await resolveAndLoad(requestedID: requestedID, directive: directive)
         } else {
             failed = true
         }
     }
 
-    private func loadFrom(_ key: String, allowResolveFallback: Bool) {
-        if let cached = ImageCache.shared.memoryImage(for: key) { loadedImage = cached; return }
-        // A malformed key must never trap the app. URL(string:) returns nil on a bad
-        // string (spaces, an empty path, a scheme-less relative path), so guard it and
-        // route the miss through the same fallback a network failure would take.
-        guard let target = URL(string: key) else {
-            if allowResolveFallback { resolveAndLoad() } else { failed = true }
+    private func resolveAndLoad(
+        requestedID: String,
+        directive: StockedImageWorkDirective
+    ) async {
+        let priority: TaskPriority
+        switch directive {
+        case .loadNow(let requestedPriority):
+            priority = requestedPriority.taskPriority
+        case .displayNow:
+            priority = .userInitiated
+        case .localOnly:
+            if !Task.isCancelled, contentID == requestedID { failed = true }
+            return
+        case .deferUntilDeceleration, .deferUntilIdle:
             return
         }
-        Task {
-            if let img = await ImageCache.shared.fetchImage(url: target.absoluteString) {
-                await MainActor.run { loadedImage = img }
-            } else {
-                if allowResolveFallback {
-                    resolveAndLoad()
-                } else {
-                    await MainActor.run { failed = true }
-                }
-            }
+        guard ConnectivityMonitor.isOnlineFlag else {
+            if !Task.isCancelled, contentID == requestedID { failed = true }
+            return
         }
-    }
-
-    private func resolveAndLoad() {
-        Task {
-            guard let resolved = await RecipeImageResolver.shared.imageURL(for: name, category: category) else {
-                await MainActor.run { failed = true }; return
-            }
-            let key = resolved.absoluteString
-            if let cached = ImageCache.shared.memoryImage(for: key) {
-                await MainActor.run { loadedImage = cached }; return
-            }
-            if let img = await ImageCache.shared.fetchImage(url: key) {
-                await MainActor.run { loadedImage = img }
-            } else {
-                await MainActor.run { failed = true }
-            }
+        guard let resolved = await RecipeImageResolver.shared.imageURL(
+            for: name,
+            category: category
+        ) else {
+            if !Task.isCancelled, contentID == requestedID { failed = true }
+            return
+        }
+        let key = URLCanonicalizer.canonicalString(resolved.absoluteString)
+        if let cached = ImageCache.shared.memoryImage(for: key) {
+            guard contentID == requestedID else { return }
+            loadedImage = cached
+            loadedContentID = requestedID
+            return
+        }
+        let image = await ImageCache.shared.fetchImage(
+            url: key,
+            priority: priority
+        )
+        guard !Task.isCancelled, contentID == requestedID else { return }
+        if let image {
+            loadedImage = image
+            loadedContentID = requestedID
+        } else {
+            failed = true
         }
     }
 }
@@ -182,7 +268,7 @@ struct FoodIconView: View {
         } else if let c = catAsset, assetExists(c) {
             Image(c).resizable().scaledToFit().frame(width: size, height: size)
         } else {
-            Text(ImageFallbackService.emoji(for: name)).font(.system(size: emojiSize))
+            Text(ImageFallbackService.emoji(for: name)).font(.stockedSystem(size: emojiSize))
         }
     }
 

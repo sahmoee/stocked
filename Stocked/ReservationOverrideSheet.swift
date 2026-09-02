@@ -83,14 +83,14 @@ struct ReservationOverrideSheet: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: "calendar.badge.exclamationmark")
-                                    .font(.system(size: 18))
+                                    .scaledFont(18)
                                     .foregroundStyle(Color.stockedGold)
                                 Text("Ready if plans change")
-                                    .font(.system(size: 22, weight: .bold, design: .serif))
+                                    .scaledFont(22, weight: .bold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                             }
                             Text("“\(recipe.title.displayNormalized)” uses ingredients reserved for planned meals. You can still cook it — here's what it touches.")
-                                .font(.system(size: 13))
+                                .scaledFont(13)
                                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -105,17 +105,17 @@ struct ReservationOverrideSheet: View {
                                         FoodIconView(name: claim.ingredient, size: 26, emojiSize: 16)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(claim.ingredient.displayNormalized)
-                                                .font(.system(size: 13.5, weight: .semibold))
+                                                .scaledFont(13.5, weight: .semibold)
                                                 .foregroundStyle(session.themeTextColor)
-                                                .lineLimit(1)
+                                                .fixedSize(horizontal: false, vertical: true)
                                             Text("\(claim.mealTitle.displayNormalized) · \(dayLabel(claim.dayIndex, claim.date))")
-                                                .font(.system(size: 11.5))
+                                                .scaledFont(11.5)
                                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
-                                                .lineLimit(1)
+                                                .fixedSize(horizontal: false, vertical: true)
                                         }
                                         Spacer(minLength: 6)
                                         Text(claim.amountDisplay)
-                                            .font(.system(size: 11.5, weight: .semibold))
+                                            .scaledFont(11.5, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                             .fixedSize()
                                     }
@@ -136,15 +136,15 @@ struct ReservationOverrideSheet: View {
                                 ForEach(Array(affectedMeals.enumerated()), id: \.element.title) { idx, meal in
                                     HStack(spacing: 10) {
                                         Image(systemName: "calendar")
-                                            .font(.system(size: 13))
+                                            .scaledFont(13)
                                             .foregroundStyle(Color.stockedGold)
                                         Text(meal.title.displayNormalized)
-                                            .font(.system(size: 13.5, design: .serif))
+                                            .scaledFont(13.5, design: .serif)
                                             .foregroundStyle(session.themeTextColor)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                         Spacer(minLength: 6)
                                         Text(dayLabel(meal.dayIndex, meal.date))
-                                            .font(.system(size: 11.5, weight: .semibold))
+                                            .scaledFont(11.5, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                                             .fixedSize()
                                     }
@@ -157,7 +157,7 @@ struct ReservationOverrideSheet: View {
                             .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             Text("These meals will be re-checked automatically — anything left short shows up as a conflict in the planner.")
-                                .font(.system(size: 11.5))
+                                .scaledFont(11.5)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -175,7 +175,7 @@ struct ReservationOverrideSheet: View {
                                 onCookAnyway()
                             } label: {
                                 Label("Cook Anyway", systemImage: "flame.fill")
-                                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                                    .scaledFont(16, weight: .semibold, design: .serif)
                                     .foregroundStyle(Color.stockedWhite)
                                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                                     .background(Color.stockedGold)
@@ -195,7 +195,7 @@ struct ReservationOverrideSheet: View {
                             } label: {
                                 Label(addedToGrocery ? "Replacements Added to Grocery" : "Add Replacement to Grocery",
                                       systemImage: addedToGrocery ? "checkmark.circle.fill" : "cart.badge.plus")
-                                    .font(.system(size: 14.5, weight: .semibold))
+                                    .scaledFont(14.5, weight: .semibold)
                                     .foregroundStyle(addedToGrocery ? Color.stockedGreen : Color.stockedGold)
                                     .frame(maxWidth: .infinity).padding(.vertical, 13)
                                     .background((addedToGrocery ? Color.stockedGreen : Color.stockedGold).opacity(0.12))
@@ -206,7 +206,7 @@ struct ReservationOverrideSheet: View {
 
                             Button { dismiss() } label: {
                                 Text("Choose Another Meal")
-                                    .font(.system(size: 14))
+                                    .scaledFont(14)
                                     .foregroundStyle(session.themeTextColor.opacity(0.5))
                                     .frame(maxWidth: .infinity).padding(.vertical, 10)
                             }
@@ -222,7 +222,7 @@ struct ReservationOverrideSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }

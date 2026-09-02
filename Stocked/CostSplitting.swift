@@ -201,15 +201,15 @@ struct CostSplittingView: View {
             if store.people.count >= 2 {
                 Section {
                     if store.settlements.isEmpty {
-                        Text("Everyone's square.").font(.system(size: 14)).foregroundStyle(.green)
+                        Text("Everyone's square.").scaledFont(14).foregroundStyle(.green)
                     } else {
                         ForEach(store.settlements) { s in
                             HStack {
                                 Text("\(s.from) pays \(s.to)")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .scaledFont(14, weight: .medium)
                                 Spacer()
                                 Text(s.amount, format: .currency(code: currencyCode))
-                                    .font(.system(size: 15, weight: .bold))
+                                    .scaledFont(15, weight: .bold)
                                     .foregroundStyle(session.accentColor)
                             }
                         }
@@ -224,18 +224,18 @@ struct CostSplittingView: View {
 
             Section {
                 if store.expenses.isEmpty {
-                    Text("No shared purchases yet.").font(.system(size: 14)).foregroundStyle(.secondary)
+                    Text("No shared purchases yet.").scaledFont(14).foregroundStyle(.secondary)
                 } else {
                     ForEach(store.recent) { e in
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
-                                Text(e.label).font(.system(size: 14, weight: .semibold))
+                                Text(e.label).scaledFont(14, weight: .semibold)
                                 Spacer()
                                 Text(e.amount, format: .currency(code: currencyCode))
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(14, weight: .semibold)
                             }
                             Text("\(e.paidBy) paid · split \(e.sharedWith.isEmpty ? "evenly" : e.sharedWith.joined(separator: ", ")) · \(e.date.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                                .scaledFont(11).foregroundStyle(.secondary)
                         }
                     }
                     .onDelete { idx in idx.map { store.recent[$0] }.forEach { store.remove($0) } }
@@ -305,12 +305,13 @@ private struct AddSharedExpenseSheet: View {
                                                 sharedWith: splitWith.count == store.people.count ? [] : Array(splitWith)))
                         dismiss()
                     }
-                    .font(.body.bold())
+                    .font(.stocked(.body).bold())
                     .disabled(label.trimmingCharacters(in: .whitespaces).isEmpty || (Double(amount) ?? 0) <= 0)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
             .onAppear { if paidBy.isEmpty { paidBy = store.people.first ?? "" } }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }

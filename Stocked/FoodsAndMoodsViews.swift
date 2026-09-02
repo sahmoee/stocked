@@ -31,15 +31,15 @@ struct CategoryRow: View {
             ZStack {
                 Circle().fill(Color.black.opacity(0.3)).frame(width: 52, height: 52)
                 Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 1.5).frame(width: 52, height: 52)
-                if !emoji.isEmpty { Text(emoji).font(.system(size: 24)) }
-                else { Image(systemName: icon).font(.system(size: 22, weight: .light)).foregroundStyle(Color.white) }
+                if !emoji.isEmpty { Text(emoji).scaledFont(24) }
+                else { Image(systemName: icon).scaledFont(22, weight: .light).foregroundStyle(Color.white) }
             }
             Text(label)
-                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .scaledFont(22, weight: .semibold, design: .serif)
                 .foregroundStyle(Color.white)
                 .shadow(color: Color.black.opacity(0.55), radius: 3, y: 1)
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold))
+            Image(systemName: "chevron.right").scaledFont(14, weight: .bold)
                 .foregroundStyle(Color.white.opacity(0.9))
                 .shadow(color: Color.black.opacity(0.5), radius: 2, y: 1)
         }
@@ -69,11 +69,11 @@ struct CategoryRow: View {
                 Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
                 Circle().stroke(Color.stockedWhite, lineWidth: 2.5).frame(width: 72, height: 72)
                 Image(systemName: icon)
-                    .font(.system(size: 26, weight: .light))
+                    .scaledFont(26, weight: .light)
                     .foregroundStyle(Color.stockedWhite)
             }
             Text(label)
-                .font(.system(size: 22, weight: .regular, design: .serif))
+                .scaledFont(22, weight: .regular, design: .serif)
                 .foregroundStyle(accentColor)
             Spacer()
         }
@@ -89,11 +89,11 @@ struct FoodsCategoryView: View {
         StockedShell(showBack: true, scrollDisabled: true) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Foods")
-                    .font(.system(size: 40, weight: .bold, design: .serif))
+                    .scaledFont(40, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, 28).padding(.bottom, 4)
                 Text("Build your meal around")
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 28).padding(.bottom, 20)
 
@@ -137,6 +137,7 @@ struct CookFoodOption: Identifiable, Hashable {
 
 struct FoodsSubOptionView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     let category: String
     let icon: String
     let servings: Int
@@ -243,14 +244,14 @@ struct FoodsSubOptionView: View {
                 HStack(spacing: 20) {
                     ZStack {
                         Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
-                        Text(icon).font(.system(size: 32))
+                        Text(icon).scaledFont(32)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(category)
-                            .font(.system(size: 28, weight: .regular, design: .serif))
+                            .scaledFont(28, weight: .regular, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
                         Text(headline)
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeTextColor.opacity(0.6))
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -263,19 +264,19 @@ struct FoodsSubOptionView: View {
                         HStack(spacing: 16) {
                             HStack(spacing: 5) {
                                 Circle().fill(Color.stockedGold).frame(width: 8, height: 8)
-                                Text("In your pantry").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                                Text("In your pantry").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.6))
                             }
                             HStack(spacing: 5) {
                                 Circle().fill(session.themeTextColor.opacity(0.2)).frame(width: 8, height: 8)
-                                Text("Not in pantry").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                                Text("Not in pantry").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.6))
                             }
                         }
                         HStack(spacing: 6) {
                             Image(systemName: "hand.tap")
-                                .font(.system(size: 11))
+                                .scaledFont(11)
                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                             Text("Dimmed items aren't in your pantry — you can still select them to plan ahead or shop for ingredients.")
-                                .font(.system(size: 11))
+                                .scaledFont(11)
                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -289,7 +290,7 @@ struct FoodsSubOptionView: View {
                         let section = pair.element
                         VStack(alignment: .leading, spacing: 10) {
                             Text(section.title)
-                                .font(.system(size: 13, weight: .bold, design: .serif))
+                                .scaledFont(13, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor.opacity(0.75))
 
                             ForEach(section.options) { opt in
@@ -313,13 +314,13 @@ struct FoodsSubOptionView: View {
                                     dimmed: !inStock
                                 ) {
                                     if inStock {
-                                        withAnimation(.spring(response: 0.2)) { selected = opt.title }
+                                        motion.animate(.selection, intent: .spatial) { selected = opt.title }
                                         Task {
                                             try? await Task.sleep(nanoseconds: 300000000)
                                             gotoRecipe = true
                                         }
                                     } else {
-                                        withAnimation(.spring(response: 0.3)) { pendingUnstocked = opt.title }
+                                        motion.animate(.standard, intent: .spatial) { pendingUnstocked = opt.title }
                                     }
                                 }
                             }
@@ -354,7 +355,7 @@ struct FoodsSubOptionView: View {
                             }
                         }
                     )
-                    .presentationDetents([.height(280)])
+                    .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
                 }
             }
@@ -388,15 +389,15 @@ struct MoodsCategoryView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Text("Moods")
-                        .font(.system(size: 40, weight: .bold, design: .serif))
+                        .scaledFont(40, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedGold)
                     Text("by")
-                        .font(.system(size: 22, weight: .regular, design: .serif))
+                        .scaledFont(22, weight: .regular, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                 }
                 .padding(.horizontal, 28).padding(.bottom, 8)
                 Text("Let your vibe decide the recipe.")
-                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.55))
                     .padding(.horizontal, 28).padding(.bottom, 32)
 
                 VStack(spacing: 24) {
@@ -407,18 +408,18 @@ struct MoodsCategoryView: View {
                                     Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
                                     Circle().stroke(Color.stockedGold, lineWidth: 3).frame(width: 72, height: 72)
                                     Image(systemName: cat.sfIcon)
-                                        .font(.system(size: 28)).foregroundStyle(Color.stockedGold)
+                                        .scaledFont(28).foregroundStyle(Color.stockedGold)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(cat.label)
-                                        .font(.system(size: 22, weight: .regular, design: .serif))
+                                        .scaledFont(22, weight: .regular, design: .serif)
                                         .foregroundStyle(Color.stockedGold)
                                     Text(cat.description)
-                                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 14)).foregroundStyle(Color.stockedGold.opacity(0.4))
+                                    .scaledFont(14).foregroundStyle(Color.stockedGold.opacity(0.4))
                             }
                             .padding(.horizontal, 28)
                             .contentShape(Rectangle())
@@ -475,6 +476,7 @@ private let moodKeywords: [String: [String]] = [
 // MARK: - Moods Sub-option View
 struct MoodsSubOptionView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     let category: String
     let servings: Int
 
@@ -540,14 +542,14 @@ struct MoodsSubOptionView: View {
                         Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
                         Circle().stroke(Color.stockedGold, lineWidth: 3).frame(width: 72, height: 72)
                         Image(systemName: iconsMap[category] ?? "sparkles")
-                            .font(.system(size: 28)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(28).foregroundStyle(Color.stockedGold)
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         Text(category)
-                            .font(.system(size: 24, weight: .regular, design: .serif))
+                            .scaledFont(24, weight: .regular, design: .serif)
                             .foregroundStyle(Color.stockedGold)
                         Text("Tap a vibe — we'll find the recipe.")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                 }
@@ -557,7 +559,7 @@ struct MoodsSubOptionView: View {
                 VStack(spacing: 14) {
                     ForEach(options, id: \.label) { opt in
                         Button {
-                            withAnimation(.spring(response: 0.2)) {
+                            motion.animate(.selection, intent: .spatial) {
                                 selectedOption = opt
                             }
                             Task {
@@ -567,20 +569,20 @@ struct MoodsSubOptionView: View {
                         } label: {
                             HStack(spacing: 16) {
                                 Text(opt.emoji)
-                                    .font(.system(size: 24))
+                                    .scaledFont(24)
                                     .frame(width: 36)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(opt.label)
-                                        .font(.system(size: 17, weight: .semibold, design: .serif))
+                                        .scaledFont(17, weight: .semibold, design: .serif)
                                         .foregroundStyle(Color.stockedGold)
                                     Text(opt.description)
-                                        .font(.system(size: 12))
+                                        .scaledFont(12)
                                         .foregroundStyle(Color.stockedWhite.opacity(0.55))
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12)).foregroundStyle(Color.stockedGold.opacity(0.5))
+                                    .scaledFont(12).foregroundStyle(Color.stockedGold.opacity(0.5))
                             }
                             .padding(.horizontal, 20).padding(.vertical, 15)
                             .background(Color.stockedCharcoal)
@@ -612,6 +614,7 @@ struct MoodsSubOptionView: View {
 // MARK: - Mood Recipe Finder (fetches a matching internet recipe, refreshes every load)
 struct MoodRecipeFinderView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     let category:    String
     let subcategory: String
     let emoji:       String
@@ -662,16 +665,21 @@ struct MoodRecipeFinderView: View {
     private var loadingView: some View {
         VStack(spacing: 28) {
             Spacer()
-            Text(emoji).font(.system(size: 64))
+            Text(emoji).scaledFont(64)
                 .scaleEffect(isLoading ? 1.1 : 1)
-                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isLoading)
+                .animation(
+                    isLoading && motion.permitsContinuousMotion
+                        ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                        : nil,
+                    value: isLoading
+                )
             VStack(spacing: 8) {
                 Text("Finding your \(subcategory) recipe…")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .scaledFont(20, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .multilineTextAlignment(.center)
                 Text("Checking the web, your database, and AI for the perfect match")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
                     .multilineTextAlignment(.center)
             }
@@ -687,9 +695,9 @@ struct MoodRecipeFinderView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Mood label
             HStack(spacing: 8) {
-                Text(emoji).font(.system(size: 18))
+                Text(emoji).scaledFont(18)
                 Text("\(category)  ›  \(subcategory)")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(12, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
             }
             .padding(.horizontal, 24).padding(.bottom, 12)
@@ -703,17 +711,17 @@ struct MoodRecipeFinderView: View {
             // Title + meta
             VStack(alignment: .leading, spacing: 6) {
                 Text(r.title)
-                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 HStack(spacing: 16) {
-                    Label(r.prepTime, systemImage: "clock").font(.system(size: 12))
-                    Label(r.cookTime, systemImage: "flame").font(.system(size: 12))
-                    Label("\(servings) servings", systemImage: "person.2").font(.system(size: 12))
+                    Label(r.prepTime, systemImage: "clock").scaledFont(12)
+                    Label(r.cookTime, systemImage: "flame").scaledFont(12)
+                    Label("\(servings) servings", systemImage: "person.2").scaledFont(12)
                 }
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 if !sourceNote.isEmpty {
                     Label(sourceNote, systemImage: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }
@@ -722,10 +730,10 @@ struct MoodRecipeFinderView: View {
             // Top ingredients preview
             VStack(alignment: .leading, spacing: 6) {
                 Text("Key Ingredients")
-                    .font(.system(size: 13, weight: .bold)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(13, weight: .bold).foregroundStyle(session.themeTextColor.opacity(0.5))
                 FlowLayout(items: Array(r.ingredients.prefix(8))) { ing in
                     Text(ing)
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(Color.stockedWhite.opacity(0.45))
@@ -738,7 +746,7 @@ struct MoodRecipeFinderView: View {
             VStack(spacing: 12) {
                 Button { goToOverview = true } label: {
                     Text("Cook This Recipe")
-                        .font(.system(size: 18, weight: .semibold, design: .serif))
+                        .scaledFont(18, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 18)
                         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -749,7 +757,7 @@ struct MoodRecipeFinderView: View {
                         Image(systemName: "arrow.clockwise")
                         Text("Try a Different Recipe")
                     }
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedGold)
                     .frame(maxWidth: .infinity).padding(.vertical, 16)
                     .background(Color.stockedGold.opacity(0.10))
@@ -764,12 +772,12 @@ struct MoodRecipeFinderView: View {
     private var failedView: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "wifi.slash").font(.system(size: 44)).foregroundStyle(session.themeTextColor.opacity(0.25))
+            Image(systemName: "wifi.slash").scaledFont(44).foregroundStyle(session.themeTextColor.opacity(0.25))
             Text("Couldn't find a recipe right now.")
-                .font(.system(size: 17, design: .serif)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                .scaledFont(17, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.6))
             Button { fetchRecipe() } label: {
                 Label("Try Again", systemImage: "arrow.clockwise")
-                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                    .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 28).padding(.vertical, 14)
                     .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             }.buttonStyle(.plain)
@@ -975,11 +983,11 @@ struct UnstockedOptionSheet: View {
 
             VStack(spacing: 6) {
                 Text("🛒  \(itemName) isn't in your pantry")
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .multilineTextAlignment(.center)
                 Text("You can still find a recipe and shop for it,\nor add it to your grocery list now.")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .multilineTextAlignment(.center)
             }
@@ -989,7 +997,7 @@ struct UnstockedOptionSheet: View {
             VStack(spacing: 10) {
                 Button(action: onContinue) {
                     Text("Find a Recipe Anyway →")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
@@ -1003,7 +1011,7 @@ struct UnstockedOptionSheet: View {
                         Image(systemName: "cart.badge.plus")
                         Text("Add \(itemName) to Grocery List")
                     }
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)

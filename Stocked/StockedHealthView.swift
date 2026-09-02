@@ -252,7 +252,7 @@ private struct DiagnosticsLogSheet: View {
         NavigationStack {
             ScrollView {
                 Text(DiagnosticsMonitor.shared.currentLog())
-                    .font(.system(size: 11, design: .monospaced))
+                    .scaledFont(11, design: .monospaced)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
                     .padding(16)

@@ -94,30 +94,30 @@ struct DuplicateFinderView: View {
                                       message: "Your inventory looks clean — no items with the same or nearly-the-same name.")
                 } else {
                     Text("\(groups.count) possible duplicate group\(groups.count == 1 ? "" : "s"). Merging combines quantities and keeps the most complete item. Every merge can be undone.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeSecondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     ForEach(groups) { group in
                         ToolboxCard {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(group.displayName)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(15, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
                                 ForEach(group.items) { item in
                                     HStack {
                                         Text("• \(item.name)")
-                                            .font(.system(size: 13))
+                                            .scaledFont(13)
                                             .foregroundStyle(session.themeSecondaryText)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                         Spacer()
                                         Text("\(item.storageCategory.icon) \(item.displayText)")
-                                            .font(.system(size: 11))
+                                            .scaledFont(11)
                                             .foregroundStyle(session.themeSecondaryText.opacity(0.8))
                                     }
                                 }
                                 Button { merge(group) } label: {
                                     Label("Merge \(group.items.count) items", systemImage: "arrow.triangle.merge")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .scaledFont(13, weight: .semibold)
                                         .padding(.horizontal, 12).padding(.vertical, 7)
                                         .background(Capsule().fill(session.accentColor))
                                         .foregroundStyle(.white)
@@ -207,22 +207,22 @@ struct AchievementsView: View {
                     ForEach(badges) { badge in
                         VStack(spacing: 8) {
                             Image(systemName: badge.icon)
-                                .font(.system(size: 24, weight: .medium))
+                                .scaledFont(24, weight: .medium)
                                 .foregroundStyle(badge.earned ? session.accentColor : session.themeSecondaryText.opacity(0.4))
                                 .frame(width: 46, height: 46)
                                 .background(Circle().fill(badge.earned
                                     ? session.accentColor.opacity(session.isDarkMode ? 0.18 : 0.12)
                                     : session.themeBgColor))
                             Text(badge.title)
-                                .font(.system(size: 13, weight: .semibold))
+                                .scaledFont(13, weight: .semibold)
                                 .foregroundStyle(badge.earned ? session.themeTextColor : session.themeSecondaryText)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
+                                .fixedSize(horizontal: false, vertical: true)
+
                             Text(badge.detail)
-                                .font(.system(size: 10))
+                                .scaledFont(10)
                                 .foregroundStyle(session.themeSecondaryText)
                                 .multilineTextAlignment(.center)
-                                .lineLimit(2, reservesSpace: true)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity)

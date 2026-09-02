@@ -83,7 +83,7 @@ struct QAModeView: View {
             } else if QARecorder.isAvailable {
                 Section {
                     Text("Turn on QA mode and use the app normally. It records what you open and what you try, times every flow, watches memory and frame timing, and checks that surfaces which must agree still do.")
-                        .font(.footnote)
+                        .font(.stocked(.footnote))
                         .foregroundStyle(.secondary)
                 }
                 if recorder.previousSessionReport != nil { previousSessionSection }
@@ -97,7 +97,6 @@ struct QAModeView: View {
         .qaScreen("Settings > QA")
         .onAppear {
             if recorder.isEnabled { runner.start(store: store, session: nil) }
-            refreshFullExport()
         }
         .overlay(alignment: .bottom) { copiedToast }
         .confirmationDialog("Clear the whole session?", isPresented: $showClearConfirm, titleVisibility: .visible) {
@@ -137,9 +136,9 @@ struct QAModeView: View {
     private var unavailableSection: some View {
         Section {
             Label("QA is unavailable in this build", systemImage: "lock.fill")
-                .font(.subheadline.weight(.medium))
+                .font(.stocked(.subheadline).weight(.medium))
             Text("It is on in debug and TestFlight builds only, so a shipped App Store binary cannot sit recording because a toggle was left on.")
-                .font(.caption)
+                .font(.stocked(.caption))
                 .foregroundStyle(.secondary)
         }
     }
@@ -149,19 +148,19 @@ struct QAModeView: View {
         Section {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: triage.verdictSymbol)
-                    .font(.title2)
+                    .font(.stocked(.title2))
                     .foregroundStyle(triage.verdictTint)
                     .frame(width: 28)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(triage.verdict)
-                        .font(.headline)
+                        .font(.stocked(.headline))
                         .foregroundStyle(triage.verdictTint)
                     Text(recorder.isEnabled ? recorder.headlineLine : "Not recording.")
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(.secondary)
                     if recorder.isEnabled && !runtime.headline.isEmpty {
                         Text(runtime.headline)
-                            .font(.caption2.monospaced())
+                            .font(.stocked(.caption2).monospaced())
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -171,18 +170,18 @@ struct QAModeView: View {
             ForEach(triage.findings.prefix(6)) { f in
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: f.symbol)
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(f.level.tint)
                         .frame(width: 16)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(f.title)
-                            .font(.subheadline.weight(.medium))
+                            .font(.stocked(.subheadline).weight(.medium))
                         Text(f.detail)
-                            .font(.caption)
+                            .font(.stocked(.caption))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(f.source.uppercased())
-                            .font(.system(size: 9, weight: .semibold))
+                            .scaledFont(9, weight: .semibold)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -199,7 +198,7 @@ struct QAModeView: View {
 
             if recorder.isEnabled && triage.findings.isEmpty {
                 Text("Nothing to report. No violated invariants, no failures, no freezes, no open tickets.")
-                    .font(.caption)
+                    .font(.stocked(.caption))
                     .foregroundStyle(.secondary)
             }
         } header: {
@@ -246,7 +245,7 @@ struct QAModeView: View {
                 }
                 if let off = recorder.autoOffAt {
                     Text("Stops at \(off.formatted(date: .omitted, time: .shortened)).")
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -263,9 +262,9 @@ struct QAModeView: View {
         Section {
             Toggle("Press and hold to report", isOn: $reporterEnabled)
             if reporterEnabled {
-                LabeledContent("Gesture", value: "Two-finger hold")
-                Text("Two fingers keeps one-finger widget editing, context menus, and text selection available without opening the QA report sheet.")
-                    .font(.caption)
+                LabeledContent("Gesture", value: "Two-finger short press")
+                Text("Briefly press with two fingers anywhere to capture the current screen and open a QA ticket. Shake remains available. On Home, touch and hold with one finger to edit widgets; tap the page background to finish.")
+                    .font(.stocked(.caption))
                     .foregroundStyle(.secondary)
             }
 
@@ -274,7 +273,7 @@ struct QAModeView: View {
                 Text(QAShakeDetector.shared.isRunning
                      ? "Listening. Shake twice, quickly — \(QAShakeDetector.shared.shakeCount) so far this session."
                      : "Idle. The accelerometer only runs while QA mode is on.")
-                    .font(.caption)
+                    .font(.stocked(.caption))
                     .foregroundStyle(.secondary)
             }
 
@@ -286,10 +285,15 @@ struct QAModeView: View {
                 }
                 .pickerStyle(.segmented)
             }
+
+            LabeledContent("Tap indicators", value: "Always on while QA is active")
+            Text("Every tap shows a numbered, non-interactive ripple. Recent numbered taps are also drawn into QA screenshots in the order they occurred.")
+                .font(.stocked(.caption))
+                .foregroundStyle(.secondary)
         } header: {
             Text("Reporting")
         } footer: {
-            Text("Press and hold anywhere in the app to file a ticket. The screen, your last forty steps, whatever was running or stalled, recent failures, violated invariants, memory, thermal state, connectivity and a screenshot are attached automatically — you type one sentence. The HUD is read-only: memory, worst frame hitch, failures and open tickets. It cannot be tapped and never takes a touch from the app. Shake to report covers the places press-and-hold cannot reach — inside a scroll, a drag, or a text field, where the gesture is already taken.")
+            Text("Short-press with two fingers anywhere in the app, or shake the device, to file a ticket. The screen, your last forty steps, whatever was running or stalled, recent failures, violated invariants, memory, thermal state, connectivity and a screenshot are attached automatically — you type one sentence. The HUD is read-only and never takes a touch from the app.")
         }
     }
 
@@ -328,16 +332,16 @@ struct QAModeView: View {
             if !dangling.isEmpty {
                 DisclosureGroup("\(dangling.count) unresolved · \(dangling.filter(\.isHung).count) hung") {
                     Text("Started and never reported success or failure. A spinner that never stops looks exactly like this.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                     ForEach(dangling.prefix(10)) { d in
                         HStack {
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(d.label).font(.caption)
-                                Text(d.screen).font(.caption2).foregroundStyle(.secondary)
+                                Text(d.label).font(.stocked(.caption))
+                                Text(d.screen).font(.stocked(.caption2)).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Text(d.ageText)
-                                .font(.caption2.monospaced())
+                                .font(.stocked(.caption2).monospaced())
                                 .foregroundStyle(d.isHung ? .red : .secondary)
                         }
                     }
@@ -348,9 +352,9 @@ struct QAModeView: View {
             if !dead.isEmpty {
                 DisclosureGroup("\(dead.count) screen\(dead.count == 1 ? "" : "s") never tapped") {
                     Text("Visited but received no interaction. Either untested, or nothing on them responds to touch.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                     ForEach(dead, id: \.self) { s in
-                        Text(s).font(.caption.monospaced())
+                        Text(s).font(.stocked(.caption).monospaced())
                     }
                 }
             }
@@ -358,9 +362,9 @@ struct QAModeView: View {
             if !recorder.breadcrumbs.isEmpty {
                 DisclosureGroup("Breadcrumb trail") {
                     Text("The last \(recorder.breadcrumbs.count) things that happened, newest first. This is what gets attached to a ticket.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                     ForEach(recorder.breadcrumbs.reversed(), id: \.self) { c in
-                        Text(c).font(.caption2.monospaced())
+                        Text(c).font(.stocked(.caption2).monospaced())
                     }
                     copyButton("Copy trail", recorder.breadcrumbTrail)
                 }
@@ -412,10 +416,10 @@ struct QAModeView: View {
                     Spacer()
                     if tickets.openCount > 0 {
                         Text("\(tickets.openCount) open")
-                            .font(.caption.monospacedDigit())
+                            .font(.stocked(.caption).monospacedDigit())
                             .foregroundStyle(tickets.blockers.isEmpty ? .orange : .red)
                     } else {
-                        Text("none").font(.caption).foregroundStyle(.secondary)
+                        Text("none").font(.stocked(.caption)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -424,9 +428,9 @@ struct QAModeView: View {
                 ForEach(tickets.blockers.prefix(3)) { t in
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(t.number) \(t.title)")
-                            .font(.caption.weight(.medium))
+                            .font(.stocked(.caption).weight(.medium))
                             .foregroundStyle(.red)
-                        Text(t.context.screen).font(.caption2).foregroundStyle(.secondary)
+                        Text(t.context.screen).font(.stocked(.caption2)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -439,7 +443,7 @@ struct QAModeView: View {
                         Label("Seen more than once", systemImage: "repeat")
                         Spacer()
                         Text("\(tickets.recurring.count)")
-                            .font(.caption.monospacedDigit())
+                            .font(.stocked(.caption).monospacedDigit())
                             .foregroundStyle(.orange)
                     }
                 }
@@ -457,7 +461,7 @@ struct QAModeView: View {
             Text("Tickets")
         } footer: {
             Text(tickets.tickets.isEmpty
-                 ? "Nothing filed yet. Press and hold anywhere in the app to file one — it gets a number like STK-\(BuildConfig.buildNumber)-0001 and syncs with every other QA report."
+                 ? "Nothing filed yet. Short-press with two fingers anywhere, or shake the device, to file one — it gets a number like STK-\(BuildConfig.buildNumber)-0001 and syncs with every other QA report."
                  : "\(tickets.tickets.count) filed this install · \(tickets.lastSyncOutcome)")
         }
     }
@@ -480,23 +484,23 @@ struct QAModeView: View {
 
             if runtime.hitches.isEmpty {
                 Text("No frame hitches over 120 ms. The main thread has not been blocked long enough to be visible.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.stocked(.caption)).foregroundStyle(.secondary)
             } else {
                 row("Worst frame hitch", String(format: "%.0f ms", runtime.worstHitchMs),
                     tint: runtime.severeHitchCount > 0 ? .red : .orange)
                 DisclosureGroup("\(runtime.hitches.count) hitches · \(runtime.severeHitchCount) over a second") {
                     Text("A hitch is the gap between two frames. Over a second is watchdog range — iOS terminates apps for blocks like that, and those file their own ticket.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                     ForEach(Array(runtime.hitchesByScreen.prefix(6))) { h in
                         HStack {
-                            Text(h.screen).font(.caption)
+                            Text(h.screen).font(.stocked(.caption))
                             Spacer()
-                            Text("\(h.count)×").font(.caption2.monospaced()).foregroundStyle(.secondary)
+                            Text("\(h.count)×").font(.stocked(.caption2).monospaced()).foregroundStyle(.secondary)
                         }
                     }
                     ForEach(runtime.hitches.suffix(12).reversed()) { h in
                         Text(h.line)
-                            .font(.caption2.monospaced())
+                            .font(.stocked(.caption2).monospaced())
                             .foregroundStyle(h.isSevere ? .red : .secondary)
                     }
                 }
@@ -506,7 +510,7 @@ struct QAModeView: View {
                 DisclosureGroup("Network — \(runtime.networkCallCount) calls, \(runtime.networkFailureCount) failed") {
                     ForEach(runtime.networkStats.prefix(12)) { s in
                         Text(s.line)
-                            .font(.caption2.monospaced())
+                            .font(.stocked(.caption2).monospaced())
                             .foregroundStyle(s.failures > 0 ? .red : .secondary)
                     }
                 }
@@ -531,18 +535,18 @@ struct QAModeView: View {
 
             if tracker.records.isEmpty {
                 Text("Nothing tracked yet. Network calls, Cook Now classification passes and any flow that opts in with one line appear here as soon as they run.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.stocked(.caption)).foregroundStyle(.secondary)
             }
 
             if !tracker.stalled.isEmpty {
                 DisclosureGroup("\(tracker.stalled.count) stalled") {
                     Text("Still running past two seconds. This is what a freeze looks like from the inside.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                     ForEach(tracker.stalled.prefix(8)) { r in
                         HStack {
-                            Text(r.name).font(.caption)
+                            Text(r.name).font(.stocked(.caption))
                             Spacer()
-                            Text(r.durationText).font(.caption2.monospaced()).foregroundStyle(.orange)
+                            Text(r.durationText).font(.stocked(.caption2).monospaced()).foregroundStyle(.orange)
                         }
                     }
                 }
@@ -553,21 +557,21 @@ struct QAModeView: View {
                 let grand = roll.reduce(0.0) { $0 + $1.total }
                 DisclosureGroup("Time by process") {
                     Text("Where the session's time went. The percentage is of all tracked time, which is the number that tells you what to optimise.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                     ForEach(roll.prefix(15)) { r in
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(alignment: .firstTextBaseline) {
-                                Text(r.name).font(.caption)
+                                Text(r.name).font(.stocked(.caption))
                                 Spacer()
                                 Text("\(r.count)× · \(Int(r.averageMs)) ms avg")
-                                    .font(.caption2.monospaced()).foregroundStyle(.secondary)
+                                    .font(.stocked(.caption2).monospaced()).foregroundStyle(.secondary)
                             }
                             if grand > 0 {
                                 let share = r.total / grand
                                 ProgressView(value: share)
                                     .tint(share > 0.4 ? .orange : .accentColor)
                                 Text(String(format: "%.0f%% of tracked time", share * 100))
-                                    .font(.system(size: 9)).foregroundStyle(.tertiary)
+                                    .scaledFont(9).foregroundStyle(.tertiary)
                             }
                         }
                     }
@@ -578,7 +582,7 @@ struct QAModeView: View {
                 DisclosureGroup("Recent processes") {
                     ForEach(tracker.records.prefix(25)) { r in
                         Text(r.line)
-                            .font(.caption2.monospaced())
+                            .font(.stocked(.caption2).monospaced())
                             .foregroundStyle(r.state == .failed ? .red : .secondary)
                     }
                 }
@@ -600,7 +604,7 @@ struct QAModeView: View {
                 Text(runner.isRunning
                      ? "Running…"
                      : "No run yet. They run at launch, on foreground, every two minutes, and after cooks, imports and syncs — or press the button below.")
-                    .font(.caption)
+                    .font(.stocked(.caption))
                     .foregroundStyle(.secondary)
             }
 
@@ -608,10 +612,10 @@ struct QAModeView: View {
             if !newOnes.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Label("\(newOnes.count) new since the last run", systemImage: "arrow.up.forward")
-                        .font(.caption.weight(.semibold))
+                        .font(.stocked(.caption).weight(.semibold))
                         .foregroundStyle(.red)
                     ForEach(newOnes) { r in
-                        Text(r.name).font(.caption2).foregroundStyle(.secondary)
+                        Text(r.name).font(.stocked(.caption2)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -619,10 +623,10 @@ struct QAModeView: View {
             if !fixed.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Label("\(fixed.count) cleared since the last run", systemImage: "arrow.down.forward")
-                        .font(.caption.weight(.semibold))
+                        .font(.stocked(.caption).weight(.semibold))
                         .foregroundStyle(.green)
                     ForEach(fixed, id: \.self) { name in
-                        Text(name).font(.caption2).foregroundStyle(.secondary)
+                        Text(name).font(.stocked(.caption2)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -632,17 +636,17 @@ struct QAModeView: View {
                     HStack(spacing: 7) {
                         Image(systemName: symbol(r.status))
                             .foregroundStyle(color(r.status))
-                        Text(r.name).font(.subheadline.weight(.medium))
+                        Text(r.name).font(.stocked(.subheadline).weight(.medium))
                         if r.critical && r.status == .violation {
                             Text("BLOCKER")
-                                .font(.caption2.bold())
+                                .font(.stocked(.caption2).bold())
                                 .padding(.horizontal, 5).padding(.vertical, 1)
                                 .background(Color.red.opacity(0.18), in: Capsule())
                                 .foregroundStyle(.red)
                         }
                     }
                     Text(r.detail)
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -656,7 +660,7 @@ struct QAModeView: View {
 
             if let last = recorder.lastInvariantRun {
                 Text("Last run \(last.formatted(date: .omitted, time: .standard)) · \(runner.runCount) run\(runner.runCount == 1 ? "" : "s") this session")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.stocked(.caption2)).foregroundStyle(.secondary)
             }
         } header: {
             Text("Invariants")
@@ -695,10 +699,10 @@ struct QAModeView: View {
             if let report = diagReport {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(report.verdict)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.stocked(.subheadline).weight(.semibold))
                         .foregroundStyle(report.violationCount == 0 ? .green : .red)
                     Text("\(report.sections.count) areas · \(report.sections.flatMap(\.rows).count) checks · \(String(format: "%.1f", report.duration))s")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
                 ForEach(report.sections) { sec in
                     DisclosureGroup {
@@ -706,21 +710,21 @@ struct QAModeView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 7) {
                                     Image(systemName: symbol(r.status)).foregroundStyle(color(r.status))
-                                    Text(r.name).font(.caption.weight(.medium))
+                                    Text(r.name).font(.stocked(.caption).weight(.medium))
                                 }
-                                Text(r.detail).font(.caption2).foregroundStyle(.secondary)
+                                Text(r.detail).font(.stocked(.caption2)).foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     } label: {
                         HStack {
-                            Text(sec.title).font(.subheadline)
+                            Text(sec.title).font(.stocked(.subheadline))
                             Spacer()
                             let bad = sec.rows.filter { $0.status == .violation }.count
                             if bad > 0 {
-                                Text("\(bad)").font(.caption2.bold()).foregroundStyle(.red)
+                                Text("\(bad)").font(.stocked(.caption2).bold()).foregroundStyle(.red)
                             } else {
-                                Image(systemName: "checkmark").font(.caption2).foregroundStyle(.green)
+                                Image(systemName: "checkmark").font(.stocked(.caption2)).foregroundStyle(.green)
                             }
                         }
                     }
@@ -737,7 +741,7 @@ struct QAModeView: View {
                     Label("Upload to support (STK- reference)", systemImage: "paperplane")
                 }
                 if let diagUploadResult {
-                    Text(diagUploadResult).font(.caption).foregroundStyle(.secondary)
+                    Text(diagUploadResult).font(.stocked(.caption)).foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
             }
@@ -759,7 +763,7 @@ struct QAModeView: View {
             row("Hang reports", "\(hangs)", tint: hangs > 0 ? .orange : nil)
             if log.isEmpty {
                 Text("No MetricKit diagnostics on this device — that is the good outcome, not a missing feature.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.stocked(.caption)).foregroundStyle(.secondary)
             } else {
                 NavigationLink {
                     QATextReportView(title: "Device log", text: log)
@@ -780,10 +784,10 @@ struct QAModeView: View {
         Section {
             if recorder.events.isEmpty {
                 Text("Nothing recorded yet. Move around the app — screens report themselves, and anything that can fail reports both the attempt and the outcome.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.stocked(.caption)).foregroundStyle(.secondary)
             } else {
                 TextField("Search events", text: $eventSearch)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(StockedThemedTextFieldStyle())
                     .autocorrectionDisabled()
 
                 Picker("Kind", selection: $eventFilter) {
@@ -796,25 +800,25 @@ struct QAModeView: View {
 
                 let shown = recorder.events(kind: eventFilter, search: eventSearch)
                 if shown.isEmpty {
-                    Text("No events match.").font(.caption).foregroundStyle(.secondary)
+                    Text("No events match.").font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
                 ForEach(shown.suffix(60).reversed()) { e in
                     HStack(alignment: .top, spacing: 7) {
                         Image(systemName: e.kind.symbol)
-                            .font(.caption)
+                            .font(.stocked(.caption))
                             .foregroundStyle(color(for: e.kind))
                             .frame(width: 14)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(e.label).font(.caption)
+                            Text(e.label).font(.stocked(.caption))
                             Text(e.detail.isEmpty ? e.screen : "\(e.screen) — \(e.detail)")
-                                .font(.caption2).foregroundStyle(.secondary)
+                                .font(.stocked(.caption2)).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
                 if shown.count > 60 {
                     Text("Showing the last 60 of \(shown.count).")
-                        .font(.caption2).foregroundStyle(.tertiary)
+                        .font(.stocked(.caption2)).foregroundStyle(.tertiary)
                 }
             }
         } header: {
@@ -847,7 +851,7 @@ struct QAModeView: View {
             }
             .disabled(loadingCompanion)
             if !companion.isEmpty {
-                Text(companion).font(.caption.monospaced())
+                Text(companion).font(.stocked(.caption).monospaced())
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
             }
@@ -874,7 +878,7 @@ struct QAModeView: View {
                     Label("Memory over time", systemImage: "chart.line.uptrend.xyaxis")
                     Spacer()
                     Text(memory.shape.title)
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(memory.shape.tint)
                 }
             }
@@ -887,10 +891,10 @@ struct QAModeView: View {
                     Spacer()
                     if sweep.hasRun {
                         Text(sweep.issues.isEmpty ? "clean" : "\(sweep.issues.count)")
-                            .font(.caption.monospacedDigit())
+                            .font(.stocked(.caption).monospacedDigit())
                             .foregroundStyle(sweep.issues.isEmpty ? Color.stockedGreen : Color.stockedWarning)
                     } else {
-                        Text("not run").font(.caption).foregroundStyle(.secondary)
+                        Text("not run").font(.stocked(.caption)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -902,10 +906,10 @@ struct QAModeView: View {
                     Label("Sync queue", systemImage: "arrow.triangle.2.circlepath")
                     Spacer()
                     if syncQueue.attempts.isEmpty {
-                        Text("idle").font(.caption).foregroundStyle(.secondary)
+                        Text("idle").font(.stocked(.caption)).foregroundStyle(.secondary)
                     } else {
                         Text("\(syncQueue.failures.count) failed")
-                            .font(.caption.monospacedDigit())
+                            .font(.stocked(.caption).monospacedDigit())
                             .foregroundStyle(syncQueue.failures.isEmpty ? Color.stockedGreen : .red)
                     }
                 }
@@ -928,8 +932,8 @@ struct QAModeView: View {
         Section {
             if let run = runLog.current {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(run.name).font(.system(size: 14, weight: .semibold))
-                    Text(run.line).font(.caption).foregroundStyle(.secondary)
+                    Text(run.name).scaledFont(14, weight: .semibold)
+                    Text(run.line).font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
                 Button(role: .destructive) {
                     runLog.end()
@@ -954,7 +958,7 @@ struct QAModeView: View {
                     Label("Test runs", systemImage: "list.bullet.rectangle")
                     Spacer()
                     Text(runLog.runs.isEmpty ? "none" : "\(runLog.runs.count)")
-                        .font(.caption.monospacedDigit())
+                        .font(.stocked(.caption).monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
             }
@@ -986,7 +990,8 @@ struct QAModeView: View {
             Button {
                 refreshFullExport()
             } label: {
-                Label("Refresh report", systemImage: "arrow.clockwise")
+                Label(fullExportSnapshot.isEmpty ? "Prepare report" : "Refresh report",
+                      systemImage: fullExportSnapshot.isEmpty ? "doc.badge.gearshape" : "arrow.clockwise")
             }
         } header: {
             Text("Export")
@@ -1060,7 +1065,7 @@ struct QAModeView: View {
     private var copiedToast: some View {
         if let copied {
             Text("\(copied) — copied")
-                .font(.caption.weight(.medium))
+                .font(.stocked(.caption).weight(.medium))
                 .padding(.horizontal, 14).padding(.vertical, 9)
                 .background(.ultraThinMaterial, in: Capsule())
                 .padding(.bottom, 24)
@@ -1073,7 +1078,7 @@ struct QAModeView: View {
             Text(label)
             Spacer()
             Text(value)
-                .font(.callout.monospacedDigit())
+                .font(.stocked(.callout).monospacedDigit())
                 .foregroundStyle(tint ?? .secondary)
         }
     }
@@ -1115,13 +1120,13 @@ struct QAFindingListView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Image(systemName: f.symbol).foregroundStyle(f.level.tint)
-                        Text(f.title).font(.subheadline.weight(.medium))
+                        Text(f.title).font(.stocked(.subheadline).weight(.medium))
                     }
                     Text(f.detail)
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(f.source.uppercased())
-                        .font(.system(size: 9, weight: .semibold))
+                        .scaledFont(9, weight: .semibold)
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.vertical, 2)
@@ -1150,7 +1155,7 @@ struct QATextReportView: View {
     var body: some View {
         ScrollView {
             Text(text.isEmpty ? "Empty." : text)
-                .font(.system(size: 11, design: .monospaced))
+                .scaledFont(11, design: .monospaced)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
                 .padding(16)

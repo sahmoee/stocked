@@ -56,10 +56,18 @@ nonisolated enum WorkerBarcodeResolver {
             "barcode": code, "includePrice": includePrice,
         ])
 
+        let startedAt = Date()
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                await SourceHealth.shared.record("stocked-worker-barcode", success: false,
+                                                 latency: Date().timeIntervalSince(startedAt))
+                return nil
+            }
             let env = try JSONDecoder().decode(Envelope.self, from: data)
+            // A valid not-found envelope is a healthy provider response, not an outage.
+            await SourceHealth.shared.record("stocked-worker-barcode", success: true,
+                                             latency: Date().timeIntervalSince(startedAt))
             guard env.found, let p = env.product, !p.name.isEmpty else { return nil }
             return OpenFoodProduct(
                 barcode: code,
@@ -76,6 +84,8 @@ nonisolated enum WorkerBarcodeResolver {
                 sourceName: env.source ?? "Stocked Worker"
             )
         } catch {
+            await SourceHealth.shared.record("stocked-worker-barcode", success: false,
+                                             latency: Date().timeIntervalSince(startedAt))
             Log.net.debug("Worker barcode resolve failed: \(error.localizedDescription, privacy: .public)")
             return nil
         }

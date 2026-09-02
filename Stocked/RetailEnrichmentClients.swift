@@ -53,11 +53,18 @@ nonisolated enum RetailEnrichmentClient {
         }
         async let usda = USDANutritionClient.shared.facts(for: cleaned)
         async let fatSecret = fatSecretFacts(for: cleaned)
-        if let facts = await usda, facts.calories > 0 {
-            candidates.append(.init(facts: facts, source: "USDA FoodData Central", authority: 0.98, match: .name))
+        let usdaFacts = await usda
+        let fatSecretFacts = await fatSecret
+        let health = await SourceHealth.shared.snapshots(for: ["usda", "fatsecret"])
+        if let facts = usdaFacts, facts.calories > 0 {
+            candidates.append(.init(facts: facts, source: "USDA FoodData Central",
+                                    authority: observedAuthority(0.98, sourceID: "usda", health: health),
+                                    match: .name))
         }
-        if let facts = await fatSecret, facts.calories > 0 {
-            candidates.append(.init(facts: facts, source: "FatSecret Platform API", authority: 0.82, match: .name))
+        if let facts = fatSecretFacts, facts.calories > 0 {
+            candidates.append(.init(facts: facts, source: "FatSecret Platform API",
+                                    authority: observedAuthority(0.82, sourceID: "fatsecret", health: health),
+                                    match: .name))
         }
         let result = NutritionReconciler.reconcile(candidates)
         if let result { RetailNutritionCache.shared.store(result, for: cleaned) }
@@ -82,13 +89,18 @@ nonisolated enum RetailEnrichmentClient {
             .filter { !$0.isEmpty }.joined(separator: " "))
         async let fatSecret = fatSecretFacts(for: [product.brand, product.name]
             .filter { !$0.isEmpty }.joined(separator: " "))
-        if let facts = await usda, facts.calories > 0 {
+        let usdaFacts = await usda
+        let fatSecretFacts = await fatSecret
+        let health = await SourceHealth.shared.snapshots(for: ["usda", "fatsecret"])
+        if let facts = usdaFacts, facts.calories > 0 {
             candidates.append(.init(facts: facts, source: "USDA FoodData Central",
-                                    authority: 0.98, match: product.brand.isEmpty ? .name : .brandedName))
+                                    authority: observedAuthority(0.98, sourceID: "usda", health: health),
+                                    match: product.brand.isEmpty ? .name : .brandedName))
         }
-        if let facts = await fatSecret, facts.calories > 0 {
+        if let facts = fatSecretFacts, facts.calories > 0 {
             candidates.append(.init(facts: facts, source: "FatSecret Platform API",
-                                    authority: 0.82, match: product.brand.isEmpty ? .name : .brandedName))
+                                    authority: observedAuthority(0.82, sourceID: "fatsecret", health: health),
+                                    match: product.brand.isEmpty ? .name : .brandedName))
         }
         guard let result = NutritionReconciler.reconcile(candidates) else { return product }
         return OpenFoodProduct(barcode: product.barcode, name: product.name, brand: product.brand,
@@ -109,14 +121,32 @@ nonisolated enum RetailEnrichmentClient {
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         BuildConfig.authorizeWorkerRequest(&request)
+        let sourceID = path.contains("fatsecret") ? "fatsecret" : "stocked-worker-retail"
+        let startedAt = Date()
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { return nil }
-            return try JSONDecoder().decode(T.self, from: data)
+            guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
+                await SourceHealth.shared.record(sourceID, success: false,
+                                                 latency: Date().timeIntervalSince(startedAt))
+                return nil
+            }
+            let decoded = try JSONDecoder().decode(T.self, from: data)
+            await SourceHealth.shared.record(sourceID, success: true,
+                                             latency: Date().timeIntervalSince(startedAt))
+            return decoded
         } catch {
+            await SourceHealth.shared.record(sourceID, success: false,
+                                             latency: Date().timeIntervalSince(startedAt))
             Log.net.notice("Retail enrichment unavailable: \(error.localizedDescription, privacy: .public)")
             return nil
         }
+    }
+
+    private static func observedAuthority(_ base: Double, sourceID: String,
+                                          health: [String: SourceHealthSnapshot]) -> Double {
+        guard let snapshot = health[sourceID] else { return base }
+        // Health is a bounded demotion, not a replacement for semantic source authority.
+        return base * (0.80 + snapshot.reliability() * 0.20)
     }
 }
 

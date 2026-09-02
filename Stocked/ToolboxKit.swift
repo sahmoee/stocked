@@ -165,13 +165,13 @@ struct ToolboxEmptyState: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 40, weight: .light))
+                .scaledFont(40, weight: .light)
                 .foregroundStyle(session.themeSecondaryText.opacity(0.6))
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .scaledFont(17, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)
             Text(message)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
         }
@@ -202,7 +202,7 @@ struct ExpiryUrgencyChip: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 11, weight: .semibold))
+            .scaledFont(11, weight: .semibold)
             .foregroundStyle(color)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(Capsule().fill(color.opacity(0.14)))
@@ -221,12 +221,12 @@ struct ToolboxStatTile: View {
     var body: some View {
         VStack(spacing: 5) {
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .scaledFont(22, weight: .bold, design: .rounded)
                 .foregroundStyle(tint ?? session.themeTextColor)
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
+
+                .fixedSize(horizontal: false, vertical: true)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .scaledFont(11, weight: .medium)
                 .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
         }
@@ -270,7 +270,7 @@ struct ToolboxSectionLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .semibold))
+            .scaledFont(11, weight: .semibold)
             .foregroundStyle(session.themeSecondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 6)

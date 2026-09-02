@@ -9,6 +9,7 @@ struct DatabasesView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
     @Environment(\.stockedDismiss) private var stockedDismiss
+    @Environment(\.stockedMotion) private var motion
     @State private var selectedTab = 0
 
     private let tabs      = ["Substitutions", "Abbreviations", "Ingredients", "Tips"]
@@ -25,12 +26,16 @@ struct DatabasesView: View {
                         HStack(spacing: 8) {
                             ForEach(tabs.indices, id: \.self) { i in
                                 Button {
-                                    withAnimation(.spring(response: 0.25)) { selectedTab = i }
+                                    motion.animate(.selection, intent: .spatial) { selectedTab = i }
                                 } label: {
                                     HStack(spacing: 6) {
-                                        Image(systemName: tabIcons[i]).font(.system(size: 11))
-                                        Text(tabs[i]).font(.system(size: 12, weight: .semibold))
+                                        Image(systemName: tabIcons[i]).scaledFont(11)
+                                        Text(tabs[i]).scaledFont(12, weight: .semibold)
                                     }
+                                    // These horizontally scrolling pills are atomic
+                                    // controls, not paragraphs. Preserve each complete
+                                    // word and let the rail scroll at every text size.
+                                    .fixedSize(horizontal: true, vertical: true)
                                     .foregroundStyle(selectedTab == i ? Color.stockedCharcoal : Color.stockedWhite)
                                     .padding(.horizontal, 14).padding(.vertical, 9)
                                     .background(selectedTab == i ? Color.stockedGold : Color.stockedCharcoal.opacity(0.6))
@@ -80,9 +85,9 @@ private struct DBSearchBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14)).foregroundStyle(.secondary)
+                .scaledFont(14).foregroundStyle(.secondary)
             TextField(placeholder, text: $text)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .autocorrectionDisabled()
             if !text.isEmpty {
                 Button { text = "" } label: {
@@ -114,6 +119,7 @@ enum SubsSheet: Identifiable {
 
 struct SubstitutionsDatabaseTab: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     @State private var search           = ""
     @State private var subsSheet: SubsSheet? = nil
     @State private var expandedSubstitutionID: UUID? = nil
@@ -145,7 +151,7 @@ struct SubstitutionsDatabaseTab: View {
                     subsSheet = .addCustom
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22))
+                        .scaledFont(22)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .buttonStyle(.plain)
@@ -158,7 +164,7 @@ struct SubstitutionsDatabaseTab: View {
                     if !userFiltered.isEmpty {
                         HStack {
                             Text("MY SUBSTITUTIONS")
-                                .font(.system(size: 10, weight: .bold)).tracking(1.2)
+                                .scaledFont(10, weight: .bold).tracking(1.2)
                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                             Spacer()
                         }
@@ -176,7 +182,7 @@ struct SubstitutionsDatabaseTab: View {
                             entry: entry,
                             isExpanded: expandedSubstitutionID == entry.id,
                             onToggle: {
-                                withAnimation(.spring(response: 0.25)) {
+                                motion.animate(.selection, intent: .spatial) {
                                     expandedSubstitutionID = expandedSubstitutionID == entry.id ? nil : entry.id
                                 }
                             },
@@ -208,21 +214,21 @@ private struct UserSubstitutionRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.ingredient.capitalized)
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.right").font(.system(size: 10)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "arrow.right").scaledFont(10).foregroundStyle(Color.stockedGold)
                     Text(entry.substitute)
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                     if !entry.notes.isEmpty {
-                        Text("· \(entry.notes)").font(.system(size: 11))
+                        Text("· \(entry.notes)").scaledFont(11)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                 }
             }
             Spacer()
             // Badge
-            Text("Custom").font(.system(size: 9, weight: .bold))
+            Text("Custom").scaledFont(9, weight: .bold)
                 .foregroundStyle(Color.stockedGold)
                 .padding(.horizontal, 6).padding(.vertical, 3)
                 .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
@@ -230,7 +236,7 @@ private struct UserSubstitutionRow: View {
             Button {
                 withAnimation { session.guestStore.userSubstitutions.removeAll { $0.id == entry.id } }
             } label: {
-                Image(systemName: "trash").font(.system(size: 13)).foregroundStyle(.red.opacity(0.6))
+                Image(systemName: "trash").scaledFont(13).foregroundStyle(.red.opacity(0.6))
             }.buttonStyle(.plain)
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
@@ -253,7 +259,7 @@ private struct AddCustomSubstitutionSheet: View {
                     .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
 
                 Text("Add Substitution")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 24)
 
                 VStack(spacing: 16) {
@@ -274,7 +280,7 @@ private struct AddCustomSubstitutionSheet: View {
                     dismiss()
                 } label: {
                     Text("Save Substitution")
-                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 16)
                         .background(ingredient.isEmpty || substitute.isEmpty
@@ -286,17 +292,17 @@ private struct AddCustomSubstitutionSheet: View {
                 .padding(.horizontal, 24).padding(.bottom, 32)
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .dismissKeyboardOnTap()
     }
 
     private func inputField(_ label: String, text: Binding<String>, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
-                .font(.system(size: 10, weight: .bold)).tracking(1)
+                .scaledFont(10, weight: .bold).tracking(1)
                 .foregroundStyle(session.themeTextColor.opacity(0.4))
             TextField(placeholder, text: text)
-                .font(.system(size: 15))
+                .scaledFont(15)
                 .foregroundStyle(session.themeTextColor)
                 .padding(12)
                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
@@ -318,20 +324,20 @@ private struct SubstitutionDBRow: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(entry.displayName)
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("\(entry.substitutions.count) substitute\(entry.substitutions.count == 1 ? "" : "s")")
-                            .font(.system(size: 11))
+                            .scaledFont(11)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                     Spacer()
                     Button(action: onTap) {
                         Image(systemName: "info.circle")
-                            .font(.system(size: 14))
+                            .scaledFont(14)
                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                     }.buttonStyle(.plain)
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                 }
                 .padding(.horizontal, 20).padding(.vertical, 14)
                 .contentShape(Rectangle())
@@ -344,11 +350,11 @@ private struct SubstitutionDBRow: View {
                             Circle().fill(Color.stockedGold).frame(width: 5, height: 5).padding(.top, 6)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(sub.substitute)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(13, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
                                 if !sub.notes.isEmpty {
                                     Text(sub.notes)
-                                        .font(.system(size: 11))
+                                        .scaledFont(11)
                                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                                 }
                             }
@@ -375,18 +381,18 @@ private struct SubstitutionDetailSheet: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 16) {
                         Text(entry.displayName)
-                            .font(.system(size: 22, weight: .bold, design: .serif))
+                            .scaledFont(22, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                             .padding(.horizontal, 24).padding(.top, 20)
 
                         ForEach(entry.substitutions) { sub in
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(sub.substitute)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(15, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
                                 if !sub.notes.isEmpty {
                                     Text(sub.notes)
-                                        .font(.system(size: 13))
+                                        .scaledFont(13)
                                         .foregroundStyle(session.themeTextColor.opacity(0.6))
                                 }
                             }
@@ -398,7 +404,7 @@ private struct SubstitutionDetailSheet: View {
                         }
 
                         Text("Source: Food Network Ingredient Substitution Guide + common cooking knowledge.")
-                            .font(.system(size: 11))
+                            .scaledFont(11)
                             .foregroundStyle(session.themeTextColor.opacity(0.35))
                             .padding(.horizontal, 24).padding(.bottom, 40)
                     }
@@ -452,7 +458,7 @@ struct AbbreviationsDatabaseTab: View {
                     abbrSheet = .add
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
+                        .scaledFont(24)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .buttonStyle(.plain)
@@ -466,7 +472,7 @@ struct AbbreviationsDatabaseTab: View {
                 legendBadge("Corrected",  color: .orange)
                 Spacer()
                 Text("\(filtered.count) entries")
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
             }
             .padding(.horizontal, 20).padding(.vertical, 8)
@@ -507,7 +513,7 @@ struct AbbreviationsDatabaseTab: View {
     private func legendBadge(_ label: String, color: Color) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 6, height: 6)
-            Text(label).font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text(label).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
         }
     }
 }
@@ -533,18 +539,18 @@ private struct AbbreviationRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(entry.abbreviation)
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .scaledFont(14, weight: .bold, design: .monospaced)
                         .foregroundStyle(session.themeTextColor)
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 10))
+                        .scaledFont(10)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                     Text(entry.resolved)
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor)
                 }
                 if entry.timesUsed > 0 {
                     Text("Used \(entry.timesUsed)×")
-                        .font(.system(size: 10))
+                        .scaledFont(10)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
             }
@@ -552,13 +558,13 @@ private struct AbbreviationRow: View {
             Spacer()
 
             Button(action: onEdit) {
-                Image(systemName: "pencil").font(.system(size: 13))
+                Image(systemName: "pencil").scaledFont(13)
                     .foregroundStyle(entry.source == .builtIn ? session.themeTextColor.opacity(0.25) : Color.stockedGold)
             }.buttonStyle(.plain).padding(.trailing, 8)
 
             if entry.source != .builtIn {
                 Button(action: onDelete) {
-                    Image(systemName: "trash").font(.system(size: 13))
+                    Image(systemName: "trash").scaledFont(13)
                         .foregroundStyle(.red.opacity(0.6))
                 }.buttonStyle(.plain).padding(.trailing, 16)
             } else {
@@ -588,7 +594,7 @@ struct AddAbbreviationSheet: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Abbreviation appears on receipt exactly as scanned. It will be auto-resolved next time it's seen.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                         .padding(.horizontal, 24).padding(.top, 20)
 
@@ -624,10 +630,10 @@ struct AddAbbreviationSheet: View {
     private func fieldRow(label: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(11, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.45))
             TextField(label, text: text)
-                .font(.system(size: 15))
+                .scaledFont(15)
                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
@@ -651,6 +657,7 @@ struct AddAbbreviationSheet: View {
 // ─────────────────────────────────────────────────────────────────────────────
 struct IngredientsDatabaseTab: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     @State private var search     = ""
     @State private var filterZone = "All"
 
@@ -676,10 +683,10 @@ struct IngredientsDatabaseTab: View {
                 HStack(spacing: 8) {
                     ForEach(zones, id: \.self) { zone in
                         Button {
-                            withAnimation(.spring(response: 0.2)) { filterZone = zone }
+                            motion.animate(.selection, intent: .spatial) { filterZone = zone }
                         } label: {
                             Text(zone)
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                                 .foregroundStyle(filterZone == zone ? Color.stockedCharcoal : Color.stockedWhite)
                                 .padding(.horizontal, 12).padding(.vertical, 7)
                                 .background(filterZone == zone ? Color.stockedGold : Color.stockedCharcoal.opacity(0.5))
@@ -695,9 +702,9 @@ struct IngredientsDatabaseTab: View {
 
             if filtered.isEmpty {
                 VStack(spacing: 12) {
-                    Text("🥫").font(.system(size: 36))
+                    Text("🥫").scaledFont(36)
                     Text("No ingredients found")
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -730,24 +737,24 @@ private struct IngredientDBRow: View {
                 if showEdit {
                     HStack(spacing: 8) {
                         TextField("Name", text: $editedName)
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         TextField("Zone", text: $editedZone)
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
                 } else {
                     Text(item.name)
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     HStack(spacing: 6) {
                         Text(item.zone)
-                            .font(.system(size: 11))
+                            .scaledFont(11)
                             .foregroundStyle(Color.stockedGold)
                         Text("·")
                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                         Text("\(Int(item.effectiveLevel * 100))% stocked")
-                            .font(.system(size: 11))
+                            .scaledFont(11)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                 }
@@ -766,11 +773,11 @@ private struct IngredientDBRow: View {
                     }
                     showEdit = false
                 }
-                .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
+                .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
                 .buttonStyle(.plain)
 
                 Button("Cancel") { showEdit = false }
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
                     .buttonStyle(.plain)
             } else {
                 Button {
@@ -779,7 +786,7 @@ private struct IngredientDBRow: View {
                     showEdit   = true
                 } label: {
                     Image(systemName: "pencil")
-                        .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13).foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain)
             }
         }
@@ -793,6 +800,7 @@ private struct IngredientDBRow: View {
 // ─────────────────────────────────────────────────────────────────────────────
 struct TipsDatabaseTab: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     @State private var selectedCategory: CookingTip.TipCategory? = nil
     @State private var search       = ""
     @State private var expandedIDs  = Set<UUID>()
@@ -829,7 +837,7 @@ struct TipsDatabaseTab: View {
                 VStack(spacing: 0) {
                     ForEach(filtered) { tip in
                         TipDBRow(tip: tip, isExpanded: expandedIDs.contains(tip.id)) {
-                            withAnimation(.spring(response: 0.25)) {
+                            motion.animate(.selection, intent: .spatial) {
                                 if expandedIDs.contains(tip.id) { expandedIDs.remove(tip.id) }
                                 else                             { expandedIDs = [tip.id] }
                             }
@@ -845,10 +853,10 @@ struct TipsDatabaseTab: View {
     private func categoryPill(_ cat: CookingTip.TipCategory?, label: String) -> some View {
         let isActive = selectedCategory == cat
         return Button {
-            withAnimation(.spring(response: 0.2)) { selectedCategory = cat }
+            motion.animate(.selection, intent: .spatial) { selectedCategory = cat }
         } label: {
             Text(label)
-                .font(.system(size: 12, weight: .semibold))
+                .scaledFont(12, weight: .semibold)
                 .foregroundStyle(isActive ? Color.stockedCharcoal : Color.stockedWhite)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(isActive ? Color.stockedGold : Color.stockedCharcoal.opacity(0.5))
@@ -867,24 +875,24 @@ private struct TipDBRow: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
-                    Text(tip.emoji).font(.system(size: 20)).frame(width: 28)
+                    Text(tip.emoji).scaledFont(20).frame(width: 28)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(tip.title)
-                            .font(.system(size: 14, weight: .semibold, design: .serif))
+                            .scaledFont(14, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text(tip.category.rawValue)
-                            .font(.system(size: 10))
+                            .scaledFont(10)
                             .foregroundStyle(Color.stockedGold)
                     }
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
                 .padding(.horizontal, 20).padding(.vertical, 14)
 
                 if isExpanded {
                     Text(tip.body)
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .lineSpacing(3)
                         .padding(.horizontal, 58).padding(.bottom, 14)

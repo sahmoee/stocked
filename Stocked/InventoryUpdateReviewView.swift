@@ -35,16 +35,16 @@ struct InventoryUpdateReviewView: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Update your inventory?")
-                        .font(.system(size: 21, weight: .bold, design: .serif))
+                        .scaledFont(21, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("These changes come from what you told us while cooking. Apply the ones that should stick.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
 
                     if changes.isEmpty {
                         Text("Nothing to update — you're all set.")
-                            .font(.system(size: 13.5))
+                            .scaledFont(13.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                             .frame(maxWidth: .infinity).padding(.vertical, 30)
                     } else {
@@ -60,7 +60,7 @@ struct InventoryUpdateReviewView: View {
                     VStack(spacing: 8) {
                         Button { apply() } label: {
                             Text(applyLabel)
-                                .font(.system(size: 15, weight: .semibold, design: .serif))
+                                .scaledFont(15, weight: .semibold, design: .serif)
                                 .foregroundStyle(Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 13)
                                 .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -73,7 +73,7 @@ struct InventoryUpdateReviewView: View {
 
                         Button { dismiss() } label: {
                             Text("Skip — keep inventory as is")
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .scaledFont(13.5, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                         }
                         .buttonStyle(.plain)
@@ -104,16 +104,16 @@ struct InventoryUpdateReviewView: View {
     private func row(_ change: StagedInventoryChange) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon(change.kind))
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold)
                 .foregroundStyle(Color.stockedGold)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 1) {
                 Text(label(change))
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .scaledFont(13.5, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                 if !change.note.isEmpty {
                     Text(change.note)
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
             }

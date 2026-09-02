@@ -49,7 +49,7 @@ struct RecipeCreateOptionsSheet: View {
             ScrollView {
                 VStack(spacing: 12) {
                     Text("How do you want to add this recipe?")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
                         .padding(.top, 8).padding(.bottom, 4)
 
                     optionCard(icon: "square.and.pencil", tint: Color.stockedGold,
@@ -93,16 +93,16 @@ struct RecipeCreateOptionsSheet: View {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd).fill(tint).frame(width: 44, height: 44)
-                    Image(systemName: icon).font(.system(size: 19)).foregroundStyle(Color.stockedWhite)
+                    Image(systemName: icon).scaledFont(19).foregroundStyle(Color.stockedWhite)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 16, weight: .semibold, design: .serif))
+                    Text(title).scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                Image(systemName: "chevron.right").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
             .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
@@ -133,13 +133,13 @@ struct RecipeURLImportSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
                         .fixedSize(horizontal: false, vertical: true)
 
                     TextField("https://…", text: $urlText)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .keyboardType(.URL).focused($focused)
-                        .font(.system(size: 15))
+                        .scaledFont(15)
                         .padding(14)
                         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -150,7 +150,7 @@ struct RecipeURLImportSheet: View {
                             urlText = clipboardURL
                         } label: {
                             Label("Paste recipe link from clipboard", systemImage: "doc.on.clipboard")
-                                .font(.system(size: 13, weight: .semibold))
+                                .scaledFont(13, weight: .semibold)
                         }
                         .buttonStyle(.bordered)
                         .tint(Color.stockedGold)
@@ -159,12 +159,12 @@ struct RecipeURLImportSheet: View {
                     if loading {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small).tint(Color.stockedGold)
-                            Text(stage).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            Text(stage).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }
                     }
 
                     if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
                     }
                 }
                 .padding(20)
@@ -185,7 +185,7 @@ struct RecipeURLImportSheet: View {
                     HStack {
                         if loading { ProgressView().tint(.white) }
                         Text(loading ? "Cancel Import" : "Import")
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(16, weight: .semibold)
                     }
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
@@ -262,16 +262,16 @@ struct RecipeScreenshotImportSheet: View {
             ScrollView {
                 VStack(spacing: 18) {
                     Text("Pick a screenshot of a recipe. We'll read the text on your device and structure it for you to review.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
 
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 12, matching: .images) {
                         VStack(spacing: 10) {
-                            Image(systemName: "photo.badge.plus").font(.system(size: 40)).foregroundStyle(Color.stockedGold)
+                            Image(systemName: "photo.badge.plus").scaledFont(40).foregroundStyle(Color.stockedGold)
                             Text(working ? "Reading…" : "Choose Screenshots")
-                                .font(.system(size: 16, weight: .semibold, design: .serif))
+                                .scaledFont(16, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -282,11 +282,11 @@ struct RecipeScreenshotImportSheet: View {
 
                     if working { ProgressView().tint(Color.stockedGold) }
                     if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
                             .multilineTextAlignment(.center)
                     }
                     Text("Tip: the clearer the screenshot, the better the result. You can fix anything on the next screen.")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                         .multilineTextAlignment(.center).padding(.top, 4)
                 }
                 .padding(20)
@@ -345,27 +345,22 @@ struct RecipeManualTextSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Paste the recipe text — title, ingredients, and steps. We'll structure it; you can fix anything before saving.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
                         .fixedSize(horizontal: false, vertical: true)
 
                     ZStack(alignment: .topLeading) {
                         if text.isEmpty {
                             Text("Paste recipe here…")
-                                .font(.system(size: 15)).foregroundStyle(session.themeTextColor.opacity(0.35))
-                                .padding(.horizontal, 14).padding(.vertical, 14)
+                                .stockedTextEditorPlaceholder()
                         }
                         TextEditor(text: $text)
-                            .font(.system(size: 15)).foregroundStyle(session.themeTextColor)
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 220)
-                            .padding(.horizontal, 10).padding(.vertical, 8)
+                            .stockedTextEditorContent(minimumHeight: 220)
                             .focused($focused)
                     }
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .stockedInputSurface()
 
                     if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
                     }
                 }
                 .padding(20)
@@ -380,7 +375,7 @@ struct RecipeManualTextSheet: View {
             }
             .safeAreaInset(edge: .bottom) {
                 Button { structure() } label: {
-                    Text("Structure Recipe").font(.system(size: 16, weight: .semibold))
+                    Text("Structure Recipe").scaledFont(16, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15)
                         .background(text.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray.opacity(0.5) : session.themeButtonColor)

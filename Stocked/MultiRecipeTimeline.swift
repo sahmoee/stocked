@@ -107,14 +107,14 @@ struct MultiRecipeTimelineView: View {
             if recipes.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "timeline.selection")
-                        .font(.system(size: 34)).foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
                     Text("Cook several dishes at once")
-                        .font(.system(size: 16, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(16, weight: .semibold).foregroundStyle(session.themeTextColor)
                     Text("Add two or more dishes and Stocked works backward from when you want to eat, so everything lands at the same time.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 40)
                     Button { showAdd = true } label: {
-                        Text("Add a dish").font(.system(size: 14, weight: .semibold))
+                        Text("Add a dish").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
                             .background(session.accentColor).foregroundStyle(.white).clipShape(Capsule())
                     }.buttonStyle(.plain).padding(.top, 4)
@@ -126,28 +126,28 @@ struct MultiRecipeTimelineView: View {
                         HStack {
                             Text("Start cooking")
                             Spacer()
-                            Text(startLabel).font(.system(size: 15, weight: .bold)).foregroundStyle(session.accentColor)
+                            Text(startLabel).scaledFont(15, weight: .bold).foregroundStyle(session.accentColor)
                         }
                         Text("\(recipes.count) dishes · about \(total) minutes total")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.stocked(.footnote)).foregroundStyle(.secondary)
                     }
 
                     Section("Timeline") {
                         ForEach(steps) { s in
                             HStack(alignment: .top, spacing: 10) {
                                 VStack(spacing: 2) {
-                                    Text(timeLabel(s)).font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    Text(timeLabel(s)).scaledFont(12, weight: .bold, design: .monospaced)
                                         .foregroundStyle(session.accentColor)
                                     if s.isPassive {
-                                        Image(systemName: "hourglass").font(.system(size: 9))
+                                        Image(systemName: "hourglass").scaledFont(9)
                                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                                     }
                                 }
                                 .frame(width: 58, alignment: .leading)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(s.recipe).font(.system(size: 11, weight: .bold))
+                                    Text(s.recipe).scaledFont(11, weight: .bold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.5))
-                                    Text(s.text).font(.system(size: 13))
+                                    Text(s.text).scaledFont(13)
                                         .foregroundStyle(session.themeTextColor)
                                 }
                             }
@@ -193,7 +193,7 @@ private struct AddTimelineDishSheet: View {
             Form {
                 TextField("Dish name", text: $title)
                 Section {
-                    TextField("One step per line", text: $stepsText, axis: .vertical).lineLimit(4...14)
+                    TextField("One step per line", text: $stepsText, axis: .vertical).lineLimit(4...)
                 } header: { Text("Steps") } footer: {
                     Text("Durations are read from the text — \"bake 25 minutes\", \"simmer 1 hour\". Steps without a time are treated as 5 minutes of active work.")
                 }
@@ -216,11 +216,12 @@ private struct AddTimelineDishSheet: View {
                                              steps: steps.isEmpty ? ["Cook"] : steps))
                         dismiss()
                     }
-                    .font(.body.bold())
+                    .font(.stocked(.body).bold())
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }

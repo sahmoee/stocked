@@ -39,7 +39,7 @@ struct CookNowResultsView: View {
         StockedShell(showBack: true, titleText: title) {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Based on what's currently logged")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
@@ -129,12 +129,12 @@ struct CookNowResultsView: View {
             Button(action: generateInventoryRecipe) {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 15, weight: .bold))
+                        .scaledFont(15, weight: .bold)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isGeneratingRecipe ? "Creating your recipe…" : "Create a recipe with AI")
-                            .font(.system(size: 14, weight: .bold))
+                            .scaledFont(14, weight: .bold)
                         Text("Built from what's in your inventory")
-                            .font(.system(size: 11, weight: .medium))
+                            .scaledFont(11, weight: .medium)
                             .opacity(0.72)
                     }
                     Spacer()
@@ -142,7 +142,7 @@ struct CookNowResultsView: View {
                         ProgressView().tint(Color.stockedCharcoal)
                     } else {
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(12, weight: .bold)
                     }
                 }
                 .foregroundStyle(Color.stockedCharcoal)
@@ -157,7 +157,7 @@ struct CookNowResultsView: View {
 
             if let generationMessage {
                 Text(generationMessage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
             }
         }
@@ -209,9 +209,9 @@ struct CookNowResultsView: View {
                     Button { withAnimation { showMore = true } } label: {
                         HStack {
                             Text("More possibilities (\(snapshot.morePossibilities.count))")
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .scaledFont(13.5, weight: .semibold)
                             Spacer()
-                            Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "chevron.down").scaledFont(11, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedGold)
                         .padding(.vertical, 11).padding(.horizontal, 14)
@@ -232,11 +232,11 @@ struct CookNowResultsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         if !subtitle.isEmpty {
                             Text(subtitle)
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                     }

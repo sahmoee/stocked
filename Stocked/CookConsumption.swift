@@ -135,7 +135,7 @@ struct CookCompletionSheet: View {
                     apply()
                 } label: {
                     Text(proposals.isEmpty ? "Done" : "Update pantry")
-                        .font(.system(size: 16, weight: .semibold))
+                        .scaledFont(16, weight: .semibold)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(session.accentColor).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -166,7 +166,18 @@ struct CookCompletionSheet: View {
             return (id, item.level)
         }
 
-        let applied = session.guestStore.applyProposedChanges(changes)
+        let applied = session.guestStore.applyProposalBatch(
+            InventoryProposalBatch(
+                origin: .reconciliation,
+                title: "Pantry update for \(meal.title)",
+                changes: changes,
+                mergePolicy: .storeCompatible
+            ),
+            brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+            retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id,
+            // This flow already provides its immediate, level-specific undo toast below.
+            registerUndo: false
+        ).appliedCount
 
         if saveLeftovers {
             LeftoversStore.shared.add(title: meal.title, portions: leftoverPortions, storage: "Fridge")

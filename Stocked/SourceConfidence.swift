@@ -131,6 +131,137 @@ nonisolated struct Sourced<Value: Codable & Equatable & Sendable>: Codable, Equa
     }
 }
 
+// MARK: - Field-level provenance and reconciliation
+
+/// A durable description of one observation used to populate a product or inventory field.
+/// `SourceBadge` remains the user-facing trust vocabulary; this adds the source identity and
+/// timestamp needed to explain *why* one value won when several providers disagree.
+nonisolated struct FieldProvenance: Codable, Equatable, Hashable, Sendable {
+    var sourceID: String
+    var sourceName: String
+    var badge: SourceBadge
+    var observedAt: Date
+
+    init(sourceID: String, sourceName: String? = nil, badge: SourceBadge,
+         observedAt: Date = Date()) {
+        self.sourceID = sourceID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        self.sourceName = sourceName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? sourceID
+        self.badge = badge
+        self.observedAt = observedAt
+    }
+}
+
+/// One candidate value and the evidence supporting it. This is intentionally generic so product
+/// name, brand, aisle, storage zone, barcode, nutrition, and future fields all use one policy.
+nonisolated struct FieldEvidence<Value: Equatable & Sendable>: Equatable, Sendable {
+    var value: Value
+    var provenance: FieldProvenance
+
+    init(_ value: Value, provenance: FieldProvenance) {
+        self.value = value
+        self.provenance = provenance
+    }
+}
+
+/// Result of reconciling several observations of the same field. Alternatives are retained for
+/// review instead of being discarded, which lets receipt/barcode/manual screens explain conflicts.
+nonisolated struct ReconciledField<Value: Equatable & Sendable>: Equatable, Sendable {
+    var value: Value
+    var provenance: FieldProvenance
+    var confidence: Double
+    var alternatives: [FieldEvidence<Value>]
+    var isContested: Bool
+    var needsReview: Bool
+}
+
+nonisolated private struct RankedFieldEvidence<Value: Equatable & Sendable>: Sendable {
+    var evidence: FieldEvidence<Value>
+    var score: Double
+    var agreementCount: Int
+}
+
+/// Shared multi-source field policy. Trust combines the semantic badge, observed provider health,
+/// freshness, and independent agreement. User-confirmed and verified observations remain strong
+/// even when a provider has little history; a recently unhealthy source cannot silently replace
+/// healthier consensus.
+nonisolated enum ProductFieldReconciler {
+    static func reconcile<Value: Equatable & Sendable>(
+        _ evidence: [FieldEvidence<Value>],
+        sourceHealth: [String: SourceHealthSnapshot] = [:],
+        now: Date = Date(),
+        equivalent: (Value, Value) -> Bool = (==)
+    ) -> ReconciledField<Value>? {
+        guard !evidence.isEmpty else { return nil }
+
+        let normalizedHealth = sourceHealth.reduce(into: [String: SourceHealthSnapshot]()) {
+            result, pair in
+            let key = pair.key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !key.isEmpty else { return }
+            if let existing = result[key], existing.reliability(at: now) >= pair.value.reliability(at: now) {
+                return
+            }
+            result[key] = pair.value
+        }
+
+        let ranked: [RankedFieldEvidence<Value>] = evidence.map { candidate in
+            let sourceKey = candidate.provenance.sourceID.lowercased()
+            let health = normalizedHealth[sourceKey]?.reliability(at: now) ?? 0.7
+            let age = max(0, now.timeIntervalSince(candidate.provenance.observedAt))
+            let freshness: Double
+            switch age {
+            case ..<86_400: freshness = 1
+            case ..<(7 * 86_400): freshness = 0.85
+            case ..<(30 * 86_400): freshness = 0.65
+            default: freshness = 0.4
+            }
+            let agreements = evidence.filter { equivalent($0.value, candidate.value) }.count
+            let consensus = min(0.12, Double(max(0, agreements - 1)) * 0.04)
+            var score = candidate.provenance.badge.confidence * 0.55
+                + health * 0.30
+                + freshness * 0.15
+                + consensus
+            if candidate.provenance.badge == .userAdded { score = max(score, 0.90) }
+            if candidate.provenance.badge == .verified { score = max(score, 0.92) }
+            return RankedFieldEvidence(evidence: candidate, score: min(1, score),
+                                       agreementCount: agreements)
+        }.sorted {
+            if $0.score != $1.score { return $0.score > $1.score }
+            if $0.agreementCount != $1.agreementCount { return $0.agreementCount > $1.agreementCount }
+            if $0.evidence.provenance.observedAt != $1.evidence.provenance.observedAt {
+                return $0.evidence.provenance.observedAt > $1.evidence.provenance.observedAt
+            }
+            return $0.evidence.provenance.sourceID < $1.evidence.provenance.sourceID
+        }
+
+        guard let winner = ranked.first else { return nil }
+        let alternatives = ranked.dropFirst().map(\.evidence)
+        let nearestConflict = ranked.dropFirst().first {
+            !equivalent($0.evidence.value, winner.evidence.value)
+        }
+        let contested = nearestConflict.map { winner.score - $0.score < 0.08 } ?? false
+        return ReconciledField(
+            value: winner.evidence.value,
+            provenance: winner.evidence.provenance,
+            confidence: winner.score,
+            alternatives: alternatives,
+            isContested: contested,
+            needsReview: winner.score < 0.70 || contested
+        )
+    }
+
+    /// String convenience uses the same grocery normalization as identity and receipt matching.
+    static func reconcileText(
+        _ evidence: [FieldEvidence<String>],
+        sourceHealth: [String: SourceHealthSnapshot] = [:],
+        now: Date = Date()
+    ) -> ReconciledField<String>? {
+        reconcile(evidence, sourceHealth: sourceHealth, now: now) {
+            GroceryKnowledgeBase.normalize($0) == GroceryKnowledgeBase.normalize($1)
+        }
+    }
+}
+
 /// A small pill that renders a SourceBadge. Opt-in; screens add it where provenance matters.
 struct SourceBadgeView: View {
     let badge: SourceBadge
@@ -139,8 +270,8 @@ struct SourceBadgeView: View {
     var body: some View {
         let dark = scheme == .dark
         HStack(spacing: 3) {
-            Image(systemName: badge.symbol).font(.system(size: 9, weight: .semibold))
-            Text(badge.rawValue).font(.system(size: 10, weight: .semibold))
+            Image(systemName: badge.symbol).scaledFont(9, weight: .semibold)
+            Text(badge.rawValue).scaledFont(10, weight: .semibold)
         }
         .foregroundStyle(badge.color(dark: dark))
         .padding(.horizontal, 7).padding(.vertical, 2)

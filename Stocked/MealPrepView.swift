@@ -21,6 +21,7 @@ private struct MergedIngredient: Identifiable {
 
 struct MealPrepView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     @State private var selectedMeals:  [PrepMeal]     = []
     @State private var mergedIngredients: [MergedIngredient] = []
     @State private var step:           PrepStep        = .select
@@ -52,13 +53,13 @@ struct MealPrepView: View {
                 // Header
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 10) {
-                        Text("🧑‍🍳").font(.system(size: 32))
+                        Text("🧑‍🍳").scaledFont(32)
                         Text("Meal Prep")
-                            .font(.system(size: 32, weight: .bold, design: .serif))
+                            .scaledFont(32, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                     }
                     Text("Select meals → review ingredients → get your prep order")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
                 .padding(.horizontal, 24).padding(.bottom, 20)
 
@@ -68,7 +69,7 @@ struct MealPrepView: View {
                         let labels = ["Select","Review","Plan"]
                         let active = (step == .select && i == 0) || (step == .review && i == 1) || (step == .plan && i == 2)
                         Text(labels[i])
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(12, weight: .semibold)
                             .foregroundStyle(active ? session.themeTextColor : session.themeTextColor.opacity(0.35))
                             .frame(maxWidth: .infinity).padding(.vertical, 8)
                             .background(active ? Color.stockedGold : Color.clear)
@@ -88,7 +89,7 @@ struct MealPrepView: View {
         .overlay(alignment: .bottom) {
             if showAddToast {
                 Text("✓ All ingredients added to grocery list")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20).padding(.vertical, 12)
                     .background(Color.stockedGreen).clipShape(RoundedRectangle(cornerRadius: 24))
@@ -126,7 +127,7 @@ struct MealPrepView: View {
             sectionLabel("MY RECIPES")
             if store.userRecipes.isEmpty {
                 Text("No saved recipes yet — use Quick Picks below")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
                     .padding(.horizontal, 24).padding(.vertical, 12)
             } else {
                 ForEach(store.userRecipes) { r in
@@ -148,11 +149,11 @@ struct MealPrepView: View {
             if !selectedMeals.isEmpty {
                 Button {
                     buildMergedList()
-                    withAnimation(.spring(response: 0.3)) { step = .review }
+                    motion.animate(.standard, intent: .spatial) { step = .review }
                 } label: {
                     HStack {
                         Text("Review \(selectedMeals.count) Meal\(selectedMeals.count == 1 ? "" : "s")")
-                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                            .scaledFont(17, weight: .semibold, design: .serif)
                         Spacer()
                         Image(systemName: "chevron.right")
                     }
@@ -169,7 +170,7 @@ struct MealPrepView: View {
     private func mealSelectRow(_ meal: PrepMeal) -> some View {
         let isSelected = selectedMeals.contains { $0.title == meal.title }
         return Button {
-            withAnimation(.spring(response: 0.25)) {
+            motion.animate(.selection, intent: .spatial) {
                 if isSelected { selectedMeals.removeAll { $0.title == meal.title } }
                 else          { selectedMeals.append(meal) }
             }
@@ -181,22 +182,22 @@ struct MealPrepView: View {
                         .fill(isSelected ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
                         .frame(width: 30, height: 30)
                     if isSelected {
-                        Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
+                        Image(systemName: "checkmark").scaledFont(12, weight: .bold)
                             .foregroundStyle(session.themeTextColor)
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(meal.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                    Text(meal.title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
                     HStack(spacing: 8) {
                         if meal.estimatedPrepMin > 0 {
                             Label("\(meal.estimatedPrepMin)m prep", systemImage: "clock")
-                                .font(.system(size: 10))
+                                .scaledFont(10)
                         }
                         if meal.estimatedCookMin > 0 {
                             Label("\(meal.estimatedCookMin)m cook", systemImage: "flame")
-                                .font(.system(size: 10))
+                                .scaledFont(10)
                         }
-                        Text(meal.source).font(.system(size: 10, weight: .semibold))
+                        Text(meal.source).scaledFont(10, weight: .semibold)
                             .foregroundStyle(Color.stockedGold)
                     }.foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
@@ -229,18 +230,18 @@ struct MealPrepView: View {
                 }
                 HStack(spacing: 12) {
                     Image(systemName: inStock ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 18))
+                        .scaledFont(18)
                         .foregroundStyle(inStock ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(ing.name).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                        Text(ing.name).scaledFont(14).foregroundStyle(session.themeTextColor)
                             .strikethrough(inStock)
                         Text("For: \(ing.meals.joined(separator: " · "))")
-                            .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.4)).lineLimit(1)
+                            .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4)).fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     if inStock {
-                        Text("Stocked").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.stockedGreen)
+                        Text("Stocked").scaledFont(10, weight: .bold).foregroundStyle(Color.stockedGreen)
                     }
                 }
                 .padding(.horizontal, 24).padding(.vertical, 9)
@@ -254,25 +255,25 @@ struct MealPrepView: View {
                     addMissingToGrocery()
                 } label: {
                     Label("Add Missing to Grocery List", systemImage: "cart.badge.plus")
-                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite).frame(maxWidth: .infinity)
                         .padding(.vertical, 17).background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: 14))
                 }.buttonStyle(.plain)
 
                 Button {
-                    withAnimation(.spring(response: 0.3)) { step = .plan }
+                    motion.animate(.standard, intent: .spatial) { step = .plan }
                 } label: {
                     Label("See Prep Order", systemImage: "list.number")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedGold).frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(Color.stockedGold.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 14))
                 }.buttonStyle(.plain)
 
                 Button {
-                    withAnimation(.spring(response: 0.3)) { step = .select }
+                    motion.animate(.standard, intent: .spatial) { step = .select }
                 } label: {
-                    Text("← Edit Selection").font(.system(size: 14))
+                    Text("← Edit Selection").scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }.buttonStyle(.plain)
             }
@@ -290,13 +291,13 @@ struct MealPrepView: View {
             // Total estimate
             HStack {
                 Label("Estimated total: ~\(totalMin) min", systemImage: "clock.fill")
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                    .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedGold)
                 Spacer()
             }.padding(.horizontal, 24).padding(.bottom, 16)
 
             sectionLabel("RECOMMENDED PREP ORDER")
             Text("Start with the longest-cooking items so everything finishes close together.")
-                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.45))
                 .padding(.horizontal, 24).padding(.bottom, 12)
 
             ForEach(Array(sorted.enumerated()), id: \.element.id) { i, meal in
@@ -304,29 +305,29 @@ struct MealPrepView: View {
                     // Step number badge
                     ZStack {
                         Circle().fill(Color.stockedCharcoal).frame(width: 34, height: 34)
-                        Text("\(i + 1)").font(.system(size: 14, weight: .bold)).foregroundStyle(Color.stockedGold)
+                        Text("\(i + 1)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedGold)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(meal.title)
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         HStack(spacing: 6) {
                             if meal.estimatedPrepMin > 0 {
-                                Text("Prep \(meal.estimatedPrepMin)m").font(.system(size: 11))
+                                Text("Prep \(meal.estimatedPrepMin)m").scaledFont(11)
                             }
                             if meal.estimatedPrepMin > 0 && meal.estimatedCookMin > 0 {
-                                Text("·").font(.system(size: 11))
+                                Text("·").scaledFont(11)
                             }
                             if meal.estimatedCookMin > 0 {
-                                Text("Cook \(meal.estimatedCookMin)m").font(.system(size: 11))
+                                Text("Cook \(meal.estimatedCookMin)m").scaledFont(11)
                             }
                         }.foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                     Spacer()
                     // Key ingredients preview
                     Text(meal.ingredients.prefix(2).joined(separator: ", "))
-                        .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.35))
-                        .lineLimit(2).multilineTextAlignment(.trailing).frame(maxWidth: 80)
+                        .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.trailing).frame(maxWidth: 80)
                 }
                 .padding(.horizontal, 24).padding(.vertical, 12)
                 .background(i % 2 == 0 ? Color.stockedWhite.opacity(0.15) : Color.clear)
@@ -344,7 +345,7 @@ struct MealPrepView: View {
             VStack(spacing: 12) {
                 NavigationLink(destination: GroceryListView()) {
                     Label("View Grocery List", systemImage: "cart")
-                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite).frame(maxWidth: .infinity)
                         .padding(.vertical, 17).background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: 14))
                 }.buttonStyle(.plain)
@@ -352,9 +353,9 @@ struct MealPrepView: View {
                 Button {
                     selectedMeals = []
                     mergedIngredients = []
-                    withAnimation(.spring(response: 0.3)) { step = .select }
+                    motion.animate(.standard, intent: .spatial) { step = .select }
                 } label: {
-                    Text("Start Over").font(.system(size: 14))
+                    Text("Start Over").scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }.buttonStyle(.plain)
             }
@@ -405,8 +406,8 @@ struct MealPrepView: View {
 
     private func statPill(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-            Text(label).font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(value).scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
+            Text(label).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.45))
         }
         .frame(maxWidth: .infinity).padding(.vertical, 10)
         .background(Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

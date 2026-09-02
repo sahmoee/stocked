@@ -26,13 +26,13 @@ struct BrandPriceView: View {
                 HStack(spacing: 6) {
                     if let brand = p.brand, !brand.isEmpty {
                         Text(brand)
-                            .font(.system(size: compact ? 11 : 12.5, weight: .semibold))
+                            .font(.stockedSystem(size: compact ? 11 : 12.5, weight: .semibold))
                             .foregroundStyle(session.themeTextColor.opacity(0.7))
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if let price = p.price, !price.isEmpty {
                         Text(price)
-                            .font(.system(size: compact ? 11 : 12.5, weight: .bold))
+                            .font(.stockedSystem(size: compact ? 11 : 12.5, weight: .bold))
                             .foregroundStyle(Color.stockedGold)
                             .padding(.horizontal, 7).padding(.vertical, 2)
                             .background(
@@ -40,7 +40,7 @@ struct BrandPriceView: View {
                             )
                     }
                     Text(p.store)
-                        .font(.system(size: compact ? 9 : 10))
+                        .font(.stockedSystem(size: compact ? 9 : 10))
                         .foregroundStyle(session.themeTextColor.opacity(0.4))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

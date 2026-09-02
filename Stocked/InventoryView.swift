@@ -55,6 +55,7 @@ enum InventorySheet: Identifiable {
 struct InventoryView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) private var device
+    @Environment(\.stockedMotion) private var motion
     @State private var selectedZone   = "Fridge"
     @State private var expandedSubs:   Set<String> = []
     @State private var preEditExpanded: Set<String> = []   // restore on exiting edit mode
@@ -174,7 +175,7 @@ struct InventoryView: View {
                 HStack {
                     Spacer()
                     Button(editMode ? "Done" : "Edit") {
-                        withAnimation(.spring(response: 0.25)) {
+                        motion.animate(.selection, intent: .spatial) {
                             editMode.toggle()
                             if editMode {
                                 // Remember what was open, then expand every category so all
@@ -190,7 +191,7 @@ struct InventoryView: View {
                             }
                         }
                     }
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 4)
@@ -202,7 +203,7 @@ struct InventoryView: View {
                 HStack(spacing: 10) {
                     Button { activeSheet = .barcode } label: {
                         Label("Scan Barcode", systemImage: "barcode.viewfinder")
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(12, weight: .semibold)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 11)
                             .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
@@ -210,7 +211,7 @@ struct InventoryView: View {
                     .a11yButton("Scan barcode", hint: "Add an item by scanning its barcode")
                     Button { activeSheet = .receipt } label: {
                         Label("Scan Receipt", systemImage: "doc.text.viewfinder")
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(12, weight: .semibold)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 11)
                             .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
@@ -232,10 +233,10 @@ struct InventoryView: View {
                             Button { withAnimation { selectedZone = z } } label: {
                                 HStack(spacing: 7) {
                                     Image(systemName: zoneIcon(z))
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .scaledFont(13, weight: .semibold)
                                         .foregroundStyle(isSel ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.55))
                                     Text(z)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                         .foregroundStyle(isSel ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.6))
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 11)
@@ -254,10 +255,10 @@ struct InventoryView: View {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(selectedZone)
-                            .font(.system(size: 24, weight: .bold, design: .serif))
+                            .scaledFont(24, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("\(items.count) item\(items.count == 1 ? "" : "s")")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     Spacer()
@@ -270,9 +271,9 @@ struct InventoryView: View {
                     } label: {
                         HStack(spacing: 5) {
                             Text("Sort: \(invSort.rawValue)")
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 9, weight: .semibold))
+                                .scaledFont(9, weight: .semibold)
                         }
                         .foregroundStyle(session.themeTextColor.opacity(0.75))
                         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -316,7 +317,7 @@ struct InventoryView: View {
             if let toast = buildToast {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
-                    Text(toast).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(toast).scaledFont(13, weight: .semibold).foregroundStyle(.white)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
                 .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -365,7 +366,7 @@ struct InventoryView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stockedOpenInventoryItem)) { note in
             guard let idStr = note.object as? String, let uuid = UUID(uuidString: idStr) else { return }
             if let match = session.guestStore.inventoryItems.first(where: { $0.id == uuid }) {
-                if splitActive { withAnimation(.spring(response: 0.3)) { detailItemID = uuid } }
+                if splitActive { motion.animate(.navigation, intent: .spatial) { detailItemID = uuid } }
                 else { deepLinkItem = match }
             }
         }
@@ -397,7 +398,7 @@ struct InventoryView: View {
     private func exitEditMode() {
         selectedIDs.removeAll()
         editMode = false
-        withAnimation(.spring(response: 0.25)) { expandedSubs = preEditExpanded }
+        motion.animate(.selection, intent: .spatial) { expandedSubs = preEditExpanded }
         HapticManager.success()
     }
 
@@ -441,7 +442,7 @@ struct InventoryView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Text("\(selectedIDs.count) selected")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                     Spacer()
                     // #4 — bulk quantity: nudge every selected item's count up or down.
@@ -455,7 +456,7 @@ struct InventoryView: View {
                         HapticManager.select()
                     } label: {
                         Label("Qty −1", systemImage: "minus.circle")
-                            .font(.system(size: 11, weight: .bold))
+                            .scaledFont(11, weight: .bold)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 8).padding(.vertical, 5)
                             .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -469,7 +470,7 @@ struct InventoryView: View {
                         HapticManager.select()
                     } label: {
                         Label("Qty +1", systemImage: "plus.circle")
-                            .font(.system(size: 11, weight: .bold))
+                            .scaledFont(11, weight: .bold)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 8).padding(.vertical, 5)
                             .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -484,7 +485,7 @@ struct InventoryView: View {
                         exitEditMode()
                     } label: {
                         Label("To list", systemImage: "cart.badge.plus")
-                            .font(.system(size: 11, weight: .bold))
+                            .scaledFont(11, weight: .bold)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 8).padding(.vertical, 5)
                             .background(Color.stockedGreen).clipShape(Capsule())
@@ -505,7 +506,7 @@ struct InventoryView: View {
                         }
                     } label: {
                         Label("Delete", systemImage: "trash")
-                            .font(.system(size: 11, weight: .bold))
+                            .scaledFont(11, weight: .bold)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 8).padding(.vertical, 5)
                             .background(Color.red.opacity(0.85)).clipShape(Capsule())
@@ -514,7 +515,7 @@ struct InventoryView: View {
                 // Move-to-zone row
                 HStack(spacing: 8) {
                     Text("Move to:")
-                        .font(.system(size: 11, weight: .medium))
+                        .scaledFont(11, weight: .medium)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                     ForEach(["Fridge","Freezer","Pantry","Staples"], id: \.self) { z in
                         Button(z) {
@@ -525,7 +526,7 @@ struct InventoryView: View {
                             }
                             exitEditMode()
                         }
-                        .font(.system(size: 11, weight: .bold))
+                        .scaledFont(11, weight: .bold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 5)
                         .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -543,14 +544,14 @@ struct InventoryView: View {
     @ViewBuilder private var inlineSearchField: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 12)).foregroundStyle(Color.stockedWhite.opacity(0.5))
+                .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.5))
             TextField("", text: $invSearch, prompt: Text("Search items").foregroundColor(Color.stockedWhite.opacity(0.4)))
-                .font(.system(size: 13)).foregroundStyle(Color.stockedWhite)
+                .scaledFont(13).foregroundStyle(Color.stockedWhite)
                 .autocorrectionDisabled()
             if !invSearch.isEmpty {
                 Button { invSearch = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 13)).foregroundStyle(Color.stockedWhite.opacity(0.4))
+                        .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.4))
                 }.buttonStyle(.plain)
             }
         }
@@ -564,14 +565,14 @@ struct InventoryView: View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12)).foregroundStyle(Color.stockedWhite.opacity(0.5))
+                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.5))
                 TextField("", text: $invSearch, prompt: Text("Search items").foregroundColor(Color.stockedWhite.opacity(0.4)))
-                    .font(.system(size: 13)).foregroundStyle(Color.stockedWhite)
+                    .scaledFont(13).foregroundStyle(Color.stockedWhite)
                     .autocorrectionDisabled()
                 if !invSearch.isEmpty {
                     Button { invSearch = "" } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13)).foregroundStyle(Color.stockedWhite.opacity(0.4))
+                            .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.4))
                     }.buttonStyle(.plain)
                 }
             }
@@ -588,7 +589,7 @@ struct InventoryView: View {
                 }
             } label: {
                 Image(systemName: "arrow.up.arrow.down")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 11).padding(.vertical, 9)
                     .background(session.themeButtonColor).clipShape(Capsule())
@@ -603,7 +604,7 @@ struct InventoryView: View {
                 } label: { Label("Share CSV…", systemImage: "square.and.arrow.up") }
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 11).padding(.vertical, 9)
                     .background(session.themeButtonColor).clipShape(Capsule())
@@ -634,7 +635,7 @@ struct InventoryView: View {
                             // instant starter pantry, no typing. Tapped chips add immediately.
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Or tap what you usually have:")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(13, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                                 let staples = ["Milk", "Eggs", "Butter", "Bread", "Rice", "Pasta",
                                                "Chicken", "Ground beef", "Cheese", "Onions",
@@ -652,8 +653,8 @@ struct InventoryView: View {
                                             HapticManager.light()
                                         } label: {
                                             HStack(spacing: 4) {
-                                                if added { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)) }
-                                                Text(name).font(.system(size: 12.5, weight: .semibold))
+                                                if added { Image(systemName: "checkmark").scaledFont(9, weight: .bold) }
+                                                Text(name).scaledFont(12.5, weight: .semibold)
                                             }
                                             .foregroundStyle(added ? Color.stockedWhite : session.themeTextColor.opacity(0.75))
                                             .frame(maxWidth: .infinity)
@@ -669,7 +670,7 @@ struct InventoryView: View {
                             .padding(.horizontal, 24)
                             Button { activeSheet = .add } label: {
                                 Text("Or add items by hand")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(13, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                             }
                             .buttonStyle(.plain)
@@ -697,7 +698,7 @@ struct InventoryView: View {
                            lineSpacing: 8,
                            contentInsets: .init(top: 4, leading: 24, bottom: 110, trailing: 24)) { item in
                 InventoryItemRow(item: item, onSelect: splitActive ? { id in
-                    withAnimation(.spring(response: 0.3)) {
+                    motion.animate(.navigation, intent: .spatial) {
                         detailItemID = id
                         if splitPreset == .wideList { splitPreset = .even; splitPreset.save() }
                     }
@@ -732,7 +733,7 @@ struct InventoryView: View {
                                     HapticManager.light()
                                 } label: {
                                     Text(preset.label)
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(splitPreset == preset ? Color.stockedGold : session.themeTextColor.opacity(0.5))
                                         .padding(.horizontal, 12).padding(.vertical, 6)
                                         .background(
@@ -746,7 +747,7 @@ struct InventoryView: View {
                             Spacer()
                             Button { withAnimation { detailItemID = nil } } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 22))
+                                    .scaledFont(22)
                                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                             }.buttonStyle(.plain).padding(12)
                         }
@@ -757,9 +758,9 @@ struct InventoryView: View {
                 } else {
                     VStack(spacing: 12) {
                         Image(systemName: "hand.tap")
-                            .font(.system(size: 40)).foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.25))
                         Text("Select an item to view details")
-                            .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                 }
             }
@@ -773,7 +774,7 @@ struct InventoryView: View {
             editMode: editMode,
             selectedIDs: $selectedIDs,
             onSelect: splitActive ? { id in
-                withAnimation(.spring(response: 0.3)) {
+                motion.animate(.navigation, intent: .spatial) {
                     detailItemID = id
                     // Give the detail pane room if the list preset is the widest one.
                     if splitPreset == .wideList { splitPreset = .even; splitPreset.save() }
@@ -783,7 +784,7 @@ struct InventoryView: View {
             items: subcatItems,
             isExpanded: expandedSubs.contains(subcat)
         ) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            motion.animate(.standard, intent: .spatial) {
                 if expandedSubs.contains(subcat) { expandedSubs.remove(subcat) }
                 else { expandedSubs = [subcat] }
             }
@@ -941,17 +942,17 @@ struct SubcategoryDisclosure: View {
             Button(action: onToggle) {
                 HStack {
                     Text(title)
-                        .font(.system(size: 13, weight: .bold, design: .serif))
+                        .scaledFont(13, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Spacer()
                     Text("\(items.count)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Capsule())
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.4))
                         .padding(.leading, 6)
                 }
@@ -976,7 +977,7 @@ struct SubcategoryDisclosure: View {
                             } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: sel.wrappedValue.contains(item.id) ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 20))
+                                        .scaledFont(20)
                                         .foregroundStyle(sel.wrappedValue.contains(item.id) ? Color.stockedGold : session.themeTextColor.opacity(0.35))
                                         .padding(.leading, 12)
                                     InventoryItemRow(item: item)
@@ -1060,7 +1061,7 @@ struct WeeklyPlanStrip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Drag to plan  ·  dots = expiring")
-                .font(.system(size: 9, weight: .semibold))
+                .scaledFont(9, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.35))
                 .padding(.leading, 2)
             HStack(spacing: 5) {
@@ -1083,17 +1084,17 @@ private struct WeeklyPlanCell: View {
     var body: some View {
         VStack(spacing: 3) {
             Text(day.label)
-                .font(.system(size: 9, weight: .semibold))
+                .scaledFont(9, weight: .semibold)
                 .foregroundStyle(isTargeted ? session.accentColor : session.themeTextColor.opacity(0.5))
-                .lineLimit(1).minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
             ZStack {
                 Circle().fill(isTargeted ? session.accentColor : day.dotColor)
                     .frame(width: 30, height: 30)
-                if isTargeted { Image(systemName: "plus").font(.system(size: 11, weight: .bold)).foregroundStyle(.white) }
-                else if day.expiryCount > 0 { Text("\(day.expiryCount)").font(.system(size: 11, weight: .bold)).foregroundStyle(.white) }
+                if isTargeted { Image(systemName: "plus").scaledFont(11, weight: .bold).foregroundStyle(.white) }
+                else if day.expiryCount > 0 { Text("\(day.expiryCount)").scaledFont(11, weight: .bold).foregroundStyle(.white) }
             }
             Text(day.dayNum)
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(11, weight: .semibold)
                 .foregroundStyle(isTargeted ? session.accentColor : session.themeTextColor.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
@@ -1101,7 +1102,7 @@ private struct WeeklyPlanCell: View {
         .background(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
             .fill(isTargeted ? session.accentColor.opacity(0.12) : session.themeCardColor.opacity(session.isDarkMode ? 1.0 : 0.5)))
         .scaleEffect(isTargeted ? 1.06 : 1.0)
-        .animation(.spring(response: 0.2), value: isTargeted)
+        .stockedAnimation(.selection, intent: .spatial, value: isTargeted)
         .dropDestination(for: String.self) { items, _ -> Bool in
             guard let name = items.first else { return false }
             onDrop(name, day.id); return true
@@ -1156,36 +1157,37 @@ struct InventoryItemRow: View {
             // expiry in orange · chevron. The level bar moved into a thin strip under the
             // name so drag/level info isn't lost.
             HStack(spacing: 14) {
-                if let data = item.imageData, let ui = UIImage(data: data) {
-                    Image(uiImage: ui)
-                        .resizable().scaledToFill()
-                        .frame(width: 42, height: 42)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
-                } else {
+                CachedLocalDataImage(
+                    data: item.imageData,
+                    maxDimension: 42,
+                    width: 42,
+                    height: 42,
+                    clip: .roundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
+                ) {
                     ZStack {
                         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
                             .fill(Color.stockedWhite.opacity(0.55))
                             .frame(width: 42, height: 42)
                         Text(ImageFallbackService.emoji(for: item.name))
-                            .font(.system(size: 22))
+                            .scaledFont(22)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.name.displayNormalized)
-                        .font(.system(size: 15.5, weight: .semibold))
-                        .dynamicTypeSize(.xSmall ... .xxxLarge)
+                        .scaledFont(15.5, weight: .semibold)
+
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 6) {
                         Text(qtyLine)
-                            .font(.system(size: 12.5))
+                            .scaledFont(12.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                         // #A3 staleness — the app hasn't seen this touched in a while; a
                         // subtle chip turns invisible drift into a visible, fixable state.
                         if GuestDataStore.isStale(item) {
                             Text("Still have this?")
-                                .font(.system(size: 10, weight: .semibold))
+                                .scaledFont(10, weight: .semibold)
                                 .foregroundStyle(Color.orange)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
                                 .background(Color.orange.opacity(0.12))
@@ -1194,17 +1196,17 @@ struct InventoryItemRow: View {
                         // #E1 household attribution — who added it, when synced from a member.
                         if let who = item.addedBy, !who.isEmpty, who != session.userName {
                             Text("by \(who)")
-                                .font(.system(size: 10.5))
+                                .scaledFont(10.5)
                                 .foregroundStyle(Color.stockedGold.opacity(0.8))
                         }
                         // #B3 reserved — committed to an upcoming planned meal, so it looks
                         // free but is spoken for. Prevents planning two meals around one onion.
                         if session.guestStore.isReservedForMeal(item) {
                             HStack(spacing: 2) {
-                                Image(systemName: "calendar").font(.system(size: 8))
+                                Image(systemName: "calendar").scaledFont(8)
                                 Text("planned")
                             }
-                            .font(.system(size: 10, weight: .semibold))
+                            .scaledFont(10, weight: .semibold)
                             .foregroundStyle(Color.stockedGreen)
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Color.stockedGreen.opacity(0.12))
@@ -1217,16 +1219,16 @@ struct InventoryItemRow: View {
 
                 if let d = item.daysUntilExpiry {
                     Text(d < 0 ? "Expired" : d == 0 ? "Expires today" : d == 1 ? "Expires tomorrow" : "Expires in \(d) days")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(d < 0 ? Color.red : d <= 1 ? Color.red.opacity(0.8) : Color.orange)
-                        .lineLimit(1).minimumScaleFactor(0.75)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(batteryColor)
                 }
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(12, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(.horizontal, 14).padding(.vertical, 13)

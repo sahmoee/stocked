@@ -57,6 +57,58 @@ nonisolated extension Color {
 
     /// High-contrast reciprocal accent for selected navigation and small focus treatments.
     static func contrastAccent(_ dark: Bool) -> Color { dark ? stockedWhite : stockedCharcoal }
+
+    // MARK: Widget semantic roles
+    // Home widgets use roles instead of literal colors so light/dark, increased
+    // contrast, and Reduce Transparency remain one coherent theme contract.
+    static func widgetSurface(_ dark: Bool, increasedContrast: Bool, reduceTransparency: Bool) -> Color {
+        if dark { return increasedContrast ? Color(red: 0.205, green: 0.188, blue: 0.158) : darkElevatedSurface }
+        if increasedContrast { return Color(red: 0.875, green: 0.804, blue: 0.690) }
+        return reduceTransparency ? Color(red: 0.820, green: 0.725, blue: 0.580) : stockedWhite.opacity(0.58)
+    }
+
+    static func widgetPrimaryText(_ dark: Bool) -> Color { appText(dark) }
+    static func widgetSecondaryText(_ dark: Bool) -> Color { appSecondary(dark) }
+    static func widgetDivider(_ dark: Bool, increasedContrast: Bool) -> Color {
+        contrastAccent(dark).opacity(increasedContrast ? 0.72 : 0.22)
+    }
+    static func widgetPressedSurface(_ dark: Bool) -> Color {
+        dark ? darkLabel.opacity(0.12) : stockedCharcoal.opacity(0.10)
+    }
+    static func widgetFocus(_ dark: Bool) -> Color { dark ? stockedGoldDark : stockedGold }
+    static func widgetSuccess(_ dark: Bool) -> Color { dark ? stockedSuccess : stockedGreen }
+    static func widgetWarning(_ dark: Bool) -> Color { dark ? stockedWarning : stockedGold }
+    static func widgetFailure(_ dark: Bool) -> Color { stockedError }
+}
+
+/// Subtle family accents preserve a single Stocked identity while making the
+/// user's pantry, cooking, shopping, and planning groups easier to scan.
+enum StockedWidgetThemeFamily: String, CaseIterable, Identifiable {
+    case pantry = "Pantry"
+    case cooking = "Cooking"
+    case shopping = "Shopping"
+    case planning = "Planning"
+    case tools = "Tools"
+
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .pantry: "cabinet"
+        case .cooking: "frying.pan"
+        case .shopping: "cart"
+        case .planning: "calendar"
+        case .tools: "wand.and.sparkles"
+        }
+    }
+    func accent(dark: Bool) -> Color {
+        switch self {
+        case .pantry: return dark ? .stockedGoldDark : .stockedGold
+        case .cooking: return dark ? .stockedSuccess : .stockedGreen
+        case .shopping: return .stockedInfo
+        case .planning: return dark ? .stockedWarning : .stockedGold
+        case .tools: return Color.contrastAccent(dark)
+        }
+    }
 }
 
 // MARK: - Corner Radii
@@ -79,6 +131,40 @@ enum StockedSpacing {
 
 // MARK: - Typography helpers
 extension Font {
+    /// App-linked replacement for SwiftUI's built-in semantic fonts. Native
+    /// semantic values follow only the system category; this also follows the
+    /// single Stocked in-app text preference.
+    static func stocked(_ style: Font.TextStyle) -> Font {
+        let specification: (size: CGFloat, weight: Font.Weight) = switch style {
+        case .largeTitle: (34, .regular)
+        case .title: (28, .regular)
+        case .title2: (22, .regular)
+        case .title3: (20, .regular)
+        case .headline: (17, .semibold)
+        case .subheadline: (15, .regular)
+        case .callout: (16, .regular)
+        case .footnote: (13, .regular)
+        case .caption: (12, .regular)
+        case .caption2: (11, .regular)
+        default: (17, .regular)
+        }
+        return StockedType.font(
+            size: specification.size,
+            weight: specification.weight,
+            relativeTo: style
+        )
+    }
+
+    /// Dynamic-Type-aware compatibility constructor for geometry-dependent and conditional
+    /// font expressions that cannot use the `scaledFont` view modifier directly.
+    static func stockedSystem(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default
+    ) -> Font {
+        StockedType.font(size: size, weight: weight, design: design)
+    }
+
     /// The canonical Stocked font constructors. All semantic and compatibility
     /// typography APIs delegate here so Dynamic Type and the in-app interface-size
     /// preference cannot drift between screens.
@@ -104,22 +190,37 @@ extension Font {
 // stockedSans helpers. UIFontMetrics is used (rather than ScaledMetric) so this works inside a
 // plain function that returns a Font value.
 enum StockedType {
+    static let appTextSizePreferenceKey = "stocked.appTextSize"
+
+    /// Resolve the one app-wide type family. Keeping this pure overload makes the preference
+    /// mapping directly testable; the nil form reads the existing AppSession persistence key.
+    static func appFontSelection(for rawValue: String? = nil) -> AppFont {
+        let selected = rawValue ?? UserDefaults.standard.string(forKey: DBKey.appFont.rawValue)
+        return AppFont(rawValue: selected ?? AppFont.serif.rawValue) ?? .serif
+    }
+
+    static func appTextScale(for rawValue: String? = nil) -> CGFloat {
+        let selected = rawValue ?? UserDefaults.standard.string(forKey: appTextSizePreferenceKey)
+        return (AppTextSize(rawValue: selected ?? AppTextSize.standard.rawValue) ?? .standard).multiplier
+    }
+
     static func font(
         size: CGFloat,
         weight: Font.Weight = .regular,
         design: Font.Design = .default,
         relativeTo style: Font.TextStyle? = nil
     ) -> Font {
-        .system(size: scaled(size, relativeTo: style), weight: weight, design: design)
+        // `design` remains in the compatibility signature so call sites do not churn. The user's
+        // single app-wide family deliberately wins over page-local serif/sans/mono choices.
+        _ = design
+        return .system(size: scaled(size, relativeTo: style), weight: weight,
+                       design: appFontSelection().design)
     }
 
     static func scaled(_ size: CGFloat, relativeTo style: Font.TextStyle? = nil) -> CGFloat {
         let uiStyle = style.map(uiKitStyle) ?? inferredUIKitStyle(for: size)
-        let selected = UserDefaults.standard.string(forKey: "stocked.interfaceSize")
-        let interfaceSize = InterfaceSize(rawValue: selected ?? InterfaceSize.comfortable.rawValue)
-            ?? .comfortable
         return UIFontMetrics(forTextStyle: uiStyle)
-            .scaledValue(for: size * typographyScale(for: interfaceSize))
+            .scaledValue(for: size * appTextScale())
     }
 
     private static func inferredUIKitStyle(for size: CGFloat) -> UIFont.TextStyle {
@@ -153,16 +254,6 @@ enum StockedType {
         }
     }
 
-    /// Typography uses a gentler density curve than controls. Keeping the curve
-    /// here gives every font API one source of truth and avoids unexpectedly
-    /// inflating the default comfortable layout.
-    private static func typographyScale(for size: InterfaceSize) -> CGFloat {
-        switch size {
-        case .standard:    return 0.94
-        case .comfortable: return 1
-        case .large:       return 1.18
-        }
-    }
 }
 
 // MARK: - Page background helper
@@ -186,7 +277,7 @@ nonisolated extension Color {
         ], id: \.0) { name, color in
             HStack {
                 color.frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
-                Text(name).font(.system(size: 14, design: .monospaced)).foregroundStyle(.primary)
+                Text(name).scaledFont(14, design: .monospaced).foregroundStyle(.primary)
                 Spacer()
             }
             .padding(.horizontal, 20).padding(.vertical, 6)

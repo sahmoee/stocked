@@ -7,6 +7,7 @@ import SwiftUI
 struct DailyBriefOverlay: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) private var device
+    @Environment(\.stockedMotion) private var motion
     @Binding var isPresented: Bool
 
     var onScanReceipt:   () -> Void = {}
@@ -106,17 +107,17 @@ struct DailyBriefOverlay: View {
                     // The Home screen behind this already greets the user, so the brief leads with
                     // its own title instead of repeating "Good Evening, Chef".
                     Text("Today's Brief")
-                        .font(.system(size: 23, weight: .bold, design: .serif))
+                        .scaledFont(23, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedGoldDark)
-                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text("Here is where your kitchen stands today.")
-                        .font(.system(size: 12.5))
+                        .scaledFont(12.5)
                         .foregroundStyle(Color.stockedWhite.opacity(0.55))
                 }
                 Spacer(minLength: 8)
                 Button { close() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite.opacity(0.6))
                         .frame(width: 28, height: 28)
                         .background(Color.stockedWhite.opacity(0.08))
@@ -193,10 +194,10 @@ struct DailyBriefOverlay: View {
             } label: {
                 HStack(spacing: 6) {
                     Text("View full kitchen report")
-                        .font(.system(size: 13.5, weight: .semibold))
+                        .scaledFont(13.5, weight: .semibold)
                     Spacer(minLength: 4)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                 }
                 .foregroundStyle(session.accentColor)
                 .padding(.top, 12)
@@ -218,22 +219,22 @@ struct DailyBriefOverlay: View {
         return Button(action: action) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .scaledFont(14)
                     .foregroundStyle(ink.opacity(0.6))
                     .frame(width: 20)
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(ink.opacity(0.55))
                     Text(value)
-                        .font(.system(size: 15.5, weight: .bold))
+                        .scaledFont(15.5, weight: .bold)
                         .foregroundStyle(ink)
-                        .lineLimit(1).minimumScaleFactor(0.75)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .scaledFont(10, weight: .semibold)
                     .foregroundStyle(ink.opacity(0.25))
                     .padding(.top, 8)
             }
@@ -248,7 +249,7 @@ struct DailyBriefOverlay: View {
     private var atAGlance: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("At a Glance")
-                .font(.system(size: 14, weight: .bold, design: .serif))
+                .scaledFont(14, weight: .bold, design: .serif)
                 .foregroundStyle(Color.stockedGoldDark)
             glanceLine(expiringCount, "expiring", "clock.badge.exclamationmark") {
                 detailSheet = BriefDetailSheet(id: "expiring", mode: .expiring)
@@ -269,18 +270,18 @@ struct DailyBriefOverlay: View {
             HStack(spacing: 10) {
                 ZStack {
                     Circle().fill(Color.stockedGold.opacity(0.18)).frame(width: 28, height: 28)
-                    Image(systemName: icon).font(.system(size: 12))
+                    Image(systemName: icon).scaledFont(12)
                         .foregroundStyle(Color.stockedGoldDark)
                 }
                 Text("\(value)")
-                    .font(.system(size: 16, weight: .heavy, design: .serif))
+                    .scaledFont(16, weight: .heavy, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                 Text(label)
-                    .font(.system(size: 12.5))
+                    .scaledFont(12.5)
                     .foregroundStyle(Color.stockedWhite.opacity(0.6))
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
+                    .scaledFont(9, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite.opacity(0.25))
             }
             .contentShape(Rectangle())
@@ -319,19 +320,19 @@ struct DailyBriefOverlay: View {
     private var householdActivity: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Household Activity")
-                .font(.system(size: 14, weight: .bold, design: .serif))
+                .scaledFont(14, weight: .bold, design: .serif)
                 .foregroundStyle(Color.stockedGoldDark)
             // Real synced events win; local fallback rows cover solo/offline use.
             if !householdRows.isEmpty {
                 ForEach(householdRows) { a in
                     HStack(spacing: 10) {
                         Text("\(a.actorName) \(a.kind.verb) \(a.phrase)")
-                            .font(.system(size: 13.5))
+                            .scaledFont(13.5)
                             .foregroundStyle(Color.stockedWhite.opacity(0.9))
-                            .lineLimit(1).minimumScaleFactor(0.8)
+                            .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 6)
                         Text(relative(a.date))
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(Color.stockedWhite.opacity(0.45))
                     }
                 }
@@ -339,18 +340,18 @@ struct DailyBriefOverlay: View {
                 let rows = activityRows
                 if rows.isEmpty {
                     Text("No activity yet")
-                        .font(.system(size: 12.5))
+                        .scaledFont(12.5)
                         .foregroundStyle(Color.stockedWhite.opacity(0.5))
                 } else {
                     ForEach(rows) { row in
                         HStack(spacing: 10) {
                             Text(row.text)
-                                .font(.system(size: 13.5))
+                                .scaledFont(13.5)
                                 .foregroundStyle(Color.stockedWhite.opacity(0.9))
-                                .lineLimit(1).minimumScaleFactor(0.8)
+                                .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 6)
                             Text(relative(row.when))
-                                .font(.system(size: 11.5))
+                                .scaledFont(11.5)
                                 .foregroundStyle(Color.stockedWhite.opacity(0.45))
                         }
                     }
@@ -372,15 +373,15 @@ struct DailyBriefOverlay: View {
             if !items.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Pantry Check")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .scaledFont(14, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedGoldDark)
                     Text("Haven't seen these in a while — still have them?")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(Color.stockedWhite.opacity(0.5))
                     ForEach(items) { item in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(item.name.displayNormalized)
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .scaledFont(13.5, weight: .semibold)
                                 .foregroundStyle(Color.stockedWhite.opacity(0.9))
                             HStack(spacing: 8) {
                                 checkChip("Yes", "checkmark", Color.stockedGreen) {
@@ -414,7 +415,7 @@ struct DailyBriefOverlay: View {
             HapticManager.light()
         } label: {
             Label(title, systemImage: icon)
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(11, weight: .semibold)
                 .foregroundStyle(color)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(color.opacity(0.14))
@@ -435,10 +436,10 @@ struct DailyBriefOverlay: View {
             if !names.isEmpty && !addedRunningLow {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Running Low Soon")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .scaledFont(14, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedGoldDark)
                     Text("Based on how fast you usually go through them: \(names.map { $0.displayNormalized }.joined(separator: ", "))")
-                        .font(.system(size: 12.5))
+                        .scaledFont(12.5)
                         .foregroundStyle(Color.stockedWhite.opacity(0.75))
                         .fixedSize(horizontal: false, vertical: true)
                     Button {
@@ -447,7 +448,7 @@ struct DailyBriefOverlay: View {
                         HapticManager.light()
                     } label: {
                         Label("Add all to grocery list", systemImage: "cart.badge.plus")
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(12, weight: .semibold)
                             .foregroundStyle(Color.stockedGoldDark)
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .background(Color.stockedGold.opacity(0.16))
@@ -470,10 +471,10 @@ struct DailyBriefOverlay: View {
             if let rec = briefWaste, rec.id != answeredWasteID {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Quick Question")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .scaledFont(14, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedGoldDark)
                     Text("\(rec.itemName.displayNormalized) went to waste — what happened?")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(Color.stockedWhite.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 8) {
@@ -501,7 +502,7 @@ struct DailyBriefOverlay: View {
     private var quickActions: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
-                .font(.system(size: 14, weight: .bold, design: .serif))
+                .scaledFont(14, weight: .bold, design: .serif)
                 .foregroundStyle(Color.stockedGoldDark)
             HStack(spacing: 8) {
                 quickAction("Scan Receipt", "doc.text.viewfinder") { close(); onScanReceipt() }
@@ -517,12 +518,12 @@ struct DailyBriefOverlay: View {
     private func quickAction(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 13))
+                Image(systemName: icon).scaledFont(13)
                     .foregroundStyle(Color.stockedGoldDark)
                 Text(title)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .scaledFont(12.5, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite.opacity(0.9))
-                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12).padding(.vertical, 10)
@@ -536,7 +537,7 @@ struct DailyBriefOverlay: View {
     }
 
     private func close() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { isPresented = false }
+        motion.animate(.navigation, intent: .spatial) { isPresented = false }
     }
 }
 
@@ -550,6 +551,7 @@ struct DailyBriefOverlay: View {
 // MARK: - Expiring Soon Detail Page
 struct ExpiringItemsView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     enum Mode { case expiring, lowStock }
     let mode: Mode
     var store: GuestDataStore { session.guestStore }
@@ -583,6 +585,14 @@ struct ExpiringItemsView: View {
     // Closing the loop: recipes that use the expiring items, so they don't go to waste.
     @State private var useUpRecipes: [RecipeDatabaseEntry] = []
     @State private var loadingUseUp = false
+    @State private var recipeRailViewportWidth: CGFloat = 0
+
+    private var recipeRailContentMargin: CGFloat {
+        let viewportWidth = recipeRailViewportWidth > 0
+            ? recipeRailViewportWidth
+            : layoutMetrics.contentWidth
+        return max(24, (viewportWidth - 154) / 2)
+    }
 
     var body: some View {
         ZStack {
@@ -592,19 +602,19 @@ struct ExpiringItemsView: View {
 
                     // Header
                     HStack(spacing: 12) {
-                        Image(systemName: icon).font(.system(size: 22)).foregroundStyle(tint)
+                        Image(systemName: icon).scaledFont(22).foregroundStyle(tint)
                         Text(title)
-                            .font(.system(size: 26, weight: .bold, design: .serif))
+                            .scaledFont(26, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Spacer()
                         Text("\(items.count) item\(items.count == 1 ? "" : "s")")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 6)
 
                     if mode == .expiring {
                         Text("These items need to be used or added to your shopping list.")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
                             .padding(.horizontal, 24).padding(.bottom, 18)
 
                         // #6 — YOUR saved recipes first: cooking something you've already
@@ -613,9 +623,9 @@ struct ExpiringItemsView: View {
                         let savedUseUp = session.guestStore.recipesUsingExpiringItems(within: 3, limit: 3)
                         if !savedUseUp.isEmpty {
                             HStack(spacing: 6) {
-                                Image(systemName: "book.fill").font(.system(size: 12)).foregroundStyle(Color.stockedGold)
+                                Image(systemName: "book.fill").scaledFont(12).foregroundStyle(Color.stockedGold)
                                 Text("From your collection")
-                                    .font(.system(size: 12, weight: .bold)).tracking(0.5)
+                                    .scaledFont(12, weight: .bold).tracking(0.5)
                                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                             }
                             .padding(.horizontal, 24).padding(.bottom, 8)
@@ -625,13 +635,13 @@ struct ExpiringItemsView: View {
                                         NavigationLink(destination: UserRecipeDetailView(recipe: r).environment(session)) {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(r.title)
-                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .scaledFont(13, weight: .semibold)
                                                     .foregroundStyle(session.themeTextColor)
-                                                    .lineLimit(2).multilineTextAlignment(.leading)
+                                                    .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
                                                 let match = session.guestStore.stockMatch(for: r)
                                                 if match.total > 0 {
                                                     Text("\(match.have)/\(match.total) in stock")
-                                                        .font(.system(size: 10)).foregroundStyle(Color.stockedGreen)
+                                                        .scaledFont(10).foregroundStyle(Color.stockedGreen)
                                                 }
                                             }
                                             .frame(width: 130, alignment: .leading)
@@ -645,18 +655,22 @@ struct ExpiringItemsView: View {
                                     }
                                 }
                                 .stockedScrollTargetLayout()
-                                .padding(.horizontal, 24)
                             }
-                            .stockedHorizontalSnap()
+                            .stockedCardRailSnap()
+                            .contentMargins(
+                                .horizontal,
+                                recipeRailContentMargin,
+                                for: .scrollContent
+                            )
                             .padding(.bottom, 14)
                         }
 
                         // Closing the loop: recipe ideas that use these expiring items.
                         if !useUpRecipes.isEmpty {
                             HStack(spacing: 6) {
-                                Image(systemName: "leaf.fill").font(.system(size: 12)).foregroundStyle(Color.stockedGreen)
+                                Image(systemName: "leaf.fill").scaledFont(12).foregroundStyle(Color.stockedGreen)
                                 Text("Cook these to use them up")
-                                    .font(.system(size: 12, weight: .bold)).tracking(0.5)
+                                    .scaledFont(12, weight: .bold).tracking(0.5)
                                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                             }
                             .padding(.horizontal, 24).padding(.bottom, 8)
@@ -677,12 +691,12 @@ struct ExpiringItemsView: View {
                                         } label: {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(r.title)
-                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .scaledFont(13, weight: .semibold)
                                                     .foregroundStyle(session.themeTextColor)
-                                                    .lineLimit(2).multilineTextAlignment(.leading)
+                                                    .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
                                                 if !r.totalTime.isEmpty {
                                                     Text(r.totalTime)
-                                                        .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                                        .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.45))
                                                 }
                                             }
                                             .frame(width: 130, alignment: .leading)
@@ -695,23 +709,27 @@ struct ExpiringItemsView: View {
                                     }
                                 }
                                 .stockedScrollTargetLayout()
-                                .padding(.horizontal, 24)
                             }
-                            .stockedHorizontalSnap()
+                            .stockedCardRailSnap()
+                            .contentMargins(
+                                .horizontal,
+                                recipeRailContentMargin,
+                                for: .scrollContent
+                            )
                             .padding(.bottom, 18)
                         }
                     } else {
                         Text("Items below 20% — restock or plan a meal around them.")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
                             .padding(.horizontal, 24).padding(.bottom, 18)
                     }
 
                     if items.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 44)).foregroundStyle(Color.stockedGold)
+                                .scaledFont(44).foregroundStyle(Color.stockedGold)
                             Text(mode == .expiring ? "Nothing expiring soon!" : "All items well stocked!")
-                                .font(.system(size: 17, weight: .semibold, design: .serif))
+                                .scaledFont(17, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 60)
@@ -721,7 +739,7 @@ struct ExpiringItemsView: View {
                             let zoneItems = grouped[zone] ?? []
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(zone.uppercased())
-                                    .font(.system(size: 10, weight: .bold)).tracking(1.5)
+                                    .scaledFont(10, weight: .bold).tracking(1.5)
                                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                                     .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 8)
 
@@ -734,6 +752,11 @@ struct ExpiringItemsView: View {
                     Color.clear.frame(height: 40)
                 }
             }
+        }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { width in
+            recipeRailViewportWidth = width
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
@@ -779,7 +802,7 @@ struct ExpiringItemsView: View {
     private func briefAction(_ title: String, _ icon: String, _ color: Color, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: icon)
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(11, weight: .semibold)
                 .foregroundStyle(color)
                 .padding(.horizontal, 9).padding(.vertical, 5)
                 .background(color.opacity(0.12))
@@ -795,25 +818,25 @@ struct ExpiringItemsView: View {
             ZStack {
                 Circle().fill(session.themeTextColor.opacity(0.06)).frame(width: 40, height: 40)
                 if mode == .expiring {
-                    Text("⏰").font(.system(size: 18))
+                    Text("⏰").scaledFont(18)
                 } else {
                     VStack(spacing: 2) {
                         Text("\(Int(item.level * 100))%")
-                            .font(.system(size: 10, weight: .bold))
+                            .scaledFont(10, weight: .bold)
                             .foregroundStyle(item.level < 0.1 ? .red : tint)
                     }
                 }
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.name).font(.system(size: 15, weight: .semibold, design: .serif))
+                Text(item.name).scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 if mode == .expiring, let exp = item.expirationDate {
                     let days = Int(exp.timeIntervalSinceNow / 86400)
                     Text(days <= 0 ? "Expired" : "Expires in \(days) day\(days == 1 ? "" : "s")")
-                        .font(.system(size: 11)).foregroundStyle(days <= 0 ? .red : tint)
+                        .scaledFont(11).foregroundStyle(days <= 0 ? .red : tint)
                 } else {
-                    Text(item.displayText).font(.system(size: 11))
+                    Text(item.displayText).scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
             }

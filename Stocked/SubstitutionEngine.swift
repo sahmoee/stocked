@@ -47,6 +47,7 @@ nonisolated struct Substitution: Identifiable, Hashable, Sendable {
     let ratio: String
     let notes: String
     let source: SubstitutionSource
+    var brand: String? = nil
     var vegan: Bool? = nil
     var glutenFree: Bool? = nil
 
@@ -70,7 +71,9 @@ enum SubstitutionEngine {
     /// A name appearing in more than one source keeps the highest-priority version, but borrows
     /// the ratio from the lower one if it didn't have its own — so "butter → margarine" gets both
     /// the database's note and IngredientIntel's 1:1 ratio.
-    static func local(for ingredient: String, userEntries: [UserSubstitutionEntry]) -> [Substitution] {
+    static func local(for ingredient: String, userEntries: [UserSubstitutionEntry],
+                      brandPreferences: BrandPreferences = BrandPreferences(),
+                      retailerID: String? = nil) -> [Substitution] {
         let key = ingredient.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return [] }
         var out: [Substitution] = []
@@ -95,7 +98,19 @@ enum SubstitutionEngine {
             out.append(Substitution(substitute: s.sub, ratio: s.ratio, notes: "", source: .builtIn))
         }
 
-        return merge(out)
+        // 4. Canonically equivalent private-label products. These are product alternatives, not
+        // ingredient chemistry substitutions, so they are added only when the catalog has an
+        // exact generic identity group. A selected retailer sorts its own label first.
+        for entry in GroceryKnowledgeBase.equivalents(for: ingredient,
+                                                       preferringRetailer: retailerID).prefix(6) {
+            let retailerName = entry.retailerIDs.first
+                .flatMap { id in GroceryKnowledgeBase.retailers.first(where: { $0.id == id })?.name }
+            let note = [retailerName, entry.resolvedAisle.rawValue].compactMap { $0 }.joined(separator: " · ")
+            out.append(Substitution(substitute: entry.name, ratio: "1:1", notes: note,
+                                    source: .builtIn, brand: entry.brand))
+        }
+
+        return merge(out, brandPreferences: brandPreferences)
     }
 
     /// Local results plus the Worker's diet-aware suggestions.
@@ -106,8 +121,11 @@ enum SubstitutionEngine {
     static func all(for ingredient: String,
                     userEntries: [UserSubstitutionEntry],
                     diet: String? = nil,
+                    brandPreferences: BrandPreferences = BrandPreferences(),
+                    retailerID: String? = nil,
                     onLocal: (([Substitution]) -> Void)? = nil) async -> [Substitution] {
-        let localResults = local(for: ingredient, userEntries: userEntries)
+        let localResults = local(for: ingredient, userEntries: userEntries,
+                                 brandPreferences: brandPreferences, retailerID: retailerID)
         onLocal?(localResults)
 
         let remote = await SmartClient.shared.substitutions(for: ingredient, diet: diet)
@@ -119,18 +137,22 @@ enum SubstitutionEngine {
             return Substitution(substitute: remoteSub.sub, ratio: remoteSub.ratio, notes: nutritionNote, source: .worker,
                                 vegan: remoteSub.vegan, glutenFree: remoteSub.glutenFree)
         }
-        return merge(localResults + mapped)
+        return merge(localResults + mapped, brandPreferences: brandPreferences)
     }
 
-    static func hasAny(for ingredient: String, userEntries: [UserSubstitutionEntry]) -> Bool {
-        !local(for: ingredient, userEntries: userEntries).isEmpty
+    static func hasAny(for ingredient: String, userEntries: [UserSubstitutionEntry],
+                       brandPreferences: BrandPreferences = BrandPreferences(),
+                       retailerID: String? = nil) -> Bool {
+        !local(for: ingredient, userEntries: userEntries,
+               brandPreferences: brandPreferences, retailerID: retailerID).isEmpty
     }
 
     // MARK: Merging
 
     /// Dedupe by substitute name, keeping the highest-priority source but salvaging ratio and
     /// notes from the discarded duplicates — otherwise consolidating would lose information.
-    private static func merge(_ list: [Substitution]) -> [Substitution] {
+    private static func merge(_ list: [Substitution],
+                              brandPreferences: BrandPreferences = BrandPreferences()) -> [Substitution] {
         var best: [String: Substitution] = [:]
         for s in list {
             let k = s.id
@@ -143,12 +165,16 @@ enum SubstitutionEngine {
                 ratio: winner.ratio.isEmpty ? other.ratio : winner.ratio,
                 notes: winner.notes.isEmpty ? other.notes : winner.notes,
                 source: winner.source,
+                brand: winner.brand ?? other.brand,
                 vegan: winner.vegan ?? other.vegan,
                 glutenFree: winner.glutenFree ?? other.glutenFree)
         }
         return best.values.sorted {
-            $0.source.rank == $1.source.rank ? $0.substitute < $1.substitute
-                                             : $0.source.rank < $1.source.rank
+            if $0.source.rank != $1.source.rank { return $0.source.rank < $1.source.rank }
+            let lhsPreference = $0.brand.map { brandPreferences.preference(for: $0).rankingBoost } ?? 0
+            let rhsPreference = $1.brand.map { brandPreferences.preference(for: $0).rankingBoost } ?? 0
+            if lhsPreference != rhsPreference { return lhsPreference > rhsPreference }
+            return $0.substitute.localizedCaseInsensitiveCompare($1.substitute) == .orderedAscending
         }
     }
 }
@@ -165,11 +191,11 @@ struct SubstitutionRow: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Text(substitution.substitute)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                 if showSource && substitution.source != .builtIn {
                     Text(substitution.source.label)
-                        .font(.system(size: 9, weight: .bold))
+                        .scaledFont(9, weight: .bold)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(tint.opacity(0.15))
                         .foregroundStyle(tint)
@@ -177,15 +203,15 @@ struct SubstitutionRow: View {
                 }
                 Spacer()
                 if substitution.vegan == true {
-                    Image(systemName: "leaf.fill").font(.system(size: 10)).foregroundStyle(.green)
+                    Image(systemName: "leaf.fill").scaledFont(10).foregroundStyle(.green)
                 }
                 if substitution.glutenFree == true {
-                    Text("GF").font(.system(size: 9, weight: .bold)).foregroundStyle(.orange)
+                    Text("GF").scaledFont(9, weight: .bold).foregroundStyle(.orange)
                 }
             }
             if !substitution.detail.isEmpty {
                 Text(substitution.detail)
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(session.themeSecondaryText)
             }
         }

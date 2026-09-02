@@ -25,12 +25,12 @@ struct MakeableNowView: View {
         StockedShell(showBack: true, titleText: "Makeable Now") {
             VStack(alignment: .leading, spacing: 14) {
                 Text("What you can make right now")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
                 Button { goResults = true } label: {
                     Text("See All Matches")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -68,13 +68,13 @@ struct UseSomethingUpView: View {
         StockedShell(showBack: true, titleText: "Use Something Up") {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Let's use what needs using")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
                 if expiring.isEmpty {
                     Text("Nothing's expiring soon — your kitchen's in good shape.")
-                        .font(.system(size: 13.5))
+                        .scaledFont(13.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .padding(.horizontal, CookStyle.screenHPad)
                 } else {
@@ -82,17 +82,17 @@ struct UseSomethingUpView: View {
                         ForEach(expiring.prefix(10)) { item in
                             Button { startWith(item) } label: {
                                 HStack(spacing: 10) {
-                                    Text(ImageFallbackService.emoji(for: item.name)).font(.system(size: 20))
+                                    Text(ImageFallbackService.emoji(for: item.name)).scaledFont(20)
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(item.name.displayNormalized)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .scaledFont(14, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                         Text((item.daysUntilExpiry ?? 0) <= 0 ? "Use today" : "\(item.daysUntilExpiry ?? 0)d left")
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .scaledFont(11, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     Spacer()
-                                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                                    Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                                 }
                                 .padding(13)

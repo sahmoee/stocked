@@ -49,36 +49,36 @@ struct WeekMealPlannerView: View {
     private func dayCard(_ day: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(weekdayNames[day]).font(.system(size: 16, weight: .bold, design: .serif))
+                Text(weekdayNames[day]).scaledFont(16, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 Button { addingDay = (addingDay == day ? nil : day); newTitle = "" } label: {
                     Image(systemName: addingDay == day ? "xmark" : "plus")
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain)
                 .a11yButton(addingDay == day ? "Cancel adding meal" : "Add a meal to \(weekdayNames[day])")
             }
 
             let dayMeals = meals(on: day)
             if dayMeals.isEmpty && addingDay != day {
-                Text("No meals planned").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                Text("No meals planned").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
             }
             ForEach(dayMeals) { meal in
                 HStack(spacing: 10) {
                     Button { toggleCooked(meal) } label: {
                         Image(systemName: meal.isCooked ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 18)).foregroundStyle(meal.isCooked ? Color.stockedGold : session.themeTextColor.opacity(0.3))
+                            .scaledFont(18).foregroundStyle(meal.isCooked ? Color.stockedGold : session.themeTextColor.opacity(0.3))
                     }.buttonStyle(.plain)
                     .a11yButton(meal.isCooked ? "Mark \(meal.title) not cooked" : "Mark \(meal.title) cooked")
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(meal.title).font(.system(size: 14, weight: .medium))
+                        Text(meal.title).scaledFont(14, weight: .medium)
                             .foregroundStyle(session.themeTextColor)
                             .strikethrough(meal.isCooked)
-                        Text(meal.mealType).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        Text(meal.mealType).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     Spacer()
                     Button { remove(meal) } label: {
-                        Image(systemName: "trash").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        Image(systemName: "trash").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.35))
                     }.buttonStyle(.plain)
                     .a11yButton("Remove \(meal.title)")
                 }
@@ -88,13 +88,13 @@ struct WeekMealPlannerView: View {
             if addingDay == day {
                 VStack(spacing: 8) {
                     TextField("Meal name", text: $newTitle)
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(14).foregroundStyle(session.themeTextColor)
                         .padding(10).background(session.themeBgColor, in: RoundedRectangle(cornerRadius: 8))
                     Picker("Type", selection: $newMealType) {
                         ForEach(mealTypes, id: \.self) { Text($0).tag($0) }
                     }.pickerStyle(.segmented)
                     Button { addMeal(day) } label: {
-                        Text("Add").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                        Text("Add").scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
                             .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 8))
                     }.buttonStyle(.plain).disabled(newTitle.trimmingCharacters(in: .whitespaces).isEmpty)

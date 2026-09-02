@@ -26,7 +26,7 @@ enum CookStyle {
 // settings cannot silently turn these primary choices into circles, pills, or photo tiles.
 struct CookHubIllustratedButton: View {
     @Environment(AppSession.self) private var session
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.stockedLayout) private var layoutMetrics
 
     let title: String
     let primaryDetail: String
@@ -34,21 +34,17 @@ struct CookHubIllustratedButton: View {
     let assetName: String
     let action: () -> Void
 
-    private var imageWidth: CGFloat { dynamicTypeSize.isAccessibilitySize ? 118 : 142 }
+    private var imageWidth: CGFloat {
+        min(142, max(84, 142 / min(layoutMetrics.textScale, 1.7)))
+    }
 
     var body: some View {
         Button(action: action) {
-            Group {
-                if dynamicTypeSize.isAccessibilitySize {
-                    verticalContent
-                } else {
-                    horizontalContent
-                }
-            }
-            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 18 : 14)
-            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 18 : 14)
+            horizontalContent
+            .padding(.horizontal, 14)
+            .padding(.vertical, max(14, 10 * layoutMetrics.textScale))
             .frame(maxWidth: .infinity)
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 250 : 182)
+            .frame(minHeight: 182)
             .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -68,16 +64,6 @@ struct CookHubIllustratedButton: View {
         }
     }
 
-    private var verticalContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            illustration.frame(maxWidth: .infinity).frame(height: 132)
-            HStack(alignment: .center, spacing: 12) {
-                copy
-                chevron
-            }
-        }
-    }
-
     private var illustration: some View {
         Image(assetName)
             .resizable()
@@ -88,16 +74,16 @@ struct CookHubIllustratedButton: View {
     private var copy: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 24, weight: .bold, design: .serif))
+                .scaledFont(24, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
+                .fixedSize(horizontal: false, vertical: true)
+
             Text(primaryDetail)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Text(secondaryDetail)
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -107,7 +93,7 @@ struct CookHubIllustratedButton: View {
 
     private var chevron: some View {
         Image(systemName: "chevron.right")
-            .font(.system(size: 16, weight: .semibold))
+            .scaledFont(16, weight: .semibold)
             .foregroundStyle(session.themeTextColor.opacity(0.32))
             .accessibilityHidden(true)
     }
@@ -153,22 +139,22 @@ struct CookHeroCard: View {
                 ZStack {
                     Circle().fill(Color.black.opacity(0.30)).frame(width: 50, height: 50)
                     Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 50, height: 50)
-                    if let emoji { Text(emoji).font(.system(size: 25)) }
-                    else { Image(systemName: icon).font(.system(size: 21, weight: .semibold)).foregroundStyle(Color.white) }
+                    if let emoji { Text(emoji).scaledFont(25) }
+                    else { Image(systemName: icon).scaledFont(21, weight: .semibold).foregroundStyle(Color.white) }
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.system(size: 23, weight: .bold, design: .serif))
+                    Text(title).scaledFont(23, weight: .bold, design: .serif)
                         .foregroundStyle(Color.white)
                         .shadow(color: Color.black.opacity(0.6), radius: 4, y: 1)
                     if !subtitle.isEmpty {
-                        Text(subtitle).font(.system(size: 13))
+                        Text(subtitle).scaledFont(13)
                             .foregroundStyle(Color.white.opacity(0.92))
                             .shadow(color: Color.black.opacity(0.6), radius: 3, y: 1)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold))
+                Image(systemName: "chevron.right").scaledFont(15, weight: .bold)
                     .foregroundStyle(Color.white)
                     .shadow(color: Color.black.opacity(0.5), radius: 3, y: 1)
             }
@@ -197,24 +183,24 @@ struct CookHeroCard: View {
             ZStack {
                 Circle().fill(textOnDark ? Color.stockedWhite.opacity(0.16) : Color.stockedGold.opacity(0.15))
                     .frame(width: 52, height: 52)
-                if let emoji { Text(emoji).font(.system(size: 26)) }
+                if let emoji { Text(emoji).scaledFont(26) }
                 else {
-                    Image(systemName: icon).font(.system(size: 22, weight: .semibold))
+                    Image(systemName: icon).scaledFont(22, weight: .semibold)
                         .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedGold)
                 }
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(textOnDark ? Color.stockedWhite : session.themeTextColor)
                 if !subtitle.isEmpty {
-                    Text(subtitle).font(.system(size: 13))
+                    Text(subtitle).scaledFont(13)
                         .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.78) : session.themeTextColor.opacity(0.6))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 14, weight: .bold))
+            Image(systemName: "chevron.right").scaledFont(14, weight: .bold)
                 .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.6) : session.themeTextColor.opacity(0.3))
         }
         .padding(CookStyle.cardPadding)
@@ -258,23 +244,23 @@ struct CookActionCard: View {
                 ZStack {
                     Circle().fill(Color.black.opacity(0.30)).frame(width: 44, height: 44)
                     Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 44, height: 44)
-                    if let emoji { Text(emoji).font(.system(size: 21)) }
-                    else { Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.white) }
+                    if let emoji { Text(emoji).scaledFont(21) }
+                    else { Image(systemName: icon).scaledFont(18, weight: .semibold).foregroundStyle(Color.white) }
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(Color.white)
                         .shadow(color: Color.black.opacity(0.6), radius: 4, y: 1)
                     if !subtitle.isEmpty {
-                        Text(subtitle).font(.system(size: 13))
+                        Text(subtitle).scaledFont(13)
                             .foregroundStyle(Color.white.opacity(0.92))
                             .shadow(color: Color.black.opacity(0.6), radius: 3, y: 1)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold))
+                Image(systemName: "chevron.right").scaledFont(15, weight: .bold)
                     .foregroundStyle(Color.white)
                     .shadow(color: Color.black.opacity(0.5), radius: 3, y: 1)
             }
@@ -303,24 +289,24 @@ struct CookActionCard: View {
             ZStack {
                 Circle().fill(textOnDark ? Color.stockedWhite.opacity(0.16) : Color.stockedGold.opacity(0.15))
                     .frame(width: 46, height: 46)
-                if let emoji { Text(emoji).font(.system(size: 22)) }
+                if let emoji { Text(emoji).scaledFont(22) }
                 else {
-                    Image(systemName: icon).font(.system(size: 19, weight: .semibold))
+                    Image(systemName: icon).scaledFont(19, weight: .semibold)
                         .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedGold)
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .scaledFont(19, weight: .bold, design: .serif)
                     .foregroundStyle(textOnDark ? Color.stockedWhite : session.themeTextColor)
                 if !subtitle.isEmpty {
-                    Text(subtitle).font(.system(size: 12.5))
+                    Text(subtitle).scaledFont(12.5)
                         .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.75) : session.themeTextColor.opacity(0.6))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+            Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
                 .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.6) : session.themeTextColor.opacity(0.3))
         }
         .padding(CookStyle.cardPadding)
@@ -393,12 +379,12 @@ struct CookIllustratedRow: View {
             art
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 16.5, weight: .semibold, design: .serif))
+                    .scaledFont(16.5, weight: .semibold, design: .serif)
                     .foregroundStyle(ink.opacity(dimmed ? 0.6 : 1.0))
                     .fixedSize(horizontal: false, vertical: true)
                 if !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(ink.opacity(dimmed ? 0.4 : 0.6))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -408,16 +394,16 @@ struct CookIllustratedRow: View {
                 HStack(spacing: 4) {
                     Circle().fill(Color.stockedGold).frame(width: 7, height: 7)
                     Text("In pantry")
-                        .font(.system(size: 10, weight: .semibold))
+                        .scaledFont(10, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
             } else if showCartGlyph {
                 Image(systemName: "cart.badge.plus")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(ink.opacity(0.35))
             }
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .scaledFont(12, weight: .semibold)
                 .foregroundStyle(ink.opacity(onDark ? 0.45 : 0.3))
         }
         .padding(.vertical, 12)
@@ -444,10 +430,10 @@ struct CookIllustratedRow: View {
                     .fill(onDark ? Color.stockedWhite.opacity(0.10) : Color.stockedGold.opacity(0.15))
                     .frame(width: artSize * 0.72, height: artSize * 0.72)
                 if let fallbackEmoji {
-                    Text(fallbackEmoji).font(.system(size: artSize * 0.34))
+                    Text(fallbackEmoji).font(.stockedSystem(size: artSize * 0.34))
                 } else {
                     Image(systemName: fallbackIcon)
-                        .font(.system(size: artSize * 0.30, weight: .semibold))
+                        .font(.stockedSystem(size: artSize * 0.30, weight: .semibold))
                         .foregroundStyle(onDark ? Color.stockedWhite : Color.stockedGold)
                 }
             }
@@ -503,21 +489,21 @@ struct CookCategoryCard: View {
             ZStack {
                 Circle().fill(Color.black.opacity(0.28)).frame(width: 42, height: 42)
                 Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1).frame(width: 42, height: 42)
-                if let emoji { Text(emoji).font(.system(size: 19)) }
-                else { Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.white) }
+                if let emoji { Text(emoji).scaledFont(19) }
+                else { Image(systemName: icon).scaledFont(17, weight: .semibold).foregroundStyle(Color.white) }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 17, weight: .bold, design: .serif))
+                Text(title).scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(Color.white)
                     .shadow(color: Color.black.opacity(0.55), radius: 3, y: 1)
                 if !subtitle.isEmpty {
-                    Text(subtitle).font(.system(size: 12))
+                    Text(subtitle).scaledFont(12)
                         .foregroundStyle(Color.white.opacity(0.9))
                         .shadow(color: Color.black.opacity(0.55), radius: 2, y: 1)
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold))
+            Image(systemName: "chevron.right").scaledFont(13, weight: .bold)
                 .foregroundStyle(Color.white.opacity(0.9))
                 .shadow(color: Color.black.opacity(0.5), radius: 2, y: 1)
         }
@@ -547,22 +533,22 @@ struct CookCategoryCard: View {
         HStack(spacing: 14) {
             ZStack {
                 Circle().fill(Color.stockedGold.opacity(0.15)).frame(width: 44, height: 44)
-                if let emoji { Text(emoji).font(.system(size: 20)) }
+                if let emoji { Text(emoji).scaledFont(20) }
                 else {
-                    Image(systemName: icon).font(.system(size: 18, weight: .semibold))
+                    Image(systemName: icon).scaledFont(18, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 16, weight: .semibold))
+                Text(title).scaledFont(16, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                 if !subtitle.isEmpty {
-                    Text(subtitle).font(.system(size: 12))
+                    Text(subtitle).scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+            Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.3))
         }
         .padding(.vertical, 14).padding(.horizontal, 16)
@@ -585,17 +571,17 @@ struct CookIntelligenceCard: View {
         let content = HStack(spacing: 12) {
             ZStack {
                 Circle().fill(accent.opacity(0.16)).frame(width: 42, height: 42)
-                Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(accent)
+                Image(systemName: icon).scaledFont(17, weight: .semibold).foregroundStyle(accent)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 14.5, weight: .bold, design: .serif))
+                Text(title).scaledFont(14.5, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                Text(detail).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                Text(detail).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if action != nil {
-                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
         }
@@ -644,7 +630,7 @@ struct CookRecipeCard: View {
                         .frame(width: 68, height: 68)
                         .overlay {
                             Image(systemName: "fork.knife")
-                                .font(.system(size: 24, weight: .semibold))
+                                .scaledFont(24, weight: .semibold)
                                 .foregroundStyle(Color.stockedGold)
                         }
                         .overlay {
@@ -656,15 +642,15 @@ struct CookRecipeCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 16, weight: .semibold, design: .serif))
-                        .foregroundStyle(session.themeTextColor).lineLimit(1)
+                    Text(title).scaledFont(16, weight: .semibold, design: .serif)
+                        .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                     if !subtitle.isEmpty {
-                        Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                        Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
                     }
                 }
                 Spacer()
                 if let matchPercent {
-                    Text("\(matchPercent)%").font(.system(size: 13, weight: .bold))
+                    Text("\(matchPercent)%").scaledFont(13, weight: .bold)
                         .foregroundStyle(Color.stockedGreen)
                 }
             }
@@ -691,21 +677,21 @@ struct CookPlannerCard: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     if !mealType.isEmpty {
-                        Text(mealType.uppercased()).font(.system(size: 10, weight: .bold))
+                        Text(mealType.uppercased()).scaledFont(10, weight: .bold)
                             .foregroundStyle(Color.stockedGold)
                     }
-                    Text(title).font(.system(size: 15.5, weight: .semibold))
-                        .foregroundStyle(session.themeTextColor).lineLimit(1)
+                    Text(title).scaledFont(15.5, weight: .semibold)
+                        .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                     if !subtitle.isEmpty {
-                        Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                        Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
                     }
                 }
                 Spacer()
                 if isCooked {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 18))
+                    Image(systemName: "checkmark.circle.fill").scaledFont(18)
                         .foregroundStyle(Color.stockedGreen)
                 } else {
-                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                 }
             }
@@ -729,9 +715,9 @@ struct CookPrepTaskCard: View {
         Button(action: toggle) {
             HStack(spacing: 12) {
                 Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .scaledFont(20)
                     .foregroundStyle(isDone ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
-                Text(title).font(.system(size: 15))
+                Text(title).scaledFont(15)
                     .foregroundStyle(session.themeTextColor)
                     .strikethrough(isDone, color: session.themeTextColor.opacity(0.4))
                 Spacer()
@@ -754,12 +740,12 @@ struct CookChipSelector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
+            Text(label).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
             StockedFlowLayout(spacing: 8, lineSpacing: 8) {
                 ForEach(options, id: \.self) { opt in
                     let isSel = selection == opt
                     Button { selection = opt } label: {
-                        Text(opt).font(.system(size: 13, weight: .medium))
+                        Text(opt).scaledFont(13, weight: .medium)
                             .foregroundStyle(isSel ? Color.stockedWhite : session.themeTextColor)
                             .padding(.vertical, 8).padding(.horizontal, 14)
                             .background(isSel ? Color.stockedGold : session.themeCardColor,
@@ -782,13 +768,13 @@ struct CookSearchBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass").font(.system(size: 15))
+            Image(systemName: "magnifyingglass").scaledFont(15)
                 .foregroundStyle(session.themeTextColor.opacity(0.45))
             TextField(placeholder, text: $text)
-                .font(.system(size: 15)).foregroundStyle(session.themeTextColor)
+                .scaledFont(15).foregroundStyle(session.themeTextColor)
             if !text.isEmpty {
                 Button { text = "" } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 15))
+                    Image(systemName: "xmark.circle.fill").scaledFont(15)
                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                 }.buttonStyle(.plain)
             }
@@ -809,13 +795,13 @@ struct CookStepSelector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !label.isEmpty {
-                Text(label).font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                Text(label).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
             }
             HStack(spacing: 8) {
                 ForEach(options, id: \.self) { opt in
                     let isSel = selection == opt
                     Button { selection = opt } label: {
-                        Text(opt).font(.system(size: 13, weight: .semibold))
+                        Text(opt).scaledFont(13, weight: .semibold)
                             .foregroundStyle(isSel ? Color.stockedWhite : session.themeTextColor)
                             .frame(maxWidth: .infinity).padding(.vertical, 11)
                             .background(isSel ? Color.stockedCharcoal : session.themeCardColor,
@@ -840,18 +826,18 @@ struct CookEmptyState: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 38))
+            Image(systemName: icon).scaledFont(38)
                 .foregroundStyle(session.themeTextColor.opacity(0.3))
-            Text(title).font(.system(size: 18, weight: .bold, design: .serif))
+            Text(title).scaledFont(18, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             if !message.isEmpty {
-                Text(message).font(.system(size: 13))
+                Text(message).scaledFont(13)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .multilineTextAlignment(.center)
             }
             if let ctaTitle, let ctaAction {
                 Button(action: ctaAction) {
-                    Text(ctaTitle).font(.system(size: 15, weight: .semibold))
+                    Text(ctaTitle).scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .padding(.vertical, 12).padding(.horizontal, 22)
                         .background(Color.stockedCharcoal, in: Capsule())
@@ -885,12 +871,12 @@ struct CookErrorState: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 34))
+            Image(systemName: "exclamationmark.triangle.fill").scaledFont(34)
                 .foregroundStyle(Color.stockedWarning)
-            Text(message).font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.7))
+            Text(message).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                 .multilineTextAlignment(.center)
             Button(action: retry) {
-                Text("Try Again").font(.system(size: 15, weight: .semibold))
+                Text("Try Again").scaledFont(15, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.vertical, 12).padding(.horizontal, 22)
                     .background(Color.stockedCharcoal, in: Capsule())

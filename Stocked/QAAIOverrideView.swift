@@ -17,7 +17,7 @@ struct QAAIOverrideView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("AI model override", systemImage: "brain.head.profile").font(.headline)
+            Label("AI model override", systemImage: "brain.head.profile").font(.stocked(.headline))
             Picker("Agent", selection: $provider) {
                 Text("App Default (lowest credit)").tag("default")
                 Text("Claude").tag("anthropic")
@@ -29,8 +29,8 @@ struct QAAIOverrideView: View {
             }
             Button(busy ? "Applying…" : "Apply QA override") { Task { await save() } }.disabled(busy)
             Text(status.isEmpty ? "This affects QA runs only. API keys remain in the Worker." : status)
-                .font(.caption).foregroundStyle(.secondary)
-            if !hasActiveAI { Text("This app currently has no metered AI route; the choice is saved for future QA builds.").font(.caption).foregroundStyle(.secondary) }
+                .font(.stocked(.caption)).foregroundStyle(.secondary)
+            if !hasActiveAI { Text("This app currently has no metered AI route; the choice is saved for future QA builds.").font(.stocked(.caption)).foregroundStyle(.secondary) }
         }
         .task { await load() }
     }

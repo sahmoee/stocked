@@ -47,17 +47,17 @@ struct ExpiryCalendarView: View {
                 // Month header
                 HStack {
                     Button { shiftMonth(-1) } label: {
-                        Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "chevron.left").scaledFont(15, weight: .semibold)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Previous month")
                     Spacer()
                     Text(ToolboxFormatters.monthYear.string(from: monthAnchor))
-                        .font(.system(size: 16, weight: .bold))
+                        .scaledFont(16, weight: .bold)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { shiftMonth(1) } label: {
-                        Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "chevron.right").scaledFont(15, weight: .semibold)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Next month")
@@ -69,7 +69,7 @@ struct ExpiryCalendarView: View {
                 HStack {
                     ForEach(["S", "M", "T", "W", "T", "F", "S"].indices, id: \.self) { i in
                         Text(["S", "M", "T", "W", "T", "F", "S"][i])
-                            .font(.system(size: 11, weight: .semibold))
+                            .scaledFont(11, weight: .semibold)
                             .foregroundStyle(session.themeSecondaryText)
                             .frame(maxWidth: .infinity)
                     }
@@ -92,7 +92,7 @@ struct ExpiryCalendarView: View {
                     ToolboxSectionLabel(text: "Expiring \(ToolboxFormatters.monthDay.string(from: day))")
                     if items.isEmpty {
                         Text("Nothing expires this day.")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeSecondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
@@ -100,12 +100,12 @@ struct ExpiryCalendarView: View {
                             ToolboxCard {
                                 HStack {
                                     Text(item.name)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .scaledFont(14, weight: .medium)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Spacer()
                                     Text("\(item.storageCategory.icon) \(item.displayText)")
-                                        .font(.system(size: 11))
+                                        .scaledFont(11)
                                         .foregroundStyle(session.themeSecondaryText)
                                 }
                             }
@@ -113,7 +113,7 @@ struct ExpiryCalendarView: View {
                     }
                 } else {
                     Text("Days with a dot have items expiring. Tap a day to see them.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeSecondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -139,7 +139,7 @@ struct ExpiryCalendarView: View {
         } label: {
             VStack(spacing: 3) {
                 Text("\(Self.cal.component(.day, from: day))")
-                    .font(.system(size: 13, weight: isToday ? .bold : .regular, design: .rounded))
+                    .font(.stockedSystem(size: 13, weight: isToday ? .bold : .regular, design: .rounded))
                     .foregroundStyle(isSelected ? Color.white : (isToday ? session.accentColor : session.themeTextColor))
                 Circle()
                     .fill(count > 0 ? (isSelected ? Color.white : Color.orange) : Color.clear)
@@ -200,16 +200,16 @@ struct BatchCookPlannerView: View {
                     ToolboxCard {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(recipe.title)
-                                .font(.system(size: 17, weight: .bold))
+                                .scaledFont(17, weight: .bold)
                                 .foregroundStyle(session.themeTextColor)
                             HStack {
                                 Text("Batches")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .scaledFont(14, weight: .medium)
                                     .foregroundStyle(session.themeSecondaryText)
                                 Spacer()
                                 Stepper(value: $multiplier, in: 1...10) {
                                     Text("×\(multiplier)  ·  \(recipe.servings * multiplier) servings")
-                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                        .scaledFont(14, weight: .semibold, design: .rounded)
                                         .foregroundStyle(session.accentColor)
                                 }
                                 .onChange(of: multiplier) { _, _ in HapticManager.select() }
@@ -221,19 +221,19 @@ struct BatchCookPlannerView: View {
                         ToolboxCard {
                             HStack {
                                 Text(ingredient.name.capitalized)
-                                    .font(.system(size: 14))
+                                    .scaledFont(14)
                                     .foregroundStyle(session.themeTextColor)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Spacer()
                                 Text(scaledAmount(ingredient))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .scaledFont(13, weight: .semibold, design: .rounded)
                                     .foregroundStyle(session.accentColor)
                             }
                         }
                     }
                     Button { addAllToGrocery(recipe) } label: {
                         Label("Add batch to grocery list", systemImage: "cart.badge.plus")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(15, weight: .semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor))
@@ -246,7 +246,7 @@ struct BatchCookPlannerView: View {
                         multiplier = 2
                     } label: {
                         Text("Pick a different recipe")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(session.accentColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -263,16 +263,16 @@ struct BatchCookPlannerView: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(recipe.title)
-                                            .font(.system(size: 14, weight: .medium))
+                                            .scaledFont(14, weight: .medium)
                                             .foregroundStyle(session.themeTextColor)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                         Text("Serves \(recipe.servings) per batch")
-                                            .font(.system(size: 11))
+                                            .scaledFont(11)
                                             .foregroundStyle(session.themeSecondaryText)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeSecondaryText.opacity(0.6))
                                 }
                             }
@@ -339,7 +339,7 @@ struct GroceryTemplatesView: View {
                     showNameSheet = true
                 } label: {
                     Label("Save current grocery list as template", systemImage: "square.and.arrow.down")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor.opacity(0.14)))
@@ -358,22 +358,22 @@ struct GroceryTemplatesView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text(template.name)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .scaledFont(15, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Spacer()
                                     Text("\(template.items.count) items")
-                                        .font(.system(size: 11))
+                                        .scaledFont(11)
                                         .foregroundStyle(session.themeSecondaryText)
                                 }
                                 Text(template.items.prefix(6).joined(separator: ", ") + (template.items.count > 6 ? "…" : ""))
-                                    .font(.system(size: 12))
+                                    .scaledFont(12)
                                     .foregroundStyle(session.themeSecondaryText)
-                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 HStack(spacing: 10) {
                                     Button { load(template) } label: {
                                         Label("Add to list", systemImage: "cart.badge.plus")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .scaledFont(13, weight: .semibold)
                                             .padding(.horizontal, 12).padding(.vertical, 7)
                                             .background(Capsule().fill(session.accentColor))
                                             .foregroundStyle(.white)
@@ -381,7 +381,7 @@ struct GroceryTemplatesView: View {
                                     .buttonStyle(.plain)
                                     Button { delete(template) } label: {
                                         Text("Delete")
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .scaledFont(13, weight: .semibold)
                                             .padding(.horizontal, 12).padding(.vertical, 7)
                                             .background(Capsule().fill(Color.red.opacity(0.12)))
                                             .foregroundStyle(.red)
@@ -438,18 +438,18 @@ struct BudgetTrackerView: View {
                 ToolboxCard {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Monthly budget")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                         HStack {
                             Text("$")
-                                .font(.system(size: 16, weight: .semibold))
+                                .scaledFont(16, weight: .semibold)
                                 .foregroundStyle(session.themeSecondaryText)
                             TextField("0", text: $limitText)
                                 .keyboardType(.decimalPad)
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .scaledFont(16, weight: .semibold, design: .rounded)
                                 .foregroundStyle(session.themeTextColor)
                             Button("Set") { saveLimit() }
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.accentColor)
                                 .buttonStyle(.plain)
                         }
@@ -470,7 +470,7 @@ struct BudgetTrackerView: View {
                             Text(spent > limit
                                  ? "Over budget by \(ToolboxFormatters.dollars(spent - limit))"
                                  : "\(Int(ratio * 100))% of budget used")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(spent > limit ? .red : session.themeTextColor)
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
@@ -485,7 +485,7 @@ struct BudgetTrackerView: View {
                     }
                 }
                 Text("Spending comes from your recorded prices — receipt scans and item prices dated this month.")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

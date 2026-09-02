@@ -73,7 +73,7 @@ struct RecipeRouletteView: View {
                             if cuisines.count > 1 {
                                 HStack {
                                     Text("Cuisine")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .scaledFont(14, weight: .medium)
                                         .foregroundStyle(session.themeSecondaryText)
                                     Spacer()
                                     Picker("Cuisine", selection: $cuisineFilter) {
@@ -84,12 +84,12 @@ struct RecipeRouletteView: View {
                             }
                             Toggle(isOn: $favoritesOnly) {
                                 Text("Favorites only")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .scaledFont(14, weight: .medium)
                                     .foregroundStyle(session.themeSecondaryText)
                             }
                             .tint(session.accentColor)
                             Text("\(pool.count) recipe\(pool.count == 1 ? "" : "s") in the pool")
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeSecondaryText)
                         }
                     }
@@ -100,30 +100,30 @@ struct RecipeRouletteView: View {
                             .fill(session.accentColor.opacity(session.isDarkMode ? 0.16 : 0.10))
                         if spinning {
                             Text(cyclingTitle)
-                                .font(.system(size: 18, weight: .bold, design: .serif))
+                                .scaledFont(18, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeSecondaryText)
                                 .padding(20)
                                 .transition(.opacity)
                         } else if let recipe = result {
                             VStack(spacing: 8) {
                                 Text("Tonight, make")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .scaledFont(12, weight: .semibold)
                                     .foregroundStyle(session.themeSecondaryText)
                                 Text(recipe.title)
-                                    .font(.system(size: 21, weight: .bold, design: .serif))
+                                    .scaledFont(21, weight: .bold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                     .multilineTextAlignment(.center)
                                 HStack(spacing: 10) {
                                     if !recipe.cuisine.isEmpty {
                                         Text(recipe.cuisine)
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .scaledFont(11, weight: .semibold)
                                             .padding(.horizontal, 8).padding(.vertical, 3)
                                             .background(Capsule().fill(session.accentColor.opacity(0.18)))
                                             .foregroundStyle(session.accentColor)
                                     }
                                     if !recipe.cookTime.isEmpty {
                                         Label(recipe.cookTime, systemImage: "clock")
-                                            .font(.system(size: 11, weight: .medium))
+                                            .scaledFont(11, weight: .medium)
                                             .foregroundStyle(session.themeSecondaryText)
                                     }
                                 }
@@ -132,9 +132,9 @@ struct RecipeRouletteView: View {
                         } else {
                             VStack(spacing: 6) {
                                 Image(systemName: "dice")
-                                    .font(.system(size: 30, weight: .light))
+                                    .scaledFont(30, weight: .light)
                                 Text("Spin to pick dinner")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .scaledFont(14, weight: .medium)
                             }
                             .foregroundStyle(session.themeSecondaryText)
                         }
@@ -144,7 +144,7 @@ struct RecipeRouletteView: View {
 
                     Button { spin() } label: {
                         Label(result == nil ? "Spin" : "Spin again", systemImage: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 16, weight: .bold))
+                            .scaledFont(16, weight: .bold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor))
@@ -226,20 +226,20 @@ struct MultiTimerView: View {
                 ToolboxCard {
                     VStack(alignment: .leading, spacing: 12) {
                         TextField("Label (e.g. Pasta)", text: $newLabel)
-                            .font(.system(size: 15))
+                            .scaledFont(15)
                             .padding(10)
                             .background(RoundedRectangle(cornerRadius: 10).fill(session.themeBgColor))
                         HStack {
                             Stepper(value: $minutes, in: 1...180) {
                                 Text("\(minutes) min")
-                                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                    .scaledFont(15, weight: .semibold, design: .rounded)
                                     .foregroundStyle(session.themeTextColor)
                             }
                             .onChange(of: minutes) { _, _ in HapticManager.select() }
                         }
                         Button { start() } label: {
                             Label("Start timer", systemImage: "play.fill")
-                                .font(.system(size: 15, weight: .semibold))
+                                .scaledFont(15, weight: .semibold)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 11)
                                 .background(RoundedRectangle(cornerRadius: 12).fill(session.accentColor))
@@ -270,18 +270,18 @@ struct MultiTimerView: View {
                                 .frame(width: 40, height: 40)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(timer.label)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Text(left == 0 ? "Done!" : format(left))
-                                        .font(.system(size: 17, weight: .bold, design: .monospaced))
+                                        .scaledFont(17, weight: .bold, design: .monospaced)
                                         .foregroundStyle(left == 0 ? .green : session.accentColor)
                                         .accessibilityLabel(left == 0 ? "\(timer.label) done" : "\(timer.label), \(left / 60) minutes \(left % 60) seconds left")
                                 }
                                 Spacer()
                                 Button { cancel(timer) } label: {
                                     Image(systemName: left == 0 ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                        .font(.system(size: 22))
+                                        .scaledFont(22)
                                         .foregroundStyle(left == 0 ? .green : session.themeSecondaryText.opacity(0.5))
                                 }
                                 .buttonStyle(.plain)
@@ -337,7 +337,7 @@ struct MeasurementConverterView: View {
                         HStack(spacing: 10) {
                             TextField("Amount", text: $amountText)
                                 .keyboardType(.decimalPad)
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .scaledFont(16, weight: .semibold, design: .rounded)
                                 .padding(10)
                                 .frame(width: 100)
                                 .background(RoundedRectangle(cornerRadius: 10).fill(session.themeBgColor))
@@ -349,7 +349,7 @@ struct MeasurementConverterView: View {
                         }
                         HStack {
                             Text("Convert to")
-                                .font(.system(size: 14, weight: .medium))
+                                .scaledFont(14, weight: .medium)
                                 .foregroundStyle(session.themeSecondaryText)
                             Spacer()
                             Picker("System", selection: $targetSystem) {
@@ -360,13 +360,13 @@ struct MeasurementConverterView: View {
                         }
                         Toggle(isOn: $showCupsToGrams) {
                             Text("Cups → grams (needs an ingredient)")
-                                .font(.system(size: 13, weight: .medium))
+                                .scaledFont(13, weight: .medium)
                                 .foregroundStyle(session.themeSecondaryText)
                         }
                         .tint(session.accentColor)
                         if showCupsToGrams {
                             TextField("Ingredient (e.g. flour, sugar, butter)", text: $ingredient)
-                                .font(.system(size: 15))
+                                .scaledFont(15)
                                 .padding(10)
                                 .background(RoundedRectangle(cornerRadius: 10).fill(session.themeBgColor))
                         }
@@ -376,15 +376,15 @@ struct MeasurementConverterView: View {
                 ToolboxCard {
                     VStack(spacing: 6) {
                         Text("\(pretty(amount)) \(unit) =")
-                            .font(.system(size: 13, weight: .medium))
+                            .scaledFont(13, weight: .medium)
                             .foregroundStyle(session.themeSecondaryText)
                         Text("\(pretty(conversion.value)) \(conversion.unit)")
-                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .scaledFont(26, weight: .bold, design: .rounded)
                             .foregroundStyle(session.accentColor)
                         if let grams = cupsToGramsResult {
                             Divider().padding(.vertical, 2)
                             Text("≈ \(pretty(grams)) g of \(ingredient.trimmingCharacters(in: .whitespaces))")
-                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .scaledFont(15, weight: .semibold, design: .rounded)
                                 .foregroundStyle(session.themeTextColor)
                         }
                     }
@@ -392,7 +392,7 @@ struct MeasurementConverterView: View {
                     .accessibilityElement(children: .combine)
                 }
                 Text("Cup-to-gram conversions use each ingredient's density — a cup of flour and a cup of honey weigh very different amounts.")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -452,7 +452,7 @@ struct LeftoverIdeasView: View {
                     ForEach(Self.genericIdeas, id: \.self) { idea in
                         ToolboxCard {
                             Label(idea, systemImage: "lightbulb")
-                                .font(.system(size: 13, weight: .medium))
+                                .scaledFont(13, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
                         }
                     }
@@ -462,9 +462,9 @@ struct LeftoverIdeasView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text(item.name)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .scaledFont(15, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Spacer()
                                     if let days = item.daysUntilExpiry {
                                         ExpiryUrgencyChip(daysLeft: days)
@@ -472,7 +472,7 @@ struct LeftoverIdeasView: View {
                                 }
                                 ForEach(ideas(for: item), id: \.self) { idea in
                                     Label(idea, systemImage: "lightbulb")
-                                        .font(.system(size: 13))
+                                        .scaledFont(13)
                                         .foregroundStyle(session.themeSecondaryText)
                                 }
                             }

@@ -8,6 +8,7 @@ import SwiftUI
 struct AIInventoryScanView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedMotion) private var motion
     @State var updates: [InventoryScanUpdate]
 
     private var confirmedCount: Int { updates.filter(\.isConfirmed).count }
@@ -25,10 +26,10 @@ struct AIInventoryScanView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Inventory Scan Results")
-                                .font(.system(size: 18, weight: .bold, design: .serif))
+                                .scaledFont(18, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("\(updates.count) suggestion\(updates.count == 1 ? "" : "s") — uncheck anything you don't want. Nutrition and expiry values are AI estimates.")
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -37,7 +38,7 @@ struct AIInventoryScanView: View {
                             let target = !updates.allSatisfy(\.isConfirmed)
                             for i in updates.indices { updates[i].isConfirmed = target }
                         }
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(13, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                     }
                     .padding(.horizontal, 20).padding(.bottom, 12)
@@ -59,7 +60,7 @@ struct AIInventoryScanView: View {
                     } label: {
                         Text(confirmedCount == 0 ? "Nothing selected"
                              : "Apply \(confirmedCount) change\(confirmedCount == 1 ? "" : "s")")
-                            .font(.system(size: 16, weight: .semibold, design: .serif))
+                            .scaledFont(16, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 15)
                             .background(confirmedCount == 0 ? Color.stockedCharcoal.opacity(0.35)
@@ -72,7 +73,7 @@ struct AIInventoryScanView: View {
 
                     Button { dismiss() } label: {
                         Text("Cancel")
-                            .font(.system(size: 14))
+                            .scaledFont(14)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                             .frame(maxWidth: .infinity)
                     }
@@ -88,20 +89,20 @@ struct AIInventoryScanView: View {
     private func updateCard(_ update: Binding<InventoryScanUpdate>) -> some View {
         let u = update.wrappedValue
         return Button {
-            withAnimation(.spring(response: 0.2)) { update.wrappedValue.isConfirmed.toggle() }
+            motion.animate(.selection, intent: .spatial) { update.wrappedValue.isConfirmed.toggle() }
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: u.isConfirmed ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
+                    .scaledFont(20)
                     .foregroundStyle(u.isConfirmed ? Color.stockedGold : session.themeTextColor.opacity(0.3))
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {
                         FoodIconView(name: u.currentName, size: 22, emojiSize: 14)
                         Text(u.currentName.displayNormalized)
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
-                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                     }
                     ForEach(Array(u.effectLines.enumerated()), id: \.offset) { _, line in
@@ -109,7 +110,7 @@ struct AIInventoryScanView: View {
                             Circle().fill(Color.stockedGold.opacity(0.7))
                                 .frame(width: 5, height: 5).padding(.top, 5)
                             Text(line)
-                                .font(.system(size: 12.5))
+                                .scaledFont(12.5)
                                 .foregroundStyle(session.themeTextColor.opacity(0.8))
                                 .fixedSize(horizontal: false, vertical: true)
                                 .multilineTextAlignment(.leading)
@@ -117,7 +118,7 @@ struct AIInventoryScanView: View {
                     }
                     if !u.reason.isEmpty {
                         Text(u.reason)
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)

@@ -32,11 +32,11 @@ struct RecipePortionsEditSheet: View {
                         .padding(.top, 10).padding(.bottom, 12)
 
                     Text("Recipe Ingredients")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .scaledFont(18, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .padding(.horizontal, 22).padding(.bottom, 2)
                     Text("Edit amounts, remove items, or add what's missing to your grocery list. The recipe updates as you go.")
-                        .font(.system(size: 12.5))
+                        .scaledFont(12.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 22).padding(.bottom, 12)
@@ -52,9 +52,9 @@ struct RecipePortionsEditSheet: View {
 
                     Button { showAddItem = true } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill").font(.system(size: 14))
+                            Image(systemName: "plus.circle.fill").scaledFont(14)
                             Text("Add a pantry item")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedGold)
                         .frame(maxWidth: .infinity)
@@ -67,7 +67,7 @@ struct RecipePortionsEditSheet: View {
 
                     Button { dismiss() } label: {
                         Text("Done")
-                            .font(.system(size: 16, weight: .semibold, design: .serif))
+                            .scaledFont(16, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 15)
                             .background(session.themeButtonColor)
@@ -93,14 +93,14 @@ struct RecipePortionsEditSheet: View {
                 Circle().fill(match != nil ? Color.stockedGreen : Color.stockedGold)
                     .frame(width: 7, height: 7)
                 Text(ing)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 6)
                 Text(match != nil ? "In stock" : "Missing")
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(match != nil ? Color.stockedGreen : Color.stockedGold)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                     .fixedSize()
             }
 
@@ -108,25 +108,25 @@ struct RecipePortionsEditSheet: View {
                 // Live inventory controls for the matched item.
                 HStack(spacing: 10) {
                     Text(item.name.displayNormalized)
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     Button {
                         store.updateInventoryLevel(id: item.id, level: max(0, item.level - 0.25))
                     } label: {
                         Image(systemName: "minus.circle")
-                            .font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(18).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                     Text("\(Int((item.effectiveLevel * 100).rounded()))%")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .scaledFont(12, weight: .bold, design: .monospaced)
                         .foregroundStyle(session.themeTextColor)
                         .frame(minWidth: 40)
                     Button {
                         store.updateInventoryLevel(id: item.id, level: min(1, item.level + 0.25))
                     } label: {
                         Image(systemName: "plus.circle")
-                            .font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(18).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                     Button {
                         let removed = item
@@ -136,7 +136,7 @@ struct RecipePortionsEditSheet: View {
                         }
                     } label: {
                         Image(systemName: "trash")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(Color.stockedError.opacity(0.8))
                             .frame(width: 28, height: 28)
                             .contentShape(Rectangle())
@@ -154,9 +154,9 @@ struct RecipePortionsEditSheet: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: addedToList.contains(key) ? "checkmark.circle.fill" : "cart.badge.plus")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                         Text(addedToList.contains(key) ? "Added to Grocery List" : "Add to Grocery List")
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(12, weight: .semibold)
                     }
                     .foregroundStyle(addedToList.contains(key) ? Color.stockedGreen : Color.stockedGold)
                     .padding(.horizontal, 12).padding(.vertical, 8)

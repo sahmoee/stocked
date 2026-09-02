@@ -9,11 +9,12 @@ import SwiftUI
 /// on which screen you opened.
 struct PreferencesSectionView: View {
     @Environment(AppSession.self) private var session
-    @AppStorage("stocked.interfaceSize") private var interfaceSize = InterfaceSize.comfortable.rawValue
+    @AppStorage("stocked.appTextSize") private var appTextSize = AppTextSize.standard.rawValue
 
     var onPreferredStore: () -> Void = {}
     var onRecipeSources: () -> Void = {}
     var onAppIcon: () -> Void = {}
+    var onDietaryProfile: (() -> Void)? = nil
 
     private let dietaryStyles = ["Omnivore", "Vegetarian", "Vegan", "Pescatarian"]
 
@@ -31,12 +32,9 @@ struct PreferencesSectionView: View {
                     set: { session.appFont = $0 }
                 ), options: AppFont.allCases) { $0.rawValue }
 
-                RecipeTextSizeControl()
+                appTextSizeControl(dark: dark, selection: $appTextSize)
 
-                segmentedRow(dark: dark, icon: "rectangle.expand.vertical", title: "Interface Size", selection: Binding(
-                    get: { InterfaceSize(rawValue: interfaceSize) ?? .comfortable },
-                    set: { interfaceSize = $0.rawValue }
-                ), options: InterfaceSize.allCases) { $0.rawValue }
+                RecipeTextSizeControl()
             }
 
             settingsGroup(dark: dark, title: "Cooking", detail: "Tune recipes and suggestions around the way your kitchen cooks.") {
@@ -59,8 +57,14 @@ struct PreferencesSectionView: View {
                     set: { selected in updateProfile { $0.dietaryStyle = selected == "Omnivore" ? "" : selected } }
                 ), options: dietaryStyles)
 
-                Text("Dietary details are edited with the cooking profile, while cuisines stay in Recipes where they are immediately useful.")
-                    .font(.system(size: 12))
+                if let onDietaryProfile {
+                    actionRow(dark: dark, icon: "person.text.rectangle", title: "Dietary & Brand Profile",
+                              detail: "Allergens, favorite brands, and brands to avoid",
+                              action: onDietaryProfile)
+                }
+
+                Text("Cuisines stay in Recipes where changes are immediately useful.")
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.62))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -262,20 +266,13 @@ private func settingsGroup<Content: View>(dark: Bool, title: String, detail: Str
 }
 
 private func toggleRow(dark: Bool, icon: String, title: String, detail: String? = nil, isOn: Binding<Bool>) -> some View {
-    HStack(alignment: .center, spacing: StockedSpacing.sm) {
-        rowIcon(dark: dark, icon, active: isOn.wrappedValue)
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.stockedSerif(14, weight: .semibold))
-                .foregroundStyle(Color.appText(dark))
-            if let detail {
-                Text(detail)
-                    .font(.stockedSans(11))
-                    .foregroundStyle(Color.appSubtext(dark))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        Spacer(minLength: StockedSpacing.sm)
+    StockedAlignedControlLabel(
+        icon: icon,
+        title: title,
+        subtitle: detail,
+        tint: isOn.wrappedValue ? Color.stockedGold : Color.appSubtext(dark),
+        titleColor: Color.appText(dark)
+    ) {
         Toggle("", isOn: isOn)
             .labelsHidden()
             .tint(Color.stockedGold)
@@ -300,18 +297,13 @@ private func destructiveRow(dark: Bool, icon: String, title: String, detail: Str
 }
 
 private func navigationRow(dark: Bool, icon: String, title: String, detail: String, color: Color, destructive: Bool = false) -> some View {
-    HStack(alignment: .center, spacing: StockedSpacing.sm) {
-        rowIcon(dark: dark, icon, active: true, color: color)
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.stockedSerif(14, weight: .semibold))
-                .foregroundStyle(destructive ? Color.stockedError : Color.appText(dark))
-            Text(detail)
-                .font(.stockedSans(11))
-                .foregroundStyle(Color.appSubtext(dark))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        Spacer(minLength: StockedSpacing.sm)
+    StockedAlignedControlLabel(
+        icon: icon,
+        title: title,
+        subtitle: detail,
+        tint: color,
+        titleColor: destructive ? Color.stockedError : Color.appText(dark)
+    ) {
         Image(systemName: "chevron.right")
             .font(.stockedSans(11, weight: .bold))
             .foregroundStyle(Color.appSubtext(dark))
@@ -324,17 +316,66 @@ private func segmentedStringRow(dark: Bool, icon: String, title: String, selecti
     segmentedRow(dark: dark, icon: icon, title: title, selection: selection, options: options) { $0 }
 }
 
+private func appTextSizeControl(dark: Bool, selection: Binding<String>) -> some View {
+    VStack(alignment: .leading, spacing: StockedSpacing.xs) {
+        rowTitle(dark: dark, icon: "textformat.size", title: "App Text Size", active: true)
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 6)], spacing: 6) {
+            ForEach(AppTextSize.allCases) { option in
+                let selected = selection.wrappedValue == option.rawValue
+                Button {
+                    selection.wrappedValue = option.rawValue
+                    HapticManager.select()
+                } label: {
+                    Text(option.rawValue)
+                        .font(.stockedSans(12, weight: .bold))
+                        .foregroundStyle(selected ? Color.stockedWhite : Color.appText(dark))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .padding(.horizontal, 8)
+                        .background(selected ? Color.stockedGold : Color.appText(dark).opacity(0.07))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        Text("Adjusts text throughout pages, sheets, buttons, widgets, and cooking flows. Your system text size still applies.")
+            .font(.stockedSans(11, relativeTo: .caption))
+            .foregroundStyle(Color.appSubtext(dark))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 private func segmentedRow<Option: Hashable>(dark: Bool, icon: String, title: String, selection: Binding<Option>, options: [Option], label: @escaping (Option) -> String) -> some View {
     VStack(alignment: .leading, spacing: StockedSpacing.xs) {
         rowTitle(dark: dark, icon: icon, title: title, active: true)
-        Picker(title, selection: selection) {
-            ForEach(options, id: \.self) { option in
-                Text(label(option)).tag(option)
-            }
-        }
-        .pickerStyle(.segmented)
+        AdaptiveSettingsPicker(title: title, selection: selection, options: options, label: label)
     }
     .frame(minHeight: 44)
+}
+
+private struct AdaptiveSettingsPicker<Option: Hashable>: View {
+    @Environment(\.stockedLayout) private var layoutMetrics
+    let title: String
+    @Binding var selection: Option
+    let options: [Option]
+    let label: (Option) -> String
+
+    var body: some View {
+        if layoutMetrics.width < 360 {
+            Picker(title, selection: $selection) { pickerOptions }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+        } else {
+            Picker(title, selection: $selection) { pickerOptions }
+                .pickerStyle(.segmented)
+        }
+    }
+
+    @ViewBuilder private var pickerOptions: some View {
+        ForEach(options, id: \.self) { option in
+            Text(label(option)).tag(option)
+        }
+    }
 }
 
 private func stepperRow(dark: Bool, icon: String, title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
@@ -368,7 +409,7 @@ private func chipPicker(dark: Bool, title: String, icon: String, options: [Strin
                     Text(option)
                         .font(.stockedSans(12, weight: .semibold))
                         .foregroundStyle(isSelected ? Color.stockedWhite : Color.appText(dark))
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, minHeight: 34)
                         .padding(.horizontal, StockedSpacing.xs)

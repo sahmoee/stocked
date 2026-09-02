@@ -20,6 +20,8 @@ struct StockedShell<Content: View>: View {
     @Environment(\.stockedDismiss) private var stockedDismiss
     @Environment(\.stockedTitleTap) private var titleTap
     @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.stockedMotion) private var motion
+    @State private var scrollActivity = StockedScrollActivity.idle
 
     init(
         showBack:       Bool = false,
@@ -87,6 +89,12 @@ struct StockedShell<Content: View>: View {
                                     .padding(.bottom, StockedUI.scrollBottomPad)
                             }
                         }
+                        // Short pages stay planted and long pages use native continuous
+                        // deceleration. Section targets remain available to coach marks,
+                        // but ordinary low-velocity scrolling is never forced to a card.
+                        .stockedSectionSnapping(axes: .vertical, anchor: .top)
+                        .stockedTrackScrollActivity($scrollActivity)
+                        .defaultScrollAnchor(.top)
                         .scrollDismissesKeyboard(.interactively)
                         // App-wide pull-to-refresh. Screens with their own refresh needs pass
                         // onRefresh; everything else gets the standard refresh (household pull +
@@ -100,12 +108,12 @@ struct StockedShell<Content: View>: View {
                         }
                         .onReceive(NotificationCenter.default.publisher(for: .coachmarkScrollTo)) { note in
                             guard let id = note.object as? String else { return }
-                            withAnimation(.easeInOut(duration: 0.35)) {
+                            motion.animate(.navigation, intent: .spatial) {
                                 scrollProxy.scrollTo(id, anchor: .center)
                             }
                         }
                         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
-                            withAnimation(.easeOut(duration: 0.25)) {
+                            motion.animate(.navigation, intent: .spatial) {
                                 scrollProxy.scrollTo("stocked-shell-top", anchor: .top)
                             }
                         }
@@ -113,6 +121,8 @@ struct StockedShell<Content: View>: View {
                 }
             }
         }
+        .environment(\.stockedScrollActivity, scrollActivity)
+        .stockedAdaptiveInterface()
         .ignoresSafeArea(.keyboard)
         .toolbar(.hidden, for: .navigationBar)
     }
@@ -142,7 +152,7 @@ struct StockedShell<Content: View>: View {
                     HStack(spacing: 5) {
                         wordmark
                         Image(systemName: "chevron.down")
-                            .font(.system(size: StockedChrome.wordmarkChevronSize, weight: .semibold))
+                            .font(.stockedSystem(size: StockedChrome.wordmarkChevronSize, weight: .semibold))
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     .contentShape(Rectangle())
@@ -162,7 +172,7 @@ struct StockedShell<Content: View>: View {
                 HStack {
                     Button { (stockedDismiss ?? { dismiss() })() } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .scaledFont(20, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
@@ -183,7 +193,7 @@ struct StockedShell<Content: View>: View {
                     if let trailingIcon, let onTrailing {
                         Button { onTrailing() } label: {
                             Image(systemName: trailingIcon)
-                                .font(.system(size: 19, weight: .semibold))
+                                .scaledFont(19, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
@@ -194,7 +204,7 @@ struct StockedShell<Content: View>: View {
                     if let trailingIcon2, let onTrailing2 {
                         Button { onTrailing2() } label: {
                             Image(systemName: trailingIcon2)
-                                .font(.system(size: 19, weight: .semibold))
+                                .scaledFont(19, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())

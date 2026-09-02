@@ -35,7 +35,7 @@ struct RecipeURLImportView: View {
                     Text("Import Recipe").stocked(.headline).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 26))
+                        Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
@@ -62,7 +62,7 @@ struct RecipeURLImportView: View {
                                 CachedAsyncImage(url: url.absoluteString, imageData: nil, height: 64)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(r.title).stocked(.callout).foregroundStyle(session.themeTextColor).lineLimit(2)
+                                Text(r.title).stocked(.callout).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                                 Text("\(r.ingredients.count) ingredients · \(r.source)")
                                     .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
@@ -75,7 +75,7 @@ struct RecipeURLImportView: View {
                                 }
                             } label: {
                                 Image(systemName: showSaved ? "checkmark.circle.fill" : "plus.circle.fill")
-                                    .font(.system(size: 28))
+                                    .scaledFont(28)
                                     .foregroundStyle(showSaved ? Color.stockedGreen : Color.stockedGold)
                             }.buttonStyle(.plain)
                         }
@@ -180,7 +180,7 @@ struct OCRConfirmationView: View {
                     Text("Confirm Receipt Items").stocked(.headline).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 26))
+                        Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)

@@ -144,6 +144,26 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
         }
     }
 
+    /// Commit an already-encoded value before returning. Transaction coordinators use this for
+    /// recovery journals that must reach disk before the first in-memory mutation is applied.
+    /// Ordinary model writes should continue using the coalesced `save` / `saveData` APIs.
+    func saveDataDurably(_ data: Data, key: String) throws {
+        _ = withStateLock { pendingWrites.removeValue(forKey: key) }
+        var writeError: Error?
+        syncOnWriteQueue {
+            let url = DBFile.url(for: key)
+            do {
+                if let existing = try? Data(contentsOf: url), !existing.isEmpty {
+                    try existing.write(to: DBFile.backupURL(for: key), options: .atomic)
+                }
+                try data.write(to: url, options: .atomic)
+            } catch {
+                writeError = error
+            }
+        }
+        if let writeError { throw writeError }
+    }
+
     /// Must be called while `stateLock` is held.
     private func scheduleFlushLocked() {
         writeWorkItem?.cancel()
@@ -240,6 +260,7 @@ nonisolated enum DBKey: String, CaseIterable, Sendable {
     case householdOpQueue      = "household_op_queue_v1"    // durable pending household operations
     case householdSyncStatus   = "household_sync_status_v1" // last push/pull, pending count, last error
     case householdTombstones   = "household_tombstones_v1"  // durable offline deletions
+    case kitchenRestoreRollback = "kitchen_restore_rollback_v1" // encrypted pre-restore recovery point
     case pastMeals             = "past_meals"
     case plannedMeals          = "planned_meals"
     case savedRecipes          = "saved_recipes"

@@ -51,6 +51,7 @@ struct SocialImportSheet: View {
                 ScrollView(showsIndicators: false) {
                     content.padding(20)
                 }
+                .stockedTrackedScrollScope()
             }
             .navigationTitle("Import from \(platform.displayName)")
             .navigationBarTitleDisplayMode(.inline)
@@ -128,7 +129,7 @@ struct SocialImportSheet: View {
             VStack(spacing: 14) {
                 ProgressView().tint(Color.stockedGold)
                 Text(status)
-                    .font(.system(size: 14))
+                    .scaledFont(14)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
             }
             .frame(maxWidth: .infinity)
@@ -146,18 +147,18 @@ struct SocialImportSheet: View {
         case .failed(let message):
             VStack(spacing: 14) {
                 Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 34))
+                    .scaledFont(34)
                     .foregroundStyle(Color.stockedError.opacity(0.8))
                 Text("Couldn't import that post")
-                    .font(.system(size: 17, weight: .semibold, design: .serif))
+                    .scaledFont(17, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text(message)
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .multilineTextAlignment(.center)
                 Button { dismiss() } label: {
                     Text("Done")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .padding(.horizontal, 32).padding(.vertical, 12)
                         .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -173,13 +174,13 @@ struct SocialImportSheet: View {
     private func duplicateView(_ existing: UserRecipe) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 34))
+                .scaledFont(34)
                 .foregroundStyle(Color.stockedSuccess)
             Text("Already imported")
-                .font(.system(size: 18, weight: .semibold, design: .serif))
+                .scaledFont(18, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("This link is already saved as “\(existing.title)” in My Recipes.")
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeTextColor.opacity(0.65))
                 .multilineTextAlignment(.center)
 
@@ -190,7 +191,7 @@ struct SocialImportSheet: View {
                     NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
                 } label: {
                     Text("Open My Recipes")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(session.themeButtonColor).clipShape(Capsule())
@@ -201,7 +202,7 @@ struct SocialImportSheet: View {
                     Task { await run() }
                 } label: {
                     Text("Import Again Anyway")
-                        .font(.system(size: 14, weight: .medium))
+                        .scaledFont(14, weight: .medium)
                         .foregroundStyle(session.themeTextColor.opacity(0.6))
                 }.buttonStyle(.plain)
             }
@@ -228,14 +229,14 @@ struct SocialImportSheet: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(recipe.title.isEmpty ? content.title : recipe.title)
-                    .font(.system(size: 21, weight: .bold, design: .serif))
+                    .scaledFont(21, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Label {
                     Text(content.sourceURL)
-                        .font(.system(size: 11.5))
-                        .lineLimit(1).truncationMode(.middle)
+                        .scaledFont(11.5)
+                        .fixedSize(horizontal: false, vertical: true)
                 } icon: {
-                    Image(systemName: platform.iconSystemName).font(.system(size: 11))
+                    Image(systemName: platform.iconSystemName).scaledFont(11)
                 }
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
             }
@@ -257,7 +258,7 @@ struct SocialImportSheet: View {
                 if missingServings { needsReviewChip("Not stated") }
                 else {
                     Text(recipe.servings)
-                        .font(.system(size: 14, weight: .medium))
+                        .scaledFont(14, weight: .medium)
                         .foregroundStyle(session.themeTextColor)
                 }
             }
@@ -273,7 +274,7 @@ struct SocialImportSheet: View {
                             Circle().fill(Color.stockedGold).frame(width: 5, height: 5)
                                 .padding(.top, 5)
                             Text(ing.displayLine)
-                                .font(.system(size: 14))
+                                .scaledFont(14)
                                 .foregroundStyle(session.themeTextColor)
                             if ing.needsReview || ing.amount.isEmpty {
                                 needsReviewChip(ing.amount.isEmpty ? "No amount" : "Needs review")
@@ -293,10 +294,10 @@ struct SocialImportSheet: View {
                     ForEach(Array(recipe.steps.enumerated()), id: \.offset) { idx, step in
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text("\(idx + 1)")
-                                .font(.system(size: 12, weight: .bold))
+                                .scaledFont(12, weight: .bold)
                                 .foregroundStyle(Color.stockedGold)
                             Text(step)
-                                .font(.system(size: 14))
+                                .scaledFont(14)
                                 .foregroundStyle(session.themeTextColor.opacity(0.85))
                         }
                     }
@@ -307,7 +308,7 @@ struct SocialImportSheet: View {
             VStack(spacing: 10) {
                 Button { save(content: content, recipe: recipe) } label: {
                     Text("Save Recipe")
-                        .font(.system(size: 16, weight: .semibold))
+                        .scaledFont(16, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15)
                         .background(session.themeButtonColor).clipShape(Capsule())
@@ -315,7 +316,7 @@ struct SocialImportSheet: View {
 
                 Button { openInForm(content: content, recipe: recipe, aiAssisted: false) } label: {
                     Text("Edit Before Saving")
-                        .font(.system(size: 14, weight: .medium))
+                        .scaledFont(14, weight: .medium)
                         .foregroundStyle(session.themeTextColor.opacity(0.65))
                 }.buttonStyle(.plain)
             }
@@ -342,13 +343,13 @@ struct SocialImportSheet: View {
     private func insufficientView(_ content: SocialPageContent?, _ explanation: String) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "text.magnifyingglass")
-                .font(.system(size: 34))
+                .scaledFont(34)
                 .foregroundStyle(session.themeTextColor.opacity(0.35))
             Text("Not enough to build a recipe")
-                .font(.system(size: 18, weight: .semibold, design: .serif))
+                .scaledFont(18, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text(explanation)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeTextColor.opacity(0.65))
                 .multilineTextAlignment(.center)
 
@@ -364,7 +365,7 @@ struct SocialImportSheet: View {
                     onOpenInForm(form, platform.displayName)
                 } label: {
                     Text("Complete It Manually")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(session.themeButtonColor).clipShape(Capsule())
@@ -385,7 +386,7 @@ struct SocialImportSheet: View {
                         onOpenInForm(form, "\(platform.displayName) · AI-assisted draft")
                     } label: {
                         Label("Draft It with AI (labeled)", systemImage: "sparkles")
-                            .font(.system(size: 14, weight: .medium))
+                            .scaledFont(14, weight: .medium)
                             .foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                 }
@@ -467,13 +468,13 @@ struct SocialImportSheet: View {
 
     private func sectionHeader(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 15, weight: .semibold, design: .serif))
+            .scaledFont(15, weight: .semibold, design: .serif)
             .foregroundStyle(session.themeTextColor)
     }
 
     private func needsReviewChip(_ label: String) -> some View {
         Text(label)
-            .font(.system(size: 10.5, weight: .semibold))
+            .scaledFont(10.5, weight: .semibold)
             .foregroundStyle(Color.stockedError.opacity(0.9))
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background(Color.stockedError.opacity(0.12))
@@ -483,10 +484,10 @@ struct SocialImportSheet: View {
     private func noteCard(icon: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold)
                 .foregroundStyle(Color.stockedGold)
             Text(text)
-                .font(.system(size: 12.5))
+                .scaledFont(12.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true)
         }

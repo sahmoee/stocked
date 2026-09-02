@@ -152,6 +152,7 @@ struct RecipeOverviewView: View {
     let prepTime:    String
 
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     // Cook Now (Direction B): optional session — when present, its serving
     // choice seeds the scaler and its confirmed swaps take precedence.
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
@@ -371,7 +372,7 @@ struct RecipeOverviewView: View {
                 // ── Title + meta ──────────────────────────────────────
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title.isEmpty ? "Recipe" : title)
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         .padding(.horizontal, 20)
                     // Meta row: scrolls horizontally so it never squeezes the labels into a
@@ -382,34 +383,34 @@ struct RecipeOverviewView: View {
                         VStack(spacing: 2) {
                             HStack(spacing: 6) {
                                 Image(systemName: "person.2.fill")
-                                    .font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+                                    .scaledFont(11).foregroundStyle(Color.stockedGold)
                                 Button {
-                                    withAnimation(.spring(response: 0.2)) {
+                                    motion.animate(.selection, intent: .spatial) {
                                         adjustedServings = max(1, effectiveServings - 1)
                                     }
                                 } label: {
                                     Image(systemName: "minus.circle")
-                                        .font(.system(size: 15)).foregroundStyle(Color.stockedGold)
+                                        .scaledFont(15).foregroundStyle(Color.stockedGold)
                                 }.buttonStyle(.plain)
                                 Text("\(effectiveServings)")
-                                    .font(.system(size: 13, weight: .bold, design: .serif))
+                                    .scaledFont(13, weight: .bold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                     .frame(minWidth: 20)
                                     .contentTransition(.numericText())
-                                    .animation(.spring(response: 0.2), value: effectiveServings)
+                                    .stockedAnimation(.selection, intent: .spatial, value: effectiveServings)
                                 Button {
-                                    withAnimation(.spring(response: 0.2)) {
+                                    motion.animate(.selection, intent: .spatial) {
                                         adjustedServings = effectiveServings + 1
                                     }
                                 } label: {
                                     Image(systemName: "plus.circle")
-                                        .font(.system(size: 15)).foregroundStyle(Color.stockedGold)
+                                        .scaledFont(15).foregroundStyle(Color.stockedGold)
                                 }.buttonStyle(.plain)
                             }
                             Text("servings")
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                                 .fixedSize()   // never wrap
                         }
                         metaBadge(icon: "clock.fill",     text: displayPrepTime + " prep")
@@ -439,13 +440,13 @@ struct RecipeOverviewView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13).foregroundStyle(Color.stockedGold)
                         Text("Tips & Tricks")
-                            .font(.system(size: 14, weight: .bold, design: .serif))
+                            .scaledFont(14, weight: .bold, design: .serif)
                             .foregroundStyle(Color.stockedGold)
                     }
                     Text("Season in layers as you cook, not just at the end. Taste frequently and adjust salt, acid (lemon/vinegar), and heat to balance the dish.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.isDarkMode ? Color(white: 0.65) : Color.stockedCharcoal.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -461,7 +462,7 @@ struct RecipeOverviewView: View {
                 if hasPrepTasks {
                     Button { goPrep = true } label: {
                         Label("Prep First", systemImage: "list.bullet.clipboard")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                             .frame(maxWidth: .infinity).padding(.vertical, 15)
                             .background(Color.stockedGold.opacity(0.12))
@@ -476,7 +477,7 @@ struct RecipeOverviewView: View {
                 // ── Start Cooking ─────────────────────────────────────
                 Button { startCooking = true } label: {
                     Text("Start Cooking")
-                        .font(.system(size: 18, weight: .semibold, design: .serif))
+                        .scaledFont(18, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 18)
                         .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -493,7 +494,7 @@ struct RecipeOverviewView: View {
                     )
                 } label: {
                     Label("Plan in Cook Later", systemImage: "calendar.badge.plus")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .frame(maxWidth: .infinity).padding(.vertical, 15)
                         .background(Color.stockedGold.opacity(0.12))
@@ -505,7 +506,7 @@ struct RecipeOverviewView: View {
                 .padding(.horizontal, 24).padding(.bottom, 12)
 
                 Text("Ingredients will be deducted from inventory when you finish cooking.")
-                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                     .multilineTextAlignment(.center).frame(maxWidth: .infinity)
                     .padding(.horizontal, 28).padding(.bottom, 8)
             }
@@ -540,32 +541,22 @@ struct RecipeOverviewView: View {
 
     @ViewBuilder private var ingredientsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Ingredients")
-                    .font(.system(size: 16, weight: .bold, design: .serif))
-                    .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                Spacer()
-                if RecipeImportAI.isAvailable {
-                    Button { Task { await fixIngredientsWithAI() } } label: {
-                        HStack(spacing: 4) {
-                            if aiFixingIngredients { ProgressView().controlSize(.mini) }
-                            else { Image(systemName: "wand.and.stars").font(.system(size: 10)) }
-                            Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundStyle(Color.stockedGold)
-                        .padding(.horizontal, 8).padding(.vertical, 5)
-                        .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(aiFixingIngredients)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    ingredientsHeading
+                    Spacer(minLength: 12)
+                    ingredientRepairButton
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    ingredientsHeading
+                    ingredientRepairButton
                 }
             }
 
             // Scale indicator
             if scaleFactor != 1.0 {
                 Text(effectiveServings > baseServings ? "↑ Scaled up" : "↓ Scaled down")
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
                     .padding(.bottom, 4)
             }
@@ -578,15 +569,15 @@ struct RecipeOverviewView: View {
                     HStack(spacing: 10) {
                         Circle().fill(inStock ? Color.stockedGreen : Color.stockedGold)
                             .frame(width: 7, height: 7)
-                        Text(ing).font(.system(size: 14))
+                        Text(ing).scaledFont(14)
                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 8)
                         if inStock {
                             Text("✓ In stock")
-                                .font(.system(size: 11, weight: .semibold))
+                                .scaledFont(11, weight: .semibold)
                                 .foregroundStyle(Color.stockedGreen)
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                                 .fixedSize()
                         } else {
                             // #FB — "Need to buy" is now an action: add it right here.
@@ -595,16 +586,18 @@ struct RecipeOverviewView: View {
                                 session.guestStore.addToGroceryIfMissing(
                                     name.isEmpty ? rawIng : name.capitalized,
                                     recommended: false, recipeSource: title)
-                                withAnimation { _ = addedToGrocery.insert(addedKey) }
+                                motion.animate(.selection, intent: .opacity) {
+                                    _ = addedToGrocery.insert(addedKey)
+                                }
                                 HapticManager.success()
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: addedToGrocery.contains(addedKey)
                                           ? "checkmark.circle.fill" : "cart.badge.plus")
-                                        .font(.system(size: 10))
+                                        .scaledFont(10)
                                     Text(addedToGrocery.contains(addedKey) ? "Added ✓" : "Add to Grocery List")
-                                        .font(.system(size: 10.5, weight: .semibold))
-                                        .lineLimit(1)
+                                        .scaledFont(10.5, weight: .semibold)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 .fixedSize()   // #FB3 — the pill keeps its shape; the ingredient wraps instead
                                 .foregroundStyle(addedToGrocery.contains(addedKey) ? Color.stockedGreen : Color.stockedGold)
@@ -620,9 +613,9 @@ struct RecipeOverviewView: View {
                     if !inStock {
                         if let sub = inStockSubstituteByIngredient[rawIng] {
                             HStack(spacing: 6) {
-                                Image(systemName: "arrow.2.squarepath").font(.system(size: 9))
+                                Image(systemName: "arrow.2.squarepath").scaledFont(9)
                                 Text("Use \(sub) instead (you have it)")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .scaledFont(10, weight: .medium)
                             }
                             .foregroundStyle(Color.stockedGreen.opacity(0.85))
                             .padding(.leading, 17)
@@ -637,10 +630,36 @@ struct RecipeOverviewView: View {
         .padding(.horizontal, 20).padding(.bottom, 14)
     }
 
+    private var ingredientsHeading: some View {
+        Text("Ingredients")
+            .scaledFont(16, weight: .bold, design: .serif)
+            .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+            .fixedSize(horizontal: true, vertical: true)
+    }
+
+    @ViewBuilder private var ingredientRepairButton: some View {
+        if RecipeImportAI.isAvailable {
+            Button { Task { await fixIngredientsWithAI() } } label: {
+                HStack(spacing: 4) {
+                    if aiFixingIngredients { ProgressView().controlSize(.mini) }
+                    else { Image(systemName: "wand.and.stars").scaledFont(10) }
+                    Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
+                        .scaledFont(11, weight: .semibold)
+                        .fixedSize(horizontal: true, vertical: true)
+                }
+                .foregroundStyle(Color.stockedGold)
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(aiFixingIngredients)
+        }
+    }
+
     @ViewBuilder private var stepsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recipe Steps")
-                .font(.system(size: 16, weight: .bold, design: .serif))
+                .scaledFont(16, weight: .bold, design: .serif)
                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
 
             ForEach(Array(displaySteps.enumerated()), id: \.offset) { i, step in
@@ -648,12 +667,12 @@ struct RecipeOverviewView: View {
                     ZStack {
                         Circle().fill(Color.stockedGold).frame(width: 26, height: 26)
                         Text("\(i + 1)")
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(12, weight: .bold)
                             .foregroundStyle(session.themeTextColor)
                     }
                     .padding(.top, 1)
                     Text(step)
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -672,12 +691,12 @@ struct RecipeOverviewView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 13)).foregroundStyle(.orange)
+                        .scaledFont(13).foregroundStyle(.orange)
                     Text("Portions check")
-                        .font(.system(size: 14, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(14, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                 }
                 Text("\(missingItems.count) item(s) appear to be out of stock or very low:")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.7))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
                 // #FB — list exactly which portions don't line up with the recipe.
                 VStack(alignment: .leading, spacing: 4) {
@@ -685,7 +704,7 @@ struct RecipeOverviewView: View {
                         HStack(spacing: 6) {
                             Circle().fill(Color.orange.opacity(0.7)).frame(width: 5, height: 5)
                             Text(item)
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor.opacity(0.75))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -695,7 +714,7 @@ struct RecipeOverviewView: View {
                 HStack(spacing: 10) {
                     Button { showPortionEdit = true } label: {
                         Text("Edit Inventory")
-                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                            .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedWhite)
                             .padding(.horizontal, 16).padding(.vertical, 9)
                             .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                     }.buttonStyle(.plain)
@@ -703,9 +722,9 @@ struct RecipeOverviewView: View {
                     Button { startCooking = true } label: {
                         HStack(spacing: 3) {
                             Text("or continue anyway")
-                            Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold))
+                            Image(systemName: "arrow.right").scaledFont(10, weight: .semibold)
                         }
-                        .font(.system(size: 12, weight: .medium))
+                        .scaledFont(12, weight: .medium)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.vertical, 9)
                         .contentShape(Rectangle())
@@ -721,9 +740,9 @@ struct RecipeOverviewView: View {
 
     private func metaBadge(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(Color.stockedGold)
-            Text(text).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.65))
-                .lineLimit(1).fixedSize()
+            Image(systemName: icon).scaledFont(11).foregroundStyle(Color.stockedGold)
+            Text(text).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.65))
+                .fixedSize(horizontal: false, vertical: true).fixedSize()
         }
     }
 
@@ -742,6 +761,7 @@ struct RecipeOverviewView: View {
 struct CookingFlashcardView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) private var device
+    @Environment(\.stockedMotion) private var motion
     let recipeTitle:  String
     let ingredients:  [String]
     let steps:        [String]
@@ -754,7 +774,7 @@ struct CookingFlashcardView: View {
     @State private var liveActivity = LiveActivityManager.shared   // #229 — observed for timer-failure banner
     @State private var sessionEnded = false       // #231 — once finished/stopped, don't let onAppear resurrect the pill
     @State private var liveActivityHint: String?  // #231 — proactive Lock Screen timer warning
-    
+
     // ── Cook Now substitution guidance (#Direction B) ────────────────
     /// If this step mentions an ingredient the session swapped, remind the cook
     /// which swap is in play. Guidance only — the author's step text stands.
@@ -772,11 +792,11 @@ struct CookingFlashcardView: View {
         }
         return nil
     }
-    
+
     // ── Progress persistence (#11) ──────────────────────────────────
     private var progressKey:  String { "cookProgress_\(recipeTitle.hashValue)" }
     private var timestampKey: String { "cookTimestamp_\(recipeTitle.hashValue)" }
-    
+
     private func saveProgress() {
         UserDefaults.standard.set(Array(completedSteps), forKey: progressKey)
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: timestampKey)
@@ -798,7 +818,7 @@ struct CookingFlashcardView: View {
         // Resume swipe mode at the first incomplete step too.
         currentCard  = firstIncomplete ?? max(0, steps.count - 1)
     }
-    
+
     @State private var finishCooking        = false
     @State private var isSwipeMode          = false
     @State private var showCelebration      = false
@@ -828,7 +848,7 @@ struct CookingFlashcardView: View {
         "Season in layers, not just at the end.",
         "Rest meat 5 min before slicing to keep juices in."
     ]
-    
+
     /// Cook Now: ingredient → in-stock substitute chosen for this session.
     /// Guidance-only — step text is NEVER rewritten (it stays the author's).
     var sessionSubs: [String: String] = [:]
@@ -840,7 +860,7 @@ struct CookingFlashcardView: View {
     // opportunity entry during a long cook.
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
     @State private var showHandsOff = false
-    
+
     /// Rough hands-off window for the current cook, from the chosen method's
     /// total-minus-active time, falling back to a sensible default.
     private var estimatedHandsOffMinutes: Int {
@@ -849,7 +869,7 @@ struct CookingFlashcardView: View {
         }
         return 30
     }
-    
+
     // ── RL-001 / RL-002 — durable session record ────────────────────
     // The cook's exact state (step, timers, subs, appliances) is mirrored into
     // ActiveCookSessionStore with immediate write-through, so force-close,
@@ -978,7 +998,7 @@ struct CookingFlashcardView: View {
 
     private var allDone: Bool { completedSteps.count == steps.count }
     private func markComplete(_ i: Int) {
-        withAnimation(.spring(response: 0.3)) {
+        motion.animate(.standard, intent: .spatial) {
             if completedSteps.contains(i) {
                 completedSteps.remove(i)
                 HapticManager.select()
@@ -993,7 +1013,9 @@ struct CookingFlashcardView: View {
                     sessionEnded = true; session.activeCook = nil   // #228 — cook finished
                     Task {
                         try? await Task.sleep(nanoseconds: 400000000)
-                        withAnimation { showCelebration = true }
+                        motion.animate(.standard, intent: .opacity) {
+                            showCelebration = true
+                        }
                     }
                 } else {
                     HapticManager.select()    // step complete — light haptic
@@ -1001,7 +1023,7 @@ struct CookingFlashcardView: View {
             }
         }
     }
-    
+
     // Ingredients checklist — shared by the iPhone inline layout and the iPad left pane.
     // `forcedExpanded` keeps it always open on iPad (where it's a persistent column).
     @ViewBuilder
@@ -1009,33 +1031,35 @@ struct CookingFlashcardView: View {
         let isOpen = forcedExpanded || checklistExpanded
         VStack(spacing: 0) {
             Button {
-                if !forcedExpanded { withAnimation(.spring(response: 0.3)) { checklistExpanded.toggle() } }
+                if !forcedExpanded {
+                    motion.animate(.standard, intent: .spatial) { checklistExpanded.toggle() }
+                }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "checklist")
-                        .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13).foregroundStyle(Color.stockedGold)
                     Text("Ingredients")
-                        .font(.system(size: 13, weight: .semibold, design: .serif))
+                        .scaledFont(13, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Text("\(checkedIngredients.count)/\(ingredients.count) prepped")
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                     if !forcedExpanded {
                         Image(systemName: checklistExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.35))
                     }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
             }.buttonStyle(.plain).disabled(forcedExpanded)
-            
+
             if isOpen {
                 Divider().padding(.horizontal, 14)
                 VStack(spacing: 0) {
                     ForEach(Array(ingredients.enumerated()), id: \.offset) { idx, ing in
                         HStack(spacing: 10) {
                             Button {
-                                withAnimation(.spring(response: 0.2)) {
+                                motion.animate(.selection, intent: .spatial) {
                                     if checkedIngredients.contains(idx) {
                                         checkedIngredients.remove(idx)
                                     } else {
@@ -1047,11 +1071,11 @@ struct CookingFlashcardView: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: checkedIngredients.contains(idx)
                                           ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 18))
+                                    .scaledFont(18)
                                     .foregroundStyle(checkedIngredients.contains(idx)
                                                      ? Color.stockedGold : session.themeTextColor.opacity(0.3))
                                     Text(ing)
-                                        .font(.system(size: 13))
+                                        .scaledFont(13)
                                         .foregroundStyle(checkedIngredients.contains(idx)
                                                          ? session.themeTextColor.opacity(0.4)
                                                          : session.themeTextColor)
@@ -1060,14 +1084,14 @@ struct CookingFlashcardView: View {
                                 }
                                 .padding(.leading, 14).padding(.vertical, 12)
                             }.buttonStyle(.plain)
-                            
+
                             if StockedDatabase.shared.hasSubstitution(for: ing) {
                                 Button {
                                     midCookSubIngredient = ing
                                     showMidCookSub = true
                                 } label: {
                                     Text("Sub")
-                                        .font(.system(size: 9, weight: .bold))
+                                        .scaledFont(9, weight: .bold)
                                         .foregroundStyle(Color.stockedGold)
                                         .padding(.horizontal, 7).padding(.vertical, 4)
                                         .background(Color.stockedGold.opacity(0.12))
@@ -1088,7 +1112,7 @@ struct CookingFlashcardView: View {
         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.35))
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
-    
+
     var body: some View {
         StockedShell(showBack: true) {
             HStack(alignment: .top, spacing: 0) {
@@ -1102,17 +1126,17 @@ struct CookingFlashcardView: View {
                     .frame(width: 320)
                     Divider()
                 }
-                
+
                 VStack(alignment: .leading, spacing: 0) {
-                    
+
                     // #16 — surface a Lock Screen timer problem on-device (orange warning only).
                     if let failure = liveActivity.lastFailure ?? liveActivityHint {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(Color.orange)
                             Text(failure)
-                                .font(.system(size: 11))
+                                .scaledFont(11)
                                 .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -1121,21 +1145,21 @@ struct CookingFlashcardView: View {
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                         .padding(.horizontal, 16).padding(.top, 8)
                     }
-                    
+
                     // Header
                     // #FB3 — long recipe titles wrap to two lines and scale slightly instead
                     // of mashing into the fullscreen/view-mode buttons and the progress ring.
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("How to Cook")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                             Text(recipeTitle)
-                                .font(.system(size: 20, weight: .bold, design: .serif))
+                                .scaledFont(20, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.7)
+                                .fixedSize(horizontal: false, vertical: true)
+
                                 .multilineTextAlignment(.leading)
                         }
                         .layoutPriority(1)
@@ -1146,7 +1170,7 @@ struct CookingFlashcardView: View {
                             showFullScreen = true
                         } label: {
                             Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 15))
+                                .scaledFont(15)
                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                                 .padding(8)
                                 .background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35))
@@ -1155,10 +1179,10 @@ struct CookingFlashcardView: View {
                             .accessibilityLabel("Full screen cooking mode")
                         // View mode toggle
                         Button {
-                            withAnimation(.spring(response: 0.3)) { isSwipeMode.toggle() }
+                            motion.animate(.selection, intent: .spatial) { isSwipeMode.toggle() }
                         } label: {
                             Image(systemName: isSwipeMode ? "list.bullet" : "rectangle.stack.fill")
-                                .font(.system(size: 16))
+                                .scaledFont(16)
                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                                 .padding(8)
                                 .background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35))
@@ -1170,35 +1194,35 @@ struct CookingFlashcardView: View {
                             Circle().trim(from: 0, to: steps.isEmpty ? 0 : CGFloat(completedSteps.count) / CGFloat(steps.count))
                                 .stroke(Color.stockedGold, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                                 .rotationEffect(.degrees(-90))
-                                .animation(.spring(response: 0.4), value: completedSteps.count)
+                                .stockedAnimation(.standard, intent: .spatial, value: completedSteps.count)
                             Text("\(completedSteps.count)/\(steps.count)")
-                                .font(.system(size: 11, weight: .bold))
+                                .scaledFont(11, weight: .bold)
                                 .foregroundStyle(session.themeTextColor)
                         }
                         .frame(width: 52, height: 52)
                     }
                     .padding(.horizontal, 24).padding(.bottom, 16)
-                    
+
                     // Tip of the day banner
                     HStack(spacing: 10) {
                         Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13).foregroundStyle(Color.stockedGold)
                         Text(tips[min(completedSteps.count, tips.count - 1)])
-                            .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.7))
+                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(12)
                     .background(Color.stockedGold.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     .padding(.horizontal, 20).padding(.bottom, 10)
-                    
+
                     // ── Ingredients Checklist — inline on iPhone; on iPad it moves to a
                     //    persistent left pane (see body split below). ──────────────
                     if !ingredients.isEmpty && device != .tablet {
                         ingredientsChecklist(forcedExpanded: false)
                             .padding(.horizontal, 20).padding(.bottom, 12)
                     }
-                    
+
                     if isSwipeMode {
                         // ── Swipe Card Mode ──────────────────────────────────
                         ZStack {
@@ -1208,7 +1232,7 @@ struct CookingFlashcardView: View {
                             VStack(spacing: 16) {
                                 HStack {
                                     Text("Step \(currentCard + 1) of \(steps.count)")
-                                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                                        .scaledFont(14, weight: .semibold, design: .serif)
                                         .foregroundStyle(Color.stockedWhite.opacity(0.6))
                                     Spacer()
                                     if completedSteps.contains(currentCard) {
@@ -1217,14 +1241,14 @@ struct CookingFlashcardView: View {
                                     }
                                 }.padding(.horizontal, 20)
                                 Text(steps[currentCard])
-                                    .font(.system(size: 16, design: .serif))
+                                    .scaledFont(16, design: .serif)
                                     .foregroundStyle(Color.stockedWhite)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal, 24)
                                     .fixedSize(horizontal: false, vertical: true)
                                 if let hint = substitutionHint(for: steps[currentCard]) {
                                     Label(hint, systemImage: "arrow.triangle.swap")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedGold)
                                         .multilineTextAlignment(.center)
                                         .padding(.horizontal, 24)
@@ -1236,7 +1260,7 @@ struct CookingFlashcardView: View {
                                         Circle()
                                             .fill(i == currentCard ? Color.stockedGold : Color.white.opacity(0.3))
                                             .frame(width: i == currentCard ? 9 : 6, height: i == currentCard ? 9 : 6)
-                                            .animation(.spring(response: 0.25), value: currentCard)
+                                            .stockedAnimation(.selection, intent: .spatial, value: currentCard)
                                     }
                                 }
                             }
@@ -1245,15 +1269,19 @@ struct CookingFlashcardView: View {
                         .gesture(DragGesture()
                             .onChanged { cardDragOffset = $0.translation }
                             .onEnded { v in
-                                withAnimation(.spring(response: 0.3)) {
-                                    if v.translation.width < -60 {
-                                        if currentCard < steps.count - 1 {
-                                            completedSteps.insert(currentCard)
-                                            currentCard += 1
-                                        }
-                                    } else if v.translation.width > 60 && currentCard > 0 {
-                                        currentCard -= 1
+                                let projectedX = v.predictedEndTranslation.width
+                                let target = StockedVelocitySnapPolicy().targetIndex(
+                                    currentIndex: currentCard,
+                                    currentOffset: CGFloat(currentCard) * 200 - projectedX,
+                                    itemExtent: 200,
+                                    velocity: 0,
+                                    itemCount: steps.count
+                                )
+                                motion.animate(.settle, intent: .spatial) {
+                                    if target > currentCard {
+                                        completedSteps.insert(currentCard)
                                     }
+                                    currentCard = target
                                     cardDragOffset = .zero
                                 }
                             }
@@ -1262,23 +1290,23 @@ struct CookingFlashcardView: View {
                         // Swipe nav buttons
                         HStack(spacing: 20) {
                             Button {
-                                withAnimation(.spring(response: 0.3)) { if currentCard > 0 { currentCard -= 1 } }
+                                motion.animate(.selection, intent: .spatial) { if currentCard > 0 { currentCard -= 1 } }
                             } label: {
-                                Image(systemName: "chevron.left.circle.fill").font(.system(size: 32))
+                                Image(systemName: "chevron.left.circle.fill").scaledFont(32)
                                     .foregroundStyle(currentCard == 0 ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
                             }.disabled(currentCard == 0).buttonStyle(.plain)
                             Spacer()
                             Button {
-                                withAnimation(.spring(response: 0.3)) {
+                                motion.animate(.selection, intent: .spatial) {
                                     completedSteps.insert(currentCard)
                                     if currentCard < steps.count - 1 { currentCard += 1 }
                                 }
                             } label: {
-                                Image(systemName: "chevron.right.circle.fill").font(.system(size: 32))
+                                Image(systemName: "chevron.right.circle.fill").scaledFont(32)
                                     .foregroundStyle(currentCard == steps.count - 1 ? Color.stockedGold.opacity(0.4) : Color.stockedGold)
                             }.disabled(currentCard == steps.count - 1 && allDone).buttonStyle(.plain)
                         }.padding(.horizontal, 40).padding(.top, 8).padding(.bottom, 16)
-                        
+
                     } else {
                         // ── Scroll + Expand Mode ─────────────────────────────
                         VStack(spacing: 8) {
@@ -1291,7 +1319,7 @@ struct CookingFlashcardView: View {
                                     timerEngine:  timerEngine,
                                     stepIndex:    i,
                                     onTap: {
-                                        withAnimation(.spring(response: 0.3)) {
+                                        motion.animate(.selection, intent: .spatial) {
                                             expandedStep = expandedStep == i ? nil : i
                                         }
                                     },
@@ -1301,27 +1329,27 @@ struct CookingFlashcardView: View {
                         }
                         .padding(.horizontal, 20).padding(.bottom, 20)
                     }
-                    
+
                     // Finish button — enabled when all done OR user chooses to skip
                     VStack(spacing: 8) {
                         Button { sessionEnded = true; session.activeCook = nil; finishCooking = true } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: allDone ? "checkmark.circle.fill" : "flag.fill")
                                 Text(allDone ? "All Done — Finish Cooking" : "Finish Cooking")
-                                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                                    .scaledFont(16, weight: .semibold, design: .serif)
                             }
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 16)
                             .background(allDone ? Color.stockedGold : Color.stockedCharcoal)
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-                            .animation(.spring(response: 0.3), value: allDone)
+                            .stockedAnimation(.standard, intent: .spatial, value: allDone)
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 24)
-                        
+
                         if !allDone {
                             Text("\(steps.count - completedSteps.count) step(s) remaining")
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor.opacity(0.35))
                         }
                     }
@@ -1452,7 +1480,7 @@ struct CookingFlashcardView: View {
                 }
         }
     }
-    
+
     // MARK: - Individual step row
     struct CookingStepRow: View {
         @Environment(AppSession.self) var session
@@ -1465,10 +1493,10 @@ struct CookingFlashcardView: View {
         var imageURL:    String?          = nil
         let onTap:       () -> Void
         let onComplete:  () -> Void
-        
+
         private var detectedSeconds: Int? { StepTimerEngine.detectSeconds(in: stepText) }
         private var stepTimer: StepTimer? { timerEngine?.timers[stepIndex] }
-        
+
         var body: some View {
             VStack(spacing: 0) {
                 // Step header (always visible)
@@ -1489,74 +1517,74 @@ struct CookingFlashcardView: View {
                                 .frame(width: 32, height: 32)
                             if isCompleted || stepTimer?.isFinished == true {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .scaledFont(13, weight: .bold)
                                     .foregroundStyle(Color.stockedWhite)
                             } else if let t = stepTimer, t.isRunning {
                                 Text(t.displayString)
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .scaledFont(9, weight: .bold, design: .monospaced)
                                     .foregroundStyle(Color.stockedWhite)
                             } else {
                                 Text("\(stepNumber)")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .scaledFont(13, weight: .bold)
                                     .foregroundStyle(Color.stockedWhite)
                             }
                         }
-                        .animation(.spring(response: 0.3), value: stepTimer?.isRunning)
-                        
+                        .stockedAnimation(.standard, intent: .spatial, value: stepTimer?.isRunning)
+
                         Text(isExpanded ? "Step \(stepNumber)" : stepText)
-                            .font(.system(size: RecipeTextPrefs.shared.scaled(14), design: .serif))
+                            .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(14), design: .serif))
                             .foregroundStyle(isCompleted ? session.themeTextColor.opacity(0.4) : session.themeTextColor)
                             .strikethrough(isCompleted)
-                            .lineLimit(isExpanded ? nil : 2)
+
                             .fixedSize(horizontal: false, vertical: false)
-                        
+
                         Spacer()
-                        
+
                         // Timer badge when detected but not started
                         if let secs = detectedSeconds, stepTimer == nil {
                             HStack(spacing: 3) {
-                                Image(systemName: "timer").font(.system(size: 9))
-                                Text(formatSecs(secs)).font(.system(size: 10, weight: .semibold))
+                                Image(systemName: "timer").scaledFont(9)
+                                Text(formatSecs(secs)).scaledFont(10, weight: .semibold)
                             }
                             .foregroundStyle(Color.stockedGold)
                             .padding(.horizontal, 7).padding(.vertical, 3)
                             .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
                         }
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.35))
                     }
                     .padding(.horizontal, 14).padding(.vertical, 12)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                
+
                 // Expanded content
                 if isExpanded {
                     VStack(alignment: .leading, spacing: 12) {
                         Divider().padding(.horizontal, 14)
-                        
+
                         HStack(alignment: .top, spacing: 8) {
                             Text(stepText)
-                                .font(.system(size: RecipeTextPrefs.shared.scaled(15), design: .serif))
+                                .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(15), design: .serif))
                                 .foregroundStyle(session.themeTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
                             // #6 — read this step aloud (tap again to stop).
                             Button { SpeechReader.shared.toggle(stepText) } label: {
                                 Image(systemName: "speaker.wave.2.fill")
-                                    .font(.system(size: 14))
+                                    .scaledFont(14)
                                     .foregroundStyle(Color.stockedGold)
                             }.buttonStyle(.plain)
                         }
                         .padding(.horizontal, 14)
-                        
+
                         // Step photo if available
                         if let url = imageURL, !url.isEmpty {
                             CachedAsyncImage(url: url, imageData: nil, height: 160)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                 .padding(.horizontal, 14)
                         }
-                        
+
                         // Timer controls
                         if detectedSeconds != nil || stepTimer != nil {
                             HStack(spacing: 12) {
@@ -1567,26 +1595,26 @@ struct CookingFlashcardView: View {
                                         HapticManager.select()
                                     } label: {
                                         Label("Start Timer", systemImage: "play.fill")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .scaledFont(12, weight: .semibold)
                                             .foregroundStyle(Color.stockedWhite)
                                             .padding(.horizontal, 14).padding(.vertical, 11)
                                             .background(Color.stockedGold).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                                     }.buttonStyle(.plain)
                                 } else if t?.isFinished == true {
                                     Label("Done ✓", systemImage: "checkmark.circle.fill")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedGreen)
                                     Button { timerEngine?.resetTimer(stepIndex: stepIndex) } label: {
-                                        Text("Reset").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        Text("Reset").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                                     }.buttonStyle(.plain)
                                 } else {
                                     Text(t?.displayString ?? "")
-                                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                                        .scaledFont(20, weight: .bold, design: .monospaced)
                                         .foregroundStyle(Color.stockedGold)
                                     if t?.isRunning == true {
                                         Button { timerEngine?.pauseTimer(stepIndex: stepIndex) } label: {
                                             Image(systemName: "pause.fill")
-                                                .font(.system(size: 13))
+                                                .scaledFont(13)
                                                 .foregroundStyle(Color.stockedWhite)
                                                 .padding(9)
                                                 .background(Color.stockedCharcoal).clipShape(Circle())
@@ -1596,7 +1624,7 @@ struct CookingFlashcardView: View {
                                             timerEngine?.startTimer(stepIndex: stepIndex, stepText: stepText)
                                         } label: {
                                             Image(systemName: "play.fill")
-                                                .font(.system(size: 13))
+                                                .scaledFont(13)
                                                 .foregroundStyle(Color.stockedWhite)
                                                 .padding(9)
                                                 .background(Color.stockedGold).clipShape(Circle())
@@ -1604,18 +1632,18 @@ struct CookingFlashcardView: View {
                                     }
                                     Button { timerEngine?.resetTimer(stepIndex: stepIndex) } label: {
                                         Image(systemName: "arrow.counterclockwise")
-                                            .font(.system(size: 12))
+                                            .scaledFont(12)
                                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                                     }.buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, 14)
                         }
-                        
+
                         Button(action: onComplete) {
                             Label(isCompleted ? "Mark Incomplete" : "Mark Complete",
                                   systemImage: isCompleted ? "arrow.uturn.backward.circle" : "checkmark.circle.fill")
-                            .font(.system(size: 13, weight: .semibold))
+                            .scaledFont(13, weight: .semibold)
                             .foregroundStyle(isCompleted ? session.themeTextColor.opacity(0.45) : Color.stockedGold)
                         }
                         .buttonStyle(.plain)
@@ -1628,15 +1656,15 @@ struct CookingFlashcardView: View {
             .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
                 .stroke(isCompleted ? Color.stockedGold.opacity(0.3)
                         : (stepTimer?.isRunning == true ? Color.stockedGold.opacity(0.6) : Color.clear), lineWidth: 1))
-            .animation(.easeInOut(duration: 0.2), value: stepTimer?.isRunning)
+            .stockedAnimation(.selection, intent: .spatial, value: stepTimer?.isRunning)
         }
-        
+
         private func formatSecs(_ s: Int) -> String {
             let m = s / 60; let sec = s % 60
             return sec == 0 ? "\(m)m" : "\(m)m \(sec)s"
         }
     }
-    
+
     // MARK: - Time to Plate
     struct TimeToPlatView: View {
         let recipeTitle:  String
@@ -1648,22 +1676,33 @@ struct CookingFlashcardView: View {
         @State private var didDeduct        = false
         @State private var showDeductSheet  = false
         @State private var showCamera       = false   // #FB — camera actually opens the camera now
-        
+
         init(recipeTitle: String, ingredients: [String] = []) {
             self.recipeTitle = recipeTitle; self.ingredients = ingredients
         }
-        
+
         var body: some View {
             StockedShell(showBack: true) {
                 VStack(spacing: 0) {
                     Text("Time to Plate")
-                        .font(.system(size: 30, weight: .bold, design: .serif))
+                        .scaledFont(30, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedGold).padding(.bottom, 20)
-                    
+
                     ZStack {
-                        if let data = platePhoto, let ui = UIImage(data: data) {
-                            Image(uiImage: ui).resizable().scaledToFill()
-                                .frame(maxWidth: .infinity).frame(height: 200).clipped().clipShape(RoundedRectangle(cornerRadius: 16))
+                        if platePhoto != nil {
+                            CachedLocalDataImage(
+                                data: platePhoto,
+                                maxDimension: 720,
+                                height: 200,
+                                clip: .roundedRectangle(cornerRadius: 16)
+                            ) {
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.stockedCharcoal.opacity(0.14))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 200)
+                                    .overlay { ProgressView().tint(Color.stockedGold) }
+                            }
+                            .frame(maxWidth: .infinity)
                         } else {
                             // #FB — the whole tile (camera icon included) opens the camera.
                             Button {
@@ -1673,8 +1712,8 @@ struct CookingFlashcardView: View {
                                     RoundedRectangle(cornerRadius: 16).fill(Color.stockedCharcoal.opacity(0.2))
                                         .frame(maxWidth: .infinity).frame(height: 160)
                                     VStack(spacing: 10) {
-                                        Image(systemName: "camera.fill").font(.system(size: 32)).foregroundStyle(Color.stockedGold)
-                                        Text("Add a plate photo (optional)").font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        Image(systemName: "camera.fill").scaledFont(32).foregroundStyle(Color.stockedGold)
+                                        Text("Add a plate photo (optional)").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.55))
                                     }
                                 }
                                 .contentShape(RoundedRectangle(cornerRadius: 16))
@@ -1683,24 +1722,24 @@ struct CookingFlashcardView: View {
                         }
                     }
                     .padding(.horizontal, 24).padding(.bottom, 10)
-                    
+
                     // #FB — two clear paths: camera capture, or upload from the library.
                     HStack(spacing: 18) {
                         if CameraCaptureView.isAvailable {
                             Button { showCamera = true } label: {
                                 HStack(spacing: 5) {
-                                    Image(systemName: "camera.fill").font(.system(size: 11))
+                                    Image(systemName: "camera.fill").scaledFont(11)
                                     Text(platePhoto == nil ? "Take Plate Photo" : "Retake Photo")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .scaledFont(13, weight: .semibold)
                                 }
                                 .foregroundStyle(Color.stockedGold)
                             }.buttonStyle(.plain)
                         }
                         PhotosPicker(selection: $selectedPhoto, matching: .images) {
                             HStack(spacing: 5) {
-                                Image(systemName: "photo.on.rectangle").font(.system(size: 11))
+                                Image(systemName: "photo.on.rectangle").scaledFont(11)
                                 Text("Upload from Library")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(13, weight: .semibold)
                             }
                             .foregroundStyle(Color.stockedGold)
                         }
@@ -1713,15 +1752,15 @@ struct CookingFlashcardView: View {
                             }
                         }
                     }
-                    
+
                     VStack(spacing: 14) {
                         Text("You're all done!")
-                            .font(.system(size: 22, weight: .semibold, design: .serif)).foregroundStyle(Color.stockedWhite)
+                            .scaledFont(22, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                         Text("Ingredients deducted from your inventory.")
-                            .font(.system(size: 14)).foregroundStyle(Color.stockedWhite.opacity(0.75)).multilineTextAlignment(.center).padding(.horizontal, 20)
+                            .scaledFont(14).foregroundStyle(Color.stockedWhite.opacity(0.75)).multilineTextAlignment(.center).padding(.horizontal, 20)
                         Button { advance = true } label: {
                             Text("Rate & Finish")
-                                .font(.system(size: 18, weight: .regular, design: .serif)).foregroundStyle(Color.stockedWhite)
+                                .scaledFont(18, weight: .regular, design: .serif).foregroundStyle(Color.stockedWhite)
                         }
                     }
                     .padding(28).frame(maxWidth: .infinity).background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: 16)).padding(.horizontal, 20)
@@ -1764,18 +1803,19 @@ struct CookingFlashcardView: View {
             }
         }
     }
-    
+
     // MARK: - Ingredient deduction adjustment sheet
     // #FB — portions are now editable: choose None / Half / All per ingredient and
     // the pantry deduction scales to match (Half deducts half the usual amount).
     struct IngredientDeductSheet: View {
         @Environment(AppSession.self) var session
         @Environment(\.dismiss) var dismiss
+        @Environment(\.stockedMotion) private var motion
         let ingredients: [String]
         let onConfirmWeighted: ([(name: String, portion: Double)]) -> Void
         let onSkip:    () -> Void
         @State private var portions: [Double]   // 0 = none, 0.5 = half, 1 = all
-        
+
         init(ingredients: [String],
              onConfirmWeighted: @escaping ([(name: String, portion: Double)]) -> Void,
              onSkip: @escaping () -> Void) {
@@ -1784,52 +1824,52 @@ struct CookingFlashcardView: View {
             self.onSkip            = onSkip
             _portions = State(initialValue: Array(repeating: 1.0, count: ingredients.count))
         }
-        
+
         private func portionLabel(_ p: Double) -> String {
             p <= 0 ? "None" : (p < 1 ? "Half" : "All")
         }
-        
+
         var body: some View {
             NavigationStack {
                 ZStack {
                     session.themeBgColor.ignoresSafeArea()
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Confirm what you used")
-                            .font(.system(size: 18, weight: .bold, design: .serif))
+                            .scaledFont(18, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                             .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 6)
                         Text("Tap the amount to adjust how much gets deducted — All, Half, or None.")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                             .padding(.horizontal, 24).padding(.bottom, 16)
-                        
+
                         ScrollView {
                             VStack(spacing: 0) {
                                 ForEach(ingredients.indices, id: \.self) { i in
                                     HStack(spacing: 12) {
                                         Image(systemName: portions[i] > 0 ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 20))
+                                            .scaledFont(20)
                                             .foregroundStyle(portions[i] > 0 ? Color.stockedGold : session.themeTextColor.opacity(0.3))
                                             .onTapGesture {
-                                                withAnimation(.spring(response: 0.2)) {
+                                                motion.animate(.selection, intent: .spatial) {
                                                     portions[i] = portions[i] > 0 ? 0 : 1
                                                 }
                                             }
                                         Text(ingredients[i])
-                                            .font(.system(size: 14))
+                                            .scaledFont(14)
                                             .foregroundStyle(portions[i] > 0 ? session.themeTextColor : session.themeTextColor.opacity(0.4))
                                             .strikethrough(portions[i] <= 0)
                                             .layoutPriority(1)
                                         Spacer(minLength: 8)
                                         // Portion selector — cycles None → Half → All.
                                         Button {
-                                            withAnimation(.spring(response: 0.2)) {
+                                            motion.animate(.selection, intent: .spatial) {
                                                 if portions[i] <= 0 { portions[i] = 0.5 }
                                                 else if portions[i] < 1 { portions[i] = 1 }
                                                 else { portions[i] = 0 }
                                             }
                                         } label: {
                                             Text(portionLabel(portions[i]))
-                                                .font(.system(size: 11.5, weight: .bold))
+                                                .scaledFont(11.5, weight: .bold)
                                                 .foregroundStyle(portions[i] > 0 ? Color.stockedGold : session.themeTextColor.opacity(0.4))
                                                 .frame(width: 46)
                                                 .padding(.vertical, 6)
@@ -1848,7 +1888,7 @@ struct CookingFlashcardView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                             .padding(.horizontal, 20)
                         }
-                        
+
                         VStack(spacing: 10) {
                             Button {
                                 let weighted = ingredients.indices.compactMap { i -> (name: String, portion: Double)? in
@@ -1857,15 +1897,15 @@ struct CookingFlashcardView: View {
                                 onConfirmWeighted(weighted); dismiss()
                             } label: {
                                 Text("Deduct from Pantry")
-                                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                                    .scaledFont(16, weight: .semibold, design: .serif)
                                     .foregroundStyle(Color.stockedWhite)
                                     .frame(maxWidth: .infinity).padding(.vertical, 16)
                                     .background(Color.stockedGold).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                             }.buttonStyle(.plain)
-                            
+
                             Button { onSkip(); dismiss() } label: {
                                 Text("Skip — don't deduct")
-                                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.45))
                             }.buttonStyle(.plain)
                         }
                         .padding(.horizontal, 24).padding(.vertical, 16)
@@ -1876,7 +1916,7 @@ struct CookingFlashcardView: View {
             .presentationDetents([.medium, .large])
         }
     }
-    
+
     // MARK: - Rating View
     struct RatingView: View {
         let recipeTitle:     String
@@ -1885,78 +1925,94 @@ struct CookingFlashcardView: View {
         @Environment(AppSession.self) var session
         @Environment(\.stockedGoHome) private var goHome
         @Environment(\.dismiss) private var dismiss
+        @Environment(\.stockedMotion) private var motion
         @State private var rating      = 0            // #FB — starts empty until the user chooses
         @State private var thumbUp: Bool? = nil       // #FB — no pre-filled thumb
         @State private var hasLeftover: Bool? = nil
         @State private var leftoverName = ""
         @State private var leftoverZone = "Fridge"
         @State private var notes       = ""
-        
+
         init(recipeTitle: String, ingredients: [String] = [], platePhotoData: Data? = nil) {
             self.recipeTitle = recipeTitle; self.ingredients = ingredients; self.platePhotoData = platePhotoData
         }
-        
+
         var body: some View {
             StockedShell(showBack: true) {
                 VStack(spacing: 0) {
                     Text("How was it?")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .scaledFont(26, weight: .bold, design: .serif)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).padding(.bottom, 6)
-                    Text(recipeTitle).font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.5)).padding(.bottom, 20)
-                    
+                    Text(recipeTitle).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5)).padding(.bottom, 20)
+
                     HStack(spacing: 10) {
                         ForEach(1...5, id: \.self) { star in
                             Image(systemName: star <= rating ? "star.fill" : "star")
-                                .font(.system(size: 36)).foregroundStyle(Color.stockedGold)
-                                .onTapGesture { withAnimation(.spring(response: 0.2)) { rating = star } }
+                                .scaledFont(36).foregroundStyle(Color.stockedGold)
+                                .onTapGesture {
+                                    motion.animate(.selection, intent: .spatial) { rating = star }
+                                }
                         }
                     }.padding(.bottom, 20)
-                    
+
                     HStack(spacing: 32) {
-                        Button { withAnimation { thumbUp = true } } label: {
+                        Button {
+                            motion.animate(.selection, intent: .spatial) { thumbUp = true }
+                        } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: thumbUp == true ? "hand.thumbsup.fill" : "hand.thumbsup")
-                                    .font(.system(size: 36)).foregroundStyle(thumbUp == true ? Color.stockedGold : Color.stockedCharcoal.opacity(0.3))
-                                Text("Would make again").font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .scaledFont(36).foregroundStyle(thumbUp == true ? Color.stockedGold : Color.stockedCharcoal.opacity(0.3))
+                                Text("Would make again").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
                             }
                         }.buttonStyle(.plain)
-                        Button { withAnimation { thumbUp = false } } label: {
+                        Button {
+                            motion.animate(.selection, intent: .spatial) { thumbUp = false }
+                        } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: thumbUp == false ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                                    .font(.system(size: 36)).foregroundStyle(thumbUp == false ? .red.opacity(0.7) : session.themeTextColor.opacity(0.2))
-                                Text("Not for me").font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .scaledFont(36).foregroundStyle(thumbUp == false ? .red.opacity(0.7) : session.themeTextColor.opacity(0.2))
+                                Text("Not for me").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
                             }
                         }.buttonStyle(.plain)
                     }.padding(.bottom, 28)
-                    
+
                     VStack(spacing: 0) {
                         Text("Any food left over?")
-                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .scaledFont(20, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor).padding(.bottom, 14)
                         HStack(spacing: 12) {
                             leftoverButton(label: "Yes — Fridge", icon: "refrigerator.fill",
                                            selected: hasLeftover == true && leftoverZone == "Fridge", color: Color.stockedGreen) {
-                                withAnimation { hasLeftover = true; leftoverZone = "Fridge" }
+                                motion.animate(.selection, intent: .spatial) {
+                                    hasLeftover = true
+                                    leftoverZone = "Fridge"
+                                }
                             }
                             leftoverButton(label: "Freeze It", icon: "snowflake",
                                            selected: leftoverZone == "Freezer", color: Color.stockedInfo) {
-                                withAnimation { hasLeftover = true; leftoverZone = "Freezer" }
+                                motion.animate(.selection, intent: .spatial) {
+                                    hasLeftover = true
+                                    leftoverZone = "Freezer"
+                                }
                             }
                             leftoverButton(label: "No Leftovers", icon: "xmark.circle.fill",
                                            selected: hasLeftover == false, color: Color.stockedCharcoal.opacity(0.4)) {
-                                withAnimation { hasLeftover = false; leftoverZone = "" }
+                                motion.animate(.selection, intent: .spatial) {
+                                    hasLeftover = false
+                                    leftoverZone = ""
+                                }
                             }
                         }.padding(.bottom, 12)
-                        
+
                         if hasLeftover == true {
                             // #FB — storage guideline so the leftover gets stored safely.
                             HStack(alignment: .top, spacing: 7) {
                                 Image(systemName: "info.circle.fill")
-                                    .font(.system(size: 11)).foregroundStyle(Color.stockedInfo)
+                                    .scaledFont(11).foregroundStyle(Color.stockedInfo)
                                 Text(leftoverZone == "Freezer"
                                      ? "Storage guideline: freeze within 2 hours of cooking. Best quality within 2–3 months. Label with today's date."
                                      : "Storage guideline: refrigerate within 2 hours of cooking. Eat within 3–4 days. Reheat to 165°F.")
-                                .font(.system(size: 11))
+                                .scaledFont(11)
                                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                                 .fixedSize(horizontal: false, vertical: true)
                             }
@@ -1965,43 +2021,43 @@ struct CookingFlashcardView: View {
                             .background(Color.stockedInfo.opacity(0.08))
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                             .padding(.bottom, 10)
-                            
+
                             TextField("Leftover name (e.g. \(recipeTitle) Leftovers)", text: $leftoverName)
-                                .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                                .scaledFont(14).foregroundStyle(session.themeTextColor)
                                 .padding(14).background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                 .padding(.bottom, 16)
                         }
                     }
                     .padding(18).background(Color.stockedWhite.opacity(0.25)).clipShape(RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal, 20).padding(.bottom, 16)
-                    
+
                     TextField("Notes (optional)", text: $notes, axis: .vertical)
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor).lineLimit(2...4)
+                        .scaledFont(14).foregroundStyle(session.themeTextColor).lineLimit(2...)
                         .padding(14).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 20).padding(.bottom, 20)
-                    
+
                     Button { finishMeal() } label: {
                         Text("Finish & Save Meal")
-                            .font(.system(size: 17, weight: .semibold, design: .serif)).foregroundStyle(Color.stockedWhite)
+                            .scaledFont(17, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 16).background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }.padding(.horizontal, 24)
                 }
             }
         }
-        
+
         private func leftoverButton(label: String, icon: String, selected: Bool, color: Color, action: @escaping () -> Void) -> some View {
             Button(action: action) {
                 VStack(spacing: 6) {
                     ZStack {
                         Circle().fill(selected ? color : color.opacity(0.12)).frame(width: 44, height: 44)
-                        Image(systemName: icon).font(.system(size: 18)).foregroundStyle(selected ? .white : color)
+                        Image(systemName: icon).scaledFont(18).foregroundStyle(selected ? .white : color)
                     }
-                    Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(selected ? color : session.themeTextColor.opacity(0.6))
+                    Text(label).scaledFont(10, weight: .semibold).foregroundStyle(selected ? color : session.themeTextColor.opacity(0.6))
                         .multilineTextAlignment(.center)
                 }.frame(maxWidth: .infinity)
             }.buttonStyle(.plain)
         }
-        
+
         private func finishMeal() {
             // RL-001 — one meal-history record per cook session. The token is
             // consumed exactly once (persisted), so resume, relaunch, or a second
@@ -2025,7 +2081,7 @@ struct CookingFlashcardView: View {
             session.activeCook = nil                                                  // #228 — no longer in progress
             session.guestStore.pastMeals.append(meal)
             session.recordCookToday()   // Streak tracking
-            
+
             // Apple Health — when the user opted in, log this meal's estimated per-serving
             // nutrition (energy, protein, carbs, fat). Silently skipped when disabled,
             // unauthorized, or the recipe carries no nutrition facts.
@@ -2037,7 +2093,7 @@ struct CookingFlashcardView: View {
                     servings: cooked.servings
                 )
             }
-            
+
             if hasLeftover == true {
                 let name = leftoverName.trimmingCharacters(in: .whitespaces).isEmpty ? "\(recipeTitle) Leftovers" : leftoverName
                 let zone = leftoverZone.isEmpty ? "Fridge" : leftoverZone
@@ -2056,7 +2112,7 @@ struct CookingFlashcardView: View {
             if let goHome { goHome() } else { dismiss() }
         }
     }
-    
+
     struct SurpriseRecipeDetailView: View {
         let recipe: GeneratedRecipe
         var body: some View {
@@ -2074,49 +2130,49 @@ struct CookingFlashcardView: View {
             )
         }
     }
-    
+
     // MARK: - Mid-Cook Substitution Sheet
     struct MidCookSubstitutionSheet: View {
         @Environment(AppSession.self) var session
         @Environment(\.dismiss) var dismiss
         let ingredientName: String
-        
+
         private var entry: SubstitutionEntry? {
             StockedDatabase.shared.substitutions(for: ingredientName)
         }
-        
+
         var body: some View {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(spacing: 0) {
                     Capsule().fill(Color.stockedCharcoal.opacity(0.2))
                         .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
-                    
+
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.left.arrow.right")
-                            .font(.system(size: 16)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(16).foregroundStyle(Color.stockedGold)
                         Text("Substitutes for \(ingredientName.capitalized)")
-                            .font(.system(size: 18, weight: .bold, design: .serif))
+                            .scaledFont(18, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                     }
                     .padding(.bottom, 20)
-                    
+
                     if let subs = entry?.substitutions, !subs.isEmpty {
                         ScrollView(showsIndicators: false) {
                             VStack(spacing: 12) {
                                 ForEach(subs) { sub in
                                     HStack(alignment: .top, spacing: 14) {
                                         Image(systemName: "arrow.right")
-                                            .font(.system(size: 13))
+                                            .scaledFont(13)
                                             .foregroundStyle(Color.stockedGold)
                                             .frame(width: 18, height: 20)
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(sub.substitute)
-                                                .font(.system(size: 14, weight: .semibold, design: .serif))
+                                                .scaledFont(14, weight: .semibold, design: .serif)
                                                 .foregroundStyle(session.themeTextColor)
                                             if !sub.notes.isEmpty {
                                                 Text(sub.notes)
-                                                    .font(.system(size: 12))
+                                                    .scaledFont(12)
                                                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                                                     .lineSpacing(2)
                                             }
@@ -2131,15 +2187,15 @@ struct CookingFlashcardView: View {
                                             if let item = matchedItem {
                                                 HStack(spacing: 6) {
                                                     Image(systemName: "checkmark.circle.fill")
-                                                        .font(.system(size: 12))
+                                                        .scaledFont(12)
                                                         .foregroundStyle(Color.stockedGold)
                                                     Text("In pantry · \(item.zone)")
-                                                        .font(.system(size: 11, weight: .semibold))
+                                                        .scaledFont(11, weight: .semibold)
                                                         .foregroundStyle(Color.stockedGold)
                                                     Spacer()
                                                     // Fill level pill
                                                     Text("\(Int(item.level * 100))%")
-                                                        .font(.system(size: 10, weight: .bold))
+                                                        .scaledFont(10, weight: .bold)
                                                         .foregroundStyle(item.level > 0.5 ? .white : Color.stockedGold)
                                                         .padding(.horizontal, 7).padding(.vertical, 2)
                                                         .background(item.level > 0.5 ? Color.stockedGold : Color.stockedGold.opacity(0.2))
@@ -2147,7 +2203,7 @@ struct CookingFlashcardView: View {
                                                 }
                                             } else {
                                                 Label("Not in pantry", systemImage: "xmark.circle")
-                                                    .font(.system(size: 11))
+                                                    .scaledFont(11)
                                                     .foregroundStyle(session.themeTextColor.opacity(0.35))
                                             }
                                         }
@@ -2162,16 +2218,16 @@ struct CookingFlashcardView: View {
                         }
                     } else {
                         Text("No substitutions found for this ingredient.")
-                            .font(.system(size: 14))
+                            .scaledFont(14)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 28).padding(.top, 40)
                     }
                 }
             }
-            .presentationDetents([.medium])
+            .presentationDetents([.medium, .large])
         }
     }
-    
+
     #Preview { RecipeOverviewView(title: "Garlic Chicken", servings: 2, ingredients: ["Chicken","Garlic","Olive Oil","Herbs"]) }
 }

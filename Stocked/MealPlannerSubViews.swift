@@ -21,7 +21,7 @@ extension MealPlannerView {
             // Weekday headers
             HStack(spacing: 0) {
                 ForEach(weekdaySymbols, id: \.self) { d in
-                    Text(d).font(.system(size: 10, weight: .bold))
+                    Text(d).scaledFont(10, weight: .bold)
                         .foregroundStyle(session.themeTextColor.opacity(0.4))
                         .frame(maxWidth: .infinity)
                 }
@@ -51,7 +51,7 @@ extension MealPlannerView {
                             isSelected: isSelected,
                             onTap: {
                                 if (0..<7).contains(offset) {
-                                    withAnimation(.spring(response: 0.3)) {
+                                    motion.animate(.standard, intent: .spatial) {
                                         selectedCalendarDay = selectedCalendarDay == offset ? nil : offset
                                     }
                                 }
@@ -64,7 +64,7 @@ extension MealPlannerView {
                                     ingredients: [itemName],
                                     mealType:    "Dinner"
                                 )
-                                withAnimation(.spring(response: 0.3)) {
+                                motion.animate(.standard, intent: .spatial) {
                                     plannedMeals.append(meal)
                                     selectedCalendarDay = dayOffset
                                 }
@@ -81,8 +81,8 @@ extension MealPlannerView {
 
             // Legend
             HStack(spacing: 16) {
-                HStack(spacing: 5) { Circle().fill(Color.stockedGold).frame(width:7,height:7); Text("Planned").font(.system(size:10)).foregroundStyle(session.themeTextColor.opacity(0.5)) }
-                HStack(spacing: 5) { Circle().fill(Color.stockedGreen).frame(width:7,height:7); Text("Cooked").font(.system(size:10)).foregroundStyle(session.themeTextColor.opacity(0.5)) }
+                HStack(spacing: 5) { Circle().fill(Color.stockedGold).frame(width:7,height:7); Text("Planned").font(.stockedSystem(size:10)).foregroundStyle(session.themeTextColor.opacity(0.5)) }
+                HStack(spacing: 5) { Circle().fill(Color.stockedGreen).frame(width:7,height:7); Text("Cooked").font(.stockedSystem(size:10)).foregroundStyle(session.themeTextColor.opacity(0.5)) }
             }
             .padding(.horizontal, 24).padding(.bottom, 12)
 
@@ -128,11 +128,11 @@ extension MealPlannerView {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 6) {
                         Text(dayLabel)
-                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         if isFuture && !mealsForDay.isEmpty {
                             Text("SCHEDULED")
-                                .font(.system(size: 9, weight: .bold))
+                                .scaledFont(9, weight: .bold)
                                 .foregroundStyle(Color.stockedGold)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
                                 .background(Color.stockedGold.opacity(0.12))
@@ -140,7 +140,7 @@ extension MealPlannerView {
                         }
                     }
                     Text(mealsForDay.isEmpty ? "No meals planned" : "\(mealsForDay.count) meal\(mealsForDay.count == 1 ? "" : "s") planned")
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
                 Spacer()
@@ -151,9 +151,9 @@ extension MealPlannerView {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
-                                .font(.system(size: 11, weight: .semibold))
+                                .scaledFont(11, weight: .semibold)
                             Text("Add")
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedWhite)
                         .padding(.horizontal, 12).padding(.vertical, 10)
@@ -170,9 +170,9 @@ extension MealPlannerView {
                     Spacer()
                     VStack(spacing: 6) {
                         Image(systemName: "fork.knife")
-                            .font(.system(size: 22)).foregroundStyle(session.themeTextColor.opacity(0.2))
+                            .scaledFont(22).foregroundStyle(session.themeTextColor.opacity(0.2))
                         Text("Tap + Add to plan a meal for this day")
-                            .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.35))
                             .multilineTextAlignment(.center)
                     }
                     .padding(.vertical, 20)
@@ -185,18 +185,18 @@ extension MealPlannerView {
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack(spacing: 6) {
                                     Text(meal.mealType.uppercased())
-                                        .font(.system(size: 9, weight: .bold))
+                                        .scaledFont(9, weight: .bold)
                                         .foregroundStyle(Color.stockedGold)
                                     if meal.isBuilding {
                                         Text("Building")
-                                            .font(.system(size: 9, weight: .semibold))
+                                            .scaledFont(9, weight: .semibold)
                                             .foregroundStyle(Color.stockedGreen)
                                             .padding(.horizontal, 5).padding(.vertical, 2)
                                             .background(Color.stockedGreen.opacity(0.12))
                                             .clipShape(Capsule())
                                     } else if isFuture {
                                         Text("Scheduled")
-                                            .font(.system(size: 9, weight: .semibold))
+                                            .scaledFont(9, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold.opacity(0.7))
                                             .padding(.horizontal, 5).padding(.vertical, 2)
                                             .background(Color.stockedGold.opacity(0.10))
@@ -211,28 +211,28 @@ extension MealPlannerView {
                                     } label: {
                                         HStack(spacing: 5) {
                                             Text(meal.title.displayNormalized)
-                                                .font(.system(size: 14, design: .serif))
+                                                .scaledFont(14, design: .serif)
                                                 .foregroundStyle(session.themeTextColor)
                                             Image(systemName: "pencil")
-                                                .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                                .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
                                         }
                                     }.buttonStyle(.plain)
                                 } else {
                                     Text(meal.title.displayNormalized)
-                                        .font(.system(size: 14, design: .serif))
+                                        .scaledFont(14, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
                                 }
                                 Text(meal.isBuilding
                                      ? "\(meal.ingredients.count) ingredient\(meal.ingredients.count == 1 ? "" : "s")"
                                      : "\(meal.servings) serving\(meal.servings == 1 ? "" : "s")")
-                                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                             }
                             Spacer()
                             HStack(spacing: 6) {
                                 if meal.isBuilding {
                                     Button { saveBuildingMealAsRecipe(meal) } label: {
                                         Text("Save")
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .scaledFont(11, weight: .semibold)
                                             .foregroundStyle(Color.stockedGreen)
                                             .padding(.horizontal, 9).padding(.vertical, 5)
                                             .overlay(Capsule().stroke(Color.stockedGreen, lineWidth: 1))
@@ -240,21 +240,21 @@ extension MealPlannerView {
                                 }
                                 Button { preppingMeal = meal; navigateToPrep = true } label: {
                                     Text("Prep")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .scaledFont(11, weight: .semibold)
                                         .foregroundStyle(Color.stockedGold)
                                         .padding(.horizontal, 9).padding(.vertical, 5)
                                         .overlay(Capsule().stroke(Color.stockedGold, lineWidth: 1))
                                 }.buttonStyle(.plain)
                                 Button { cookTransitionMeal = meal } label: {
                                     Text("Cook Now")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .scaledFont(11, weight: .semibold)
                                         .foregroundStyle(Color.stockedWhite)
                                         .padding(.horizontal, 9).padding(.vertical, 5)
                                         .background(Color.stockedGold).clipShape(Capsule())
                                 }.buttonStyle(.plain)
                                 Button { withAnimation { plannedMeals.removeAll { $0.id == meal.id } } } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 18))
+                                        .scaledFont(18)
                                         .foregroundStyle(session.themeTextColor.opacity(0.25))
                                 }.buttonStyle(.plain)
                             }
@@ -288,7 +288,7 @@ extension MealPlannerView {
                     meals:       meals(for: i),
                     isExpanded:  selectedDay == i,
                     mealTypes:   mealTypes,
-                    onToggle:    { withAnimation(.spring(response: 0.3)) { selectedDay = selectedDay == i ? -1 : i } },
+                    onToggle:    { motion.animate(.standard, intent: .spatial) { selectedDay = selectedDay == i ? -1 : i } },
                     onAddMeal:   { type in activeSheet = .picker(day: i, type: type) },
                     onRemoveMeal:{ meal in withAnimation { plannedMeals.removeAll { $0.id == meal.id } } },
                     onCookNow:   { meal in cookTransitionMeal = meal },
@@ -320,12 +320,12 @@ extension MealPlannerView {
 
             if !missingIngredients.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Missing ingredients").font(.system(size: 12, weight: .bold))
+                    Text("Missing ingredients").scaledFont(12, weight: .bold)
                         .foregroundStyle(session.themeTextColor.opacity(0.45)).padding(.horizontal, 24)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(missingIngredients.prefix(8), id: \.self) { ing in
-                                Text(ing).font(.system(size: 12, weight: .semibold))
+                                Text(ing).scaledFont(12, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                                     .padding(.horizontal, 12).padding(.vertical, 10)
                                     .background(Color.stockedGold.opacity(0.10))
@@ -349,7 +349,7 @@ extension MealPlannerView {
                 HapticManager.select()
             } label: {
                 Label("Build Grocery List", systemImage: "cart.badge.plus")
-                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .scaledFont(16, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedCharcoal)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                     .background(Color.stockedGold.opacity(0.18))
@@ -361,7 +361,7 @@ extension MealPlannerView {
 
             Button { savePlan() } label: {
                 Label("Save Plan", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .scaledFont(16, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 16)
                     .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -377,8 +377,8 @@ extension MealPlannerView {
 
     private func summaryBadge(value: String, label: String) -> some View {
         VStack(spacing: 3) {
-            Text(value).font(.system(size: 22, weight: .bold, design: .serif)).foregroundStyle(Color.stockedGold)
-            Text(label).font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text(value).scaledFont(22, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
+            Text(label).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
         }.frame(maxWidth: .infinity)
     }
 
@@ -464,14 +464,14 @@ struct DayPlanCard: View {
             Button(action: onToggle) {
                 HStack {
                     Text(dayLabel)
-                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     // RL-005 — day-level conflict badge, visible even collapsed.
                     if dayConflictCount > 0 {
                         HStack(spacing: 3) {
-                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9))
-                            Text("\(dayConflictCount)").font(.system(size: 11, weight: .bold))
+                            Image(systemName: "exclamationmark.triangle.fill").scaledFont(9)
+                            Text("\(dayConflictCount)").scaledFont(11, weight: .bold)
                         }
                         .foregroundStyle(Color.stockedError)
                         .padding(.horizontal, 7).padding(.vertical, 3)
@@ -480,10 +480,10 @@ struct DayPlanCard: View {
                     }
                     if !meals.isEmpty {
                         Text("\(meals.count) meal\(meals.count == 1 ? "" : "s")")
-                            .font(.system(size: 12)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(12).foregroundStyle(Color.stockedGold)
                     }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
                 }
                 .padding(14).contentShape(Rectangle())
             }.buttonStyle(.plain)
@@ -496,34 +496,34 @@ struct DayPlanCard: View {
                             HStack(spacing: 8) {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text(meal.mealType)
-                                        .font(.system(size: 10, weight: .semibold))
+                                        .scaledFont(10, weight: .semibold)
                                         .foregroundStyle(Color.stockedGold)
                                     Text(meal.title)
-                                        .font(.system(size: 14, design: .serif))
+                                        .scaledFont(14, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
                                     Text("\(meal.servings) servings")
-                                        .font(.system(size: 11))
+                                        .scaledFont(11)
                                         .foregroundStyle(session.themeTextColor.opacity(0.4))
                                 }
                                 Spacer()
                                 HStack(spacing: 8) {
                                     Button { onPrepNow(meal) } label: {
                                         Text("Prep")
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .scaledFont(11, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                             .padding(.horizontal, 9).padding(.vertical, 5)
                                             .overlay(Capsule().stroke(Color.stockedGold, lineWidth: 1))
                                     }.buttonStyle(.plain)
                                     Button { onCookNow(meal) } label: {
                                         Text("Cook Now")
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .scaledFont(11, weight: .semibold)
                                             .foregroundStyle(Color.stockedWhite)
                                             .padding(.horizontal, 9).padding(.vertical, 5)
                                             .background(Color.stockedGold).clipShape(Capsule())
                                     }.buttonStyle(.plain)
                                     Button { onRemoveMeal(meal) } label: {
                                         Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 18))
+                                            .scaledFont(18)
                                             .foregroundStyle(session.themeTextColor.opacity(0.25))
                                     }.buttonStyle(.plain)
                                 }
@@ -544,7 +544,7 @@ struct DayPlanCard: View {
                             let has = meals.contains { $0.mealType == type }
                             Button { onAddMeal(type) } label: {
                                 Label(type, systemImage: "plus.circle")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .scaledFont(12, weight: .semibold)
                                     .foregroundStyle(has ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
                                     .padding(.horizontal, 10).padding(.vertical, 11)
                                     .background(has ? Color.stockedCharcoal.opacity(0.06) : Color.stockedGold.opacity(0.12))
@@ -607,9 +607,9 @@ struct RecipePickerSheet: View {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.15)).frame(width: 40, height: 4).padding(.top, 12)
                 HStack {
-                    Text("Pick \(mealType)").font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
+                    Text("Pick \(mealType)").scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Spacer()
-                    Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 26)).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
+                    Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
                 ScrollView(showsIndicators: false) {
@@ -617,13 +617,13 @@ struct RecipePickerSheet: View {
                         // Custom entry
                         HStack(spacing: 10) {
                             RecipePredictiveTextField(placeholder: "Type a recipe name…", text: $custom, recipesOnly: true, onSelect: { _ in })
-                                .font(.system(size: 15)).foregroundStyle(session.themeTextColor)
+                                .scaledFont(15).foregroundStyle(session.themeTextColor)
                             Button {
                                 let n = custom.trimmingCharacters(in: .whitespaces)
                                 guard !n.isEmpty else { return }
                                 onSelect(n, []); dismiss()
                             } label: {
-                                Image(systemName: "plus.circle.fill").font(.system(size: 26)).foregroundStyle(custom.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
+                                Image(systemName: "plus.circle.fill").scaledFont(26).foregroundStyle(custom.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
                             }.disabled(custom.isEmpty)
                         }
                         .padding(12).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -658,13 +658,13 @@ struct RecipePickerSheet: View {
         Button { onSelect(name, ings); dismiss() } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(name).font(.system(size: 15, design: .serif)).foregroundStyle(session.themeTextColor)
+                    Text(name).scaledFont(15, design: .serif).foregroundStyle(session.themeTextColor)
                     if !ings.isEmpty {
-                        Text(ings.prefix(3).joined(separator: " · ")).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45)).lineLimit(1)
+                        Text(ings.prefix(3).joined(separator: " · ")).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer()
-                Image(systemName: "plus.circle").font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                Image(systemName: "plus.circle").scaledFont(18).foregroundStyle(Color.stockedGold)
             }
             .padding(.horizontal, 24).padding(.vertical, 12).contentShape(Rectangle())
         }.buttonStyle(.plain)
@@ -676,6 +676,7 @@ struct RecipePickerSheet: View {
 struct PrepNowView: View {
     let meal: PlannedMeal
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
 
     private var daysUntil: Int { meal.dayIndex }
 
@@ -730,18 +731,18 @@ struct PrepNowView: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Prep Work")
-                        .font(.system(size: 28, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(28, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Text("Get ready to cook \(meal.title).")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 }.padding(.horizontal, 24).padding(.bottom, 14)
 
                 // Timing fail-safe warning
                 if let advice = prepAdvice {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "clock.badge.exclamationmark").font(.system(size: 16)).foregroundStyle(.orange)
+                        Image(systemName: "clock.badge.exclamationmark").scaledFont(16).foregroundStyle(.orange)
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Prep Timing Advice").font(.system(size: 13, weight: .bold)).foregroundStyle(.orange)
-                            Text(advice).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.7))
+                            Text("Prep Timing Advice").scaledFont(13, weight: .bold).foregroundStyle(.orange)
+                            Text(advice).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -753,9 +754,9 @@ struct PrepNowView: View {
                 if daysUntil >= 1 {
                     HStack(spacing: 10) {
                         Image(systemName: showReminder ? "bell.fill" : "bell")
-                            .font(.system(size: 14)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(14).foregroundStyle(Color.stockedGold)
                         Text(showReminder ? "Prep reminder set!" : "Set a reminder to start prepping")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor)
+                            .scaledFont(13).foregroundStyle(session.themeTextColor)
                         Spacer()
                         Toggle("", isOn: $showReminder)
                             .labelsHidden().tint(Color.stockedGold)
@@ -767,7 +768,7 @@ struct PrepNowView: View {
                 // Progress
                 HStack {
                     Text("\(completed.count) of \(prepTasks.count) tasks done")
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedGold)
                     Spacer()
                     ProgressView(value: prepTasks.isEmpty ? 0 : Double(completed.count) / Double(prepTasks.count))
                         .tint(Color.stockedGold).frame(width: 100)
@@ -776,7 +777,7 @@ struct PrepNowView: View {
                 VStack(spacing: 8) {
                     ForEach(prepTasks.indices, id: \.self) { i in
                         Button {
-                            withAnimation(.spring(response: 0.25)) {
+                            motion.animate(.selection, intent: .spatial) {
                                 if completed.contains(i) { completed.remove(i) } else { completed.insert(i) }
                             }
                         } label: {
@@ -785,11 +786,11 @@ struct PrepNowView: View {
                                     Circle().fill(completed.contains(i) ? Color.stockedGold : Color.stockedCharcoal.opacity(0.15))
                                         .frame(width: 36, height: 36)
                                     Image(systemName: completed.contains(i) ? "checkmark" : prepTasks[i].icon)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                         .foregroundStyle(completed.contains(i) ? Color.stockedWhite : Color.stockedCharcoal)
                                 }
                                 Text(prepTasks[i].task)
-                                    .font(.system(size: 14, design: .serif))
+                                    .scaledFont(14, design: .serif)
                                     .foregroundStyle(completed.contains(i) ? Color.stockedCharcoal.opacity(0.35) : Color.stockedCharcoal)
                                     .strikethrough(completed.contains(i))
                                     .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
@@ -805,9 +806,9 @@ struct PrepNowView: View {
                 if completed.count == prepTasks.count {
                     VStack(spacing: 8) {
                         Text("✅ All prepped and ready!")
-                            .font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(20, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
                         Text("Store covered items in the fridge. Come back to cook when you're ready.")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6)).multilineTextAlignment(.center)
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6)).multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity).padding(20)
                     .background(Color.stockedGold.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 14))
@@ -832,15 +833,15 @@ struct PlanConflictRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(Color.stockedError)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Short \(conflict.missingDisplay)")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(hintText)
-                        .font(.system(size: 10.5))
+                        .scaledFont(10.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -849,7 +850,7 @@ struct PlanConflictRow: View {
             HStack(spacing: 8) {
                 Button(action: onAddToGrocery) {
                     Label("Add to Grocery", systemImage: "cart.badge.plus")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .scaledFont(10.5, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 8).padding(.vertical, 5)
                         .background(Color.stockedGold.opacity(0.12))
@@ -857,7 +858,7 @@ struct PlanConflictRow: View {
                 }.buttonStyle(.plain)
                 Button(action: onRelease) {
                     Label("Release", systemImage: "arrow.uturn.backward")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .scaledFont(10.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .padding(.horizontal, 8).padding(.vertical, 5)
                         .background(session.themeTextColor.opacity(0.06))
@@ -907,13 +908,13 @@ struct MissingIngredientsSheet: View {
                 // Header
                 VStack(spacing: 6) {
                     Text("Missing Ingredients")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("For \"\(recipeName)\"")
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                     Text("Deselect any items you already have or don't need.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.4))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -939,12 +940,12 @@ struct MissingIngredientsSheet: View {
                                             .frame(width: 24, height: 24)
                                         if isSelected {
                                             Image(systemName: "checkmark")
-                                                .font(.system(size: 11, weight: .bold))
+                                                .scaledFont(11, weight: .bold)
                                                 .foregroundStyle(session.themeTextColor)
                                         }
                                     }
                                     Text(item)
-                                        .font(.system(size: 15, design: .serif))
+                                        .scaledFont(15, design: .serif)
                                         .foregroundStyle(isSelected ? session.themeTextColor : session.themeTextColor.opacity(0.4))
                                         .strikethrough(!isSelected, color: session.themeTextColor.opacity(0.3))
                                     Spacer()
@@ -969,13 +970,13 @@ struct MissingIngredientsSheet: View {
                         }
                     } label: {
                         Text(selectedItems.count == missingItems.count ? "Deselect All" : "Select All")
-                            .font(.system(size: 13, weight: .medium))
+                            .scaledFont(13, weight: .medium)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     .buttonStyle(.plain)
                     Spacer()
                     Text("\(selectedItems.count) of \(missingItems.count) selected")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
                 .padding(.horizontal, 24)
@@ -991,7 +992,7 @@ struct MissingIngredientsSheet: View {
                             Image(systemName: "cart.badge.plus")
                             Text(selectedItems.isEmpty ? "Skip — Don't Add" : "Add \(selectedItems.count) Item\(selectedItems.count == 1 ? "" : "s") to Grocery List")
                         }
-                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -1003,7 +1004,7 @@ struct MissingIngredientsSheet: View {
 
                     Button(action: onDismiss) {
                         Text("Skip for now")
-                            .font(.system(size: 14))
+                            .scaledFont(14)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                     .buttonStyle(.plain)

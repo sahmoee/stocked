@@ -137,15 +137,15 @@ struct LeftoversView: View {
             if store.entries.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "takeoutbag.and.cup.and.straw")
-                        .font(.system(size: 34)).foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("No leftovers tracked").font(.system(size: 16, weight: .semibold))
+                        .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
+                    Text("No leftovers tracked").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Save a portion after cooking and it'll show up here with its own clock, so it gets eaten instead of forgotten.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .padding(.horizontal, 40)
                     Button { showAdd = true } label: {
-                        Text("Add leftovers").font(.system(size: 14, weight: .semibold))
+                        Text("Add leftovers").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
                             .background(session.accentColor).foregroundStyle(.white)
                             .clipShape(Capsule())
@@ -157,14 +157,14 @@ struct LeftoversView: View {
                     ForEach(store.queue) { e in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
-                                Text(e.title).font(.system(size: 15, weight: .semibold))
+                                Text(e.title).scaledFont(15, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
-                                Text(status(e)).font(.system(size: 12, weight: .bold))
+                                Text(status(e)).scaledFont(12, weight: .bold)
                                     .foregroundStyle(color(e))
                             }
                             Text("\(e.portions) portion\(e.portions == 1 ? "" : "s") · \(e.storage)")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
                             HStack(spacing: 8) {
                                 action("Ate one", "fork.knife") { store.eatPortion(e) }
                                 if !e.isFrozen { action("Freeze", "snowflake") { store.freeze(e) } }
@@ -203,7 +203,7 @@ struct LeftoversView: View {
     private func action(_ label: String, _ icon: String, _ run: @escaping () -> Void) -> some View {
         Button { HapticManager.light(); run() } label: {
             HStack(spacing: 4) { Image(systemName: icon); Text(label) }
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(11, weight: .semibold)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(session.themeTextColor.opacity(0.07))
                 .foregroundStyle(session.themeTextColor.opacity(0.8))
@@ -231,7 +231,7 @@ private struct AddLeftoverSheet: View {
                     Text(storage == "Freezer"
                          ? "Good for about 90 days frozen."
                          : "Good for about 4 days in the fridge — you'll get a nudge before then.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.stocked(.footnote)).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Add leftovers")
@@ -242,11 +242,12 @@ private struct AddLeftoverSheet: View {
                         store.add(title: title.trimmingCharacters(in: .whitespaces), portions: portions, storage: storage)
                         dismiss()
                     }
-                    .font(.body.bold())
+                    .font(.stocked(.body).bold())
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }

@@ -60,6 +60,76 @@ nonisolated enum OnlineRecipeMatch {
     }
 }
 
+// MARK: - Explainable recommendation contract
+
+/// A compact, deterministic explanation that any recipe surface can render. Keeping this
+/// pure makes it testable and prevents Home, Recipes, and Cook from disagreeing.
+nonisolated struct RecipeRecommendationInsight: Sendable, Equatable {
+    let available: [String]
+    let uncertain: [String]
+    let missing: [String]
+    let expiring: [String]
+    let allergenHits: [String]
+
+    var isReady: Bool { missing.isEmpty && allergenHits.isEmpty }
+    var coverageText: String {
+        let total = available.count + uncertain.count + missing.count
+        guard total > 0 else { return "Check ingredients" }
+        return "\(available.count) of \(total) confirmed"
+    }
+
+    var primaryReason: String {
+        if !allergenHits.isEmpty { return "Conflicts with your dietary profile" }
+        if !expiring.isEmpty { return "Uses food that needs attention soon" }
+        if isReady && uncertain.isEmpty { return "Ready with confirmed ingredients" }
+        if missing.count == 1 { return "Only 1 ingredient missing" }
+        if !uncertain.isEmpty { return "Confirm \(uncertain.count) pantry item\(uncertain.count == 1 ? "" : "s")" }
+        return coverageText
+    }
+}
+
+nonisolated enum RecipeRecommendationExplainer {
+    static func insight(for recipe: OnlineRecipe,
+                        inventory: [LocalInventoryItem],
+                        allergens: [String]) -> RecipeRecommendationInsight {
+        let required = RecipeIngredients.names(recipe.ingredients)
+            .map(IngredientSynonyms.canonical)
+            .filter { !$0.isEmpty }
+        var available: [String] = []
+        var uncertain: [String] = []
+        var missing: [String] = []
+        var expiring: [String] = []
+
+        for ingredient in required {
+            guard let item = FoodNameMatcher.bestMatch(for: ingredient, in: inventory, name: \.name) else {
+                missing.append(ingredient); continue
+            }
+            switch item.confidence {
+            case .confirmed, .probable:
+                available.append(ingredient)
+                if item.isExpiringSoonOrExpired { expiring.append(item.name) }
+            case .unknown:
+                uncertain.append(ingredient)
+            case .possiblyExpired, .outOfStock:
+                missing.append(ingredient)
+            }
+        }
+
+        return RecipeRecommendationInsight(
+            available: unique(available),
+            uncertain: unique(uncertain),
+            missing: unique(missing),
+            expiring: unique(expiring),
+            allergenHits: OnlineRecipeFacts.allergenHits(recipe, allergens: allergens)
+        )
+    }
+
+    private static func unique(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert(FoodNameMatcher.normalized($0)).inserted }
+    }
+}
+
 // MARK: - Saved-state + allergen helpers for online recipes
 
 nonisolated enum OnlineRecipeFacts {
@@ -115,8 +185,17 @@ nonisolated enum OnlineRecipeFacts {
 final class RecipeInterest {
     static let shared = RecipeInterest()
 
+    /// The existing app-wide privacy preference is the authority for whether taste signals may be
+    /// learned or consumed. Stored weights are retained while disabled so opting back in restores
+    /// the user's prior ranking instead of silently destroying it.
+    private var personalizationAllowed: Bool {
+        let defaults = UserDefaults.standard
+        return defaults.object(forKey: "privacy.personalization") as? Bool ?? true
+    }
+
     nonisolated enum Event: String, Sendable {
         case opened, saved, cooked, completed, groceryAdded, dismissed
+        case moreLikeThis, notInterested, tooComplicated, dietaryMismatch, missingTooMany
         var multiplier: Double {
             switch self {
             case .opened: return 0.5
@@ -125,15 +204,24 @@ final class RecipeInterest {
             case .completed: return 3.0
             case .groceryAdded: return 0.8
             case .dismissed: return -0.5
+            case .moreLikeThis: return 2.0
+            case .notInterested: return -1.5
+            case .tooComplicated: return -1.0
+            case .dietaryMismatch: return -3.0
+            case .missingTooMany: return -0.8
             }
         }
     }
 
     private let key = "stocked.onlineRecipeInterest_v2"
     private(set) var weights: [String: Double] = [:]
+    var personalizationWeights: [String: Double] {
+        personalizationAllowed ? weights : [:]
+    }
     private init() { load() }
 
     func record(category: String, area: String, ingredients: [String] = [], event: Event = .opened) {
+        guard personalizationAllowed else { return }
         decay()
         bump(category, by: event.multiplier)
         bump(area, by: event.multiplier)
@@ -144,6 +232,7 @@ final class RecipeInterest {
     }
 
     func score(category: String, area: String, ingredients: [String] = []) -> Double {
+        guard personalizationAllowed else { return 0 }
         let categoryKey = normalized(category)
         let areaKey = normalized(area)
         let ingredientScore = ingredients.prefix(8).reduce(0.0) {

@@ -138,11 +138,11 @@ struct PreparationDiscoveryView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(heading)
-                .font(.system(size: 20, weight: .bold, design: .serif))
+                .scaledFont(20, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Text(subheading)
-                .font(.system(size: 13.5))
+                .scaledFont(13.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -160,7 +160,7 @@ struct PreparationDiscoveryView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Text(roleBadge(c.recipe))
-                            .font(.system(size: 9.5, weight: .bold))
+                            .scaledFont(9.5, weight: .bold)
                             .foregroundStyle(Color.stockedGold)
                             .padding(.horizontal, 7).padding(.vertical, 3)
                             .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
@@ -168,15 +168,15 @@ struct PreparationDiscoveryView: View {
                         readinessBadge(c)
                     }
                     Text(c.recipe.title)
-                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .scaledFont(16, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 12) {
                         if !c.recipe.cookTime.isEmpty { metaLabel("clock", c.recipe.cookTime) }
                         if !c.recipe.difficulty.isEmpty { metaLabel("flame", c.recipe.difficulty) }
                         if role(c.recipe).isStandalone { metaLabel("checkmark.circle", "no sides needed") }
                     }
-                    .font(.system(size: 11.5))
+                    .scaledFont(11.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 .padding(.top, 10)
@@ -204,7 +204,7 @@ struct PreparationDiscoveryView: View {
             }
         }()
         return Text(text)
-            .font(.system(size: 10, weight: .bold))
+            .scaledFont(10, weight: .bold)
             .foregroundStyle(color)
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background(color.opacity(0.12)).clipShape(Capsule())
@@ -218,12 +218,12 @@ struct PreparationDiscoveryView: View {
 
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "fork.knife").font(.system(size: 36)).foregroundStyle(session.themeTextColor.opacity(0.3))
+            Image(systemName: "fork.knife").scaledFont(36).foregroundStyle(session.themeTextColor.opacity(0.3))
             Text(anchor.isEmpty ? "Nothing matches yet" : "No \(anchor.displayNormalized) preparations yet")
-                .font(.system(size: 16, weight: .semibold, design: .serif))
+                .scaledFont(16, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("Try a different intent, or start with another item.")
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                 .multilineTextAlignment(.center)
         }
@@ -286,7 +286,7 @@ struct PreparationDiscoveryView: View {
 
     private var affirmation: some View {
         Text("Every one of these is a complete cook on its own. Add more only if you want to.")
-            .font(.system(size: 12))
+            .scaledFont(12)
             .foregroundStyle(session.themeTextColor.opacity(0.5))
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)

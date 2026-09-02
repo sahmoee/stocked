@@ -330,30 +330,30 @@ struct CookSessionResumeCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: snapshot.status == .paused ? "pause.circle.fill" : "flame.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
                 Text(snapshot.status == .paused ? "Paused cooking session" : "Cooking in progress")
-                    .font(.system(size: 12, weight: .bold))
+                    .scaledFont(12, weight: .bold)
                     .kerning(0.6)
                     .foregroundStyle(Color.stockedGold)
                 Spacer()
                 Text(snapshot.pausedAgoLabel)
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(Color.stockedWhite.opacity(0.55))
             }
             Text(snapshot.recipeTitle)
-                .font(.system(size: 17, weight: .bold, design: .serif))
+                .scaledFont(17, weight: .bold, design: .serif)
                 .foregroundStyle(Color.stockedWhite)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
             Text("\(snapshot.stepProgressLabel) · serves \(snapshot.servings)")
-                .font(.system(size: 12))
+                .scaledFont(12)
                 .foregroundStyle(Color.stockedWhite.opacity(0.65))
             HStack(spacing: 10) {
                 Button(action: onResume) {
                     HStack(spacing: 6) {
-                        Image(systemName: "play.fill").font(.system(size: 11, weight: .bold))
+                        Image(systemName: "play.fill").scaledFont(11, weight: .bold)
                         Text("Resume Cooking")
-                            .font(.system(size: 13.5, weight: .semibold, design: .serif))
+                            .scaledFont(13.5, weight: .semibold, design: .serif)
                     }
                     .foregroundStyle(Color.stockedCharcoal)
                     .padding(.horizontal, 16).padding(.vertical, 9)
@@ -365,7 +365,7 @@ struct CookSessionResumeCard: View {
                             hint: "Returns to the exact step you left")
                 Button(action: onDiscard) {
                     Text("Cancel Meal")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .scaledFont(12.5, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite.opacity(0.7))
                         .padding(.horizontal, 12).padding(.vertical, 9)
                         .background(Color.white.opacity(0.10))

@@ -278,7 +278,7 @@ struct GlobalSearchView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
                         TextField("Recipes, ingredients, pantry items…", text: $query)
-                            .font(.system(size: 15))
+                            .scaledFont(15)
                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                             .focused($focused)
                             .onChange(of: query) { _, new in searchOnline(new) }
@@ -291,7 +291,7 @@ struct GlobalSearchView: View {
                             ProgressView().scaleEffect(0.6).tint(Color.stockedGold)
                         }
                         if isOffline {
-                            Image(systemName: "wifi.slash").font(.system(size: 12))
+                            Image(systemName: "wifi.slash").scaledFont(12)
                                 .foregroundStyle(.orange)
                         }
                     }
@@ -302,7 +302,7 @@ struct GlobalSearchView: View {
                         onlineResults = []
                         close()
                     }
-                        .font(.system(size: 15)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(15).foregroundStyle(Color.stockedGold)
                 }.padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 14)
                     .padding(.top, StockedScreen.safeTopInset)
 
@@ -310,7 +310,7 @@ struct GlobalSearchView: View {
                 if !query.isEmpty {
                     HStack {
                         Text("\(allResults.count) result\(allResults.count == 1 ? "" : "s")\(parsedQuery.hasStructure ? " · filtered" : "")")
-                            .font(.system(size: 11, weight: .semibold))
+                            .scaledFont(11, weight: .semibold)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                         Spacer()
                     }.padding(.horizontal, 20).padding(.bottom, 4)
@@ -318,25 +318,25 @@ struct GlobalSearchView: View {
 
                 if allResults.isEmpty && !query.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass").font(.system(size: 32))
+                        Image(systemName: "magnifyingglass").scaledFont(32)
                             .foregroundStyle(session.themeTextColor.opacity(0.2))
                         Text("No results for \"\(query)\"")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         if let suggestion = didYouMean {
                             Button { query = suggestion } label: {
                                 HStack(spacing: 4) {
-                                    Text("Did you mean").font(.system(size: 13))
+                                    Text("Did you mean").scaledFont(13)
                                         .foregroundStyle(session.themeTextColor.opacity(0.5))
-                                    Text(suggestion).font(.system(size: 13, weight: .bold))
+                                    Text(suggestion).scaledFont(13, weight: .bold)
                                         .foregroundStyle(Color.stockedGold)
-                                    Text("?").font(.system(size: 13))
+                                    Text("?").scaledFont(13)
                                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                                 }
                             }.buttonStyle(.plain)
                         } else {
                             Text("Try: \"quick chicken\", \"no dairy pasta\", \"Indian breakfast\"")
-                                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.45))
                                 .multilineTextAlignment(.center)
                         }
                     }.padding(.top, 48)
@@ -345,7 +345,7 @@ struct GlobalSearchView: View {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(groupedResults, id: \.0) { section, results in
                                 Text(section)
-                                    .font(.system(size: 10, weight: .bold))
+                                    .scaledFont(10, weight: .bold)
                                     .foregroundStyle(Color.stockedGold)
                                     .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
                                 ForEach(results) { r in rowView(r) }
@@ -359,8 +359,6 @@ struct GlobalSearchView: View {
         }
         .onAppear {
             loadOfflineCache()
-            // Preload meal plan recipes in background (#20)
-            Task { await preloadMealPlanRecipes() }
         }
         .presentationDetents([.large])
         .sheet(item: $selectedOnline) { recipe in
@@ -400,12 +398,6 @@ struct GlobalSearchView: View {
         return (offlineResultsCache[lower] ??
                 offlineResultsCache.first { $0.key.contains(lower) }?.value ?? [])
             .prefix(8).map { $0 }
-    }
-
-    private func preloadMealPlanRecipes() async {
-        let snap = await RecipeDatabaseManager.shared.loadSnapshot()
-        let urls = snap.prefix(20).compactMap { $0.imageURL.isEmpty ? nil : $0.imageURL }
-        ImageCache.shared.prefetch(urls: urls)
     }
 
     private func searchOnline(_ q: String) {
@@ -459,16 +451,16 @@ struct GlobalSearchView: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(r.sourceTint.opacity(0.15)).frame(width: 42, height: 42)
-                    Image(systemName: r.icon).font(.system(size: 16)).foregroundStyle(r.sourceTint)
+                    Image(systemName: r.icon).scaledFont(16).foregroundStyle(r.sourceTint)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(r.title).font(.system(size: 14, weight: .semibold, design: .serif))
+                    Text(r.title).scaledFont(14, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(r.subtitle).font(.system(size: 12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.45)).lineLimit(1)
+                    Text(r.subtitle).scaledFont(12)
+                        .foregroundStyle(session.themeTextColor.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Text(r.sourceLabel).font(.system(size: 9, weight: .bold))
+                Text(r.sourceLabel).scaledFont(9, weight: .bold)
                     .foregroundStyle(r.sourceTint)
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(r.sourceTint.opacity(0.12)).clipShape(Capsule())
@@ -538,13 +530,13 @@ struct IngredientInfoSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 14) {
-                        Text(entry.emoji).font(.system(size: 44))
+                        Text(entry.emoji).scaledFont(44)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(entry.name)
-                                .font(.system(size: 24, weight: .bold, design: .serif))
+                                .scaledFont(24, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text(entry.category)
-                                .font(.system(size: 13, weight: .semibold))
+                                .scaledFont(13, weight: .semibold)
                                 .foregroundStyle(Color.stockedGold)
                         }
                     }
@@ -568,7 +560,7 @@ struct IngredientInfoSheet: View {
                             Image(systemName: "plus.circle.fill")
                             Text("Add to my kitchen")
                         }
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(session.themeButtonColor)
@@ -591,10 +583,10 @@ struct IngredientInfoSheet: View {
 
     private func infoRow(icon: String, title: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(Color.stockedGold).frame(width: 24)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                Text(value).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                Text(title).scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(value).scaledFont(14).foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()

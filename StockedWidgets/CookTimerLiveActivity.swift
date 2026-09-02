@@ -16,24 +16,24 @@ struct CookTimerLiveActivity: Widget {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(Color.ctGold.opacity(0.18)).frame(width: 46, height: 46)
-                    Image(systemName: "timer").font(.system(size: 20)).foregroundStyle(Color.ctGold)
+                    Image(systemName: "timer").widgetScaledFont(20).foregroundStyle(Color.ctGold)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.attributes.recipeTitle)
-                        .font(.system(size: 15, weight: .bold, design: .serif))
-                        .foregroundStyle(.primary).lineLimit(1)
+                        .widgetScaledFont(15, weight: .bold, design: .serif)
+                        .foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
                     Text("Step \(context.state.stepNumber) of \(context.state.totalSteps) · \(context.state.stepText)")
-                        .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+                        .widgetScaledFont(12).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     ProgressView(value: Double(context.state.stepNumber), total: Double(max(context.state.totalSteps, 1)))
                         .tint(Color.ctGold)
                 }
                 Spacer(minLength: 8)
                 Text(timerInterval: Date()...context.state.endDate, countsDown: true)
-                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .widgetScaledFont(24, weight: .heavy, design: .rounded)
                     .monospacedDigit()
                     .foregroundStyle(Color.ctGold)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .fixedSize(horizontal: false, vertical: true)
+
                     .multilineTextAlignment(.trailing)
                     .fixedSize()
                     .contentTransition(.numericText(countsDown: true))
@@ -49,23 +49,23 @@ struct CookTimerLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label("Stocked.", systemImage: "timer")
-                        .font(.system(size: 13, weight: .semibold))
+                        .widgetScaledFont(13, weight: .semibold)
                         .foregroundStyle(Color.ctGold)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(timerInterval: Date()...context.state.endDate, countsDown: true)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .widgetScaledFont(16, weight: .bold, design: .rounded)
                         .monospacedDigit()
                         .foregroundStyle(Color.ctGold)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                         .fixedSize()
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.attributes.recipeTitle)
-                            .font(.system(size: 14, weight: .bold, design: .serif)).lineLimit(1)
+                            .widgetScaledFont(14, weight: .bold, design: .serif).fixedSize(horizontal: false, vertical: true)
                         Text("Step \(context.state.stepNumber) of \(context.state.totalSteps) · \(context.state.stepText)")
-                            .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(2)
+                            .widgetScaledFont(12).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         ProgressView(value: Double(context.state.stepNumber), total: Double(max(context.state.totalSteps, 1)))
                             .tint(Color.ctGold)
                     }
@@ -76,7 +76,7 @@ struct CookTimerLiveActivity: Widget {
             } compactTrailing: {
                 Text(timerInterval: Date()...context.state.endDate, countsDown: true)
                     .monospacedDigit()
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                     .fixedSize()
                     .foregroundStyle(Color.ctGold)
             } minimal: {

@@ -154,9 +154,10 @@ nonisolated enum GroceryKnowledgeBase {
     /// Reduce a (possibly branded) product name to a normalized generic key used for substitution
     /// grouping and cross-store dedup. Removes any known private-label brand token, then descriptor
     /// noise, leaving the core item words.
-    static func canonicalKey(_ productName: String) -> String {
+    static func canonicalKey(_ productName: String, knownBrand: String? = nil) -> String {
         var value = " " + normalize(productName) + " "
-        for brand in allBrandNames {                       // already sorted longest-first
+        let explicitBrand = knownBrand.map { [$0] } ?? []
+        for brand in explicitBrand + allBrandNames {       // shared list already longest-first
             let token = normalize(brand)
             guard !token.isEmpty, value.contains(" " + token + " ") else { continue }
             value = value.replacingOccurrences(of: " " + token + " ", with: " ")

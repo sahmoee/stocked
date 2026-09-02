@@ -15,6 +15,114 @@ import SwiftUI
 
 // MARK: - Model
 
+nonisolated enum InventoryProposalOrigin: String, Codable, Sendable {
+    case manual
+    case receipt
+    case barcode
+    case reconciliation
+    case groceryTransfer
+    case assistant
+    case household
+    case importService
+
+    var defaultBadge: SourceBadge {
+        switch self {
+        case .manual: return .userAdded
+        case .barcode: return .verified
+        case .receipt, .assistant, .importService: return .aiParsed
+        case .reconciliation, .groceryTransfer, .household: return .estimated
+        }
+    }
+}
+
+/// Canonical product merging is the preferred review behavior. Existing direct-add surfaces can
+/// opt into the compatibility policy while migrating, preserving `GuestDataStore.isSameItem`
+/// unit/name semantics while still gaining identity, provenance, activity, and transaction undo.
+nonisolated enum InventoryProposalMergePolicy: Equatable, Sendable {
+    case canonicalProduct
+    case storeCompatible
+}
+
+nonisolated enum InventoryProposalField: String, Codable, CaseIterable, Sendable {
+    case name, brand, quantity, containerType, size, storageCategory, aisle, barcode
+    case price, store, expiry, nutrition
+}
+
+nonisolated struct InventoryProposalProduct: Equatable, Sendable {
+    var identity: ProductIdentity
+    var displayName: String
+    var brand: String?
+    var storageCategory: StorageCategory?
+    var aisle: GroceryAisle
+    var barcode: String?
+    var resolutionConfidence: Double
+}
+
+nonisolated struct InventoryProposalIssue: Identifiable, Equatable, Sendable {
+    var code: String
+    var message: String
+    var field: InventoryProposalField?
+    var id: String { "\(code):\(field?.rawValue ?? "batch")" }
+}
+
+nonisolated struct InventoryFieldAlternative: Identifiable, Equatable, Sendable {
+    var field: InventoryProposalField
+    var displayValue: String
+    var provenance: FieldProvenance
+    var id: String { "\(field.rawValue):\(provenance.sourceID):\(displayValue)" }
+}
+
+/// Provider-neutral evidence payload for one inventory addition. Each source contributes only the
+/// fields it actually knows; the shared reconciler chooses winners and keeps conflicts reviewable.
+nonisolated struct InventoryAddEvidence: Sendable {
+    var names: [FieldEvidence<String>]
+    var brands: [FieldEvidence<String>]
+    var quantities: [FieldEvidence<Int>]
+    var containerTypes: [FieldEvidence<String>]
+    var storageCategories: [FieldEvidence<StorageCategory>]
+    var aisles: [FieldEvidence<GroceryAisle>]
+    var barcodes: [FieldEvidence<String>]
+
+    init(names: [FieldEvidence<String>], brands: [FieldEvidence<String>] = [],
+         quantities: [FieldEvidence<Int>] = [], containerTypes: [FieldEvidence<String>] = [],
+         storageCategories: [FieldEvidence<StorageCategory>] = [],
+         aisles: [FieldEvidence<GroceryAisle>] = [],
+         barcodes: [FieldEvidence<String>] = []) {
+        self.names = names
+        self.brands = brands
+        self.quantities = quantities
+        self.containerTypes = containerTypes
+        self.storageCategories = storageCategories
+        self.aisles = aisles
+        self.barcodes = barcodes
+    }
+}
+
+/// A duplicate-import merge refreshes facts without increasing quantity. Keeping this as an
+/// explicit proposal action makes receipt and grocery dedup writes reviewable/undoable without
+/// disguising them as a level or quantity edit.
+nonisolated struct InventoryMetadataRefresh: Equatable, Sendable {
+    var price: Double?
+    var storeName: String?
+    var brand: String?
+    var expiry: Date?
+    var sizeAmount: Double?
+    var sizeUnit: String?
+    var confirmsPresence: Bool
+
+    init(price: Double? = nil, storeName: String? = nil, brand: String? = nil,
+         expiry: Date? = nil, sizeAmount: Double? = nil, sizeUnit: String? = nil,
+         confirmsPresence: Bool = true) {
+        self.price = price
+        self.storeName = storeName
+        self.brand = brand
+        self.expiry = expiry
+        self.sizeAmount = sizeAmount
+        self.sizeUnit = sizeUnit
+        self.confirmsPresence = confirmsPresence
+    }
+}
+
 nonisolated enum InventoryChangeAction: Equatable, Sendable {
     case remove                 // set to empty / remove the row
     case setLevel(Double)       // reduce (or set) the fill level 0.0–1.0
@@ -24,6 +132,7 @@ nonisolated enum InventoryChangeAction: Equatable, Sendable {
     case add(name: String, quantity: Int, containerType: String?, sizeAmount: Double?, sizeUnit: String?)
     // Change the quantity of an existing item by a signed delta ("used 2 cans" → -2).
     case adjustQuantity(delta: Int)
+    case refreshMetadata(InventoryMetadataRefresh)
     case clearAll               // remove every inventory item (destructive; always needs confirm)
 }
 
@@ -38,6 +147,18 @@ nonisolated struct ProposedChange: Identifiable, Equatable, Sendable {
     /// applied .add carries its badge into inventory. nil for changes to existing items where
     /// provenance is unchanged (remove / setLevel).
     var sourceBadge: SourceBadge? = nil
+    /// Canonical product metadata shared by receipt, barcode, manual, and reconciliation adds.
+    /// Existing callers can continue constructing `ProposedChange` without it.
+    var product: InventoryProposalProduct? = nil
+    /// Winning source for every populated field; alternatives remain available through the
+    /// reconciler before this review proposal is created.
+    var fieldProvenance: [InventoryProposalField: FieldProvenance] = [:]
+    var fieldAlternatives: [InventoryProposalField: [InventoryFieldAlternative]] = [:]
+    var reviewIssues: [InventoryProposalIssue] = []
+    /// Exact add payload from an already-established production flow. The action remains the
+    /// review summary/quantity contract; this template preserves expiry, nutrition, price, store,
+    /// and other metadata that cannot be flattened into that summary.
+    var addTemplate: LocalInventoryItem? = nil
 
     /// One-line human summary of the effect.
     var effectText: String {
@@ -54,6 +175,7 @@ nonisolated struct ProposedChange: Identifiable, Equatable, Sendable {
             return s
         case .adjustQuantity(let d):
             return d < 0 ? "\(displayName) −\(abs(d))" : "\(displayName) +\(d)"
+        case .refreshMetadata:    return "Refresh \(displayName) details"
         case .clearAll:           return "Clear ALL inventory items"
         }
     }
@@ -63,6 +185,7 @@ nonisolated struct ProposedChange: Identifiable, Equatable, Sendable {
         case .setLevel:       return "arrow.down.circle"
         case .add:            return "plus.circle"
         case .adjustQuantity(let d): return d < 0 ? "minus.circle" : "plus.circle"
+        case .refreshMetadata: return "arrow.triangle.2.circlepath"
         case .clearAll:       return "trash.fill"
         }
     }
@@ -72,7 +195,412 @@ nonisolated struct ProposedChange: Identifiable, Equatable, Sendable {
     /// remove/setLevel act on items the user already has).
     var reviewGroup: ReviewGroup {
         if case .clearAll = action { return .needsReview }
+        if !reviewIssues.isEmpty { return .needsReview }
         return sourceBadge?.reviewGroup ?? .confident
+    }
+}
+
+// MARK: - Unified reviewable proposal batch
+
+nonisolated struct InventoryProposalBatch: Identifiable, Equatable, Sendable {
+    var id: UUID
+    var origin: InventoryProposalOrigin
+    var title: String
+    var createdAt: Date
+    var changes: [ProposedChange]
+    var mergePolicy: InventoryProposalMergePolicy
+
+    init(id: UUID = UUID(), origin: InventoryProposalOrigin, title: String,
+         createdAt: Date = Date(), changes: [ProposedChange],
+         mergePolicy: InventoryProposalMergePolicy = .canonicalProduct) {
+        self.id = id
+        self.origin = origin
+        self.title = title
+        self.createdAt = createdAt
+        self.changes = changes
+        self.mergePolicy = mergePolicy
+    }
+
+    var confirmedCount: Int { changes.filter(\.isConfirmed).count }
+    var needsReviewCount: Int { changes.filter { $0.reviewGroup == .needsReview }.count }
+
+    /// Resolve identity, attach provenance, merge duplicate additions, and convert an add that is
+    /// already in inventory into a quantity adjustment. This remains pure: review UI can inspect
+    /// the returned batch before applying anything.
+    func canonicalized(against inventory: [LocalInventoryItem],
+                       brandPreferences: BrandPreferences = BrandPreferences(),
+                       retailerID: String? = nil) -> InventoryProposalBatch {
+        var passthrough: [ProposedChange] = []
+        var existingAdjustmentOrder: [UUID] = []
+        var existingAdjustments: [UUID: ProposedChange] = [:]
+        var additionOrder: [String] = []
+        var additions: [String: ProposedChange] = [:]
+
+        for original in changes {
+            guard case let .add(name, quantity, containerType, sizeAmount, sizeUnit) = original.action else {
+                passthrough.append(original)
+                continue
+            }
+            var change = original
+            let resolution = ProductCatalog.resolve(ProductResolutionContext(
+                rawName: name,
+                brand: change.product?.brand,
+                barcode: change.product?.barcode,
+                retailerID: retailerID,
+                preferredBrands: brandPreferences.preferredBrands,
+                avoidedBrands: brandPreferences.avoidedBrands
+            ))
+            if change.product == nil {
+                change.product = InventoryProposalProduct(
+                    identity: resolution.identity,
+                    displayName: name,
+                    brand: !resolution.needsReview && resolution.confidence >= 0.94
+                        ? resolution.brand : nil,
+                    storageCategory: resolution.category.flatMap(StorageCategory.init(rawValue:)),
+                    aisle: resolution.aisle,
+                    barcode: resolution.identity.namespace == .barcode ? resolution.identity.key : nil,
+                    resolutionConfidence: resolution.confidence
+                )
+            }
+            let badge = change.sourceBadge ?? origin.defaultBadge
+            change.sourceBadge = badge
+            let defaultProvenance = FieldProvenance(sourceID: origin.rawValue, badge: badge,
+                                                    observedAt: createdAt)
+            let catalogProvenance = FieldProvenance(sourceID: "product-catalog",
+                                                     sourceName: "Stocked product catalog",
+                                                     badge: .estimated,
+                                                     observedAt: createdAt)
+            for field in [InventoryProposalField.name, .quantity, .containerType, .size] {
+                if change.fieldProvenance[field] == nil { change.fieldProvenance[field] = defaultProvenance }
+            }
+            if change.product?.brand != nil, change.fieldProvenance[.brand] == nil {
+                change.fieldProvenance[.brand] = catalogProvenance
+            }
+            if change.product?.storageCategory != nil, change.fieldProvenance[.storageCategory] == nil {
+                change.fieldProvenance[.storageCategory] = catalogProvenance
+            }
+            if change.fieldProvenance[.aisle] == nil { change.fieldProvenance[.aisle] = catalogProvenance }
+            if change.product?.barcode != nil, change.fieldProvenance[.barcode] == nil {
+                change.fieldProvenance[.barcode] = defaultProvenance
+            }
+            if resolution.needsReview,
+               !change.reviewIssues.contains(where: { $0.code == "ambiguous-product" }) {
+                change.reviewIssues.append(InventoryProposalIssue(
+                    code: "ambiguous-product",
+                    message: "Confirm the product match before adding it.",
+                    field: .name
+                ))
+            }
+
+            if mergePolicy == .storeCompatible {
+                passthrough.append(change)
+                continue
+            }
+
+            let identity = change.product?.identity ?? resolution.identity
+            if let existing = inventory.first(where: {
+                let existingIdentity = $0.productIdentity
+                if identity.namespace == .barcode || existingIdentity.namespace == .barcode {
+                    return identity.stableKey == existingIdentity.stableKey
+                }
+                return !identity.canonicalName.isEmpty
+                    && identity.canonicalName == existingIdentity.canonicalName
+            }) {
+                change.itemID = existing.id
+                change.displayName = existing.name
+                change.action = .adjustQuantity(delta: max(1, quantity))
+                change.reason = "Already in inventory — add to its quantity"
+                if var prior = existingAdjustments[existing.id],
+                   case let .adjustQuantity(priorDelta) = prior.action {
+                    prior.action = .adjustQuantity(delta: priorDelta + max(1, quantity))
+                    prior.isConfirmed = prior.isConfirmed && change.isConfirmed
+                    prior.reviewIssues.append(contentsOf: change.reviewIssues.filter { !prior.reviewIssues.contains($0) })
+                    for (field, candidates) in change.fieldAlternatives {
+                        var merged = prior.fieldAlternatives[field] ?? []
+                        merged.append(contentsOf: candidates.filter { !merged.contains($0) })
+                        prior.fieldAlternatives[field] = merged
+                    }
+                    existingAdjustments[existing.id] = prior
+                } else {
+                    existingAdjustmentOrder.append(existing.id)
+                    existingAdjustments[existing.id] = change
+                }
+                continue
+            }
+
+            let groupingKey = identity.namespace == .barcode ? identity.stableKey : identity.canonicalName
+            let key = groupingKey.isEmpty ? GroceryKnowledgeBase.normalize(name) : groupingKey
+            if var prior = additions[key],
+               case let .add(priorName, priorQuantity, priorContainer, priorAmount, priorUnit) = prior.action {
+                prior.action = .add(name: priorName,
+                                    quantity: priorQuantity + max(1, quantity),
+                                    containerType: priorContainer ?? containerType,
+                                    sizeAmount: priorAmount ?? sizeAmount,
+                                    sizeUnit: priorUnit ?? sizeUnit)
+                prior.isConfirmed = prior.isConfirmed && change.isConfirmed
+                prior.reviewIssues.append(contentsOf: change.reviewIssues.filter { !prior.reviewIssues.contains($0) })
+                for (field, provenance) in change.fieldProvenance where prior.fieldProvenance[field] == nil {
+                    prior.fieldProvenance[field] = provenance
+                }
+                for (field, candidates) in change.fieldAlternatives {
+                    var merged = prior.fieldAlternatives[field] ?? []
+                    merged.append(contentsOf: candidates.filter { !merged.contains($0) })
+                    prior.fieldAlternatives[field] = merged
+                }
+                additions[key] = prior
+            } else {
+                additionOrder.append(key)
+                additions[key] = change
+            }
+        }
+
+        var result = self
+        result.changes = passthrough
+            + existingAdjustmentOrder.compactMap { existingAdjustments[$0] }
+            + additionOrder.compactMap { additions[$0] }
+        return result
+    }
+
+    static func reviewableAdd(
+        name: String,
+        quantity: Int = 1,
+        containerType: String? = nil,
+        sizeAmount: Double? = nil,
+        sizeUnit: String? = nil,
+        brand: String? = nil,
+        barcode: String? = nil,
+        origin: InventoryProposalOrigin,
+        sourceID: String? = nil,
+        badge: SourceBadge? = nil,
+        reason: String
+    ) -> ProposedChange {
+        let resolution = ProductCatalog.resolve(ProductResolutionContext(
+            rawName: name, brand: brand, barcode: barcode
+        ))
+        let resolvedBadge = badge ?? origin.defaultBadge
+        let provenance = FieldProvenance(sourceID: sourceID ?? origin.rawValue,
+                                         badge: resolvedBadge)
+        let catalogProvenance = FieldProvenance(sourceID: "product-catalog",
+                                                sourceName: "Stocked product catalog",
+                                                badge: .estimated)
+        let product = InventoryProposalProduct(
+            identity: resolution.identity,
+            displayName: name,
+            brand: brand ?? (!resolution.needsReview && resolution.confidence >= 0.94
+                             ? resolution.brand : nil),
+            storageCategory: resolution.category.flatMap(StorageCategory.init(rawValue:)),
+            aisle: resolution.aisle,
+            barcode: barcode.flatMap(ProductCatalog.normalizedBarcode),
+            resolutionConfidence: resolution.confidence
+        )
+        let issues = resolution.needsReview
+            ? [InventoryProposalIssue(code: "ambiguous-product",
+                                      message: "Confirm the product match before adding it.", field: .name)]
+            : []
+        var fieldProvenance: [InventoryProposalField: FieldProvenance] = [
+            .name: provenance, .quantity: provenance, .containerType: provenance,
+            .size: provenance, .aisle: catalogProvenance
+        ]
+        if product.brand != nil { fieldProvenance[.brand] = brand == nil ? catalogProvenance : provenance }
+        if product.storageCategory != nil { fieldProvenance[.storageCategory] = catalogProvenance }
+        if product.barcode != nil { fieldProvenance[.barcode] = provenance }
+        return ProposedChange(
+            itemID: nil,
+            displayName: name,
+            action: .add(name: name, quantity: max(1, quantity), containerType: containerType,
+                         sizeAmount: sizeAmount, sizeUnit: sizeUnit),
+            reason: reason,
+            sourceBadge: resolvedBadge,
+            product: product,
+            fieldProvenance: fieldProvenance,
+            reviewIssues: issues
+        )
+    }
+
+    /// Lossless adapter for a production flow that already assembled a LocalInventoryItem.
+    /// The reviewed/template storage category and explicit brand/barcode remain authoritative;
+    /// catalog identity is attached without silently replacing those user-visible fields.
+    static func reviewableAdd(
+        item: LocalInventoryItem,
+        origin: InventoryProposalOrigin,
+        sourceID: String? = nil,
+        badge: SourceBadge? = nil,
+        reason: String
+    ) -> ProposedChange {
+        var proposal = reviewableAdd(
+            name: item.name,
+            quantity: item.quantity,
+            containerType: item.containerType,
+            sizeAmount: item.sizeAmount,
+            sizeUnit: item.sizeUnit,
+            brand: item.brand,
+            barcode: item.barcode,
+            origin: origin,
+            sourceID: sourceID,
+            badge: badge ?? item.sourceBadge,
+            reason: reason
+        )
+        proposal.addTemplate = item
+        proposal.product?.displayName = item.name
+        proposal.product?.brand = item.brand
+        proposal.product?.storageCategory = item.storageCategory
+        proposal.product?.barcode = item.barcode.flatMap(ProductCatalog.normalizedBarcode)
+        if item.brand == nil { proposal.fieldProvenance.removeValue(forKey: .brand) }
+        if item.barcode == nil { proposal.fieldProvenance.removeValue(forKey: .barcode) }
+        return proposal
+    }
+
+    /// Reconcile a multi-provider draft directly into the review contract. No winner is applied
+    /// silently: close conflicts produce field-specific review issues and retain their provenance.
+    static func reconciledAdd(
+        _ evidence: InventoryAddEvidence,
+        sourceHealth: [String: SourceHealthSnapshot] = [:],
+        origin: InventoryProposalOrigin,
+        reason: String,
+        now: Date = Date()
+    ) -> ProposedChange? {
+        guard let name = ProductFieldReconciler.reconcileText(
+            evidence.names, sourceHealth: sourceHealth, now: now
+        ) else { return nil }
+        let brand = ProductFieldReconciler.reconcileText(
+            evidence.brands, sourceHealth: sourceHealth, now: now
+        )
+        let quantity = ProductFieldReconciler.reconcile(
+            evidence.quantities, sourceHealth: sourceHealth, now: now
+        )
+        let container = ProductFieldReconciler.reconcileText(
+            evidence.containerTypes, sourceHealth: sourceHealth, now: now
+        )
+        let storage = ProductFieldReconciler.reconcile(
+            evidence.storageCategories, sourceHealth: sourceHealth, now: now
+        )
+        let aisle = ProductFieldReconciler.reconcile(
+            evidence.aisles, sourceHealth: sourceHealth, now: now
+        )
+        let barcode = ProductFieldReconciler.reconcileText(
+            evidence.barcodes.compactMap { candidate in
+                guard let normalized = ProductCatalog.normalizedBarcode(candidate.value) else { return nil }
+                return FieldEvidence(normalized, provenance: candidate.provenance)
+            },
+            sourceHealth: sourceHealth,
+            now: now
+        )
+        var proposal = reviewableAdd(
+            name: name.value,
+            quantity: max(1, quantity?.value ?? 1),
+            containerType: container?.value,
+            brand: brand?.value,
+            barcode: barcode?.value,
+            origin: origin,
+            sourceID: name.provenance.sourceID,
+            badge: name.provenance.badge,
+            reason: reason
+        )
+        let resolution = ProductCatalog.resolve(ProductResolutionContext(
+            rawName: name.value, brand: brand?.value, barcode: barcode?.value
+        ))
+        proposal.product = InventoryProposalProduct(
+            identity: resolution.identity,
+            displayName: name.value,
+            brand: brand?.value ?? (!resolution.needsReview && resolution.confidence >= 0.94
+                                    ? resolution.brand : nil),
+            storageCategory: storage?.value
+                ?? resolution.category.flatMap(StorageCategory.init(rawValue:)),
+            aisle: aisle?.value ?? resolution.aisle,
+            barcode: barcode?.value,
+            resolutionConfidence: resolution.confidence
+        )
+
+        proposal.fieldProvenance[.name] = name.provenance
+        if let brand { proposal.fieldProvenance[.brand] = brand.provenance }
+        if let quantity { proposal.fieldProvenance[.quantity] = quantity.provenance }
+        if let container { proposal.fieldProvenance[.containerType] = container.provenance }
+        if let storage { proposal.fieldProvenance[.storageCategory] = storage.provenance }
+        if let aisle { proposal.fieldProvenance[.aisle] = aisle.provenance }
+        if let barcode { proposal.fieldProvenance[.barcode] = barcode.provenance }
+
+        let alternativeGroups: [(InventoryProposalField, [InventoryFieldAlternative])] = [
+            (.name, recordedAlternatives(for: .name, from: name)),
+            (.brand, recordedAlternatives(for: .brand, from: brand)),
+            (.quantity, recordedAlternatives(for: .quantity, from: quantity)),
+            (.containerType, recordedAlternatives(for: .containerType, from: container)),
+            (.storageCategory, recordedAlternatives(for: .storageCategory, from: storage)),
+            (.aisle, recordedAlternatives(for: .aisle, from: aisle)),
+            (.barcode, recordedAlternatives(for: .barcode, from: barcode))
+        ]
+        for (field, alternatives) in alternativeGroups where !alternatives.isEmpty {
+            proposal.fieldAlternatives[field] = alternatives
+        }
+
+        let reviewFields: [(InventoryProposalField, Bool, Bool)] = [
+            (.name, name.needsReview, name.isContested),
+            (.brand, brand?.needsReview ?? false, brand?.isContested ?? false),
+            (.quantity, quantity?.needsReview ?? false, quantity?.isContested ?? false),
+            (.containerType, container?.needsReview ?? false, container?.isContested ?? false),
+            (.storageCategory, storage?.needsReview ?? false, storage?.isContested ?? false),
+            (.aisle, aisle?.needsReview ?? false, aisle?.isContested ?? false),
+            (.barcode, barcode?.needsReview ?? false, barcode?.isContested ?? false)
+        ]
+        for (field, needsReview, isContested) in reviewFields where needsReview {
+            let issue = InventoryProposalIssue(
+                code: isContested ? "conflicting-sources" : "low-confidence-field",
+                message: isContested
+                    ? "Sources disagree about \(field.rawValue). Confirm the suggested value."
+                    : "Confirm the suggested \(field.rawValue).",
+                field: field
+            )
+            if !proposal.reviewIssues.contains(issue) { proposal.reviewIssues.append(issue) }
+        }
+        return proposal
+    }
+
+    private static func recordedAlternatives<Value: Equatable & Sendable>(
+        for field: InventoryProposalField,
+        from result: ReconciledField<Value>?
+    ) -> [InventoryFieldAlternative] {
+        result?.alternatives.map {
+            InventoryFieldAlternative(field: field,
+                                      displayValue: String(describing: $0.value),
+                                      provenance: $0.provenance)
+        } ?? []
+    }
+}
+
+nonisolated struct InventoryBatchApplyResult: Equatable, Sendable {
+    var batchID: UUID
+    var appliedCount: Int
+    var skippedCount: Int
+    var changedItemIDs: Set<UUID>
+}
+
+nonisolated struct InventoryUndoPriorEntry: Equatable, Sendable {
+    var originalIndex: Int
+    var item: LocalInventoryItem
+}
+
+/// Conflict-aware delta used by app-wide undo. It intentionally contains only rows touched by the
+/// batch and refuses to overwrite any value that no longer matches the batch's post-apply state.
+nonisolated struct InventoryBatchUndoDelta: Equatable, Sendable {
+    var addedIDs: Set<UUID>
+    var priorEntries: [InventoryUndoPriorEntry]
+    var postItems: [UUID: LocalInventoryItem]
+
+    func restoring(_ current: [LocalInventoryItem]) -> [LocalInventoryItem] {
+        var restored = current
+        restored.removeAll { item in
+            guard addedIDs.contains(item.id), let post = postItems[item.id] else { return false }
+            return item == post
+        }
+        for prior in priorEntries {
+            if let index = restored.firstIndex(where: { $0.id == prior.item.id }) {
+                guard let post = postItems[prior.item.id], restored[index] == post else { continue }
+                restored[index] = prior.item
+            } else {
+                guard postItems[prior.item.id] == nil else { continue }
+                restored.insert(prior.item, at: min(prior.originalIndex, restored.count))
+            }
+        }
+        return restored
     }
 }
 
@@ -107,11 +635,24 @@ extension GuestDataStore {
                     updateInventoryLevel(id: id, level: max(0, min(1, level))); applied += 1
                 }
             case .add(let name, let qty, let containerType, let sizeAmount, let sizeUnit):
-                var item = LocalInventoryItem(name: name, level: 1.0, quantity: max(1, qty),
-                                              containerType: containerType ?? "item",
-                                              sizeAmount: sizeAmount, sizeUnit: sizeUnit)
-                item.purchaseDate = Date()
+                var item = change.addTemplate ?? LocalInventoryItem(name: name, level: 1.0)
+                item.name = name
+                item.quantity = max(1, qty)
+                item.containerType = containerType ?? "item"
+                item.sizeAmount = sizeAmount
+                item.sizeUnit = sizeUnit
+                if change.addTemplate == nil { item.purchaseDate = Date() }
                 item.sourceBadge  = change.sourceBadge ?? .aiParsed  // assistant-added → AI parsed
+                if !change.fieldProvenance.isEmpty {
+                    item.fieldProvenance = Dictionary(uniqueKeysWithValues: change.fieldProvenance.map {
+                        ($0.key.rawValue, $0.value)
+                    })
+                }
+                if let product = change.product {
+                    item.brand = product.brand
+                    item.barcode = product.barcode
+                    if let category = product.storageCategory { item.storageCategory = category }
+                }
                 addInventoryItem(item); applied += 1
             case .adjustQuantity(let delta):
                 if let id = change.itemID,
@@ -125,6 +666,38 @@ extension GuestDataStore {
                     }
                     applied += 1
                 }
+            case .refreshMetadata(let refresh):
+                if let id = change.itemID,
+                   let index = inventoryItems.firstIndex(where: { $0.id == id }) {
+                    if let price = refresh.price { inventoryItems[index].price = price }
+                    if let storeName = refresh.storeName, !storeName.isEmpty {
+                        inventoryItems[index].storePurchasedAt = storeName
+                    }
+                    if let brand = refresh.brand, !brand.isEmpty {
+                        inventoryItems[index].brand = brand
+                    }
+                    if inventoryItems[index].sizeAmount == nil,
+                       let amount = refresh.sizeAmount, let unit = refresh.sizeUnit {
+                        inventoryItems[index].sizeAmount = amount
+                        inventoryItems[index].sizeUnit = unit
+                    }
+                    if let expiry = refresh.expiry {
+                        inventoryItems[index].expirationDate = inventoryItems[index].expirationDate
+                            .map { max($0, expiry) } ?? expiry
+                    }
+                    if !change.fieldProvenance.isEmpty {
+                        var provenance = inventoryItems[index].fieldProvenance ?? [:]
+                        for (field, value) in change.fieldProvenance {
+                            if let current = provenance[field.rawValue],
+                               current.badge.confidence > value.badge.confidence,
+                               current.observedAt >= value.observedAt { continue }
+                            provenance[field.rawValue] = value
+                        }
+                        inventoryItems[index].fieldProvenance = provenance
+                    }
+                    if refresh.confirmsPresence { confirmInventoryItem(id: id) }
+                    applied += 1
+                }
             case .clearAll:
                 let count = inventoryItems.count
                 // IMPORTANT: only empty the inventory list. Do NOT call the store's clearAll(),
@@ -135,6 +708,58 @@ extension GuestDataStore {
             }
         }
         return applied
+    }
+
+    /// Apply a review batch through the existing mutation path, while making the whole operation
+    /// reversible and visible in the shared activity center. Existing `applyProposedChanges` calls
+    /// keep their behavior; flows migrate when they are ready for transaction-level undo.
+    @discardableResult
+    func applyProposalBatch(_ batch: InventoryProposalBatch,
+                            brandPreferences: BrandPreferences = BrandPreferences(),
+                            retailerID: String? = nil,
+                            registerUndo: Bool = true) -> InventoryBatchApplyResult {
+        let before = inventoryItems
+        let prepared = batch.canonicalized(against: before, brandPreferences: brandPreferences,
+                                           retailerID: retailerID)
+        let beforeByID = Dictionary(uniqueKeysWithValues: before.map { ($0.id, $0) })
+        let applied = applyProposedChanges(prepared.changes)
+        let afterByID = Dictionary(uniqueKeysWithValues: inventoryItems.map { ($0.id, $0) })
+        let changedIDs = Set(beforeByID.keys).union(afterByID.keys).filter {
+            beforeByID[$0] != afterByID[$0]
+        }
+
+        if applied > 0 {
+            if registerUndo {
+                let addedIDs = Set(afterByID.keys).subtracting(beforeByID.keys)
+                let priorEntries = before.enumerated().compactMap { index, item in
+                    changedIDs.contains(item.id)
+                        ? InventoryUndoPriorEntry(originalIndex: index, item: item) : nil
+                }
+                let postItems = Dictionary(uniqueKeysWithValues: changedIDs.compactMap { id in
+                    afterByID[id].map { (id, $0) }
+                })
+                let undoDelta = InventoryBatchUndoDelta(addedIDs: addedIDs,
+                                                        priorEntries: priorEntries,
+                                                        postItems: postItems)
+                AppUndoJournal.shared.record("Undo \(batch.title)") { [weak self] in
+                    guard let self else { return }
+                    self.inventoryItems = undoDelta.restoring(self.inventoryItems)
+                }
+            }
+            BackgroundActivityCenter.shared.report(
+                id: batch.id,
+                kind: .inventory,
+                title: batch.title,
+                detail: "Applied \(applied) inventory \(applied == 1 ? "change" : "changes")",
+                progress: 1
+            )
+        }
+        return InventoryBatchApplyResult(
+            batchID: batch.id,
+            appliedCount: applied,
+            skippedCount: max(0, prepared.changes.count - prepared.confirmedCount),
+            changedItemIDs: Set(changedIDs)
+        )
     }
 }
 
@@ -276,12 +901,15 @@ final class InventoryIntentParser {
                 let ct  = (obj["containerType"] as? String)?.trimmingCharacters(in: .whitespaces)
                 let amt = obj["sizeAmount"] as? Double
                 let unit = (obj["sizeUnit"] as? String)?.trimmingCharacters(in: .whitespaces)
-                return ProposedChange(itemID: nil, displayName: name,
-                                      action: .add(name: name, quantity: max(1, qty),
-                                                   containerType: (ct?.isEmpty ?? true) ? nil : ct,
-                                                   sizeAmount: amt,
-                                                   sizeUnit: (unit?.isEmpty ?? true) ? nil : unit),
-                                      reason: "You said you bought it")
+                return InventoryProposalBatch.reviewableAdd(
+                    name: name,
+                    quantity: max(1, qty),
+                    containerType: (ct?.isEmpty ?? true) ? nil : ct,
+                    sizeAmount: amt,
+                    sizeUnit: (unit?.isEmpty ?? true) ? nil : unit,
+                    origin: .assistant,
+                    reason: "You said you bought it"
+                )
             case "adjustquantity", "adjust":
                 guard let itemID else { return nil }
                 let delta = (obj["delta"] as? Int) ?? -1
@@ -339,7 +967,7 @@ final class InventoryIntentParser {
     /// "2 lbs of chicken"        → (qty 1, container nil, size 2 lb, name "chicken", removeQtyNil)
     static func parseQuantityUnit(_ phrase: String)
         -> (quantity: Int, containerType: String?, sizeAmount: Double?, sizeUnit: String?, name: String) {
-        var tokens = phrase.lowercased()
+        let tokens = phrase.lowercased()
             .split(separator: " ").map(String.init)
             .filter { $0 != "of" }
         var quantity = 1
@@ -485,13 +1113,15 @@ final class InventoryIntentParser {
                     // If it already resolves to an existing item, skip — that's a restock the
                     // user can do explicitly; here we only propose genuinely new additions.
                     if bestInventoryMatch(for: title, in: store.inventoryItems) != nil { continue }
-                    out.append(ProposedChange(itemID: nil, displayName: title.capitalized,
-                                              action: .add(name: title.capitalized,
-                                                           quantity: parsed.quantity,
-                                                           containerType: parsed.containerType,
-                                                           sizeAmount: parsed.sizeAmount,
-                                                           sizeUnit: parsed.sizeUnit),
-                                              reason: "You said you bought it"))
+                    out.append(InventoryProposalBatch.reviewableAdd(
+                        name: title.capitalized,
+                        quantity: parsed.quantity,
+                        containerType: parsed.containerType,
+                        sizeAmount: parsed.sizeAmount,
+                        sizeUnit: parsed.sizeUnit,
+                        origin: .assistant,
+                        reason: "You said you bought it"
+                    ))
                 }
             }
         }
@@ -505,10 +1135,12 @@ final class InventoryIntentParser {
 struct ReconcileSheet: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedMotion) private var motion
 
     let title: String
     let subtitle: String
     @State var changes: [ProposedChange]
+    var origin: InventoryProposalOrigin = .reconciliation
     var onApply: (Int) -> Void = { _ in }
 
     private var confirmedCount: Int { changes.filter { $0.isConfirmed }.count }
@@ -518,7 +1150,7 @@ struct ReconcileSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(subtitle)
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 20).padding(.top, 8)
 
@@ -543,14 +1175,22 @@ struct ReconcileSheet: View {
             .safeAreaInset(edge: .bottom) {
                 if !changes.isEmpty {
                     Button {
-                        let n = session.guestStore.applyProposedChanges(changes)
+                        let batch = InventoryProposalBatch(origin: origin, title: title,
+                                                           changes: changes)
+                        let result = session.guestStore.applyProposalBatch(
+                            batch,
+                            brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                            retailerID: GroceryKnowledgeBase.retailer(
+                                matching: session.preferredStore
+                            )?.id
+                        )
                         HapticManager.success()
-                        onApply(n)
+                        onApply(result.appliedCount)
                         dismiss()
                     } label: {
                         Text(confirmedCount == 0 ? "Nothing selected"
                                                  : "Apply \(confirmedCount) \(confirmedCount == 1 ? "change" : "changes")")
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(16, weight: .semibold)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 15)
                             .background(confirmedCount == 0 ? Color.gray.opacity(0.5) : session.themeButtonColor)
@@ -566,22 +1206,40 @@ struct ReconcileSheet: View {
 
     private func changeRow(_ change: Binding<ProposedChange>) -> some View {
         Button {
-            withAnimation(.spring(response: 0.2)) { change.wrappedValue.isConfirmed.toggle() }
+            motion.animate(.selection, intent: .spatial) { change.wrappedValue.isConfirmed.toggle() }
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: change.wrappedValue.isConfirmed ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
+                    .scaledFont(22)
                     .foregroundStyle(change.wrappedValue.isConfirmed ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(change.wrappedValue.effectText)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(change.wrappedValue.reason)
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    if let issue = change.wrappedValue.reviewIssues.first {
+                        Label(issue.message, systemImage: "exclamationmark.triangle.fill")
+                            .scaledFont(11, weight: .medium)
+                            .foregroundStyle(Color.stockedWarning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    let alternativeCount = change.wrappedValue.fieldAlternatives.values
+                        .reduce(0) { $0 + $1.count }
+                    if alternativeCount > 0 {
+                        Text("\(alternativeCount) alternate source \(alternativeCount == 1 ? "value" : "values") available")
+                            .scaledFont(10)
+                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    }
                 }
                 Spacer()
-                Image(systemName: change.wrappedValue.iconName)
-                    .font(.system(size: 16)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                VStack(alignment: .trailing, spacing: 6) {
+                    Image(systemName: change.wrappedValue.iconName)
+                        .scaledFont(16).foregroundStyle(session.themeTextColor.opacity(0.35))
+                    if let badge = change.wrappedValue.sourceBadge {
+                        SourceBadgeView(badge: badge)
+                    }
+                }
             }
             .padding(14)
             .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
@@ -595,9 +1253,9 @@ struct ReconcileSheet: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 40)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.3))
             Text("Nothing to update")
-                .font(.system(size: 16, design: .serif)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                .scaledFont(16, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.6))
         }
         .frame(maxWidth: .infinity).padding(.top, 60)
     }
@@ -633,44 +1291,38 @@ struct QuickUpdateSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Tell me what you bought, used, or ran out of — in your own words. I'll suggest the changes and you confirm them.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
                         .fixedSize(horizontal: false, vertical: true)
 
                     // Input
                     ZStack(alignment: .topLeading) {
                         if text.isEmpty {
                             Text("e.g. \"I finished the milk and used half the rice\"")
-                                .font(.system(size: 15)).foregroundStyle(session.themeTextColor.opacity(0.35))
-                                .padding(.horizontal, 14).padding(.vertical, 14)
+                                .stockedTextEditorPlaceholder()
                         }
                         TextEditor(text: $text)
-                            .font(.system(size: 15))
-                            .foregroundStyle(session.themeTextColor)
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 110)
-                            .padding(.horizontal, 10).padding(.vertical, 8)
+                            .stockedTextEditorContent(minimumHeight: 110)
                             .focused($focused)
                     }
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .stockedInputSurface()
 
                     if let err = parser.lastError {
-                        Text(err).font(.system(size: 13)).foregroundStyle(.red)
+                        Text(err).scaledFont(13).foregroundStyle(.red)
                     }
                     if noChangesNote {
                         Text("I couldn't find anything to change from that. Try naming specific items.")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
 
                     // Examples
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("TRY").font(.system(size: 10, weight: .bold)).tracking(1)
+                        Text("TRY").scaledFont(10, weight: .bold).tracking(1)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                         ForEach(examples, id: \.self) { ex in
                             Button { text = ex; focused = false } label: {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "quote.bubble").font(.system(size: 12))
-                                    Text(ex).font(.system(size: 13))
+                                    Image(systemName: "quote.bubble").scaledFont(12)
+                                    Text(ex).scaledFont(13)
                                     Spacer()
                                 }
                                 .foregroundStyle(session.themeTextColor.opacity(0.7))
@@ -696,7 +1348,7 @@ struct QuickUpdateSheet: View {
                     HStack {
                         if parser.isParsing { ProgressView().tint(.white) }
                         Text(parser.isParsing ? "Reading…" : "Review changes")
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(16, weight: .semibold)
                     }
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
@@ -712,6 +1364,7 @@ struct QuickUpdateSheet: View {
                     title: "Confirm Changes",
                     subtitle: "Here's what I understood. Uncheck anything that's wrong, then apply.",
                     changes: payload.changes,
+                    origin: .assistant,
                     onApply: { _ in dismiss() }   // close the whole flow after applying
                 ).environment(session)
             }

@@ -265,7 +265,7 @@ struct QASearchView: View {
             if query.trimmingCharacters(in: .whitespaces).count < 2 {
                 Section {
                     Text("Type two characters or more. This searches all 270 checkbook rows, every ticket, the triage findings, the invariant results, the screens visited this session and the last 200 session events at once.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
             } else if groups.isEmpty {
                 Section {
@@ -314,22 +314,22 @@ struct QASearchView: View {
     private func label(_ hit: QASearchHit) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: hit.kind.symbol)
-                .font(.caption)
+                .font(.stocked(.caption))
                 .foregroundStyle(Color.stockedGold)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 3) {
                 Text(hit.title)
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
                     Text(hit.tag)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .scaledFont(9, weight: .bold, design: .monospaced)
                         .padding(.horizontal, 5).padding(.vertical, 2)
                         .background(Capsule().fill(Color.gray.opacity(0.15)))
                         .foregroundStyle(.secondary)
                     Text(hit.subtitle)
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .font(.stocked(.caption2)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

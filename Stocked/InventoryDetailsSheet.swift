@@ -40,10 +40,10 @@ struct InventoryDetailsSheet: View {
                     VStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Inventory Details")
-                                .font(.system(size: 22, weight: .bold, design: .serif))
+                                .scaledFont(22, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("\(session.guestStore.stockPercent)% stocked across \(items.count) item\(items.count == 1 ? "" : "s")")
-                                .font(.system(size: 13))
+                                .scaledFont(13)
                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                         }
                         .padding(.top, 18)
@@ -84,7 +84,7 @@ struct InventoryDetailsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }
@@ -111,25 +111,25 @@ struct InventoryDetailsSheet: View {
         let conflictCount = ledger.snapshot.conflicts.count
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                Image(systemName: "calendar.badge.clock").font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                Image(systemName: "calendar.badge.clock").scaledFont(13).foregroundStyle(Color.stockedGold)
                 Text("Reserved for Planned Meals")
-                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .scaledFont(16, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 if !breakdowns.isEmpty {
                     Text("\(breakdowns.count)")
-                        .font(.system(size: 12, weight: .bold))
+                        .scaledFont(12, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }
             if breakdowns.isEmpty {
                 Text("Nothing is reserved — every item is fully available.")
-                    .font(.system(size: 12.5))
+                    .scaledFont(12.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
             } else {
                 if conflictCount > 0 {
                     Text("\(conflictCount) planned meal\(conflictCount == 1 ? " is" : "s are") short — see the planner for fixes.")
-                        .font(.system(size: 11.5, weight: .semibold))
+                        .scaledFont(11.5, weight: .semibold)
                         .foregroundStyle(Color.stockedError.opacity(0.85))
                 }
                 VStack(spacing: 0) {
@@ -138,38 +138,38 @@ struct InventoryDetailsSheet: View {
                             HStack(spacing: 10) {
                                 FoodIconView(name: b.itemName, size: 26, emojiSize: 16)
                                 Text(b.itemName.displayNormalized)
-                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .scaledFont(13.5, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 6)
                                 // Total / Reserved / Available in the item's own units;
                                 // Available is floored at zero — a deficit shows as a
                                 // shortage state, never a misleading negative.
                                 if b.quantified {
                                     Text("\(b.totalDisplay) · \(b.reservedDisplay) held · \(b.availableDisplay) free")
-                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .scaledFont(10.5, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.55))
-                                        .lineLimit(1).fixedSize()
+                                        .fixedSize(horizontal: false, vertical: true).fixedSize()
                                 } else {
                                     Text("Reserved for \(b.claims.count) meal\(b.claims.count == 1 ? "" : "s")")
-                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .scaledFont(10.5, weight: .semibold)
                                         .foregroundStyle(Color.stockedGold)
-                                        .lineLimit(1).fixedSize()
+                                        .fixedSize(horizontal: false, vertical: true).fixedSize()
                                 }
                             }
                             // Every reservation labeled with its meal, day, and amount.
                             ForEach(b.claims.prefix(4)) { claim in
                                 HStack(spacing: 6) {
                                     Image(systemName: claim.prepared ? "checkmark.circle" : "calendar")
-                                        .font(.system(size: 9.5))
+                                        .scaledFont(9.5)
                                         .foregroundStyle(claim.prepared ? Color.stockedGreen : Color.stockedGold.opacity(0.8))
                                     Text("\(claim.mealTitle.displayNormalized) · \(claimDayLabel(claim))")
-                                        .font(.system(size: 11))
+                                        .scaledFont(11)
                                         .foregroundStyle(session.themeTextColor.opacity(0.55))
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Spacer(minLength: 4)
                                     Text(claim.amountDisplay)
-                                        .font(.system(size: 10.5, weight: .semibold))
+                                        .scaledFont(10.5, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                                         .fixedSize()
                                 }
@@ -177,7 +177,7 @@ struct InventoryDetailsSheet: View {
                             }
                             if b.claims.count > 4 {
                                 Text("+ \(b.claims.count - 4) more")
-                                    .font(.system(size: 10.5))
+                                    .scaledFont(10.5)
                                     .foregroundStyle(session.themeTextColor.opacity(0.35))
                                     .padding(.leading, 36)
                             }
@@ -199,19 +199,19 @@ struct InventoryDetailsSheet: View {
         return HStack(spacing: 12) {
             ZStack {
                 Circle().fill(tint.opacity(0.14)).frame(width: 38, height: 38)
-                Image(systemName: icon).font(.system(size: 15)).foregroundStyle(tint)
+                Image(systemName: icon).scaledFont(15).foregroundStyle(tint)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .scaledFont(14.5, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                 Text("\(stats.count) item\(stats.count == 1 ? "" : "s")")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
             }
             Spacer()
             Text(stats.count == 0 ? "—" : "\(stats.pct)%")
-                .font(.system(size: 16, weight: .bold))
+                .scaledFont(16, weight: .bold)
                 .foregroundStyle(session.themeTextColor)
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -224,20 +224,20 @@ struct InventoryDetailsSheet: View {
                                items: [LocalInventoryItem], emptyText: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                Image(systemName: icon).font(.system(size: 13)).foregroundStyle(tint)
+                Image(systemName: icon).scaledFont(13).foregroundStyle(tint)
                 Text(title)
-                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .scaledFont(16, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 if !items.isEmpty {
                     Text("\(items.count)")
-                        .font(.system(size: 12, weight: .bold))
+                        .scaledFont(12, weight: .bold)
                         .foregroundStyle(tint)
                 }
             }
             if items.isEmpty {
                 Text(emptyText)
-                    .font(.system(size: 12.5))
+                    .scaledFont(12.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
             } else {
                 VStack(spacing: 0) {
@@ -245,21 +245,21 @@ struct InventoryDetailsSheet: View {
                         HStack(spacing: 10) {
                             FoodIconView(name: item.name, size: 26, emojiSize: 16)
                             Text(item.name.displayNormalized)
-                                .font(.system(size: 13.5))
+                                .scaledFont(13.5)
                                 .foregroundStyle(session.themeTextColor)
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 6)
                             if let d = item.daysUntilExpiry, title == "Expiring Soon" {
                                 Text(d < 0 ? "Expired" : d == 0 ? "Today" : d == 1 ? "Tomorrow" : "\(d) days")
-                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .scaledFont(11.5, weight: .semibold)
                                     .foregroundStyle(d <= 1 ? Color.red.opacity(0.8) : Color.orange)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .fixedSize()
                             } else {
                                 Text("\(Int((item.effectiveLevel * 100).rounded()))%")
-                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .scaledFont(11.5, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor.opacity(0.55))
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .fixedSize()
                             }
                         }

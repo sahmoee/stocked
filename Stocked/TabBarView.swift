@@ -86,6 +86,7 @@ struct ChefHatShape: Shape {
 struct StockedTabBar: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.stockedMotion) private var motion
     @Binding var selected: StockedTab
     var onTap:     ((StockedTab) -> Void)? = nil  // called on every tap (overrides default)
     var onSameTap: (() -> Void)? = nil            // called when tapping current tab
@@ -124,7 +125,7 @@ struct StockedTabBar: View {
             } else if selected == tab {
                 onSameTap?()
             } else {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                motion.animate(.selection, intent: .spatial) {
                     selected = tab
                 }
             }
@@ -141,11 +142,11 @@ struct StockedTabBar: View {
                     } else if tab == .home {
                         // Home uses the filled house when active, outline when not.
                         Image(systemName: isActive ? tab.iconFilled : tab.icon)
-                            .font(.system(size: layoutMetrics.tabBarIconSize,
+                            .font(.stockedSystem(size: layoutMetrics.tabBarIconSize,
                                           weight: isActive ? .semibold : .regular))
                     } else {
                         Image(systemName: tab.icon)
-                            .font(.system(size: layoutMetrics.tabBarIconSize,
+                            .font(.stockedSystem(size: layoutMetrics.tabBarIconSize,
                                           weight: isActive ? .semibold : .regular))
                     }
                 }
@@ -159,7 +160,7 @@ struct StockedTabBar: View {
                                        relativeTo: .caption2))
                     .foregroundStyle(foreground)
                     .multilineTextAlignment(.center)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
             }

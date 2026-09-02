@@ -12,6 +12,7 @@ import SwiftUI
 
 struct CookHubView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
 
     @State private var goCookNow = false
     @State private var goCookLater = false
@@ -27,15 +28,15 @@ struct CookHubView: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 9) {
                     Text(greeting)
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                     Text("What's on the menu tonight?")
-                        .font(.system(size: 32, weight: .bold, design: .serif))
+                        .scaledFont(32, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.86)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     Text("Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead.")
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .lineSpacing(5)
                 }
@@ -74,8 +75,14 @@ struct CookHubView: View {
                 .padding(.horizontal, CookStyle.screenHPad)
                 .frame(maxWidth: .infinity)
             }
+            .stockedSnapTargetLayout()
             .frame(maxWidth: 620)
             .frame(maxWidth: .infinity)
+            // When the two choices are shorter than the iPad/landscape viewport,
+            // center the complete decision group instead of pinning it beneath the
+            // wordmark. This is a minimum, not a fixed height: Dynamic Type can
+            // still grow the content and the shell remains fully scrollable.
+            .frame(minHeight: cookHubMinimumHeight, alignment: .center)
             .padding(.bottom, 20)
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
@@ -120,6 +127,15 @@ struct CookHubView: View {
         let part = h < 12 ? "Good morning" : (h < 18 ? "Good afternoon" : "Good evening")
         return "\(part), Chef 👋"
     }
+
+    private var cookHubMinimumHeight: CGFloat {
+        guard layoutMetrics.contentWidth >= 700 else { return 0 }
+        let chromeHeight = StockedChrome.headerHeight
+            + StockedChrome.headerTopPadding
+            + StockedChrome.headerBottomPadding
+        let tabAndScrollClearance: CGFloat = 190
+        return max(0, layoutMetrics.contentHeight - chromeHeight - tabAndScrollClearance)
+    }
 }
 
 // MARK: - Cook Now Home
@@ -137,6 +153,7 @@ struct CookHubView: View {
 struct CookNowHomeView: View {
     @Environment(AppSession.self) var session
     @Environment(\.quickMenuCallbacks) private var quickMenu
+    @Environment(\.stockedMotion) private var motion
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
@@ -307,10 +324,10 @@ struct CookNowHomeView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Dinner is closer than you think.")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Here's what your kitchen is telling us.")
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 Spacer(minLength: 8)
@@ -326,9 +343,9 @@ struct CookNowHomeView: View {
     private var servingPill: some View {
         HStack(spacing: 10) {
             Image(systemName: "person.2.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(11, weight: .semibold)
             Text("Cooking for \(cookSession.servings)")
-                .font(.system(size: 13, weight: .semibold))
+                .scaledFont(13, weight: .semibold)
                 .contentTransition(.numericText())
             HStack(spacing: 2) {
                 stepButton("minus") { adjustServings(-1) }
@@ -350,7 +367,7 @@ struct CookNowHomeView: View {
             HapticManager.select()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .bold))
+                .scaledFont(11, weight: .bold)
                 .frame(width: 26, height: 26)
                 .background(Color.stockedGold.opacity(0.14))
                 .clipShape(Circle())
@@ -359,7 +376,9 @@ struct CookNowHomeView: View {
     }
 
     private func adjustServings(_ delta: Int) {
-        withAnimation(.spring(response: 0.25)) { cookSession.setServings(cookSession.servings + delta) }
+        motion.animate(.selection, intent: .spatial) {
+            cookSession.setServings(cookSession.servings + delta)
+        }
     }
 
     // MARK: Readiness dashboard (normal + almost-first)
@@ -370,12 +389,12 @@ struct CookNowHomeView: View {
         VStack(alignment: .leading, spacing: 10) {
             if lead == .almost {
                 Text("You're close to dinner.")
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
             }
             VStack(alignment: .leading, spacing: 14) {
                 Text("WHAT YOU CAN MAKE")
-                    .font(.system(size: 11, weight: .bold))
+                    .scaledFont(11, weight: .bold)
                     .kerning(1.1)
                     .foregroundStyle(Color.stockedGold)
 
@@ -407,12 +426,12 @@ struct CookNowHomeView: View {
 
                 if snapshot.needsReview.count > 0 {
                     Text("\(snapshot.needsReview.count) more possible with swaps to review")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(Color.stockedWhite.opacity(0.6))
                 }
 
                 Text("Based on what's currently logged")
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(Color.stockedWhite.opacity(0.45))
             }
             .padding(16)
@@ -427,23 +446,23 @@ struct CookNowHomeView: View {
                               enabled: Bool, action: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("\(count)")
-                .font(.system(size: 34, weight: .bold, design: .serif))
+                .scaledFont(34, weight: .bold, design: .serif)
                 .foregroundStyle(enabled ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
                 .contentTransition(.numericText())
             Text(title)
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(12.5, weight: .semibold)
                 .foregroundStyle(Color.stockedWhite)
                 .fixedSize(horizontal: false, vertical: true)
             if !sub.isEmpty {
                 Text(sub)
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(Color.stockedGold.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
             }
             if enabled {
                 Button(action: action) {
                     Text(cta)
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedCharcoal)
                         .padding(.horizontal, 14).padding(.vertical, 6)
                         .background(Color.stockedWhite.opacity(0.9))
@@ -461,13 +480,13 @@ struct CookNowHomeView: View {
 
     private var emptyInventoryState: some View {
         VStack(spacing: 14) {
-            Text("🧺").font(.system(size: 52))
+            Text("🧺").scaledFont(52)
             Text("Your kitchen is waiting to be stocked.")
-                .font(.system(size: 19, weight: .bold, design: .serif))
+                .scaledFont(19, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
                 .multilineTextAlignment(.center)
             Text("Add items to get personalized meal ideas based on what you actually have.")
-                .font(.system(size: 13.5))
+                .scaledFont(13.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -489,10 +508,10 @@ struct CookNowHomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Let's build toward dinner.")
-                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .scaledFont(19, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text("Your closest matches need a few more ingredients, but you still have options.")
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -506,10 +525,10 @@ struct CookNowHomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("We couldn't find a match yet.")
-                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .scaledFont(19, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text("Recommendations use your saved inventory. Add ingredients or browse recipes to get started.")
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -525,7 +544,7 @@ struct CookNowHomeView: View {
     private func primaryStateButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 15, weight: .semibold, design: .serif))
+                .scaledFont(15, weight: .semibold, design: .serif)
                 .foregroundStyle(Color.stockedWhite)
                 .frame(maxWidth: .infinity).padding(.vertical, 13)
                 .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -538,7 +557,7 @@ struct CookNowHomeView: View {
     private func secondaryStateButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 11)
                 .background((dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6)))
@@ -567,7 +586,7 @@ struct CookNowHomeView: View {
     private var ingredientChips: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Top ingredients you can use")
-                .font(.system(size: 15, weight: .bold, design: .serif))
+                .scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -577,13 +596,13 @@ struct CookNowHomeView: View {
                             goChip = true
                         } label: {
                             HStack(spacing: 6) {
-                                Text(ImageFallbackService.emoji(for: item.name)).font(.system(size: 13))
+                                Text(ImageFallbackService.emoji(for: item.name)).scaledFont(13)
                                 Text(item.name.displayNormalized)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .lineLimit(1)
+                                    .scaledFont(13, weight: .semibold)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 if item.isExpiringSoon {
                                     Image(systemName: "clock.fill")
-                                        .font(.system(size: 9))
+                                        .scaledFont(9)
                                         .foregroundStyle(Color.stockedGold)
                                 }
                             }
@@ -598,7 +617,7 @@ struct CookNowHomeView: View {
                     if store.inventoryItems.filter({ $0.effectiveLevel > 0 }).count > chipItems.count {
                         Button { goBuildFood = true } label: {
                             Text("+ more")
-                                .font(.system(size: 13, weight: .semibold))
+                                .scaledFont(13, weight: .semibold)
                                 .foregroundStyle(Color.stockedGold)
                                 .padding(.horizontal, 12).padding(.vertical, 8)
                                 .background(Color.stockedGold.opacity(0.12))
@@ -607,7 +626,9 @@ struct CookNowHomeView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .stockedScrollTargetLayout()
             }
+            .stockedHorizontalSnap()
         }
         .padding(.horizontal, CookStyle.screenHPad)
         .task { recomputeChips() }
@@ -622,20 +643,20 @@ struct CookNowHomeView: View {
                 ZStack {
                     Circle().fill(Color.stockedGold.opacity(0.14)).frame(width: 38, height: 38)
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Refresh Kitchen")
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .scaledFont(14.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Confirm a few items to improve tonight's matches.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(12, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
@@ -652,7 +673,7 @@ struct CookNowHomeView: View {
     private var pathwaySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("How do you want to cook?")
-                .font(.system(size: 15, weight: .bold, design: .serif))
+                .scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
 
             // Broadest entry: begin with any item and decide what to do with it.
@@ -676,7 +697,7 @@ struct CookNowHomeView: View {
     private var workspaceHubSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("More ways in")
-                .font(.system(size: 15, weight: .bold, design: .serif))
+                .scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             pathwayRow(emoji: "✅", asset: "cook_row_makeable_now", title: "Makeable Now",
                        subtitle: "Browse entrées, sides, and meals you can make right now.") { goMakeableNow = true }

@@ -18,7 +18,7 @@ struct LiveInventoryZoneView: View {
             if items.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray")
-                        .font(.system(size: 36))
+                        .scaledFont(36)
                         .foregroundStyle(session.themeTextColor.opacity(0.2))
                     Text("No items in \(zoneName)")
                         .font(.stockedSans(14))
@@ -71,7 +71,7 @@ struct LiveInventoryItemCard: View {
                         .foregroundStyle(session.themeTextColor)
                     if item.hasStash {
                         Text("✦")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(Color.stockedGold)
                     }
                 }
@@ -111,7 +111,11 @@ struct LiveInventoryItemCard: View {
                     SpatialTapGesture()
                         .onEnded { value in
                             let frac = min(1, max(0, value.location.x / 80))
-                            let snapped = (frac * 20).rounded() / 20   // snap to 5%
+                            let snapped = StockedVelocitySnapPolicy().magneticValue(
+                                frac,
+                                increment: 0.05,
+                                bounds: 0...1
+                            )
                             session.guestStore.updateInventoryLevel(id: item.id, level: snapped)
                             HapticManager.light()
                         }
@@ -124,7 +128,11 @@ struct LiveInventoryItemCard: View {
                         }
                         .onEnded { _ in
                             if let final = dragLevel {
-                                let snapped = (final * 20).rounded() / 20   // snap to 5%
+                                let snapped = StockedVelocitySnapPolicy().magneticValue(
+                                    final,
+                                    increment: 0.05,
+                                    bounds: 0...1
+                                )
                                 session.guestStore.updateInventoryLevel(id: item.id, level: snapped)
                                 HapticManager.light()
                             }
@@ -281,7 +289,7 @@ struct StashView: View {
                         Button { moveModal = item } label: {
                             VStack(spacing: 8) {
                                 Text("✦")
-                                    .font(.system(size: 22))
+                                    .scaledFont(22)
                                     .foregroundStyle(Color.stockedGold)
                                 Text(item.name)
                                     .font(.stockedSans(14, weight: .semibold))

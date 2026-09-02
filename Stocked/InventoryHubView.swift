@@ -92,16 +92,16 @@ struct InventoryHubView: View {
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(Color.stockedGold).frame(width: 34, height: 34)
                                 Image(systemName: "fork.knife.circle.fill")
-                                    .font(.system(size: 16)).foregroundStyle(Color.stockedCharcoal)
+                                    .scaledFont(16).foregroundStyle(Color.stockedCharcoal)
                             }
                             VStack(alignment: .leading, spacing: 1) {
                                 Text("Find meals from inventory")
-                                    .font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
+                                    .scaledFont(13.5, weight: .bold).foregroundStyle(session.themeTextColor)
                                 Text("Scans every available item, saved recipe, and substitution")
-                                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
                             Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "chevron.right").scaledFont(12, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.35))
                         }
                         .padding(10)
@@ -115,14 +115,14 @@ struct InventoryHubView: View {
                         HStack(spacing: 10) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.15)).frame(width: 34, height: 34)
-                                Image(systemName: "sparkles").font(.system(size: 14)).foregroundStyle(Color.stockedGold)
+                                Image(systemName: "sparkles").scaledFont(14).foregroundStyle(Color.stockedGold)
                             }
                             VStack(alignment: .leading, spacing: 1) {
-                                Text("Inventory Assistant").font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
-                                Text("Update, remove, or clear items by asking").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text("Inventory Assistant").scaledFont(13.5, weight: .bold).foregroundStyle(session.themeTextColor)
+                                Text("Update, remove, or clear items by asking").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
                             Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                            Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.35))
                         }
                         .padding(10)
                         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
@@ -137,6 +137,7 @@ struct InventoryHubView: View {
                         .coachmarkAnchor("inv.expiring")
                 }
             }
+            .stockedSnapTargetLayout()
             .padding(.horizontal, 20)
             .padding(.top, 6)
             .padding(.bottom, 110)
@@ -168,7 +169,7 @@ struct InventoryHubView: View {
         .overlay(alignment: .bottom) {
             if let toast = planToast {
                 Text(toast)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(Capsule().fill(Color.stockedCharcoal))
@@ -198,7 +199,13 @@ struct InventoryHubView: View {
         // RL-006 — reservations are derived: re-check whenever the plan or the
         // inventory moves. refreshIfNeeded is revision-keyed, so this is free
         // when nothing changed and idempotent when it did.
-        .task { ReservationLedger.shared.refreshIfNeeded(store: session.guestStore) }
+        .task {
+            // Present Inventory's first frame before reconciling meal-plan reservations.
+            // Large restored kitchens previously performed this synchronous revision
+            // pass during tab construction and could trip the main-thread watchdog.
+            await Task.yield()
+            ReservationLedger.shared.refreshIfNeeded(store: session.guestStore)
+        }
         .onChange(of: session.guestStore.inventoryRevision) { _, _ in
             ReservationLedger.shared.refreshIfNeeded(store: session.guestStore)
         }
@@ -219,21 +226,21 @@ struct InventoryHubView: View {
                 HStack(spacing: 10) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.15)).frame(width: 34, height: 34)
-                        Image(systemName: "calendar.badge.clock").font(.system(size: 14)).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "calendar.badge.clock").scaledFont(14).foregroundStyle(Color.stockedGold)
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(snap.breakdowns.count) item\(snap.breakdowns.count == 1 ? "" : "s") reserved for planned meals")
-                            .font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
+                            .scaledFont(13.5, weight: .bold).foregroundStyle(session.themeTextColor)
                         Text(snap.conflicts.isEmpty
                              ? "Everything else is available to cook"
                              : "\(snap.conflicts.count) future meal\(snap.conflicts.count == 1 ? "" : "s") short — tap to review")
-                            .font(.system(size: 11))
+                            .scaledFont(11)
                             .foregroundStyle(snap.conflicts.isEmpty
                                              ? session.themeTextColor.opacity(0.5)
                                              : Color.stockedError.opacity(0.85))
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                    Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
                 .padding(10)
                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
@@ -254,16 +261,16 @@ struct InventoryHubView: View {
                 ZStack {
                     Circle().fill(Color.stockedGold.opacity(0.14)).frame(width: 76, height: 76)
                     Image(systemName: "refrigerator")
-                        .font(.system(size: 32, weight: .medium))
+                        .scaledFont(32, weight: .medium)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .padding(.top, 8)
 
                 Text("Your kitchen is empty")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text("Add a few staples to get started — we'll instantly show meals you can cook and recipes worth a look.")
-                    .font(.system(size: 14))
+                    .scaledFont(14)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
@@ -271,7 +278,7 @@ struct InventoryHubView: View {
                 // Preview of what gets added.
                 FlowLayout(items: Array(StarterStaples.all.prefix(8).map(\.name))) { name in
                     Text(name)
-                        .font(.system(size: 11.5, weight: .medium))
+                        .scaledFont(11.5, weight: .medium)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(session.themeTextColor.opacity(0.07))
@@ -289,9 +296,9 @@ struct InventoryHubView: View {
                     seeding = false
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "sparkles").font(.system(size: 14, weight: .semibold))
+                        Image(systemName: "sparkles").scaledFont(14, weight: .semibold)
                         Text("Stock \(StarterStaples.all.count) common staples")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                     }
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity)
@@ -304,7 +311,7 @@ struct InventoryHubView: View {
 
                 Button { showAddItem = true } label: {
                     Text("Add an item by hand")
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .buttonStyle(.plain)
@@ -325,16 +332,16 @@ struct InventoryHubView: View {
     private var inlineSearchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.45))
             TextField("Search inventory", text: $searchText)
-                .font(.system(size: 15))
+                .scaledFont(15)
                 .foregroundStyle(session.themeTextColor)
                 .autocorrectionDisabled()
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
+                        .scaledFont(15)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
             }
@@ -380,10 +387,10 @@ struct InventoryHubView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Inventory Status")
-                    .font(.system(size: 13.5, weight: .medium))
+                    .scaledFont(13.5, weight: .medium)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                 Text("\(session.guestStore.stockPercent)% Stocked")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
 
                 GeometryProxyFreeBar(fraction: Double(session.guestStore.stockPercent) / 100.0)
@@ -408,11 +415,11 @@ struct InventoryHubView: View {
             } label: {
                 HStack {
                     Text("View details")
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .scaledFont(14.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
                 .padding(.horizontal, 18).padding(.vertical, 14)
@@ -429,10 +436,10 @@ struct InventoryHubView: View {
     private func statusColumn(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label)
-                .font(.system(size: 12.5))
+                .scaledFont(12.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
             Text(value)
-                .font(.system(size: 17, weight: .bold))
+                .scaledFont(17, weight: .bold)
                 .foregroundStyle(session.themeTextColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -443,7 +450,7 @@ struct InventoryHubView: View {
     private var categoriesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Categories")
-                .font(.system(size: 17, weight: .bold, design: .serif))
+                .scaledFont(17, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
 
             // #3 — classify each item ONCE into a count map, then hand each card its
@@ -474,17 +481,17 @@ struct InventoryHubView: View {
                         .fill(cat.tint.opacity(0.14))
                         .frame(width: 40, height: 40)
                     Image(systemName: cat.icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .scaledFont(16, weight: .semibold)
                         .foregroundStyle(cat.tint)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(cat.title)
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .scaledFont(14.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     Text("\(count) item\(count == 1 ? "" : "s")")
-                        .font(.system(size: 12.5))
+                        .scaledFont(12.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 Spacer(minLength: 0)
@@ -505,11 +512,11 @@ struct InventoryHubView: View {
         Button { goAllInventory = true } label: {
             HStack {
                 Text("View all inventory")
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(15, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(12, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
             }
             .padding(.horizontal, 18).padding(.vertical, 16)
@@ -530,19 +537,19 @@ struct InventoryHubView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Expiring Soon")
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 if !expiringItems.isEmpty {
                     Button("View All") { goExpiringList = true }
-                        .font(.system(size: 13.5, weight: .semibold))
+                        .scaledFont(13.5, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }
 
             if preview.isEmpty {
                 Text("Nothing expiring in the next few days. Your kitchen's in good shape.")
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .padding(.vertical, 4)
             } else {
@@ -585,22 +592,23 @@ private struct ExpiringPreviewRow: View {
                     Circle()
                         .fill(Color.stockedBg.opacity(0.8))
                         .frame(width: 38, height: 38)
-                    if let data = item.imageData, let ui = UIImage(data: data) {
-                        Image(uiImage: ui)
-                            .resizable().scaledToFill()
-                            .frame(width: 38, height: 38)
-                            .clipShape(Circle())
-                    } else {
+                    CachedLocalDataImage(
+                        data: item.imageData,
+                        maxDimension: 38,
+                        width: 38,
+                        height: 38,
+                        clip: .circle
+                    ) {
                         FoodIconView(name: item.name, size: 34, emojiSize: 19)
                     }
                 }
                 Text(item.name.displayNormalized)
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(15, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Text(expiryText)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .scaledFont(12.5, weight: .medium)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
             }
             .padding(.horizontal, 14).padding(.vertical, 13)
@@ -815,14 +823,14 @@ struct CategoryItemsView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 10) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 17, weight: .semibold))
+                        .scaledFont(17, weight: .semibold)
                         .foregroundStyle(category.tint)
                     Text(category.title)
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Text("\(items.count) item\(items.count == 1 ? "" : "s")")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                     // #FB — view options menu (detail / compact / icon grid).
                     Menu {
@@ -836,7 +844,7 @@ struct CategoryItemsView: View {
                         }
                     } label: {
                         Image(systemName: viewMode.icon)
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(Color.stockedGold)
                             .padding(8)
                             .background(Color.stockedGold.opacity(0.12))
@@ -857,10 +865,10 @@ struct CategoryItemsView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
                                 Text(name)
-                                    .font(.system(size: 15, weight: .bold, design: .serif))
+                                    .scaledFont(15, weight: .bold, design: .serif)
                                     .foregroundStyle(session.themeTextColor.opacity(0.8))
                                 Text("\(groupItems.count)")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .scaledFont(11, weight: .bold)
                                     .foregroundStyle(category.tint)
                             }
                             switch viewMode {
@@ -906,22 +914,22 @@ struct CategoryItemsView: View {
             HStack(spacing: 10) {
                 FoodIconView(name: item.name, size: 24, emojiSize: 15)
                 Text(item.name.displayNormalized)
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
                 Spacer(minLength: 6)
                 if let d = item.daysUntilExpiry, d <= KitchenThresholds.expiringSoonDays {
                     Text(d < 0 ? "Expired" : d == 0 ? "Today" : "\(d)d")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                         .foregroundStyle(d <= 1 ? Color.red.opacity(0.85) : session.themeTextColor.opacity(0.78))
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                         .fixedSize()
                 }
                 Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .scaledFont(11.5, weight: .semibold)
                     .foregroundStyle(item.level >= 0.33 ? Color.stockedGreen : Color.stockedGold)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                     .fixedSize()
             }
             .padding(.horizontal, 14).padding(.vertical, 9)
@@ -947,11 +955,11 @@ struct CategoryItemsView: View {
                     }
                 }
                 Text(item.name.displayNormalized)
-                    .font(.system(size: 11, weight: .medium))
+                    .scaledFont(11, weight: .medium)
                     .foregroundStyle(session.themeTextColor)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .scaledFont(9.5, weight: .semibold)
                     .foregroundStyle(item.level >= 0.33 ? Color.stockedGreen : Color.stockedGold)
             }
         }
@@ -975,10 +983,10 @@ struct ExpiringSoonListView: View {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Expiring Soon")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Use these first to avoid waste.")
-                        .font(.system(size: 13.5))
+                        .scaledFont(13.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 .padding(.top, 4)

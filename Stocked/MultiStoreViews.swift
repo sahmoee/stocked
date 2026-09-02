@@ -75,11 +75,11 @@ struct MultiStoreSegmentFooter: View {
         Button(action: onTransfer) {
             HStack(spacing: 7) {
                 Image(systemName: isComplete ? "checkmark.seal.fill" : "shippingbox")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(12, weight: .semibold)
                 Text(isComplete
                      ? "\(storeName) done — move \(itemCount) to Pantry"
                      : "Move \(itemCount) from \(storeName) to Pantry")
-                    .font(.system(size: 12.5, weight: .semibold, design: .serif))
+                    .scaledFont(12.5, weight: .semibold, design: .serif)
             }
             .foregroundStyle(isComplete ? Color.stockedGreen : Color.stockedGold)
             .frame(maxWidth: .infinity)

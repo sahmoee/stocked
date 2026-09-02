@@ -21,17 +21,17 @@ struct IngredientFormRow: View {
                     HStack(spacing: 8) {
                         TappableEditText(text: $ingredient.name, mode: .food, font: .system(size: 14, weight: .semibold))
                         if !ingredient.amount.isEmpty {
-                            Text(ingredient.amount).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text(ingredient.amount).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                     }
                     if let brand = ingredient.brand {
-                        Text(brand).font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+                        Text(brand).scaledFont(11).foregroundStyle(Color.stockedGold)
                     }
                 }
                 Spacer()
                 Button { withAnimation { expanded.toggle() } } label: {
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                 }.buttonStyle(.plain)
                 Button(action: onDelete) {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.red.opacity(0.5))
@@ -43,11 +43,11 @@ struct IngredientFormRow: View {
                     let brands = BrandDatabase.allBrandNames(for: ingredient.name)
                     if !brands.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Brand").font(.system(size: 11, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            Text("Brand").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.4))
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     Button { ingredient.brand = nil } label: {
-                                        Text("None").font(.system(size: 12, weight: .semibold))
+                                        Text("None").scaledFont(12, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                             .padding(.horizontal, 12).padding(.vertical, 10)
                                             .background(ingredient.brand == nil ? Color.stockedGold : Color.stockedWhite.opacity(0.4))
@@ -58,7 +58,7 @@ struct IngredientFormRow: View {
                                             ingredient.brand = b
                                             ingredient.nutrition = BrandDatabase.brands(for: ingredient.name).first { $0.brand == b }?.nutrition.toFacts()
                                         } label: {
-                                            Text(b).font(.system(size: 12, weight: .semibold))
+                                            Text(b).scaledFont(12, weight: .semibold)
                                                 .foregroundStyle(session.themeTextColor)
                                                 .padding(.horizontal, 12).padding(.vertical, 10)
                                                 .background(ingredient.brand == b ? Color.stockedGold : Color.stockedWhite.opacity(0.4))
@@ -73,7 +73,7 @@ struct IngredientFormRow: View {
                     }
                     if let n = ingredient.nutrition {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Nutrition (\(n.servingSize))").font(.system(size: 11, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            Text("Nutrition (\(n.servingSize))").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.4))
                             HStack(spacing: 16) {
                                 nutriLabel("Cal", "\(n.calories)")
                                 nutriLabel("Fat", "\(n.totalFat)g")
@@ -84,7 +84,7 @@ struct IngredientFormRow: View {
                         }
                     }
                     Toggle("Optional ingredient", isOn: $ingredient.isOptional)
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor).tint(Color.stockedGold)
+                        .scaledFont(13).foregroundStyle(session.themeTextColor).tint(Color.stockedGold)
                 }
                 .padding(.horizontal, 14).padding(.bottom, 14)
             }
@@ -93,8 +93,8 @@ struct IngredientFormRow: View {
 
     private func nutriLabel(_ label: String, _ value: String) -> some View {
         VStack(spacing: 1) {
-            Text(value).font(.system(size: 12, weight: .bold)).foregroundStyle(session.themeTextColor)
-            Text(label).font(.system(size: 9)).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(value).scaledFont(12, weight: .bold).foregroundStyle(session.themeTextColor)
+            Text(label).scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.45))
         }
     }
 }
@@ -133,7 +133,7 @@ struct IngredientPickerSheet: View {
                         Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
                         TextField("Search ingredients…", text: $searchText)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                            .font(.system(size: 15)).dynamicTypeSize(.xSmall ... .xxxLarge).foregroundStyle(session.themeTextColor)
+                            .scaledFont(15).foregroundStyle(session.themeTextColor)
                         if !searchText.isEmpty {
                             Button { searchText = "" } label: {
                                 Image(systemName: "xmark.circle.fill").foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -150,8 +150,8 @@ struct IngredientPickerSheet: View {
                                 ForEach(Array(Set(kb.ingredients.map(\.category))).sorted(), id: \.self) { cat in
                                     Button { selectedCat = cat } label: {
                                         VStack(spacing: 5) {
-                                            Text(catEmoji(cat)).font(.system(size: 26))
-                                            Text(cat).font(.system(size: 11, weight: .semibold))
+                                            Text(catEmoji(cat)).scaledFont(26)
+                                            Text(cat).scaledFont(11, weight: .semibold)
                                                 .foregroundStyle(session.themeTextColor).multilineTextAlignment(.center)
                                         }
                                         .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -161,8 +161,8 @@ struct IngredientPickerSheet: View {
                                 // Custom
                                 Button { showForm = true } label: {
                                     VStack(spacing: 5) {
-                                        Text("✏️").font(.system(size: 26))
-                                        Text("Custom").font(.system(size: 11, weight: .semibold))
+                                        Text("✏️").scaledFont(26)
+                                        Text("Custom").scaledFont(11, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                     }
                                     .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -175,8 +175,8 @@ struct IngredientPickerSheet: View {
                             HStack {
                                 Button { selectedCat = nil } label: {
                                     HStack(spacing: 6) {
-                                        Image(systemName: "chevron.left").font(.system(size: 13))
-                                        Text(selectedCat ?? "").font(.system(size: 14, weight: .semibold))
+                                        Image(systemName: "chevron.left").scaledFont(13)
+                                        Text(selectedCat ?? "").scaledFont(14, weight: .semibold)
                                     }.foregroundStyle(Color.stockedGold)
                                 }.buttonStyle(.plain)
                                 Spacer()
@@ -192,17 +192,17 @@ struct IngredientPickerSheet: View {
                                         showForm = true
                                     } label: {
                                         HStack(spacing: 14) {
-                                            Text(entry.emoji).font(.system(size: 22))
+                                            Text(entry.emoji).scaledFont(22)
                                             VStack(alignment: .leading, spacing: 10) {
-                                                Text(entry.name).font(.system(size: 15, weight: .semibold)).dynamicTypeSize(.xSmall ... .xxxLarge).foregroundStyle(session.themeTextColor)
+                                                Text(entry.name).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
                                                 let brands = BrandDatabase.allBrandNames(for: entry.name)
                                                 if !brands.isEmpty {
                                                     Text(brands.prefix(3).joined(separator: ", "))
-                                                        .font(.system(size: 10)).foregroundStyle(Color.stockedGold)
+                                                        .scaledFont(10).foregroundStyle(Color.stockedGold)
                                                 }
                                             }
                                             Spacer()
-                                            Image(systemName: "plus.circle.fill").font(.system(size: 20)).foregroundStyle(Color.stockedGold)
+                                            Image(systemName: "plus.circle.fill").scaledFont(20).foregroundStyle(Color.stockedGold)
                                         }
                                         .padding(.horizontal, 20).padding(.vertical, 12)
                                         .background(Color.clear).contentShape(Rectangle())
@@ -262,7 +262,7 @@ struct IngredientDetailForm: View {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2)).frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 20)
                 Text(name.isEmpty ? "Custom Ingredient" : name)
-                    .font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor).padding(.bottom, 20)
+                    .scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor).padding(.bottom, 20)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 14) {
@@ -273,18 +273,18 @@ struct IngredientDetailForm: View {
 
                         if !availableBrands.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("Brand").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text("Brand").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 8) {
                                         Button { brand = nil } label: {
-                                            Text("Any").font(.system(size: 12, weight: .semibold))
+                                            Text("Any").scaledFont(12, weight: .semibold)
                                                 .foregroundStyle(session.themeTextColor)
                                                 .padding(.horizontal, 14).padding(.vertical, 11)
                                                 .background(brand == nil ? Color.stockedGold : Color.stockedWhite.opacity(0.4)).clipShape(Capsule())
                                         }.buttonStyle(.plain)
                                         ForEach(availableBrands, id: \.self) { b in
                                             Button { brand = b } label: {
-                                                Text(b).font(.system(size: 12, weight: .semibold))
+                                                Text(b).scaledFont(12, weight: .semibold)
                                                     .foregroundStyle(session.themeTextColor)
                                                     .padding(.horizontal, 14).padding(.vertical, 11)
                                                     .background(brand == b ? Color.stockedGold : Color.stockedWhite.opacity(0.4)).clipShape(Capsule())
@@ -307,7 +307,7 @@ struct IngredientDetailForm: View {
 
                         formInput("Notes (optional, e.g. finely chopped)", text: $notes)
                         Toggle("Optional ingredient", isOn: $isOptional)
-                            .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                            .scaledFont(14).foregroundStyle(session.themeTextColor)
                             .tint(Color.stockedGold).padding(.horizontal, 28)
 
                         Button {
@@ -315,7 +315,7 @@ struct IngredientDetailForm: View {
                             onSave()
                         } label: {
                             Text("Add Ingredient")
-                                .font(.system(size: 16, weight: .semibold, design: .serif)).foregroundStyle(Color.stockedWhite)
+                                .scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 15)
                                 .background(name.isEmpty ? Color.stockedCharcoal.opacity(0.4) : Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                         }.disabled(name.isEmpty).buttonStyle(.plain).padding(.horizontal, 28)
@@ -330,13 +330,13 @@ struct IngredientDetailForm: View {
 
     private func formInput(_ ph: String, text: Binding<String>) -> some View {
         FoodPredictiveTextField(placeholder: ph, text: text)
-            .font(.system(size: 14)).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+            .scaledFont(14).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
             .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 28)
     }
     private func nutriPill(_ label: String, _ val: String) -> some View {
         VStack(spacing: 1) {
-            Text(val).font(.system(size: 12, weight: .bold)).foregroundStyle(session.themeTextColor)
-            Text(label).font(.system(size: 9)).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(val).scaledFont(12, weight: .bold).foregroundStyle(session.themeTextColor)
+            Text(label).scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.45))
         }
     }
 }

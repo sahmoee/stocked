@@ -32,6 +32,9 @@ final class SharedGroceryCatalog {
     private(set) var records: [Record] = []
     private var byItem: [String: [Record]] = [:]
     private let cacheURL: URL
+    private var isRefreshing = false
+    private let refreshKey = "sharedCatalog.lastRefresh.v2"
+    private let cursorKey = "sharedCatalog.pageCursor.v2"
 
     private init() {
         let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -44,32 +47,50 @@ final class SharedGroceryCatalog {
     }
 
     func refreshIfNeeded() async {
-        let last = UserDefaults.standard.object(forKey: "sharedCatalog.lastRefresh.v1") as? Date ?? .distantPast
-        guard Date().timeIntervalSince(last) > 900, StockedUnifiedWorker.isConfigured else { return }
+        let last = UserDefaults.standard.object(forKey: refreshKey) as? Date ?? .distantPast
+        guard !isRefreshing,
+              Date().timeIntervalSince(last) > 3_600,
+              StockedUnifiedWorker.isConfigured else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         do {
             let first = try await fetch(page: 0)
             var incoming = first.page.records
             if first.meta.totalPages > 1 {
-                // Fetch every bounded Worker page with modest concurrency. This keeps the
-                // full reference catalog available without serially blocking app launch.
+                // Rotate through a small window instead of opening a connection for every
+                // catalog page at launch. The verified disk mirror accumulates pages over
+                // time, while each visit performs at most four additional requests.
+                let pageCount = min(4, first.meta.totalPages - 1)
+                let storedCursor = max(1, UserDefaults.standard.integer(forKey: cursorKey))
+                let pages = (0..<pageCount).map { offset in
+                    1 + ((storedCursor - 1 + offset) % (first.meta.totalPages - 1))
+                }
                 let pageRecords = try await withThrowingTaskGroup(of: (Int, [Record]).self) { group in
-                    var next = 1
-                    let initial = min(6, first.meta.totalPages - 1)
-                    for _ in 0..<initial { let page = next; next += 1; group.addTask { (page, try await self.fetch(page: page).page.records) } }
                     var result: [(Int, [Record])] = []
+                    var iterator = pages.makeIterator()
+                    for _ in 0..<min(2, pages.count) {
+                        if let page = iterator.next() {
+                            group.addTask { (page, try await self.fetch(page: page).page.records) }
+                        }
+                    }
                     while let value = try await group.next() {
                         result.append(value)
-                        if next < first.meta.totalPages { let page = next; next += 1; group.addTask { (page, try await self.fetch(page: page).page.records) } }
+                        if let page = iterator.next() {
+                            group.addTask { (page, try await self.fetch(page: page).page.records) }
+                        }
                     }
                     return result.sorted { $0.0 < $1.0 }.flatMap(\.1)
                 }
                 incoming += pageRecords
+                let nextCursor = 1 + ((pages.last ?? storedCursor) % (first.meta.totalPages - 1))
+                UserDefaults.standard.set(nextCursor, forKey: cursorKey)
             }
-            var seen = Set<String>()
-            records = incoming.filter { seen.insert($0.id).inserted }
+            var merged = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
+            for record in incoming { merged[record.id] = record }
+            records = merged.values.sorted { $0.id < $1.id }
             rebuildIndex()
             if let data = try? JSONEncoder().encode(records) { try? data.write(to: cacheURL, options: .atomic) }
-            UserDefaults.standard.set(Date(), forKey: "sharedCatalog.lastRefresh.v1")
+            UserDefaults.standard.set(Date(), forKey: refreshKey)
         } catch {
             // The last verified disk mirror remains available offline.
         }
@@ -95,7 +116,7 @@ final class SharedGroceryCatalog {
         }
         components.queryItems = [URLQueryItem(name: "page", value: String(page))]
         guard let url = components.url else { throw URLError(.badURL) }
-        var request = URLRequest(url: url); request.timeoutInterval = 30
+        var request = URLRequest(url: url); request.timeoutInterval = 15
         BuildConfig.authorizeWorkerRequest(&request)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw URLError(.badServerResponse) }

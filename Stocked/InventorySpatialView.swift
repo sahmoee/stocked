@@ -20,6 +20,7 @@ private let zoneIcons: [String: String] = [
 
 struct InventorySpatialView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     @State private var currentZoneIndex = 0
 
     private var store: GuestDataStore { session.guestStore }
@@ -40,11 +41,11 @@ struct InventorySpatialView: View {
             HStack(spacing: 8) {
                 ForEach(Array(zones.enumerated()), id: \.offset) { i, zone in
                     Button {
-                        withAnimation(.spring(response: 0.35)) { currentZoneIndex = i }
+                        motion.animate(.navigation, intent: .spatial) { currentZoneIndex = i }
                     } label: {
                         HStack(spacing: 5) {
-                            Text(zoneIcons[zone] ?? "📦").font(.system(size: 13))
-                            Text(zone).font(.system(size: 12, weight: currentZoneIndex == i ? .bold : .medium, design: .serif))
+                            Text(zoneIcons[zone] ?? "📦").scaledFont(13)
+                            Text(zone).font(.stockedSystem(size: 12, weight: currentZoneIndex == i ? .bold : .medium, design: .serif))
                                 .foregroundStyle(currentZoneIndex == i ? Color.stockedWhite : session.themeTextColor.opacity(0.55))
                         }
                         .padding(.horizontal, 12).padding(.vertical, 7)
@@ -65,7 +66,7 @@ struct InventorySpatialView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 320)
-            .animation(.spring(response: 0.35), value: currentZoneIndex)
+            .stockedAnimation(.navigation, intent: .spatial, value: currentZoneIndex)
 
             // Swipe hint
             HStack(spacing: 6) {
@@ -73,7 +74,7 @@ struct InventorySpatialView: View {
                     Circle()
                         .fill(i == currentZoneIndex ? Color.stockedGold : Color.stockedCharcoal.opacity(0.2))
                         .frame(width: i == currentZoneIndex ? 16 : 6, height: 6)
-                        .animation(.spring(response: 0.3), value: currentZoneIndex)
+                        .stockedAnimation(.standard, intent: .spatial, value: currentZoneIndex)
                 }
             }
             .padding(.top, 10)
@@ -91,16 +92,16 @@ struct InventorySpatialView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(zoneIcons[zone] ?? "📦").font(.system(size: 22))
+                        Text(zoneIcons[zone] ?? "📦").scaledFont(22)
                         Text(zone)
-                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .scaledFont(20, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                     }
                     HStack(spacing: 6) {
                         Circle().fill(isEmpty ? Color.stockedCharcoal.opacity(0.3) : stockColor(pct))
                             .frame(width: 7, height: 7)
                         Text(isEmpty ? "Empty — sample items shown" : "\(pct)% Stocked · \(realItems.count) items")
-                            .font(.system(size: 11, weight: .semibold))
+                            .scaledFont(11, weight: .semibold)
                             .foregroundStyle(isEmpty ? session.themeTextColor.opacity(0.4) : stockColor(pct))
                     }
                 }
@@ -126,13 +127,13 @@ struct InventorySpatialView: View {
                                     ? Color.stockedCharcoal.opacity(0.06)
                                     : Color.stockedWhite.opacity(0.5))
                                 .frame(width: 52, height: 52)
-                            Text(item.emoji).font(.system(size: 26))
+                            Text(item.emoji).scaledFont(26)
                                 .opacity(isEmpty ? 0.4 : 1)
                         }
                         Text(item.name)
-                            .font(.system(size: 9, weight: .medium))
+                            .scaledFont(9, weight: .medium)
                             .foregroundStyle(isEmpty ? session.themeTextColor.opacity(0.35) : session.themeTextColor)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: 60)
                     }
                 }
@@ -145,10 +146,10 @@ struct InventorySpatialView: View {
                                 .fill(Color.stockedGold.opacity(0.15))
                                 .frame(width: 52, height: 52)
                             Text("+\(realItems.count - 8)")
-                                .font(.system(size: 14, weight: .bold))
+                                .scaledFont(14, weight: .bold)
                                 .foregroundStyle(Color.stockedGold)
                         }
-                        Text("more").font(.system(size: 9)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        Text("more").scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                 }
             }

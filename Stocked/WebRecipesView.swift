@@ -31,6 +31,9 @@ enum WebSheet: Identifiable {
 
 struct WebRecipesView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedScrollActivity) private var pageScrollActivity
+    @Environment(\.stockedMotion) private var motion
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var manager       = WebRecipeManager.shared
     @State private var searchText    = ""
     @State private var selectedSource: RecipeSource? = nil
@@ -39,6 +42,11 @@ struct WebRecipesView: View {
     @State private var activeSheet: WebSheet? = nil
     @State private var importURL = ""
     @State private var maxCookMinutes: Int? = nil   // #15 cook-time filter (nil = any)
+    @State private var websiteFilterRailPosition: String? = nil
+    @State private var recipeCategoryRailPosition: String? = nil
+    @State private var cookTimeRailPosition: String? = nil
+    @State private var lastApproachingRecipeID: UUID? = nil
+    @State private var prefetchScope = UUID().uuidString
 
     let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
@@ -112,10 +120,10 @@ struct WebRecipesView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Recipe Websites")
-                        .font(.system(size: 14, weight: .bold))
+                        .scaledFont(14, weight: .bold)
                         .foregroundStyle(session.themeTextColor)
                     Text("\(manager.recipes.count) recipes · \(qualifiedSources.count) qualified sources")
-                        .font(.system(size: 10))
+                        .scaledFont(10)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
                 Spacer()
@@ -127,12 +135,12 @@ struct WebRecipesView: View {
                             manager.forceRefreshAll(query: searchText)
                         } label: {
                             Label("Refresh", systemImage: "arrow.clockwise")
-                                .font(.system(size: 12)).foregroundStyle(Color.stockedGold)
+                                .scaledFont(12).foregroundStyle(Color.stockedGold)
                         }.buttonStyle(.plain)
                     }
                     Button { activeSheet = .importURL } label: {
                         Image(systemName: "link.badge.plus")
-                            .font(.system(size: 14)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(14).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                 }
             }
@@ -143,7 +151,7 @@ struct WebRecipesView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                 TextField("Search recipes, cuisines, ingredients…", text: $searchText)
-                    .font(.system(size: 14)).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+                    .scaledFont(14).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -157,94 +165,108 @@ struct WebRecipesView: View {
             .padding(.horizontal, 24).padding(.bottom, 10)
 
             Text("Website categories")
-                .font(.system(size: 10, weight: .bold))
+                .scaledFont(10, weight: .bold)
                 .foregroundStyle(session.themeTextColor.opacity(0.45))
                 .padding(.horizontal, 24).padding(.bottom, 6)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                LazyHStack(spacing: 8) {
                     FilterChip(
                         label: "All",
                         emoji: "🍽️",
                         isSelected: selectedCategory == nil && selectedSource == nil
                     ) {
-                        selectedCategory = nil
-                        selectedSource   = nil
+                        selectWebsiteCategory(nil)
                     }
+                    .id("website-all")
                     ForEach(RecipeSource.SourceCategory.allCases, id: \.self) { cat in
                         FilterChip(
                             label: cat.rawValue,
                             emoji: categoryEmoji(cat),
                             isSelected: selectedCategory == cat && selectedSource == nil
                         ) {
-                            selectedCategory = cat
-                            selectedSource   = nil
+                            selectWebsiteCategory(cat)
                         }
+                        .id("website-\(cat.rawValue)")
                     }
                     Button {
+                        motion.animate(.selection, intent: .spatial) {
+                            websiteFilterRailPosition = "website-sources"
+                        }
                         activeSheet = .sourcePicker
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "slider.horizontal.3")
                             Text(selectedSource?.displayName ?? "Sources")
                         }
-                        .font(.system(size: 12, weight: .medium))
+                        .scaledFont(12, weight: .medium)
                         .padding(.horizontal, 12).padding(.vertical, 7)
                         .background(selectedSource != nil ? Color.stockedGold : Color.stockedWhite.opacity(0.3))
                         .foregroundStyle(selectedSource != nil ? session.themeTextColor : session.themeTextColor.opacity(0.6))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
-                    }.buttonStyle(.plain)
+                    }
+                    .buttonStyle(.plain)
+                    .id("website-sources")
                 }
                 .stockedScrollTargetLayout()
-                .padding(.horizontal, 24)
             }
             .stockedHorizontalSnap()
+            .scrollPosition(id: $websiteFilterRailPosition, anchor: .center)
+            .contentMargins(.horizontal, layoutMetrics.horizontalPadding, for: .scrollContent)
             .padding(.bottom, 8)
 
             let recipeCategories = RecipeFacets.availableCategories(in: facetRecipes)
             if !recipeCategories.isEmpty {
                 Text("Recipe categories")
-                    .font(.system(size: 10, weight: .bold))
+                    .scaledFont(10, weight: .bold)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                     .padding(.horizontal, 24).padding(.bottom, 6)
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    LazyHStack(spacing: 8) {
                         FilterChip(label: "All recipes", emoji: "🍽️", isSelected: selectedRecipeCategory == nil) {
-                            selectedRecipeCategory = nil
+                            selectRecipeCategory(nil)
                         }
+                        .id("recipe-all")
                         ForEach(recipeCategories, id: \.self) { category in
                             FilterChip(label: category, emoji: "🍽️", isSelected: selectedRecipeCategory == category) {
-                                selectedRecipeCategory = selectedRecipeCategory == category ? nil : category
+                                selectRecipeCategory(category)
                             }
+                            .id("recipe-\(category)")
                         }
                     }
                     .stockedScrollTargetLayout()
-                    .padding(.horizontal, 24)
                 }
                 .stockedHorizontalSnap()
+                .scrollPosition(id: $recipeCategoryRailPosition, anchor: .center)
+                .contentMargins(.horizontal, layoutMetrics.horizontalPadding, for: .scrollContent)
                 .padding(.bottom, 8)
             }
 
             // #15 cook-time quick filters
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                LazyHStack(spacing: 8) {
                     FilterChip(label: "Any time", emoji: "⏱️", isSelected: maxCookMinutes == nil) {
-                        maxCookMinutes = nil
+                        selectCookTime(nil)
                     }
+                    .id("time-any")
                     FilterChip(label: "≤ 15 min", emoji: "⚡", isSelected: maxCookMinutes == 15) {
-                        maxCookMinutes = maxCookMinutes == 15 ? nil : 15
+                        selectCookTime(15)
                     }
+                    .id("time-15")
                     FilterChip(label: "≤ 30 min", emoji: "🕧", isSelected: maxCookMinutes == 30) {
-                        maxCookMinutes = maxCookMinutes == 30 ? nil : 30
+                        selectCookTime(30)
                     }
+                    .id("time-30")
                     FilterChip(label: "≤ 60 min", emoji: "🕐", isSelected: maxCookMinutes == 60) {
-                        maxCookMinutes = maxCookMinutes == 60 ? nil : 60
+                        selectCookTime(60)
                     }
+                    .id("time-60")
                 }
                 .stockedScrollTargetLayout()
-                .padding(.horizontal, 24)
             }
             .stockedHorizontalSnap()
+            .scrollPosition(id: $cookTimeRailPosition, anchor: .center)
+            .contentMargins(.horizontal, layoutMetrics.horizontalPadding, for: .scrollContent)
             .padding(.bottom, 12)
 
             // Content
@@ -262,13 +284,47 @@ struct WebRecipesView: View {
                         }
                         .buttonStyle(.plain)
                         .contentShape(Rectangle())
+                        .onAppear {
+                            lastApproachingRecipeID = recipe.id
+                            prefetchImages(
+                                after: recipe.id,
+                                in: displayRecipes,
+                                activity: pageScrollActivity
+                            )
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
-                .animation(.easeInOut(duration: 0.25), value: displayRecipes.count)
+                .stockedAnimation(.selection, intent: .spatial, value: displayRecipes.count)
             }
         }
-        .onAppear { manager.loadIfNeeded() }
+        .onAppear {
+            manager.loadIfNeeded()
+            prefetchInitialImages(displayRecipes, activity: pageScrollActivity)
+        }
+        .onChange(of: pageScrollActivity.phase) { _, phase in
+            guard phase == .idle else {
+                ImageCache.shared.cancelScheduledPrefetch(scope: prefetchScope)
+                return
+            }
+            if let lastApproachingRecipeID {
+                prefetchImages(
+                    after: lastApproachingRecipeID,
+                    in: displayRecipes,
+                    activity: pageScrollActivity
+                )
+            } else {
+                prefetchInitialImages(displayRecipes, activity: pageScrollActivity)
+            }
+        }
+        .onChange(of: displayRecipes.map(\.id)) { _, ids in
+            if let lastApproachingRecipeID, ids.contains(lastApproachingRecipeID) { return }
+            self.lastApproachingRecipeID = ids.first
+            prefetchInitialImages(displayRecipes, activity: pageScrollActivity)
+        }
+        .onDisappear {
+            ImageCache.shared.cancelScheduledPrefetch(scope: prefetchScope)
+        }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case let .detail(recipe):
@@ -311,19 +367,92 @@ struct WebRecipesView: View {
         }
     }
 
+    /// Prefetch a small look-ahead window as lazy recipe cards approach the viewport.
+    /// The active search/filter can contain thousands of recipes, so intentionally avoid
+    /// queueing every image at once.
+    private func prefetchImages(
+        after recipeID: UUID,
+        in recipes: [WebRecipe],
+        activity: StockedScrollActivity
+    ) {
+        let policy = StockedImageWorkPolicy()
+        guard let priority = remotePrefetchPriority(activity: activity, policy: policy) else { return }
+        guard let index = recipes.firstIndex(where: { $0.id == recipeID }) else { return }
+        let visibleRange = index..<min(recipes.endIndex, index + 2)
+        let indexes = policy.candidateIndices(
+            itemCount: recipes.count,
+            visibleRange: visibleRange,
+            axis: .vertical,
+            activity: activity
+        )
+        ImageCache.shared.schedulePrefetch(
+            scope: prefetchScope,
+            urls: indexes.map { recipes[$0].imageURL }.filter { !$0.isEmpty },
+            priority: priority
+        )
+    }
+
+    private func prefetchInitialImages(
+        _ recipes: [WebRecipe],
+        activity: StockedScrollActivity
+    ) {
+        let policy = StockedImageWorkPolicy()
+        guard let priority = remotePrefetchPriority(activity: activity, policy: policy) else { return }
+        ImageCache.shared.schedulePrefetch(
+            scope: prefetchScope,
+            urls: recipes.prefix(6).map(\.imageURL).filter { !$0.isEmpty },
+            priority: priority
+        )
+    }
+
+    private func remotePrefetchPriority(
+        activity: StockedScrollActivity,
+        policy: StockedImageWorkPolicy
+    ) -> TaskPriority? {
+        let directive = policy.directive(
+            for: .init(source: .remote, purpose: .prefetch),
+            activity: activity,
+            remoteAccessAllowed: ConnectivityMonitor.isOnlineFlag
+        )
+        if case let .loadNow(priority) = directive { return priority.taskPriority }
+        return nil
+    }
+
+    private func selectWebsiteCategory(_ category: RecipeSource.SourceCategory?) {
+        motion.animate(.selection, intent: .spatial) {
+            selectedCategory = category
+            selectedSource = nil
+            websiteFilterRailPosition = category.map { "website-\($0.rawValue)" } ?? "website-all"
+        }
+    }
+
+    private func selectRecipeCategory(_ category: String?) {
+        motion.animate(.selection, intent: .spatial) {
+            selectedRecipeCategory = category == selectedRecipeCategory ? nil : category
+            recipeCategoryRailPosition = selectedRecipeCategory.map { "recipe-\($0)" } ?? "recipe-all"
+        }
+    }
+
+    private func selectCookTime(_ minutes: Int?) {
+        motion.animate(.selection, intent: .spatial) {
+            maxCookMinutes = minutes == maxCookMinutes ? nil : minutes
+            cookTimeRailPosition = maxCookMinutes.map { "time-\($0)" } ?? "time-any"
+        }
+    }
+
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "globe").font(.system(size: 36))
+            Image(systemName: "globe").scaledFont(36)
                 .foregroundStyle(session.themeTextColor.opacity(0.2))
             Text("No qualified recipe sources yet")
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(15, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
             Text("Tap Refresh to build complete source libraries. A website appears only after 20 unique full recipes are cached.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
                 .multilineTextAlignment(.center)
             Button { manager.forceRefreshAll() } label: {
                 Text("Load Recipes")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 28).padding(.vertical, 12)
                     .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -335,17 +464,17 @@ struct WebRecipesView: View {
     // #16 distinct error state — separates "couldn't load" from "no matches".
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 16) {
-            Image(systemName: "wifi.exclamationmark").font(.system(size: 36))
+            Image(systemName: "wifi.exclamationmark").scaledFont(36)
                 .foregroundStyle(Color.stockedError.opacity(0.7))
             Text("Couldn't load recipes")
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(15, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.6))
             Text(message)
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
                 .multilineTextAlignment(.center).padding(.horizontal, 32)
             Button { manager.forceRefreshAll(query: searchText) } label: {
                 Label("Retry", systemImage: "arrow.clockwise")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 28).padding(.vertical, 12)
                     .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -380,8 +509,8 @@ struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Text(emoji).font(.system(size: 11))
-                Text(label).font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                Text(emoji).scaledFont(11)
+                Text(label).font(.stockedSystem(size: 12, weight: isSelected ? .semibold : .regular))
             }
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(isSelected ? Color.stockedGold : Color.stockedWhite.opacity(0.3))
@@ -403,7 +532,7 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
             .overlay(alignment: .topLeading) {
                 // Source badge
                 Text(sourceEmoji)
-                    .font(.system(size: 14))
+                    .scaledFont(14)
                     .padding(5)
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -413,7 +542,7 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
                 if !recipe.displayTime.isEmpty {
                     let t = recipe.displayTime
                     Text(t)
-                        .font(.system(size: 10, weight: .semibold))
+                        .scaledFont(10, weight: .semibold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Color.black.opacity(0.55))
@@ -424,29 +553,29 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(recipe.title)
-                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .scaledFont(13, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 4) {
                     Text(recipe.sourceName)
-                        .font(.system(size: 10))
+                        .scaledFont(10)
                         .foregroundStyle(Color.stockedGold)
                     if let r = recipe.rating {
                         Text("·")
-                        Image(systemName: "star.fill").font(.system(size: 8))
+                        Image(systemName: "star.fill").scaledFont(8)
                         Text(String(format: "%.1f", r))
                     }
                     Spacer()
                     if !recipe.difficulty.isEmpty {
                         Text(recipe.difficulty)
-                            .font(.system(size: 9, weight: .medium))
+                            .scaledFont(9, weight: .medium)
                             .foregroundStyle(difficultyColor)
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(difficultyColor.opacity(0.12))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
-                .font(.system(size: 10))
+                .scaledFont(10)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
             }
             .padding(10)
@@ -464,8 +593,8 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
         ZStack {
             Color.stockedGold.opacity(0.8)
             VStack(spacing: 4) {
-                Text(sourceEmoji).font(.system(size: 28))
-                Text(recipe.sourceName).font(.system(size: 9)).foregroundStyle(.white)
+                Text(sourceEmoji).scaledFont(28)
+                Text(recipe.sourceName).scaledFont(9).foregroundStyle(.white)
             }
         }
         .frame(height: 120)
@@ -484,6 +613,7 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
 struct WebRecipeDetailView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedMotion) private var motion
     let recipe: WebRecipe
 
     @State private var addedIngredients   = false
@@ -515,7 +645,7 @@ struct WebRecipeDetailView: View {
                             HStack(spacing: 6) {
                                 Text(RecipeSourceRegistry.source(for: recipe.sourceDomain)?.iconEmoji ?? "🍽️")
                                 Text(recipe.sourceName)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .scaledFont(11, weight: .semibold)
                             }
                             .foregroundStyle(.white)
                             .padding(.horizontal, 10).padding(.vertical, 5)
@@ -527,19 +657,19 @@ struct WebRecipeDetailView: View {
                         // Title block
                         VStack(alignment: .leading, spacing: 10) {
                             Text(recipe.title)
-                                .font(.system(size: 22, weight: .bold, design: .serif))
+                                .scaledFont(22, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
 
                             if !recipe.description.isEmpty {
                                 Text(recipe.description)
-                                    .font(.system(size: 13))
+                                    .scaledFont(13)
                                     .foregroundStyle(session.themeTextColor.opacity(0.6))
-                                    .lineLimit(3)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
 
                             // Quick-stat pills
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
+                                LazyHStack(spacing: 8) {
                                     if !recipe.displayTime.isEmpty {
                                         StatPill(icon: "clock", label: recipe.displayTime)
                                     }
@@ -569,12 +699,12 @@ struct WebRecipeDetailView: View {
                         VStack(spacing: 10) {
                             Button {
                                 autoFillIngredients()
-                                withAnimation(.spring(response: 0.3)) { addedIngredients = true }
+                                motion.animate(.standard) { addedIngredients = true }
                             } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: addedIngredients ? "checkmark.circle.fill" : "cart.badge.plus")
                                     Text(addedIngredients ? "Added to grocery list!" : "Add missing ingredients to list")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                 }
                                 .foregroundStyle(addedIngredients ? Color.stockedGreen : Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -589,7 +719,7 @@ struct WebRecipeDetailView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "flame.fill")
                                     Text("Start Cooking")
-                                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                                        .scaledFont(14, weight: .semibold, design: .serif)
                                 }
                                 .foregroundStyle(Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -620,7 +750,7 @@ struct WebRecipeDetailView: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: addedToCalendar ? "checkmark.circle.fill" : "calendar.badge.plus")
                                     Text(addedToCalendar ? "Planned in Cook Later" : "Plan in Cook Later")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                 }
                                 .foregroundStyle(addedToCalendar ? Color.stockedGold : session.themeTextColor)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -645,12 +775,12 @@ struct WebRecipeDetailView: View {
                                 let srvDigits = recipe.servings.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
                                 if let n = Int(srvDigits), n > 0 { saved.servings = n }
                                 session.guestStore.addUserRecipe(saved)
-                                withAnimation(.spring(response: 0.3)) { savedToCollection = true }
+                                motion.animate(.standard) { savedToCollection = true }
                             } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: savedToCollection ? "checkmark.circle.fill" : "square.and.arrow.down.fill")
                                     Text(savedToCollection ? "Saved to My Collection!" : "Save to My Collection")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                 }
                                 .foregroundStyle(savedToCollection ? Color.stockedGreen : Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -663,7 +793,7 @@ struct WebRecipeDetailView: View {
                                 HStack(spacing: 8) {
                                     Image(systemName: "safari")
                                     Text("View on \(recipe.sourceName)")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .scaledFont(13, weight: .medium)
                                 }
                                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                                 .frame(maxWidth: .infinity).padding(.vertical, 10)
@@ -677,11 +807,11 @@ struct WebRecipeDetailView: View {
                         HStack(spacing: 0) {
                             ForEach(DetailTab.allCases, id: \.self) { tab in
                                 Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) { activeTab = tab }
+                                    motion.animate(.selection) { activeTab = tab }
                                 } label: {
                                     VStack(spacing: 4) {
                                         Text(tab.rawValue)
-                                            .font(.system(size: 13, weight: activeTab == tab ? .semibold : .regular))
+                                            .font(.stockedSystem(size: 13, weight: activeTab == tab ? .semibold : .regular))
                                             .foregroundStyle(activeTab == tab ? Color.stockedGold : session.themeTextColor.opacity(0.5))
                                         Rectangle()
                                             .fill(activeTab == tab ? Color.stockedGold : Color.clear)
@@ -707,6 +837,7 @@ struct WebRecipeDetailView: View {
                         .padding(.bottom, 50)
                     }
                 }
+                .stockedTrackedScrollScope()
             }
             .navigationTitle(recipe.sourceName)
             .navigationBarTitleDisplayMode(.inline)
@@ -719,7 +850,7 @@ struct WebRecipeDetailView: View {
         .sheet(item: $planningContext) { context in
             NavigationStack {
                 CookLaterWorkspaceView(context: context) {
-                    withAnimation(.spring(response: 0.3)) { addedToCalendar = true }
+                    motion.animate(.standard) { addedToCalendar = true }
                 }
                 .environment(session)
             }
@@ -731,7 +862,7 @@ struct WebRecipeDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             if recipe.steps.isEmpty {
                 Text("No step-by-step instructions available for this recipe. Tap \"View on \(recipe.sourceName)\" to see the full recipe.")
-                    .font(.system(size: 14))
+                    .scaledFont(14)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .padding(16)
                     .background(Color.stockedWhite.opacity(0.3))
@@ -749,7 +880,7 @@ struct WebRecipeDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             if recipe.ingredients.isEmpty {
                 Text("Ingredients not available.")
-                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5))
                     .padding(16).background(Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: 14))
             } else {
                 let inventoryLower = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
@@ -758,9 +889,9 @@ struct WebRecipeDetailView: View {
                     HStack(spacing: 12) {
                         Image(systemName: haveIt ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(haveIt ? Color.stockedGreen : Color.stockedGold.opacity(0.6))
-                            .font(.system(size: 16))
+                            .scaledFont(16)
                         Text(ing)
-                            .font(.system(size: 14))
+                            .scaledFont(14)
                             .foregroundStyle(haveIt ? session.themeTextColor.opacity(0.5) : session.themeTextColor)
                         Spacer()
                     }
@@ -790,7 +921,7 @@ struct WebRecipeDetailView: View {
 
             if !recipe.tags.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Tags").font(.system(size: 12, weight: .semibold))
+                    Text("Tags").scaledFont(12, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                     WebRecipeFlowLayout(tags: recipe.tags)
                 }
@@ -831,17 +962,17 @@ struct StepCard: View {
                 Circle().fill(Color.stockedGold)
                     .frame(width: 28, height: 28)
                 Text("\(step.index + 1)")
-                    .font(.system(size: 12, weight: .bold))
+                    .scaledFont(12, weight: .bold)
                     .foregroundStyle(session.themeTextColor)
             }
             VStack(alignment: .leading, spacing: 10) {
                 if let name = step.name, !name.isEmpty {
                     Text(name)
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 Text(step.text)
-                    .font(.system(size: 14))
+                    .scaledFont(14)
                     .foregroundStyle(themeColor.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -857,8 +988,8 @@ struct StatPill: View {
     let label: String
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 10))
-            Text(label).font(.system(size: 11, weight: .medium))
+            Image(systemName: icon).scaledFont(10)
+            Text(label).scaledFont(11, weight: .medium)
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 10).padding(.vertical, 6)
@@ -872,9 +1003,9 @@ struct InfoRow: View {
     let value: String
     var body: some View {
         HStack {
-            Text(label).font(.system(size: 13)).foregroundStyle(.secondary)
+            Text(label).scaledFont(13).foregroundStyle(.secondary)
             Spacer()
-            Text(value).font(.system(size: 13, weight: .medium))
+            Text(value).scaledFont(13, weight: .medium)
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color.stockedWhite.opacity(0.3))
@@ -899,7 +1030,7 @@ struct TagView: View {
     let tag: String
     var body: some View {
         Text(tag)
-            .font(.system(size: 11))
+            .scaledFont(11)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(Color.stockedGold.opacity(0.12))
             .foregroundStyle(Color.stockedGold)
@@ -929,13 +1060,13 @@ struct SourcePickerSheet: View {
                         onManageSources()
                     } label: {
                         Label("Add or Manage Sources", systemImage: "plus.circle")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(Color.stockedGold)
                     }
 
                     if sources.isEmpty {
                         Text("No source has reached 20 complete recipes yet.")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeSecondaryText)
                     }
 
@@ -950,8 +1081,8 @@ struct SourcePickerSheet: View {
                                         HStack {
                                             Text(src.iconEmoji)
                                             VStack(alignment: .leading, spacing: 10) {
-                                                Text(src.displayName).font(.system(size: 14, weight: .medium))
-                                                Text(src.specialty).font(.system(size: 11)).foregroundStyle(.secondary)
+                                                Text(src.displayName).scaledFont(14, weight: .medium)
+                                                Text(src.specialty).scaledFont(11).foregroundStyle(.secondary)
                                             }
                                             Spacer()
                                             if selected?.domain == src.domain {
@@ -994,12 +1125,12 @@ struct URLImportSheet: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Paste a recipe link — a recipe website, or a social post from TikTok, Instagram, YouTube, or Pinterest:")
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
 
                     TextField("https://www.seriouseats.com/recipe-name", text: $url)
                                            .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .padding(12)
                         .background(Color.stockedWhite.opacity(0.4))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -1007,7 +1138,7 @@ struct URLImportSheet: View {
                         .textInputAutocapitalization(.never)
 
                     if let err = errorMsg {
-                        Text(err).font(.system(size: 12)).foregroundStyle(.red)
+                        Text(err).scaledFont(12).foregroundStyle(.red)
                     }
 
                     Button {
@@ -1018,7 +1149,7 @@ struct URLImportSheet: View {
                         HStack {
                             if isLoading { ProgressView().tint(Color.stockedWhite) }
                             Text(isLoading ? "Importing…" : "Import Recipe")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -1028,7 +1159,7 @@ struct URLImportSheet: View {
                     .disabled(url.isEmpty || isLoading)
 
                     Text("Imported recipes are saved locally. A website is added to the source browser only after it has 20 complete recipes.")
-                        .font(.system(size: 10))
+                        .scaledFont(10)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
 
                     Spacer()

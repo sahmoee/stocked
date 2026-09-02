@@ -109,20 +109,23 @@ struct GroceryCartHandoffView: View {
                             Button {
                                 retailer = r; CartRetailer.setPreferred(r); HapticManager.light()
                             } label: {
-                                Text(r.name).font(.system(size: 13, weight: .semibold))
+                                Text(r.name).scaledFont(13, weight: .semibold)
                                     .padding(.horizontal, 14).padding(.vertical, 8)
                                     .background(r.id == retailer.id ? session.accentColor : session.themeTextColor.opacity(0.08))
                                     .foregroundStyle(r.id == retailer.id ? Color.white : session.themeTextColor)
                                     .clipShape(Capsule())
                             }.buttonStyle(.plain)
                         }
-                    }.padding(.horizontal, 18).padding(.vertical, 12)
+                    }
+                    .stockedScrollTargetLayout()
+                    .padding(.horizontal, 18).padding(.vertical, 12)
                 }
+                .stockedHorizontalSnap()
 
                 if items.isEmpty {
                     Spacer()
                     Text("Nothing on the list to shop for.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5))
                     Spacer()
                 } else {
                     List {
@@ -137,7 +140,7 @@ struct GroceryCartHandoffView: View {
                                             .strikethrough(done.contains(item))
                                         Spacer()
                                         Image(systemName: "arrow.up.right.square")
-                                            .font(.system(size: 12))
+                                            .scaledFont(12)
                                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                                     }
                                 }.buttonStyle(.plain)
@@ -152,7 +155,7 @@ struct GroceryCartHandoffView: View {
 
                 Button { openAll() } label: {
                     Text("Open all \(items.count) in \(retailer.name)")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(session.accentColor).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 14))

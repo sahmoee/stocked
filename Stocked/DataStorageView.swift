@@ -53,25 +53,25 @@ struct DataStorageView: View {
                     ForEach(liveCounts, id: \.label) { row in
                         HStack {
                             Text(row.label)
-                                .font(.system(size: 15, weight: .medium))
+                                .scaledFont(15, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
                             Spacer()
                             // app count → migrated count
                             Text("\(row.live)")
                                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                             Image(systemName: "arrow.right")
-                                .font(.system(size: 10))
+                                .scaledFont(10)
                                 .foregroundStyle(session.themeTextColor.opacity(0.3))
                             migratedBadge(for: row.key, live: row.live)
                         }
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .listRowBackground(Color.clear)
                     }
                 } header: {
                     drawerHeaderText("Migration check  (app → new store)")
                 } footer: {
                     Text("Both numbers should match once the new store has copied your data. Your existing data is untouched either way.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
 
@@ -81,7 +81,7 @@ struct DataStorageView: View {
                             .foregroundStyle(session.themeTextColor)
                         Spacer()
                         Text(cacheUsage.totalString)
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(cacheUsage.isLarge ? Color.stockedGold : session.themeSecondaryText)
                     }
                     .listRowBackground(Color.clear)
@@ -94,7 +94,7 @@ struct DataStorageView: View {
 
                     if cacheUsage.isLarge {
                         Label("Cache is getting large. Deleting it frees space; Stocked will download needed content again.", systemImage: "exclamationmark.triangle")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(Color.stockedGold)
                             .listRowBackground(Color.clear)
                     }
@@ -114,7 +114,7 @@ struct DataStorageView: View {
                     drawerHeaderText("Cache")
                 } footer: {
                     Text("Downloaded recipes, nutrition responses, product metadata, and images are cached for faster loading and offline reuse. Your pantry, grocery list, saved recipes, and account data are never deleted here.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
 
@@ -147,14 +147,14 @@ struct DataStorageView: View {
                     drawerHeaderText("Backup")
                 } footer: {
                     Text("A backup is a single JSON file with all your data. Keep one before any big update.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
 
                 if let message {
                     Section {
                         Text(message)
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(message.contains("ouldn't") || message.contains("rror")
                                              ? Color.red : Color.stockedGreen)
                             .listRowBackground(Color.clear)
@@ -195,11 +195,11 @@ struct DataStorageView: View {
     private func cacheRow(_ label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(session.themeTextColor.opacity(0.72))
             Spacer()
             Text(value)
-                .font(.system(size: 12, weight: .medium))
+                .scaledFont(12, weight: .medium)
                 .foregroundStyle(session.themeSecondaryText)
         }
         .listRowBackground(Color.clear)
@@ -222,7 +222,7 @@ struct DataStorageView: View {
         let migrated = sdCounts[key] ?? -1
         let ok = migrated >= live && migrated >= 0
         Text(migrated < 0 ? "—" : "\(migrated)")
-            .font(.system(size: 14, weight: .semibold))
+            .scaledFont(14, weight: .semibold)
             .foregroundStyle(ok ? Color.stockedGreen : Color.stockedGold)
     }
 

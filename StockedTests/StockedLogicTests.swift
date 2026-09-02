@@ -91,6 +91,59 @@ final class StockedLogicTests: XCTestCase {
         XCTAssertEqual(ticket.isFullySynced, !QACPanelSettings.isConfigured)
     }
 
+    func testCurrentLayoutTicketsShipDeviceVerifiableResolutions() {
+        let tickets = [
+            QATicket(number: "STK-89-0088", title: "Ingredients"),
+            QATicket(number: "STK-89-0089", title: "Button size"),
+            QATicket(number: "STK-89-0090", title: "Percentage"),
+        ]
+
+        for ticket in tickets {
+            let resolution = QATicketStore.shippedResolution(for: ticket)
+            XCTAssertNotNil(resolution, "\(ticket.number) must become Fixed in the corrected build")
+            XCTAssertFalse(resolution?.isEmpty ?? true)
+        }
+    }
+
+    @MainActor
+    func testEveryAppTextOptionUsesTheSingleMonotonicTypographyScale() {
+        let scales = AppTextSize.allCases.map {
+            StockedType.appTextScale(for: $0.rawValue)
+        }
+
+        XCTAssertEqual(scales.count, AppTextSize.allCases.count)
+        XCTAssertTrue(zip(scales, scales.dropFirst()).allSatisfy(<))
+    }
+
+    @MainActor
+    func testFontSizeDoesNotChangeControlPlacementPolicy() {
+        let standard = StockedLayoutMetrics(
+            width: 393,
+            height: 852,
+            isAccessibilityText: false,
+            interfaceScale: 1,
+            textScale: 1
+        )
+        let enlarged = StockedLayoutMetrics(
+            width: 393,
+            height: 852,
+            isAccessibilityText: true,
+            interfaceScale: 1,
+            textScale: 2.2
+        )
+
+        let standardPrefersVertical = standard.prefersVerticalControls
+        let enlargedPrefersVertical = enlarged.prefersVerticalControls
+        let standardColumnCount = standard.gridColumns(minimum: 104).count
+        let enlargedColumnCount = enlarged.gridColumns(minimum: 104).count
+        let standardControlHeight = standard.minimumControlHeight
+        let enlargedControlHeight = enlarged.minimumControlHeight
+
+        XCTAssertEqual(standardPrefersVertical, enlargedPrefersVertical)
+        XCTAssertEqual(standardColumnCount, enlargedColumnCount)
+        XCTAssertGreaterThan(enlargedControlHeight, standardControlHeight)
+    }
+
     // MARK: Grocery de-duplication (#17)
 
     @MainActor func testGroceryDedupCollapsesCaseAndAccents() {

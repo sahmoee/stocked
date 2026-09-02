@@ -4,6 +4,7 @@ import SwiftUI
 struct QuizEditView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedMotion) private var motion
 
     // Local copies of all profile fields
     @State private var householdSize:    Int      = 2
@@ -63,7 +64,7 @@ struct QuizEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveAndDismiss() }
-                        .font(.system(size: 15, weight: .bold))
+                        .scaledFont(15, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }
@@ -76,24 +77,24 @@ struct QuizEditView: View {
         let isOpen = expanded == section
         return VStack(spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                motion.animate(.standard, intent: .spatial) {
                     expanded = isOpen ? nil : section
                 }
             } label: {
                 HStack(spacing: 12) {
-                    Text(icon).font(.system(size: 20))
+                    Text(icon).scaledFont(20)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(.system(size: 14, weight: .semibold, design: .serif))
+                            .scaledFont(14, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text(value)
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Image(systemName: isOpen ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .padding(14)
@@ -184,11 +185,11 @@ struct QuizEditView: View {
             ForEach(levels, id: \.1) { emoji, label, desc in
                 Button { skillLevel = label } label: {
                     HStack(spacing: 12) {
-                        Text(emoji).font(.system(size: 20))
+                        Text(emoji).scaledFont(20)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(label).font(.system(size: 13, weight: .semibold, design: .serif))
+                            Text(label).scaledFont(13, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
-                            Text(desc).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text(desc).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
                         if skillLevel == label {
@@ -208,13 +209,13 @@ struct QuizEditView: View {
         let days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun","Any"]
         return VStack(spacing: 10) {
             HStack {
-                Text("Meals per week").font(.system(size: 13, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                Text("Meals per week").scaledFont(13, weight: .semibold).foregroundStyle(session.themeTextColor)
                 Spacer()
-                Text("\(weeklyMeals)").font(.system(size: 14, weight: .bold)).foregroundStyle(Color.stockedGold)
+                Text("\(weeklyMeals)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedGold)
             }
             Slider(value: Binding(get: { Double(weeklyMeals) }, set: { weeklyMeals = Int($0) }), in: 1...21, step: 1)
                 .tint(Color.stockedGold)
-            Text("Grocery day").font(.system(size: 13, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text("Grocery day").scaledFont(13, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
                 .frame(maxWidth: .infinity, alignment: .leading)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
                 ForEach(days, id: \.self) { day in
@@ -244,7 +245,7 @@ struct QuizEditView: View {
     private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 12, weight: selected ? .bold : .medium, design: .serif))
+                .font(.stockedSystem(size: 12, weight: selected ? .bold : .medium, design: .serif))
                 .foregroundStyle(selected ? Color.stockedCharcoal : session.themeTextColor)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 10)

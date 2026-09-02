@@ -144,7 +144,7 @@ struct QAHUDBar: View {
                     .foregroundStyle(.orange)
             }
         }
-        .font(.caption2.monospacedDigit())
+        .font(.stocked(.caption2).monospacedDigit())
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
@@ -161,7 +161,7 @@ struct QAHUDBar: View {
 
     private func stat(_ symbol: String, _ value: String, tint: Color) -> some View {
         HStack(spacing: 3) {
-            Image(systemName: symbol).font(.system(size: 9))
+            Image(systemName: symbol).scaledFont(9)
             Text(value)
         }
         .foregroundStyle(tint)

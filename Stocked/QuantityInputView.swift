@@ -24,7 +24,7 @@ struct QuantityInputView: View {
             HStack {
                 Image(systemName: "text.cursor").foregroundStyle(.secondary)
                 TextField("e.g. 6 cans of 8 oz, half a bag", text: $raw)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(StockedThemedTextFieldStyle())
                     .focused($focused)
                     .onSubmit { apply(raw) }
                 if !raw.isEmpty {
@@ -37,8 +37,8 @@ struct QuantityInputView: View {
             HStack(spacing: 12) {
                 Stepper(value: $quantity.count, in: 0...9999, step: stepSize) {
                     HStack(spacing: 4) {
-                        Text("Qty").foregroundStyle(.secondary).font(.subheadline)
-                        Text(ParsedAmount.trim(quantity.count)).font(.headline.monospacedDigit())
+                        Text("Qty").foregroundStyle(.secondary).font(.stocked(.subheadline))
+                        Text(ParsedAmount.trim(quantity.count)).font(.stocked(.headline).monospacedDigit())
                     }
                 }
                 .fixedSize()
@@ -56,12 +56,12 @@ struct QuantityInputView: View {
 
             // "each amount" (e.g. 6 cans of 8 oz)
             HStack(spacing: 8) {
-                Text("Each").foregroundStyle(.secondary).font(.subheadline)
+                Text("Each").foregroundStyle(.secondary).font(.stocked(.subheadline))
                 TextField("amt", value: Binding(
                     get: { quantity.amountEach ?? 0 },
                     set: { quantity.amountEach = $0 == 0 ? nil : $0 }
                 ), format: .number)
-                    .frame(width: 64).textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 72).textFieldStyle(StockedThemedTextFieldStyle())
                     .multilineTextAlignment(.trailing)
                 Picker("", selection: Binding(
                     get: { quantity.unitEach ?? "" },
@@ -75,7 +75,7 @@ struct QuantityInputView: View {
 
             // Live summary
             Text(quantity.display)
-                .font(.footnote.weight(.medium))
+                .font(.stocked(.footnote).weight(.medium))
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
         }
@@ -108,16 +108,16 @@ struct NaturalQuantityField: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "wand.and.stars")
-                .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                .scaledFont(13).foregroundStyle(Color.stockedGold)
             TextField(placeholder, text: $raw)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .focused($focused)
                 .submitLabel(.done)
                 .onSubmit { apply() }
             if !raw.isEmpty {
                 Button { apply() } label: {
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(18).foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain)
             }
         }

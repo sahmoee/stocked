@@ -585,6 +585,78 @@ struct BrandEntry: Identifiable, Codable {
     }
 }
 
+nonisolated enum BrandPreference: String, Codable, CaseIterable, Sendable {
+    case avoid
+    case neutral
+    case prefer
+    case favorite
+
+    var rankingBoost: Double {
+        switch self {
+        case .avoid: return -0.25
+        case .neutral: return 0
+        case .prefer: return 0.08
+        case .favorite: return 0.14
+        }
+    }
+}
+
+/// Portable user preference payload. Persistence belongs to the existing profile/settings owner;
+/// catalog, substitutions, receipt review, and add flows can all consume the same snapshot.
+nonisolated struct BrandPreferences: Codable, Equatable, Sendable {
+    private(set) var values: [String: BrandPreference] = [:]
+
+    private enum CodingKeys: String, CodingKey { case values }
+
+    init(values: [String: BrandPreference] = [:]) {
+        self.values = values.reduce(into: [String: BrandPreference]()) { result, pair in
+            let key = GroceryKnowledgeBase.normalize(pair.key)
+            if !key.isEmpty { result[key] = pair.value }
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let decoded: [String: BrandPreference]
+        do {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            decoded = try container.decodeIfPresent([String: BrandPreference].self,
+                                                    forKey: .values) ?? [:]
+        } catch {
+            decoded = [:]
+        }
+        self.init(values: decoded)
+    }
+
+    func preference(for brand: String) -> BrandPreference {
+        values[GroceryKnowledgeBase.normalize(brand)] ?? .neutral
+    }
+
+    mutating func set(_ preference: BrandPreference, for brand: String) {
+        let key = GroceryKnowledgeBase.normalize(brand)
+        guard !key.isEmpty else { return }
+        if preference == .neutral { values.removeValue(forKey: key) }
+        else { values[key] = preference }
+    }
+
+    var preferredBrands: Set<String> {
+        Set(values.compactMap { $0.value == .prefer || $0.value == .favorite ? $0.key : nil })
+    }
+
+    var avoidedBrands: Set<String> {
+        Set(values.compactMap { $0.value == .avoid ? $0.key : nil })
+    }
+}
+
+nonisolated struct BrandProfile: Identifiable, Equatable, Sendable {
+    var id: String
+    var displayName: String
+    var knownItems: [String]
+    var retailerIDs: [String]
+    var isPrivateLabel: Bool
+
+    var catalogItemCount: Int { knownItems.count }
+}
+
 struct BrandDatabase {
     static let all: [BrandEntry] = [
         // ── Chicken ──────────────────────────────────────────────────────
@@ -730,6 +802,93 @@ struct BrandDatabase {
         if !exact.isEmpty { return exact }
         let fuzzy = all.filter { $0.itemName.lowercased().contains(lower) || lower.contains($0.itemName.lowercased()) }
         return Array(Set(fuzzy.map(\.brand))).sorted()
+    }
+
+    /// One canonical profile assembled from the existing nutrition, shared catalog, and retailer
+    /// knowledge owners. No parallel brand database is introduced.
+    static func profile(for brand: String) -> BrandProfile? {
+        let key = GroceryKnowledgeBase.normalize(brand)
+        return key.isEmpty ? nil : profileLookup[key]
+    }
+
+    private static let profileLookup: [String: BrandProfile] = {
+        let names = Set(all.map(\.brand) + ProductCatalog.all.map(\.brand)
+                        + GroceryKnowledgeBase.retailers.flatMap(\.privateLabels))
+        return names.reduce(into: [String: BrandProfile]()) { result, brand in
+            let key = GroceryKnowledgeBase.normalize(brand)
+            guard !key.isEmpty, let profile = makeProfile(for: brand, key: key) else { return }
+            result[key] = profile
+        }
+    }()
+
+    private static func makeProfile(for brand: String, key: String) -> BrandProfile? {
+        let catalogEntries = ProductCatalog.all.filter {
+            GroceryKnowledgeBase.normalize($0.brand) == key
+        }
+        let nutritionEntries = all.filter { GroceryKnowledgeBase.normalize($0.brand) == key }
+        let privateLabelRetailers = GroceryKnowledgeBase.retailers.filter { retailer in
+            retailer.privateLabels.contains { GroceryKnowledgeBase.normalize($0) == key }
+        }
+        let names = catalogEntries.map(\.name) + nutritionEntries.map(\.itemName)
+        let display = catalogEntries.first?.brand ?? nutritionEntries.first?.brand
+            ?? privateLabelRetailers.flatMap(\.privateLabels).first {
+                GroceryKnowledgeBase.normalize($0) == key
+            } ?? brand.trimmingCharacters(in: .whitespacesAndNewlines)
+        let items = Array(Set(names)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        guard !items.isEmpty || !privateLabelRetailers.isEmpty else { return nil }
+        return BrandProfile(id: key, displayName: display, knownItems: items,
+                            retailerIDs: privateLabelRetailers.map(\.id).sorted(),
+                            isPrivateLabel: !privateLabelRetailers.isEmpty)
+    }
+
+    static let profiles: [BrandProfile] = profileLookup.values.sorted {
+        $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+    }
+
+    /// Search and rank the canonical profile list for settings and future product pickers.
+    /// Preference changes ordering only; avoided brands are deliberately retained.
+    static func rankedProfiles(matching query: String = "",
+                               preferences: BrandPreferences = BrandPreferences()) -> [BrandProfile] {
+        let normalizedQuery = GroceryKnowledgeBase.normalize(query)
+        func relevance(_ profile: BrandProfile) -> Int {
+            guard !normalizedQuery.isEmpty else { return 0 }
+            let name = GroceryKnowledgeBase.normalize(profile.displayName)
+            if name == normalizedQuery { return 0 }
+            if name.hasPrefix(normalizedQuery) { return 1 }
+            if name.contains(normalizedQuery) { return 2 }
+            return profile.knownItems.contains {
+                GroceryKnowledgeBase.normalize($0).contains(normalizedQuery)
+            } ? 3 : 4
+        }
+        func preferenceRank(_ profile: BrandProfile) -> Int {
+            switch preferences.preference(for: profile.displayName) {
+            case .favorite: return 0
+            case .prefer: return 1
+            case .neutral: return 2
+            case .avoid: return 3
+            }
+        }
+        return profiles
+            .filter { normalizedQuery.isEmpty || relevance($0) < 4 }
+            .sorted { lhs, rhs in
+                let lhsRelevance = relevance(lhs), rhsRelevance = relevance(rhs)
+                if lhsRelevance != rhsRelevance { return lhsRelevance < rhsRelevance }
+                let lhsPreference = preferenceRank(lhs), rhsPreference = preferenceRank(rhs)
+                if lhsPreference != rhsPreference { return lhsPreference < rhsPreference }
+                return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+            }
+    }
+
+    /// Brand suggestions ranked once with the shared preference payload. Avoided brands remain
+    /// visible for review but sort last; no flow silently removes a choice.
+    static func rankedBrands(for itemName: String,
+                             preferences: BrandPreferences = BrandPreferences()) -> [BrandEntry] {
+        brands(for: itemName).sorted { lhs, rhs in
+            let lp = preferences.preference(for: lhs.brand).rankingBoost
+            let rp = preferences.preference(for: rhs.brand).rankingBoost
+            if lp != rp { return lp > rp }
+            return lhs.brand.localizedCaseInsensitiveCompare(rhs.brand) == .orderedAscending
+        }
     }
 
 // ── Brand suggestions by category (for autocomplete, no nutrition data needed)

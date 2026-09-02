@@ -133,9 +133,13 @@ extension View {
 /// too, and they sort first. Defaulted to empty so existing call sites are unaffected.
 @ViewBuilder
 func ingredientQuickMenu(measure: String, name: String,
-                         userEntries: [UserSubstitutionEntry] = []) -> some View {
+                         userEntries: [UserSubstitutionEntry] = [],
+                         brandPreferences: BrandPreferences = BrandPreferences(),
+                         retailerID: String? = nil) -> some View {
     let conv = IngredientIntel.convertTargets(measure: measure, name: name)
-    let subs = SubstitutionEngine.local(for: name, userEntries: userEntries)
+    let subs = SubstitutionEngine.local(for: name, userEntries: userEntries,
+                                        brandPreferences: brandPreferences,
+                                        retailerID: retailerID)
     if !conv.isEmpty {
         Section("Convert") {
             ForEach(conv, id: \.self) { value in
@@ -166,10 +170,14 @@ struct IngredientActionsButton: View {
         if IngredientIntel.hasActions(measure: measure, name: name) {
             Menu {
                 ingredientQuickMenu(measure: measure, name: name,
-                                    userEntries: session.guestStore.userSubstitutions)
+                                    userEntries: session.guestStore.userSubstitutions,
+                                    brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                                    retailerID: GroceryKnowledgeBase.retailer(
+                                        matching: session.preferredStore
+                                    )?.id)
             } label: {
                 Image(systemName: "arrow.left.arrow.right.circle")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(.tertiary)
             }
             .fixedSize()
@@ -181,11 +189,20 @@ struct IngredientActionsButton: View {
 // MARK: - Attach long-press actions to any ingredient view (zero layout change)
 
 private struct IngredientQuickActionsModifier: ViewModifier {
+    @Environment(AppSession.self) private var session
     let measure: String
     let name: String
     func body(content: Content) -> some View {
         if IngredientIntel.hasActions(measure: measure, name: name) {
-            content.contextMenu { ingredientQuickMenu(measure: measure, name: name) }
+            content.contextMenu {
+                ingredientQuickMenu(
+                    measure: measure,
+                    name: name,
+                    userEntries: session.guestStore.userSubstitutions,
+                    brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                    retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
+                )
+            }
         } else {
             content
         }

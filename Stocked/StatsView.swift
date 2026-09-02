@@ -98,7 +98,7 @@ struct StatsView: View {
     private func reportPanel<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 13, weight: .bold))
+                .scaledFont(13, weight: .bold)
                 .foregroundStyle(Color.stockedWhite.opacity(0.7))
             content()
         }
@@ -109,8 +109,8 @@ struct StatsView: View {
     }
     private func reportStat(_ value: String, _ label: String, _ tint: Color) -> some View {
         VStack(spacing: 4) {
-            Text(value).font(.system(size: 24, weight: .heavy, design: .serif)).foregroundStyle(tint)
-            Text(label).font(.system(size: 10.5)).multilineTextAlignment(.center)
+            Text(value).scaledFont(24, weight: .heavy, design: .serif).foregroundStyle(tint)
+            Text(label).scaledFont(10.5).multilineTextAlignment(.center)
                 .foregroundStyle(Color.stockedWhite.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
@@ -127,7 +127,7 @@ struct StatsView: View {
                 // ── #238 — dark Kitchen Report (mockup) ─────────────────
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Kitchen Report")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
 
                     // Health ring
@@ -141,18 +141,18 @@ struct StatsView: View {
                                 .rotationEffect(.degrees(-90))
                             VStack(spacing: 3) {
                                 Text("Kitchen Health")
-                                    .font(.system(size: 12)).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
                                 Text("\(store.stockPercent)%")
-                                    .font(.system(size: 42, weight: .heavy, design: .serif))
+                                    .scaledFont(42, weight: .heavy, design: .serif)
                                     .foregroundStyle(Color.stockedGreen)
                                 Text(healthLabel)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .scaledFont(12, weight: .semibold)
                                     .foregroundStyle(Color.stockedWhite.opacity(0.8))
                                 // #260/#261 — say what the number measures, invite setup.
                                 Text(store.stockGoalsConfigured && !store.stockStaples.isEmpty
                                      ? "Anchored to your \(store.stockStaples.count) staples · tap to edit"
                                      : "Average fill · tap to set goals")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .scaledFont(10, weight: .medium)
                                     .foregroundStyle(Color.stockedWhite.opacity(0.45))
                             }
                         }
@@ -174,9 +174,9 @@ struct StatsView: View {
                             VStack(spacing: 10) {
                                 ForEach(store.kitchenHealthComponents) { comp in
                                     HStack(spacing: 10) {
-                                        Image(systemName: comp.icon).font(.system(size: 12))
+                                        Image(systemName: comp.icon).scaledFont(12)
                                             .foregroundStyle(Color.stockedWhite.opacity(0.7)).frame(width: 18)
-                                        Text(comp.name).font(.system(size: 13))
+                                        Text(comp.name).scaledFont(13)
                                             .foregroundStyle(Color.stockedWhite.opacity(0.85))
                                             .frame(width: 104, alignment: .leading)
                                         ZStack(alignment: .leading) {
@@ -184,13 +184,13 @@ struct StatsView: View {
                                             GeometryFreeBar(fraction: Double(comp.percent) / 100, color: Color.stockedGreen)
                                         }
                                         Text("\(comp.percent)%")
-                                            .font(.system(size: 12, weight: .bold)).monospacedDigit()
+                                            .scaledFont(12, weight: .bold).monospacedDigit()
                                             .foregroundStyle(Color.stockedWhite.opacity(0.8))
                                             .frame(width: 38, alignment: .trailing)
                                     }
                                 }
                                 Text("Weighted \(store.kitchenHealthComponents.map { "\($0.name) \($0.weight)%" }.joined(separator: " · "))")
-                                    .font(.system(size: 10))
+                                    .scaledFont(10)
                                     .foregroundStyle(Color.stockedWhite.opacity(0.4))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -202,9 +202,9 @@ struct StatsView: View {
                         VStack(spacing: 10) {
                             ForEach(zoneBreakdown, id: \.0) { zone, icon, pct in
                                 HStack(spacing: 10) {
-                                    Image(systemName: icon).font(.system(size: 12))
+                                    Image(systemName: icon).scaledFont(12)
                                         .foregroundStyle(Color.stockedWhite.opacity(0.7)).frame(width: 18)
-                                    Text(zone).font(.system(size: 13))
+                                    Text(zone).scaledFont(13)
                                         .foregroundStyle(Color.stockedWhite.opacity(0.85))
                                         .frame(width: 64, alignment: .leading)
                                     ZStack(alignment: .leading) {
@@ -212,7 +212,7 @@ struct StatsView: View {
                                         GeometryFreeBar(fraction: Double(pct) / 100, color: Color.stockedGreen)
                                     }
                                     Text("\(pct)%")
-                                        .font(.system(size: 12, weight: .bold)).monospacedDigit()
+                                        .scaledFont(12, weight: .bold).monospacedDigit()
                                         .foregroundStyle(Color.stockedWhite.opacity(0.8))
                                         .frame(width: 38, alignment: .trailing)
                                 }
@@ -241,15 +241,15 @@ struct StatsView: View {
                     reportPanel("Shopping Readiness") {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 12) {
-                                Image(systemName: "cart").font(.system(size: 18))
+                                Image(systemName: "cart").scaledFont(18)
                                     .foregroundStyle(toBuyCount == 0 ? Color.stockedGreen : Color.stockedGold)
                                 Text(toBuyCount == 0 ? "0 items to buy — you're all set!" : "\(toBuyCount) item\(toBuyCount == 1 ? "" : "s") to buy")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(14, weight: .semibold)
                                     .foregroundStyle(Color.stockedWhite.opacity(0.9))
                                 Spacer()
                             }
                             Text("Next Grocery Run · \(store.groceryRunDateText)")
-                                .font(.system(size: 11.5))
+                                .scaledFont(11.5)
                                 .foregroundStyle(Color.stockedWhite.opacity(0.55))
                         }
                     }
@@ -271,7 +271,7 @@ struct StatsView: View {
                                 reportStat(money(wastedValueThisMonthTotal), "Waste\ncost", wastedValueThisMonthTotal > 0 ? .orange : Color.stockedGreen)
                             }
                             Text(savedCoachingLine)
-                                .font(.system(size: 10.5))
+                                .scaledFont(10.5)
                                 .foregroundStyle(Color.stockedWhite.opacity(0.5))
                         }
                     }
@@ -296,7 +296,7 @@ struct StatsView: View {
                                     reportStat("\(n.fat)g", "Fat", .orange)
                                 }
                                 Text("From \(n.meals) cooked meal\(n.meals == 1 ? "" : "s") with nutrition data this week")
-                                    .font(.system(size: 10.5))
+                                    .scaledFont(10.5)
                                     .foregroundStyle(Color.stockedWhite.opacity(0.5))
                             }
                         }
@@ -312,8 +312,8 @@ struct StatsView: View {
 
     private func statCard(_ value: String, _ label: String, _ icon: String, _ tint: Color, _ text: Color) -> some View {
         VStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 24)).foregroundStyle(tint)
-            Text(value).font(.system(size: 32, weight: .bold, design: .serif)).foregroundStyle(text)
+            Image(systemName: icon).scaledFont(24).foregroundStyle(tint)
+            Text(value).scaledFont(32, weight: .bold, design: .serif).foregroundStyle(text)
             Text(label).stocked(.caption).foregroundStyle(text.opacity(0.5)).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(18)
@@ -385,7 +385,7 @@ struct StatsView: View {
             sectionHeader("THIS MONTH’S SPENDING")
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(money(spendThisMonth)).font(.system(size: 28, weight: .bold, design: .serif)).foregroundStyle(text)
+                    Text(money(spendThisMonth)).scaledFont(28, weight: .bold, design: .serif).foregroundStyle(text)
                     Spacer()
                     Text("\(money(spendAllTime)) all-time").stocked(.caption).foregroundStyle(text.opacity(0.4))
                 }
@@ -416,7 +416,7 @@ struct StatsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 16) {
                 Image(systemName: empty ? "leaf.fill" : "trash.fill")
-                    .font(.system(size: 30)).foregroundStyle(empty ? Color.stockedGreen : .orange)
+                    .scaledFont(30).foregroundStyle(empty ? Color.stockedGreen : .orange)
                 VStack(alignment: .leading, spacing: 2) {
                     if empty {
                         Text("Nothing wasted this month").stocked(.headline).foregroundStyle(text)
@@ -443,7 +443,7 @@ struct StatsView: View {
             if let (name, count) = topWasted, count >= 2 {
                 Divider()
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "lightbulb.fill").font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "lightbulb.fill").scaledFont(13).foregroundStyle(Color.stockedGold)
                     Text("You've tossed \(name.capitalized) \(count)× — try buying a smaller amount, or freeze half when you get it home.")
                         .stocked(.caption).foregroundStyle(text.opacity(0.65))
                         .fixedSize(horizontal: false, vertical: true)

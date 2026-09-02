@@ -38,7 +38,7 @@ struct KitchenCheckView: View {
         StockedShell(showBack: true, titleText: "Kitchen Check") {
             VStack(alignment: .leading, spacing: 14) {
                 Text("The app thinks you have these. Anything changed?")
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
@@ -89,16 +89,16 @@ struct KitchenCheckView: View {
                 statusIcon(r)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(r.name.displayNormalized)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(statusText(r))
-                        .font(.system(size: 11.5))
+                        .scaledFont(11.5)
                         .foregroundStyle(statusColor(r).opacity(0.9))
                 }
                 Spacer()
                 if !r.amount.isEmpty {
                     Text(r.amount)
-                        .font(.system(size: 11.5))
+                        .scaledFont(11.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
             }
@@ -116,7 +116,7 @@ struct KitchenCheckView: View {
                 if let current, current != .notSure {
                     Toggle(isOn: stageBinding(r, current)) {
                         Text("Also update my inventory")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
                     .toggleStyle(.switch)
@@ -184,7 +184,7 @@ struct KitchenCheckView: View {
             case .optional:                return "circle.dotted"
             }
         }())
-        .font(.system(size: 16, weight: .semibold))
+        .scaledFont(16, weight: .semibold)
         .foregroundStyle(statusColor(r))
         .frame(width: 24)
     }
@@ -222,12 +222,12 @@ struct KitchenCheckView: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
 
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .scaledFont(12, weight: .semibold)
+                    .fixedSize(horizontal: false, vertical: true)
+
             }
             .foregroundStyle(selected ? Color.white : color)
             .padding(.horizontal, 10)
@@ -250,20 +250,20 @@ struct KitchenCheckView: View {
         .accessibilityValue(selected ? "Selected" : "Not selected")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
-    
+
     // MARK: Footer
 
     private func summaryFooter(_ c: ClassifiedRecipe) -> some View {
         VStack(spacing: 10) {
             Text(c.groupedSummary.isEmpty ? "All set" : c.groupedSummary)
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(12.5, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.65))
 
             Button {
                 finish()
             } label: {
                 Text(continueLabel(c))
-                    .font(.system(size: 15.5, weight: .semibold, design: .serif))
+                    .scaledFont(15.5, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 14)
                     .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -276,7 +276,7 @@ struct KitchenCheckView: View {
 
             if c.unconfirmedCount > 0 {
                 Text("Resolve the \"not sure\" items to fully confirm your kitchen — or continue anyway.")
-                    .font(.system(size: 11.5))
+                    .scaledFont(11.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
                     .multilineTextAlignment(.center)
             }

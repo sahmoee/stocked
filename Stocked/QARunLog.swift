@@ -281,10 +281,10 @@ struct QARunLogView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
                             Image(systemName: "record.circle").foregroundStyle(.red)
-                            Text(run.name).font(.subheadline.weight(.semibold))
+                            Text(run.name).font(.stocked(.subheadline).weight(.semibold))
                         }
                         Text("Running for \(run.durationText) · \(run.ticketNumbers.count) ticket\(run.ticketNumbers.count == 1 ? "" : "s") · \(run.checkVerdicts.count) check\(run.checkVerdicts.count == 1 ? "" : "s")")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.stocked(.caption)).foregroundStyle(.secondary)
                     }
                     Button(role: .destructive) { log.end() } label: {
                         Label("Finish this run", systemImage: "stop.circle")
@@ -312,9 +312,9 @@ struct QARunLogView: View {
                             QATextReportView(title: run.name, text: log.exportText(run))
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(run.name).font(.subheadline.weight(.medium))
-                                Text(run.line).font(.caption2).foregroundStyle(.secondary)
-                                    .lineLimit(2)
+                                Text(run.name).font(.stocked(.subheadline).weight(.medium))
+                                Text(run.line).font(.stocked(.caption2)).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         .swipeActions {

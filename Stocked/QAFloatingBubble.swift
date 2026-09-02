@@ -300,9 +300,9 @@ struct QAFloatingButtonFace: View {
                     .shadow(color: .black.opacity(0.28), radius: 5, y: 2)
                 VStack(spacing: 1) {
                     Image(systemName: gate.isUnlocked ? "checkmark.seal.fill" : "lock.fill")
-                        .font(.system(size: 17, weight: .semibold))
+                        .scaledFont(17, weight: .semibold)
                     Text(badge > 0 ? "\(min(badge, 99))" : "QA")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .scaledFont(10, weight: .bold, design: .rounded)
                 }
                 .foregroundStyle(isHot ? Color.white : Color.stockedBlack)
             }

@@ -165,7 +165,7 @@ enum RecipeSourceHub {
             ("DummyJSON",          "📦", "Curated everyday recipes",      true),
             ("Wikibooks Cookbook", "📖", "Open-licensed cookbook",        true),
             ("Taste of Home",      "🏡", "Test-kitchen classics",         true),
-            
+
             ("My Database",        "💾", "Recipes synced on this device", true),
             ("Spoonacular",        "🥄", "Full recipes with nutrition",   SpoonacularClient.shared.isConfigured),
             ("Edamam",             "🔎", "Recipe search aggregator",      !BuildConfig.edamamAppID.isEmpty),

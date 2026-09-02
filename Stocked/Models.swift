@@ -102,12 +102,71 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
     // Assistant, and manual add (user added). Lets any surface show a SourceBadge without
     // re-deriving provenance. Optional + defaulted so existing saved items decode cleanly.
     var sourceBadge:      SourceBadge?
+    /// Winning source for resolved product fields. String keys keep the persisted model decoupled
+    /// from review UI enums and allow future fields to round-trip without another schema rewrite.
+    var fieldProvenance:  [String: FieldProvenance]?
 
     // ── Staleness (drift-proofing #A3) ────────────────────────────
     // When the user last confirmed this item is really still in the kitchen — set by
     // Pantry Check nudges, level edits, and restocks. nil = never confirmed (legacy items
     // decode cleanly and fall back to purchaseDate for staleness math).
     var lastConfirmedAt:  Date?
+
+    /// One shared confidence state for every hub. This is intentionally derived from
+    /// persisted facts instead of stored separately, so a confirmation, scan, expiry,
+    /// or quantity edit changes Recipes, Home, Inventory, and Cook at the same time.
+    var confidence: InventoryConfidence {
+        guard effectiveLevel > 0 else { return .outOfStock }
+        if isExpired { return .possiblyExpired }
+        let anchor = lastConfirmedAt ?? purchaseDate
+        guard let anchor else { return sourceBadge == nil ? .unknown : .probable }
+        let age = Date().timeIntervalSince(anchor)
+        if age <= 7 * 86_400 { return .confirmed }
+        if age <= 30 * 86_400 { return .probable }
+        return .unknown
+    }
+
+    /// Shared canonical product identity for inventory deduplication, receipts, substitutions,
+    /// and store routing. It is derived so legacy rows gain identity without a storage migration.
+    var productIdentity: ProductIdentity {
+        ProductCatalog.identity(for: name, brand: brand, barcode: barcode)
+    }
+
+    func confidenceAssessment(at now: Date = Date()) -> InventoryConfidenceAssessment {
+        let state: InventoryConfidence
+        var reasons: [String] = []
+        if effectiveLevel <= 0 {
+            state = .outOfStock
+            reasons.append("Quantity or effective level is empty")
+        } else if let expirationDate, expirationDate < now {
+            state = .possiblyExpired
+            reasons.append("Expiration date has passed")
+        } else if let anchor = lastConfirmedAt ?? purchaseDate {
+            let age = max(0, now.timeIntervalSince(anchor))
+            if age <= 7 * 86_400 {
+                state = .confirmed
+                reasons.append("Confirmed within the last 7 days")
+            } else if age <= 30 * 86_400 {
+                state = .probable
+                reasons.append("Observed within the last 30 days")
+            } else {
+                state = .unknown
+                reasons.append("Has not been confirmed recently")
+            }
+        } else if sourceBadge != nil {
+            state = .probable
+            reasons.append("Has source provenance but no confirmation date")
+        } else {
+            state = .unknown
+            reasons.append("No confirmation or source provenance")
+        }
+        if let sourceBadge { reasons.append("Source: \(sourceBadge.rawValue)") }
+        if barcode != nil { reasons.append("Barcode identity available") }
+        let sourceFactor = sourceBadge?.confidence ?? 0.55
+        let score = min(1, state.recommendationWeight * 0.75 + sourceFactor * 0.25)
+        return InventoryConfidenceAssessment(state: state, score: score, reasons: reasons,
+                                             shouldReview: state.requiresReview || sourceBadge == .needsReview)
+    }
 
     // ── Display ───────────────────────────────────────────────────
     var displayText: String {
@@ -176,7 +235,7 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
              level, quantityUsed, storageCategory, subZone, customCategory, expirationDate,
              brand, price, purchaseDate, addedBy, storePurchasedAt, nutrition, barcode,
              productLabels, productIngredients, nutritionSource, isLeftover, leftoverMeal,
-             hasStash, imageData, parQuantity, sourceBadge, lastConfirmedAt
+             hasStash, imageData, parQuantity, sourceBadge, fieldProvenance, lastConfirmedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -211,8 +270,51 @@ nonisolated struct LocalInventoryItem: Identifiable, Codable, Sendable, Equatabl
         imageData = try c.decodeIfPresent(Data.self, forKey: .imageData)
         parQuantity = try c.decodeIfPresent(Int.self, forKey: .parQuantity)
         sourceBadge = try c.decodeIfPresent(SourceBadge.self, forKey: .sourceBadge)
+        fieldProvenance = try c.decodeIfPresent([String: FieldProvenance].self, forKey: .fieldProvenance)
         lastConfirmedAt = try c.decodeIfPresent(Date.self, forKey: .lastConfirmedAt)
     }
+}
+
+/// Trustworthiness of an inventory claim, shared by recommendation and stock surfaces.
+nonisolated enum InventoryConfidence: String, Codable, Sendable, CaseIterable {
+    case confirmed
+    case probable
+    case unknown
+    case possiblyExpired
+    case outOfStock
+
+    var displayName: String {
+        switch self {
+        case .confirmed: return "Confirmed on hand"
+        case .probable: return "Probably on hand"
+        case .unknown: return "Needs confirmation"
+        case .possiblyExpired: return "Possibly expired"
+        case .outOfStock: return "Out of stock"
+        }
+    }
+
+    var recommendationWeight: Double {
+        switch self {
+        case .confirmed: return 1
+        case .probable: return 0.8
+        case .unknown: return 0.45
+        case .possiblyExpired, .outOfStock: return 0
+        }
+    }
+
+    var requiresReview: Bool {
+        switch self {
+        case .confirmed, .probable: return false
+        case .unknown, .possiblyExpired, .outOfStock: return true
+        }
+    }
+}
+
+nonisolated struct InventoryConfidenceAssessment: Equatable, Sendable {
+    var state: InventoryConfidence
+    var score: Double
+    var reasons: [String]
+    var shouldReview: Bool
 }
 
 // MARK: - Nutrition Facts
@@ -373,6 +475,9 @@ nonisolated struct UserCookingProfile: Codable, Sendable {
     var mealPrepDay:      String   = "Sunday"
     var budgetLevel:      String   = "Moderate"
     var cookingEquipment: [String] = []
+    /// Shared brand ranking payload consumed by product resolution and substitutions. Defaults
+    /// neutral so older profiles and existing UI behavior remain unchanged.
+    var brandPreferences: BrandPreferences = BrandPreferences()
     var avatarEmoji:      String   = "👨‍🍳"   // chef icon picked during onboarding
     // Optional user-supplied profile photo (JPEG data). When present it takes precedence over
     // avatarEmoji wherever the chef avatar is shown. Optional with a nil default so existing
@@ -385,7 +490,7 @@ nonisolated struct UserCookingProfile: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case householdSize, cookingGoal, dietaryStyle, allergens, cuisinePrefs, skillLevel,
              weeklyMealCount, mealPrepDay, budgetLevel, cookingEquipment, avatarEmoji,
-             avatarPhotoData, completedSetup
+             brandPreferences, avatarPhotoData, completedSetup
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -399,6 +504,8 @@ nonisolated struct UserCookingProfile: Codable, Sendable {
         mealPrepDay = try c.decodeIfPresent(String.self, forKey: .mealPrepDay) ?? "Sunday"
         budgetLevel = try c.decodeIfPresent(String.self, forKey: .budgetLevel) ?? "Moderate"
         cookingEquipment = try c.decodeIfPresent([String].self, forKey: .cookingEquipment) ?? []
+        brandPreferences = try c.decodeIfPresent(BrandPreferences.self, forKey: .brandPreferences)
+            ?? BrandPreferences()
         avatarEmoji = try c.decodeIfPresent(String.self, forKey: .avatarEmoji) ?? "👨‍🍳"
         avatarPhotoData = try c.decodeIfPresent(Data.self, forKey: .avatarPhotoData)
         completedSetup = try c.decodeIfPresent(Bool.self, forKey: .completedSetup) ?? false

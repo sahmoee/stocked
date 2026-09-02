@@ -23,7 +23,7 @@ struct LoginView: View {
                 VStack(spacing: 10) {
                     StockedWordmark(size: 52)
                     Text("Kitchen Peace of Mind")
-                        .font(.system(size: 14, weight: .light, design: .serif))
+                        .scaledFont(14, weight: .light, design: .serif)
                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                         .tracking(1.4)
                 }
@@ -55,7 +55,7 @@ struct LoginView: View {
                 // Divider
                 HStack {
                     Rectangle().fill(Color.stockedCharcoal.opacity(0.18)).frame(height: 1)
-                    Text("or").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.35)).padding(.horizontal, 12)
+                    Text("or").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.35)).padding(.horizontal, 12)
                     Rectangle().fill(Color.stockedCharcoal.opacity(0.18)).frame(height: 1)
                 }
                 .padding(.horizontal, 32).padding(.bottom, 16)
@@ -65,12 +65,12 @@ struct LoginView: View {
                 VStack(spacing: 6) {
                     HStack {
                         Text("Name")
-                            .font(.system(size: 16))
+                            .scaledFont(16)
                             .foregroundStyle(session.themeTextColor)
                             .frame(width: 60, alignment: .leading)
                         TextField("What should we call you?", text: $name)
                     .foregroundStyle(session.themeTextColor)
-                            .font(.system(size: 16))
+                            .scaledFont(16)
                             .foregroundStyle(session.themeTextColor)
                             .autocorrectionDisabled()
                     }
@@ -86,7 +86,7 @@ struct LoginView: View {
                     session.enterKitchen(name: name)
                 } label: {
                     Text("Continue as Guest")
-                        .font(.system(size: 20, weight: .regular, design: .serif))
+                        .scaledFont(20, weight: .regular, design: .serif)
                         .foregroundStyle(session.themeTextColor.opacity(trimmedName.isEmpty ? 0.45 : 1))
                         .frame(maxWidth: .infinity).padding(.vertical, 20)
                         .background(Color.stockedGold.opacity(trimmedName.isEmpty ? 0.45 : 1))
@@ -98,14 +98,14 @@ struct LoginView: View {
                 .padding(.bottom, 10)
 
                 Text("Sign in with Apple, or continue as a guest with your name.")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                     .opacity(animateIn ? 1 : 0)
 
                 if let err = appleError {
-                    Text(err).font(.system(size: 12)).foregroundStyle(.red)
+                    Text(err).scaledFont(12).foregroundStyle(.red)
                         .padding(.top, 8).multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -116,7 +116,7 @@ struct LoginView: View {
                     Text("·").foregroundStyle(session.themeTextColor.opacity(0.3))
                     Button("Terms") { if let u = URL(string: BuildConfig.termsURL) { openURL(u) } }
                 }
-                .font(.system(size: 11))
+                .scaledFont(11)
                 .tint(session.themeTextColor.opacity(0.5))
                 .padding(.top, 10)
                 .opacity(animateIn ? 1 : 0)

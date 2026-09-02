@@ -257,12 +257,12 @@ struct GroceryStoreFinderView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Grocery stores near you")
-                    .font(.system(size: 16, weight: .bold, design: .serif))
+                    .scaledFont(16, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 Button { withAnimation { showMap.toggle() } } label: {
                     Image(systemName: showMap ? "list.bullet" : "map.fill")
-                        .font(.system(size: 16)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(16).foregroundStyle(Color.stockedGold)
                 }
             }
             .padding(.horizontal, 24).padding(.bottom, 12)
@@ -271,12 +271,12 @@ struct GroceryStoreFinderView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
                 TextField("Enter zip code", text: $zipInput)
-                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                    .scaledFont(14).foregroundStyle(session.themeTextColor)
                     .keyboardType(.numberPad)
                     .onSubmit { if !zipInput.isEmpty { finder.searchByZip(zipInput) } }
                 if !zipInput.isEmpty {
                     Button { finder.searchByZip(zipInput) } label: {
-                        Text("Search").font(.system(size: 12, weight: .semibold))
+                        Text("Search").scaledFont(12, weight: .semibold)
                             .foregroundStyle(Color.stockedWhite)
                             .padding(.horizontal, 10).padding(.vertical, 5)
                             .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -291,9 +291,9 @@ struct GroceryStoreFinderView: View {
                 finder.requestLocationAndSearch()
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "location.fill").font(.system(size: 13))
+                    Image(systemName: "location.fill").scaledFont(13)
                     Text(finder.locationAuthorized ? "Refresh Location" : "Use My Location")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(13, weight: .semibold)
                 }
                 .foregroundStyle(Color.stockedWhite)
                 .frame(maxWidth: .infinity).padding(.vertical, 11)
@@ -305,14 +305,14 @@ struct GroceryStoreFinderView: View {
 
             if finder.locationDenied {
                 Text("Location denied in Settings. Use a zip code instead.")
-                    .font(.system(size: 11)).foregroundStyle(.red)
+                    .scaledFont(11).foregroundStyle(.red)
                     .padding(.horizontal, 24).padding(.bottom, 8)
             }
 
             if finder.isSearching {
                 HStack { Spacer(); ProgressView().tint(Color.stockedCharcoal); Spacer() }.padding(.top, 24)
             } else if let err = finder.error {
-                Text(err).font(.system(size: 12)).foregroundStyle(.red).padding(.horizontal, 24)
+                Text(err).scaledFont(12).foregroundStyle(.red).padding(.horizontal, 24)
             } else if showMap && !finder.stores.isEmpty {
                 Map(position: .constant(.region(finder.region))) {
                     ForEach(finder.stores) { store in
@@ -320,7 +320,7 @@ struct GroceryStoreFinderView: View {
                             ZStack {
                                 Circle().fill(Color.stockedGold).frame(width: 30, height: 30)
                                     .shadow(color: .black.opacity(0.2), radius: 3)
-                                Image(systemName: "cart.fill").font(.system(size: 13)).foregroundStyle(.white)
+                                Image(systemName: "cart.fill").scaledFont(13).foregroundStyle(.white)
                             }
                         }
                     }
@@ -331,8 +331,8 @@ struct GroceryStoreFinderView: View {
                 storeList
             } else {
                 VStack(spacing: 10) {
-                    Image(systemName: "cart.fill").font(.system(size: 32)).foregroundStyle(session.themeTextColor.opacity(0.2))
-                    Text("Use your location or enter a zip code").font(.system(size: 13))
+                    Image(systemName: "cart.fill").scaledFont(32).foregroundStyle(session.themeTextColor.opacity(0.2))
+                    Text("Use your location or enter a zip code").scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.45)).multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity).padding(.top, 24)
@@ -353,26 +353,26 @@ struct GroceryStoreFinderView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle().fill(Color.stockedCharcoal).frame(width: 42, height: 42)
-                        Image(systemName: "storefront.fill").font(.system(size: 16)).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "storefront.fill").scaledFont(16).foregroundStyle(Color.stockedGold)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(store.name).font(.system(size: 14, weight: .semibold, design: .serif))
+                        Text(store.name).scaledFont(14, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
-                        Text(store.address).font(.system(size: 11))
-                            .foregroundStyle(session.themeTextColor.opacity(0.5)).lineLimit(1)
+                        Text(store.address).scaledFont(11)
+                            .foregroundStyle(session.themeTextColor.opacity(0.5)).fixedSize(horizontal: false, vertical: true)
                         if let retailer = store.retailer {
                             Text("Known labels: " + retailer.privateLabels.prefix(3).joined(separator: " · "))
-                                .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.42))
-                                .lineLimit(1)
+                                .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.42))
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         if store.hasLiveCatalog {
                             Label("Live price, availability, images & aisle data", systemImage: "checkmark.seal.fill")
-                                .font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Color.stockedGold)
-                                .lineLimit(1)
+                                .scaledFont(9.5, weight: .semibold).foregroundStyle(Color.stockedGold)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     Spacer()
-                    Text(store.distance).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                    Text(store.distance).scaledFont(11, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }
                 .padding(.horizontal, 24).padding(.vertical, 11)
             }
@@ -384,10 +384,10 @@ struct GroceryStoreFinderView: View {
                 } label: {
                     HStack {
                         Text(showAllStores ? "Show fewer stores" : "Show all \(finder.stores.count) stores")
-                            .font(.system(size: 12.5, weight: .semibold))
+                            .scaledFont(12.5, weight: .semibold)
                         Spacer()
                         Image(systemName: showAllStores ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .scaledFont(11, weight: .semibold)
                     }
                     .foregroundStyle(Color.stockedGold)
                     .padding(.horizontal, 24).padding(.vertical, 12)

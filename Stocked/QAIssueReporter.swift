@@ -1,6 +1,6 @@
 // QAIssueReporter.swift
 // ─────────────────────────────────────────────────────────────────────────────
-// Press and hold anywhere while QA mode is on → describe what is wrong → a
+// Short-press with two fingers while QA mode is on → describe what is wrong → a
 // numbered, contextualised, synced ticket.
 //
 // HOW IT HOOKS IN
@@ -12,13 +12,9 @@
 // and simultaneous recognition mean the app underneath behaves exactly as it
 // always did — the report gesture is an observer, not an interceptor.
 //
-// THE ONE HONEST CAVEAT
-// A one-finger long press coexists with context menus and text selection, which
-// also long-press. Both will fire. That is usually fine (you get a menu *and* a
-// report sheet, and the sheet wins the screen), but on a screen dense with
-// context menus it is annoying, so the finger count is a setting: one finger by
-// default, two fingers for anyone testing menu-heavy screens. Two fingers is
-// also the safer choice on iPad.
+// GESTURE OWNERSHIP
+// QA owns a two-finger short press. Home customization owns a one-finger long
+// press, so reporting and wiggle mode cannot both fire.
 //
 // CAPTURE ORDER MATTERS
 // The screenshot and the context are grabbed synchronously in the `.began`
@@ -61,14 +57,13 @@ import UniformTypeIdentifiers
 /// `QAReporterPresenter` for why the composer lives in its own window.
 struct QAIssueReporter: View {
     @State private var recorder = QARecorder.shared
+    @AppStorage(QAIssueReporterSettings.enabledKey) private var reporterEnabled = true
 
     var body: some View {
         Group {
-            if recorder.isEnabled {
-                // One-finger holds belong to the app (widget editing, context
-                // menus, text selection). Keeping QA on two fingers removes the
-                // window-level recognizer race entirely instead of trying to win
-                // it with narrowly timed suppression.
+            if recorder.isEnabled && reporterEnabled {
+                // Two fingers held briefly is deliberate enough not to collide
+                // with scrolling, while still feeling like a short press.
                 LongPressCatcher(fingerCount: 2) { screenshot, context in
                     QAReporterPresenter.shared.present(
                         QAReportDraft(screenshot: screenshot, context: context))
@@ -80,18 +75,21 @@ struct QAIssueReporter: View {
     }
 }
 
-/// Short-lived arbitration for app gestures that deliberately own a long press (notably
-/// Home widget editing). The UIWindow observer remains installed and two-finger reporting
-/// remains available; it simply does not present over the gesture that just entered wiggle.
+/// Short-lived arbitration retained for any app surface that temporarily owns the
+/// two-finger short press while QA recording is active.
 @MainActor
-enum QAReporterGestureArbiter {
-    private static var suppressedUntil = ContinuousClock.now
+final class QAReporterGestureArbiter {
+    static let shared = QAReporterGestureArbiter()
 
-    static func suppress(for duration: Duration = .seconds(1)) {
+    private var suppressedUntil = ContinuousClock.now
+
+    private init() {}
+
+    func suppress(for duration: Duration = .seconds(1)) {
         suppressedUntil = ContinuousClock.now.advanced(by: duration)
     }
 
-    static var isSuppressed: Bool { ContinuousClock.now < suppressedUntil }
+    var isSuppressed: Bool { ContinuousClock.now < suppressedUntil }
 }
 
 // MARK: - Presentation
@@ -254,9 +252,9 @@ private struct LongPressCatcher: UIViewRepresentable {
             detach()
 
             let press = UILongPressGestureRecognizer(target: self, action: #selector(pressed(_:)))
-            // 0.65s: long enough that nobody triggers it by resting a thumb while
-            // scrolling, short enough that it does not feel broken when you mean it.
-            press.minimumPressDuration = 0.65
+            // QA is a two-finger short press; the one-finger fallback remains a
+            // true long press for compatibility with isolated previews/tests.
+            press.minimumPressDuration = configuredFingerCount == 2 ? 0.18 : 0.65
             press.numberOfTouchesRequired = configuredFingerCount
             // Allow a generous wobble — testers are usually holding the phone in
             // one hand and pointing at the bug with the other.
@@ -275,6 +273,7 @@ private struct LongPressCatcher: UIViewRepresentable {
         func refreshFingerCount(_ value: Int) {
             configuredFingerCount = Self.sanitized(value)
             recognizer?.numberOfTouchesRequired = configuredFingerCount
+            recognizer?.minimumPressDuration = configuredFingerCount == 2 ? 0.18 : 0.65
         }
 
         static func sanitized(_ value: Int) -> Int { value == 2 ? 2 : 1 }
@@ -289,7 +288,7 @@ private struct LongPressCatcher: UIViewRepresentable {
             guard g.state == .began else { return }
             MainActor.assumeIsolated {
                 guard QARecorder.shared.isEnabled else { return }
-                guard !QAReporterGestureArbiter.isSuppressed else { return }
+                guard !QAReporterGestureArbiter.shared.isSuppressed else { return }
                 // Already composing — a long press inside the composer is just a
                 // long press. Bail before the haptic so it does not feel like the
                 // gesture was swallowed.
@@ -305,7 +304,7 @@ private struct LongPressCatcher: UIViewRepresentable {
                 // an alert or a sheet over the app is in the picture too.
                 let shot = QAScreenshot.capture()
                 let context = QAContextCapture.current()
-                QARecorder.shared.crumb("long-press report on \(context.screen)")
+                QARecorder.shared.crumb("two-finger report on \(context.screen)")
                 onFire(shot, context)
             }
         }
@@ -484,12 +483,12 @@ struct QAReportComposer: View {
         Form {
             Section {
                 TextField("What went wrong?", text: $title, axis: .vertical)
-                    .lineLimit(1...3)
+                    .fixedSize(horizontal: false, vertical: true)
                     .focused($titleFocused)
                     .submitLabel(.next)
                 TextField("More detail — what you expected, what happened (optional)",
                           text: $body_, axis: .vertical)
-                    .lineLimit(3...8)
+                    .lineLimit(3...)
             } header: {
                 Text("Describe it")
             } footer: {
@@ -504,7 +503,7 @@ struct QAReportComposer: View {
                 }
                 .pickerStyle(.segmented)
                 Text(severityHint)
-                    .font(.caption)
+                    .font(.stocked(.caption))
                     .foregroundStyle(.secondary)
             }
 
@@ -535,7 +534,7 @@ struct QAReportComposer: View {
             Section {
                 ForEach(draft.context.summaryLines, id: \.self) { line in
                     Text(line)
-                        .font(.caption.monospaced())
+                        .font(.stocked(.caption).monospaced())
                         .foregroundStyle(.secondary)
                 }
             } header: {
@@ -547,7 +546,7 @@ struct QAReportComposer: View {
             if !draft.context.breadcrumbs.isEmpty {
                 Section("Steps before this") {
                     ForEach(draft.context.breadcrumbs.suffix(12).reversed(), id: \.self) { c in
-                        Text(c).font(.caption.monospaced())
+                        Text(c).font(.stocked(.caption).monospaced())
                     }
                 }
             }
@@ -569,16 +568,16 @@ struct QAReportComposer: View {
         ScrollView {
             VStack(spacing: 18) {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 48))
+                    .scaledFont(48)
                     .foregroundStyle(.green)
                     .padding(.top, 24)
 
                 Text(ticket.number)
-                    .font(.title2.monospaced().bold())
+                    .font(.stocked(.title2).monospaced().bold())
                     .textSelection(.enabled)
 
                 Text(ticket.title)
-                    .font(.headline)
+                    .font(.stocked(.headline))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
@@ -588,7 +587,7 @@ struct QAReportComposer: View {
                     Text(QATicketStore.shared.lastSyncOutcome)
                         .foregroundStyle(.secondary)
                 }
-                .font(.subheadline)
+                .font(.stocked(.subheadline))
                 .foregroundStyle(.secondary)
 
                 Button {
@@ -599,7 +598,7 @@ struct QAReportComposer: View {
                 .buttonStyle(.bordered)
 
                 Text("It is in the event log, the process log, and the QA report. It will sync with the next publish if it has not already.")
-                    .font(.caption)
+                    .font(.stocked(.caption))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
@@ -644,7 +643,7 @@ struct QATicketListView: View {
                 ContentUnavailableView {
                     Label("No tickets yet", systemImage: "ticket")
                 } description: {
-                    Text("Press and hold anywhere in the app while QA mode is on to file one. The screen, your last steps, what was running, and a screenshot are attached for you.")
+                    Text("Short-press with two fingers anywhere, or shake the device, while QA mode is on to file one. The screen, your last steps, what was running, and a screenshot are attached for you.")
                 }
             } else {
                 if !store.hotspots.isEmpty {
@@ -728,7 +727,7 @@ struct QATicketListView: View {
                 Image(systemName: t.severity.symbol)
                     .foregroundStyle(tint(t.severity))
                 Text(t.number)
-                    .font(.caption.monospaced().bold())
+                    .font(.stocked(.caption).monospaced().bold())
                     .foregroundStyle(.secondary)
                 Spacer()
                 if !t.isSynced {
@@ -739,23 +738,23 @@ struct QATicketListView: View {
                     // in QATriage and AppChangelog and missed this one.
                     Image(systemName: "clock.arrow.circlepath")
                         .foregroundStyle(.secondary)
-                        .font(.caption)
+                        .font(.stocked(.caption))
                 }
                 Image(systemName: t.status.symbol)
                     .foregroundStyle(t.status.isClosed ? .green : .secondary)
-                    .font(.caption)
+                    .font(.stocked(.caption))
             }
             Text(t.title)
-                .font(.subheadline)
-                .lineLimit(2)
+                .font(.stocked(.subheadline))
+                .fixedSize(horizontal: false, vertical: true)
                 .strikethrough(t.status.isClosed)
             if t.requiresManualReview == true {
                 Label("Requires manual review", systemImage: "person.crop.circle.badge.questionmark")
-                    .font(.caption2)
+                    .font(.stocked(.caption2))
                     .foregroundStyle(.orange)
             }
             Text("\(t.context.screen) · \(t.createdAt.formatted(date: .omitted, time: .shortened))")
-                .font(.caption2)
+                .font(.stocked(.caption2))
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
@@ -794,16 +793,16 @@ struct QATicketDetailView: View {
             if let t = ticket {
                 List {
                     Section {
-                        Text(t.title).font(.headline)
-                        if !t.body.isEmpty { Text(t.body).font(.subheadline) }
+                        Text(t.title).font(.stocked(.headline))
+                        if !t.body.isEmpty { Text(t.body).font(.stocked(.subheadline)) }
                         if t.wasEdited {
                             Label("Edited \(t.editCount ?? 1)× · last \(t.editedAt?.formatted(date: .abbreviated, time: .shortened) ?? "—")",
                                   systemImage: "pencil.line")
-                                .font(.caption)
+                                .font(.stocked(.caption))
                                 .foregroundStyle(.secondary)
                         }
                     } header: {
-                        Text(t.number).font(.caption.monospaced())
+                        Text(t.number).font(.stocked(.caption).monospaced())
                     }
 
                     Section("Triage") {
@@ -829,7 +828,7 @@ struct QATicketDetailView: View {
                     Section("Fix verification") {
                         if let resolution = t.resolution, !resolution.isEmpty {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("What was fixed").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                Text("What was fixed").font(.stocked(.caption).weight(.semibold)).foregroundStyle(.secondary)
                                 Text(resolution)
                             }
                         }
@@ -838,7 +837,7 @@ struct QATicketDetailView: View {
                             Button("Refile — still broken", role: .destructive) { store.refile(t.id) }
                         } else if t.status != .verified {
                             TextField("What was fixed", text: $resolutionDraft, axis: .vertical)
-                                .lineLimit(2...6)
+                                .lineLimit(2...)
                             Button("Mark Fixed — needs verification") {
                                 store.markFixed(t.id, resolution: resolutionDraft)
                                 resolutionDraft = ""
@@ -871,42 +870,42 @@ struct QATicketDetailView: View {
 
                     Section("Environment") {
                         ForEach(t.context.summaryLines, id: \.self) { l in
-                            Text(l).font(.caption.monospaced())
+                            Text(l).font(.stocked(.caption).monospaced())
                         }
                     }
 
                     if !t.context.breadcrumbs.isEmpty {
                         Section("Steps before the report") {
                             ForEach(t.context.breadcrumbs.reversed(), id: \.self) { c in
-                                Text(c).font(.caption.monospaced())
+                                Text(c).font(.stocked(.caption).monospaced())
                             }
                         }
                     }
                     if !t.context.stalledProcesses.isEmpty {
                         Section("Stalled at the time") {
                             ForEach(t.context.stalledProcesses, id: \.self) { p in
-                                Text(p).font(.caption.monospaced()).foregroundStyle(.orange)
+                                Text(p).font(.stocked(.caption).monospaced()).foregroundStyle(.orange)
                             }
                         }
                     }
                     if !t.context.runningProcesses.isEmpty {
                         Section("In flight at the time") {
                             ForEach(t.context.runningProcesses, id: \.self) { p in
-                                Text(p).font(.caption.monospaced())
+                                Text(p).font(.stocked(.caption).monospaced())
                             }
                         }
                     }
                     if !t.context.recentFailures.isEmpty {
                         Section("Recent failures") {
                             ForEach(t.context.recentFailures, id: \.self) { f in
-                                Text(f).font(.caption.monospaced()).foregroundStyle(.red)
+                                Text(f).font(.stocked(.caption).monospaced()).foregroundStyle(.red)
                             }
                         }
                     }
                     if !t.context.openViolations.isEmpty {
                         Section("Invariants violating") {
                             ForEach(t.context.openViolations, id: \.self) { v in
-                                Text(v).font(.caption.monospaced()).foregroundStyle(.red)
+                                Text(v).font(.stocked(.caption).monospaced()).foregroundStyle(.red)
                             }
                         }
                     }
@@ -929,11 +928,11 @@ struct QATicketDetailView: View {
                         if sync.isRunning {
                             HStack(spacing: 8) {
                                 ProgressView()
-                                Text("Sending…").font(.caption).foregroundStyle(.secondary)
+                                Text("Sending…").font(.stocked(.caption)).foregroundStyle(.secondary)
                             }
                         }
                         ForEach(sync.lastDetail, id: \.self) { line in
-                            Text(line).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            Text(line).font(.stocked(.caption).monospaced()).foregroundStyle(.secondary)
                         }
                     } header: {
                         Text("Sync")
@@ -980,7 +979,7 @@ struct QATicketDetailView: View {
                 .overlay(alignment: .bottom) {
                     if let copied {
                         Text(copied)
-                            .font(.caption.bold())
+                            .font(.stocked(.caption).bold())
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(.ultraThinMaterial, in: Capsule())
                             .padding(.bottom, 24)
@@ -1025,7 +1024,7 @@ struct QATicketDetailView: View {
                       systemImage: "photo.on.rectangle")
             }
             if !mockupNote.isEmpty {
-                Text(mockupNote).font(.caption).foregroundStyle(.secondary)
+                Text(mockupNote).font(.stocked(.caption)).foregroundStyle(.secondary)
             }
         } header: {
             Text("Mockup — what it should look like")
@@ -1138,12 +1137,12 @@ struct QATicketEditSheet: View {
             Form {
                 Section("Title") {
                     TextField("What is wrong", text: $title, axis: .vertical)
-                        .lineLimit(1...3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Section("Details") {
                     TextField("Steps, what you expected, what happened",
                               text: $body_, axis: .vertical)
-                        .lineLimit(4...14)
+                        .lineLimit(4...)
                 }
                 Section {
                     Picker("Severity", selection: $severity) {
@@ -1160,7 +1159,7 @@ struct QATicketEditSheet: View {
                 }
                 Section {
                     Text("Saving clears every sync stamp, so this ticket re-sends to the worker, the folder and cPanel with the new wording.")
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(.secondary)
                 }
             }

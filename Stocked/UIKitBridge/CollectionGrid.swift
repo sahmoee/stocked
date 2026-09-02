@@ -34,8 +34,10 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
                                                      contentInsets: contentInsets)
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .clear
-        collectionView.alwaysBounceVertical = true
+        collectionView.bounces = true
+        collectionView.alwaysBounceVertical = false
         collectionView.delegate = context.coordinator
+        context.coordinator.reduceMotion = context.environment.accessibilityReduceMotion
         context.coordinator.configureDataSource(for: collectionView)
         context.coordinator.apply(items, animated: false)
         return collectionView
@@ -44,13 +46,22 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
     func updateUIView(_ collectionView: UICollectionView, context: Context) {
         context.coordinator.cell = cell
         context.coordinator.onSelect = onSelect
-        context.coordinator.apply(items, animated: true)
+        context.coordinator.reduceMotion = context.environment.accessibilityReduceMotion
+        context.coordinator.apply(
+            items,
+            animated: !context.environment.accessibilityReduceMotion
+                && !collectionView.isDragging
+                && !collectionView.isDecelerating
+        )
     }
 
     @MainActor
     final class Coordinator: NSObject, UICollectionViewDelegate {
         var cell: (Item) -> Cell
         var onSelect: (Item) -> Void
+        var reduceMotion = false
+        private var scrollActivity = StockedScrollActivity.idle
+        private weak var collectionView: UICollectionView?
         private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?
 
         init(cell: @escaping (Item) -> Cell, onSelect: @escaping (Item) -> Void) {
@@ -79,9 +90,13 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
         }
 
         func configureDataSource(for collectionView: UICollectionView) {
+            self.collectionView = collectionView
             let registration = UICollectionView.CellRegistration<UICollectionViewCell, Item> { [weak self] cellView, _, item in
                 guard let self else { return }
-                cellView.contentConfiguration = UIHostingConfiguration { self.cell(item) }
+                cellView.contentConfiguration = UIHostingConfiguration {
+                    self.cell(item)
+                        .environment(\.stockedScrollActivity, self.scrollActivity)
+                }
                     .margins(.all, 0)
                 cellView.backgroundColor = .clear
             }
@@ -99,9 +114,67 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
         }
 
         func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-            collectionView.deselectItem(at: indexPath, animated: true)
+            collectionView.deselectItem(at: indexPath, animated: !reduceMotion)
             guard let item = dataSource?.itemIdentifier(for: indexPath) else { return }
             onSelect(item)
+        }
+
+        func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            setScrollActivity(.tracking)
+        }
+
+        func scrollViewWillEndDragging(
+            _ scrollView: UIScrollView,
+            withVelocity velocity: CGPoint,
+            targetContentOffset: UnsafeMutablePointer<CGPoint>
+        ) {
+            setScrollActivity(
+                .decelerating,
+                horizontalVelocity: velocity.x,
+                verticalVelocity: velocity.y
+            )
+        }
+
+        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+            if !decelerate { setScrollActivity(.idle) }
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            setScrollActivity(.idle)
+        }
+
+        func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+            setScrollActivity(.idle)
+        }
+
+        /// Reconfigure hosted cells only at scroll phase boundaries—not per pixel—so
+        /// image tasks receive cancellation/resume signals without adding scroll churn.
+        private func setScrollActivity(
+            _ phase: StockedScrollPhase,
+            horizontalVelocity: CGFloat = 0,
+            verticalVelocity: CGFloat = 0
+        ) {
+            guard phase != scrollActivity.phase
+                    || horizontalVelocity != scrollActivity.horizontalVelocity
+                    || verticalVelocity != scrollActivity.verticalVelocity else { return }
+            scrollActivity = StockedScrollActivity(
+                phase: phase,
+                horizontalVelocity: horizontalVelocity == 0
+                    ? scrollActivity.horizontalVelocity
+                    : horizontalVelocity,
+                verticalVelocity: verticalVelocity == 0
+                    ? scrollActivity.verticalVelocity
+                    : verticalVelocity,
+                transitionSequence: scrollActivity.transitionSequence &+ 1
+            )
+            guard let dataSource, let collectionView else { return }
+            let visibleItems = collectionView.indexPathsForVisibleItems.compactMap {
+                dataSource.itemIdentifier(for: $0)
+            }
+            guard !visibleItems.isEmpty else { return }
+            var snapshot = dataSource.snapshot()
+            snapshot.reconfigureItems(visibleItems)
+            dataSource.apply(snapshot, animatingDifferences: false)
         }
     }
 }

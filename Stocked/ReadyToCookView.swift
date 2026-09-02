@@ -173,10 +173,10 @@ private struct ReadyToCoookContent: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(readyNow) ready now · \(cachedReadyRecipes.count) total")
-                        .font(.system(size: 13, weight: .bold))
+                        .scaledFont(13, weight: .bold)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                     Text("Sorted by most ingredients available")
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
                 Spacer()
@@ -186,7 +186,7 @@ private struct ReadyToCoookContent: View {
                 Button(action: onGenerateRecipe) {
                     Label(isGeneratingRecipe ? "Creating…" : "Create from inventory",
                           systemImage: "sparkles")
-                        .font(.system(size: 12, weight: .bold))
+                        .scaledFont(12, weight: .bold)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color.stockedGold)
@@ -196,7 +196,7 @@ private struct ReadyToCoookContent: View {
 
             if let generationMessage {
                 Text(generationMessage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .padding(.horizontal, 24)
                     .padding(.bottom, 8)
@@ -240,7 +240,7 @@ private struct ReadyToCookThumb: View {
                 .frame(width: 52, height: 52)
                 .overlay {
                     Image(systemName: "fork.knife")
-                        .font(.system(size: 21, weight: .semibold))
+                        .scaledFont(21, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .overlay {
@@ -249,7 +249,7 @@ private struct ReadyToCookThumb: View {
                 }
             if isReady {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 16))
+                    .scaledFont(16)
                     .foregroundStyle(Color.stockedGreen)
                     .background(Circle().fill(Color.stockedWhite).frame(width: 16, height: 16))
                     .padding(3)
@@ -279,7 +279,7 @@ private struct ReadyToCoookRecipeRow: View {
                 infoView
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
@@ -300,11 +300,11 @@ private struct ReadyToCoookRecipeRow: View {
             // Title + source
             HStack(spacing: 6) {
                 Text(recipe.title)
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(recipe.source)
-                    .font(.system(size: 9, weight: .bold))
+                    .scaledFont(9, weight: .bold)
                     .foregroundStyle(Color.stockedGold)
                     .padding(.horizontal, 5).padding(.vertical, 2)
                     .background(Color.stockedGold.opacity(0.12))
@@ -329,9 +329,9 @@ private struct ReadyToCoookRecipeRow: View {
                 let shown = recipe.missing.prefix(2).joined(separator: ", ")
                 let extra = recipe.missing.count > 2 ? " +\(recipe.missing.count - 2)" : ""
                 Text("Need: \(shown)\(extra)")
-                    .font(.system(size: 10))
+                    .scaledFont(10)
                     .foregroundStyle(session.themeTextColor.opacity(0.38))
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 // #3 — one-tap add missing ingredients to grocery.
                 Button {
                     var added = 0
@@ -348,7 +348,7 @@ private struct ReadyToCoookRecipeRow: View {
                 } label: {
                     Label(addedToList == nil ? "Add \(recipe.missing.count) to list" : "Added ✓",
                           systemImage: addedToList == nil ? "cart.badge.plus" : "checkmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .scaledFont(10, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .buttonStyle(.plain)
@@ -357,9 +357,9 @@ private struct ReadyToCoookRecipeRow: View {
             if !recipe.substitutions.isEmpty {
                 Text((recipe.substitutionsNeedReview ? "Review swap: " : "Using swap: ")
                      + recipe.substitutions.prefix(2).joined(separator: ", "))
-                    .font(.system(size: 10, weight: .semibold))
+                    .scaledFont(10, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -368,21 +368,21 @@ private struct ReadyToCoookRecipeRow: View {
         Group {
             if recipe.substitutionsNeedReview {
                 Text("Review Swap")
-                    .font(.system(size: 9, weight: .bold))
+                    .scaledFont(9, weight: .bold)
                     .foregroundStyle(Color.stockedGold)
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Color.stockedGold.opacity(0.14))
                     .clipShape(Capsule())
             } else if isReady {
                 Text(recipe.missing.isEmpty ? "Ready Now" : "Ready Now · Needs \(recipe.missing.count)")
-                    .font(.system(size: 9, weight: .bold))
+                    .scaledFont(9, weight: .bold)
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Color.stockedGold)
                     .clipShape(Capsule())
             } else {
                 Text("Missing \(recipe.missing.count)")
-                    .font(.system(size: 9, weight: .semibold))
+                    .scaledFont(9, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Color.stockedCharcoal.opacity(0.1))

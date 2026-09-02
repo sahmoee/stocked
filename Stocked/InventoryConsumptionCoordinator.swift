@@ -80,11 +80,11 @@ enum InventoryConsumptionCoordinator {
     // MARK: Helpers
 
     private static func matchedItem(_ name: String, in store: GuestDataStore) -> LocalInventoryItem? {
-        let target = name.lowercased()
-        return store.inventoryItems.first {
-            let n = $0.name.lowercased()
-            return $0.effectiveLevel > 0 && (n.contains(target) || target.contains(n))
-        }
+        FoodNameMatcher.bestMatch(
+            for: name,
+            in: store.inventoryItems.filter { $0.effectiveLevel > 0 },
+            name: \.name
+        )
     }
 
     private static func inventoryHas(_ name: String, in store: GuestDataStore) -> Bool {
@@ -94,8 +94,7 @@ enum InventoryConsumptionCoordinator {
 
     private static func performStaged(_ change: StagedInventoryChange, store: GuestDataStore) {
         func existing() -> LocalInventoryItem? {
-            let t = change.ingredientName.lowercased()
-            return store.inventoryItems.first { let n = $0.name.lowercased(); return n.contains(t) || t.contains(n) }
+            FoodNameMatcher.bestMatch(for: change.ingredientName, in: store.inventoryItems, name: \.name)
         }
         switch change.kind {
         case .markAvailable:

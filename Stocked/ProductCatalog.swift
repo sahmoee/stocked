@@ -5,7 +5,7 @@
 import Foundation
 
 // MARK: - Catalog Entry
-nonisolated struct CatalogEntry: Sendable {
+nonisolated struct CatalogEntry: Sendable, Hashable {
     let name:     String
     let brand:    String
     let category: String   // matches StorageCategory.rawValue
@@ -13,9 +13,15 @@ nonisolated struct CatalogEntry: Sendable {
     let aisle: GroceryAisle?
     let retailerIDs: [String]
     let aliases: [String]
+    /// GTIN/UPC/EAN values when a verified source supplies them. Most bundled entries predate
+    /// barcode enrichment, so this is additive and defaults empty.
+    let barcodes: [String]
+    /// Provider-specific stable product identifiers, keyed by provider/retailer id.
+    let externalIDs: [String: String]
 
     init(name: String, brand: String, category: String, emoji: String,
-         aisle: GroceryAisle? = nil, retailerIDs: [String] = [], aliases: [String] = []) {
+         aisle: GroceryAisle? = nil, retailerIDs: [String] = [], aliases: [String] = [],
+         barcodes: [String] = [], externalIDs: [String: String] = [:]) {
         self.name = name
         self.brand = brand
         self.category = category
@@ -23,6 +29,13 @@ nonisolated struct CatalogEntry: Sendable {
         self.aisle = aisle
         self.retailerIDs = retailerIDs
         self.aliases = aliases
+        self.barcodes = barcodes.compactMap(ProductCatalog.normalizedBarcode)
+        self.externalIDs = externalIDs.reduce(into: [String: String]()) { result, pair in
+            let (key, value) = pair
+            let provider = key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let identifier = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !provider.isEmpty, !identifier.isEmpty { result[provider] = identifier }
+        }
     }
 
     var searchTerms: [String] { ([name, brand] + aliases).map(GroceryKnowledgeBase.normalize) }
@@ -30,8 +43,84 @@ nonisolated struct CatalogEntry: Sendable {
     var resolvedAisle: GroceryAisle { aisle ?? GroceryKnowledgeBase.inferAisle(for: name) }
 }
 
+// MARK: - Canonical identity and resolution
+
+nonisolated enum ProductIdentityNamespace: String, Codable, Sendable {
+    case barcode
+    case external
+    case catalog
+    case generic
+}
+
+/// Stable identity shared by receipt, barcode, manual add, inventory deduplication, substitutions,
+/// and store routing. It intentionally stores readable keys rather than process-random hashes.
+nonisolated struct ProductIdentity: Codable, Hashable, Sendable {
+    var namespace: ProductIdentityNamespace
+    var key: String
+    var canonicalName: String
+
+    var stableKey: String { "\(namespace.rawValue):\(key)" }
+    /// Cross-provider product-family key for aisle learning and generic equivalence. Exact identity
+    /// remains `stableKey`; physical store position usually belongs to the product family.
+    var familyKey: String { canonicalName.isEmpty ? stableKey : "product:\(canonicalName)" }
+}
+
+nonisolated struct ProductResolutionContext: Sendable {
+    var rawName: String
+    var brand: String?
+    var barcode: String?
+    var retailerID: String?
+    var retailerProductID: String?
+    var preferredBrands: Set<String>
+    var avoidedBrands: Set<String>
+
+    init(rawName: String, brand: String? = nil, barcode: String? = nil,
+         retailerID: String? = nil, retailerProductID: String? = nil,
+         preferredBrands: Set<String> = [], avoidedBrands: Set<String> = []) {
+        self.rawName = rawName
+        self.brand = brand
+        self.barcode = barcode
+        self.retailerID = retailerID
+        self.retailerProductID = retailerProductID
+        self.preferredBrands = preferredBrands
+        self.avoidedBrands = avoidedBrands
+    }
+}
+
+nonisolated struct ProductResolutionCandidate: Sendable {
+    var entry: CatalogEntry
+    var identity: ProductIdentity
+    var score: Double
+    var reasons: [String]
+}
+
+nonisolated struct ProductResolution: Sendable {
+    var identity: ProductIdentity
+    var displayName: String
+    var brand: String?
+    var category: String?
+    var aisle: GroceryAisle
+    var confidence: Double
+    var needsReview: Bool
+    var candidates: [ProductResolutionCandidate]
+
+    var matchedEntry: CatalogEntry? { candidates.first?.entry }
+}
+
 // MARK: - Product Catalog
 nonisolated struct ProductCatalog {
+    private struct IndexedEntry: Sendable {
+        var entry: CatalogEntry
+        var canonicalName: String
+        var tokens: Set<String>
+    }
+
+    private struct SearchEntry: Sendable {
+        var normalizedName: String
+        var searchableTerms: [String]
+        var entry: CatalogEntry
+    }
+
     // #14: O(1) lookup dictionary — keyed on normalised name
     static let lookup: [String: CatalogEntry] = {
         var result: [String: CatalogEntry] = [:]
@@ -41,31 +130,118 @@ nonisolated struct ProductCatalog {
         return result
     }()
 
+    static let barcodeLookup: [String: CatalogEntry] = {
+        var result: [String: CatalogEntry] = [:]
+        for entry in all {
+            for barcode in entry.barcodes { result[barcode] = entry }
+        }
+        return result
+    }()
+
+    static let externalIDLookup: [String: CatalogEntry] = {
+        var result: [String: CatalogEntry] = [:]
+        for entry in all {
+            for (provider, identifier) in entry.externalIDs {
+                result[externalLookupKey(provider: provider, identifier: identifier)] = entry
+            }
+        }
+        return result
+    }()
+
+    /// Precompute canonical names and tokens once. Receipt batches may resolve hundreds of rows;
+    /// repeatedly stripping every known brand from every catalog entry would otherwise dominate
+    /// normalization time.
+    private static let resolutionIndex: [IndexedEntry] = all.map { entry in
+        let canonical = GroceryKnowledgeBase.canonicalKey(entry.name, knownBrand: entry.brand)
+        return IndexedEntry(entry: entry, canonicalName: canonical,
+                            tokens: Set(canonical.split(separator: " ").map(String.init)))
+    }
+
+    private static let canonicalLookup: [String: [CatalogEntry]] = {
+        Dictionary(grouping: resolutionIndex, by: \.canonicalName)
+            .mapValues { $0.map(\.entry) }
+    }()
+
+    /// Inverted token index for fuzzy resolution. The old loop visited every product even though
+    /// it immediately discarded entries sharing no query token; this retrieves only candidates
+    /// that can possibly pass the same Jaccard threshold.
+    private static let resolutionTokenIndex: [String: [IndexedEntry]] = {
+        var result: [String: [IndexedEntry]] = [:]
+        for indexed in resolutionIndex {
+            for token in indexed.tokens { result[token, default: []].append(indexed) }
+        }
+        return result
+    }()
+
     // Exact lookup (O(1))
     static func entry(for name: String) -> CatalogEntry? {
         lookup[GroceryKnowledgeBase.normalize(name)]
     }
 
-    // Prefix/fuzzy search — only runs on the sorted keys array, not re-scanning all
-    static let sortedNames: [String] = all.map { $0.name }.sorted()
+    // Normalize search terms once. UI autocomplete calls this on every keystroke; repeating ICU
+    // folding/regex work over the full catalog was noticeably more expensive than the match.
+    private static let searchIndex: [SearchEntry] = all.map { entry in
+        SearchEntry(
+            normalizedName: GroceryKnowledgeBase.normalize(entry.name),
+            searchableTerms: ([entry.brand] + entry.aliases).map(GroceryKnowledgeBase.normalize),
+            entry: entry
+        )
+    }.sorted { lhs, rhs in
+        if lhs.normalizedName != rhs.normalizedName {
+            return lhs.normalizedName < rhs.normalizedName
+        }
+        return lhs.entry.name.localizedCaseInsensitiveCompare(rhs.entry.name) == .orderedAscending
+    }
+
+    // Kept for compatibility with callers that only need the display-name ordering.
+    static let sortedNames: [String] = searchIndex.map { $0.entry.name }
 
     static func search(_ query: String, limit: Int = 8) -> [CatalogEntry] {
+        guard limit > 0 else { return [] }
         let q = GroceryKnowledgeBase.normalize(query)
-        let exact   = lookup[q].map { [$0] } ?? []
-        let prefix  = sortedNames.filter { GroceryKnowledgeBase.normalize($0).hasPrefix(q) && GroceryKnowledgeBase.normalize($0) != q }
-                                 .prefix(max(0, limit - exact.count))
-                                 .compactMap { lookup[GroceryKnowledgeBase.normalize($0)] }
-        let contains = sortedNames.filter { GroceryKnowledgeBase.normalize($0).contains(q) && !GroceryKnowledgeBase.normalize($0).hasPrefix(q) }
-                                  .prefix(max(0, limit - exact.count - prefix.count))
-                                  .compactMap { lookup[GroceryKnowledgeBase.normalize($0)] }
-        let seen = Set((exact + prefix + contains).map { GroceryKnowledgeBase.normalize($0.name) })
-        let brands = all.filter { entry in
-            !seen.contains(GroceryKnowledgeBase.normalize(entry.name))
-                && ([entry.brand] + entry.aliases).contains {
-                    GroceryKnowledgeBase.normalize($0).contains(q)
-                }
+        var results: [CatalogEntry] = []
+        var seen = Set<String>()
+        func append(_ entry: CatalogEntry) {
+            let key = GroceryKnowledgeBase.normalize(entry.name)
+            guard results.count < limit, seen.insert(key).inserted else { return }
+            results.append(entry)
         }
-        return Array((exact + prefix + contains + brands).prefix(max(0, limit)))
+
+        if let exact = lookup[q] { append(exact) }
+
+        // Binary-search the first possible prefix instead of filtering and normalizing every
+        // catalog row. Walking stops as soon as the sorted prefix range or result bound ends.
+        var low = 0
+        var high = searchIndex.count
+        while low < high {
+            let mid = (low + high) / 2
+            if searchIndex[mid].normalizedName < q { low = mid + 1 } else { high = mid }
+        }
+        var index = low
+        while index < searchIndex.count, results.count < limit {
+            let candidate = searchIndex[index]
+            guard candidate.normalizedName.hasPrefix(q) else { break }
+            if candidate.normalizedName != q { append(candidate.entry) }
+            index += 1
+        }
+
+        // Contains/brand fallbacks are allocation-free and stop at the requested bound. The
+        // normalized index means even a rare full miss does no per-row normalization work.
+        if results.count < limit {
+            for candidate in searchIndex where results.count < limit {
+                if candidate.normalizedName.contains(q), !candidate.normalizedName.hasPrefix(q) {
+                    append(candidate.entry)
+                }
+            }
+        }
+        if results.count < limit {
+            for candidate in searchIndex where results.count < limit {
+                guard !seen.contains(candidate.normalizedName),
+                      candidate.searchableTerms.contains(where: { $0.contains(q) }) else { continue }
+                append(candidate.entry)
+            }
+        }
+        return results
     }
 
     /// Receipt/OCR-safe catalog match. Exact aliases win; otherwise a catalog name can be
@@ -78,6 +254,154 @@ nonisolated struct ProductCatalog {
             .flatMap { entry in entry.identityTerms.map { ($0, entry) } }
             .filter { term, _ in term.count >= 5 && GroceryKnowledgeBase.containsPhrase(term, in: normalized) }
             .max { $0.0.count < $1.0.count }?.1
+    }
+
+    /// Normalize and validate a GTIN/UPC/EAN without guessing missing digits.
+    static func normalizedBarcode(_ raw: String) -> String? {
+        let digits = raw.filter(\.isNumber)
+        guard (8...14).contains(digits.count) else { return nil }
+        return digits
+    }
+
+    /// Canonical identity without requiring that the product already exists in the bundled
+    /// catalog. Barcode and provider identifiers outrank catalog and generic name identity.
+    static func identity(for rawName: String, brand: String? = nil, barcode: String? = nil,
+                         retailerID: String? = nil, retailerProductID: String? = nil) -> ProductIdentity {
+        let canonical = GroceryKnowledgeBase.canonicalKey(rawName, knownBrand: brand)
+        if let barcode = barcode.flatMap(normalizedBarcode) {
+            return ProductIdentity(namespace: .barcode, key: barcode, canonicalName: canonical)
+        }
+        if let retailerID, let retailerProductID {
+            let provider = retailerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let identifier = retailerProductID.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !provider.isEmpty, !identifier.isEmpty {
+                return ProductIdentity(namespace: .external,
+                                       key: externalLookupKey(provider: provider, identifier: identifier),
+                                       canonicalName: canonical)
+            }
+        }
+        if let entry = entry(for: rawName) ?? bestMatch(for: rawName) {
+            let entryCanonical = GroceryKnowledgeBase.canonicalKey(entry.name, knownBrand: entry.brand)
+            return ProductIdentity(namespace: .catalog,
+                                   key: entryCanonical.isEmpty ? GroceryKnowledgeBase.normalize(entry.name) : entryCanonical,
+                                   canonicalName: entryCanonical)
+        }
+        let fallback = canonical.isEmpty ? GroceryKnowledgeBase.normalize(rawName) : canonical
+        return ProductIdentity(namespace: .generic, key: fallback, canonicalName: fallback)
+    }
+
+    static func identity(for item: LocalInventoryItem) -> ProductIdentity {
+        identity(for: item.name, brand: item.brand, barcode: item.barcode)
+    }
+
+    /// Resolve noisy product observations through one deterministic ranking policy. Exact barcode
+    /// and provider ids win, then exact aliases, canonical product matches, and finally token
+    /// similarity. Close or weak results are retained but explicitly marked for review.
+    static func resolve(_ context: ProductResolutionContext, limit: Int = 5) -> ProductResolution {
+        let normalizedName = GroceryKnowledgeBase.normalize(context.rawName)
+        let canonicalName = GroceryKnowledgeBase.canonicalKey(context.rawName, knownBrand: context.brand)
+        let normalizedPreferred = Set(context.preferredBrands.map(GroceryKnowledgeBase.normalize))
+        let normalizedAvoided = Set(context.avoidedBrands.map(GroceryKnowledgeBase.normalize))
+        let normalizedRetailer = context.retailerID?.lowercased()
+
+        var scored: [String: ProductResolutionCandidate] = [:]
+        func consider(_ entry: CatalogEntry, baseScore: Double, reason: String) {
+            let key = GroceryKnowledgeBase.normalize(entry.name)
+            var score = baseScore
+            let entryBrand = GroceryKnowledgeBase.normalize(entry.brand)
+            if normalizedPreferred.contains(entryBrand) { score += 0.04 }
+            if normalizedAvoided.contains(entryBrand) { score -= 0.14 }
+            if let normalizedRetailer, entry.retailerIDs.contains(normalizedRetailer) { score += 0.03 }
+            let identity = identity(for: entry.name, brand: entry.brand,
+                                    barcode: entry.barcodes.first,
+                                    retailerID: normalizedRetailer,
+                                    retailerProductID: normalizedRetailer.flatMap { entry.externalIDs[$0] })
+            if var prior = scored[key], score <= prior.score {
+                if !prior.reasons.contains(reason) { prior.reasons.append(reason); scored[key] = prior }
+            } else {
+                scored[key] = ProductResolutionCandidate(entry: entry, identity: identity,
+                                                          score: max(0, min(1, score)), reasons: [reason])
+            }
+        }
+
+        if let barcode = context.barcode.flatMap(normalizedBarcode), let entry = barcodeLookup[barcode] {
+            consider(entry, baseScore: 1, reason: "Exact barcode")
+        }
+        if let retailer = normalizedRetailer, let productID = context.retailerProductID,
+           let entry = externalIDLookup[externalLookupKey(provider: retailer, identifier: productID)] {
+            consider(entry, baseScore: 0.99, reason: "Exact provider product ID")
+        }
+        if let exact = lookup[normalizedName] { consider(exact, baseScore: 0.96, reason: "Exact catalog name or alias") }
+
+        let queryTokens = Set((canonicalName.isEmpty ? normalizedName : canonicalName).split(separator: " ").map(String.init))
+        if !queryTokens.isEmpty {
+            if !canonicalName.isEmpty {
+                for entry in canonicalLookup[canonicalName] ?? [] {
+                    consider(entry, baseScore: 0.90, reason: "Canonical product match")
+                }
+            }
+
+            // A fuzzy candidate tops out below 0.92 even with brand/retailer boosts. If strong
+            // exact evidence already leads, scanning fuzzy candidates cannot change the winner or
+            // review state, so the common barcode/exact-name path stops here.
+            let leadingBeforeFuzzy = scored.values.max { lhs, rhs in lhs.score < rhs.score }
+            let hasStrongLeadingExact = leadingBeforeFuzzy.map { candidate in
+                candidate.score >= 0.92 && candidate.reasons.contains {
+                    $0 == "Exact barcode" || $0 == "Exact provider product ID"
+                        || $0 == "Exact catalog name or alias"
+                }
+            } ?? false
+
+            if !hasStrongLeadingExact {
+                var fuzzyCandidates: [String: IndexedEntry] = [:]
+                for token in queryTokens {
+                    for indexed in resolutionTokenIndex[token] ?? []
+                    where indexed.canonicalName != canonicalName {
+                        fuzzyCandidates[GroceryKnowledgeBase.normalize(indexed.entry.name)] = indexed
+                    }
+                }
+                for indexed in fuzzyCandidates.values {
+                    let intersection = queryTokens.intersection(indexed.tokens).count
+                    let union = queryTokens.union(indexed.tokens).count
+                    let similarity = union == 0 ? 0 : Double(intersection) / Double(union)
+                    if similarity >= 0.60 {
+                        consider(indexed.entry, baseScore: 0.48 + similarity * 0.36,
+                                 reason: "Similar product terms")
+                    }
+                }
+            }
+        }
+
+        let candidates = scored.values.sorted {
+            if $0.score != $1.score { return $0.score > $1.score }
+            return $0.entry.name.localizedCaseInsensitiveCompare($1.entry.name) == .orderedAscending
+        }.prefix(max(1, limit))
+        let ranked = Array(candidates)
+        let top = ranked.first
+        let confidence = top?.score ?? 0.45
+        let exactEvidence = top?.reasons.contains(where: {
+            $0 == "Exact barcode" || $0 == "Exact provider product ID"
+                || $0 == "Exact catalog name or alias"
+        }) ?? false
+        let ambiguous = !exactEvidence
+            && (ranked.dropFirst().first.map { confidence - $0.score < 0.08 } ?? false)
+        let fallbackIdentity = identity(for: context.rawName, brand: context.brand,
+                                        barcode: context.barcode, retailerID: context.retailerID,
+                                        retailerProductID: context.retailerProductID)
+        return ProductResolution(
+            identity: top?.identity ?? fallbackIdentity,
+            displayName: top?.entry.name ?? context.rawName.trimmingCharacters(in: .whitespacesAndNewlines),
+            brand: top.map(\.entry.brand) ?? context.brand,
+            category: top.map(\.entry.category),
+            aisle: top?.entry.resolvedAisle ?? GroceryKnowledgeBase.inferAisle(for: context.rawName),
+            confidence: confidence,
+            needsReview: confidence < 0.72 || ambiguous,
+            candidates: ranked
+        )
+    }
+
+    private static func externalLookupKey(provider: String, identifier: String) -> String {
+        "\(provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()):\(identifier.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
     }
 
     static let all: [CatalogEntry] = chips + crackers + cookies + candy + chocolate

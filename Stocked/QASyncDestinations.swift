@@ -837,7 +837,7 @@ struct QASyncSettingsView: View {
         List {
             Section {
                 LabeledContent("Folder", value: sync.folderLocation)
-                    .font(.callout)
+                    .font(.stocked(.callout))
                 Button {
                     Task { await sync.refreshFolderLocation() }
                 } label: {
@@ -894,10 +894,10 @@ struct QASyncSettingsView: View {
                     HStack(spacing: 8) { ProgressView(); Text("Working…").foregroundStyle(.secondary) }
                 }
                 if let note {
-                    Text(note).font(.caption).foregroundStyle(.secondary)
+                    Text(note).font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
                 ForEach(sync.lastDetail, id: \.self) { line in
-                    Text(line).font(.caption.monospaced()).foregroundStyle(.secondary)
+                    Text(line).font(.stocked(.caption).monospaced()).foregroundStyle(.secondary)
                 }
             } header: {
                 Text("Send")
@@ -925,7 +925,7 @@ struct QASyncSettingsView: View {
                 if QACPanelSettings.isConfigured {
                     Label("Configured", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(Color.stockedGreen)
-                        .font(.caption)
+                        .font(.stocked(.caption))
                 }
             } header: {
                 Text("cPanel (optional)")
@@ -935,7 +935,7 @@ struct QASyncSettingsView: View {
 
             Section {
                 LabeledContent("Worker", value: BuildConfig.receiptWorkerURL)
-                    .font(.caption.monospaced())
+                    .font(.stocked(.caption).monospaced())
             } footer: {
                 Text("Ticket text rides the /qa/reports envelope with a small thumbnail inside it. Full screenshots go to /qa/shots, which needs the Worker to have been redeployed — until then the screenshot line reports that route as missing and everything else still syncs.")
             }

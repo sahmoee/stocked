@@ -60,17 +60,17 @@ struct CookingSessionSummaryView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Image(systemName: completion.isSuccessful ? "checkmark.seal.fill" : "pause.circle.fill")
-                    .font(.system(size: 26))
+                    .scaledFont(26)
                     .foregroundStyle(completion.isSuccessful ? Color.stockedGreen : Color.stockedGold)
                 Text(completion.isSuccessful ? "Done" : "Paused")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
             }
             Text(anchorTitle.displayNormalized)
-                .font(.system(size: 16, weight: .semibold))
+                .scaledFont(16, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.75))
             Text(completion.summaryLabel)
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(12.5, weight: .semibold)
                 .foregroundStyle(Color.stockedGold)
                 .padding(.horizontal, 10).padding(.vertical, 4)
                 .background(Color.stockedGold.opacity(0.12))
@@ -81,7 +81,7 @@ struct CookingSessionSummaryView: View {
     /// The nonjudgmental line — cooking one thing is a complete session.
     private var affirmation: some View {
         Text(affirmationText)
-            .font(.system(size: 14))
+            .scaledFont(14)
             .foregroundStyle(session.themeTextColor.opacity(0.6))
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -102,12 +102,12 @@ struct CookingSessionSummaryView: View {
     private var sidesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Also made")
-                .font(.system(size: 13, weight: .bold))
+                .scaledFont(13, weight: .bold)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
             ForEach(sides, id: \.self) { s in
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 14)).foregroundStyle(Color.stockedGreen)
-                    Text(s).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                    Image(systemName: "checkmark.circle.fill").scaledFont(14).foregroundStyle(Color.stockedGreen)
+                    Text(s).scaledFont(14).foregroundStyle(session.themeTextColor)
                 }
             }
         }
@@ -119,7 +119,7 @@ struct CookingSessionSummaryView: View {
     private var nextActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("What now?")
-                .font(.system(size: 13, weight: .bold))
+                .scaledFont(13, weight: .bold)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
             actionRow("fork.knife", "Serve it now")
             actionRow("refrigerator", "Save for later")
@@ -130,10 +130,10 @@ struct CookingSessionSummaryView: View {
 
     private func actionRow(_ icon: String, _ title: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(Color.stockedGold).frame(width: 24)
-            Text(title).font(.system(size: 14.5, weight: .semibold)).foregroundStyle(session.themeTextColor)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
+            Text(title).scaledFont(14.5, weight: .semibold).foregroundStyle(session.themeTextColor)
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.3))
+            Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
         }
         .padding(.vertical, 12).padding(.horizontal, 14)
         .background(RoundedRectangle(cornerRadius: 12).fill(session.themeTextColor.opacity(0.04)))

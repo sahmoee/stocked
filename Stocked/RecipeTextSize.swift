@@ -74,22 +74,24 @@ final class RecipeTextPrefs {
 
 struct RecipeTextSizeControl: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
 
     var body: some View {
         let prefs = RecipeTextPrefs.shared
         VStack(alignment: .leading, spacing: 8) {
             Label("Recipe Text Size", systemImage: "textformat.size")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-            HStack(spacing: 6) {
+                .scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 6)], spacing: 6) {
                 ForEach(RecipeTextSize.allCases) { option in
                     Button {
-                        withAnimation(.spring(response: 0.25)) { prefs.size = option }
+                        motion.animate(.selection, intent: .spatial) { prefs.size = option }
                         HapticManager.select()
                     } label: {
                         Text(option.label)
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(12, weight: .bold)
                             .foregroundStyle(prefs.size == option ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
                             .padding(.horizontal, 11).padding(.vertical, 7)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                             .background(prefs.size == option ? Color.stockedGold : Color.clear)
                             .clipShape(Capsule())
                             .overlay(Capsule().stroke(
@@ -101,7 +103,7 @@ struct RecipeTextSizeControl: View {
             }
             // Live preview so the effect is obvious before leaving Settings.
             Text("Simmer for 10 minutes, stirring occasionally.")
-                .font(.system(size: prefs.scaled(14)))
+                .font(.stockedSystem(size: prefs.scaled(14)))
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -201,15 +203,15 @@ struct TimedStepRow: View {
                     .frame(width: 24, height: 24)
                 if timerEngine.timers[stepIndex]?.isFinished == true {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                        .scaledFont(11, weight: .bold).foregroundStyle(Color.stockedWhite)
                 } else {
                     Text("\(stepNumber)")
-                        .font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                        .scaledFont(12, weight: .bold).foregroundStyle(Color.stockedWhite)
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text(stepText)
-                    .font(.system(size: RecipeTextPrefs.shared.scaled(14)))
+                    .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(14)))
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
                 if detectedSeconds != nil || timerEngine.timers[stepIndex] != nil {
@@ -227,7 +229,7 @@ struct TimedStepRow: View {
             } label: {
                 Image(systemName: SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)"
                       ? "speaker.wave.2.fill" : "speaker.wave.2")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)"
                                      ? Color.stockedGold : session.themeTextColor.opacity(0.35))
                     .frame(width: 26, height: 26)
@@ -270,32 +272,32 @@ struct StepTimerChip: View {
             chipLabel
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.25), value: timer?.isRunning)
+        .stockedAnimation(.selection, intent: .spatial, value: timer?.isRunning)
     }
 
     @ViewBuilder private var chipLabel: some View {
         if let t = timer {
             if t.isFinished {
                 HStack(spacing: 5) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .bold))
-                    Text("Timer done — tap to reset").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "checkmark.circle.fill").scaledFont(11, weight: .bold)
+                    Text("Timer done — tap to reset").scaledFont(11, weight: .semibold)
                 }
                 .foregroundStyle(Color.stockedGreen)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Color.stockedGreen.opacity(0.12)).clipShape(Capsule())
             } else if t.isRunning {
                 HStack(spacing: 6) {
-                    Image(systemName: "pause.fill").font(.system(size: 10, weight: .bold))
-                    Text(t.displayString).font(.system(size: 12, weight: .bold, design: .monospaced))
+                    Image(systemName: "pause.fill").scaledFont(10, weight: .bold)
+                    Text(t.displayString).scaledFont(12, weight: .bold, design: .monospaced)
                 }
                 .foregroundStyle(Color.stockedWhite)
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Color.stockedGold).clipShape(Capsule())
             } else {
                 HStack(spacing: 6) {
-                    Image(systemName: "play.fill").font(.system(size: 10, weight: .bold))
-                    Text(t.displayString).font(.system(size: 12, weight: .bold, design: .monospaced))
-                    Text("paused").font(.system(size: 10, weight: .semibold))
+                    Image(systemName: "play.fill").scaledFont(10, weight: .bold)
+                    Text(t.displayString).scaledFont(12, weight: .bold, design: .monospaced)
+                    Text("paused").scaledFont(10, weight: .semibold)
                 }
                 .foregroundStyle(Color.stockedGold)
                 .padding(.horizontal, 12).padding(.vertical, 6)
@@ -303,9 +305,9 @@ struct StepTimerChip: View {
             }
         } else if let secs = detectedSeconds {
             HStack(spacing: 5) {
-                Image(systemName: "timer").font(.system(size: 10, weight: .bold))
-                Text(RecipeTimerFormat.short(secs)).font(.system(size: 11, weight: .bold))
-                Text("· Start timer").font(.system(size: 11, weight: .semibold)).opacity(0.75)
+                Image(systemName: "timer").scaledFont(10, weight: .bold)
+                Text(RecipeTimerFormat.short(secs)).scaledFont(11, weight: .bold)
+                Text("· Start timer").scaledFont(11, weight: .semibold).opacity(0.75)
             }
             .foregroundStyle(Color.stockedGold)
             .padding(.horizontal, 10).padding(.vertical, 6)

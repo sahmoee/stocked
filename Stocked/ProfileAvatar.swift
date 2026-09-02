@@ -13,51 +13,27 @@ import PhotosUI
 struct ProfileAvatarView: View {
     var size: CGFloat = 46
     @Environment(AppSession.self) private var session
-    @State private var decodedPhoto: UIImage? = nil
 
     private var photoData: Data? { session.guestStore.cookingProfile.avatarPhotoData }
-    private var photoSignature: ImageDataSignature? { ImageDataSignature(photoData) }
 
     var body: some View {
         ZStack {
             Circle()
                 .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-            if let decodedPhoto {
-                Image(uiImage: decodedPhoto)
-                    .resizable()
-                    .scaledToFill()
-            } else {
+            CachedLocalDataImage(
+                data: photoData,
+                maxDimension: max(size, 80),
+                width: size,
+                height: size,
+                clip: .circle
+            ) {
                 Text(session.guestStore.cookingProfile.avatarEmoji)
-                    .font(.system(size: size * 0.62))
+                    .font(.stockedSystem(size: size * 0.62))
+                    .frame(width: size, height: size)
             }
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .task(id: photoSignature) { await decodePhoto() }
-    }
-
-    private func decodePhoto() async {
-        guard let data = photoData else {
-            decodedPhoto = nil
-            return
-        }
-        let targetSize = max(size, 80)
-        guard let signature = ImageDataSignature(data) else {
-            decodedPhoto = nil
-            return
-        }
-        if let cached = ImageCache.shared.localImage(for: signature, maxDimension: targetSize) {
-            decodedPhoto = cached
-            return
-        }
-        let image = await Task.detached(priority: .userInitiated) {
-            ImageCache.downsample(data, maxDimension: targetSize) ?? UIImage(data: data)
-        }.value
-        guard !Task.isCancelled else { return }
-        if let image {
-            ImageCache.shared.storeLocal(image, for: signature, maxDimension: targetSize)
-        }
-        decodedPhoto = image
     }
 }
 
@@ -65,6 +41,7 @@ struct ProfileAvatarView: View {
 struct EditableProfileAvatar: View {
     var size: CGFloat = 96
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedMotion) private var motion
 
     @State private var showOptions = false
     @State private var showSkinTones = false
@@ -83,7 +60,7 @@ struct EditableProfileAvatar: View {
     var body: some View {
         VStack(spacing: 14) {
             Button {
-                withAnimation(.spring(response: 0.25)) { showOptions.toggle() }
+                motion.animate(.selection, intent: .spatial) { showOptions.toggle() }
             } label: {
                 ZStack(alignment: .bottomTrailing) {
                     ProfileAvatarView(size: size)
@@ -91,7 +68,7 @@ struct EditableProfileAvatar: View {
                     ZStack {
                         Circle().fill(Color.stockedGold).frame(width: size * 0.30, height: size * 0.30)
                         Image(systemName: "pencil")
-                            .font(.system(size: size * 0.15, weight: .bold))
+                            .font(.stockedSystem(size: size * 0.15, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -101,7 +78,7 @@ struct EditableProfileAvatar: View {
                 VStack(spacing: 10) {
                     // Choice 1: switch chef emoji skin tone.
                     Button {
-                        withAnimation(.spring(response: 0.2)) { showSkinTones.toggle() }
+                        motion.animate(.selection, intent: .spatial) { showSkinTones.toggle() }
                     } label: {
                         optionRow(icon: "face.smiling", title: "Choose Chef Icon")
                     }.buttonStyle(.plain)
@@ -112,7 +89,7 @@ struct EditableProfileAvatar: View {
                                 HStack(spacing: 6) {
                                     ForEach(row, id: \.self) { e in
                                         Button {
-                                            withAnimation(.spring(response: 0.2)) {
+                                            motion.animate(.selection, intent: .spatial) {
                                                 var p = session.guestStore.cookingProfile
                                                 p.avatarEmoji = e
                                                 p.avatarPhotoData = nil   // emoji choice clears any photo
@@ -121,7 +98,7 @@ struct EditableProfileAvatar: View {
                                                 showOptions = false
                                             }
                                         } label: {
-                                            Text(e).font(.system(size: 28))
+                                            Text(e).scaledFont(28)
                                                 .padding(5)
                                                 .background(!hasPhoto && session.guestStore.cookingProfile.avatarEmoji == e
                                                             ? Color.stockedGold.opacity(0.2) : Color.clear)
@@ -152,7 +129,7 @@ struct EditableProfileAvatar: View {
                     // Remove photo (only when one is set), reverting to the chef emoji.
                     if hasPhoto {
                         Button {
-                            withAnimation(.spring(response: 0.2)) {
+                            motion.animate(.selection, intent: .spatial) {
                                 session.guestStore.cookingProfile.avatarPhotoData = nil
                                 showOptions = false
                             }
@@ -170,10 +147,13 @@ struct EditableProfileAvatar: View {
             guard let newItem else { return }
             Task {
                 if let data = try? await newItem.loadTransferable(type: Data.self),
-                   let img = UIImage(data: data),
-                   let jpeg = img.downscaledJPEG(maxDimension: 512, quality: 0.8) {
+                   let jpeg = await Task.detached(priority: .userInitiated, operation: {
+                       guard let img = ImageCache.downsample(data, maxDimension: 512)
+                               ?? UIImage(data: data) else { return nil as Data? }
+                       return img.downscaledJPEG(maxDimension: 512, quality: 0.8)
+                   }).value {
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.2)) {
+                        motion.animate(.selection, intent: .spatial) {
                             session.guestStore.cookingProfile.avatarPhotoData = jpeg
                             showOptions = false
                             showSkinTones = false
@@ -188,11 +168,11 @@ struct EditableProfileAvatar: View {
     private func optionRow(icon: String, title: String, tint: Color = .primary) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 15))
+                .scaledFont(15)
                 .foregroundStyle(tint == .primary ? Color.stockedGold : tint)
                 .frame(width: 22)
             Text(title)
-                .font(.system(size: 14.5, weight: .medium))
+                .scaledFont(14.5, weight: .medium)
                 .foregroundStyle(tint == .primary ? session.themeTextColor : tint)
             Spacer()
         }
@@ -204,7 +184,7 @@ struct EditableProfileAvatar: View {
 
 // MARK: - Image downscaling helper (avoids storing huge photos in the profile)
 private extension UIImage {
-    func downscaledJPEG(maxDimension: CGFloat, quality: CGFloat) -> Data? {
+    nonisolated func downscaledJPEG(maxDimension: CGFloat, quality: CGFloat) -> Data? {
         let longest = max(size.width, size.height)
         let scale = longest > maxDimension ? maxDimension / longest : 1
         let newSize = CGSize(width: size.width * scale, height: size.height * scale)

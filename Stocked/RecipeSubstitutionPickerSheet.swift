@@ -45,7 +45,7 @@ struct RecipeSubstitutionPickerSheet: View {
                                 .font(.stockedSerif(22, weight: .bold))
                                 .foregroundStyle(session.themeTextColor)
                             Text("Choose the exact substitution Stocked should use. Nothing changes until you confirm.")
-                                .font(.system(size: 13))
+                                .scaledFont(13)
                                 .foregroundStyle(session.themeSecondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -63,16 +63,16 @@ struct RecipeSubstitutionPickerSheet: View {
                                     Button { selectedID = option.id } label: {
                                         HStack(alignment: .top, spacing: 12) {
                                             Image(systemName: selectedID == option.id ? "checkmark.circle.fill" : "circle")
-                                                .font(.system(size: 20))
+                                                .scaledFont(20)
                                                 .foregroundStyle(selectedID == option.id ? session.accentColor : session.themeSecondaryText)
                                             VStack(alignment: .leading, spacing: 4) {
                                                 HStack(spacing: 7) {
                                                     Text(option.substitute.displayNormalized)
-                                                        .font(.system(size: 15, weight: .semibold))
+                                                        .scaledFont(15, weight: .semibold)
                                                         .foregroundStyle(session.themeTextColor)
                                                     if isInKitchen(option) {
                                                         Text("In kitchen")
-                                                            .font(.system(size: 9.5, weight: .bold))
+                                                            .scaledFont(9.5, weight: .bold)
                                                             .foregroundStyle(Color.stockedGreen)
                                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                                             .background(Color.stockedGreen.opacity(0.13))
@@ -82,12 +82,12 @@ struct RecipeSubstitutionPickerSheet: View {
                                                 }
                                                 if !option.detail.isEmpty {
                                                     Text(option.detail)
-                                                        .font(.system(size: 11.5))
+                                                        .scaledFont(11.5)
                                                         .foregroundStyle(session.themeSecondaryText)
                                                         .fixedSize(horizontal: false, vertical: true)
                                                 }
                                                 Text(option.source.label)
-                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .scaledFont(10, weight: .semibold)
                                                     .foregroundStyle(session.accentColor.opacity(0.8))
                                             }
                                         }
@@ -115,7 +115,7 @@ struct RecipeSubstitutionPickerSheet: View {
                                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.48))
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                                 TextField("Ratio or notes (optional)", text: $customNotes, axis: .vertical)
-                                    .lineLimit(2...4)
+                                    .lineLimit(2...)
                                     .padding(12)
                                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.48))
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -127,7 +127,7 @@ struct RecipeSubstitutionPickerSheet: View {
                             .padding(.top, 10)
                         } label: {
                             Label("Add a Custom Substitution", systemImage: "plus.circle")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                         }
 
@@ -139,7 +139,7 @@ struct RecipeSubstitutionPickerSheet: View {
                                         dismiss()
                                     } label: {
                                         Label("Use for This Cook", systemImage: "fork.knife")
-                                            .font(.system(size: 15, weight: .bold))
+                                            .scaledFont(15, weight: .bold)
                                             .frame(maxWidth: .infinity).padding(.vertical, 13)
                                     }
                                     .buttonStyle(.borderedProminent)
@@ -151,7 +151,7 @@ struct RecipeSubstitutionPickerSheet: View {
                                     dismiss()
                                 } label: {
                                     Label("Replace in Recipe", systemImage: "arrow.triangle.2.circlepath")
-                                        .font(.system(size: 15, weight: .bold))
+                                        .scaledFont(15, weight: .bold)
                                         .frame(maxWidth: .infinity).padding(.vertical, 13)
                                 }
                                 .buttonStyle(.borderedProminent)

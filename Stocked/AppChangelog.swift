@@ -1699,7 +1699,7 @@ struct StockedChangelog {
             entries: [
                 ChangelogEntry(icon: "hand.tap.fill", color: Color.stockedGold,
                                title: "Touch and hold to customize",
-                               detail: "Press and hold anywhere on Home and the widgets start to jiggle — just like rearranging apps on your iPhone."),
+                               detail: "Short-press with two fingers anywhere on Home and the widgets start to jiggle — then drag to reorder or remove them."),
                 ChangelogEntry(icon: "minus.circle.fill", color: Color.stockedError,
                                title: "Remove what you don't use",
                                detail: "Tap the − on any widget to take it off your Home screen. Your layout is remembered."),
@@ -4287,13 +4287,14 @@ struct StockedChangelog {
 struct AppVersionView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedMotion) private var motion
     @State private var expandedVersion: String? = nil
 
     var body: some View {
         StockedSheet(title: "What's New") {
             VStack(spacing: 0) {
                 Text("Stocked. v\(StockedChangelog.currentVersion) · \(StockedChangelog.currentBuildDate)")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 24).padding(.top, 4).padding(.bottom, 10)
@@ -4320,14 +4321,14 @@ struct AppVersionView: View {
         return VStack(alignment: .leading, spacing: 0) {
             // Version header row — tappable to expand/collapse
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                motion.animate(.standard, intent: .spatial) {
                     expandedVersion = isExpanded ? nil : ver.version
                 }
             } label: {
                 HStack(spacing: 12) {
                     // Version badge
                     Text("v\(ver.version)")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .scaledFont(12, weight: .bold, design: .monospaced)
                         .foregroundStyle(session.themeTextColor)
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(Color.stockedGold)
@@ -4335,17 +4336,17 @@ struct AppVersionView: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ver.headline)
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text(ver.buildDate)
-                            .font(.system(size: 11))
+                            .scaledFont(11)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
 
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
                 .padding(.horizontal, 20)
@@ -4382,15 +4383,15 @@ struct AppVersionView: View {
                     .fill(entry.color)
                     .frame(width: 38, height: 38)
                 Image(systemName: entry.icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(16, weight: .semibold)
                     .foregroundStyle(.white)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.title)
-                    .font(.system(size: 14, weight: .bold, design: .serif))
+                    .scaledFont(14, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text(entry.detail)
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -248,7 +248,7 @@ struct QAAccessibilitySweepView: View {
                 }
                 if sweep.hasRun {
                     Text(sweep.summary)
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(sweep.issues.isEmpty ? Color.stockedGreen : Color.stockedWarning)
                 }
             } header: {
@@ -262,20 +262,20 @@ struct QAAccessibilitySweepView: View {
                     ForEach(sweep.issues) { issue in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: issue.kind.symbol)
-                                .font(.caption)
+                                .font(.stocked(.caption))
                                 .foregroundStyle(Color.stockedWarning)
                                 .frame(width: 18)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(issue.kind.title).font(.system(size: 13, weight: .medium))
+                                Text(issue.kind.title).scaledFont(13, weight: .medium)
                                 Text(issue.element)
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .scaledFont(10, design: .monospaced)
                                     .foregroundStyle(.secondary)
-                                Text(issue.detail).font(.caption2).foregroundStyle(.secondary)
+                                Text(issue.detail).font(.stocked(.caption2)).foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                                 Text(String(format: "at %.0f, %.0f · %.0f×%.0f",
                                             issue.frame.minX, issue.frame.minY,
                                             issue.frame.width, issue.frame.height))
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .scaledFont(10, design: .monospaced)
                                     .foregroundStyle(.tertiary)
                             }
                         }
@@ -293,7 +293,7 @@ struct QAAccessibilitySweepView: View {
                         Label("Share findings", systemImage: "square.and.arrow.up")
                     }
                     if !filed.isEmpty {
-                        Text(filed).font(.caption).foregroundStyle(Color.stockedGreen)
+                        Text(filed).font(.stocked(.caption)).foregroundStyle(Color.stockedGreen)
                     }
                 } footer: {
                     Text("Filed as minor. These are worth fixing and none of them stop a release — filing them as blockers is how a team learns to ignore accessibility tickets.")
