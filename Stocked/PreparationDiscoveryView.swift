@@ -61,12 +61,21 @@ struct PreparationDiscoveryView: View {
         }
         .task { recompute() }
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
+        .onChange(of: store.planRevision) { _, _ in recompute() }
+        .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recompute() }
+        .onDisappear { classificationTask?.cancel() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
     }
 
     private func recompute() {
-        snapshot = CookNowCompute.run(store: store, session: cookSession)
+        classificationTask?.cancel()
+        classificationTask = Task {
+            if let result = await CookNowCompute.runYielding(store: store, session: cookSession),
+               !Task.isCancelled { snapshot = result }
+        }
     }
+
+    @State private var classificationTask: Task<Void, Never>?
 
     // MARK: Filtering by intent + dish role
 

@@ -258,6 +258,12 @@ struct RootView: View {
         // No .animation(value:) — causes CATransaction fence timeout on iPad
         // when splashDone + quizCompleted + isLoggedIn all change together.
         .preferredColorScheme(session.isDarkMode ? .dark : .light)
+        .task(id: session.guestStore.hasCompletedInitialHydration) {
+            guard session.guestStore.hasCompletedInitialHydration else { return }
+            // Wait for real local data, not the deliberately empty launch placeholders.
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            await HarvestRecipeSync.shared.backfillImported(session.guestStore.userRecipes)
+        }
         // Dynamic Type support (Change 16): honor the user's system text-size setting, but clamp
         // the extreme accessibility sizes so the app's fixed-size layouts don't break. Raised to
         // accessibility3 to support larger accessibility text sizes while still capping the two

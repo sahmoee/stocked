@@ -4,6 +4,22 @@ import SwiftUI
 
 @MainActor
 final class AdaptiveUIFoundationTests: XCTestCase {
+    func testStockLevelArtworkScalesAcrossPhoneAndTabletWithoutTextSizeShrinkingIt() {
+        for width: CGFloat in [320, 393, 430, 768, 1024] {
+            let standard = StockedLayoutMetrics(width: width, height: 900,
+                isAccessibilityText: false, interfaceScale: 1)
+            let accessible = StockedLayoutMetrics(width: width, height: 900,
+                isAccessibilityText: true, interfaceScale: 1)
+            let size = standard.homeStockLevelIllustrationSize
+            XCTAssertEqual(size, accessible.homeStockLevelIllustrationSize)
+            XCTAssertEqual(size.width, size.height)
+            XCTAssertGreaterThan(size.width, standard.homeWidgetIllustrationSize(
+                preferredWidth: width >= 700 ? 72 : 56,
+                preferredHeight: width >= 700 ? 78 : 62).width)
+            XCTAssertLessThanOrEqual(size.width, standard.contentWidth * 0.28)
+        }
+    }
+
     func testEveryAppFontUsesTheSharedTypographyMapping() {
         let expectedDesigns: [AppFont: Font.Design] = [
             .serif: .serif,

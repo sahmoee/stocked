@@ -5,6 +5,16 @@ import XCTest
 /// ingestion, and quantity parsing. These deliberately avoid network, disk, and UI
 /// work so a regression points at application code instead of simulator variance.
 final class PerformanceBudgetTests: XCTestCase {
+    @MainActor
+    func testCancelledClassificationDoesNotProduceAFalseEmptySnapshot() async {
+        let store = GuestDataStore()
+        let result = await Task { @MainActor in
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await CookNowCompute.runYielding(store: store, session: nil)
+        }.value
+        XCTAssertNil(result)
+    }
+
     private struct AsyncReadFixture: Codable, Equatable, Sendable {
         let values: [Int]
     }

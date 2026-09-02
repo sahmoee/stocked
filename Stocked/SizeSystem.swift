@@ -122,6 +122,11 @@ struct StockedLayoutMetrics: Equatable {
             + homeWidgetGridSpacing * CGFloat(rows - 1)
     }
 
+    var homeStockLevelIllustrationSize: CGSize {
+        let side: CGFloat = contentWidth >= 700 ? 88 : 72
+        return homeWidgetIllustrationSize(preferredWidth: side, preferredHeight: side)
+    }
+
     func homeWidgetIllustrationSize(
         preferredWidth: CGFloat,
         preferredHeight: CGFloat

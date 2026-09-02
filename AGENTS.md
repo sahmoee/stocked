@@ -29,10 +29,17 @@ App-level headers and root tab bars have one shared implementation and one geome
 - `site-repo`: public product pages and content feeds.
 
 Recipe schemas, images, provenance, categories, household data, QA, or API changes require compatible updates across affected repos. Keep old records and released clients working; make fields additive and repairs retroactive.
+Source-attributed, image-complete imports publish to UnifiedWorker's shared harvest catalogue even
+when the device is not in a household. Preserve publisher name, canonical URL, and original image
+URL; source-less personal recipes may remain household-scoped.
 
 Stocked QA uses the shared `Joo` ten-minute gate. Once unlocked, sync first merges the app-scoped Worker ticket collection from every iPhone/iPad, then publishes local changes. Mac apps do not expose in-app QA.
 
 ## QA
+
+Background invariant classification uses bounded yielding batches; interrupted or revision-stale
+snapshots must not be reported as a clean QA run. Harvest JSON conversion stays off the main actor,
+and bulk publication uses one coalesced, bounded worker rather than per-recipe tasks.
 
 “Check tickets” means pull the complete cross-device Stocked QA collection, fix every actionable open ticket in the same task, validate the affected iPhone and iPad targets, add a shipped resolution, and publish the fixed ticket state. A read-only summary is not completion. Never mark a ticket fixed when validation fails; `verified` remains a tester/device action after the corrected build is exercised.
 

@@ -65,7 +65,9 @@ enum QAInvariants {
         // apart with an inventory edit in between, a real divergence and a
         // perfectly ordinary edit look exactly the same. Every probe now judges
         // the same snapshot, taken once, before the first yield.
-        let snapshot = CookNowCompute.run(store: store, session: session)
+        guard let snapshot = await CookNowCompute.runYielding(store: store, session: session) else {
+            return [] // Interrupted snapshots are not evidence of failed invariants.
+        }
         await Task.yield()
 
         var out: [QAInvariantResult] = []

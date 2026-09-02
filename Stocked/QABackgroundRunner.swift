@@ -121,6 +121,10 @@ final class QABackgroundRunner {
         isRunning = true
         surfaceNewCrashes()
         let results = await QAInvariants.runAllYielding(store: store, session: session)
+        guard !results.isEmpty else {
+            isRunning = false
+            return // Cancellation or changing inputs: retry, don't record a clean run.
+        }
         QARecorder.shared.setInvariantResults(results)
         lastSignature = sig
         runCount += 1

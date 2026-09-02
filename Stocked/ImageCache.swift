@@ -66,6 +66,7 @@ final class ImageCache: @unchecked Sendable {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.evictMemory()
+                CookNowCompute.invalidate()
             }
         }
 

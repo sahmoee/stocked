@@ -44,6 +44,8 @@ final class HarvestRecipeSync {
 
     private var loopTask: Task<Void, Never>?
     private var inFlight: Task<Int, Never>?
+    private var pendingPublications: [UUID: UserRecipe] = [:]
+    private var publicationTask: Task<Void, Never>?
 
     private var lastSyncAt: Date? {
         get {
@@ -80,6 +82,99 @@ final class HarvestRecipeSync {
     /// ingested (0 on a 304, offline, or failure).
     @discardableResult
     func syncNow() async -> Int { await sync() }
+
+    /// Source-attributed imports belong to the shared recipe database, independent of
+    /// household membership. Personal/source-less recipes remain local/household data.
+    func publishImported(_ recipe: UserRecipe) {
+        guard isPublishable(recipe) else { return }
+        pendingPublications[recipe.id] = recipe
+        guard publicationTask == nil else { return }
+        publicationTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self else { return }
+            defer { self.publicationTask = nil }
+            // One worker, not one task/request per recipe during a bulk import.
+            while !Task.isCancelled, !self.pendingPublications.isEmpty {
+                let batch = Array(self.pendingPublications.values.prefix(20))
+                for recipe in batch { self.pendingPublications[recipe.id] = nil }
+                guard await self.performPublish(batch) else {
+                    for recipe in batch where self.pendingPublications[recipe.id] == nil {
+                        self.pendingPublications[recipe.id] = recipe
+                    }
+                    // Do not spin while offline; a later change retries this queue and
+                    // the persisted local recipes remain the relaunch backfill source.
+                    return
+                }
+                await Task.yield()
+            }
+        }
+    }
+
+    /// Idempotently repairs older installations. Batches keep hundreds of historical
+    /// imports from becoming hundreds of requests or one oversized allocation.
+    func backfillImported(_ recipes: [UserRecipe]) async {
+        let imported = recipes.filter(isPublishable)
+        var offset = 0
+        while offset < imported.count {
+            guard !Task.isCancelled else { return }
+            guard await performPublish(Array(imported[offset..<min(offset + 20, imported.count)])) else { return }
+            offset += 20
+        }
+    }
+
+    private func performPublish(_ recipes: [UserRecipe]) async -> Bool {
+        guard StockedUnifiedWorker.isConfigured,
+              let url = StockedUnifiedWorker.url("harvest/cache") else { return false }
+        let rows = recipes.compactMap(wireRecipe)
+        guard !rows.isEmpty,
+              let body = try? JSONSerialization.data(withJSONObject: ["schemaVersion": 2, "recipes": rows])
+        else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        BuildConfig.authorizeWorkerRequest(&request)
+        request.httpBody = body
+        request.timeoutInterval = 20
+        do {
+            let (_, response) = try await URLSession.stocked.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200..<300).contains(http.statusCode) else { return false }
+            lastSyncAt = nil
+            return true
+        } catch { return false }
+    }
+
+    private func isPublishable(_ recipe: UserRecipe) -> Bool {
+        func isHTTPS(_ value: String?) -> Bool {
+            guard let value, let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+            return url.scheme?.lowercased() == "https" && url.host?.isEmpty == false
+        }
+        return isHTTPS(recipe.sourceURL) && isHTTPS(recipe.imageURL) && !recipe.instructions.isEmpty
+    }
+
+    private func wireRecipe(_ recipe: UserRecipe) -> [String: Any]? {
+        guard isPublishable(recipe) else { return nil }
+        guard let sourceURL = recipe.sourceURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+              sourceURL.lowercased().hasPrefix("https://"),
+              let imageURL = recipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+              imageURL.lowercased().hasPrefix("https://"),
+              !recipe.instructions.isEmpty else { return nil }
+        let cleanSource = recipe.sourceName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = cleanSource?.isEmpty == false
+            ? cleanSource!
+            : (URL(string: sourceURL)?.host ?? "Original publisher")
+        return [
+            "id": recipe.id.uuidString, "title": recipe.title,
+            "description": recipe.description, "cuisine": recipe.cuisine,
+            "tags": recipe.tags, "categories": recipe.categories ?? recipe.tags,
+            "ingredients": recipe.ingredients.map { ["name": $0.name, "amount": $0.amount] },
+            "instructions": recipe.instructions, "sourceURL": sourceURL,
+            "attribution": source, "imageURL": imageURL,
+            "servings": max(1, recipe.servings), "prepTime": recipe.prepTime,
+            "cookTime": recipe.cookTime, "importedBy": "stocked-ios",
+            "importedAt": StockedFormatters.iso8601.string(from: recipe.dateCreated),
+        ]
+    }
 
     // MARK: Sync
 
@@ -133,12 +228,15 @@ final class HarvestRecipeSync {
                 return 0
             }
 
-            let decoded = try JSONDecoder().decode(HarvestWireResponse.self, from: data)
             let base = StockedUnifiedWorker.baseURLString
-            let imports = decoded.recipes.compactMap { recipe -> HarvestImport? in
-                guard let entry = recipe.toDatabaseEntry(workerBase: base) else { return nil }
-                return HarvestImport(entry: entry, importedAt: recipe.importDate)
-            }
+            let (imports, receivedCount) = try await Task.detached(priority: .utility) {
+                let decoded = try JSONDecoder().decode(HarvestWireResponse.self, from: data)
+                let imports = decoded.recipes.compactMap { recipe -> HarvestImport? in
+                    guard let entry = recipe.toDatabaseEntry(workerBase: base) else { return nil }
+                    return HarvestImport(entry: entry, importedAt: recipe.importDate)
+                }
+                return (imports, decoded.count)
+            }.value
             let entries = imports.map(\.entry)
 
             if !entries.isEmpty {
@@ -157,7 +255,7 @@ final class HarvestRecipeSync {
                 UserDefaults.standard.set(etag, forKey: etagKey)
             }
             lastSyncAt = Date()
-            Log.data.notice("Harvest sync: ingested \(entries.count, privacy: .public) of \(decoded.count, privacy: .public) cached recipe(s)")
+            Log.data.notice("Harvest sync: ingested \(entries.count, privacy: .public) of \(receivedCount, privacy: .public) cached recipe(s)")
             return entries.count
         } catch is CancellationError {
             return 0
@@ -170,24 +268,24 @@ final class HarvestRecipeSync {
 
 // MARK: - Wire format (matches Stocked Mac's HarvestCloudSync payload)
 
-private struct HarvestWireResponse: Decodable {
+nonisolated private struct HarvestWireResponse: Decodable, Sendable {
     var version: Int?
     var updatedAt: String?
     var count: Int = 0
     var recipes: [HarvestWireRecipe] = []
 }
 
-private struct HarvestWireIngredient: Decodable {
+nonisolated private struct HarvestWireIngredient: Decodable, Sendable {
     var name: String = ""
     var amount: String = ""
 }
 
-private struct HarvestImport {
+nonisolated private struct HarvestImport: Sendable {
     var entry: RecipeDatabaseEntry
     var importedAt: Date
 }
 
-private struct HarvestWireRecipe: Decodable {
+nonisolated private struct HarvestWireRecipe: Decodable, Sendable {
     var id: String = ""
     var title: String = ""
     var description: String?

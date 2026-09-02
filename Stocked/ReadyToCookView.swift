@@ -44,13 +44,15 @@ struct ReadyToCoookNowView: View {
         let fp = inventoryFingerprint
         guard !isComputingReady, fp != lastComputedFingerprint else { return }
         isComputingReady = true
-        defer { isComputingReady = false; lastComputedFingerprint = fp }
+        defer { isComputingReady = false }
         guard !session.guestStore.pantrySet.isEmpty else { cachedReadyRecipes = []; return }
 
         // Use the same full catalog and classifier as Cook Now. This automatically includes
         // saved recipes, newly generated recipes, and newly synced Mac/Discover recipes, and
         // resolves in-stock substitutions before deciding how many ingredients are missing.
-        let snapshot = CookNowCompute.run(store: session.guestStore, session: nil)
+        guard let snapshot = await CookNowCompute.runYielding(store: session.guestStore, session: nil),
+              !Task.isCancelled else { return }
+        lastComputedFingerprint = fp
         let ownIDs = Set(session.guestStore.userRecipes.map(\.id))
         let generatedIDs = Set(session.guestStore.savedGeneratedRecipes.map {
             RecipeAdapter.userRecipe(from: $0).id

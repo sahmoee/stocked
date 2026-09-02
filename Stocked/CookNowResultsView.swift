@@ -89,6 +89,8 @@ struct CookNowResultsView: View {
         }
         .qaScreen("Cook Now results")
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
+        .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recompute() }
+        .onDisappear { classificationTask?.cancel() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
         .onChange(of: store.planRevision)      { _, _ in recompute() }  // RL-006: plan edits move reservations
         .sheet(item: $overridePayload) { payload in
@@ -115,8 +117,14 @@ struct CookNowResultsView: View {
     }
 
     private func recompute() {
-        snapshot = CookNowCompute.run(store: store, session: cookSession)
+        classificationTask?.cancel()
+        classificationTask = Task {
+            if let result = await CookNowCompute.runYielding(store: store, session: cookSession),
+               !Task.isCancelled { snapshot = result }
+        }
     }
+
+    @State private var classificationTask: Task<Void, Never>?
 
     // PERF: this used to touch all four tier lists, and each of those was a
     // computed property that re-filtered and re-sorted the whole catalog. Between

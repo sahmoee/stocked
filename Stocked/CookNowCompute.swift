@@ -145,20 +145,24 @@ enum CookNowCompute {
     /// next to the pass it avoids.
     private static func sessionComponent(_ session: CookNowSession?) -> String {
         let subs: [String] = (session?.confirmedSubstitutionKeys).map { Array($0).sorted() } ?? []
-        let overrideKeys: [String] = session.map { Array($0.overridesSnapshotForEngine.keys).sorted() } ?? []
+        let overrideKeys: [String] = session.map {
+            $0.overridesSnapshotForEngine.map { "\($0.key)=\($0.value.rawValue)" }.sorted()
+        } ?? []
         return "\(subs.count):\(subs.joined(separator: ","))"
             + "|\(overrideKeys.count):\(overrideKeys.joined(separator: ","))"
     }
 
     private static func key(store: GuestDataStore, session: CookNowSession?) -> String {
-        var k = "\(store.inventoryRevision)|\(store.recipeRevision)|\(store.planRevision)"
-        k += "|\(OnlineRecipesLoader.shared.recipes.count)"
-        k += "|\(store.cookingProfile.allergens.count)"
+        var k = "\(ObjectIdentifier(store))|\(store.inventoryRevision)|\(store.recipeRevision)|\(store.planRevision)"
+        k += "|\(OnlineRecipesLoader.shared.revision)|\(OnlineRecipesLoader.shared.recipes.count)"
+        k += "|" + store.cookingProfile.allergens.sorted().joined(separator: ",")
         let substitutionKey = store.userSubstitutions
             .map { "\($0.ingredient.lowercased())::\($0.substitute.lowercased())" }
             .sorted().joined(separator: ",")
         k += "|subs:\(substitutionKey)"
-        k += "|\(FamilyProfileStore.shared.profiles.filter(\.isPresent).count)"
+        k += "|" + FamilyProfileStore.shared.activeAllergens.sorted().joined(separator: ",")
+        k += "|" + FamilyProfileStore.shared.profiles.filter(\.isPresent)
+            .flatMap(\.dislikes).sorted().joined(separator: ",")
         k += "|" + sessionComponent(session)
         return k
     }
@@ -209,13 +213,39 @@ enum CookNowCompute {
         return out
     }
 
-    private static func compute(store: GuestDataStore, session: CookNowSession?) -> Output {
+    /// Background QA must not monopolize the UI executor with a whole catalogue.
+    /// Keep the synchronous API for single-turn callers and share its exact engine.
+    static func runYielding(store: GuestDataStore, session: CookNowSession?) async -> Output? {
+        guard !Task.isCancelled else { return nil }
+        if let hit = cached(store: store, session: session) { return hit }
+        let revision = key(store: store, session: session)
+        let recipes = store.classifiableCatalog(discover: OnlineRecipesLoader.shared.recipes)
+        var out = Output()
+        for offset in stride(from: 0, to: recipes.count, by: 8) {
+            if Task.isCancelled { return nil }
+            // A changed input invalidates the partial snapshot; never cache mixed revisions.
+            guard revision == key(store: store, session: session) else { return nil }
+            let batch = Array(recipes[offset..<min(offset + 8, recipes.count)])
+            out.classified.append(contentsOf: compute(store: store, session: session, recipes: batch).classified)
+            await Task.yield()
+        }
+        guard revision == key(store: store, session: session), !Task.isCancelled else { return nil }
+        out.metrics = CookNowEngine.metrics(from: out.classified)
+        out.emphasis = CookNowEngine.emphasis(for: out.metrics, inventoryEmpty: store.inventoryItems.isEmpty)
+        out.buildTiers()
+        memo.removeAll { $0.key == revision }
+        memo.insert(MemoEntry(key: revision, value: out), at: 0)
+        if memo.count > memoCap { memo.removeLast(memo.count - memoCap) }
+        return out
+    }
+
+    private static func compute(store: GuestDataStore, session: CookNowSession?, recipes suppliedRecipes: [UserRecipe]? = nil) -> Output {
         // WAS: `store.cookCatalog` — saved recipes plus starter meals only, so
         // Discover recipes and saved AI-generated recipes could never receive a
         // readiness tier. Now the full classifiable catalog, with the Discover
         // pool read straight from the loader that the Recipes tab uses, so both
         // tabs are scoring the same recipes from one source of truth.
-        let recipes = store.classifiableCatalog(discover: OnlineRecipesLoader.shared.recipes)
+        let recipes = suppliedRecipes ?? store.classifiableCatalog(discover: OnlineRecipesLoader.shared.recipes)
 
         // In-stock names: same availability rule the rest of the app uses.
         let inStock = KitchenAvailability.availableItems(in: store.inventoryItems).map { $0.name }

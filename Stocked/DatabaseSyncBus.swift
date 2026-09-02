@@ -79,6 +79,7 @@ final class DatabaseSyncBus {
 
         case .userRecipeChanged(let recipe):
             await RecipeDatabaseManager.shared.save(userRecipe: recipe)
+            HarvestRecipeSync.shared.publishImported(recipe)
 
         case .userRecipeDeleted(let id):
             await RecipeDatabaseManager.shared.delete(id: id)

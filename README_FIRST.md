@@ -1,5 +1,12 @@
 # Read me first
 
+Performance: background QA classifies in small yielding batches and discards stale/cancelled
+snapshots. Public harvest responses decode on a utility task; import publication coalesces into
+20-record batches and stops on failure. Stock Level artwork uses shared width-adaptive geometry.
+Cook Hub, results, preparation discovery, and Ready to Cook also use yielding classification.
+Memory warnings evict classification snapshots alongside decoded image caches. Historical import
+backfill waits for initial disk hydration rather than reading empty launch placeholders.
+
 Stocked is a local-first iOS/iPadOS 26 kitchen app with widgets and a share extension. Local inventory and user work are authoritative. Recipes entering or leaving the app require usable images, durable provenance, categories, and backward-compatible repair.
 
 Read `PERFORMANCE_ARCHITECTURE.md` before changing persistence, imports, sync, images, QA, Home metrics, or any potentially unbounded collection. Its 20 protections are required invariants, not optional cleanup.
@@ -27,6 +34,12 @@ leaving a phone-sized three-card strip beside empty space. Accessibility text sh
 cards at once and retains horizontal scrolling for the remaining recipes.
 
 RecipeDatabase is the canonical app-wide recipe view. Normalize clearly broken title casing at ingress and load, deduplicate by canonical source URL before normalized title, and preserve the surviving stable identifier. Every screen, widget, search, and suggestion must read this shared view rather than building a parallel recipe cache.
+Every HTTPS source-attributed, image-complete recipe imported on iOS publishes through the same
+Worker harvest catalogue used by StockedMac and is then re-ingested through the normal ETag sync.
+Household membership never gates that publication. Preserve the original publisher name, URL, and
+image URL; only source-less personal recipes remain local/household scoped.
+Launch runs an idempotent, bounded backfill over existing user recipes so this rule covers old and
+new imports rather than only saves made after the upgrade.
 
 Retail enrichment uses authenticated UnifiedWorker `/retail/*` routes. Kroger and RapidAPI credentials remain server-side. Keep official provider location/product IDs optional, preserve original product images and exact aisle data, and treat price, availability, and inventory as short-lived store-specific metadata rather than household truth.
 

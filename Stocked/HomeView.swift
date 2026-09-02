@@ -270,14 +270,11 @@ struct HomeView: View {
     }
 
     private var referenceStockIcon: some View {
-        let iconSize = layoutMetrics.homeWidgetIllustrationSize(
-            preferredWidth: isWideHomeCanvas ? 72 : 56,
-            preferredHeight: isWideHomeCanvas ? 78 : 62
-        )
+        let iconSize = layoutMetrics.homeStockLevelIllustrationSize
         return ZStack {
             RoundedRectangle(cornerRadius: isWideHomeCanvas ? 18 : 14, style: .continuous).fill(Color.stockedCharcoal)
             Image(systemName: "gauge.with.dots.needle.67percent")
-                .font(.stockedSystem(size: isWideHomeCanvas ? 32 : 25, weight: .medium))
+                .font(.stockedSystem(size: iconSize.width * 0.58, weight: .medium))
                 .foregroundStyle(Color.stockedGold)
         }
         .frame(width: iconSize.width, height: iconSize.height)
