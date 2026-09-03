@@ -25,7 +25,18 @@ The following protections are the implementation checklist for every future feat
 18. Disk-cache pruning is gated, modification-date driven, size bounded, and never enumerated from a SwiftUI body.
 19. Household JSON serialization and payload trimming run at utility priority away from the main actor.
 20. QA persistence is disk backed, hitch summaries are maintained incrementally, display-link sampling is capped, and memory alerts are band/rate limited.
+21. Cook Now async classification snapshots live state once and runs substitution lookup and classification
+    off the main actor, checking cancellation between recipes and rejecting stale results before caching.
+    Grocery equivalents use an immutable canonical-key index and pre-normalized brand names.
+22. RecipeDatabase batch ingestion trims once per batch and removes only evicted rows from search indexes;
+    manual recipes remain protected even when their count exceeds the automatic-cache budget.
 
-Validation requires a successful generic-device build plus the `StockedTests` unit, migration,
+Find a Recipe scans keyset pages on a cancellable utility task, never eagerly materializes the full
+corpus in view state, and reuses completed results by recipe/inventory/history/database revision.
+Counts cover the queried local catalogue; card windows start at 60 and grow only on request.
+
+The user currently requires approval before any simulator build/test. Native finder checks and
+generic-device compilation are allowed; UI/runtime verification must not be claimed from them.
+Normal validation requires a successful generic-device build plus the `StockedTests` unit, migration,
 logic, and performance suites on both an iPhone and iPad simulator. CI discovers available
 simulators dynamically, builds the test bundle once, then executes it on both device families.

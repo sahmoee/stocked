@@ -658,7 +658,8 @@ actor RecipeStore {
     /// repairs win over the bundled URL because the bundled corpus is intentionally immutable.
     private func presentableEntry(
         from stmt: OpaquePointer,
-        preferredURL: String? = nil
+        preferredURL: String? = nil,
+        classify: Bool = true
     ) -> RecipeDatabaseEntry? {
         let rowID = sqlite3_column_int64(stmt, 0)
         let recipeID = Self.stableID(forRowID: rowID)
@@ -671,7 +672,7 @@ actor RecipeStore {
             .first(where: Self.isValidRemoteImageURL)
         guard let selectedURL else { return nil }
 
-        var entry = rowToEntry(stmt)
+        var entry = rowToEntry(stmt, classify: classify)
         guard !entry.steps.isEmpty else { return nil }
         entry.imageURL = selectedURL
         return entry
@@ -755,7 +756,7 @@ actor RecipeStore {
     /// 0 id, 1 title, 2 description, 3 sourceURL, 4 sourceName, 5 prepTime,
     /// 6 cookTime, 7 totalTime, 8 servings, 9 category, 10 cuisine, 11 tags,
     /// 12 ingredients, 13 steps, 14 imageURL, 15 quality
-    private func rowToEntry(_ stmt: OpaquePointer) -> RecipeDatabaseEntry {
+    private func rowToEntry(_ stmt: OpaquePointer, classify: Bool = true) -> RecipeDatabaseEntry {
         func text(_ i: Int32) -> String {
             guard let c = sqlite3_column_text(stmt, i) else { return "" }
             return String(cString: c)
@@ -765,6 +766,13 @@ actor RecipeStore {
         let tags = RecipeStore.decodeJSONArray(text(11))
         let ingredients = RecipeStore.decodeJSONArray(text(12))
         let steps = RecipeStore.decodeJSONArray(text(13))
+        if !classify {
+            return RecipeDatabaseEntry(id: Self.stableID(forRowID: rowid), title: title,
+                description: text(2), sourceURL: text(3), sourceName: text(4),
+                prepTime: text(5), cookTime: text(6), totalTime: text(7), servings: text(8),
+                category: text(9), cuisine: text(10), tags: tags, ingredients: ingredients,
+                steps: steps, imageURL: text(14))
+        }
         let classification = RecipeClassifier.classify(
             title: title,
             rawCuisine: text(10),
@@ -793,6 +801,31 @@ actor RecipeStore {
     }
 
     // MARK: - Helpers (nonisolated: pure functions, safe to call anywhere)
+
+    /// Keyset paging keeps finder scans bounded; no OFFSET or full-corpus SwiftUI array.
+    /// Preserve source metadata here: inferred classifier tags are not dietary declarations.
+    func finderPage(after cursor: Int64) async throws -> (entries: [RecipeDatabaseEntry], cursor: Int64, done: Bool) {
+        await loadArtworkOverlayIfNeeded()
+        openIfNeeded()
+        guard available, let stmt = prepare("""
+            SELECT id,title,description,sourceURL,sourceName,prepTime,cookTime,totalTime,
+                   servings,category,cuisine,tags,ingredients,steps,imageURL,quality
+            FROM recipes WHERE id > ? ORDER BY id LIMIT 256
+            """) else { throw CocoaError(.fileReadUnknown) }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int64(stmt, 1, cursor)
+        var rows: [RecipeDatabaseEntry] = [], last = cursor, visited = 0
+        var status = sqlite3_step(stmt)
+        while status == SQLITE_ROW {
+            try Task.checkCancellation()
+            visited += 1
+            last = sqlite3_column_int64(stmt, 0)
+            if let row = presentableEntry(from: stmt, classify: false) { rows.append(row) }
+            status = sqlite3_step(stmt)
+        }
+        guard status == SQLITE_DONE else { throw CocoaError(.fileReadCorruptFile) }
+        return (rows, last, visited < 256)
+    }
 
     /// Decode a JSON text array column to [String]. Empty/invalid → [].
     nonisolated static func decodeJSONArray(_ json: String) -> [String] {

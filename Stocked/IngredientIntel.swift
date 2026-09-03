@@ -64,7 +64,7 @@ enum IngredientIntel {
     }
 
     // MARK: Substitutions (compact local table; sub + ratio)
-    private static let subs: [String: [(sub: String, ratio: String)]] = [
+    nonisolated private static let subs: [String: [(sub: String, ratio: String)]] = [
         "butter": [("olive oil", "¾ the amount"), ("coconut oil", "1:1"), ("applesauce", "1:1")],
         "egg": [("flax egg (1 tbsp flax + 3 tbsp water)", "per egg"), ("¼ cup applesauce", "per egg"), ("¼ cup mashed banana", "per egg")],
         "milk": [("almond milk", "1:1"), ("oat milk", "1:1"), ("soy milk", "1:1")],
@@ -78,7 +78,7 @@ enum IngredientIntel {
         "vegetable oil": [("melted butter", "1:1"), ("applesauce", "1:1")],
         "cornstarch": [("2 tbsp flour", "per 1 tbsp")],
     ]
-    static func substitutions(_ name: String) -> [(sub: String, ratio: String)] {
+    nonisolated static func substitutions(_ name: String) -> [(sub: String, ratio: String)] {
         let n = name.lowercased().trimmingCharacters(in: .whitespaces)
         if let exact = subs[n] { return exact }
         if let (_, list) = subs.first(where: { n.contains($0.key) || $0.key.contains(n) }) { return list }

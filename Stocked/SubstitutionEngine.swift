@@ -74,6 +74,16 @@ enum SubstitutionEngine {
     static func local(for ingredient: String, userEntries: [UserSubstitutionEntry],
                       brandPreferences: BrandPreferences = BrandPreferences(),
                       retailerID: String? = nil) -> [Substitution] {
+        local(for: ingredient, userEntries: userEntries,
+              builtInEntries: StockedDatabase.shared.substitutionEntries,
+              brandPreferences: brandPreferences, retailerID: retailerID)
+    }
+
+    /// Pure snapshot API used by background classification; never reads live stores.
+    nonisolated static func local(for ingredient: String, userEntries: [UserSubstitutionEntry],
+                                 builtInEntries: [SubstitutionEntry],
+                                 brandPreferences: BrandPreferences = BrandPreferences(),
+                                 retailerID: String? = nil) -> [Substitution] {
         let key = ingredient.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return [] }
         var out: [Substitution] = []
@@ -87,7 +97,8 @@ enum SubstitutionEngine {
         }
 
         // 2. The 73-entry built-in database (has notes).
-        if let entry = StockedDatabase.shared.substitutions(for: key) {
+        if let entry = builtInEntries.first(where: { $0.ingredient == key })
+            ?? builtInEntries.first(where: { key.contains($0.ingredient) || $0.ingredient.contains(key) }) {
             for s in entry.substitutions {
                 out.append(Substitution(substitute: s.substitute, ratio: "", notes: s.notes, source: .builtIn))
             }
@@ -151,7 +162,7 @@ enum SubstitutionEngine {
 
     /// Dedupe by substitute name, keeping the highest-priority source but salvaging ratio and
     /// notes from the discarded duplicates — otherwise consolidating would lose information.
-    private static func merge(_ list: [Substitution],
+    nonisolated private static func merge(_ list: [Substitution],
                               brandPreferences: BrandPreferences = BrandPreferences()) -> [Substitution] {
         var best: [String: Substitution] = [:]
         for s in list {

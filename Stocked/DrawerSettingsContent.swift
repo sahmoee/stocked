@@ -432,8 +432,11 @@ struct DrawerContent: View {
             .scrollContentBackground(.hidden)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(session.themeBgColor.ignoresSafeArea())
-        .shadow(color: .black.opacity(0.2), radius: 20, x: 8, y: 0)
+        .background {
+            // Shadow the panel, not every row and glyph in the moving List.
+            session.themeBgColor.ignoresSafeArea()
+                .shadow(color: .black.opacity(0.2), radius: 20, x: 8, y: 0)
+        }
         // Edit Profile opens from the chef row. All four present via one .sheet(item:).
         .sheet(item: $activeHomeSheet) { sheet in
             switch sheet {

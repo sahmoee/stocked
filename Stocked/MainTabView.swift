@@ -22,6 +22,8 @@ struct TabRootPopGate {
 }
 
 struct MainTabView: View {
+    // iPhone tab switches recreate the active NavigationStack; drafts must outlive it.
+    @State private var recipeFinder = RecipeFinderSession()
     @Environment(AppSession.self) var session
     @Environment(\.stockedMotion) private var motion
     @State private var sharedRecipeForm: AddRecipeForm? = nil
@@ -696,7 +698,7 @@ struct MainTabView: View {
         case .inventory:
             InventoryHubView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Inventory")
         case .recipes:
-            RecipeVaultView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Recipes")
+            RecipeVaultView(finder: recipeFinder).withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Recipes")
         case .grocery:
             GroceryListView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Grocery")
         }
@@ -745,8 +747,9 @@ struct DrawerDragLayer: View {
     // Live finger translation while a drag is in progress (0 when not dragging). Combined with
     // the resting position below so the drawer tracks the finger 1:1, then springs to a final
     // open/closed state on release.
-    @State private var dragOffset: CGFloat = 0
-    @State private var isDragging: Bool = false
+    // Reset even if QA or a system gesture cancels before onEnded.
+    @GestureState private var dragOffset: CGFloat = 0
+    private var isDragging: Bool { dragOffset != 0 }
 
     // Resting position: open (0) or closed (-drawerWidth).
     private var restOffsetX: CGFloat { showDrawer ? 0 : -drawerWidth }
@@ -771,7 +774,7 @@ struct DrawerDragLayer: View {
     // Decide the resting state on release from BOTH position and throw velocity, so a quick
     // flick opens/closes even if the finger did not travel past the halfway point.
     private func settle(predictedTranslation: CGFloat) {
-        let projected = drawerOffsetX + (predictedTranslation - dragOffset)
+        let projected = restOffsetX + predictedTranslation
         let projectedOpenOffset = projected + drawerWidth
         let target = StockedVelocitySnapPolicy(distanceThreshold: 0.5).targetIndex(
             currentIndex: showDrawer ? 1 : 0,
@@ -784,9 +787,7 @@ struct DrawerDragLayer: View {
         let changed = shouldOpen != showDrawer
         motion.animate(.navigation, intent: .spatial) {
             showDrawer = shouldOpen
-            dragOffset = 0
         }
-        isDragging = false
         if changed { HapticManager.select() }
     }
 
@@ -843,6 +844,7 @@ struct DrawerDragLayer: View {
                 onQuickAction: onQuickAction
             )
             .frame(width: drawerWidth)
+            .transaction { $0.animation = nil }
             .offset(x: drawerOffsetX)
             .animation(
                 isDragging ? nil : motion.animation(.navigation, intent: .spatial),
@@ -862,13 +864,12 @@ struct DrawerDragLayer: View {
     // Drag that OPENS the drawer from the closed state (starts at the left edge).
     private var edgeDragGesture: some Gesture {
         DragGesture(minimumDistance: dragActivate)
-            .onChanged { value in
+            .updating($dragOffset) { value, offset, transaction in
                 guard value.translation.width > 0 || isDragging else { return }
-                isDragging = true
-                dragOffset = max(0, value.translation.width)
+                transaction.animation = nil
+                offset = max(0, value.translation.width)
             }
             .onEnded { value in
-                guard isDragging else { return }
                 settle(predictedTranslation: value.predictedEndTranslation.width)
             }
     }
@@ -876,14 +877,13 @@ struct DrawerDragLayer: View {
     // Drag that CLOSES the drawer from the open state (leftward on the panel).
     private var panelDragGesture: some Gesture {
         DragGesture(minimumDistance: dragActivate)
-            .onChanged { value in
+            .updating($dragOffset) { value, offset, transaction in
                 guard showDrawer else { return }
                 guard value.translation.width < 0 || isDragging else { return }
-                isDragging = true
-                dragOffset = min(0, value.translation.width)
+                transaction.animation = nil
+                offset = min(0, value.translation.width)
             }
             .onEnded { value in
-                guard isDragging else { return }
                 settle(predictedTranslation: value.predictedEndTranslation.width)
             }
     }

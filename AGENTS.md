@@ -21,6 +21,9 @@ Every page, sheet, popover, and cover must fill its presentation with the active
 
 App-level headers and root tab bars have one shared implementation and one geometry source. Feature pages must not locally override brand placement, chrome height, safe-area spacing, icon slots, labels, or selected-tab geometry.
 
+Home and Cook greetings share `StockedGreeting` and the live Preferences name. Root selected-tab
+colors use shared design tokens: tan-on-charcoal in light mode, bright-gold-on-charcoal in dark mode.
+
 ## Cross-project ownership and synchronization
 
 
@@ -37,7 +40,19 @@ Stocked QA uses the shared `Joo` ten-minute gate. Once unlocked, sync first merg
 
 ## QA
 
-Background invariant classification uses bounded yielding batches; interrupted or revision-stale
+The user has paused all simulator builds and tests; ask before starting any. Use native pure-logic
+checks and generic-device compilation meanwhile, and never describe those as device UI verification.
+Find a Recipe owns no new persisted schema or backend API. Reuse its shared selector for every count
+and result surface; preserve drafts through detail navigation. Never relax dietary/allergen exclusions
+or infer complete inventory coverage from missing amounts. Zero-container inventory is unavailable
+app-wide. Keep the Stocked AI entry disabled as requested.
+
+Keep QA attachment reads and thumbnail decoding off the main actor. Drawer drag translation must
+reset on gesture cancellation. Recipe cards use shared theme surface and sizing tokens; the
+Recipes-tab AI creation entry remains disabled and labeled Coming Soon until explicitly enabled.
+
+Background invariant classification uses immutable Sendable snapshots on a cancellable utility task,
+with cancellation checks between recipes; interrupted or revision-stale
 snapshots must not be reported as a clean QA run. Harvest JSON conversion stays off the main actor,
 and bulk publication uses one coalesced, bounded worker rather than per-recipe tasks.
 

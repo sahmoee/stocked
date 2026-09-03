@@ -128,7 +128,7 @@ nonisolated enum KitchenAvailability {
     /// expiry-decay adjustment, which is why the Daily Brief used to disagree
     /// with Inventory about what was running low).
     static func availableItems(in items: [LocalInventoryItem]) -> [LocalInventoryItem] {
-        items.filter { $0.effectiveLevel > availableFillFloor }
+        items.filter { $0.quantity > 0 && $0.effectiveLevel > availableFillFloor }
     }
 
     /// Lowercased names of everything available — the shape `inStockNameSet`,

@@ -3,6 +3,15 @@
 import SwiftUI
 import UIKit
 
+/// Shared sizing for recipe tiles. Rows and detail heroes retain their own layouts.
+nonisolated enum RecipeCardStyle {
+    static let imageHeight: CGFloat = 120
+    static let titleSize: CGFloat = 15
+    static let metadataSize: CGFloat = 12
+    static let padding: CGFloat = 12
+    static func surface(isDark: Bool) -> Color { isDark ? Color.appSurface(true) : .stockedWhite }
+}
+
 // MARK: - Brand Colors
 nonisolated extension Color {
     // Core backgrounds
@@ -57,6 +66,10 @@ nonisolated extension Color {
 
     /// High-contrast reciprocal accent for selected navigation and small focus treatments.
     static func contrastAccent(_ dark: Bool) -> Color { dark ? stockedWhite : stockedCharcoal }
+
+    // Selected root tabs retain their charcoal fill in both appearances.
+    static func selectedTabForeground(_ dark: Bool) -> Color { dark ? stockedGoldDark : stockedBg }
+    static let selectedTabBackground = stockedCharcoal
 
     // MARK: Widget semantic roles
     // Home widgets use roles instead of literal colors so light/dark, increased

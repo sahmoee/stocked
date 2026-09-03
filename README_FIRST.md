@@ -1,15 +1,36 @@
 # Read me first
 
-Performance: background QA classifies in small yielding batches and discards stale/cancelled
+Recipe tiles share `RecipeCardStyle` typography/artwork/padding and semantic theme card surfaces;
+recipe and grocery supporting text uses the solid secondary-text token in both appearances.
+The Recipes hub exposes Find a Recipe (direct search or seven optional quiz steps); Create with Stocked AI is disabled as Coming Soon
+without removing its implementation. Cook choices have flexible vertical breathing room on phones
+and tablets. Drawer translation is gesture-scoped so interrupted drags cannot strand the panel.
+QA publication reads attachments and creates bounded 200-pixel thumbnails off the main actor.
+
+Find a Recipe uses one session-owned `FinderFlow` and `FinderQuery` for review counts, search,
+filter edits, and sorting. `FinderService` scans the shared database and SQLite corpus in cancellable
+256-row pages, retaining only the requested result window. Never replace this with a full-library
+SwiftUI array. Category filters are AND; values within a category are OR; dietary values are AND.
+Dietary metadata is not an allergen-safety guarantee; unsupported nutrition/allergen-free options
+are intentionally absent. Existing saved allergen exclusions remain active. Full kitchen matches
+require confirmed quantities; mostly means 70% of required ingredients. Unknown times/ratings/dates
+are not fabricated. Past-meal revisions invalidate results after ratings/history edits.
+
+User validation override (2026-09-02): do not run simulator builds or simulator tests without
+asking first. Native `scripts/RecipeFinderCoreChecks.swift` checks and generic iOS-device builds
+are permitted. Device UI, VoiceOver, and performance verification remains a separate validation step.
+
+Performance: background QA classifies immutable snapshots off the main actor and discards stale/cancelled
 snapshots. Public harvest responses decode on a utility task; import publication coalesces into
 20-record batches and stops on failure. Stock Level artwork uses shared width-adaptive geometry.
-Cook Hub, results, preparation discovery, and Ready to Cook also use yielding classification.
+Cook Hub, results, preparation discovery, and Ready to Cook share this cancellable classification.
+Grocery equivalents are indexed once; recipe imports evict once per batch with incremental index removal.
 Memory warnings evict classification snapshots alongside decoded image caches. Historical import
 backfill waits for initial disk hydration rather than reading empty launch placeholders.
 
 Stocked is a local-first iOS/iPadOS 26 kitchen app with widgets and a share extension. Local inventory and user work are authoritative. Recipes entering or leaving the app require usable images, durable provenance, categories, and backward-compatible repair.
 
-Read `PERFORMANCE_ARCHITECTURE.md` before changing persistence, imports, sync, images, QA, Home metrics, or any potentially unbounded collection. Its 20 protections are required invariants, not optional cleanup.
+Read `PERFORMANCE_ARCHITECTURE.md` before changing persistence, imports, sync, images, QA, Home metrics, or any potentially unbounded collection. Its protections are required invariants, not optional cleanup.
 
 `Secrets.xcconfig` is local and ignored. Production services use `https://api.sowensstudios.com`; never ship provider keys. Start in the feature named by the task, include extensions when affected, and run the narrowest tests plus the `Stocked` build.
 
@@ -123,6 +144,9 @@ Every post-login page uses `StockedShell` for app chrome. The centered `Stocked.
 chevron, header height, safe-area spacing, and top position are fixed by `StockedChrome`; pages may
 not override them. Root navigation uses the single `StockedTabBar` implementation so icon slots,
 labels, selected shapes, hit targets, and placement remain identical while content changes.
+Home and Cook use `StockedGreeting` with the live Preferences name and identical linked headline
+typography. Selected root tabs retain charcoal fill with tan content in light mode and brighter
+gold content in dark mode; use the shared selected-tab color tokens.
 
 Home always uses its adaptive widget geometry, including on ordinary Pro-sized iPhones. Do not
 restore the retired 393-point compact branch with 8–11 point labels or fixed card heights; widget

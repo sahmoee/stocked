@@ -2,6 +2,18 @@
 // Header: centered "Stocked." + chevron.down, tappable → Daily Brief.
 import SwiftUI
 
+/// Shared hub greeting: live Preferences name and identical adaptive typography.
+struct StockedGreeting: View {
+    @Environment(AppSession.self) private var session
+
+    var body: some View {
+        Text("\(StockedFormatters.timeOfDayGreeting), \(session.effectiveName)")
+            .font(.stocked(.headline).weight(.semibold))
+            .foregroundStyle(session.accentColor)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 struct StockedShell<Content: View>: View {
     var showBack:       Bool
     var scrollDisabled: Bool

@@ -574,7 +574,8 @@ actor RecipeDatabase {
     @discardableResult
     private func upsertNoPersist(
         _ incoming: RecipeDatabaseEntry,
-        origin: RecipeMutationOrigin
+        origin: RecipeMutationOrigin,
+        deferEviction: Bool = false
     ) -> UpsertOutcome {
         let canonicalResult = Self.canonicalizedForIngestion(incoming, origin: origin)
         var entry: RecipeDatabaseEntry
@@ -619,7 +620,7 @@ actor RecipeDatabase {
         titleIndex[key] = entry.id
         if let sourceKey { sourceIndex[sourceKey] = entry.id }
         indexEntry(entry)
-        let evicted = evictIfNeeded()
+        let evicted = deferEviction ? [] : evictIfNeeded()
         return .inserted(entry, evicted: evicted)
     }
 
@@ -646,10 +647,11 @@ actor RecipeDatabase {
         var mutation = MutationAccumulator()
         var report = RecipeIngestionBatchResult()
         for e in batch {
-            let outcome = upsertNoPersist(e, origin: origin)
+            let outcome = upsertNoPersist(e, origin: origin, deferEviction: true)
             mutation.append(outcome)
             report.append(outcome.publicResult)
         }
+        mutation.deletedIDs.formUnion(evictIfNeeded())
         rememberQuarantine(report.rejected)
         if mutation.hasChanges {
             // Persist and publish ONCE for the whole batch (was once per item → O(N²)).
@@ -658,6 +660,7 @@ actor RecipeDatabase {
         }
         let deletedIDs = mutation.deletedIDs
         report.inserted.removeAll { deletedIDs.contains($0.id) }
+        report.updated.removeAll { deletedIDs.contains($0.id) }
         return report
     }
 
@@ -800,15 +803,23 @@ actor RecipeDatabase {
 
     private func evictIfNeeded() -> [UUID] {
         guard entries.count > maxEntries else { return [] }
-        let previousIDs = Set(entries.map(\.id))
         // Keep manual/user entries, evict oldest cached ones
         let manual = entries.filter { $0.sourceName == "Manual" || $0.sourceName == "My Recipes" }
         let auto   = entries.filter { $0.sourceName != "Manual" && $0.sourceName != "My Recipes" }
                             .sorted { $0.cachedAt > $1.cachedAt }
-                            .prefix(maxEntries - manual.count)
+                            .prefix(max(0, maxEntries - manual.count))
+        let retainedIDs = Set((manual + auto).map(\.id))
+        let evicted = entries.filter { !retainedIDs.contains($0.id) }
+        for entry in evicted {
+            unindexEntry(entry)
+            let titleKey = Self.stableDedupKey(forTitle: entry.title)
+            if titleIndex[titleKey] == entry.id { titleIndex.removeValue(forKey: titleKey) }
+            if let sourceKey = Self.canonicalSourceKey(entry.sourceURL), sourceIndex[sourceKey] == entry.id {
+                sourceIndex.removeValue(forKey: sourceKey)
+            }
+        }
         entries = manual + auto
-        rebuildIndex()
-        return Array(previousIDs.subtracting(entries.map(\.id)))
+        return evicted.map(\.id)
     }
 
     /// Cache observation time is deliberately excluded: periodic source merges commonly

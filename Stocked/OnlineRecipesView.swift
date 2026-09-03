@@ -885,7 +885,7 @@ struct OnlineRecipesView: View {
                 Text("Full catalogue searchable")
             }
             .scaledFont(10.5, weight: .medium)
-            .foregroundStyle(session.themeTextColor.opacity(0.5))
+            .foregroundStyle(session.themeSecondaryText)
             .padding(.horizontal, 24).padding(.bottom, 8)
 
             // #C1 glue — when the saved profile is shaping results, say so and give a
@@ -897,7 +897,7 @@ struct OnlineRecipesView: View {
                             .foregroundStyle(Color.stockedGreen)
                         Text("Filtered for your dietary profile")
                             .scaledFont(11.5, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(session.themeSecondaryText)
                         Text("Edit")
                             .scaledFont(11.5, weight: .bold)
                             .foregroundStyle(Color.stockedGold)
@@ -917,7 +917,7 @@ struct OnlineRecipesView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                     TextField("Try \"quick chicken no dairy\" or \"Italian breakfast\"…", text: $searchText)
                                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
 .scaledFont(14).foregroundStyle(session.themeTextColor)
@@ -1018,7 +1018,7 @@ struct OnlineRecipesView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 24).padding(.bottom, 12)
             .stockedAnimation(.selection, intent: .spatial, value: dbSuggestions.map(\.id))
@@ -1115,7 +1115,7 @@ struct OnlineRecipesView: View {
                         .scaledFont(12, weight: .semibold)
                 }.buttonStyle(.bordered).tint(Color.stockedGold)
                 Text("\(displayRecipes.count) recipe\(displayRecipes.count == 1 ? "" : "s")")
-                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 Spacer()
                 if activeFilterCount > 0 {
                     Button("Clear all") { clearFilters() }
@@ -1144,7 +1144,7 @@ struct OnlineRecipesView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "wifi").scaledFont(11).foregroundStyle(Color.stockedGold)
                     Text("Online results for \"\(searchText)\"  · \(liveResults.count) recipes")
-                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                     Spacer()
                     Button {
                         liveResults = []
@@ -1162,7 +1162,7 @@ struct OnlineRecipesView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "wifi.slash").scaledFont(32)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text(err).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(err).scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                     Button { loader.forceRefresh(profile: session.guestStore.cookingProfile) } label: {
                         Text("Try Again").scaledFont(13, weight: .semibold)
@@ -1574,11 +1574,11 @@ struct OnlineRecipeCard: View {
             ZStack(alignment: .topLeading) {
                 if recipe.imageURL.isEmpty {
                     ZStack {
-                        Rectangle().fill(Color.stockedGold.opacity(0.12)).frame(height: 120)
+                        Rectangle().fill(session.themeCardColor).frame(height: RecipeCardStyle.imageHeight)
                         Text(fallbackEmoji).scaledFont(48)
                     }
                 } else {
-                    CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: 120, resolveName: recipe.title, resolveCategory: recipe.category)
+                    CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: RecipeCardStyle.imageHeight, resolveName: recipe.title, resolveCategory: recipe.category)
                 }
                 // #251 — live badges: can-I-make-this + already-saved.
                 HStack(spacing: 4) {
@@ -1591,7 +1591,7 @@ struct OnlineRecipeCard: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text(recipe.title)
-                    .scaledFont(13, weight: .semibold, design: .serif)
+                    .scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
 
                 let insight = RecipeRecommendationExplainer.insight(
@@ -1600,8 +1600,8 @@ struct OnlineRecipeCard: View {
                     allergens: session.guestStore.cookingProfile.allergens
                 )
                 Label(insight.primaryReason, systemImage: insight.expiring.isEmpty ? "sparkles" : "clock.badge.exclamationmark")
-                    .scaledFont(10.5, weight: .medium)
-                    .foregroundStyle(session.themeTextColor.opacity(0.62))
+                    .scaledFont(RecipeCardStyle.metadataSize, weight: .medium)
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // #251 — allergen flag (only when the user has allergens configured).
@@ -1618,26 +1618,26 @@ struct OnlineRecipeCard: View {
                 HStack(spacing: 4) {
                     if !recipe.area.isEmpty {
                         Text(recipe.area)
-                            .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                     if !recipe.area.isEmpty && !recipe.category.isEmpty {
-                        Text("·").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Text("·").scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeTextColor.opacity(0.3))
                     }
                     if !recipe.category.isEmpty {
                         Text(recipe.category)
-                            .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     Text(sourceTag)
                         .scaledFont(9, weight: .bold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 5).padding(.vertical, 2)
                         .background(session.themeTextColor.opacity(0.08))
                         .clipShape(Capsule())
                 }
             }
-            .padding(10)
-            .background(session.themeBgColor)
+            .padding(RecipeCardStyle.padding)
+            .background(RecipeCardStyle.surface(isDark: session.isDarkMode))
         }
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
@@ -1755,7 +1755,7 @@ struct OnlineRecipeDetailView: View {
                 if let line = MatchExplanation.line(for: coverage) {
                     Text(line)
                         .scaledFont(11, weight: .medium)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
         }
@@ -1787,7 +1787,7 @@ struct OnlineRecipeDetailView: View {
                                 .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(24), weight: .bold, design: .serif))
                                 .foregroundStyle(session.themeTextColor)
                             Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
-                                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(13).foregroundStyle(session.themeSecondaryText)
 
                             // #251 — "Can I make this?" computed live against the pantry.
                             detailStockBadge
@@ -1804,11 +1804,11 @@ struct OnlineRecipeDetailView: View {
                                     .scaledFont(12.5, weight: .medium)
                                 Text(insight.coverageText)
                                     .scaledFont(11.5)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .foregroundStyle(session.themeSecondaryText)
                                 if !insight.missing.isEmpty {
                                     Text("Missing: \(insight.missing.prefix(3).joined(separator: ", "))")
                                         .scaledFont(11.5)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.65))
+                                        .foregroundStyle(session.themeSecondaryText)
                                 }
                             }
                             .foregroundStyle(session.themeTextColor)
@@ -1948,7 +1948,7 @@ struct OnlineRecipeDetailView: View {
                                 .ingredientQuickActions(measure: pair.measure, name: pair.ingredient)
                             }
                         }
-                        .padding(16).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.15)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(16).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 24)
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -1975,16 +1975,16 @@ struct OnlineRecipeDetailView: View {
                                 // link; the full method is one tap away via View source.
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "doc.text.magnifyingglass")
-                                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                                     Text(sourceURL != nil
                                          ? "This source doesn't include step-by-step instructions here. Tap View source below for the full method."
                                          : "This source doesn't include step-by-step instructions.")
-                                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                                        .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                         }
-                        .padding(16).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.15)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(16).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 24)
 
                         // #251 — source attribution + link out to the original.
@@ -2000,7 +2000,7 @@ struct OnlineRecipeDetailView: View {
                                         .foregroundStyle(Color.stockedGold)
                                 }
                             }
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24)
                             .contentShape(Rectangle())
                             .onTapGesture { if let url = sourceURL { UIApplication.shared.open(url) } }

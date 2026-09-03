@@ -614,7 +614,7 @@ final class QASyncCoordinator {
     @discardableResult
     func mirrorTicket(_ id: UUID) async -> Bool {
         await QATicketStore.shared.awaitScreenshotWrite(id)
-        guard let bundle = QATicketStore.shared.bundle(for: id) else { return false }
+        guard let bundle = await QATicketStore.shared.bundle(for: id) else { return false }
         let outcome = await QAFolderMirror.shared.write(bundle)
         folderLocation = await QAFolderMirror.shared.rootDescription()
         if outcome.succeeded { QATicketStore.shared.stampMirrored(id) }
@@ -638,7 +638,7 @@ final class QASyncCoordinator {
         // Build 84 - screenshot bytes are written off-main now; make sure they
         // are on disk before the bundle reads them back for upload.
         await QATicketStore.shared.awaitScreenshotWrite(id)
-        guard let bundle = QATicketStore.shared.bundle(for: id) else {
+        guard let bundle = await QATicketStore.shared.bundle(for: id) else {
             lastOutcome = "ticket not found"
             return false
         }

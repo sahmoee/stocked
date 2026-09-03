@@ -43,7 +43,7 @@ enum CookNowCompute {
     /// The tier lists are STORED, not computed. See the perf note above: they
     /// are read many times per frame and each read used to re-filter and re-sort
     /// the full catalog.
-    struct Output {
+    nonisolated struct Output: Sendable {
         var classified: [ClassifiedRecipe] = []
         var metrics = CookNowMetrics()
         var emphasis: CookNowMetrics.Emphasis = .noMatches
@@ -133,6 +133,7 @@ enum CookNowCompute {
     }
 
     private static var memo: [MemoEntry] = []
+    private static var memoGeneration: UInt64 = 0
     private static let memoCap = 4
 
     /// The part of the cache key that describes the session.
@@ -171,6 +172,7 @@ enum CookNowCompute {
     /// revision counters do not cover (a profile edit, a memory warning, a QA
     /// reset).
     static func invalidate() {
+        memoGeneration &+= 1
         memo.removeAll()
     }
 
@@ -213,33 +215,52 @@ enum CookNowCompute {
         return out
     }
 
-    /// Background QA must not monopolize the UI executor with a whole catalogue.
-    /// Keep the synchronous API for single-turn callers and share its exact engine.
+    /// Snapshot live state on the main actor, then classify on a utility executor.
+    /// Yielding on the main actor was insufficient: one substitution scan could
+    /// exceed the watchdog budget before the next yield was reached.
     static func runYielding(store: GuestDataStore, session: CookNowSession?) async -> Output? {
         guard !Task.isCancelled else { return nil }
         if let hit = cached(store: store, session: session) { return hit }
         let revision = key(store: store, session: session)
-        let recipes = store.classifiableCatalog(discover: OnlineRecipesLoader.shared.recipes)
-        var out = Output()
-        for offset in stride(from: 0, to: recipes.count, by: 8) {
-            if Task.isCancelled { return nil }
-            // A changed input invalidates the partial snapshot; never cache mixed revisions.
-            guard revision == key(store: store, session: session) else { return nil }
-            let batch = Array(recipes[offset..<min(offset + 8, recipes.count)])
-            out.classified.append(contentsOf: compute(store: store, session: session, recipes: batch).classified)
-            await Task.yield()
+        let generation = memoGeneration
+        let input = snapshot(store: store, session: session)
+        let work = Task.detached(priority: .utility) {
+            compute(input, cancellable: true)
         }
-        guard revision == key(store: store, session: session), !Task.isCancelled else { return nil }
-        out.metrics = CookNowEngine.metrics(from: out.classified)
-        out.emphasis = CookNowEngine.emphasis(for: out.metrics, inventoryEmpty: store.inventoryItems.isEmpty)
-        out.buildTiers()
+        let result = await withTaskCancellationHandler {
+            await work.value
+        } onCancel: {
+            work.cancel()
+        }
+        guard let out = result else { return nil }
+        guard generation == memoGeneration,
+              revision == key(store: store, session: session), !Task.isCancelled else { return nil }
         memo.removeAll { $0.key == revision }
         memo.insert(MemoEntry(key: revision, value: out), at: 0)
         if memo.count > memoCap { memo.removeLast(memo.count - memoCap) }
         return out
     }
 
+    nonisolated private struct Input: Sendable {
+        let recipes: [UserRecipe]
+        let inStock: [String]
+        let substituteStock: [String]
+        let availableNames: Set<String>
+        let allergens: [String]
+        let dislikes: [String]
+        let userEntries: [UserSubstitutionEntry]
+        let builtInEntries: [SubstitutionEntry]
+        let confirmed: Set<String>
+        let overrides: [String: IngredientOverride]
+        let reservedNames: Set<String>
+        let inventoryEmpty: Bool
+    }
+
     private static func compute(store: GuestDataStore, session: CookNowSession?, recipes suppliedRecipes: [UserRecipe]? = nil) -> Output {
+        compute(snapshot(store: store, session: session, recipes: suppliedRecipes), cancellable: false)!
+    }
+
+    private static func snapshot(store: GuestDataStore, session: CookNowSession?, recipes suppliedRecipes: [UserRecipe]? = nil) -> Input {
         // WAS: `store.cookCatalog` — saved recipes plus starter meals only, so
         // Discover recipes and saved AI-generated recipes could never receive a
         // readiness tier. Now the full classifiable catalog, with the Discover
@@ -269,6 +290,22 @@ enum CookNowCompute {
             family.profiles.filter(\.isPresent).flatMap(\.dislikes).map { $0.lowercased() }
         )).filter { !$0.isEmpty }
 
+        let ledger = ReservationLedger.shared
+        ledger.refreshIfNeeded(store: store)
+        return Input(recipes: recipes, inStock: inStock,
+                     substituteStock: store.inventoryItems.filter { $0.level > 0 }.map { $0.name.lowercased() },
+                     availableNames: availableNames, allergens: allergens, dislikes: dislikes,
+                     userEntries: store.userSubstitutions,
+                     builtInEntries: StockedDatabase.shared.substitutionEntries,
+                     confirmed: session?.confirmedSubstitutionKeys ?? [],
+                     overrides: session?.overridesSnapshotForEngine ?? [:],
+                     reservedNames: ledger.snapshot.reservedNames,
+                     inventoryEmpty: store.inventoryItems.isEmpty)
+    }
+
+    nonisolated private static func compute(_ input: Input, cancellable: Bool) -> Output? {
+        let recipes = input.recipes
+
         // Pre-resolve in-stock substitutes for every ingredient the classifier
         // might ask about (anything not directly in stock). One store pass;
         // the engine then does pure dictionary lookups.
@@ -281,11 +318,17 @@ enum CookNowCompute {
         var subMap: [String: [String]] = [:]
         var seen = Set<String>()
         for r in recipes {
+            if cancellable && Task.isCancelled { return nil }
             for ing in r.ingredients where !ing.isOptional {
                 let key = ing.name.lowercased().trimmingCharacters(in: .whitespaces)
                 guard !key.isEmpty, seen.insert(key).inserted else { continue }
-                if !KitchenAvailability.isPresent(ing.name, inNames: availableNames) {
-                    subMap[key] = store.inStockSubstitutes(for: ing.name)
+                if !KitchenAvailability.isPresent(ing.name, inNames: input.availableNames) {
+                    subMap[key] = SubstitutionEngine.local(for: ing.name,
+                        userEntries: input.userEntries, builtInEntries: input.builtInEntries)
+                        .map(\.substitute).filter { substitute in
+                            let lower = substitute.lowercased()
+                            return input.substituteStock.contains { $0.contains(lower) || lower.contains($0) }
+                        }
                 }
             }
         }
@@ -293,35 +336,33 @@ enum CookNowCompute {
 
         let engine = CookNowEngine(
             recipes: recipes,
-            inStockNames: inStock,
-            allergens: allergens,
-            dislikes: dislikes,
-            confirmedSubstitutions: session?.confirmedSubstitutionKeys ?? [],
-            overrides: session.map { s in
-                // Session stores lowercased keys already; pass through.
-                var out: [String: IngredientOverride] = [:]
-                for (k, v) in s.overridesSnapshotForEngine { out[k] = v }
-                return out
-            } ?? [:]
+            inStockNames: input.inStock,
+            allergens: input.allergens,
+            dislikes: input.dislikes,
+            confirmedSubstitutions: input.confirmed,
+            overrides: input.overrides
         )
 
-        let classified = engine.classifyAll { name in
-            lookup[name.lowercased().trimmingCharacters(in: .whitespaces), default: []]
+        var classified: [ClassifiedRecipe] = []
+        classified.reserveCapacity(recipes.count)
+        for recipe in recipes {
+            if cancellable && Task.isCancelled { return nil }
+            classified.append(engine.classify(recipe) { name in
+                lookup[name.lowercased().trimmingCharacters(in: .whitespaces), default: []]
+            })
         }
 
         // RL-004 — stamp recipes that would consume reservations held by the
         // meal plan, so no surface presents them as fully safe. The ledger is
         // revision-cached, so this is a no-op unless the plan/inventory moved.
-        let ledger = ReservationLedger.shared
-        ledger.refreshIfNeeded(store: store)
         let annotated = CookNowEngine.annotatingReservations(classified,
-                                                             reservedNames: ledger.snapshot.reservedNames)
+                                                             reservedNames: input.reservedNames)
 
         var out = Output()
         out.classified = annotated
         out.metrics = CookNowEngine.metrics(from: annotated)
         out.emphasis = CookNowEngine.emphasis(for: out.metrics,
-                                              inventoryEmpty: store.inventoryItems.isEmpty)
+                                              inventoryEmpty: input.inventoryEmpty)
         out.buildTiers()
         return out
     }

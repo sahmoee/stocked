@@ -5,6 +5,39 @@ import XCTest
 /// ingestion, and quantity parsing. These deliberately avoid network, disk, and UI
 /// work so a regression points at application code instead of simulator variance.
 final class PerformanceBudgetTests: XCTestCase {
+    func testIndexedEquivalentsPreserveCatalogOrderAndMembership() {
+        for name in ["black beans", "milk", "Great Value Whole Milk", "unknown product"] {
+            let key = GroceryKnowledgeBase.canonicalKey(name)
+            let expected = ProductCatalog.retailerBrandItems.filter {
+                GroceryKnowledgeBase.canonicalKey($0.name) == key
+            }.map(\.name)
+            XCTAssertEqual(GroceryKnowledgeBase.equivalents(for: name).map(\.name), expected)
+        }
+        XCTAssertTrue(GroceryKnowledgeBase.equivalents(for: "").isEmpty)
+    }
+
+    @MainActor
+    func testBackgroundSubstitutionsMatchUIResults() async {
+        let builtIns = StockedDatabase.shared.substitutionEntries
+        let names = ["milk", "butter", "black beans", "unknown ingredient"]
+        let expected = names.map { SubstitutionEngine.local(for: $0, userEntries: []) }
+        let actual = await Task.detached {
+            names.map {
+                SubstitutionEngine.local(for: $0, userEntries: [], builtInEntries: builtIns)
+            }
+        }.value
+        XCTAssertEqual(actual, expected)
+    }
+
+    func testEquivalentLookupHotPath() {
+        _ = GroceryKnowledgeBase.equivalents(for: "milk") // warm immutable catalog index
+        measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
+            for _ in 0..<1_000 {
+                _ = GroceryKnowledgeBase.equivalents(for: "Simple Truth Organic Black Beans")
+            }
+        }
+    }
+
     @MainActor
     func testCancelledClassificationDoesNotProduceAFalseEmptySnapshot() async {
         let store = GuestDataStore()

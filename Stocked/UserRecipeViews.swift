@@ -14,9 +14,9 @@ struct UserRecipeCard: View {
                     imageData: recipe.imageData,
                     imageURL: recipe.imageURL,
                     recipeName: recipe.title,
-                    height: 130
+                    height: RecipeCardStyle.imageHeight
                 )
-                    .frame(height: 130).clipped()
+                    .frame(height: RecipeCardStyle.imageHeight).clipped()
                 // Tip overlay
                 if recipe.imageData == nil {
                     VStack {
@@ -34,20 +34,20 @@ struct UserRecipeCard: View {
                 }
             }
             VStack(alignment: .leading, spacing: 10) {
-                Text(recipe.title).scaledFont(13, weight: .semibold, design: .serif)
+                Text(recipe.title).scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
                     if !recipe.cookTime.isEmpty {
-                        Text(recipe.cookTime).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        Text(recipe.cookTime).scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                     if !recipe.difficulty.isEmpty {
                         Text("·").foregroundStyle(session.themeTextColor.opacity(0.3))
-                        Text(recipe.difficulty).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        Text(recipe.difficulty).scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                 }
             }
-            .padding(.horizontal, 8).padding(.vertical, 12)
-            .background(Color.stockedBg.opacity(0.5))
+            .padding(RecipeCardStyle.padding)
+            .background(RecipeCardStyle.surface(isDark: session.isDarkMode))
         }
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .overlay {
@@ -392,7 +392,7 @@ struct UserRecipeDetailView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Missing: \(c.missingNames.map { $0.displayNormalized }.joined(separator: ", "))")
                         .scaledFont(12.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                     Button {
                         for name in c.missingNames { session.guestStore.addGroceryItem(name: name) }
@@ -424,7 +424,7 @@ struct UserRecipeDetailView: View {
             .buttonStyle(.plain)
         }
         .padding(14)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 
@@ -475,7 +475,7 @@ struct UserRecipeDetailView: View {
                                     .scaledFont(11).foregroundStyle(Color.stockedGold)
                                 Text(history)
                                     .scaledFont(12)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .foregroundStyle(session.themeSecondaryText)
                             }
                         }
 
@@ -488,7 +488,7 @@ struct UserRecipeDetailView: View {
                                     .scaledFont(11).foregroundStyle(Color.stockedGreen)
                                 Text("~\(costEst.display) est. · priced \(costEst.pricedCount) of \(costEst.totalCount) ingredients from your receipts")
                                     .scaledFont(12)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .foregroundStyle(session.themeSecondaryText)
                             }
                         }
 
@@ -502,10 +502,10 @@ struct UserRecipeDetailView: View {
                                 }
                                 Text(String(format: "%.1f", avg))
                                     .scaledFont(12, weight: .semibold)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                    .foregroundStyle(session.themeSecondaryText)
                                 Text("(\(detailMetrics.ratingCount))")
                                     .scaledFont(11)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .foregroundStyle(session.themeSecondaryText)
                             }
                         }
 
@@ -526,7 +526,7 @@ struct UserRecipeDetailView: View {
                     HStack(spacing: 12) {
                         Text("Scale servings")
                             .scaledFont(13, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.7))
+                            .foregroundStyle(session.themeSecondaryText)
                         Spacer()
                         HStack(spacing: 0) {
                             Button { if scaledServings > 1 { scaledServings -= 1 } } label: {
@@ -543,7 +543,7 @@ struct UserRecipeDetailView: View {
                                     .frame(width: 36, height: 36).contentShape(Rectangle())
                             }.buttonStyle(.plain)
                         }
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
 
                         if scaledServings != recipe.servings {
@@ -563,7 +563,7 @@ struct UserRecipeDetailView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(14)
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                    .background(session.themeCardColor)
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     .padding(.horizontal, 24)
 
@@ -596,7 +596,7 @@ struct UserRecipeDetailView: View {
                                     .padding(.horizontal, 12).padding(.bottom, 6)
                             }
                         }
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 24)
                     }
@@ -662,7 +662,7 @@ struct UserRecipeDetailView: View {
                                             .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor)
                                         if ing.isOptional {
                                             Text("(optional)").scaledFont(11)
-                                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                                .foregroundStyle(session.themeSecondaryText)
                                         }
                                         Spacer()
                                         Button {
@@ -687,7 +687,7 @@ struct UserRecipeDetailView: View {
                             }
                         }
                         .padding(16)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
                     }
 
@@ -739,7 +739,7 @@ struct UserRecipeDetailView: View {
                             }
                         }
                         .padding(16)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
                     }
 
@@ -777,7 +777,7 @@ struct UserRecipeDetailView: View {
                         }
                     }
                     .padding(16)
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+                    .background(session.themeCardColor)
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
 
                     // Substitutions
@@ -868,7 +868,7 @@ struct UserRecipeDetailView: View {
     private func metaBadge(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon).scaledFont(11).foregroundStyle(Color.stockedGold)
-            Text(text).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.65))
+            Text(text).scaledFont(12).foregroundStyle(session.themeSecondaryText)
         }
     }
 
@@ -879,7 +879,7 @@ struct UserRecipeDetailView: View {
                 .foregroundStyle(session.themeTextColor)
             Text(label)
                 .scaledFont(10)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .foregroundStyle(session.themeSecondaryText)
             if !dv.isEmpty {
                 Text(dv)
                     .scaledFont(9, weight: .semibold)
@@ -928,7 +928,7 @@ struct RecipeSubstitutionsSection: View {
                             .clipShape(Capsule())
                         Spacer()
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     }
                     .padding(.horizontal, 16).padding(.vertical, 14)
                     .contentShape(Rectangle())
@@ -960,7 +960,7 @@ struct RecipeSubstitutionsSection: View {
                                             if !sub.notes.isEmpty {
                                                 Text(sub.notes)
                                                     .scaledFont(11)
-                                                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                                    .foregroundStyle(session.themeSecondaryText)
                                                     .lineSpacing(2)
                                             }
                                         }
@@ -984,7 +984,7 @@ struct RecipeSubstitutionsSection: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 24)
             // When scrollTarget changes, ensure expanded
@@ -1025,7 +1025,7 @@ struct RecipeKitchenTipsSection: View {
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 14)
                 .contentShape(Rectangle())
@@ -1042,7 +1042,7 @@ struct RecipeKitchenTipsSection: View {
                                     .foregroundStyle(session.themeTextColor)
                                 Text(tip.body)
                                     .scaledFont(12)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .foregroundStyle(session.themeSecondaryText)
                                     .lineSpacing(2)
                             }
                             Spacer()
@@ -1054,7 +1054,7 @@ struct RecipeKitchenTipsSection: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .padding(.horizontal, 24)
         .onAppear {

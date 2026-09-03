@@ -4,6 +4,37 @@ import SwiftUI
 
 @MainActor
 final class AdaptiveUIFoundationTests: XCTestCase {
+    func testRecipeTilesShareReadableSizing() {
+        XCTAssertEqual(RecipeCardStyle.imageHeight, 120)
+        XCTAssertGreaterThanOrEqual(RecipeCardStyle.titleSize, 15)
+        XCTAssertGreaterThanOrEqual(RecipeCardStyle.metadataSize, 12)
+        XCTAssertEqual(RecipeCardStyle.padding, 12)
+        XCTAssertEqual(RecipeCardStyle.surface(isDark: false), Color.stockedWhite)
+        XCTAssertEqual(RecipeCardStyle.surface(isDark: true), Color.appSurface(true))
+    }
+
+    func testDrawerSettlesFromAbsolutePredictedPosition() {
+        let policy = StockedVelocitySnapPolicy(distanceThreshold: 0.5)
+        for width: CGFloat in [290, 320, 340, 400] {
+            XCTAssertEqual(policy.targetIndex(currentIndex: 0, currentOffset: width * 0.8,
+                itemExtent: width, velocity: 0, itemCount: 2), 1)
+            XCTAssertEqual(policy.targetIndex(currentIndex: 1, currentOffset: width * 0.2,
+                itemExtent: width, velocity: 0, itemCount: 2), 0)
+            XCTAssertEqual(policy.targetIndex(currentIndex: 0, currentOffset: 0,
+                itemExtent: width, velocity: 0, itemCount: 2), 0)
+            XCTAssertEqual(policy.targetIndex(currentIndex: 1, currentOffset: width,
+                itemExtent: width, velocity: 0, itemCount: 2), 1)
+        }
+    }
+
+    func testSelectedTabsUseWarmContentAndKeepCharcoalFill() {
+        XCTAssertEqual(Color.selectedTabForeground(false), .stockedBg)
+        XCTAssertEqual(Color.selectedTabForeground(true), .stockedGoldDark)
+        XCTAssertEqual(Color.selectedTabBackground, .stockedCharcoal)
+        XCTAssertNotEqual(Color.selectedTabForeground(false), .stockedWhite)
+        XCTAssertNotEqual(Color.selectedTabForeground(true), Color.selectedTabBackground)
+    }
+
     func testStockLevelArtworkScalesAcrossPhoneAndTabletWithoutTextSizeShrinkingIt() {
         for width: CGFloat in [320, 393, 430, 768, 1024] {
             let standard = StockedLayoutMetrics(width: width, height: 900,

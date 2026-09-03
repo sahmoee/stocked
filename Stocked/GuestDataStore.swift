@@ -108,6 +108,7 @@ class GuestDataStore {
     private(set) var inventoryRevision: Int = 0
     private(set) var groceryRevision: Int = 0
     private(set) var recipeRevision: Int = 0
+    private(set) var pastMealsRevision: Int = 0
     private(set) var planRevision: Int = 0
 
     /// Derived headline counts are requested by several screens during one render
@@ -423,7 +424,7 @@ class GuestDataStore {
         }
         saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); pushHouseholdDebounced(); refreshWidgetsDebounced() } }
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
-    var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
+    var pastMeals:             [LocalPastMeal]      = [] { didSet { pastMealsRevision &+= 1; saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
     var plannedMeals: [PlannedMeal] = [] {
         didSet {
             invalidateReservedKeys()   // perf: reserved-ingredient cache follows the planner

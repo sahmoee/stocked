@@ -34,6 +34,7 @@
 import SwiftUI
 import UIKit
 import Observation
+import ImageIO
 
 // MARK: - Model
 
@@ -1190,14 +1191,18 @@ final class QATicketStore {
     /// Snapshot everything one ticket needs to be written to any destination.
     /// Assembled here, once, on the main actor — the destinations themselves are
     /// off-actor and must not be reaching back into the store for pieces.
-    func bundle(for id: UUID) -> QASyncBundle? {
+    func bundle(for id: UUID) async -> QASyncBundle? {
         guard let t = tickets.first(where: { $0.id == id }) else { return nil }
-        return QASyncBundle(ticket: t,
-                            reportText: markdown(for: t),
-                            promptText: QAMockupHandoff.chatGPTPrompt(for: t, hasMockup: t.hasMockup),
-                            handbackText: QAMockupHandoff.claudeHandback(for: t),
-                            shot: screenshotData(for: t),
-                            mockup: mockupData(for: t))
+        let report = markdown(for: t)
+        let prompt = QAMockupHandoff.chatGPTPrompt(for: t, hasMockup: t.hasMockup)
+        let handback = QAMockupHandoff.claudeHandback(for: t)
+        let shotURL = t.screenshotFile.flatMap { screenshotDirectory?.appendingPathComponent($0) }
+        let mockupURL = t.mockupFile.flatMap { mockupDirectory?.appendingPathComponent($0) }
+        return await Task.detached(priority: .utility) {
+            QASyncBundle(ticket: t, reportText: report, promptText: prompt, handbackText: handback,
+                         shot: shotURL.flatMap { try? Data(contentsOf: $0) },
+                         mockup: mockupURL.flatMap { try? Data(contentsOf: $0) })
+        }.value
     }
 
     /// The ticket as Markdown, for the folder on the Mac.
@@ -1471,7 +1476,7 @@ final class QATicketStore {
         // evidence — but it is the difference between reading a report and
         // *seeing* which screen it came from, and it arrives even when the
         // full-size upload fails or the route has not been deployed yet.
-        let thumbs = thumbnails(for: batch)
+        let thumbs = await thumbnails(for: batch)
 
         let payload: [String: Any] = [
             "schema": "stocked-qa-report/v1",
@@ -1526,36 +1531,39 @@ final class QATicketStore {
     /// batch — including the text — at around fifteen. Newest first, stop at the
     /// budget, and the tickets that miss out still sync with everything except
     /// the picture.
-    private func thumbnails(for batch: [QATicket]) -> [UUID: String] {
+    private func thumbnails(for batch: [QATicket]) async -> [UUID: String] {
+        guard let directory = screenshotDirectory else { return [:] }
+        for ticket in batch { await awaitScreenshotWrite(ticket.id) }
+        let files = batch.sorted { $0.createdAt > $1.createdAt }.compactMap { ticket -> (UUID, URL)? in
+            guard let file = ticket.screenshotFile else { return nil }
+            return (ticket.id, directory.appendingPathComponent(file))
+        }
+        return await Task.detached(priority: .utility) {
         // ~96 KB of base64 across the batch, leaving well over half the 256 KB
         // envelope for the text of even a very talkative batch.
         let budget = 96 * 1024
         var spent = 0
         var out: [UUID: String] = [:]
 
-        for t in batch.sorted(by: { $0.createdAt > $1.createdAt }) {
-            guard spent < budget,
-                  let image = screenshot(for: t),
-                  let encoded = Self.thumbnailBase64(image) else { continue }
+        for (id, url) in files {
+            guard !Task.isCancelled, spent < budget else { break }
+            let encoded: String? = autoreleasepool {
+                guard let source = CGImageSourceCreateWithURL(url as CFURL,
+                    [kCGImageSourceShouldCache: false] as CFDictionary),
+                      let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceThumbnailMaxPixelSize: 200
+                      ] as CFDictionary) else { return nil }
+                return UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.4)?.base64EncodedString()
+            }
+            guard let encoded else { continue }
             guard spent + encoded.count <= budget else { continue }
-            out[t.id] = encoded
+            out[id] = encoded
             spent += encoded.count
         }
         return out
-    }
-
-    /// 200px longest edge at quality 0.4 — legible enough to recognise a screen,
-    /// small enough that a dozen of them fit in the envelope.
-    nonisolated private static func thumbnailBase64(_ image: UIImage) -> String? {
-        let maxEdge: CGFloat = 200
-        let scale = min(1, maxEdge / max(image.size.width, image.size.height))
-        let target = CGSize(width: max(1, image.size.width * scale),
-                            height: max(1, image.size.height * scale))
-        let small = UIGraphicsImageRenderer(size: target).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: target))
-        }
-        guard let data = small.jpegData(compressionQuality: 0.4) else { return nil }
-        return data.base64EncodedString()
+        }.value
     }
 
     nonisolated private static func dictionary(for t: QATicket,

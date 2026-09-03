@@ -156,9 +156,8 @@ nonisolated enum GroceryKnowledgeBase {
     /// noise, leaving the core item words.
     static func canonicalKey(_ productName: String, knownBrand: String? = nil) -> String {
         var value = " " + normalize(productName) + " "
-        let explicitBrand = knownBrand.map { [$0] } ?? []
-        for brand in explicitBrand + allBrandNames {       // shared list already longest-first
-            let token = normalize(brand)
+        let explicitBrand = knownBrand.map { [normalize($0)] } ?? []
+        for token in explicitBrand + normalizedBrandNames {
             guard !token.isEmpty, value.contains(" " + token + " ") else { continue }
             value = value.replacingOccurrences(of: " " + token + " ", with: " ")
         }
@@ -172,7 +171,7 @@ nonisolated enum GroceryKnowledgeBase {
     static func equivalents(for productName: String, preferringRetailer retailerID: String? = nil) -> [CatalogEntry] {
         let key = canonicalKey(productName)
         guard !key.isEmpty else { return [] }
-        let matches = ProductCatalog.retailerBrandItems.filter { canonicalKey($0.name) == key }
+        let matches = equivalentsByKey[key, default: []]
         guard let retailerID else { return matches }
         return matches.sorted { lhs, rhs in
             let l = lhs.retailerIDs.contains(retailerID) ? 0 : 1
@@ -184,6 +183,15 @@ nonisolated enum GroceryKnowledgeBase {
     static let allBrandNames: [String] = Array(Set(
         retailers.flatMap(\.privateLabels) + ProductCatalog.catalogExpansionBrandNames
     )).sorted { $0.count > $1.count }
+
+    private static let normalizedBrandNames = allBrandNames.map { normalize($0) }
+
+    // Immutable, bounded by the bundled catalog: do not scan and normalize every
+    // product for every ingredient in a Cook Now classification.
+    private static let equivalentsByKey = Dictionary(
+        grouping: ProductCatalog.retailerBrandItems,
+        by: { canonicalKey($0.name) }
+    )
 
     static func normalize(_ value: String) -> String {
         value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)

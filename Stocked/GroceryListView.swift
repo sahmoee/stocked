@@ -104,7 +104,7 @@ struct GroceryListView: View {
                     Text("\(count)").scaledFont(11.5, weight: .bold).opacity(0.7)
                 }
             }
-            .foregroundStyle(active ? Color.stockedWhite : (dark ? Color.stockedWhite.opacity(0.6) : Color.stockedCharcoal.opacity(0.6)))
+            .foregroundStyle(active ? Color.selectedTabForeground(dark) : session.themeSecondaryText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
             .background(active ? Color.stockedCharcoal : Color.clear)
@@ -123,7 +123,7 @@ struct GroceryListView: View {
         }
         .foregroundStyle(text.opacity(0.78))
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(dark ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.42))
+        .background(session.themeCardColor)
         .overlay(Capsule().stroke(text.opacity(0.14), lineWidth: 1))
         .clipShape(Capsule())
     }
@@ -171,8 +171,8 @@ struct GroceryListView: View {
         if runningOut { return true }
         return !GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map { $0.name }, limit: 8).isEmpty
     }
-    private var text: Color  { dark ? Color.stockedWhite : Color.stockedCharcoal }
-    private var sub:  Color  { dark ? Color(white: 0.55) : Color.stockedCharcoal.opacity(0.45) }
+    private var text: Color  { session.themeTextColor }
+    private var sub:  Color  { session.themeSecondaryText }
 
     // MARK: - Grouped sections (search-filtered)
     private func filteredItems(_ items: [LocalGroceryItem]) -> [LocalGroceryItem] {
@@ -423,7 +423,7 @@ struct GroceryListView: View {
                     }
                 }
                 .padding(4)
-                .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                .background(session.themeCardColor)
                 .clipShape(Capsule())
                 .padding(.horizontal, 24).padding(.bottom, 12)
                 .coachmarkAnchor("grocery.segments")
@@ -536,11 +536,11 @@ struct GroceryListView: View {
                             Text(groupByStore ? "By Store" : "Sort: \(sortAZ ? "Name" : "Category")")
                                 .scaledFont(12, weight: .semibold)
                             Image(systemName: "chevron.down")
-                                .scaledFont(9, weight: .semibold)
+                                .scaledFont(12, weight: .semibold)
                         }
                         .foregroundStyle(text.opacity(0.75))
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(dark ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.35))
+                        .background(session.themeCardColor)
                         .clipShape(Capsule())
                     }
                 }
@@ -581,13 +581,13 @@ struct GroceryListView: View {
                                         .foregroundStyle(session.themeTextColor)
                                     Text("Add an item below, or tap a suggestion to restock.")
                                         .scaledFont(12)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        .foregroundStyle(session.themeSecondaryText)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
                             }
                             .padding(14)
-                            .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.5))
+                            .background(session.themeCardColor)
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             .padding(.horizontal, 20)
                             .padding(.top, 16)
@@ -646,7 +646,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -700,7 +700,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -737,7 +737,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -772,7 +772,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -1070,30 +1070,30 @@ struct GroceryListView: View {
                             HStack(spacing: 4) {
                                 if !item.recipeSource.isEmpty {
                                     Image(systemName: "fork.knife").scaledFont(8)
-                                    Text(item.recipeSource).scaledFont(9, weight: .semibold)
+                                    Text(item.recipeSource).scaledFont(12, weight: .semibold)
                                 } else if item.isRecommended {
                                     Image(systemName: "arrow.2.circlepath").scaledFont(8)
-                                    Text("Auto-added").scaledFont(9, weight: .semibold)
+                                    Text("Auto-added").scaledFont(12, weight: .semibold)
                                 } else {
                                     Image(systemName: "hand.point.right").scaledFont(8)
-                                    Text("Manual").scaledFont(9, weight: .semibold)
+                                    Text("Manual").scaledFont(12, weight: .semibold)
                                 }
                                 if StockedDatabase.shared.hasSubstitution(for: item.name) {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
                                     Image(systemName: "arrow.left.arrow.right").scaledFont(7)
                                         .foregroundStyle(Color.stockedGold.opacity(0.7))
-                                    Text("Sub available").scaledFont(9, weight: .semibold)
+                                    Text("Sub available").scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedGold.opacity(0.7))
                                 }
                                 if !item.assignedTo.isEmpty {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
                                     Image(systemName: "person.fill").scaledFont(7)
                                         .foregroundStyle(Color.stockedGreen)
-                                    Text(item.assignedTo).scaledFont(9, weight: .semibold)
+                                    Text(item.assignedTo).scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedGreen)
                                 } else if !item.addedByName.isEmpty {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
-                                    Text("by \(item.addedByName)").scaledFont(9, weight: .semibold)
+                                    Text("by \(item.addedByName)").scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedGold.opacity(0.7))
                                 }
                             }
@@ -1273,7 +1273,7 @@ struct GroceryListView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     Text("Tap to change your shopping store. Your preference is saved per-item when you use Find in Store.")
-                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 20)
 

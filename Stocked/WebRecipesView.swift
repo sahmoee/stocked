@@ -123,8 +123,8 @@ struct WebRecipesView: View {
                         .scaledFont(14, weight: .bold)
                         .foregroundStyle(session.themeTextColor)
                     Text("\(manager.recipes.count) recipes · \(qualifiedSources.count) qualified sources")
-                        .scaledFont(10)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .scaledFont(RecipeCardStyle.metadataSize)
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
                 HStack(spacing: 12) {
@@ -149,7 +149,7 @@ struct WebRecipesView: View {
             // Search
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                 TextField("Search recipes, cuisines, ingredients…", text: $searchText)
                     .scaledFont(14).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                 if !searchText.isEmpty {
@@ -166,7 +166,7 @@ struct WebRecipesView: View {
 
             Text("Website categories")
                 .scaledFont(10, weight: .bold)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .foregroundStyle(session.themeSecondaryText)
                 .padding(.horizontal, 24).padding(.bottom, 6)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -219,7 +219,7 @@ struct WebRecipesView: View {
             if !recipeCategories.isEmpty {
                 Text("Recipe categories")
                     .scaledFont(10, weight: .bold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 24).padding(.bottom, 6)
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 8) {
@@ -446,9 +446,9 @@ struct WebRecipesView: View {
                 .foregroundStyle(session.themeTextColor.opacity(0.2))
             Text("No qualified recipe sources yet")
                 .scaledFont(15, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
             Text("Tap Refresh to build complete source libraries. A website appears only after 20 unique full recipes are cached.")
-                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
+                .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
             Button { manager.forceRefreshAll() } label: {
                 Text("Load Recipes")
@@ -468,9 +468,9 @@ struct WebRecipesView: View {
                 .foregroundStyle(Color.stockedError.opacity(0.7))
             Text("Couldn't load recipes")
                 .scaledFont(15, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                .foregroundStyle(session.themeSecondaryText)
             Text(message)
-                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
+                .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center).padding(.horizontal, 32)
             Button { manager.forceRefreshAll(query: searchText) } label: {
                 Label("Retry", systemImage: "arrow.clockwise")
@@ -528,7 +528,7 @@ struct WebRecipeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Image
-CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData: nil, height: 120, resolveName: recipe.title, resolveCategory: recipe.category)
+CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData: nil, height: RecipeCardStyle.imageHeight, resolveName: recipe.title, resolveCategory: recipe.category)
             .overlay(alignment: .topLeading) {
                 // Source badge
                 Text(sourceEmoji)
@@ -553,13 +553,13 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(recipe.title)
-                    .scaledFont(13, weight: .semibold, design: .serif)
+                    .scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 4) {
                     Text(recipe.sourceName)
-                        .scaledFont(10)
-                        .foregroundStyle(Color.stockedGold)
+                        .scaledFont(RecipeCardStyle.metadataSize)
+                        .foregroundStyle(session.accentColor)
                     if let r = recipe.rating {
                         Text("·")
                         Image(systemName: "star.fill").scaledFont(8)
@@ -575,11 +575,11 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
-                .scaledFont(10)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(RecipeCardStyle.metadataSize)
+                .foregroundStyle(session.themeSecondaryText)
             }
-            .padding(10)
-            .background(Color.stockedBg.opacity(0.6))
+            .padding(RecipeCardStyle.padding)
+            .background(RecipeCardStyle.surface(isDark: session.isDarkMode))
         }
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .shadow(color: .black.opacity(0.07), radius: 4, y: 2)
@@ -663,7 +663,7 @@ struct WebRecipeDetailView: View {
                             if !recipe.description.isEmpty {
                                 Text(recipe.description)
                                     .scaledFont(13)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                    .foregroundStyle(session.themeSecondaryText)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
 
@@ -795,7 +795,7 @@ struct WebRecipeDetailView: View {
                                     Text("View on \(recipe.sourceName)")
                                         .scaledFont(13, weight: .medium)
                                 }
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .frame(maxWidth: .infinity).padding(.vertical, 10)
                                 .background(Color.stockedWhite.opacity(0.3))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -863,7 +863,7 @@ struct WebRecipeDetailView: View {
             if recipe.steps.isEmpty {
                 Text("No step-by-step instructions available for this recipe. Tap \"View on \(recipe.sourceName)\" to see the full recipe.")
                     .scaledFont(14)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(16)
                     .background(Color.stockedWhite.opacity(0.3))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -880,7 +880,7 @@ struct WebRecipeDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             if recipe.ingredients.isEmpty {
                 Text("Ingredients not available.")
-                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     .padding(16).background(Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: 14))
             } else {
                 let inventoryLower = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
@@ -922,7 +922,7 @@ struct WebRecipeDetailView: View {
             if !recipe.tags.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Tags").scaledFont(12, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                     WebRecipeFlowLayout(tags: recipe.tags)
                 }
                 .padding(14)
@@ -988,7 +988,7 @@ struct StatPill: View {
     let label: String
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: icon).scaledFont(10)
+            Image(systemName: icon).scaledFont(RecipeCardStyle.metadataSize)
             Text(label).scaledFont(11, weight: .medium)
         }
         .foregroundStyle(.primary)
@@ -1126,7 +1126,7 @@ struct URLImportSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Paste a recipe link — a recipe website, or a social post from TikTok, Instagram, YouTube, or Pinterest:")
                         .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.7))
+                        .foregroundStyle(session.themeSecondaryText)
 
                     TextField("https://www.seriouseats.com/recipe-name", text: $url)
                                            .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
@@ -1159,7 +1159,7 @@ struct URLImportSheet: View {
                     .disabled(url.isEmpty || isLoading)
 
                     Text("Imported recipes are saved locally. A website is added to the source browser only after it has 20 complete recipes.")
-                        .scaledFont(10)
+                        .scaledFont(RecipeCardStyle.metadataSize)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
 
                     Spacer()

@@ -27,9 +27,7 @@ struct CookHubView: View {
         StockedShell(titleText: "Cook") {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 9) {
-                    Text(greeting)
-                        .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                    StockedGreeting()
                     Text("What's on the menu tonight?")
                         .scaledFont(32, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
@@ -55,6 +53,7 @@ struct CookHubView: View {
                     .padding(.top, 12)
                 }
 
+                Spacer(minLength: 24)
                 VStack(spacing: 14) {
                     CookHubIllustratedButton(
                         title: "Cook Now",
@@ -74,6 +73,7 @@ struct CookHubView: View {
                 }
                 .padding(.horizontal, CookStyle.screenHPad)
                 .frame(maxWidth: .infinity)
+                Spacer(minLength: 24)
             }
             .stockedSnapTargetLayout()
             .frame(maxWidth: 620)
@@ -82,7 +82,7 @@ struct CookHubView: View {
             // center the complete decision group instead of pinning it beneath the
             // wordmark. This is a minimum, not a fixed height: Dynamic Type can
             // still grow the content and the shell remains fully scrollable.
-            .frame(minHeight: cookHubMinimumHeight, alignment: .center)
+            .frame(minHeight: cookHubMinimumHeight, alignment: .top)
             .padding(.bottom, 20)
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
@@ -122,14 +122,7 @@ struct CookHubView: View {
         .coachmarks(page: .cook, steps: CookCoachmarks.steps)
     }
 
-    private var greeting: String {
-        let h = Calendar.current.component(.hour, from: Date())
-        let part = h < 12 ? "Good morning" : (h < 18 ? "Good afternoon" : "Good evening")
-        return "\(part), Chef 👋"
-    }
-
     private var cookHubMinimumHeight: CGFloat {
-        guard layoutMetrics.contentWidth >= 700 else { return 0 }
         let chromeHeight = StockedChrome.headerHeight
             + StockedChrome.headerTopPadding
             + StockedChrome.headerBottomPadding

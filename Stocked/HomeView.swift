@@ -53,7 +53,6 @@ struct HomeView: View {
         HomeWidgetDensity(rawValue: widgetDensityRaw) ?? .standard
     }
 
-    private var greeting: String { StockedFormatters.timeOfDayGreeting }
     private var sub: Color { Color.appSubtextStrong(session.isDarkMode) }
 
     private var expiringCount: Int { kitchenMetrics.expiringSoonCount }
@@ -165,9 +164,7 @@ struct HomeView: View {
         Group {
             if usesReferencePhoneGeometry {
                 ZStack(alignment: .topLeading) {
-                    Text("\(greeting), Chef")
-                        .scaledFont(13, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                    StockedGreeting()
                         .offset(y: 1)
 
                     referenceHeroCopy
@@ -186,9 +183,7 @@ struct HomeView: View {
                 .frame(height: 124, alignment: .top)
             } else {
                 VStack(alignment: .leading, spacing: isWideHomeCanvas ? 8 : 12) {
-                    Text("\(greeting), Chef")
-                        .font(.stocked(.headline).weight(.semibold))
-                        .foregroundStyle(Color.stockedGold)
+                    StockedGreeting()
                     referenceHeroCopy
                     HStack(alignment: .bottom, spacing: isWideHomeCanvas ? 20 : 12) {
                         referenceStockLevel

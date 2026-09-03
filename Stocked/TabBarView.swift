@@ -116,7 +116,7 @@ struct StockedTabBar: View {
     private func tabCell(_ tab: StockedTab) -> some View {
         let isActive = selected == tab
         let foreground = isActive
-            ? (session.isDarkMode ? Color.stockedCharcoal : Color.stockedWhite)
+            ? Color.selectedTabForeground(session.isDarkMode)
             : session.themeTextColor.opacity(0.72)
 
         Button {
@@ -171,7 +171,7 @@ struct StockedTabBar: View {
                 if isActive {
                     RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
                                      style: .continuous)
-                        .fill(session.themeContrastAccent)
+                        .fill(Color.selectedTabBackground)
                         .overlay {
                             RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
                                              style: .continuous)
