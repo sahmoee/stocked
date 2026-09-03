@@ -38,6 +38,8 @@ nonisolated enum FinderData {
             ([value] + value.components(separatedBy: CharacterSet(charactersIn: ",;/|")))
                 .map { norm($0).replacingOccurrences(of: "-", with: " ") }
         })
+        let cuisine = RecipeTaxonomy.resolvedCuisine(recipe.cuisine, title: recipe.title, keywords: metadata)
+        let cuisineLabels = Set([cuisine, RecipeTaxonomy.parentCuisine(cuisine)].compactMap { $0 }.map(norm))
         var r = FinderRecord(id: recipe.id.uuidString, title: recipe.title,
             searchText: norm(([recipe.title, recipe.description, recipe.cuisine] + metadata + recipe.ingredients.map(\.name)).joined(separator: " ")))
         r.sortTitle = norm(recipe.title)
@@ -60,7 +62,7 @@ nonisolated enum FinderData {
         for category in [FinderCategory.meal, .cuisine, .mood] {
             for choice in category.options where !choice.isNeutral && !choice.isDiscovery {
                 let label = norm(choice.label).replacingOccurrences(of: "-", with: " ")
-                if tags.contains(label) || (category == .cuisine && norm(recipe.cuisine) == label) { r.facets[category, default: []].insert(choice) }
+                if tags.contains(label) || (category == .cuisine && cuisineLabels.contains(label)) { r.facets[category, default: []].insert(choice) }
             }
         }
         let aliases: [(String, FinderCategory, FinderChoice)] = [
@@ -125,6 +127,7 @@ nonisolated struct FinderResponse: Sendable {
     var hits: [FinderHit]
     var count: Int
     var catalogueUnavailable: Bool
+    var alternatives: [FinderAlternative] = []
 }
 
 enum FinderService {
@@ -132,6 +135,7 @@ enum FinderService {
     /// the latest snapshot. Saved data wins deduplication; source documents stay intact.
     nonisolated static func query(filters: FinderFilters, saved: [UserRecipe], history: [LocalPastMeal], inventory: [LocalInventoryItem], allergens: [String], limit: Int) async throws -> FinderResponse {
         var hits: [FinderHit] = [], count = 0, seen = Set<String>()
+        var alternatives = FinderQuery.alternatives(for: filters)
         let rules = DietaryGuard.Rules(allergens: allergens, dislikes: [])
         let historyByTitle = Dictionary(grouping: history, by: { FinderQuery.normalize($0.title) })
         let cuisineCounts = Dictionary(grouping: saved, by: { FinderQuery.normalize($0.cuisine) }).mapValues { $0.reduce(0) { $0 + $1.cookCount } }
@@ -141,7 +145,13 @@ enum FinderService {
             var record = FinderData.record(recipe, entry: entry, history: historyByTitle[FinderQuery.normalize(recipe.title), default: []], inventory: inventory, filters: filters)
             record.hasAllergenConflict = !DietaryGuard.allergenHits(ingredientLines: recipe.ingredients.map(\.name), title: recipe.title, rules: rules).isEmpty
             record.cuisineCookCount = cuisineCounts[FinderQuery.normalize(recipe.cuisine), default: 0]
-            guard FinderQuery.matches(record, filters: filters) else { return }
+            // Preview alternatives in this same bounded pass, with identical dietary,
+            // allergen, inventory and search rules. Nothing is applied automatically.
+            let exact = FinderQuery.matches(record, filters: filters)
+            for index in alternatives.indices where exact || FinderQuery.matches(record, filters: alternatives[index].filters) {
+                alternatives[index].count += 1
+            }
+            guard exact else { return }
             count += 1; hits.append(FinderHit(record: record, recipe: recipe, databaseEntry: entry))
         }
         func trim() {
@@ -166,6 +176,7 @@ enum FinderService {
         } catch is CancellationError { throw CancellationError() }
         catch { unavailable = true }
         if unavailable && count == 0 { throw CocoaError(.fileReadUnknown) }
-        return FinderResponse(hits: hits, count: count, catalogueUnavailable: unavailable)
+        return FinderResponse(hits: hits, count: count, catalogueUnavailable: unavailable,
+            alternatives: count == 0 ? Array(alternatives.filter { $0.count > 0 }.prefix(1)) : [])
     }
 }

@@ -138,6 +138,23 @@ import Foundation
         check(FinderQuery.results([a, b], filters: filters).map(\.id) == FinderQuery.results([b, a], filters: filters).map(\.id), "Deterministic variety")
         filters[.diet] = [.vegan]; check(FinderQuery.results([a, b], filters: filters).isEmpty, "Discovery never relaxes diet")
         check(a.title == "Jerk Chicken", "Source collection unmutated")
+        filters = FinderFilters()
+        filters[.mood] = [.comfort]; filters[.cuisine] = [.jamaican]; filters[.diet] = [.vegan]
+        filters[.time] = [.under30]; filters[.kitchen] = [.useWhatIHave]; filters.query = "chicken"
+        let alternatives = FinderQuery.alternatives(for: filters)
+        check(alternatives.count == 3, "Only active soft categories broaden")
+        check(alternatives[0].removed == [.comfort], "Mood broadens first")
+        check(alternatives[1].removed == [.comfort, .jamaican], "Cuisine broadens second")
+        for alternative in alternatives {
+            check(alternative.filters[.diet] == [.vegan], "Alternative preserves diet")
+            check(alternative.filters[.kitchen] == [.useWhatIHave], "Alternative preserves kitchen")
+            check(alternative.filters.query == "chicken", "Alternative preserves search")
+            check(!FinderQuery.matches(a, filters: alternative.filters), "Alternative never admits non-vegan")
+        }
+        a.hasAllergenConflict = true
+        check(!FinderQuery.matches(a, filters: FinderQuery.alternatives(for: filters).last!.filters), "Allergens cannot broaden")
+        check(filters[.mood] == [.comfort], "Preview never changes requested filters")
+        check(FinderQuery.alternatives(for: FinderFilters()).isEmpty, "No fake alternative for empty choices")
         print("Passed \(checks) Find a Recipe core checks (native macOS; no simulator).")
     }
 }

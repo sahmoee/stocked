@@ -223,7 +223,28 @@ nonisolated struct FinderRecord: Identifiable, Sendable {
     var ready: Bool { required > 0 && missing == 0 && uncertain == 0 }
 }
 
+nonisolated struct FinderAlternative: Identifiable, Sendable {
+    var removed: [FinderChoice]
+    var filters: FinderFilters
+    var count = 0
+    var id: String { removed.map(\.rawValue).joined(separator: ",") }
+    var label: String { "Without " + removed.map(\.label).joined(separator: ", ") }
+}
+
 nonisolated enum FinderQuery {
+    /// Explicit opt-in broadening, softest criteria first. Never change dietary,
+    /// allergen, kitchen availability, search or sort. Counts use `matches` itself.
+    static func alternatives(for filters: FinderFilters) -> [FinderAlternative] {
+        var adjusted = filters, removed: [FinderChoice] = [], result: [FinderAlternative] = []
+        for category in [FinderCategory.mood, .cuisine, .time, .meal, .ingredient] {
+            let choices = category.options.filter { adjusted.active(category).contains($0) && !$0.isDiscovery }
+            guard !choices.isEmpty else { continue }
+            for choice in choices { adjusted.remove(choice, in: category) }
+            removed += choices
+            result.append(FinderAlternative(removed: removed, filters: adjusted))
+        }
+        return result
+    }
     static func normalize(_ value: String) -> String {
         value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

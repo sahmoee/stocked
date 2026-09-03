@@ -2,6 +2,27 @@ import XCTest
 @testable import Stocked
 
 final class RecipeFinderIntegrationTests: XCTestCase {
+    func testJamaicanRecipesKeepSpecificAndParentCuisine() {
+        XCTAssertEqual(RecipeTaxonomy.canonicalCuisine("Jamaican"), "Jamaican")
+        XCTAssertEqual(RecipeTaxonomy.parentCuisine("Jamaican"), "Caribbean")
+        var recipe = UserRecipe(title: "Jamaican Brown Stew Chicken")
+        recipe.cuisine = "Caribbean" // historical collapsed record
+        recipe.tags = ["Main Course", "Chicken"]
+        recipe.ingredients = [RecipeIngredient(name: "chicken", amount: "1 kg")]
+        var filters = FinderFilters()
+        filters[.ingredient] = [.chicken]; filters[.cuisine] = [.jamaican]; filters[.meal] = [.dinner]
+        let record = FinderData.record(recipe, entry: nil, history: [], inventory: [], filters: filters)
+        XCTAssertTrue(FinderQuery.matches(record, filters: filters))
+        XCTAssertTrue(record.facets[.cuisine, default: []].contains(.caribbean))
+        XCTAssertTrue(RecipeFacets.matches(recipe, cuisine: "Jamaican"))
+        XCTAssertEqual(RecipeFacets.count(cuisine: "Jamaican", in: [recipe]), 1)
+        XCTAssertEqual(RecipeFacets.count(cuisine: "Caribbean", in: [recipe]), 1)
+        filters[.mood] = [.comfort]
+        XCTAssertFalse(FinderQuery.matches(record, filters: filters), "Do not invent Comfort metadata")
+        XCTAssertTrue(FinderQuery.matches(record, filters: FinderQuery.alternatives(for: filters)[0].filters))
+        XCTAssertEqual(RecipeTaxonomy.resolvedCuisine("Caribbean", title: "Cuban Chicken", keywords: []), "Caribbean")
+        XCTAssertEqual(RecipeTaxonomy.resolvedCuisine("American", title: "Smoky Cola Jerky", keywords: []), "American")
+    }
     func testSharedAvailabilityExcludesZeroContainers() {
         var item = LocalInventoryItem(name: "Rice"); item.quantity = 0; item.level = 1
         XCTAssertTrue(KitchenAvailability.availableItems(in: [item]).isEmpty)

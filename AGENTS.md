@@ -46,6 +46,9 @@ Find a Recipe owns no new persisted schema or backend API. Reuse its shared sele
 and result surface; preserve drafts through detail navigation. Never relax dietary/allergen exclusions
 or infer complete inventory coverage from missing amounts. Zero-container inventory is unavailable
 app-wide. Keep the Stocked AI entry disabled as requested.
+STK-89-0135: retain Jamaican as a specific cuisine with Caribbean as its parent across imports,
+legacy read repair and finder facets. Empty-result alternatives must require an explicit tap and use
+real counts from the existing scan; never manufacture mood tags or relax safety filters.
 
 Keep QA attachment reads and thumbnail decoding off the main actor. Drawer drag translation must
 reset on gesture cancellation. Recipe cards use shared theme surface and sizing tokens; the

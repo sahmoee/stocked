@@ -8,6 +8,7 @@ import SwiftUI
     var loading: Bool { requestState.phase == .loading }
     var error: Bool { requestState.phase == .failed }
     var catalogueUnavailable = false
+    var alternatives: [FinderAlternative] = []
     var limit = 60
     var shouldFocusSearch = false
     private var request: Task<Void, Never>?
@@ -31,6 +32,7 @@ import SwiftUI
                 try Task.checkCancellation()
                 guard let self, requestState.complete(current, count: response.count) else { return }
                 hits = response.hits; catalogueUnavailable = response.catalogueUnavailable
+                alternatives = response.alternatives
                 completedKey = key; completedFilters = filters
                 UIAccessibility.post(notification: .announcement, argument: "\(count) recipes found")
                 if count == 0 { AppAnalytics.shared.log(.finderNoResults) }
@@ -215,6 +217,7 @@ struct RecipeFinderView: View {
                 }.padding(16).background(surface, in: RoundedRectangle(cornerRadius: 20))
             }
             if model.error { errorState }
+            else if !model.loading && model.count == 0 { noMatchGuidance }
             primary(showCount) { model.flow.phase = .results; AppAnalytics.shared.log(.finderCompleted) }
             Button("Start over") { model.flow.requestClear() }.frame(maxWidth: .infinity, minHeight: 44)
                 .foregroundStyle(session.themeContrastAccent)
@@ -223,6 +226,25 @@ struct RecipeFinderView: View {
     private func summary(_ category: FinderCategory) -> String {
         let selected = category.options.filter { model.flow.filters[category].contains($0) }.map(\.label)
         return selected.isEmpty ? "Any" : selected.joined(separator: ", ")
+    }
+    private var noMatchGuidance: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("No exact matches").font(.stocked(.headline))
+            Text("Some combinations aren’t in the current catalogue. You can edit your choices or broaden a preference below. Dietary and kitchen requirements stay the same.")
+                .font(.stocked(.body)).foregroundStyle(session.themeSecondaryText)
+            ForEach(model.alternatives) { alternative in
+                Button {
+                    model.flow.filters = alternative.filters
+                    AppAnalytics.shared.log(.finderFiltersChanged)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(alternative.label)
+                        Text("Show \(alternative.count) recipes").fontWeight(.semibold)
+                    }.font(.stocked(.body)).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }.foregroundStyle(session.themeContrastAccent)
+                    .accessibilityLabel("\(alternative.label). Show \(alternative.count) recipes. Adjust these preferences.")
+            }
+        }.padding(16).background(surface, in: RoundedRectangle(cornerRadius: 18))
     }
     private var search: some View {
         HStack {
@@ -343,6 +365,7 @@ struct RecipeFinderView: View {
                 Button("Find a Recipe") { model.flow.enteredBySearch = false; model.flow.phase = .quiz(0) }.frame(minHeight: 44)
             }
             primary("Adjust filters") { showFilters = true }
+            if !model.alternatives.isEmpty { noMatchGuidance }
             Button("Clear all") { model.flow.requestClear() }.frame(minHeight: 44)
         }.font(.stocked(.body)).padding(20).background(surface, in: RoundedRectangle(cornerRadius: 18))
     }

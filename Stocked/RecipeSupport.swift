@@ -168,7 +168,7 @@ enum RecipeTaxonomy {
     nonisolated static let cuisines: [String] = [
         "American","Southern","Cajun & Creole","Tex-Mex","BBQ","New England","Soul Food","Hawaiian",
         "Mexican","Italian","French","Spanish","Greek","Mediterranean","Middle Eastern","Indian",
-        "Thai","Chinese","Japanese","Korean","Vietnamese","Filipino","Caribbean","African",
+        "Thai","Chinese","Japanese","Korean","Vietnamese","Filipino","Caribbean","Jamaican","African",
         "German","British","Irish","Eastern European","Latin American","Fusion","Moroccan","Turkish","Brazilian","Other"
     ]
 
@@ -191,9 +191,22 @@ enum RecipeTaxonomy {
         switch canonicalCuisine(cuisine) {
         case "Southern", "Cajun & Creole", "Tex-Mex", "BBQ", "New England", "Soul Food", "Hawaiian":
             return "American"
+        case "Jamaican":
+            return "Caribbean"
         default:
             return nil
         }
+    }
+
+    /// Older imports collapsed Jamaican into Caribbean. Recover specificity only from
+    /// explicit publisher metadata/title evidence, never from "jerk" or a broad region.
+    /// Used on read as well as import, so existing records need no destructive migration.
+    nonisolated static func resolvedCuisine(_ raw: String, title: String, keywords: [String]) -> String {
+        let canonical = canonicalCuisine(raw)
+        guard ["Other", "Caribbean"].contains(canonical) else { return canonical }
+        let named = keywords.contains { ["jamaican", "jamaica"].contains(SearchNormalization.fold($0)) }
+        let words = SearchNormalization.fold(title).split { !$0.isLetter }
+        return named || words.contains("jamaican") ? "Jamaican" : canonical
     }
 
     /// Map a raw cuisine string (any case / synonym) to a canonical value.
@@ -284,7 +297,7 @@ enum RecipeTaxonomy {
             "med": "Mediterranean", "levantine": "Middle Eastern", "levant": "Middle Eastern", "middle east": "Middle Eastern",
             "persian": "Middle Eastern", "israeli": "Middle Eastern", "lebanese": "Middle Eastern", "turkish": "Turkish", "turkey": "Turkish",
             "morocco": "Moroccan", "moroccan": "Moroccan", "brazil": "Brazilian", "brazilian": "Brazilian",
-            "caribbean islands": "Caribbean", "jamaican": "Caribbean", "cuban": "Caribbean", "africa": "African", "ethiopian": "African",
+            "caribbean islands": "Caribbean", "jamaica": "Jamaican", "cuban": "Caribbean", "africa": "African", "ethiopian": "African",
             "britain": "British", "england": "British", "english": "British", "uk": "British", "u k": "British",
             "ireland": "Irish", "germany": "German", "polish": "Eastern European", "russian": "Eastern European", "hungarian": "Eastern European",
             "latin": "Latin American", "central american": "Latin American", "south american": "Latin American", "peruvian": "Latin American",
@@ -351,7 +364,7 @@ enum RecipeFacets {
     nonisolated static func matches(_ recipe: UserRecipe, cuisine: String) -> Bool {
         let target = RecipeTaxonomy.canonicalCuisine(cuisine)
         guard target != "Other" else { return false }
-        let recipeCuisine = RecipeTaxonomy.canonicalCuisine(recipe.cuisine)
+        let recipeCuisine = RecipeTaxonomy.resolvedCuisine(recipe.cuisine, title: recipe.title, keywords: recipe.tags)
         if recipeCuisine == target { return true }
         if RecipeTaxonomy.parentCuisine(recipeCuisine) == target { return true }
         return recipe.tags.contains { tag in
@@ -367,7 +380,7 @@ enum RecipeFacets {
     private nonisolated static func cuisineCounts(in recipes: [UserRecipe]) -> [String: Int] {
         var counts: [String: Int] = [:]
         for recipe in recipes {
-            let cuisine = RecipeTaxonomy.canonicalCuisine(recipe.cuisine)
+            let cuisine = RecipeTaxonomy.resolvedCuisine(recipe.cuisine, title: recipe.title, keywords: recipe.tags)
             guard cuisine != "Other" else { continue }
             counts[cuisine, default: 0] += 1
             if let parent = RecipeTaxonomy.parentCuisine(cuisine) {

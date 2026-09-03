@@ -1,5 +1,42 @@
 # QA and performance review — 2026-09-02
 
+## STK-89-0135 — Empty (latest follow-up)
+
+The shared collection contained 159 tickets, with one new report and seven open. The full screenshot
+shows Chicken + Jamaican + Comfort, no dietary restrictions, no time limit, and no kitchen filter;
+the Meal selection is off-screen. The live catalogue already contains Jamaican chicken recipes,
+but they lack explicit Comfort metadata. Older taxonomy also collapsed Jamaican into Caribbean.
+
+- iOS: Jamaican now remains canonical, rolls up to Caribbean, and repairs historical cuisine
+  matching from explicit title/tag evidence in both Finder and existing collection filters.
+- iOS: zero-match review/results offer opt-in soft-preference alternatives with actual counts from
+  the same background query. No fabricated Comfort tags, automatic restriction relaxation, extra
+  corpus cache, or second search implementation was introduced.
+- Mac: measured category deficits are calculated off-main from the approved source-attributed
+  library. Automatic sources are selected from the entire pool before limiting; priority slots
+  alternate with regular work. Indexed term matching reduced the native 2,000-URL test from
+  1,407 ms to 33 ms. These are development-machine checks, not phone performance measurements.
+- Server: the existing bridge transfers aggregate schema-1 coverage hints. Missing/stale data
+  uses the bounded Jamaican/chicken bootstrap; ordinary work, source cooldowns, retry deadlines,
+  parser/image/provenance and approval gates remain intact. Installed server/bridge checksums
+  were verified after the user-approved deployment.
+- Worker: user-approved deployment `36e2a672-5d64-4236-87d1-eba4cc9c61b7` activated the prior
+  8,000-index and complete paginated-record implementation. Live page-size-1 requests now return
+  one recipe, distinct subsequent records, and advancing cursors; all five app/unified health
+  endpoints returned 200. No records were deleted or fabricated. This supersedes earlier
+  entries below that describe the old 2,000-limit deployment state.
+
+Validation: 126 native Finder checks; 9 native Mac coverage checks; Mac public-catalogue decoder/
+pagination smoke checks; 11 server tests; all 85 Worker tests, TypeScript and dry run. Final
+generic iOS app/StockedTests compilation and the native Mac app build both passed. The iOS
+integration tests compiled but were not executed. No simulator build/test was started.
+
+Client application installation, iPhone/iPad layout/VoiceOver testing, and real-device memory/hitch
+validation remain pending. The new ticket stays open with a resolution progress note; the six
+previous open tickets retain their source fixes and device-validation status. Exact combinations
+may legitimately remain empty until matching, properly tagged recipes pass normal import gates.
+The source-priority service is live; measured Mac coverage requires launching the updated Mac app.
+
 ## Follow-up: theme, drawer, and QA attachment handling
 
 The latest shared collection contains 158 tickets: four new open reports plus the

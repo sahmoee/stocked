@@ -15,6 +15,11 @@ Dietary metadata is not an allergen-safety guarantee; unsupported nutrition/alle
 are intentionally absent. Existing saved allergen exclusions remain active. Full kitchen matches
 require confirmed quantities; mostly means 70% of required ingredients. Unknown times/ratings/dates
 are not fabricated. Past-meal revisions invalidate results after ratings/history edits.
+Jamaican is a canonical cuisine that also matches Caribbean. Historical Caribbean records recover
+Jamaican specificity on read only when their title or explicit metadata names it. Empty review/results
+offer real, opt-in soft-filter alternatives from the same scan; never invent Comfort tags or relax
+dietary/allergen, kitchen or search requirements. Mac/server discovery coverage is only an import
+ordering hint and does not determine recipe eligibility or imply every combination has matches.
 
 User validation override (2026-09-02): do not run simulator builds or simulator tests without
 asking first. Native `scripts/RecipeFinderCoreChecks.swift` checks and generic iOS-device builds
