@@ -238,11 +238,7 @@ struct SourceRecipesView: View {
         }
         .sheet(isPresented: $showWebsite) {
             if let sourceWebsite {
-                NavigationStack {
-                    RecipeSourceWebView(url: sourceWebsite)
-                        .navigationTitle(sourceName)
-                        .navigationBarTitleDisplayMode(.inline)
-                }
+                RecipeBrowserView(initialURL: sourceWebsite)
             }
         }
         .task {
@@ -265,23 +261,6 @@ struct SourceRecipesView: View {
             return URL(string: "https://\(site.domain)")
         }
         return nil
-    }
-}
-
-private struct RecipeSourceWebView: UIViewRepresentable {
-    let url: URL
-
-    func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
-        let view = WKWebView(frame: .zero, configuration: configuration)
-        view.allowsBackForwardNavigationGestures = true
-        return view
-    }
-
-    func updateUIView(_ view: WKWebView, context: Context) {
-        guard view.url != url else { return }
-        view.load(URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 20))
     }
 }
 

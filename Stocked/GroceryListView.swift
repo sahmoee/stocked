@@ -1050,7 +1050,7 @@ struct GroceryListView: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
                             .scaledFont(20)
-                            .foregroundStyle(item.isChecked ? Color.stockedGold : Color.stockedCharcoal.opacity(0.35))
+                            .foregroundStyle(item.isChecked ? session.themeContrastAccent : sub)
                             .frame(width: 26, height: 28, alignment: .center)
                             .a11yDecorative()
 
@@ -1060,14 +1060,13 @@ struct GroceryListView: View {
 
                         VStack(alignment: .leading, spacing: 5) {
                             Text(displayName)
-                                .scaledFont(15, weight: .medium)
+                                .scaledFont(16, weight: .medium)
                                 .foregroundStyle(item.isChecked ? sub : text)
                                 .strikethrough(item.isChecked)
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .fixedSize(horizontal: false, vertical: true)
 
-                            HStack(spacing: 4) {
+                            StockedFlowLayout(spacing: 4, lineSpacing: 4) {
                                 if !item.recipeSource.isEmpty {
                                     Image(systemName: "fork.knife").scaledFont(8)
                                     Text(item.recipeSource).scaledFont(12, weight: .semibold)
@@ -1081,9 +1080,9 @@ struct GroceryListView: View {
                                 if StockedDatabase.shared.hasSubstitution(for: item.name) {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
                                     Image(systemName: "arrow.left.arrow.right").scaledFont(7)
-                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                        .foregroundStyle(session.themeContrastAccent)
                                     Text("Sub available").scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                        .foregroundStyle(session.themeContrastAccent)
                                 }
                                 if !item.assignedTo.isEmpty {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
@@ -1094,11 +1093,10 @@ struct GroceryListView: View {
                                 } else if !item.addedByName.isEmpty {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
                                     Text("by \(item.addedByName)").scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                        .foregroundStyle(session.themeContrastAccent)
                                 }
                             }
-                            .foregroundStyle(item.recipeSource.isEmpty && !item.isRecommended
-                                ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold.opacity(0.7))
+                            .foregroundStyle(sub)
                             .fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1108,11 +1106,12 @@ struct GroceryListView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(item.isChecked ? "Uncheck" : "Check") \(displayName)")
 
-                // Quantity sits on its own line beneath the name, aligned with the text column.
+                // Flexible inset yields to large text and the 44-point quantity controls.
                 HStack(spacing: 7) {
-                    Color.clear.frame(width: 60, height: 1)
+                    Color.clear.frame(minWidth: 0, maxWidth: 60, minHeight: 1, maxHeight: 1)
+                        .layoutPriority(-1)
                     Text("Qty")
-                        .scaledFont(10, weight: .semibold)
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(sub)
                     Button {
                         if item.quantity > 1 {
@@ -1120,23 +1119,26 @@ struct GroceryListView: View {
                         }
                     } label: {
                         Image(systemName: "minus.circle.fill")
-                            .scaledFont(18)
-                            .foregroundStyle(Color.stockedGold)
+                            .scaledFont(22)
+                            .foregroundStyle(session.themeContrastAccent)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Decrease quantity")
+                    .disabled(item.quantity <= 1)
 
                     Text("\(item.quantity)")
-                        .scaledFont(13, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .scaledFont(15, weight: .bold)
+                        .foregroundStyle(text)
                         .frame(minWidth: 18)
 
                     Button {
                         store.updateGroceryQty(id: item.id, qty: item.quantity + 1)
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .scaledFont(18)
-                            .foregroundStyle(Color.stockedGold)
+                            .scaledFont(22)
+                            .foregroundStyle(session.themeContrastAccent)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Increase quantity")
@@ -1150,9 +1152,9 @@ struct GroceryListView: View {
                     grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
                 } label: {
                     Image(systemName: "calendar.badge.plus")
-                        .scaledFont(11)
-                        .foregroundStyle(Color.stockedGreen)
-                        .frame(width: 30, height: 30)
+                        .scaledFont(16)
+                        .foregroundStyle(session.themeContrastAccent)
+                        .frame(width: 44, height: 44)
                         .background(Color.stockedGreen.opacity(0.12))
                         .clipShape(Circle())
                 }
@@ -1161,9 +1163,9 @@ struct GroceryListView: View {
 
                 Button { openInStore(item.name) } label: {
                     Image(systemName: "cart.fill")
-                        .scaledFont(11)
-                        .foregroundStyle(Color.stockedGold)
-                        .frame(width: 30, height: 30)
+                        .scaledFont(16)
+                        .foregroundStyle(session.themeContrastAccent)
+                        .frame(width: 44, height: 44)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Circle())
                 }
@@ -1177,9 +1179,9 @@ struct GroceryListView: View {
                     HapticManager.warning()
                 } label: {
                     Image(systemName: "xmark")
-                        .scaledFont(12)
-                        .foregroundStyle(sub.opacity(0.5))
-                        .frame(width: 30, height: 30)
+                        .scaledFont(16)
+                        .foregroundStyle(sub)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

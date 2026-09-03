@@ -79,6 +79,10 @@ final class QAAccessibilitySweep {
     private(set) var lastRun: Date?
     private(set) var lastScreen: String = "—"
     private(set) var viewsWalked = 0
+    private(set) var incomplete = false
+    @ObservationIgnored private var scheduled: Task<Void, Never>?
+    @ObservationIgnored private var deadline = Date.distantFuture
+    @ObservationIgnored private var previousFinding = ""
 
     /// The tree is walked no deeper than this. A SwiftUI hierarchy is genuinely
     /// this deep in places, and an uncapped recursion over a pathological tree is
@@ -95,6 +99,7 @@ final class QAAccessibilitySweep {
 
     var summary: String {
         guard hasRun else { return "Not run on this screen yet." }
+        if incomplete { return "Partial sweep on \(lastScreen) · \(issues.count) possible issues. Manual review remains available." }
         if issues.isEmpty { return "Nothing to fix on \(lastScreen)." }
         var bits: [String] = []
         if !unlabelled.isEmpty { bits.append("\(unlabelled.count) unlabelled") }
@@ -103,19 +108,23 @@ final class QAAccessibilitySweep {
     }
 
     /// Walks whatever is on screen right now.
-    func run() {
+    func run(automatic: Bool = false) {
         issues = []
         viewsWalked = 0
+        incomplete = false
+        deadline = Date().addingTimeInterval(automatic ? 0.008 : 0.04)
         lastScreen = QARecorder.shared.currentScreen
         lastRun = Date()
 
         guard let window = QAScreenshot.appWindow() else {
+            incomplete = true
             QARecorder.shared.record(.note, label: "Accessibility sweep",
                                      detail: "no app window to walk")
             return
         }
         var found: [QAAccessibilityIssue] = []
         walk(window, in: window, depth: 0, into: &found)
+        if Date() >= deadline { incomplete = true }
 
         // Two SwiftUI views can back one control and both report the same frame.
         // Reporting it twice makes the list look worse than the screen is.
@@ -125,16 +134,19 @@ final class QAAccessibilitySweep {
             return seen.insert(key).inserted
         }
 
-        QARecorder.shared.record(issues.isEmpty ? .success : .failure,
+        QARecorder.shared.record(incomplete ? .note : (issues.isEmpty ? .success : .failure),
                                  label: "Accessibility sweep · \(lastScreen)",
-                                 detail: issues.isEmpty
+                                 detail: incomplete ? "Partial, bounded sweep; not an accessibility pass" : issues.isEmpty
                                  ? "\(viewsWalked) views, nothing to fix"
                                  : "\(issues.count) issue\(issues.count == 1 ? "" : "s") across \(viewsWalked) views")
     }
 
     private func walk(_ view: UIView, in window: UIWindow, depth: Int,
                       into out: inout [QAAccessibilityIssue]) {
-        guard depth < maxDepth, viewsWalked < maxViews else { return }
+        guard depth < maxDepth, viewsWalked < maxViews, Date() < deadline else {
+            incomplete = true
+            return
+        }
         viewsWalked += 1
 
         // Invisible things cannot be tapped and are not read out. Skipping them
@@ -167,6 +179,7 @@ final class QAAccessibilitySweep {
 
         for sub in view.subviews {
             walk(sub, in: window, depth: depth + 1, into: &out)
+            if Date() >= deadline || viewsWalked >= maxViews { incomplete = true; break }
         }
     }
 
@@ -189,7 +202,7 @@ final class QAAccessibilitySweep {
     /// is not unlabelled even with no `accessibilityLabel` of its own. Shallow on
     /// purpose — a text view five levels down is not what is being read out.
     private func hasTextDescendant(_ view: UIView, depth: Int) -> Bool {
-        guard depth < 3 else { return false }
+        guard depth < 3, Date() < deadline else { return false }
         if let label = view as? UILabel, !(label.text ?? "").isEmpty { return true }
         if let button = view as? UIButton,
            !(button.title(for: .normal) ?? "").isEmpty { return true }
@@ -198,6 +211,32 @@ final class QAAccessibilitySweep {
         return false
     }
 
+    /// Read-only, debounced and frame-budgeted. Never taps through screens or
+    /// claims full SwiftUI/VoiceOver coverage from the backing UIKit tree.
+    func schedule(screen: String) {
+        scheduled?.cancel()
+        guard QARecorder.shared.isEnabled, screen != "—", !screen.lowercased().contains("qa") else { return }
+        scheduled = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            guard let self, !Task.isCancelled, QARecorder.shared.isEnabled,
+                  UIApplication.shared.applicationState == .active,
+                  !QAReporterPresenter.shared.isPresenting,
+                  !QAFloatingMenuPresenter.shared.isPresenting,
+                  QARecorder.shared.currentScreen == screen,
+                  ActiveCookSessionStore.shared.resumable?.status != .active else { return }
+            self.run(automatic: true)
+            let fingerprint = screen + "|" + self.issues.map(\.line).sorted().joined(separator: "|")
+            // Two fresh complete observations, not an old cached sweep, are
+            // required before filing a possible accessibility issue for review.
+            if !self.incomplete, !self.issues.isEmpty, fingerprint == self.previousFinding {
+                self.fileTicket()
+            }
+            self.previousFinding = self.incomplete || self.issues.isEmpty ? "" : fingerprint
+        }
+    }
+
+    func cancel() { scheduled?.cancel(); scheduled = nil; previousFinding = "" }
+
     // MARK: Export
 
     var exportText: String {
@@ -205,9 +244,10 @@ final class QAAccessibilitySweep {
                    "screen: \(lastScreen)",
                    "run: \(lastRun?.formatted() ?? "never")",
                    "views walked: \(viewsWalked)",
+                   "coverage: \(incomplete ? "partial (budget/window limit)" : "visible UIKit controls only; manual VoiceOver review still required")",
                    ""]
         if issues.isEmpty {
-            out.append(hasRun ? "No issues found." : "Not run.")
+            out.append(hasRun ? (incomplete ? "Incomplete; not a pass." : "No issues found in inspected controls.") : "Not run.")
         } else {
             out += issues.map { "  " + $0.line }
         }
@@ -226,8 +266,10 @@ final class QAAccessibilitySweep {
             title: "Accessibility: \(issues.count) issue\(issues.count == 1 ? "" : "s") on \(lastScreen)",
             body: exportText,
             severity: .minor,
+            requiresManualReview: true,
             context: context,
             origin: .automatic,
+            automaticCheckID: "accessibility:\(lastScreen)",
             screenshot: QAScreenshot.capture())
     }
 }

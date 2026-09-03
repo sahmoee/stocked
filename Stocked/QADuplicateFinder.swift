@@ -51,7 +51,7 @@ nonisolated enum QADuplicateFinder {
 
         var best: (ticket: QATicket, score: Double)?
         for t in existing {
-            guard !t.status.isClosed else { continue }
+            guard t.needsAttention else { continue }
             guard now.timeIntervalSince(t.createdAt) <= window else { continue }
             // Same screen, or one of them never recorded a screen. Two reports
             // with identical wording on different screens are two bugs.

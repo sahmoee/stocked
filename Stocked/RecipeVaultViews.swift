@@ -1538,6 +1538,8 @@ struct RecipeVaultView: View {
                 createRoute = nil
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { createRoute = .form(form, source) }
             }.environment(session)
+        case .browser:
+            RecipeBrowserView().environment(session)
         case .screenshot:
             RecipeScreenshotImportSheet { form, source in
                 createRoute = nil

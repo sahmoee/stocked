@@ -7,6 +7,54 @@ without removing its implementation. Cook choices have flexible vertical breathi
 and tablets. Drawer translation is gesture-scoped so interrupted drags cannot strand the panel.
 QA publication reads attachments and creates bounded 200-pixel thumbnails off the main actor.
 
+Find a Recipe is one unified search: the internet supplies recipes; Stocked makes them usable. Keep the
+approved hub palette/chrome and the existing theme preference. Explicit searches use the existing
+publisher registry and structured-data parser, with two concurrent publishers, bounded HTML and
+an 18-second work deadline. Discovery is transient, never a save/import side effect. Cards credit
+the source and show only supported facts; tapping an unsaved result opens preview with View Original
+Recipe and Import to STOCKED. The shared WebKit browser keeps navigation across redraws and imports
+the finished page into the existing reviewable editor. The editor preserves URL/publisher/tags;
+browser/preview imports do not automatically rewrite publisher text with AI. A saved UserRecipe
+continues through the existing Inventory/Grocery/Cook/Collection owners.
+
+Do not make users choose Online versus Database. Downloaded matches stream in while web discovery
+runs, then one canonical-URL-deduplicated, globally sorted list includes both. Same-title personal
+recipes retain their stable identities. Full-catalogue matches beyond the visible window still count
+for deduplication; unavailable publishers cannot hide cached results. See `QA_TICKET_FOLLOWUP.md`.
+QA now includes 92 additional device checks (362 total) plus clearly labelled deterministic contracts. Untested
+blockers prevent sign-off. Both manual and automatic reports export the complete coverage catalogue.
+
+QA identity is per installation: select Key or Shalise once on each phone/iPad. New reports capture
+the exact hardware model, family and random QA installation ID; legacy reports remain unassigned.
+Completed (`fixed`) tickets leave active work unless manual review is required. A fresh same-origin
+automatic recurrence reopens its ticket and linked failure without deleting the original resolution.
+QA resumes automatically when enabled, runs bounded read-only diagnostics every ten minutes, and
+debounces visible accessibility sweeps; it never signs off physical-device checks automatically.
+See `QA_AUTONOMY_BUILD.md` for the compatibility rollout and verification matrix.
+
+Shared Xcode schemes automatically reserve project-wide build numbers and stamp app/extension/test
+bundles before signing. Public `MARKETING_VERSION` remains manual. `scripts/qa_build_number.py` owns
+the implementation vendored into Atlas, Nova, The-Sesh and ReelPromo-iOS. Build with a shared scheme;
+do not bypass it with `-target` or independently bump numbers in release wrappers. No simulator runs
+or TestFlight uploads are authorized by this setup.
+
+The shared recipe browser provides progress/stop, bounded recent-page navigation, native find,
+publisher-anchor jump, page zoom and external-browser fallback. Explicit Paste controls never
+inspect the clipboard on appearance. Import first reads bounded structured metadata from the
+displayed page; otherwise URL/share imports parse one bounded network response with a same-byte
+text fallback. Extraction is not a save. Keep page/request identity guards, immediate cancellation,
+exact-source duplicate choices and the source-yield/quality review. See `BROWSER_IMPROVEMENTS.md`
+for the 20-change checklist and validation boundaries.
+
+The full database remains an explicit and automatic fallback (offline, website failure, or no
+verified web matches), with unchanged dietary/allergen/kitchen restrictions. `RecipeDatabaseManager`
+owns a durable public catalogue tier in the existing `GrowthDatabase`; `HarvestRecipeSync` reads
+the already-deployed paginated Worker API in 100-row pages, persists before checkpointing, and can
+resume the complete walk without a total/index cap. Only a first page warms the bounded writable
+snapshot. Finder scans all downloaded public pages, saved recipes and the bundled corpus. Unfinished
+downloads are labeled; local counts are never claimed to be the entire server/internet total.
+Existing records remain intact; no server schema/deployment or household migration is required.
+
 Find a Recipe uses one session-owned `FinderFlow` and `FinderQuery` for review counts, search,
 filter edits, and sorting. `FinderService` scans the shared database and SQLite corpus in cancellable
 256-row pages, retaining only the requested result window. Never replace this with a full-library
@@ -41,7 +89,7 @@ Read `PERFORMANCE_ARCHITECTURE.md` before changing persistence, imports, sync, i
 
 Recipe views prefer publisher-original image URLs, retain exact downloaded bytes in cache, and fall back to embedded data only when offline or the source fails. Keep the thin charcoal image border consistent.
 
-Discover starts with the shared RecipeDatabase populated by StockedMac/UnifiedWorker, refreshes when that database changes even if the UI cache is fresh, and round-robins qualified recipes by canonical publisher before applying the visible cap. MealDB is one fallback provider, never the exclusive or monopolizing feed. Every displayed recipe requires HTTPS imagery and real instructions.
+Legacy Discover/Ready to Cook rails start with the shared RecipeDatabase populated by StockedMac/UnifiedWorker, refresh when that database changes even if the UI cache is fresh, and round-robin qualified recipes by canonical publisher before applying the visible cap. This is the database backup, not the web-first Find a Recipe entry. MealDB is one fallback provider, never the exclusive or monopolizing feed. Every displayed recipe requires HTTPS imagery and real instructions.
 
 Every Recipes visit and manual refresh also incorporates a bounded rotating sample plus the
 highest-quality image-complete rows from the full SQLite RecipeStore corpus. Competing visit

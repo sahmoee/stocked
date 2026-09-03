@@ -446,6 +446,12 @@ struct QAReportComposer: View {
     @State private var requiresManualReview = false
     @State private var attachScreenshot = true
     @State private var created: QATicket?
+    @State private var identity = QAIdentityStore.shared
+    private var reportContext: QATicketContext {
+        var context = draft.context
+        context.identity = (context.identity ?? identity.capture()).assigning(identity.tester)
+        return context
+    }
     @FocusState private var titleFocused: Bool
 
     var body: some View {
@@ -481,6 +487,12 @@ struct QAReportComposer: View {
 
     private var form: some View {
         Form {
+            Section("Tester") {
+                Picker("Reported by", selection: $identity.tester) {
+                    ForEach(QATester.allCases) { tester in Text(tester.name).tag(tester) }
+                }
+                Text(reportContext.identity?.deviceLabel ?? "Unknown device").font(.stocked(.caption))
+            }
             Section {
                 TextField("What went wrong?", text: $title, axis: .vertical)
                     .fixedSize(horizontal: false, vertical: true)
@@ -532,7 +544,7 @@ struct QAReportComposer: View {
             }
 
             Section {
-                ForEach(draft.context.summaryLines, id: \.self) { line in
+                ForEach(reportContext.summaryLines, id: \.self) { line in
                     Text(line)
                         .font(.stocked(.caption).monospaced())
                         .foregroundStyle(.secondary)
@@ -616,7 +628,7 @@ struct QAReportComposer: View {
             body: body_.trimmingCharacters(in: .whitespacesAndNewlines),
             severity: severity,
             requiresManualReview: requiresManualReview,
-            context: draft.context,
+            context: reportContext,
             origin: .tester,
             screenshot: attachScreenshot ? draft.screenshot : nil)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -632,13 +644,31 @@ struct QATicketListView: View {
     @State private var statusFilter: QATicketStatus?
     @State private var severityFilter: QATicketSeverity?
     @State private var showClearConfirm = false
+    @State private var showCompleted = false
+    @State private var testerFilter = "all"
+    @State private var familyFilter = "all"
 
     private var visible: [QATicket] {
-        store.sorted(status: statusFilter, severity: severityFilter, search: search)
+        store.sorted(status: statusFilter, severity: severityFilter, search: search).filter {
+            (showCompleted || $0.needsAttention)
+                && (testerFilter == "all" || ($0.context.identity?.testerID ?? "unassigned") == testerFilter)
+                && (familyFilter == "all" || ($0.context.identity?.deviceFamily ?? QADeviceModels.family(identifier: $0.context.device, fallback: "Unknown")) == familyFilter)
+        }
     }
 
     var body: some View {
         List {
+            Section {
+                Toggle("Include completed tickets", isOn: $showCompleted)
+                Picker("Tester", selection: $testerFilter) {
+                    Text("All testers").tag("all")
+                    ForEach(QATester.allCases) { Text($0.name).tag($0.rawValue) }
+                }
+                Picker("Device type", selection: $familyFilter) {
+                    Text("All devices").tag("all")
+                    Text("iPhone").tag("iPhone"); Text("iPad").tag("iPad"); Text("Unknown / legacy").tag("Unknown")
+                }
+            }
             if store.tickets.isEmpty {
                 ContentUnavailableView {
                     Label("No tickets yet", systemImage: "ticket")
@@ -656,6 +686,10 @@ struct QATicketListView: View {
                 }
 
                 Section {
+                    if visible.isEmpty {
+                        Text("No active tickets match. Turn on Include completed tickets to see resolved history.")
+                            .foregroundStyle(.secondary)
+                    }
                     ForEach(visible) { t in
                         NavigationLink { QATicketDetailView(ticketID: t.id) } label: {
                             row(t)
@@ -691,7 +725,10 @@ struct QATicketListView: View {
             }
         }
         .navigationTitle("Tickets")
-        .searchable(text: $search, prompt: "Number, title, or screen")
+        .searchable(text: $search, prompt: "Ticket, tester, model, or screen")
+        .onChange(of: statusFilter) { _, status in
+            if status?.isClosed == true { showCompleted = true }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -741,13 +778,16 @@ struct QATicketListView: View {
                         .font(.stocked(.caption))
                 }
                 Image(systemName: t.status.symbol)
-                    .foregroundStyle(t.status.isClosed ? .green : .secondary)
+                    .foregroundStyle(!t.needsAttention ? .green : .secondary)
                     .font(.stocked(.caption))
             }
             Text(t.title)
                 .font(.stocked(.subheadline))
                 .fixedSize(horizontal: false, vertical: true)
-                .strikethrough(t.status.isClosed)
+                .strikethrough(!t.needsAttention)
+            Text(t.context.identity?.label ?? "Unassigned tester · \(t.context.device)")
+                .font(.stocked(.caption)).foregroundStyle(.secondary)
+            Text(t.statusLabel).font(.stocked(.caption))
             if t.requiresManualReview == true {
                 Label("Requires manual review", systemImage: "person.crop.circle.badge.questionmark")
                     .font(.stocked(.caption2))
@@ -806,6 +846,13 @@ struct QATicketDetailView: View {
                     }
 
                     Section("Triage") {
+                        Picker("Tester", selection: Binding(
+                            get: { QATester(rawValue: t.context.identity?.testerID ?? "") ?? .unassigned },
+                            set: { store.assignTester(t.id, tester: $0) })) {
+                            ForEach(QATester.allCases) { Text($0.name).tag($0) }
+                        }
+                        Text(t.context.identity?.deviceLabel ?? "\(t.context.device) · exact model not recorded")
+                            .font(.stocked(.caption))
                         Toggle("Requires manual review", isOn: Binding(
                             get: { t.requiresManualReview ?? false },
                             set: { new in store.update(t.id) { $0.requiresManualReview = new } }))
@@ -838,7 +885,7 @@ struct QATicketDetailView: View {
                         } else if t.status != .verified {
                             TextField("What was fixed", text: $resolutionDraft, axis: .vertical)
                                 .lineLimit(2...)
-                            Button("Mark Fixed — needs verification") {
+                            Button(t.requiresManualReview == true ? "Mark Fixed — review needed" : "Mark Fixed — complete ticket") {
                                 store.markFixed(t.id, resolution: resolutionDraft)
                                 resolutionDraft = ""
                             }

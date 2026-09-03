@@ -40,9 +40,41 @@ Stocked QA uses the shared `Joo` ten-minute gate. Once unlocked, sync first merg
 
 ## QA
 
+`QAIdentityStore` owns the per-installation Key/Shalise choice and random QA device ID; capture exact
+hardware family/model with every new report. Never infer a legacy tester or replace captured hardware
+with the device editing a ticket. Optional `qaIdentity`, origin/check/run and regression fields remain
+backward compatible; UnifiedWorker preserves omitted metadata from released clients.
+`fixed` means Completed unless `requiresManualReview` is true. Hide completed tickets from active
+work but retain history; `verified` still requires real device/tester evidence. Only a fresh same-origin
+automatic observation may reopen an automatic fix. Do not replay cached failures or apply an old
+shipped resolution over a refile/regression. Linked failures derive Resolved, never a fabricated Pass.
+Preserve that derivation when notes are edited. Keep screenshots attached to the retained ticket.
+Autonomous checks stay QA-gated, foreground-only and read-only, defer during cooking, reject stale
+snapshots, bound disk walks and accessibility work, and honor explicit Auto-publish preferences.
+
 The user has paused all simulator builds and tests; ask before starting any. Use native pure-logic
 checks and generic-device compilation meanwhile, and never describe those as device UI verification.
-Find a Recipe owns no new persisted schema or backend API. Reuse its shared selector for every count
+Find a Recipe discovery owns no backend API or independent user store. RecipeDatabaseManager owns
+the additive public catalogue table in GrowthDatabase and HarvestRecipeSync owns its resumable
+server-page cursor. Never reconcile that table from a bounded view snapshot or load it all into RAM.
+Unified discovery uses bounded publisher requests, no source-count qualification gate, no automatic
+catalogue writes, and no new vendor. Search the downloaded database concurrently, publish early
+matches, then merge website matches into the SAME sorted/deduplicated list. No Online/Database
+picker or separate source sections. Failure/offline retains available matches without relaxing any
+filter; disclose incomplete downloads. Import commits only through the existing review form/GuestDataStore and preserves source
+rights/links; preview and browsing are not imports. Retain user theme selection and the hub identity.
+The browser/importer share URL and response policies, including per-hop redirect validation.
+Read only bounded page recipe metadata on explicit import, then fall back to one bounded response
+for structured/text parsing. Do not read clipboard contents on appearance, copy browser cookies,
+bypass publisher restrictions, or permit stale/cancelled imports to open a draft. Preserve exact-source
+duplicate review, source yield and attribution. Keep WebKit find/zoom/history session-local and
+remove observers/delegates at dismantle, not when a review sheet is merely presented.
+QAFeatureCoverage appends stable checklist IDs for new functionality. Untested blockers remain open;
+changed definitions require retesting without deleting notes/ticket links. Manual and automatic QA
+exports include the complete current checkbook, not hardcoded counts or empty checklists. Pure fixture
+contracts are labelled as such and never mark physical-device checks passed. QA nudges are coalesced,
+revision-based, cancellation-aware, and may not publish a clean result from changing inputs.
+Reuse the shared selector for every count
 and result surface; preserve drafts through detail navigation. Never relax dietary/allergen exclusions
 or infer complete inventory coverage from missing amounts. Zero-container inventory is unavailable
 app-wide. Keep the Stocked AI entry disabled as requested.
@@ -80,6 +112,15 @@ UnifiedWorker owns Kroger OAuth and RapidAPI host allowlisting. StockedMac disco
 10. Finish only when behavior, setup, verification, documentation, and cross-project impact agree.
 
 ### Implementation and verification
+
+QA-enabled Xcode projects use the shared `qa_build_number.py` contract: one locked reservation per
+shared-scheme build, project-wide integer build settings, a DerivedData-scoped reservation, and an
+always-running post-Info.plist/pre-signing stamp for each app, extension and test bundle. Build-script
+sandboxing stays enabled: the plist is a declared mutable input/output alongside a completion marker.
+Scripts are repo-owned, perform no network calls, and do not change signing entitlements or app sandboxing.
+Never auto-edit MARKETING_VERSION or double-bump it/builds in deployment wrappers. Validate actual
+bundle metadata, including embedded extensions, not only pbxproj settings. Stocked owns the script;
+Atlas/Nova/The-Sesh/ReelPromo-iOS vendor identical copies. Failed builds may leave reservation gaps.
 
 1. Inspect repository status first and preserve unrelated user or agent work.
 2. Make the smallest coherent batch that resolves the root cause without silently dropping features.

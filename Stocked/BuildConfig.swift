@@ -21,8 +21,9 @@ nonisolated enum BuildConfig {
     // MARK: - Version info
     // Single source of truth = the app bundle (CFBundleVersion / CFBundleShortVersionString),
     // which come from CURRENT_PROJECT_VERSION / MARKETING_VERSION in Build Settings.
-    // MARKETING_VERSION and CURRENT_PROJECT_VERSION are set manually in Xcode. These accessors
-    // only read the built bundle; they never mutate or script version numbers. The literals are
+    // MARKETING_VERSION stays manual. QA schemes reserve CURRENT_PROJECT_VERSION before
+    // each build and stamp every built bundle before signing. These accessors only read it.
+    // The literals are
     // fallbacks for SwiftUI previews / unit tests where the bundle keys may be absent.
     static var buildNumber: Int {
         Int(bundleString("CFBundleVersion") ?? "") ?? fallbackBuildNumber

@@ -6,7 +6,13 @@ nonisolated struct FinderRequestState: Equatable, Sendable {
     private(set) var phase: Phase = .idle
     private(set) var count = 0
     private var generation = 0
-    mutating func begin() -> Int { generation &+= 1; phase = .loading; return generation }
+    mutating func begin() -> Int { generation &+= 1; count = 0; phase = .loading; return generation }
+    /// Partial results are usable while other sources are still loading. They must
+    /// obey the same generation gate as the final response.
+    mutating func preview(_ token: Int, count: Int) -> Bool {
+        guard token == generation, phase == .loading else { return false }
+        self.count = count; return true
+    }
     mutating func complete(_ token: Int, count: Int) -> Bool {
         guard token == generation, phase == .loading else { return false }
         self.count = count; phase = .ready; return true

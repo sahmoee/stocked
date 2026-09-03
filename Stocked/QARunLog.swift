@@ -35,6 +35,7 @@ nonisolated struct QARun: Identifiable, Codable, Sendable {
     /// Checkbook verdicts recorded during the run, `QA-12-03 → pass`.
     var checkVerdicts: [String: String] = [:]
     var note: String = ""
+    var identity: QAReportIdentity?
 
     var isOpen: Bool { endedAt == nil }
 
@@ -54,7 +55,7 @@ nonisolated struct QARun: Identifiable, Codable, Sendable {
         var bits = ["\(ticketNumbers.count) ticket\(ticketNumbers.count == 1 ? "" : "s")"]
         if checks > 0 { bits.append("\(checks) check\(checks == 1 ? "" : "s")") }
         if fails > 0 { bits.append("\(fails) not passing") }
-        return "\(name) · \(when) · \(durationText) · " + bits.joined(separator: " · ")
+        return "\(name) · \(identity?.label ?? "Unassigned tester") · \(when) · \(durationText) · " + bits.joined(separator: " · ")
     }
 }
 
@@ -122,7 +123,7 @@ final class QARunLog {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let run = QARun(name: trimmed.isEmpty ? defaultName() : trimmed,
                         build: BuildConfig.buildNumber,
-                        version: BuildConfig.version)
+                        version: BuildConfig.version, identity: QAIdentityStore.shared.capture())
         runs.insert(run, at: 0)
         trim()
         save()

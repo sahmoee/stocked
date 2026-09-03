@@ -924,6 +924,7 @@ final class RecipeDatabaseManager {
     /// Monotonic actor-owned revision for the writable recipe pool. Kept as a compatibility
     /// observation token for existing views; new consumers should observe `recipeMutations`.
     var recipesVersion: UInt64 = 0
+    var catalogueRevision: UInt64 = 0
     var latestRecipeChange: RecipeDatabaseChange?
 
     init() {
@@ -952,7 +953,8 @@ final class RecipeDatabaseManager {
         let primary = await db.search(query, limit: limit)
         if primary.count >= limit { return primary }
 
-        let corpus = await RecipeStore.shared.search(query, limit: limit)
+        let archive = await GrowthDatabase.shared.searchRecipePages(query, limit: limit).filter { !RecipeSourceBlocklist.isBlocked($0) }
+        let corpus = archive + (await RecipeStore.shared.search(query, limit: limit))
         guard !corpus.isEmpty else { return primary }
 
         // Merge, de-duplicating by normalized title so a dish present in both the
@@ -1062,6 +1064,22 @@ final class RecipeDatabaseManager {
         let inserted = await db.upsertAll(imageComplete, origin: .harvested)
         await refreshCount()
         return inserted
+    }
+
+    /// Durable, uncapped public tier; the existing writable snapshot remains bounded.
+    /// Only public, source-attributed imports enter this tier, never personal recipes.
+    func ingestCataloguePage(_ entries: [RecipeDatabaseEntry]) async throws {
+        let qualified = entries.filter {
+            !RecipeSourceBlocklist.isBlocked($0) && RecipeQuality.hasMeaningfulTitle($0.title)
+                && URL(string: $0.imageURL)?.scheme == "https" && !$0.ingredients.isEmpty && !$0.steps.isEmpty
+        }
+        try await GrowthDatabase.shared.storeRecipePage(qualified)
+        catalogueRevision &+= 1
+    }
+
+    nonisolated static func cataloguePage(after cursor: Int64) async throws -> (entries: [RecipeDatabaseEntry], cursor: Int64, done: Bool) {
+        let page = try await GrowthDatabase.shared.recipePage(after: cursor)
+        return (page.entries.filter { !RecipeSourceBlocklist.isBlocked($0) }, page.cursor, page.done)
     }
 
     /// Convert and save a UserRecipe into the database immediately.

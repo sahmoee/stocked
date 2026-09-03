@@ -6,6 +6,15 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       buildArchitectures = "Automatic">
+      <PreActions>
+         <ExecutionAction ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent title = "Automatic QA build number (version stays manual)" scriptText = "set -eu&#10;/bin/mkdir -p &quot;$PROJECT_TEMP_DIR&quot;&#10;: &gt; &quot;$PROJECT_TEMP_DIR/qa-build-number&quot;&#10;/usr/bin/python3 &quot;$SRCROOT/scripts/qa_build_number.py&quot; --project &quot;$PROJECT_FILE_PATH&quot; --floor 89 --reservation-dir &quot;$PROJECT_TEMP_DIR&quot;&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "7BF490592FD3BD1A00F32BED" BuildableName = "Stocked.app" BlueprintName = "Stocked" ReferencedContainer = "container:Stocked.xcodeproj"/>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"

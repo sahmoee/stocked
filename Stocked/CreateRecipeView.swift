@@ -13,6 +13,8 @@ struct CreateRecipeView: View {
     // it's applied once on appear via the existing applyAutofill path.
     var prefill: AddRecipeForm? = nil
     var prefillSource: String = "Imported"
+    var allowAIStructuring = true
+    var onSaved: ((UserRecipe) -> Void)? = nil
 
     // ── Form state ──────────────────────────────────────────────────────
     @State private var title       = ""
@@ -27,6 +29,10 @@ struct CreateRecipeView: View {
     @State private var notes       = ""
     @State private var imageData:  Data?
     @State private var imageURL    = ""
+    @State private var sourceURL = ""
+    @State private var publisher = ""
+    @State private var sourceTags: [String] = []
+    @State private var sourceCategory = ""
 
     // ── NEW: autofill state ─────────────────────────────────────────────
     /// The form that RecipePredictiveTextField fills on tap.
@@ -55,6 +61,34 @@ struct CreateRecipeView: View {
 
                         // Photo — shows the pulled / auto-resolved image; tap to set your own
                         photoSection.padding(.bottom, 24)
+
+                        if !sourceURL.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("From \(publisher)").font(.stocked(.headline))
+                                RecipeBrowserLink(url: sourceURL)
+                                Text("Original source credited. Rights remain with the publisher.")
+                                    .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                            }.padding(.bottom, 20)
+                        }
+
+                        if let prefill, !prefill.sourceURL.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Review your import", systemImage: "checklist").font(.stocked(.headline))
+                                Text(RecipeImportQuality.summary(prefill)).font(.stocked(.body))
+                                if !prefill.servings.isEmpty {
+                                    Text("Publisher yield: \(prefill.servings)").font(.stocked(.footnote))
+                                    if RecipePageMarkup.servings(prefill.servings) == nil {
+                                        Text("Confirm the serving count below; the publisher’s yield is not an exact serving count.")
+                                            .font(.stocked(.footnote))
+                                    }
+                                }
+                                Text("Check amounts, servings and instructions before saving. Saving adds this recipe to My Collection.")
+                                    .font(.stocked(.footnote))
+                            }.foregroundStyle(session.themeSecondaryText).padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RecipeCardStyle.surface(isDark: session.isDarkMode), in: RoundedRectangle(cornerRadius: 18))
+                                .padding(.bottom, 20)
+                        }
 
                         // ── Recipe Details ─────────────────────────────────
                         formSection("Recipe Details") {
@@ -315,11 +349,13 @@ struct CreateRecipeView: View {
                 .presentationDetents([.medium, .large])
             }
             .onAppear {
+                QARecorder.shared.enteredScreen(prefill == nil ? "Create Recipe" : "Recipe Import Review")
                 guard let prefill, !didStructure else { return }
                 didStructure = true
                 if imageURL.isEmpty { imageURL = prefill.imageURL }
                 originalText = prefill.originalText
                 if title.isEmpty, !prefill.title.isEmpty { title = prefill.title }
+                preserveSource(prefill, name: prefillSource)
 
                 // Prefer the true source text; otherwise compose from the parsed fields so
                 // the model can still clean up names/amounts.
@@ -328,7 +364,7 @@ struct CreateRecipeView: View {
                                                     ingredients: prefill.ingredients, steps: prefill.steps)
                     : prefill.originalText
 
-                if RecipeImportAI.isAvailable,
+                if allowAIStructuring, RecipeImportAI.isAvailable,
                    rawText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 12 {
                     isStructuring = true
                     // #8 — resolve the hero image in parallel with the AI call so it's
@@ -413,16 +449,18 @@ struct CreateRecipeView: View {
 
     // MARK: - Apply autofill from AddRecipeForm → local @State
     private func applyAutofill(from form: AddRecipeForm, sourceName: String) {
+        preserveSource(form, name: sourceName)
         withAnimation {
             // Only overwrite fields that are still empty
             if description.isEmpty { description = form.description }
             if cuisine.isEmpty     { cuisine     = form.cuisine }
             if prepTime.isEmpty    { prepTime    = StockedFormatters.prettyDuration(form.prepTime) }
             if cookTime.isEmpty {
-                let cook = StockedFormatters.prettyDuration(form.cookTime)
-                cookTime = cook.isEmpty ? StockedFormatters.prettyDuration(form.totalTime) : cook
+                // Total time is not cook time (it can include prep/resting). Do not
+                // silently double-count prep in later kitchen/time filters.
+                cookTime = StockedFormatters.prettyDuration(form.cookTime)
             }
-            if servings == 4, let s = Int(form.servings) { servings = s }
+            if servings == 4, let s = RecipePageMarkup.servings(form.servings) { servings = s }
 
             // Ingredients: split each line with ParsedQuantity (handles "1/4 cup …",
             // "2 4-ounce …", "12 strawberries, sliced", "salt and pepper to taste") and
@@ -441,7 +479,8 @@ struct CreateRecipeView: View {
                         unit: parsed.canonicalUnit.isEmpty ? nil : parsed.canonicalUnit
                     )
                 }
-                ingredients = Self.dedupeByCanonical(ingredients)   // #8
+                // Repeated ingredients may belong to different recipe components.
+                // Preserve publisher lines and amounts for review instead of dropping them.
             }
 
             // Steps — keep the source wording but ensure they don't arrive all-lowercase.
@@ -460,6 +499,23 @@ struct CreateRecipeView: View {
         }
     }
 
+    private func preserveSource(_ form: AddRecipeForm, name: String) {
+        if let url = RecipeBrowserPolicy.url(form.sourceURL) {
+            sourceURL = url.absoluteString
+            publisher = name.isEmpty ? (url.host ?? "Original publisher") : name
+        }
+        if notes.isEmpty { notes = form.notes }
+        if !form.totalTime.isEmpty {
+            let timing = "Publisher total time: \(form.totalTime)"
+            if !notes.contains(timing) { notes = [notes, timing].filter { !$0.isEmpty }.joined(separator: "\n") }
+        }
+        if !form.servings.isEmpty {
+            let yield = "Publisher yield: \(form.servings)"
+            if !notes.contains(yield) { notes = [notes, yield].filter { !$0.isEmpty }.joined(separator: "\n") }
+        }
+        sourceTags = form.tags; sourceCategory = form.category
+    }
+
     // MARK: - Save (with DB write-back)
     private func saveRecipe() {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -471,8 +527,8 @@ struct CreateRecipeView: View {
         let classification = RecipeClassifier.classify(
             title: trimmedTitle,
             rawCuisine: cuisine,
-            rawCategory: nil,
-            keywords: [],
+            rawCategory: sourceCategory,
+            keywords: sourceTags,
             ingredients: ingredients,
             instructions: steps
         )
@@ -484,22 +540,29 @@ struct CreateRecipeView: View {
             servings:     servings,
             difficulty:   difficulty,
             cuisine:      classification.cuisine,
-            tags:         classification.tags,
+            tags:         Array(Set(classification.tags + sourceTags)).sorted(),
             ingredients:  ingredients,
             instructions: steps,
             notes:        notes,
             imageURL:     imageURL.isEmpty ? nil : imageURL
         )
         if let data = imageData { recipe.imageData = data }
+        recipe.sourceURL = sourceURL.isEmpty ? nil : sourceURL
+        recipe.sourceName = publisher.isEmpty ? nil : publisher
+        recipe.categories = [classification.category]
 
         // ── Save to AppSession (existing) ──
         session.guestStore.addUserRecipe(recipe)
+        QARecorder.shared.record(.success, screen: "Recipe Import Review", label: "Recipe saved",
+            detail: "\(recipe.ingredients.count) ingredients; \(recipe.instructions.count) steps; source credited: \(!sourceURL.isEmpty)")
+        QABackgroundRunner.shared.runSoon()
 
         // ── NEW: Also write into RecipeDatabase for future predictive search ──
         Task(priority: .background) {
             await RecipeDatabaseManager.shared.save(userRecipe: recipe)
         }
 
+        onSaved?(recipe)
         dismiss()
     }
 
@@ -589,9 +652,9 @@ struct CreateRecipeView: View {
     // MARK: - Photo section
     // Shows the pulled image (from the autofilled imageURL) or one resolved by title,
     // and lets the user pick their own from the photo library.
-    @ViewBuilder
     private var photoSection: some View {
-        VStack(spacing: 12) {
+        let photoLabel = imageData == nil ? "Choose Photo" : "Change Photo"
+        return VStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
                     .fill(Color.stockedWhite.opacity(0.25))
@@ -621,7 +684,7 @@ struct CreateRecipeView: View {
 
             HStack(spacing: 18) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    Label(imageData == nil ? "Choose Photo" : "Change Photo", systemImage: "photo.on.rectangle")
+                    Label(photoLabel, systemImage: "photo.on.rectangle")
                         .scaledFont(14, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }

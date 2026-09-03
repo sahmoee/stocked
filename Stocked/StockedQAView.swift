@@ -1,7 +1,7 @@
 // StockedQAView.swift — the in-app QA section (Settings → QA).
 //
-// The full Stocked QA Checkbook v4.13 build 69 (36 sections · 270 checks ·
-// 126 blockers) as an interactive, persisted checklist. Every check carries a
+// The full Stocked QA Checkbook, including current feature coverage, as an
+// interactive, persisted checklist. Every check carries a
 // ticket number (QA-<section>-<row>) so bugs file against a stable ID, and
 // BLOCKER checks are styled red — a release does not ship with an open one.
 //
@@ -22,7 +22,7 @@ import UIKit
 // MARK: - Model
 
 enum QAVerdict: String, Codable, CaseIterable {
-    case untested, pass, fail, blocked
+    case untested, pass, fail, blocked, resolved
 
     var symbol: String {
         switch self {
@@ -30,6 +30,7 @@ enum QAVerdict: String, Codable, CaseIterable {
         case .pass: return "checkmark.square.fill"
         case .fail: return "xmark.square.fill"
         case .blocked: return "minus.square.fill"
+        case .resolved: return "checkmark.circle"
         }
     }
     var color: Color {
@@ -38,6 +39,7 @@ enum QAVerdict: String, Codable, CaseIterable {
         case .pass: return Color.stockedGreen
         case .fail: return .red
         case .blocked: return Color.stockedGold
+        case .resolved: return Color.stockedGold
         }
     }
     var next: QAVerdict {
@@ -46,6 +48,7 @@ enum QAVerdict: String, Codable, CaseIterable {
         case .pass: return .fail
         case .fail: return .blocked
         case .blocked: return .untested
+        case .resolved: return .untested
         }
     }
 }
@@ -59,6 +62,9 @@ struct QACheckItemState: Codable {
     /// and the decode of this dictionary is inside a `try?`. A non-Optional field
     /// here would silently erase every verdict recorded before this build.
     var ticketNumber: String?
+    /// Exact tested definition. Additive optional field keeps older verdicts/notes
+    /// decodable while preventing a changed requirement from inheriting a pass.
+    var definition: String?
 }
 
 struct QACheckItem: Identifiable {
@@ -86,17 +92,17 @@ struct QAChecklistSection: Identifiable {
     }
 }
 
-// MARK: - Checkbook v4.13 build 69 — 36 sections · 270 checks
+// MARK: - Checkbook (stable legacy IDs plus current feature coverage)
 
 enum StockedQAChecklist {
-    static let version = "4.18 build 74"
+    static let version = QAFeatureCoverage.version
 
     // (text, isBlocker)
     static let sections: [QAChecklistSection] = [
         QAChecklistSection(1, "Pre-flight", note: "Do this before touching the device build.", [
             ("Version and build in the General tab match all three targets: Stocked, StockedWidgets, StockedShareExtension", false),
-            ("BuildConfig fallbackVersion and fallbackBuildNumber match the General tab", false),
-            ("AppChangelog has exactly ONE entry with isLatest set true, and it is this build", true),
+            ("BuildConfig reads the actual built bundle; preview fallbacks never replace a valid build/version", false),
+            ("AppChangelog has exactly ONE isLatest release entry; automatic build increments do not rewrite release notes", true),
             ("Worker /health reports ok true and every secret flag true (run the QA companion Backend suite)", true),
             ("Worker /version does not report maintenance mode on", true),
             ("Release build compiles with zero new warnings", false),
@@ -253,7 +259,7 @@ enum StockedQAChecklist {
             ("Reservations survive a relaunch", true),
         ]),
         QAChecklistSection(16, "Recipes tab and Discover", [
-            ("Rails populate on first open with a connection", false),
+            ("Find a Recipe populates real results on first search; cached matches do not wait for website discovery", false),
             ("Missing-count badges are accurate against current inventory", true),
             ("A badge count matches the ingredients the detail view lists as missing", true),
             ("Pull to refresh fetches without duplicating rows", false),
@@ -261,7 +267,7 @@ enum StockedQAChecklist {
             ("Recipe detail shows real step-by-step instructions, never a bare source link", false),
             ("Images load, and a failure falls back cleanly instead of showing a broken frame", false),
             ("Allergen warnings appear on recipes that hit a saved allergen", true),
-            ("Hiding allergens filters the rails correctly", true),
+            ("Saved allergen exclusions filter recipe results correctly without automatically relaxing safety requirements", true),
             ("Cuisine and diet filters produce correct, non-empty results where data exists", false),
             ("Saving a Discover recipe adds it once to the collection", true),
             ("Saving the same Discover recipe twice does not duplicate it", true),
@@ -280,7 +286,7 @@ enum StockedQAChecklist {
             ("Cooked and Favorites lists reflect real state", false),
             ("Ingredient amounts scale correctly when servings change", false),
             ("A recipe with no ingredients does not read as ready to cook", true),
-            ("Importing a recipe twice by title does not create a duplicate", true),
+            ("Same-source imports warn before a copy is saved; different recipes may legitimately share a title", true),
         ]),
         QAChecklistSection(19, "AI generation and Surprise Me", note: "Dietary safety is the priority here.", [
             ("AI generator returns a coherent recipe from a plain prompt", false),
@@ -435,7 +441,10 @@ enum StockedQAChecklist {
             ("Data of an unshared category never leaves the device", true),
             ("Privacy copy matches what the app actually collects", true),
         ]),
-    ]
+    ] + QAFeatureCoverage.sections.map {
+        QAChecklistSection($0.number, $0.title,
+            note: "Run on a physical device. Native contract checks and compilation are not device verification.", $0.rows)
+    }
 
     static var totalChecks: Int { sections.reduce(0) { $0 + $1.items.count } }
     static var totalBlockers: Int { sections.reduce(0) { $0 + $1.items.filter(\.blocker).count } }
@@ -452,11 +461,29 @@ final class StockedQAStore {
     private init() { load() }
 
     func state(_ item: QACheckItem) -> QACheckItemState {
-        states[item.ticket] ?? QACheckItemState()
+        var value = states[item.ticket] ?? QACheckItemState()
+        if QAFeatureCoverage.requiresRetest(id: item.ticket, storedDefinition: value.definition, currentDefinition: item.text) {
+            value.verdict = .untested
+        }
+        // A linked fix completes an issue, not a fabricated device-test pass.
+        if let number = value.ticketNumber,
+           let ticket = QATicketStore.shared.tickets.first(where: { $0.number == number }),
+           QATicketLifecycle.completedCheck(verdict: value.verdict.rawValue, status: ticket.status.rawValue,
+                                            manualReview: ticket.requiresManualReview == true) {
+            value.verdict = .resolved
+        }
+        return value
     }
     func set(_ item: QACheckItem, _ state: QACheckItemState) {
-        let previous = states[item.ticket]?.verdict
-        states[item.ticket] = state
+        let previous = self.state(item).verdict
+        var stamped = state
+        // Resolved is derived from the linked ticket, never persisted as a pass
+        // or a permanent verdict. Editing a note must not hide a future regression.
+        if stamped.verdict == .resolved {
+            stamped.verdict = states[item.ticket]?.verdict ?? .fail
+        }
+        stamped.definition = item.text
+        states[item.ticket] = stamped
         save()
         // Build 74: a verdict set while a test run is open belongs to that run.
         // Guarded on an actual change so re-saving a note does not re-stamp it.
@@ -477,13 +504,13 @@ final class StockedQAStore {
             case .fail: f += 1
             case .blocked: b += 1
             case .untested: break
+            case .resolved: break
             }
         }
         return (p, f, b, section.items.count)
     }
 
-    /// Sign-off math per the checkbook: an open BLOCKER is a failed or blocked
-    /// check that is marked as a blocker. Do not ship with one.
+    /// Untested is not passed. New safety checks block sign-off until tested too.
     var signOff: (passed: Int, failed: Int, blocked: Int, openBlockers: Int) {
         var p = 0, f = 0, b = 0, open = 0
         for section in StockedQAChecklist.sections {
@@ -494,8 +521,9 @@ final class StockedQAStore {
                 case .fail: f += 1
                 case .blocked: b += 1
                 case .untested: break
+                case .resolved: break
                 }
-                if item.blocker && (v == .fail || v == .blocked) { open += 1 }
+                if QAFeatureCoverage.isOpenBlocker(blocker: item.blocker, verdict: v.rawValue) { open += 1 }
             }
         }
         return (p, f, b, open)
@@ -527,7 +555,8 @@ enum StockedQABridge {
             var items: [[String: Any]] = []
             for item in section.items {
                 let st = store.state(item)
-                guard st.verdict != .untested || !st.note.isEmpty else { continue }
+                // Export the entire coverage catalogue, including new untested rows.
+                // Otherwise companion QA cannot discover newly added functionality.
                 var row: [String: Any] = ["ticket": item.ticket, "item": item.text,
                                           "verdict": st.verdict.rawValue, "blocker": item.blocker]
                 if !st.note.isEmpty { row["note"] = st.note }
@@ -547,7 +576,9 @@ enum StockedQABridge {
             "source": sourceID,
             "generatedAt": ISO8601DateFormatter().string(from: Date()),
             "app": ["name": "Stocked", "version": BuildConfig.version, "build": BuildConfig.buildNumber],
-            "device": ["model": UIDevice.current.model, "os": "iOS \(UIDevice.current.systemVersion)"],
+            "device": ["model": QAIdentityStore.shared.capture().deviceModel,
+                       "type": QAIdentityStore.shared.capture().deviceFamily, "os": UIDevice.current.systemVersion],
+            "qaIdentity": QAIdentityStore.shared.capture().dictionary,
             "worker": ["baseURL": BuildConfig.receiptWorkerURL],
             "checkbook": ["version": StockedQAChecklist.version,
                           "checks": StockedQAChecklist.totalChecks,
@@ -687,6 +718,7 @@ struct StockedQAHomeView: View {
             }
 
             qaAccessSection
+            QAIdentitySettingsSection()
 
             Section("Stocked QA bridge (via Worker)") {
                 Button {

@@ -789,17 +789,8 @@ struct WebRecipeDetailView: View {
                             }.disabled(savedToCollection)
 
                             // View on website
-                            Link(destination: URL(string: recipe.sourceURL) ?? URL(string: "https://allrecipes.com")!) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "safari")
-                                    Text("View on \(recipe.sourceName)")
-                                        .scaledFont(13, weight: .medium)
-                                }
+                            RecipeBrowserLink(url: recipe.sourceURL, title: "View on \(recipe.sourceName)")
                                 .foregroundStyle(session.themeSecondaryText)
-                                .frame(maxWidth: .infinity).padding(.vertical, 10)
-                                .background(Color.stockedWhite.opacity(0.3))
-                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-                            }
                         }
                         .padding(.horizontal, 20).padding(.bottom, 16)
 

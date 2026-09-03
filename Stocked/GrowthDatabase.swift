@@ -23,8 +23,10 @@ nonisolated final class GrowthDatabase: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.stocked.growth-db", qos: .utility)
     private let queueKey = DispatchSpecificKey<UInt8>()
     private var db: OpaquePointer?
+    private let storageDirectory: URL?
 
-    private init() {
+    init(directory: URL? = nil) {
+        storageDirectory = directory
         queue.setSpecific(key: queueKey, value: 1)
         queue.sync { openIfNeeded() }
     }
@@ -38,7 +40,7 @@ nonisolated final class GrowthDatabase: @unchecked Sendable {
         let base = FileManager.default.urls(for: .applicationSupportDirectory,
                                             in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        let directory = base.appendingPathComponent("Stocked", isDirectory: true)
+        let directory = storageDirectory ?? base.appendingPathComponent("Stocked", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("growth.sqlite")
         var handle: OpaquePointer?
@@ -62,6 +64,10 @@ nonisolated final class GrowthDatabase: @unchecked Sendable {
             );
             CREATE INDEX IF NOT EXISTS growth_order
             ON growth_records(collection, ordinal);
+            CREATE TABLE IF NOT EXISTS public_recipe_catalogue (
+                id INTEGER PRIMARY KEY, source TEXT NOT NULL UNIQUE,
+                payload BLOB NOT NULL, search TEXT NOT NULL
+            );
             """, nil, nil, nil)
     }
 
@@ -224,5 +230,95 @@ nonisolated final class GrowthDatabase: @unchecked Sendable {
     private func syncOnQueue<T>(_ operation: () -> T) -> T {
         if DispatchQueue.getSpecific(key: queueKey) == 1 { return operation() }
         return queue.sync(execute: operation)
+    }
+
+    // RecipeDatabaseManager owns this disk-backed public catalogue tier. It is not
+    // household/user data and is never reconciled/deleted with a bounded UI snapshot.
+    // Page commits finish before the transport checkpoint advances.
+    func storeRecipePage(_ entries: [RecipeDatabaseEntry]) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            queue.async {
+                do {
+                    self.openIfNeeded()
+                    guard let db = self.db, sqlite3_exec(db, "BEGIN IMMEDIATE", nil, nil, nil) == SQLITE_OK else { throw CocoaError(.fileWriteUnknown) }
+                    var committed = false
+                    defer { if !committed { sqlite3_exec(db, "ROLLBACK", nil, nil, nil) } }
+                    var stmt: OpaquePointer?
+                    guard sqlite3_prepare_v2(db, "INSERT INTO public_recipe_catalogue(source,payload,search) VALUES(?,?,?) ON CONFLICT(source) DO UPDATE SET payload=excluded.payload,search=excluded.search", -1, &stmt, nil) == SQLITE_OK else { throw CocoaError(.fileWriteUnknown) }
+                    defer { sqlite3_finalize(stmt) }
+                    let encoder = JSONEncoder()
+                    for entry in entries {
+                        guard RecipeBrowserPolicy.url(entry.sourceURL) != nil else { continue }
+                        let key = FinderWebPolicy.identity(entry.sourceURL), payload = try encoder.encode(entry)
+                        sqlite3_reset(stmt); sqlite3_clear_bindings(stmt)
+                        sqlite3_bind_text(stmt, 1, key, -1, STOCKED_SQLITE_TRANSIENT)
+                        _ = payload.withUnsafeBytes { sqlite3_bind_blob(stmt, 2, $0.baseAddress, Int32(payload.count), STOCKED_SQLITE_TRANSIENT) }
+                        sqlite3_bind_text(stmt, 3, FinderQuery.normalize(entry.searchIndex), -1, STOCKED_SQLITE_TRANSIENT)
+                        guard sqlite3_step(stmt) == SQLITE_DONE else { throw CocoaError(.fileWriteUnknown) }
+                    }
+                    guard sqlite3_exec(db, "COMMIT", nil, nil, nil) == SQLITE_OK else { throw CocoaError(.fileWriteUnknown) }
+                    committed = true; continuation.resume()
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    func recipePage(after cursor: Int64) async throws -> (entries: [RecipeDatabaseEntry], cursor: Int64, done: Bool) {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    self.openIfNeeded()
+                    guard let db = self.db else { throw CocoaError(.fileReadUnknown) }
+                    var stmt: OpaquePointer?
+                    guard sqlite3_prepare_v2(db, "SELECT id,payload FROM public_recipe_catalogue WHERE id>? ORDER BY id LIMIT 256", -1, &stmt, nil) == SQLITE_OK else { throw CocoaError(.fileReadUnknown) }
+                    defer { sqlite3_finalize(stmt) }
+                    sqlite3_bind_int64(stmt, 1, cursor)
+                    var entries: [RecipeDatabaseEntry] = [], last = cursor, status = sqlite3_step(stmt)
+                    while status == SQLITE_ROW {
+                        last = sqlite3_column_int64(stmt, 0)
+                        guard let bytes = sqlite3_column_blob(stmt, 1) else { throw CocoaError(.fileReadCorruptFile) }
+                        let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(stmt, 1)))
+                        entries.append(try JSONDecoder().decode(RecipeDatabaseEntry.self, from: data))
+                        status = sqlite3_step(stmt)
+                    }
+                    guard status == SQLITE_DONE else { throw CocoaError(.fileReadUnknown) }
+                    continuation.resume(returning: (entries, last, entries.count < 256))
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+    }
+
+    func searchRecipePages(_ query: String, limit: Int) async -> [RecipeDatabaseEntry] {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                let words = FinderQuery.normalize(query).split(whereSeparator: \.isWhitespace).prefix(12)
+                guard let db = self.db, !words.isEmpty, limit > 0 else { continuation.resume(returning: []); return }
+                var stmt: OpaquePointer?
+                let conditions = words.map { _ in "instr(search, ?) > 0" }.joined(separator: " AND ")
+                guard sqlite3_prepare_v2(db, "SELECT payload FROM public_recipe_catalogue WHERE \(conditions) ORDER BY id DESC LIMIT ?", -1, &stmt, nil) == SQLITE_OK else { continuation.resume(returning: []); return }
+                defer { sqlite3_finalize(stmt) }
+                for (index, word) in words.enumerated() { sqlite3_bind_text(stmt, Int32(index + 1), String(word), -1, STOCKED_SQLITE_TRANSIENT) }
+                sqlite3_bind_int(stmt, Int32(words.count + 1), Int32(min(120, limit)))
+                var results: [RecipeDatabaseEntry] = []
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let bytes = sqlite3_column_blob(stmt, 0) else { continue }
+                    let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(stmt, 0)))
+                    if let entry = try? JSONDecoder().decode(RecipeDatabaseEntry.self, from: data) { results.append(entry) }
+                }
+                continuation.resume(returning: results)
+            }
+        }
+    }
+
+    func recipePageCount() async -> Int {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                var stmt: OpaquePointer?
+                defer { sqlite3_finalize(stmt) }
+                guard let db = self.db, sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM public_recipe_catalogue", -1, &stmt, nil) == SQLITE_OK,
+                      sqlite3_step(stmt) == SQLITE_ROW else { continuation.resume(returning: 0); return }
+                continuation.resume(returning: Int(sqlite3_column_int64(stmt, 0)))
+            }
+        }
     }
 }

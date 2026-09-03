@@ -547,8 +547,9 @@ enum QAContextCapture {
             .map { "\($0.name) — \($0.detail)" }
         c.appVersion = BuildConfig.version
         c.build = BuildConfig.buildNumber
-        c.device = UIDevice.current.model
-        c.os = "iOS " + UIDevice.current.systemVersion
+        c.identity = QAIdentityStore.shared.capture()
+        c.device = c.identity?.deviceModel ?? UIDevice.current.model
+        c.os = (c.identity?.deviceFamily == "iPad" ? "iPadOS " : "iOS ") + UIDevice.current.systemVersion
         c.memoryMB = runtime.isRunning ? runtime.currentFootprintMB : QARuntimeMonitor.footprintMB()
         c.thermal = QARuntimeMonitor.thermalName(ProcessInfo.processInfo.thermalState)
         c.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled

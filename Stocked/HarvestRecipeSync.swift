@@ -17,14 +17,16 @@
 // tighter cadence would just re-read the same cache), then folds each recipe into the on-device
 // `RecipeDatabase` — the single pool that powers Discover's offline seed, recipe search, the
 // mood finder and cook ranking. Same `X-Stocked-Key` header as every other Worker call, so no
-// new credential. ETag-revalidated: an unchanged cache returns 304 and costs nothing to ingest.
+// new credential. The paginated route walks actual records, independently of the flat index.
 //
 // Everything here degrades silently. A harvest recipe that never arrives is a recipe the user
 // simply doesn't see yet — never an error surfaced in the kitchen.
 
 import Foundation
 import os
+import Observation
 
+@Observable
 @MainActor
 final class HarvestRecipeSync {
     static let shared = HarvestRecipeSync()
@@ -39,8 +41,16 @@ final class HarvestRecipeSync {
     /// hammer the route. A launch/foreground within this window of the last sync is skipped.
     private let minForegroundGap: TimeInterval = 5 * 60
 
-    private let etagKey = "harvestRecipeSyncETag_v1"
     private let lastSyncKey = "harvestRecipeSyncLastAt_v1"
+    private let cursorKey = "harvestRecipeSyncCursor_v2"
+    private let completedKey = "harvestRecipeCatalogueCompleted_v2"
+    var catalogueCount = 0
+    var refreshingCatalogue = false
+    var catalogueError = false
+    private var cataloguePaused = false
+    var catalogueComplete = UserDefaults.standard.double(forKey: "harvestRecipeCatalogueCompleted_v2") > 0
+    private var fullCatalogueTask: Task<Void, Never>?
+    private var lastPageSucceeded = false
 
     private var loopTask: Task<Void, Never>?
     private var inFlight: Task<Int, Never>?
@@ -82,6 +92,30 @@ final class HarvestRecipeSync {
     /// ingested (0 on a 304, offline, or failure).
     @discardableResult
     func syncNow() async -> Int { await sync() }
+
+    /// Completes the entire server walk without an index/page-count cap. Work and
+    /// disk writes are still page bounded; a retry/relaunch resumes the last committed
+    /// cursor. UI never waits for this to start showing already-cached matches.
+    func refreshFullCatalogue(force: Bool = false) {
+        guard fullCatalogueTask == nil, ConnectivityMonitor.isOnlineFlag else { return }
+        guard force || (!cataloguePaused && !catalogueError) else { return }
+        let completed = UserDefaults.standard.double(forKey: completedKey)
+        guard force || completed == 0 || Date().timeIntervalSince1970 - completed > 3600 else { return }
+        refreshingCatalogue = true; catalogueError = false; cataloguePaused = false
+        fullCatalogueTask = Task { [weak self] in
+            guard let self else { return }
+            defer { refreshingCatalogue = false; fullCatalogueTask = nil }
+            repeat {
+                guard !Task.isCancelled, ConnectivityMonitor.isOnlineFlag else { return }
+                _ = await sync()
+                guard lastPageSucceeded else { catalogueError = true; return }
+                if UserDefaults.standard.string(forKey: cursorKey) == nil { return }
+                do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            } while !Task.isCancelled
+        }
+    }
+
+    func stopCatalogueRefresh() { cataloguePaused = true; fullCatalogueTask?.cancel() }
 
     /// Source-attributed imports belong to the shared recipe database, independent of
     /// household membership. Personal/source-less recipes remain local/household data.
@@ -202,48 +236,46 @@ final class HarvestRecipeSync {
     }
 
     private func performFetch() async -> Int {
+        lastPageSucceeded = false
         guard StockedUnifiedWorker.isConfigured,
               !BuildConfig.stockedWorkerKey.isEmpty,
               ConnectivityMonitor.isOnlineFlag,
               let url = StockedUnifiedWorker.url("harvest/recipes") else { return 0 }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        BuildConfig.authorizeWorkerRequest(&request)
-        if let etag = UserDefaults.standard.string(forKey: etagKey), !etag.isEmpty {
-            request.setValue(etag, forHTTPHeaderField: "If-None-Match")
-        }
-        request.timeoutInterval = 20
-
+        var ingested = 0
         do {
+          for _ in 0..<4 {
+            try Task.checkCancellation()
+            let cursor = UserDefaults.standard.string(forKey: cursorKey)
+            var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+            parts.queryItems = [URLQueryItem(name: "pageSize", value: "100")]
+            if let cursor { parts.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+            var request = URLRequest(url: parts.url!)
+            BuildConfig.authorizeWorkerRequest(&request)
+            request.timeoutInterval = 20
             let (data, response) = try await URLSession.stocked.data(for: request)
-            guard let http = response as? HTTPURLResponse else { return 0 }
-
-            if http.statusCode == 304 {
-                lastSyncAt = Date()          // cache still current — nothing to ingest
-                return 0
-            }
-            guard (200..<300).contains(http.statusCode) else {
-                Log.data.error("Harvest sync HTTP \(http.statusCode, privacy: .public)")
-                return 0
-            }
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
 
             let base = StockedUnifiedWorker.baseURLString
-            let (imports, receivedCount) = try await Task.detached(priority: .utility) {
+            let (imports, next) = try await Task.detached(priority: .utility) {
                 let decoded = try JSONDecoder().decode(HarvestWireResponse.self, from: data)
+                let next = try RecipeCataloguePaging.next(current: cursor, complete: decoded.complete, next: decoded.nextCursor)
                 let imports = decoded.recipes.compactMap { recipe -> HarvestImport? in
                     guard let entry = recipe.toDatabaseEntry(workerBase: base) else { return nil }
                     return HarvestImport(entry: entry, importedAt: recipe.importDate)
                 }
-                return (imports, decoded.count)
+                return (imports, next)
             }.value
             let entries = imports.map(\.entry)
+            try Task.checkCancellation()
+            // Commit EVERY public row to the durable catalogue before the small
+            // in-memory discovery snapshot can evict it, and before checkpointing.
+            try await RecipeDatabaseManager.shared.ingestCataloguePage(entries)
 
-            if !entries.isEmpty {
-                // Route through the manager (not the actor directly) so the count refreshes,
-                // the version token bumps, and a bus event tells every open surface the pool
-                // grew — otherwise harvested recipes land silently and only appear the next
-                // time a view is reopened.
+            if !entries.isEmpty, cursor == nil {
+                // Keep a small warm first page for existing rails. Do not cycle the
+                // complete corpus through the bounded snapshot, evict useful rows, or
+                // repeatedly announce historical catalogue pages as household imports.
                 let inserted = await RecipeDatabaseManager.shared.ingestHarvested(entries)
                 let insertedIDs = Set(inserted.map(\.id))
                 let activity = imports
@@ -251,12 +283,19 @@ final class HarvestRecipeSync {
                     .map { (id: $0.entry.id, title: $0.entry.title, importedAt: $0.importedAt) }
                 await HouseholdSync.shared.logStockedMacImports(activity)
             }
-            if let etag = http.value(forHTTPHeaderField: "ETag"), !etag.isEmpty {
-                UserDefaults.standard.set(etag, forKey: etagKey)
+            if let next { UserDefaults.standard.set(next, forKey: cursorKey) }
+            else {
+                UserDefaults.standard.removeObject(forKey: cursorKey)
+                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: completedKey)
+                catalogueComplete = true
             }
+            ingested += entries.count
+            catalogueCount = await GrowthDatabase.shared.recipePageCount()
             lastSyncAt = Date()
-            Log.data.notice("Harvest sync: ingested \(entries.count, privacy: .public) of \(receivedCount, privacy: .public) cached recipe(s)")
-            return entries.count
+            if next == nil { break }
+          }
+            lastPageSucceeded = true; catalogueError = false
+            return ingested
         } catch is CancellationError {
             return 0
         } catch {
@@ -273,6 +312,8 @@ nonisolated private struct HarvestWireResponse: Decodable, Sendable {
     var updatedAt: String?
     var count: Int = 0
     var recipes: [HarvestWireRecipe] = []
+    var complete: Bool?
+    var nextCursor: String?
 }
 
 nonisolated private struct HarvestWireIngredient: Decodable, Sendable {

@@ -93,6 +93,7 @@ struct StockedApp: App {
             .environment(session)
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .background { QABackgroundRunner.shared.stop() }
             // Persist any pending debounced settings writes before we lose foreground.
             if phase != .active {
                 DebouncedDefaults.shared.flushAll()
@@ -117,7 +118,10 @@ struct StockedApp: App {
                 // throttled to one fetch per 15 min, ETag-revalidated.
                 Task { await StockedRemoteConfig.shared.refreshIfStale() }
                 // QA automation: re-check invariants when returning to the foreground.
-                if QARecorder.shared.isEnabled { QABackgroundRunner.shared.runSoon() }
+                if QARecorder.shared.isEnabled {
+                    QABackgroundRunner.shared.start(store: session.guestStore, session: nil)
+                    QABackgroundRunner.shared.runSoon()
+                }
                 // #drift — apply any "I used X" items queued by the Siri intent.
                 session.guestStore.drainPendingUsedItems()
                 let ud = UserDefaults.standard
@@ -276,9 +280,10 @@ struct RootView: View {
             StockedRemoteConfig.shared.startDeferredLaunchFetch()
             // QA automation: if QA mode was left enabled, the invariant runner starts
             // by itself at launch — no need to visit the QA screen first.
-            if QARecorder.shared.isEnabled {
-                QABackgroundRunner.shared.start(store: session.guestStore, session: nil)
-            }
+            // Retain the weak store reference even when QA starts disabled.
+            // start() does no work until enabled; otherwise the first enable's
+            // resume() has no store and silently leaves autonomy idle.
+            QABackgroundRunner.shared.start(store: session.guestStore, session: nil)
             // FR-01 FIX: the launch-time iCloud auto-restore was REMOVED. It ran for guests,
             // before login, with no consent, and re-imported a CloudKit backup that survives app
             // deletion — which is what made a "fresh" install come up with 94% stock, dark mode,

@@ -64,6 +64,7 @@ struct QAModeView: View {
 
             verdictSection
             searchSection
+            QAIdentitySettingsSection()
             controlSection
 
             if recorder.isEnabled {
@@ -677,6 +678,10 @@ struct QAModeView: View {
 
     private var diagnosticsSection: some View {
         Section {
+            if let report = runner.lastDiagnostics {
+                Text("Automatic diagnostics: \(report.startedAt.formatted(date: .omitted, time: .shortened)) · \(report.violationCount) findings")
+                    .font(.stocked(.caption))
+            }
             Button {
                 guard !diagRunning else { return }
                 diagRunning = true

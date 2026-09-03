@@ -218,6 +218,7 @@
 				7B52645A2FD8B1A700ABE8B1 /* Sources */,
 				7B52645B2FD8B1A700ABE8B1 /* Frameworks */,
 				7B52645C2FD8B1A700ABE8B1 /* Resources */,
+				51414255494C440000000001 /* Stamp QA build number */,
 			);
 			buildRules = (
 			);
@@ -240,6 +241,7 @@
 				7B5266412FDB475200ABE8B1 /* Sources */,
 				7B5266422FDB475200ABE8B1 /* Frameworks */,
 				7B5266432FDB475200ABE8B1 /* Resources */,
+				51414255494C440000000002 /* Stamp QA build number */,
 			);
 			buildRules = (
 			);
@@ -262,6 +264,7 @@
 				7BAA00062FE0000000000006 /* Sources */,
 				7BAA00042FE0000000000004 /* Frameworks */,
 				7BAA00072FE0000000000007 /* Resources */,
+				51414255494C440000000003 /* Stamp QA build number */,
 			);
 			buildRules = (
 			);
@@ -286,6 +289,7 @@
 				7BF490572FD3BD1A00F32BED /* Frameworks */,
 				7BF490582FD3BD1A00F32BED /* Resources */,
 				7B52646D2FD8B1A800ABE8B1 /* Embed Foundation Extensions */,
+				51414255494C440000000004 /* Stamp QA build number */,
 			);
 			buildRules = (
 			);
@@ -381,6 +385,61 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		51414255494C440000000001 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(PROJECT_TEMP_DIR)/qa-build-number", "$(SRCROOT)/scripts/qa_build_number.py");
+			name = "Stamp QA build number";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(DERIVED_FILE_DIR)/qa-build-stamped");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			showEnvVarsInLog = 0;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n/usr/bin/touch \"$DERIVED_FILE_DIR/qa-build-stamped\"\n";
+		};
+		51414255494C440000000002 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(PROJECT_TEMP_DIR)/qa-build-number", "$(SRCROOT)/scripts/qa_build_number.py");
+			name = "Stamp QA build number";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(DERIVED_FILE_DIR)/qa-build-stamped");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			showEnvVarsInLog = 0;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n/usr/bin/touch \"$DERIVED_FILE_DIR/qa-build-stamped\"\n";
+		};
+		51414255494C440000000003 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(PROJECT_TEMP_DIR)/qa-build-number", "$(SRCROOT)/scripts/qa_build_number.py");
+			name = "Stamp QA build number";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(DERIVED_FILE_DIR)/qa-build-stamped");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			showEnvVarsInLog = 0;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n/usr/bin/touch \"$DERIVED_FILE_DIR/qa-build-stamped\"\n";
+		};
+		51414255494C440000000004 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(PROJECT_TEMP_DIR)/qa-build-number", "$(SRCROOT)/scripts/qa_build_number.py");
+			name = "Stamp QA build number";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)", "$(DERIVED_FILE_DIR)/qa-build-stamped");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			showEnvVarsInLog = 0;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n/usr/bin/touch \"$DERIVED_FILE_DIR/qa-build-stamped\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		7B52645A2FD8B1A700ABE8B1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -436,7 +495,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.5;
+				CURRENT_PROJECT_VERSION = 102;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -466,7 +525,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.5;
+				CURRENT_PROJECT_VERSION = 102;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -498,7 +557,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = StockedWidgets/StockedWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.4;
+				CURRENT_PROJECT_VERSION = 102;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -530,7 +589,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = StockedWidgets/StockedWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.4;
+				CURRENT_PROJECT_VERSION = 102;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -722,7 +781,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.5;
+				CURRENT_PROJECT_VERSION = 102;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -760,7 +819,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.5;
+				CURRENT_PROJECT_VERSION = 102;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;

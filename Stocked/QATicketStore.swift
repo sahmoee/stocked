@@ -76,7 +76,7 @@ nonisolated enum QATicketStatus: String, Codable, Sendable, CaseIterable, Identi
         switch self {
         case .open:          return "Open"
         case .investigating: return "Investigating"
-        case .fixed:         return "Fixed"
+        case .fixed:         return "Completed"
         case .verified:      return "Verified"
         case .wontFix:       return "Won't fix"
         }
@@ -90,7 +90,7 @@ nonisolated enum QATicketStatus: String, Codable, Sendable, CaseIterable, Identi
         case .wontFix:       return "slash.circle"
         }
     }
-    var isClosed: Bool { self == .verified || self == .wontFix }
+    var isClosed: Bool { self == .fixed || self == .verified || self == .wontFix }
 }
 
 /// Everything the app knew at the moment the ticket was raised. Captured
@@ -134,10 +134,16 @@ nonisolated struct QATicketContext: Codable, Sendable {
     /// `Codable` throws on a missing key rather than defaulting, and the decode
     /// of the saved ticket list is inside a `try?`.
     var environment: [String]?
+    var identity: QAReportIdentity?
 
     var summaryLines: [String] {
         var out: [String] = []
         out.append("screen: \(screen)")
+        if let identity {
+            out.append("tester/device: \(identity.label)")
+            out.append("type: \(identity.deviceFamily) · hardware: \(identity.modelIdentifier.isEmpty ? "not recorded" : identity.modelIdentifier)")
+            if !identity.installationID.isEmpty { out.append("QA device: \(identity.installationID)") }
+        } else { out.append("tester: unassigned (legacy report)") }
         out.append("build: \(appVersion) (\(build)) · \(device) · \(os)")
         out.append(String(format: "memory: %.0f MB · thermal: %@%@ · %@",
                           memoryMB, thermal, lowPower ? " · low power" : "",
@@ -178,6 +184,8 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
     var title: String
     var body: String = ""
     var origin: QATicketOrigin?
+    var regressionDetectedAt: Date?
+    var automaticCheckID: String?
     var severity: QATicketSeverity = .major
     var status: QATicketStatus = .open
     var createdAt: Date = Date()
@@ -300,11 +308,15 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
 
     var summaryLine: String { summary() }
 
-    var originPhrase: String { (origin ?? .tester).phrase }
+    var needsAttention: Bool { QATicketLifecycle.needsAttention(status: status.rawValue, manualReview: requiresManualReview == true) }
+    var statusLabel: String { status == .fixed && requiresManualReview == true ? "Fixed · review needed" : status.title }
+    var originPhrase: String {
+        (origin == .automatic ? "raised automatically" : "reported") + " · " + (context.identity?.testerLabel ?? "Unassigned tester")
+    }
 
     var exportText: String {
         var out = ["── \(number) ──",
-                   "\(severity.title) · \(status.title) · \(originPhrase) · \(createdAt.formatted())",
+                   "\(severity.title) · \(statusLabel) · \(originPhrase) · \(createdAt.formatted())",
                    title]
         if requiresManualReview == true { out.append("⚠ REQUIRES MANUAL REVIEW — ask the tester for specifics before changing code") }
         if !body.isEmpty { out.append(""); out.append(body) }
@@ -385,7 +397,8 @@ final class QATicketStore {
         let d = UserDefaults.standard
         let next = d.integer(forKey: Self.seqKey) + 1
         d.set(next, forKey: Self.seqKey)
-        return String(format: "STK-%d-%04d", BuildConfig.buildNumber, next)
+        return QAReportIdentity.ticketNumber(build: BuildConfig.buildNumber, sequence: next,
+            installationID: QAIdentityStore.shared.installationID)
     }
 
     // MARK: Creating
@@ -400,6 +413,7 @@ final class QATicketStore {
               requiresManualReview: Bool = false,
               context: QATicketContext,
               origin: QATicketOrigin = .tester,
+              automaticCheckID: String? = nil,
               screenshot: UIImage? = nil) -> QATicket {
         // Build 73: attach the touch trail here rather than in `QAContextCapture`,
         // so it lands on tickets the runtime monitor raises by itself as well as
@@ -408,6 +422,7 @@ final class QATicketStore {
         // that captured its own trail at gesture time (before the sheet animated
         // in and started collecting taps of its own) keeps it.
         var context = context
+        if context.identity == nil { context.identity = QAIdentityStore.shared.capture() }
         if context.touchTrail == nil {
             let trail = QATouchTrail.shared.summaryLine()
             if !trail.isEmpty { context.touchTrail = trail }
@@ -428,17 +443,30 @@ final class QATicketStore {
                               severity: severity,
                               context: context)
         ticket.requiresManualReview = requiresManualReview
-        if let screenshot { ticket.screenshotFile = saveScreenshot(screenshot, for: ticket.id) }
+        ticket.automaticCheckID = automaticCheckID
 
         // Build 74: does this repeat something already open? The new ticket is
         // filed either way — a report a tester typed is never silently swallowed,
         // because they may have added the one detail that cracks it — but it is
         // stamped, and the original's counter goes up so the *original* is what
         // says "this keeps happening".
-        if let original = QADuplicateFinder.match(title: ticket.title,
+        let sameDevice = tickets.filter { QAReportIdentity.sameOrigin($0.context.identity, context.identity) }
+        // Only a NEW observation from this tester/device can reopen a completed
+        // automatic check. Never reopen from a historical failure stored in a report.
+        let regression = sameDevice.first {
+            QATicketLifecycle.shouldReopen(status: $0.status.rawValue, manualReview: $0.requiresManualReview == true,
+                automatic: origin == .automatic && $0.origin == .automatic, sameOrigin: true,
+                sameCheck: (automaticCheckID != nil && $0.automaticCheckID == automaticCheckID)
+                    || (automaticCheckID == nil && $0.title == ticket.title && $0.context.screen == context.screen))
+        }
+        let activeCheck = sameDevice.first {
+            origin == .automatic && $0.origin == .automatic && $0.needsAttention
+                && automaticCheckID != nil && $0.automaticCheckID == automaticCheckID
+        }
+        if let original = activeCheck ?? regression ?? QADuplicateFinder.match(title: ticket.title,
                                                   body: ticket.body,
                                                   screen: context.screen,
-                                                  among: tickets) {
+                                                  among: sameDevice) {
             ticket.duplicateOf = original.number
             if let i = tickets.firstIndex(where: { $0.id == original.id }) {
                 tickets[i].seenAgain = (tickets[i].seenAgain ?? 0) + 1
@@ -457,7 +485,19 @@ final class QATicketStore {
                 // for the same screen-level freeze every minute. Tester-authored
                 // reports are still always preserved separately.
                 if origin == .automatic && original.origin == .automatic {
+                    if !original.needsAttention {
+                        tickets[i].status = .open
+                        tickets[i].regressionDetectedAt = Date()
+                        tickets[i].verifiedAt = nil
+                    }
                     tickets[i].context = context
+                    // Keep the original report and its resolution; refresh the
+                    // captured evidence without leaving a discarded ticket image.
+                    if let screenshot {
+                        tickets[i].screenshotFile = saveScreenshot(screenshot, for: original.id)
+                        tickets[i].shotSyncedAt = nil
+                    }
+                    tickets[i].automaticCheckID = automaticCheckID ?? tickets[i].automaticCheckID
                     if severity.rank < tickets[i].severity.rank {
                         tickets[i].severity = severity
                     }
@@ -473,6 +513,7 @@ final class QATicketStore {
 
         // Build 74: whatever test run is open owns this ticket.
         ticket.runID = QARunLog.shared.currentID
+        if let screenshot { ticket.screenshotFile = saveScreenshot(screenshot, for: ticket.id) }
 
         tickets.insert(ticket, at: 0)
         if tickets.count > cap { trim() }
@@ -515,6 +556,12 @@ final class QATicketStore {
     }
 
     // MARK: Mutating
+
+    func assignTester(_ id: UUID, tester: QATester) {
+        update(id) { ticket in
+            ticket.context.identity = (ticket.context.identity ?? .legacy(device: ticket.context.device)).assigning(tester)
+        }
+    }
 
     func update(_ id: UUID, _ mutate: (inout QATicket) -> Void) {
         guard let i = tickets.firstIndex(where: { $0.id == id }) else { return }
@@ -647,8 +694,8 @@ final class QATicketStore {
 
     // MARK: Derived
 
-    var open: [QATicket] { tickets.filter { !$0.status.isClosed } }
-    var blockers: [QATicket] { tickets.filter { $0.severity == .blocker && !$0.status.isClosed } }
+    var open: [QATicket] { tickets.filter(\.needsAttention) }
+    var blockers: [QATicket] { tickets.filter { $0.severity == .blocker && $0.needsAttention } }
     /// Missing any required/configured destination, not merely the Worker.
     var unsynced: [QATicket] { tickets.filter { !$0.isFullySynced } }
 
@@ -673,10 +720,12 @@ final class QATicketStore {
                     || t.title.lowercased().contains(q)
                     || t.body.lowercased().contains(q)
                     || t.number.lowercased().contains(q)
-                    || t.context.screen.lowercased().contains(q))
+                    || t.context.screen.lowercased().contains(q)
+                    || (t.context.identity?.label.lowercased().contains(q) ?? false)
+                    || (t.context.identity?.modelIdentifier.lowercased().contains(q) ?? false))
         }
         .sorted {
-            if $0.status.isClosed != $1.status.isClosed { return !$0.status.isClosed }
+            if $0.needsAttention != $1.needsAttention { return $0.needsAttention }
             if $0.severity.rank != $1.severity.rank { return $0.severity.rank < $1.severity.rank }
             return $0.createdAt > $1.createdAt
         }
@@ -781,6 +830,8 @@ final class QATicketStore {
     private func applyShippedResolutions() {
         var changed = false
         for index in tickets.indices where tickets[index].status != .verified {
+            guard tickets[index].regressionDetectedAt == nil, (tickets[index].refileCount ?? 0) == 0,
+                  tickets[index].requiresManualReview != true else { continue }
             guard let text = Self.shippedResolution(for: tickets[index]) else { continue }
             guard tickets[index].status != .fixed || tickets[index].resolution != text else { continue }
             tickets[index].status = .fixed
@@ -1216,7 +1267,7 @@ final class QATicketStore {
         var out: [String] = []
         out.append("# \(t.number) — \(t.title)")
         out.append("")
-        out.append("**\(t.severity.title)** · \(t.status.title) · \(t.originPhrase) · \(t.createdAt.formatted())")
+        out.append("**\(t.severity.title)** · \(t.statusLabel) · \(t.originPhrase) · \(t.createdAt.formatted())")
         if t.requiresManualReview == true {
             out.append("")
             out.append("> **REQUIRES MANUAL REVIEW:** Ask the tester for specifics before changing code.")
@@ -1279,13 +1330,13 @@ final class QATicketStore {
         let lines = inBuild.map { t -> String in
             let folder = QASyncBundle(ticket: t, reportText: "", promptText: "",
                                       handbackText: "", shot: nil, mockup: nil).folderName
-            var marks: [String] = [t.severity.title, t.status.title]
+            var marks: [String] = [t.severity.title, t.statusLabel, t.context.identity?.label ?? "Unassigned tester"]
             if t.hasMockup { marks.append("mockup") }
             if t.wasEdited { marks.append("edited") }
             return "[\(t.number)](<\(folder)/\(QAMockupHandoff.reportFileName)>) — \(t.title) · \(marks.joined(separator: " · ")) · `\(t.context.screen)`"
         }
-        let open = inBuild.filter { !$0.status.isClosed }.count
-        let blockers = inBuild.filter { $0.severity == .blocker && !$0.status.isClosed }.count
+        let open = inBuild.filter(\.needsAttention).count
+        let blockers = inBuild.filter { $0.severity == .blocker && $0.needsAttention }.count
         let summary = "\(inBuild.count) ticket\(inBuild.count == 1 ? "" : "s") · \(open) open · \(blockers) blocker\(blockers == 1 ? "" : "s")"
         return (lines, summary)
     }
@@ -1375,7 +1426,11 @@ final class QATicketStore {
                     let localMirroredAt = tickets[index].mirroredAt
                     let localCPanelSyncedAt = tickets[index].cpanelSyncedAt
                     let localShotSyncedAt = tickets[index].shotSyncedAt
+                    let localID = tickets[index].id
+                    let capturedIdentity = tickets[index].context.identity
                     tickets[index] = Self.remoteTicket(row, number: number, title: title)
+                    tickets[index].id = localID
+                    if tickets[index].context.identity == nil { tickets[index].context.identity = capturedIdentity }
                     tickets[index].screenshotFile = localShot
                     tickets[index].mockupFile = localMockup
                     tickets[index].mirroredAt = localMirroredAt
@@ -1401,7 +1456,7 @@ final class QATicketStore {
         return ISO8601DateFormatter().date(from: text)
     }
 
-    private nonisolated static func remoteTicket(_ row: [String: Any], number: String, title: String) -> QATicket {
+    nonisolated static func remoteTicket(_ row: [String: Any], number: String, title: String) -> QATicket {
         let env = row["environment"] as? [String: Any] ?? [:]
         var context = QATicketContext()
         context.screen = row["screen"] as? String ?? "—"
@@ -1423,7 +1478,13 @@ final class QATicketStore {
         context.tapsOnScreen = env["tapsOnScreen"] as? Int ?? 0
         context.worstHitchMs = Double(env["worstHitchMs"] as? Int ?? 0)
         context.touchTrail = row["touchTrail"] as? String
+        context.environment = row["renderingEnvironment"] as? [String]
+        context.identity = QAReportIdentity.decode(row["qaIdentity"])
         var ticket = QATicket(number: number, title: title)
+        if let id = row["id"] as? String, let uuid = UUID(uuidString: id) { ticket.id = uuid }
+        ticket.origin = QATicketOrigin(rawValue: row["origin"] as? String ?? "")
+        ticket.automaticCheckID = row["automaticCheckID"] as? String
+        ticket.regressionDetectedAt = remoteDate(row["regressionDetectedAt"])
         ticket.body = row["body"] as? String ?? ""
         ticket.severity = QATicketSeverity(rawValue: row["severity"] as? String ?? "") ?? .major
         ticket.status = QATicketStatus(rawValue: row["status"] as? String ?? "") ?? .open
@@ -1435,6 +1496,8 @@ final class QATicketStore {
         ticket.duplicateOf = row["duplicateOf"] as? String
         ticket.seenAgain = row["seenAgain"] as? Int
         ticket.refileCount = row["refileCount"] as? Int
+        ticket.checkTicket = row["checkTicket"] as? String
+        ticket.runID = row["runID"] as? String
         ticket.requiresManualReview = row["requiresManualReview"] as? Bool
         ticket.syncedAt = Date()
         return ticket
@@ -1566,9 +1629,10 @@ final class QATicketStore {
         }.value
     }
 
-    nonisolated private static func dictionary(for t: QATicket,
+    nonisolated static func dictionary(for t: QATicket,
                                                thumbnail: String? = nil) -> [String: Any] {
         var out: [String: Any] = [
+            "id": t.id.uuidString,
             "number": t.number,
             "title": t.title,
             "body": t.body,
@@ -1607,6 +1671,11 @@ final class QATicketStore {
                 "worstHitchMs": Int(t.context.worstHitchMs),
             ],
         ]
+        if let identity = t.context.identity { out["qaIdentity"] = identity.dictionary }
+        if let origin = t.origin { out["origin"] = origin.rawValue }
+        if let checkID = t.automaticCheckID { out["automaticCheckID"] = checkID }
+        if let date = t.regressionDetectedAt { out["regressionDetectedAt"] = ISO8601DateFormatter().string(from: date) }
+        if let environment = t.context.environment { out["renderingEnvironment"] = environment }
         if let trail = t.context.touchTrail, !trail.isEmpty { out["touchTrail"] = trail }
         if let resolution = t.resolution, !resolution.isEmpty { out["resolution"] = resolution }
         if let verifiedAt = t.verifiedAt {
@@ -1615,6 +1684,8 @@ final class QATicketStore {
         if let duplicateOf = t.duplicateOf { out["duplicateOf"] = duplicateOf }
         if let seenAgain = t.seenAgain { out["seenAgain"] = seenAgain }
         if let refileCount = t.refileCount { out["refileCount"] = refileCount }
+        if let checkTicket = t.checkTicket { out["checkTicket"] = checkTicket }
+        if let runID = t.runID { out["runID"] = runID }
         if let requiresManualReview = t.requiresManualReview {
             out["requiresManualReview"] = requiresManualReview
         }

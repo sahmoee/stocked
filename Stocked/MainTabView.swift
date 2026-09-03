@@ -865,11 +865,13 @@ struct DrawerDragLayer: View {
     private var edgeDragGesture: some Gesture {
         DragGesture(minimumDistance: dragActivate)
             .updating($dragOffset) { value, offset, transaction in
+                guard abs(value.translation.width) >= abs(value.translation.height) || isDragging else { return }
                 guard value.translation.width > 0 || isDragging else { return }
                 transaction.animation = nil
                 offset = max(0, value.translation.width)
             }
             .onEnded { value in
+                guard abs(value.translation.width) >= abs(value.translation.height) else { return }
                 settle(predictedTranslation: value.predictedEndTranslation.width)
             }
     }
@@ -879,11 +881,13 @@ struct DrawerDragLayer: View {
         DragGesture(minimumDistance: dragActivate)
             .updating($dragOffset) { value, offset, transaction in
                 guard showDrawer else { return }
+                guard abs(value.translation.width) >= abs(value.translation.height) || isDragging else { return }
                 guard value.translation.width < 0 || isDragging else { return }
                 transaction.animation = nil
                 offset = min(0, value.translation.width)
             }
             .onEnded { value in
+                guard abs(value.translation.width) >= abs(value.translation.height) else { return }
                 settle(predictedTranslation: value.predictedEndTranslation.width)
             }
     }
@@ -901,7 +905,7 @@ struct DrawerDragLayer: View {
                 }
             } label: {
                 ZStack(alignment: .leading) {
-                    Color.clear.frame(width: 26, height: 72)          // easy-to-hit target
+                    Color.clear.frame(width: 44, height: 72)          // accessible hit target
                     Capsule()
                         .fill(Color.stockedCharcoal.opacity(0.55))
                         .frame(width: 5, height: 46)

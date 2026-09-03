@@ -281,7 +281,7 @@ struct QAFloatingButtonFace: View {
     @State private var gate = QAAccessGate.shared
 
     private var openBlockers: Int {
-        tickets.tickets.filter { $0.severity == .blocker && !$0.status.isClosed }.count
+        tickets.blockers.count
     }
 
     /// Blockers first, because a blocker is the number worth interrupting for;

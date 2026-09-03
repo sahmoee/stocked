@@ -175,7 +175,7 @@ enum QASearchIndex {
             let body = "\(t.number) \(t.body) \(t.context.screen) \(t.status.rawValue) \(t.severity.rawValue)"
             let s = score(terms: terms, title: t.title, body: body)
             guard s > 0 else { return nil }
-            var bits = [t.status.title, t.severity.title, t.context.screen]
+            var bits = [t.statusLabel, t.severity.title, t.context.screen, t.context.identity?.label ?? "Unassigned tester"]
             if let dup = t.duplicateOf { bits.append("dup of \(dup)") }
             if let again = t.seenAgain, again > 0 { bits.append("seen \(again + 1)×") }
             return QASearchHit(kind: .ticket,
@@ -183,7 +183,7 @@ enum QASearchIndex {
                                title: t.title,
                                subtitle: bits.joined(separator: " · "),
                                // An open ticket outranks a closed one.
-                               score: s + (t.status.isClosed ? 0 : 4),
+                               score: s + (t.needsAttention ? 4 : 0),
                                sectionNumber: nil,
                                ticketID: t.id)
         }

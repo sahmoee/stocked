@@ -76,6 +76,7 @@ struct UserRecipeDetailView: View {
     @State private var showGroceryPushAlert   = false
     @State private var groceryPushCount       = 0
     @State private var showNotesEdit          = false
+    @State private var showOriginalRecipe = false
     @State private var notesText              = ""
     @State private var showRenameAlert        = false
     @State private var renameText             = ""
@@ -166,6 +167,9 @@ struct UserRecipeDetailView: View {
             .navigationTitle(recipe.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { recipeOptionsToolbar }
+            .sheet(isPresented: $showOriginalRecipe) {
+                if let url = RecipeBrowserPolicy.url(recipe.sourceURL ?? "") { RecipeBrowserView(initialURL: url) }
+            }
             .onChange(of: session.guestStore.inventoryRevision) { _, _ in recomputeCookClassification() }
             .navigationDestination(isPresented: $showKitchenCheck) {
                 KitchenCheckView(recipe: recipe)
@@ -255,6 +259,9 @@ struct UserRecipeDetailView: View {
     private var recipeOptionsToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                if RecipeBrowserPolicy.url(recipe.sourceURL ?? "") != nil {
+                    Button("View original recipe", systemImage: "safari") { showOriginalRecipe = true }
+                }
                 Button { renameText = recipe.title; showRenameAlert = true } label: {
                     Label("Rename", systemImage: "pencil")
                 }

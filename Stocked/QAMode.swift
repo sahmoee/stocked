@@ -133,17 +133,14 @@ final class QARecorder {
                 armAutoOff()
                 record(.note, screen: "QA", label: "QA mode enabled")
                 QARuntimeMonitor.shared.start()
-                // Auto-publish a baseline 30 s after enabling when autoPublish is on.
-                // The delay lets the invariant runner complete its first pass (which
-                // starts immediately in QABackgroundRunner.start) so the baseline
-                // report includes real data rather than empty counters.
-                if QABackgroundRunner.shared.autoPublish {
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(30))
-                        guard QARecorder.shared.isEnabled else { return }
-                        await QABackgroundRunner.shared.publish()
-                    }
+                Task { @MainActor in
+                    guard QARecorder.shared.isEnabled else { return }
+                    QABackgroundRunner.shared.resume()
+                    QABackgroundRunner.shared.runSoon()
                 }
+                // The runner publishes its fresh baseline after diagnostics.
+                // No independent delayed publisher: it could outlive QA disable,
+                // ignore a later Auto-publish change, or duplicate a new session.
             } else {
                 // Stop everything and keep whatever was captured — including a
                 // snapshot on disk, so turning QA off is not the same as losing
@@ -287,6 +284,7 @@ final class QARecorder {
         if !visitedScreens.contains(name) { visitedScreens.append(name) }
         dropCrumb("→ \(name)")
         record(.screen, screen: name, label: "appeared")
+        QAAccessibilitySweep.shared.schedule(screen: name)
     }
 
     /// Log an attempt. Call `succeeded` or `failed` on the returned token so an
@@ -651,6 +649,7 @@ final class QARecorder {
     /// diagnostics and the device log. One share instead of six.
     var fullExportText: String {
         var out = ["════════ STOCKED QA — FULL EXPORT ════════",
+                   QAIdentityStore.shared.capture().label,
                    Date().formatted(),
                    "Build \(BuildConfig.version) (\(BuildConfig.buildNumber)) · \(BuildConfig.buildTag)",
                    ""]
