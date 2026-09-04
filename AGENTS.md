@@ -91,6 +91,11 @@ with cancellation checks between recipes; interrupted or revision-stale
 snapshots must not be reported as a clean QA run. Harvest JSON conversion stays off the main actor,
 and bulk publication uses one coalesced, bounded worker rather than per-recipe tasks.
 
+Household cooking coordination is the additive `activeCookSessions` feature collection. Share only
+member attribution, recipe title, coarse progress and bounded helper-task claims. Never sync the recipe
+instructions, ingredient quantities, cook notes or timers. Throttle unchanged heartbeats, tombstone
+completion/cancellation, and retain local-only cooking as the fallback when household sync is unavailable.
+
 “Check tickets” means pull the complete cross-device Stocked QA collection, fix every actionable open ticket in the same task, validate the affected iPhone and iPad targets, add a shipped resolution, and publish the fixed ticket state. A read-only summary is not completion. Never mark a ticket fixed when validation fails; `verified` remains a tester/device action after the corrected build is exercised.
 
 UnifiedWorker owns Kroger OAuth and RapidAPI host allowlisting. StockedMac discovers and publishes normalized grocery catalog records; Stocked iOS finds provider-backed stores and consumes normalized product data. Never add provider secrets to iOS, and keep store-specific price/availability/aisle caches bounded so stale data cannot replace user-confirmed inventory.
@@ -115,9 +120,9 @@ UnifiedWorker owns Kroger OAuth and RapidAPI host allowlisting. StockedMac disco
 
 QA-enabled Xcode projects use the shared `qa_build_number.py` contract: one locked reservation per
 shared-scheme build, project-wide integer build settings, a DerivedData-scoped reservation, and an
-always-running post-Info.plist/pre-signing stamp for each app, extension and test bundle. Build-script
-sandboxing stays enabled: the plist is a declared mutable input/output alongside a completion marker.
-Scripts are repo-owned, perform no network calls, and do not change signing entitlements or app sandboxing.
+always-running post-Info.plist/pre-signing stamp for each app, extension and test bundle. The generated
+plist is an input, not a declared output, to avoid an Xcode dependency-graph cycle. User-script sandboxing
+is disabled only for this repo-owned, local-only phase; signing entitlements and app sandboxing are unchanged.
 Never auto-edit MARKETING_VERSION or double-bump it/builds in deployment wrappers. Validate actual
 bundle metadata, including embedded extensions, not only pbxproj settings. Stocked owns the script;
 Atlas/Nova/The-Sesh/ReelPromo-iOS vendor identical copies. Failed builds may leave reservation gaps.

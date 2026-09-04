@@ -36,6 +36,9 @@ final class AppAnalytics {
         // Cooking
         case cookStarted
         case cookCompleted
+        case householdCookShared
+        case householdCookTaskClaimed
+        case householdCookTaskReleased
         // Grocery
         case groceryItemAdded
         case groceryItemChecked

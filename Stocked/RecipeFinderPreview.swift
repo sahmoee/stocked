@@ -70,7 +70,7 @@ struct RecipeFinderPreview: View {
             .navigationDestination(isPresented: $showImported) {
                 if let imported { UserRecipeDetailView(recipe: imported).environment(session) }
             }
-        }.stockedThemeEnvironment().qaScreen("Recipe Preview")
+        }.stockedPresentationSurface(width: .full).qaScreen("Recipe Preview")
     }
 
     private func prepareImport() {

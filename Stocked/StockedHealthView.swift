@@ -117,7 +117,14 @@ struct StockedHealthView: View {
 
             // ── Sync ─────────────────────────────────────────────────────────
             Section {
+                let sync = HouseholdSync.shared.syncStatus
                 row("Household", session.householdCode.isEmpty ? "Not joined" : session.householdCode)
+                row("Sync health", sync.health.rawValue.replacingOccurrences(of: "neverSynced", with: "Never synced").capitalized,
+                    tint: sync.health == .healthy ? .green : (sync.health == .stalled ? .red : session.themeTextColor))
+                row("Pending changes", "\(sync.pendingOperationCount)",
+                    tint: sync.pendingOperationCount > 0 ? .orange : session.themeTextColor)
+                if let ms = sync.lastRoundTripMilliseconds { row("Last round trip", "\(ms) ms") }
+                row("Shared cooks", "\(HouseholdCookStore.shared.visibleEntries.count)")
                 row("Edits replaced by sync", "\(conflicts.records.count)",
                     tint: conflicts.hasRecentUnreviewed ? .orange : session.themeTextColor)
                 if !conflicts.records.isEmpty {
@@ -135,6 +142,7 @@ struct StockedHealthView: View {
             Section {
                 row("Feature data", byteLabel(FeatureStoreKeys.diskBytes()))
                 row("Smart cache", "\(byteLabel(cacheBytes)) · \(cacheEntries) entries")
+                row("Memory footprint", String(format: "%.0f MB", QARuntimeMonitor.footprintMB()))
                 row("Inventory items", "\(session.guestStore.inventoryItems.count)")
                 row("Learned receipt names", "\(receipts.learnedCount)")
                 row("Store-specific corrections", "\(receipts.storeScopedCount)")
@@ -146,6 +154,16 @@ struct StockedHealthView: View {
                 } label: { Label("Clear smart cache", systemImage: "trash") }
             } header: { Text("Storage") } footer: {
                 Text("Clearing the cache only removes saved answers from the Worker. Nothing of yours is deleted, and everything refetches on next use.")
+            }
+
+            Section {
+                let harvest = HarvestRecipeSync.shared
+                row("All searchable recipes", "\(RecipeDatabaseManager.shared.totalCount)")
+                row("Downloaded public recipes", "\(harvest.catalogueCount)")
+                row("Catalogue", harvest.refreshingCatalogue ? "Updating" : (harvest.catalogueError ? "Needs retry" : (harvest.catalogueComplete ? "Complete" : "Partial")),
+                    tint: harvest.catalogueError ? .orange : session.themeTextColor)
+            } header: { Text("Recipe intelligence") } footer: {
+                Text("Stocked searches saved recipes, the downloaded public catalogue, and the bundled database without loading the entire library into memory.")
             }
 
             // ── Notifications ────────────────────────────────────────────────

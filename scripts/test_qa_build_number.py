@@ -15,14 +15,11 @@ spec.loader.exec_module(qa)
 class BuildNumberTests(unittest.TestCase):
     def test_build_only_across_configs(self):
         source = 'CURRENT_PROJECT_VERSION = 5; MARKETING_VERSION = 1.2.3;\nCURRENT_PROJECT_VERSION = 12; MARKETING_VERSION = 4;'
-        number, updated = qa.next_number(source)
-        self.assertEqual(number, 13)
-        self.assertEqual(qa.VERSION.findall(source), qa.VERSION.findall(updated))
-        self.assertEqual([v for _, v, _ in qa.BUILD.findall(updated)], ['13', '13'])
+        self.assertEqual(qa.next_number(source), 13)
 
     def test_dotted_migration_honors_floor(self):
-        self.assertEqual(qa.next_number('CURRENT_PROJECT_VERSION = 4.5;', 89)[0], 90)
-        self.assertEqual(qa.next_number('CURRENT_PROJECT_VERSION = 105.2;')[0], 106)
+        self.assertEqual(qa.next_number('CURRENT_PROJECT_VERSION = 4.5;', 89), 90)
+        self.assertEqual(qa.next_number('CURRENT_PROJECT_VERSION = 105.2;'), 106)
 
     def test_reject_missing_numeric_settings(self):
         with self.assertRaises(ValueError):
@@ -54,6 +51,7 @@ class BuildNumberTests(unittest.TestCase):
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
                 numbers = list(pool.map(lambda _: qa.reserve(project), range(8)))
             self.assertEqual(sorted(numbers), list(range(4, 12)))
+            self.assertEqual(pbx.read_text(), original, 'Reserving never edits the open Xcode project')
             self.assertNotIn('CFBundleVersion', plistlib.loads(info.read_bytes()), 'Reserving never edits source plists')
             pbx.write_text(original)  # emulate restoring an older checkout
             self.assertEqual(qa.reserve(project), 12)

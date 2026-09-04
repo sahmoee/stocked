@@ -179,8 +179,7 @@ struct RecipeFinderView: View {
       }
       .scrollDismissesKeyboard(.interactively)
     }
-    .background(session.themeBgColor.ignoresSafeArea())
-    .foregroundStyle(session.themeTextColor)
+    .stockedScreen()
     .toolbar(.hidden, for: .navigationBar)
     .sheet(
       isPresented: $showFilters,
@@ -690,7 +689,7 @@ struct RecipeFinderView: View {
             Button("Close", systemImage: "xmark") { showFilters = false }
           }
         }
-    }.tint(session.themeContrastAccent).presentationBackground(session.themeBgColor)
+    }.stockedPresentationSurface(width: .full).tint(session.themeContrastAccent)
       .qaScreen("Recipe Filters")
   }
   private var sortSheet: some View {
@@ -726,7 +725,7 @@ struct RecipeFinderView: View {
             Button("Close", systemImage: "xmark") { showSort = false }
           }
         }
-    }.presentationBackground(session.themeBgColor).qaScreen("Recipe Sort")
+    }.stockedPresentationSurface(width: .full).qaScreen("Recipe Sort")
   }
   private func refresh() {
     if case .quiz = model.flow.phase, !showFilters { return }

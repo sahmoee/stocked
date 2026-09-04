@@ -1,5 +1,10 @@
 # Read me first
 
+The ten coordinated kitchen capabilities and their ownership/rollout matrix are recorded in
+`STOCKED_MAJOR_WINS.md`. Shared cooking now publishes a bounded household presence with progress and
+claimable helper tasks; recipe instructions, quantities, notes and timers remain local. App Health
+also reports recipe catalogue state, household queue health and memory footprint. Worker rolls out first.
+
 Recipe tiles share `RecipeCardStyle` typography/artwork/padding and semantic theme card surfaces;
 recipe and grocery supporting text uses the solid secondary-text token in both appearances.
 The Recipes hub exposes Find a Recipe (direct search or seven optional quiz steps); Create with Stocked AI is disabled as Coming Soon
@@ -21,7 +26,7 @@ Do not make users choose Online versus Database. Downloaded matches stream in wh
 runs, then one canonical-URL-deduplicated, globally sorted list includes both. Same-title personal
 recipes retain their stable identities. Full-catalogue matches beyond the visible window still count
 for deduplication; unavailable publishers cannot hide cached results. See `QA_TICKET_FOLLOWUP.md`.
-QA now includes 92 additional device checks (362 total) plus clearly labelled deterministic contracts. Untested
+QA now includes 104 additional device checks (374 total) plus clearly labelled deterministic contracts. Untested
 blockers prevent sign-off. Both manual and automatic reports export the complete coverage catalogue.
 
 QA identity is per installation: select Key or Shalise once on each phone/iPad. New reports capture
@@ -260,7 +265,7 @@ Text entry uses the shared borderless `StockedThemedTextFieldStyle` at app and p
 boundaries. Fields grow with text and use the active theme surface; page-local plain styling is
 reserved for fields already hosted inside a custom themed input container.
 
-Visual presentation styling is inherited from `stockedThemeEnvironment()`: Lists, Forms, row
+Visual presentation styling is installed at the scene boundary by `stockedAppThemeSurface()` and inherited from `stockedThemeEnvironment()`: Lists, Forms, row
 heights, fields, tint, text, and scroll backgrounds use the same Stocked language on iPhone, iPad,
 Split View, sheets, and covers. Screen canvases use `stockedScreen()` and modal canvases use
 `stockedPresentationSurface()`/`StockedSheet`; form presentations default to the adaptive 760-point

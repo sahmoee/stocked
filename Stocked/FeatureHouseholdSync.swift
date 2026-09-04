@@ -146,6 +146,7 @@ final class FeatureSync {
         HarvestStore.shared.entries        = []
         ContainerLabelStore.shared.labels  = []
         TakeoutStore.shared.entries        = []
+        HouseholdCookStore.shared.entries  = []
     }
 
     // ── Stamping ─────────────────────────────────────────────────────────────
@@ -282,6 +283,7 @@ final class FeatureSync {
         static let gardenHarvests = "gardenHarvests"
         static let containerLabels = "containerLabels"
         static let takeoutLog     = "takeoutLog"
+        static let activeCookSessions = "activeCookSessions"
     }
 
     // ── Push payload ─────────────────────────────────────────────────────────
@@ -298,6 +300,7 @@ final class FeatureSync {
         add(&body, Keys.gardenHarvests,  HarvestStore.shared.entries)
         add(&body, Keys.containerLabels, ContainerLabelStore.shared.labels)
         add(&body, Keys.takeoutLog,      TakeoutStore.shared.entries)
+        add(&body, Keys.activeCookSessions, HouseholdCookStore.shared.entries.filter(\.isFresh))
         body["featureSyncCheckpoint"] = [
             "protocolVersion": 2,
             "tombstoneRevisions": tombstoneRevisions,
@@ -359,6 +362,9 @@ final class FeatureSync {
             entityType: "Container label") { $0.contents }
         TakeoutStore.shared.entries = merge(hh, Keys.takeoutLog, TakeoutStore.shared.entries,
             entityType: "Takeout") { $0.place }
+        HouseholdCookStore.shared.entries = merge(
+            hh, Keys.activeCookSessions, HouseholdCookStore.shared.entries.filter(\.isFresh),
+            entityType: "Cooking session") { $0.recipeTitle }
     }
 
     /// G7 (QA gap): every feature collection now routes a last-write-wins overwrite through

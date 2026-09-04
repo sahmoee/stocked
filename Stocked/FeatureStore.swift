@@ -87,11 +87,12 @@ nonisolated enum FeatureStoreKeys {
     static let toolboxUsage    = "toolboxUsage_v1"
     static let syncConflicts   = "syncConflictLog_v1"
     static let notifyEngagement = "notifyEngagement_v1"
+    static let householdCookPresence = "householdCookPresence_v1"
 
     static let all: [String] = [
         leftovers, familyProfiles, events, sharedExpenses, storeLayouts,
         takeoutLog, gardenHarvests, containerLabels, toolboxUsage,
-        syncConflicts, notifyEngagement,
+        syncConflicts, notifyEngagement, householdCookPresence,
     ]
 
     /// Total bytes on disk across all feature stores — surfaced in the health view.
@@ -127,5 +128,6 @@ enum StockedFeatureStores {
         ToolboxUsageStore.shared.flush()
         NotificationEngagement.shared.flush()
         SyncConflictLog.shared.flush()
+        HouseholdCookStore.shared.flush()
     }
 }

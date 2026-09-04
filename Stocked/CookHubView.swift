@@ -53,6 +53,13 @@ struct CookHubView: View {
                     .padding(.top, 12)
                 }
 
+                ForEach(HouseholdCookStore.shared.visibleEntries.filter {
+                    $0.memberID != HouseholdSync.shared.memberId
+                }) { presence in
+                    HouseholdCookingCard(presence: presence)
+                        .padding(.horizontal, CookStyle.screenHPad)
+                }
+
                 Spacer(minLength: 24)
                 VStack(spacing: 14) {
                     CookHubIllustratedButton(
@@ -111,7 +118,10 @@ struct CookHubView: View {
             Text("Your saved progress and timers will be discarded, and this meal won't be recorded as cooked. Nothing is deducted from inventory. If it came from your plan, the planned meal stays.")
         }
         // Terminal/stale records never reappear as resumable.
-        .task { cookRecord.clearIfStale() }
+        .task {
+            cookRecord.clearIfStale()
+            HouseholdCookStore.shared.pruneStale()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .stockedOpenCookLater)) { _ in
             goCookNow = false
             goCookLater = true

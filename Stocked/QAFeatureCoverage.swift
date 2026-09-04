@@ -3,7 +3,7 @@ import Foundation
 /// Stable appended IDs. These are DEVICE checks, not passes inferred from a build
 /// or from the small deterministic contracts below. Never renumber existing rows.
 nonisolated enum QAFeatureCoverage {
-  static let version = "2026-09-03 · recipes, browser and autonomous QA identity"
+  static let version = "2026-09-03 · unified kitchen wins, shared cooking and theme surfaces"
   struct Section: Sendable {
     var number: Int
     var title: String
@@ -357,6 +357,30 @@ nonisolated enum QAFeatureCoverage {
       ("Automatic accessibility sweeps respect the frame budget; partial scans never claim a pass and findings require two complete observations", false),
       ("Explicitly disabling Auto-publish stays disabled after restart; enabling it retries reports after connectivity returns", true),
       ("Build twice and archive: app and extensions receive increasing matching build numbers while the manually set version remains unchanged", true),
+    ]),
+    .init(number: 46, title: "Unified kitchen intelligence and shared cooking", rows: [
+      ("Recipe search combines the attributed web, downloaded public catalogue, saved collection and bundled database without duplicate result systems", true),
+      ("Web import keeps publisher rights and attribution, supports review, inventory comparison, Grocery handoff and original-site fallback", true),
+      ("Meal plans reserve inventory, calculate missing items, sync across the household and transition into Cook without duplicating deductions", true),
+      ("Ready-to-cook and missing counts use normalized names, quantities, expiry and confidence rather than title substring guesses", true),
+      ("Grocery additions merge equivalent products and quantities, retain store/aisle context and do not duplicate stocked items", true),
+      ("Offline household edits replay exactly once after reconnect and retain conflict/receipt evidence", true),
+      ("Recipe ranking responds to saved, opened, cooked and dismissed history without weakening dietary restrictions", false),
+      ("A cook started by one household member appears on the other device with current progress and claimable helper tasks", true),
+      ("Claiming or releasing a cooking task syncs to the other device; completion and cancellation remove the active session", true),
+      ("Shared cooking never uploads recipe instructions, ingredient quantities, notes or timers", true),
+      ("App Health reports Worker latency, sync health, pending changes, recipe catalogue status, storage and memory footprint", true),
+      ("Autonomous QA monitors regressions without reopening completed tickets from cached historical failures", true),
+    ]),
+    .init(number: 47, title: "Theme surfaces · pages, sheets and cards", rows: [
+      ("Switch between light and dark mode on every hub; no page exposes an unthemed white, gray or black host canvas", true),
+      ("Open Recipe Finder quiz, results, Filters, Sort, Preview, browser and import review in both themes", true),
+      ("Short sheets, popovers and full-screen covers fill through every safe area with the active Stocked canvas", true),
+      ("Cards and text fields use semantic theme surfaces; selected controls remain readable without relying on color alone", true),
+      ("Camera and media overlays retain intentional black contrast while their controls remain accessible in both appearances", false),
+      ("Changing theme while a page or sheet is open updates canvas, cards, text, controls and status bars without reopening", true),
+      ("iPad Split View, landscape and accessibility text expose no unfilled edges or clipped card content", true),
+      ("StockedMac windows, sidebar, detached recipe, Settings, menu panel, sheets, popovers and cards share the warm adaptive palette", true),
     ]),
   ]
 

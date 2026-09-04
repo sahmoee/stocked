@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Reserve one project-wide build number before Xcode builds. Never edits versions.
+"""Reserve one project-wide build number before Xcode builds. Never edits the project.
 
 Owned by Stocked; byte-identical copies ship in the other QA-enabled Xcode repos.
 Uses a process lock and atomic replacement; failed builds may leave intentional gaps.
-The project is the source of truth, with a local high-water mark protecting clean/retry.
+The checked-in project is the initial floor; a local high-water mark protects clean/retry.
 """
 import argparse
 import fcntl
@@ -14,17 +14,13 @@ import re
 import tempfile
 
 BUILD = re.compile(r"(CURRENT_PROJECT_VERSION\s*=\s*)([0-9]+(?:\.[0-9]+)*)(\s*;)")
-VERSION = re.compile(r"MARKETING_VERSION\s*=\s*[^;]+;")
 def next_number(text, floor=0):
     values = BUILD.findall(text)
     if not values:
         raise ValueError("No numeric CURRENT_PROJECT_VERSION settings found")
     # Transition a legacy dotted build to an integer strictly above its major.
     number = max([floor] + [int(value.split('.')[0]) for _, value, _ in values]) + 1
-    updated = BUILD.sub(lambda m: m[1] + str(number) + m[3], text)
-    if VERSION.findall(text) != VERSION.findall(updated):
-        raise ValueError("Refusing to change MARKETING_VERSION")
-    return number, updated
+    return number
 
 
 def atomic_write(path, text):
@@ -51,10 +47,9 @@ def reserve(project, floor=0, reservation_dir=None):
         fcntl.flock(lock, fcntl.LOCK_EX)
         counter = state / 'number'
         stored = int(counter.read_text().strip()) if counter.exists() else 0
-        number, updated = next_number(path.read_text(), max(floor, stored))
+        number = next_number(path.read_text(), max(floor, stored))
         # Commit the reservation first. An interrupted write can skip, never reuse.
         atomic_write(counter, str(number) + '\n')
-        atomic_write(path, updated)
         if reservation_dir:
             reservation = Path(reservation_dir)
             reservation.mkdir(parents=True, exist_ok=True)

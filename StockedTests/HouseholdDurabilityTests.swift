@@ -4,6 +4,24 @@ import XCTest
 
 final class HouseholdDurabilityTests: XCTestCase {
 
+    func testHouseholdCookPresenceSharesProgressWithoutRecipePayload() throws {
+        let snapshot = ActiveCookSessionSnapshot(
+            recipeTitle: "Weeknight Pasta",
+            ingredients: ["private ingredient 1", "private ingredient 2", "3", "4"],
+            steps: ["private step 1", "private step 2", "3", "4"],
+            completedSteps: [0, 1], servings: 2,
+            selectedComponents: ["salad"])
+        let presence = HouseholdCookPresence(snapshot: snapshot, memberID: "device-a", memberName: "Key")
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(presence)) as? [String: Any])
+
+        XCTAssertEqual(presence.progressLabel, "2 of 4 steps")
+        XCTAssertTrue(presence.availableTasks.contains("Prepare salad"))
+        XCTAssertNil(json["ingredients"])
+        XCTAssertNil(json["steps"])
+        XCTAssertNil(json["timers"])
+        XCTAssertNil(json["notes"])
+    }
+
     func testQuantityOperationsAreCommutativeAndIdempotent() {
         let entity = UUID()
         let plus = HouseholdQuantityOperation(idempotencyKey: "plus", entityID: entity,

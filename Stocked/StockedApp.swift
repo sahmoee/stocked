@@ -90,6 +90,7 @@ struct StockedApp: App {
                     .stockedSizeAwareScrollBounce([.vertical, .horizontal])
                     .appWideExperience()
             }
+            .stockedAppThemeSurface()
             .environment(session)
         }
         .onChange(of: scenePhase) { _, phase in

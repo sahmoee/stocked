@@ -171,6 +171,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     /// Explicit pause: freeze the given state and mark it paused.
@@ -181,6 +182,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     /// Safety-net pause for unexpected exits (swipe-back, view teardown). Only
@@ -192,6 +194,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     /// Adopt a snapshot the user chose to resume: it becomes the live session
@@ -204,6 +207,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     // MARK: Completion (idempotent)
@@ -255,6 +259,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.end(sessionID: snap.id)
     }
 
     // MARK: Cancel / clear
@@ -272,6 +277,7 @@ final class ActiveCookSessionStore {
                 recordedTokens.append(snap.completionToken)
                 Self.saveLedger(recordedTokens, key: Self.recordLedgerKey)
             }
+            HouseholdCookStore.shared.end(sessionID: snap.id)
         }
         current = nil
         persistSession()
@@ -292,6 +298,7 @@ final class ActiveCookSessionStore {
         let terminal = snap.status == .completed || snap.status == .canceled
         let tooOld = Date().timeIntervalSince(snap.lastSavedAt) >= Self.staleAfter
         if terminal || tooOld {
+            HouseholdCookStore.shared.end(sessionID: snap.id)
             current = nil
             persistSession()
         }

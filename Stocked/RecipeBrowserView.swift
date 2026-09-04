@@ -443,7 +443,7 @@ struct RecipeBrowserView: View {
       }
       .interactiveDismissDisabled(importing)
       .qaScreen("Recipe Browser")
-    }.stockedThemeEnvironment()
+    }.stockedPresentationSurface(width: .full)
   }
   private var addressBar: some View {
     VStack(alignment: .leading, spacing: 6) {

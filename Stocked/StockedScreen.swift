@@ -39,6 +39,7 @@ struct StockedScreenModifier: ViewModifier {
             .background {
                 if fillBackground { session.themeBgColor.ignoresSafeArea() }
             }
+            .presentationBackground(session.themeBgColor)
     }
 }
 

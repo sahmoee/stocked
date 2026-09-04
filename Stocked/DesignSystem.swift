@@ -51,9 +51,30 @@ struct StockedThemeEnvironmentModifier: ViewModifier {
     }
 }
 
+/// Install the complete Stocked canvas at a scene boundary.  Unlike a per-page
+/// background this also supplies the visual fallback beneath short sheets,
+/// popovers, navigation transitions, and system-hosted scroll containers.
+struct StockedAppThemeSurface: ViewModifier {
+    @Environment(AppSession.self) private var session
+
+    func body(content: Content) -> some View {
+        ZStack {
+            session.themeBgColor.ignoresSafeArea()
+            content
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(session.themeBgColor)
+        .stockedThemeEnvironment()
+    }
+}
+
 extension View {
     func stockedThemeEnvironment(clearScrollBackground: Bool = true) -> some View {
         modifier(StockedThemeEnvironmentModifier(clearScrollBackground: clearScrollBackground))
+    }
+
+    func stockedAppThemeSurface() -> some View {
+        modifier(StockedAppThemeSurface())
     }
 }
 
