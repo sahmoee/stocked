@@ -96,6 +96,14 @@ final class StockedLogicTests: XCTestCase {
             QATicket(number: "STK-89-0088", title: "Ingredients"),
             QATicket(number: "STK-89-0089", title: "Button size"),
             QATicket(number: "STK-89-0090", title: "Percentage"),
+            QATicket(number: "STK-128-0170-E54C79A8D3BF42BE", title: "Size"),
+            QATicket(number: "STK-134-0176-E54C79A8D3BF42BE", title: "Color"),
+            QATicket(number: "STK-134-0175-E54C79A8D3BF42BE", title: "Sizing"),
+            QATicket(number: "STK-134-0174-E54C79A8D3BF42BE", title: "Main thread blocked 1.9s on Recipes"),
+            QATicket(number: "STK-122-0162-E54C79A8D3BF42BE", title: "Main thread blocked 1.4s on Home"),
+            QATicket(number: "STK-122-0161-E54C79A8D3BF42BE", title: "Refreshing"),
+            QATicket(number: "STK-115-0144-E54C79A8D3BF42BE", title: "Main thread blocked 5.0s on Recipe Results"),
+            QATicket(number: "STK-115-0143-E54C79A8D3BF42BE", title: "Main thread blocked 3.1s on Home"),
         ]
 
         for ticket in tickets {
@@ -103,6 +111,33 @@ final class StockedLogicTests: XCTestCase {
             XCTAssertNotNil(resolution, "\(ticket.number) must become Fixed in the corrected build")
             XCTAssertFalse(resolution?.isEmpty ?? true)
         }
+    }
+
+    func testHomeReadyToCookSnapshotRanksOffTheRenderPath() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        var tomato = LocalInventoryItem(name: "Tomatoes")
+        tomato.expirationDate = now.addingTimeInterval(86_400)
+        var basil = LocalInventoryItem(name: "Fresh basil")
+        basil.expirationDate = now.addingTimeInterval(2 * 86_400)
+
+        var soup = UserRecipe(
+            title: "Tomato basil soup",
+            ingredients: [
+                RecipeIngredient(name: "tomato", amount: "4"),
+                RecipeIngredient(name: "basil", amount: "1 bunch")
+            ]
+        )
+        soup.cookCount = 1
+        var salad = UserRecipe(
+            title: "Tomato salad",
+            ingredients: [RecipeIngredient(name: "tomatoes", amount: "2")]
+        )
+        salad.cookCount = 8
+
+        let picks = HomeReadyToCookPolicy.picks(
+            recipes: [salad, soup], inventory: [tomato, basil], limit: 2, now: now)
+
+        XCTAssertEqual(picks.map(\.title), ["Tomato basil soup", "Tomato salad"])
     }
 
     @MainActor

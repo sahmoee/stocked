@@ -47,7 +47,7 @@ struct RecipeURLImportView: View {
                             .stocked(.body).foregroundStyle(session.themeTextColor)
                             .keyboardType(.URL).autocorrectionDisabled()
                     }
-                    .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
                     .padding(.horizontal, 24)
 
                     Text("Paste any recipe URL — we'll extract the title, ingredients and steps automatically.")
@@ -79,7 +79,7 @@ struct RecipeURLImportView: View {
                                     .foregroundStyle(showSaved ? Color.stockedGreen : Color.stockedGold)
                             }.buttonStyle(.plain)
                         }
-                        .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 14))
+                        .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
                         .padding(.horizontal, 24)
                     }
                     if showError { Text(errorMsg).stocked(.caption).foregroundStyle(.red).padding(.horizontal, 24) }
@@ -202,11 +202,11 @@ struct OCRConfirmationView: View {
                                     set: { edited[line] = $0 }
                                 ))
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                                .stocked(.body).foregroundStyle(inc ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.3))
+                                .stocked(.body).foregroundStyle(inc ? session.themeTextColor : session.themeSecondaryText)
                                 .strikethrough(!inc)
                                 Spacer()
                             }
-                            .padding(12).background(Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         }
                     }.padding(.horizontal, 20)
                 }

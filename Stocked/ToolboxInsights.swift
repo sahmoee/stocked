@@ -270,6 +270,16 @@ struct WeeklyReviewView: View {
 struct LowStockReportView: View {
     @Environment(AppSession.self) private var session
     @State private var lowItems: [LocalInventoryItem] = []
+    @State private var selectedItem: LocalInventoryItem?
+    private var missingFromGrocery: [LocalInventoryItem] {
+        let names = session.guestStore.groceryItems.map(\.name)
+        var seen = names
+        return lowItems.filter { item in
+            guard !GroceryDedup.isDuplicate(item.name, in: seen) else { return false }
+            seen.append(item.name)
+            return true
+        }
+    }
 
     private func compute() {
         lowItems = session.guestStore.inventoryItems
@@ -278,11 +288,16 @@ struct LowStockReportView: View {
     }
 
     private func addAllToGrocery() {
+        guard HouseholdSync.shared.myCanAdd else {
+            ToastCenter.shared.warning("Your household access does not allow adding items")
+            return
+        }
         let store = session.guestStore
         var added = 0
-        for item in lowItems where !GroceryDedup.isDuplicate(item.name, in: store.groceryItems.map { $0.name }) {
-            store.addToGroceryIfMissing(item.name, recommended: true)
-            added += 1
+        for item in missingFromGrocery {
+            let result = GroceryMutationService.apply(.init(name: item.name, quantity: 0,
+                recommended: true, reason: .lowStock, dependencyIDs: [item.id.uuidString]), to: store)
+            if case .added = result { added += 1 }
         }
         HapticManager.success()
         ToastCenter.shared.success(added == 0 ? "Everything is already on your list"
@@ -290,60 +305,65 @@ struct LowStockReportView: View {
     }
 
     var body: some View {
-        ScrollView {
+        StockedShell(showBack: true, canvasColor: session.inventoryCanvas) {
             LazyVStack(spacing: 12) {
+                InventoryEditorialHeading(title: "Running Low", subtitle: "A little restock keeps your kitchen ready.", artwork: 3)
                 if lowItems.isEmpty {
                     ToolboxEmptyState(icon: "checkmark.circle",
                                       title: "Nothing running low",
                                       message: "Items drop in here when their fill level gets low or they fall below the par quantity you set.")
                 } else {
-                    Button(action: addAllToGrocery) {
-                        Label("Add all \(lowItems.count) to grocery list", systemImage: "cart.badge.plus")
-                            .scaledFont(15, weight: .semibold)
+                    let missingCount = missingFromGrocery.count
+                    Button {
+                        if missingCount == 0 { InterHubCoordinator.shared.open(.tab(.grocery)) }
+                        else { addAllToGrocery() }
+                    } label: {
+                        Label(missingCount == 0 ? "Open grocery list" : "Add \(missingCount) to grocery list",
+                              systemImage: missingCount == 0 ? "cart" : "cart.badge.plus")
+                            .font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor))
+                            .padding(14)
+                            .background(RoundedRectangle(cornerRadius: 14).fill(session.themeButtonColor))
                             .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
                     ForEach(lowItems) { item in
-                        ToolboxCard {
+                        Button { selectedItem = item } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(item.name)
-                                        .scaledFont(14, weight: .medium)
+                                        .font(.stockedSerif(17, weight: .semibold, relativeTo: .headline))
                                         .foregroundStyle(session.themeTextColor)
                                         .fixedSize(horizontal: false, vertical: true)
-                                    Text("\(item.storageCategory.icon) \(item.displayText)")
-                                        .scaledFont(11)
+                                    Text("\(item.zone) · \(item.displayText)")
+                                        .scaledFont(12)
                                         .foregroundStyle(session.themeSecondaryText)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Text(item.parQuantity.map { item.quantity < $0 ? "Below minimum: \(item.quantity) of \($0)" : "Running low" } ?? "Running low")
+                                        .scaledFont(12, weight: .semibold)
+                                        .foregroundStyle(session.inventoryGold)
                                 }
-                                Spacer()
-                                if let par = item.parQuantity, item.quantity < par {
-                                    Text("Below par (\(item.quantity)/\(par))")
-                                        .scaledFont(11, weight: .semibold)
-                                        .foregroundStyle(.orange)
-                                        .padding(.horizontal, 8).padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.orange.opacity(0.14)))
-                                } else {
-                                    Text("Running low")
-                                        .scaledFont(11, weight: .semibold)
-                                        .foregroundStyle(.yellow)
-                                        .padding(.horizontal, 8).padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.yellow.opacity(0.16)))
-                                }
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right").foregroundStyle(session.inventoryGold)
+                                    .accessibilityHidden(true)
                             }
+                            .modifier(InventoryEditorialCard())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Review quantity and restock settings")
                     }
                 }
             }
             .padding(.horizontal, 18).padding(.vertical, 8)
         }
         .background(session.themeBgColor.ignoresSafeArea())
-        .navigationTitle("Low Stock Report")
-        .navigationBarTitleDisplayMode(.inline)
         .task { compute() }
+        .onChange(of: session.guestStore.inventoryRevision) { _, _ in compute() }
         .refreshable { compute() }
+        .sheet(item: $selectedItem) { item in
+            NavigationStack { EditItemSheet(item: item).environment(session) }
+        }
     }
 }
 

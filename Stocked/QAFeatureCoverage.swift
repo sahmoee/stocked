@@ -3,7 +3,7 @@ import Foundation
 /// Stable appended IDs. These are DEVICE checks, not passes inferred from a build
 /// or from the small deterministic contracts below. Never renumber existing rows.
 nonisolated enum QAFeatureCoverage {
-  static let version = "2026-09-03 · unified kitchen wins, shared cooking and theme surfaces"
+  static let version = "2026-09-05 · inventory reference design and native workflows"
   struct Section: Sendable {
     var number: Int
     var title: String
@@ -381,6 +381,19 @@ nonisolated enum QAFeatureCoverage {
       ("Changing theme while a page or sheet is open updates canvas, cards, text, controls and status bars without reopening", true),
       ("iPad Split View, landscape and accessibility text expose no unfilled edges or clipped card content", true),
       ("StockedMac windows, sidebar, detached recipe, Settings, menu panel, sheets, popovers and cards share the warm adaptive palette", true),
+    ]),
+    .init(number: 48, title: "Inventory reference design and native workflows", rows: [
+      ("Compare Home, Inventory and every inventory sheet with the approved artwork reference in light and dark mode; illustrations retain aspect ratio and presentation margins use the matching canvas", true),
+      ("Use iPhone and iPad narrow windows with the largest Dynamic Type: scanner actions, zone controls, quantity inputs, report statuses and leftover actions wrap without clipping or losing scroll access", true),
+      ("Search within one inventory zone, recover from no matches, search all zones explicitly, then close search; closing must not leave an invisible active filter", true),
+      ("Search the ingredient catalogue with no matches, clear filters and add a result; actual counts and named add controls remain usable with VoiceOver", false),
+      ("Choose Freezer manually while adding an item, then continue typing and choose a name suggestion; the explicit storage selection must remain Freezer", true),
+      ("Open and save an item with zero quantity or zero fill; editing must not silently restock it or display an invalid slider value", true),
+      ("Save edits and undo removal with household permissions changed; a concurrently removed item must not be silently recreated and photo removal must not also open its picker", true),
+      ("Partially fill Add Item and Add Leftovers, attempt to close, keep editing, then discard explicitly; meaningful drafts must not disappear through a swipe", true),
+      ("Save leftovers cooked on a past date; the displayed reminder and saved expiry use that cooked date, and whitespace-only titles cannot be saved", true),
+      ("Open Inventory Details with over ten matching items and over four claims; counts, Show All, every claim, and tap-to-edit remain available", true),
+      ("Open Running Low with duplicate names and items already in Grocery; add only the missing unique products, preserve existing quantities, then open the grocery list from the completed action", true),
     ]),
   ]
 

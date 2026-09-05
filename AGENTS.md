@@ -20,6 +20,15 @@ This is the single authoritative instruction contract for Codex, Claude, and any
 Every page, sheet, popover, and cover must fill its presentation with the active Stocked theme, never the stock white host background. Layouts and controls must adapt to available window width, device class, orientation, Split View/Stage Manager, safe areas, and Dynamic Type. Prefer flexible frames, adaptive grids, `ViewThatFits`, and minimum hit targets; fixed dimensions are reserved for intentional artwork/media geometry. Do not force scrolling when content fits or disable scrolling needed by smaller screens or accessibility text.
 
 App-level headers and root tab bars have one shared implementation and one geometry source. Feature pages must not locally override brand placement, chrome height, safe-area spacing, icon slots, labels, or selected-tab geometry.
+Inventory destinations reuse InventoryEditorialHeading, InventoryEditorialCard and the session's
+inventoryCanvas/inventoryGold tokens; do not create a separate header or store for the redesign.
+Home/Inventory artwork uses StockedKitchenArtwork and the shared ImageCache, with aspect-fit
+cutouts and off-main preparation. Do not restore atlas stretching or multiply blending.
+Use KitchenArtworkCatalog for decorative navigation aliases; never remap publisher/product photos.
+Inventory actions must retain the reference calendar/tomato jar, wire milk/tin basket and wooden
+grocery crate, including matching Home widget roles. Validate new cutouts with KitchenArtworkAudit.
+Inventory edits preserve zero quantities, manually selected storage and untouched newer household
+fields. Commit one coherent, permission-checked change; protect meaningful drafts and exact undo IDs.
 
 Home and Cook greetings share `StockedGreeting` and the live Preferences name. Root selected-tab
 colors use shared design tokens: tan-on-charcoal in light mode, bright-gold-on-charcoal in dark mode.
@@ -30,6 +39,12 @@ colors use shared design tokens: tan-on-charcoal in light mode, bright-gold-on-c
 - `StockedMac`: creates/edits/imports the shared image-complete recipe library.
 - `UnifiedWorker`: AI, household, recipe/harvest content, QA, queues, and compatibility routes.
 - `site-repo`: public product pages and content feeds.
+
+Household transport decodes responses off-main, treats cancellation/malformed 2xx as unsent work,
+and shares safe Retry-After parsing with NetworkRetry; server cooldowns are minimum deadlines,
+never shortened by jitter. GETs stop on cancelled tasks/sleeps and do not retry permanent errors.
+Worker brief scheduling pages in bounded batches; acknowledgements follow successful persistence.
+See SYNC_RELIABILITY_2026_09_05.md for ownership, provider-first rollout, fallback and tests.
 
 Recipe schemas, images, provenance, categories, household data, QA, or API changes require compatible updates across affected repos. Keep old records and released clients working; make fields additive and repairs retroactive.
 Source-attributed, image-complete imports publish to UnifiedWorker's shared harvest catalogue even

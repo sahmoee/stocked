@@ -7,6 +7,28 @@ also reports recipe catalogue state, household queue health and memory footprint
 
 Recipe tiles share `RecipeCardStyle` typography/artwork/padding and semantic theme card surfaces;
 recipe and grocery supporting text uses the solid secondary-text token in both appearances.
+Inventory follows the supplied September 4 reference: serif kitchen hero, illustrated appliance
+panel with Fridge/Freezer/Pantry/Leftovers routes, three illustrated action cards, and a disabled
+Stocked AI banner. Counts remain live; View All Inventory opens All rather than Fridge.
+Shared header/tab chrome and dark-mode tokens remain intact. Action cards grow with text and stack
+only when the available width requires it. See INVENTORY_REFERENCE_DESIGN.md for artwork provenance
+and verification limits.
+The same editorial headings, parchment canvas, gold borders and serif item rows carry through
+inventory lists, expiry/low-stock reports, leftovers and add/edit/browse sheets. Existing scanning,
+sorting, quantity editing, meal planning and grocery handoffs retain their existing data owners.
+Home and Inventory use StockedKitchenArtwork for the same watercolor cutout family; never stretch
+atlas cells or multiply-blend illustrations. ImageCache prepares bounded thumbnails off-main.
+The reference calendar/tomato jar, milk/tin basket, and wooden grocery crate now have individual
+transparent assets shared by Inventory and the corresponding Home actions. KitchenArtworkCatalog
+also aligns decorative Cook/Recipes/category art without replacing real food or publisher photos.
+See STOCKED_POLISH_40_2026_09_05.md for the 10 code + 10 image + 10 UI + 10 UX implementation ledger.
+Inventory draft edits preserve untouched newer household fields and zero stock, issue one mutation,
+recheck permissions, and protect meaningful unsaved drafts. New QA section 48 remains device-untested.
+Household GETs and sync share safe server-minimum Retry-After parsing; cancellation and malformed
+successful responses retain unsent work. Worker brief scheduling is paginated and bounded, with queue
+acknowledgements after persistence. See SYNC_RELIABILITY_2026_09_05.md for compatibility and rollout.
+Inventory presentation reservations are revision-checked off-main; mutation-time checks stay synchronous.
+QA screenshots use 1x committed-layer capture (video/Metal/live blur may differ) to avoid capture-induced stalls.
 The Recipes hub exposes Find a Recipe (direct search or seven optional quiz steps); Create with Stocked AI is disabled as Coming Soon
 without removing its implementation. Cook choices have flexible vertical breathing room on phones
 and tablets. Drawer translation is gesture-scoped so interrupted drags cannot strand the panel.

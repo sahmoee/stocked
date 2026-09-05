@@ -29,7 +29,7 @@ struct QuickGrocerySheet: View {
                             .foregroundStyle(newItem.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
                     }.disabled(newItem.isEmpty)
                 }
-                .padding(12).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                 .padding(.horizontal, 20).padding(.bottom, 12)
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {

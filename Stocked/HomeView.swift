@@ -4,6 +4,48 @@ import SwiftUI
 import UniformTypeIdentifiers
 import os
 
+/// The Home recipe preview is intentionally a snapshot operation. Matching every
+/// saved recipe against every expiring item from SwiftUI's render path caused the
+/// reported multi-second Home stalls on large libraries. This pure helper can run
+/// on a utility executor and returns the one small array the widgets actually need.
+nonisolated enum HomeReadyToCookPolicy {
+    static func picks(
+        recipes: [UserRecipe],
+        inventory: [LocalInventoryItem],
+        within days: Int = KitchenThresholds.expiringSoonDays,
+        limit: Int = 3,
+        now: Date = Date()
+    ) -> [UserRecipe] {
+        guard limit > 0 else { return [] }
+        let cutoff = now.addingTimeInterval(Double(days) * 86_400)
+        let expiring = inventory.filter {
+            $0.effectiveLevel > 0 && ($0.expirationDate.map { $0 <= cutoff } ?? false)
+        }
+        guard !expiring.isEmpty else { return [] }
+
+        var scored: [(recipe: UserRecipe, uses: Int)] = []
+        scored.reserveCapacity(min(recipes.count, limit * 4))
+        for recipe in recipes {
+            if Task.isCancelled { return [] }
+            var uses = 0
+            for item in expiring where recipe.ingredients.contains(where: {
+                KitchenAvailability.nameMatches($0.name, item.name)
+            }) {
+                uses += 1
+            }
+            if uses > 0 { scored.append((recipe, uses)) }
+        }
+        scored.sort {
+            if $0.uses != $1.uses { return $0.uses > $1.uses }
+            if $0.recipe.cookCount != $1.recipe.cookCount {
+                return $0.recipe.cookCount > $1.recipe.cookCount
+            }
+            return $0.recipe.title.localizedCaseInsensitiveCompare($1.recipe.title) == .orderedAscending
+        }
+        return Array(scored.prefix(limit).map(\.recipe))
+    }
+}
+
 struct HomeView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) var device
@@ -43,6 +85,7 @@ struct HomeView: View {
     @State private var resizeStartFootprint: HomeWidgetGridFootprint? = nil
     @State private var resizePreviewFootprint: HomeWidgetGridFootprint? = nil
     @State private var kitchenMetrics = KitchenMetrics()
+    @State private var readyToCookPicks: [UserRecipe] = []
     @State private var widgetsLastUpdated = Date()
     @State private var smartWidgetSuggestions = UserDefaults.standard.bool(forKey: "stocked.smartWidgetSuggestions_v1")
     @State private var dismissedSizeRecommendations: Set<HomeWidget> = []
@@ -59,6 +102,9 @@ struct HomeView: View {
     private var mealsAvailable: Int { kitchenMetrics.mealsReady }
     private var metricsRevision: String {
         "\(store.inventoryRevision):\(store.groceryRevision):\(store.recipeRevision):\(store.planRevision)"
+    }
+    private var readyToCookRevision: String {
+        "\(store.inventoryRevision):\(store.recipeRevision)"
     }
     private var usesReferencePhoneGeometry: Bool {
         // The old 393-point reference branch forced 8–11 point labels, fixed card
@@ -133,6 +179,25 @@ struct HomeView: View {
                 kitchenMetrics = store.lightweightMetrics
                 widgetsLastUpdated = Date()
             }
+            .task(id: readyToCookRevision) {
+                await Task.yield()
+                let recipes = store.userRecipes
+                let inventory = store.inventoryItems
+                let worker = Task.detached(priority: .utility) {
+                    HomeReadyToCookPolicy.picks(
+                        recipes: recipes,
+                        inventory: inventory,
+                        limit: 3
+                    )
+                }
+                let picks = await withTaskCancellationHandler {
+                    await worker.value
+                } onCancel: {
+                    worker.cancel()
+                }
+                guard !Task.isCancelled else { return }
+                readyToCookPicks = picks
+            }
             .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
                 goExpiringList = false
                 if editMode { exitEditMode() }
@@ -171,11 +236,8 @@ struct HomeView: View {
                         .frame(width: 210, alignment: .leading)
                         .offset(y: 21)
 
-                    Image("home_kitchen_still_life")
-                        .resizable()
-                        .scaledToFit()
+                    StockedKitchenArtwork(asset: "home_kitchen_still_life")
                         .frame(width: 172, height: 120, alignment: .bottomTrailing)
-                        .scaleEffect(x: 0.95, y: 1.04)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .offset(x: 8, y: 15)
                         .accessibilityHidden(true)
@@ -198,9 +260,7 @@ struct HomeView: View {
     }
 
     private var referenceHeroArtwork: some View {
-        Image("home_kitchen_still_life")
-            .resizable()
-            .scaledToFit()
+        StockedKitchenArtwork(asset: "home_kitchen_still_life")
             .frame(
                 width: layoutMetrics.homeHeroArtworkWidth,
                 height: isWideHomeCanvas ? 170 : 190,
@@ -845,7 +905,7 @@ struct HomeView: View {
         // Expanded list widgets collapse when there is no additional content to
         // reveal, but retain the saved preference and grow again as data arrives.
         if widget == .readyToCook,
-           store.recipesUsingExpiringItems(within: 4, limit: 2).count < 2 {
+           readyToCookPicks.prefix(2).count < 2 {
             return .init(columns: 4, rows: 2)
         }
         if widget == .whatsNew, newsRows.count < 2 {
@@ -862,7 +922,7 @@ struct HomeView: View {
             return (.groceryCount, .init(columns: 4, rows: 2), "Show grocery items and check them off from Home.")
         }
         if layout.contains(.readyToCook),
-           store.recipesUsingExpiringItems(within: 4, limit: 2).count >= 2,
+           readyToCookPicks.prefix(2).count >= 2,
            gridFootprint(for: .readyToCook).rows == 2,
            !dismissedSizeRecommendations.contains(.readyToCook) {
             return (.readyToCook, .init(columns: 4, rows: 4), "Reveal more ready-to-cook recipe matches.")
@@ -1379,7 +1439,7 @@ struct HomeView: View {
                                         }
                                         Text(widget.blurb)
                                             .scaledFont(12.5)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                            .foregroundStyle(session.themeSecondaryText)
                                             .multilineTextAlignment(.leading)
                                         HStack(spacing: 6) {
                                             ForEach(widget.allowedGridFootprints, id: \.self) { size in
@@ -1391,7 +1451,7 @@ struct HomeView: View {
                                             }
                                             Text(widget.densityPreview)
                                                 .scaledFont(10)
-                                                .foregroundStyle(session.themeTextColor.opacity(0.48))
+                                                .foregroundStyle(session.themeSecondaryText)
                                         }
                                     }
                                     Spacer()
@@ -1400,7 +1460,7 @@ struct HomeView: View {
                                         .foregroundStyle(Color.stockedGold)
                                 }
                                 .padding(16)
-                                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+                                .background(session.themeCardColor)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                             }
                             .buttonStyle(.plain)
@@ -1641,9 +1701,7 @@ struct HomeView: View {
             preferredWidth: preferredWidth,
             preferredHeight: preferredHeight
         )
-        return Image(asset)
-            .resizable()
-            .scaledToFit()
+        return StockedKitchenArtwork(asset: asset)
             .frame(width: size.width, height: size.height)
             .accessibilityHidden(true)
     }
@@ -1718,7 +1776,7 @@ struct HomeView: View {
     // Ready to Cook — recipes you can make from what's expiring (reuses store logic).
     private var readyToCookWidget: some View {
         let expanded = widgetFootprints[.readyToCook]?.rows == 4
-        let picks = store.recipesUsingExpiringItems(within: 4, limit: expanded ? 3 : 1)
+        let picks = Array(readyToCookPicks.prefix(expanded ? 3 : 1))
         return VStack(alignment: .leading, spacing: 10) {
             widgetHeader("Ready to Cook", family: .cooking, actionTitle: "Cook") {
                 NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.cook)
@@ -2558,7 +2616,13 @@ enum HomeWidget: String, CaseIterable, Hashable, Codable {
         switch self {
         case .mealsReady, .cookStreak, .cookNow, .discover, .readyToCook, .favorites:
             return "home_widget_cooking"
-        case .stockLevel, .expiringCount, .lowStock, .totalItems, .useItSoon, .dailyBrief:
+        case .expiringCount, .useItSoon:
+            return KitchenArtworkCatalog.inventoryActions[0]
+        case .lowStock:
+            return KitchenArtworkCatalog.inventoryActions[1]
+        case .quickAdd:
+            return KitchenArtworkCatalog.inventoryActions[2]
+        case .stockLevel, .totalItems, .dailyBrief:
             return "home_widget_pantry"
         case .groceryCount, .nextRun, .shoppingList, .preferredStore:
             return "home_widget_shopping"
@@ -2566,7 +2630,7 @@ enum HomeWidget: String, CaseIterable, Hashable, Codable {
             return "home_widget_planning"
         case .wasteSaved:
             return "home_widget_waste"
-        case .actionCenter, .whatsNew, .quickAdd, .scanReceiptW, .scanBarcodeW,
+        case .actionCenter, .whatsNew, .scanReceiptW, .scanBarcodeW,
              .quickUpdateW, .searchW, .tipOfDay:
             return "home_widget_tools"
         }

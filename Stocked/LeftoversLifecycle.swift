@@ -98,7 +98,9 @@ final class LeftoversStore {
     var expiringSoon: [LeftoverEntry] { queue.filter { !$0.isFrozen && $0.daysLeft <= 1 } }
 
     func add(title: String, portions: Int, storage: String, cookedAt: Date = Date()) {
-        let entry = LeftoverEntry(title: title, portions: max(1, portions), cookedAt: cookedAt,
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty else { return }
+        let entry = LeftoverEntry(title: cleanTitle, portions: max(1, portions), cookedAt: cookedAt,
                                   storage: storage,
                                   expiresAt: LeftoverEntry.defaultExpiry(from: cookedAt, storage: storage))
         entries.append(entry)
@@ -112,14 +114,17 @@ final class LeftoversStore {
     /// #5 — tossing food is destructive and easy to mis-tap. The row comes back if the user
     /// says so within the toast window.
     func toss(_ entry: LeftoverEntry) {
+        guard entries.contains(where: { $0.id == entry.id }) else { return }
         entries.removeAll { $0.id == entry.id }
         ToastCenter.shared.undo("Tossed \(entry.title)") { [weak self] in
-            self?.entries.append(entry)
+            guard let self, !self.entries.contains(where: { $0.id == entry.id }) else { return }
+            self.entries.append(entry)
         }
     }
     /// Moving to the freezer resets the clock — that's the whole point of freezing it.
     func freeze(_ entry: LeftoverEntry) {
         guard let i = entries.firstIndex(where: { $0.id == entry.id }) else { return }
+        guard !entries[i].isFrozen else { return }
         entries[i].storage = "Freezer"
         entries[i].expiresAt = LeftoverEntry.defaultExpiry(from: Date(), storage: "Freezer")
     }
@@ -133,7 +138,10 @@ struct LeftoversView: View {
     @State private var showAdd = false
 
     var body: some View {
-        Group {
+        StockedShell(showBack: true, trailingIcon: "plus", trailingLabel: "Add leftovers",
+                     onTrailing: { showAdd = true }, canvasColor: session.inventoryCanvas) {
+            InventoryEditorialHeading(title: "Leftovers", subtitle: "Good food, ready for another moment.", artwork: 5)
+                .padding(.horizontal, 20)
             if store.entries.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "takeoutbag.and.cup.and.straw")
@@ -147,46 +155,41 @@ struct LeftoversView: View {
                     Button { showAdd = true } label: {
                         Text("Add leftovers").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
-                            .background(session.accentColor).foregroundStyle(.white)
+                            .background(session.inventoryGold)
+                            .foregroundStyle(session.isDarkMode ? Color.stockedCharcoal : .stockedWhite)
                             .clipShape(Capsule())
                     }.buttonStyle(.plain).padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List {
+                LazyVStack(spacing: 12) {
                     ForEach(store.queue) { e in
                         VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(e.title).scaledFont(15, weight: .semibold)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(e.title).font(.stockedSerif(19, weight: .semibold, relativeTo: .headline))
                                     .foregroundStyle(session.themeTextColor)
-                                Spacer()
-                                Text(status(e)).scaledFont(12, weight: .bold)
-                                    .foregroundStyle(color(e))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Label(status(e), systemImage: e.isExpired ? "exclamationmark.triangle" : "clock")
+                                    .scaledFont(12, weight: .semibold).foregroundStyle(color(e))
                             }
                             Text("\(e.portions) portion\(e.portions == 1 ? "" : "s") · \(e.storage)")
-                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
-                            HStack(spacing: 8) {
+                                .scaledFont(13).foregroundStyle(session.themeSecondaryText)
+                            Text("Cooked \(e.cookedAt.formatted(date: .abbreviated, time: .omitted))")
+                                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), spacing: 8)], spacing: 8) {
                                 action("Ate one", "fork.knife") { store.eatPortion(e) }
                                 if !e.isFrozen { action("Freeze", "snowflake") { store.freeze(e) } }
-                                action("Tossed", "trash") { store.toss(e) }
+                                action("Toss", "trash", destructive: true) { store.toss(e) }
                             }
                             .padding(.top, 2)
                         }
-                        .padding(.vertical, 4)
+                        .modifier(InventoryEditorialCard())
                     }
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 20)
             }
         }
         .stockedScreen()
-        .navigationTitle("Leftovers")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showAdd = true } label: { Image(systemName: "plus") }
-            }
-        }
         .sheet(isPresented: $showAdd) { AddLeftoverSheet() }
     }
 
@@ -198,56 +201,80 @@ struct LeftoversView: View {
     private func color(_ e: LeftoverEntry) -> Color {
         if e.isExpired { return .red }
         if e.daysLeft <= 1 { return .orange }
-        return session.themeTextColor.opacity(0.45)
+        return session.themeSecondaryText
     }
-    private func action(_ label: String, _ icon: String, _ run: @escaping () -> Void) -> some View {
-        Button { HapticManager.light(); run() } label: {
+    private func action(_ label: String, _ icon: String, destructive: Bool = false, _ run: @escaping () -> Void) -> some View {
+        Button(role: destructive ? .destructive : nil) { HapticManager.light(); run() } label: {
             HStack(spacing: 4) { Image(systemName: icon); Text(label) }
-                .scaledFont(11, weight: .semibold)
+                .font(.stockedSerif(13, weight: .semibold, relativeTo: .subheadline))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(session.themeTextColor.opacity(0.07))
-                .foregroundStyle(session.themeTextColor.opacity(0.8))
-                .clipShape(Capsule())
+                .background(session.themeCardColor)
+                .foregroundStyle(destructive ? Color.stockedError : session.inventoryGold)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
         }.buttonStyle(.plain)
     }
 }
 
 private struct AddLeftoverSheet: View {
+    @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     private let store = LeftoversStore.shared
     @State private var title = ""
     @State private var portions = 2
     @State private var storage = "Fridge"
+    @State private var cookedAt = Date()
+    @State private var confirmDiscard = false
+    private var cleanTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var hasDraft: Bool { !cleanTitle.isEmpty || portions != 2 || storage != "Fridge" || !Calendar.current.isDateInToday(cookedAt) }
 
     var body: some View {
         NavigationStack {
             Form {
+                InventoryEditorialHeading(title: "Save a portion", subtitle: "Make tomorrow a little easier.", artwork: 5)
+                    .listRowBackground(Color.clear)
+                Group {
                 TextField("What is it? (e.g. Chicken chili)", text: $title)
+                    .textInputAutocapitalization(.sentences)
                 Stepper("\(portions) portion\(portions == 1 ? "" : "s")", value: $portions, in: 1...20)
+                DatePicker("Cooked on", selection: $cookedAt, in: ...Date(), displayedComponents: .date)
                 Picker("Storage", selection: $storage) {
                     Text("Fridge").tag("Fridge"); Text("Freezer").tag("Freezer")
-                }.pickerStyle(.segmented)
-                Section {
-                    Text(storage == "Freezer"
-                         ? "Good for about 90 days frozen."
-                         : "Good for about 4 days in the fridge — you'll get a nudge before then.")
-                        .font(.stocked(.footnote)).foregroundStyle(.secondary)
+                }.pickerStyle(.menu)
                 }
+                .listRowBackground(session.themeCardColor)
+                Section {
+                    Text("Reminder date: \(LeftoverEntry.defaultExpiry(from: cookedAt, storage: storage).formatted(date: .abbreviated, time: .omitted))")
+                        .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                    Text("Dates are estimates based on when this was cooked and where it is stored; check the food before using it.")
+                        .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                }
+                .listRowBackground(session.themeCardColor)
             }
             .navigationTitle("Add leftovers")
+            .scrollContentBackground(.hidden)
+            .background(session.inventoryCanvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
-                        store.add(title: title.trimmingCharacters(in: .whitespaces), portions: portions, storage: storage)
+                        store.add(title: cleanTitle, portions: portions, storage: storage, cookedAt: cookedAt)
                         dismiss()
                     }
                     .font(.stocked(.body).bold())
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(cleanTitle.isEmpty)
                 }
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { if hasDraft { confirmDiscard = true } else { dismiss() } }
+                }
             }
         }
-        .stockedPresentationSurface(width: .form)
+        .stockedPresentationSurface(width: .form, canvasColor: session.inventoryCanvas)
+        .interactiveDismissDisabled(hasDraft)
+        .confirmationDialog("Discard these leftovers?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+            Button("Discard draft", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) { }
+        }
     }
 }

@@ -140,7 +140,7 @@ struct IngredientPickerSheet: View {
                             }.buttonStyle(.plain)
                         }
                     }
-                    .padding(11).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .padding(11).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     .padding(.horizontal, 20).padding(.vertical, 12)
 
                     if searchText.isEmpty && selectedCat == nil {
@@ -331,7 +331,7 @@ struct IngredientDetailForm: View {
     private func formInput(_ ph: String, text: Binding<String>) -> some View {
         FoodPredictiveTextField(placeholder: ph, text: text)
             .scaledFont(14).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-            .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 28)
+            .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 28)
     }
     private func nutriPill(_ label: String, _ val: String) -> some View {
         VStack(spacing: 1) {

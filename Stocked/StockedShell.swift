@@ -27,6 +27,7 @@ struct StockedShell<Content: View>: View {
     var onTrailing2:    (() -> Void)?
     var onRefresh:      (() async -> Void)?  // custom pull-to-refresh; nil = standard app refresh
     var content:        Content
+    var canvasColor: Color?
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.stockedDismiss) private var stockedDismiss
@@ -47,6 +48,7 @@ struct StockedShell<Content: View>: View {
         trailingLabel2: String = "",
         onTrailing2:    (() -> Void)? = nil,
         onRefresh:      (() async -> Void)? = nil,
+        canvasColor: Color? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.showBack       = showBack
@@ -61,11 +63,12 @@ struct StockedShell<Content: View>: View {
         self.onTrailing2    = onTrailing2
         self.onRefresh      = onRefresh
         self.content        = content()
+        self.canvasColor    = canvasColor
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            session.themeBgColor.ignoresSafeArea()
+            (canvasColor ?? session.themeBgColor).ignoresSafeArea()
 
             // Tap anywhere to dismiss keyboard — UIKit-backed, passes through child taps.
             KeyboardDismissView()

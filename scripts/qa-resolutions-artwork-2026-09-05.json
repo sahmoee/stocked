@@ -1,0 +1,22 @@
+[
+  {
+    "number": "STK-149-0182-D6DDC84301174919",
+    "title": "The fridge should be a little bigger and centered in the allotted space.",
+    "resolution": "Replaced the stretched atlas cell with a complete centered watercolor refrigerator cutout, filling the category panel's illustration column with aspect-preserving fit and a 282-point scaled minimum height. Home and Inventory now reuse the same cutout family and renderer without multiply blending. Generic iOS build-for-testing passed. Physical-device verification pending."
+  },
+  {
+    "number": "STK-149-0181-D6DDC84301174919",
+    "title": "Main thread blocked 2.2s on Inventory",
+    "resolution": "Removed QA capture's synchronous drawHierarchy GPU-readback path in favor of a 1x committed-layer composite, retaining ordinary UI and touch annotations; live blur/video capture is not guaranteed. Inventory artwork preparation and presentation-only reservation matching now run off-main with revision/cancellation guards. These fix identified blocking paths; the report contains no sampled stack to prove a unique cause. Generic iOS build-for-testing passed. Physical-device verification pending."
+  },
+  {
+    "number": "STK-149-0180-D6DDC84301174919",
+    "title": "Main thread blocked 3.0s on Home",
+    "resolution": "Moved Home's bundled hero and widget illustration loading/display preparation out of SwiftUI layout into utility tasks, bounded thumbnails to 720 pixels, and reused the shared memory-pressure-aware cache with scroll gating. Inventory uses the same renderer, avoiding repeated full-atlas decode/compositing. This removes an identified first-render blocking path; reports contain no sampled stacks to prove a unique cause. Generic iOS build-for-testing passed. Physical-device verification pending."
+  },
+  {
+    "number": "STK-143-0178-67F35EE094B041D8",
+    "title": "Main thread blocked 1.6s on Home",
+    "resolution": "Moved Home's bundled hero and widget illustration loading/display preparation out of SwiftUI layout into utility tasks, bounded thumbnails to 720 pixels, and reused the shared memory-pressure-aware cache with scroll gating. Inventory uses the same renderer, avoiding repeated full-atlas decode/compositing. This removes an identified first-render blocking path; reports contain no sampled stacks to prove a unique cause. Generic iOS build-for-testing passed. Physical-device verification pending."
+  }
+]

@@ -9,9 +9,20 @@ const resolutions = JSON.parse(fs.readFileSync(input, 'utf8'));
 const base = 'https://api.sowensstudios.com';
 const publish = process.argv.includes('--publish');
 async function collection() {
-  const response = await fetch(`${base}/_unified/qa/tickets/sync?source=stocked-app&limit=1000`, {
-    method: 'POST', headers: {'X-QA-Passcode': 'Joo'}, signal: AbortSignal.timeout(30000),
-  });
+  let response;
+  // The unified bridge can briefly return 503 while its backing worker wakes or
+  // compacts. A ticket publication re-reads the collection before every write,
+  // so a one-shot failure made safe batches unnecessarily fragile. Retry only
+  // transient statuses; authorization/schema errors still fail immediately.
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    response = await fetch(`${base}/_unified/qa/tickets/sync?source=stocked-app&limit=1000`, {
+      method: 'POST', headers: {'X-QA-Passcode': 'Joo'}, signal: AbortSignal.timeout(30000),
+    });
+    if (response.ok || (response.status !== 429 && response.status < 500)) break;
+    if (attempt < 29) {
+      await new Promise(resolve => setTimeout(resolve, Math.min(2_000, 400 * (attempt + 1))));
+    }
+  }
   if (!response.ok) throw new Error(`Ticket sync failed: ${response.status}`);
   const body = await response.json();
   if (!body.ok || !Array.isArray(body.tickets) || body.summary?.total > body.tickets.length) {
@@ -28,8 +39,16 @@ function workerKey() {
 let snapshot = await collection();
 console.log(`Read ${snapshot.tickets.length} cross-device tickets; ${resolutions.length} scoped resolutions.`);
 for (const resolution of resolutions) {
-  if (publish) snapshot = await collection(); // Don't overwrite a newly edited ticket with an old snapshot.
-  const ticket = snapshot.tickets.find(ticket => ticket.number === resolution.number);
+  let ticket = snapshot.tickets.find(ticket => ticket.number === resolution.number);
+  // Exact completed entries are read-only: the fresh batch snapshot is enough to
+  // skip them and avoids repeatedly waking the bridge for historical resolutions.
+  if (ticket?.status === 'fixed' && ticket.resolution === resolution.resolution) {
+    console.log(`${ticket.number}: already updated`); continue;
+  }
+  if (publish) {
+    snapshot = await collection(); // Don't overwrite a newly edited unresolved ticket with an old snapshot.
+    ticket = snapshot.tickets.find(ticket => ticket.number === resolution.number);
+  }
   if (!ticket || ticket.title !== resolution.title) throw new Error(`Target changed: ${resolution.number}`);
   if (!['open', 'investigating', 'fixed'].includes(ticket.status)) throw new Error(`Unexpected status: ${ticket.number}`);
   if (typeof resolution.resolution !== 'string' || !resolution.resolution.includes('Physical-device verification pending')) {

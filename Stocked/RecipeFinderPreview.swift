@@ -50,7 +50,8 @@ struct RecipeFinderPreview: View {
                     Button(action: prepareImport) {
                         Label("Import to STOCKED", systemImage: "square.and.arrow.down")
                             .frame(maxWidth: .infinity, minHeight: 48).padding(8)
-                            .foregroundStyle(Color.stockedWhite).background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 18))
+                            .foregroundStyle(Color.selectedTabForeground(session.isDarkMode))
+                            .background(Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 18))
                     }.buttonStyle(.plain)
                     Text("Review the recipe before saving. Then use it with Inventory, Grocery List, Cook, and My Collection. The original publisher stays credited and linked.")
                         .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)

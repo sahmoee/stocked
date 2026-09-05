@@ -342,11 +342,10 @@ nonisolated enum QAIssueReporterSettings {
 
 @MainActor
 enum QAScreenshot {
-    /// `drawHierarchy(afterScreenUpdates: false)` is the fast path — it renders
-    /// what is already on screen rather than forcing a layout pass, which is both
-    /// quicker and more truthful for a bug report. `afterScreenUpdates: true`
-    /// would give the tester a picture of the app *after* it recovered from the
-    /// thing they are reporting.
+    /// Capture the committed layer tree without UIKit's synchronous hierarchy
+    /// snapshot/GPU readback. The hierarchy path still stalled for 2.2 seconds at
+    /// 1× when a tester reported Inventory. Layer capture preserves ordinary app
+    /// text/artwork and overlays; video/Metal and live blur are not guaranteed.
     ///
     /// Every visible window in the scene is composited, back to front, not just
     /// the key one. Sheets and alerts live in the app's own window so one window
@@ -375,19 +374,17 @@ enum QAScreenshot {
         let annotate = annotateTouches ?? QATouchTrailSettings.annotateShots
         let touches = annotate ? QATouchTrail.shared.annotationPoints() : []
 
-        // Build 84 (STK-77-0003/-0004/-0006) — render at 1×, not the screen's
-        // native 3×. `drawHierarchy` rasterises every visible window, materials
-        // and all, and at 3× on a Pro-sized screen that is a multi-second
-        // main-thread stall: the long press that files a freeze report was
-        // itself the freeze. The stored copy has always been downscaled to
-        // ~900 px (QATicketStore.saveScreenshot), so the extra pixels bought
-        // nothing but the stall. Touch annotation draws in points — unaffected.
+        // Keep evidence at 1× and never force a layout or screen-update flush.
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         let renderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
-        return renderer.image { _ in
+        return renderer.image { context in
             for w in targets {
-                w.drawHierarchy(in: w.bounds, afterScreenUpdates: false)
+                context.cgContext.saveGState()
+                let origin = w.convert(w.bounds.origin, to: first)
+                context.cgContext.translateBy(x: origin.x, y: origin.y)
+                w.layer.render(in: context.cgContext)
+                context.cgContext.restoreGState()
             }
             // Drawn after the composite, so the rings sit over the UI rather
             // than under whichever window happens to be last.

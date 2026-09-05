@@ -10,7 +10,9 @@ import Foundation
     }
     for result in QAFeatureContracts.run() { check(result.passed, result.name) }
     let sections = QAFeatureCoverage.sections
-    check(sections.map(\.number) == Array(37...45), "stable appended section IDs")
+    check(sections.map(\.number) == Array(37...48), "stable appended section IDs")
+    check(sections.first(where: { $0.number == 48 })?.rows.count == 11,
+          "inventory redesign journeys retain all eleven stable definitions")
     let ids = sections.flatMap { section in
       section.rows.indices.map { "QA-\(section.number)-\($0 + 1)" }
     }
@@ -30,6 +32,16 @@ import Foundation
     check(
       !QAFeatureCoverage.isOpenBlocker(blocker: true, verdict: "pass"), "tested pass closes blocker"
     )
+    check(
+      !QAAccessibilityAuditPolicy.shouldAudit(
+        isAccessibilityElement: false, isControl: false, hasButtonOrLinkTrait: false,
+        isUserInteractionEnabled: true, hasTapOrLongPressGesture: true),
+      "interactive implementation container is not a VoiceOver stop")
+    check(
+      QAAccessibilityAuditPolicy.shouldAudit(
+        isAccessibilityElement: true, isControl: true, hasButtonOrLinkTrait: true,
+        isUserInteractionEnabled: true, hasTapOrLongPressGesture: false),
+      "exposed accessibility control is audited")
     check(
       !QAFeatureCoverage.requiresRetest(
         id: "QA-01-01", storedDefinition: nil, currentDefinition: "Original"),
@@ -76,8 +88,9 @@ import Foundation
     var request = FinderRequestState()
     let firstQuery = request.begin()
     check(
-      request.preview(firstQuery, count: 4) && request.count == 4 && request.phase == .loading,
-      "early cards while loading")
+      request.preview(firstQuery, count: 4) && request.count == 4 && request.isWorking
+        && !request.isBlocking,
+      "early cards become usable while enrichment continues")
     check(
       request.complete(firstQuery, count: 6) && request.count == 6, "web additions finish count")
     check(

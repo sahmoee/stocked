@@ -243,7 +243,7 @@ struct RecipeVaultView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { showRecipeSearch = false; recipeSearch = ""; dbResults = [] }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(session.accentColor)
                 }
             }
         }
@@ -291,7 +291,8 @@ struct RecipeVaultView: View {
             }
             Button { openFinder(search: false) } label: {
                 Text("Start finding").font(.stocked(.headline)).frame(maxWidth: .infinity, minHeight: 52)
-                    .foregroundStyle(Color.stockedWhite).background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 16))
+                    .foregroundStyle(Color.selectedTabForeground(session.isDarkMode))
+                    .background(Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 16))
             }.buttonStyle(.plain)
             Button { openFinder(search: true) } label: {
                 Label("Search recipes or ingredients", systemImage: "magnifyingglass")
@@ -307,7 +308,7 @@ struct RecipeVaultView: View {
                 Text("YOUR RECIPE BOOK")
                     .font(.stockedSans(10, weight: .bold, relativeTo: .caption2))
                     .tracking(2.2)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(session.accentColor)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("What are you\nlooking for?")
                     .font(.stockedSerif(31, weight: .bold, relativeTo: .title))
@@ -356,7 +357,7 @@ struct RecipeVaultView: View {
                                           detail: String?, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 4) {
-                Image(image).resizable().scaledToFit()
+                StockedKitchenArtwork(asset: image)
                     .frame(height: dynamicTypeSize.isAccessibilitySize ? 56 : 72)
                     .frame(maxWidth: .infinity)
                 Text(title).font(.stockedSans(13, weight: .bold, relativeTo: .footnote)).foregroundStyle(session.themeTextColor)
@@ -364,15 +365,21 @@ struct RecipeVaultView: View {
                 Text(subtitle).font(.stockedSans(10.5, relativeTo: .caption2)).foregroundStyle(session.themeSecondaryText).lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack {
-                    if let detail { Text(detail).font(.stockedSans(10, weight: .semibold, relativeTo: .caption2)).foregroundStyle(Color.stockedGold).fixedSize(horizontal: false, vertical: true) }
+                    if let detail { Text(detail).font(.stockedSans(10, weight: .semibold, relativeTo: .caption2)).foregroundStyle(session.accentColor).fixedSize(horizontal: false, vertical: true) }
                     Spacer()
                     Image(systemName: "chevron.right").font(.stockedSans(11, weight: .bold, relativeTo: .caption2))
                         .foregroundStyle(session.themeTextColor)
                         .frame(minWidth: 25, minHeight: 25).padding(4)
-                        .background(Color.stockedGold.opacity(0.12)).clipShape(Circle())
+                        .background(session.accentColor.opacity(0.12)).clipShape(Circle())
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 0 : 154, alignment: .topLeading)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: RecipeCardStyle.destinationHeight(
+                    isAccessibilitySize: dynamicTypeSize.isAccessibilitySize),
+                maxHeight: .infinity,
+                alignment: .topLeading
+            )
             .padding(10)
             .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
@@ -407,10 +414,10 @@ struct RecipeVaultView: View {
 
     private var referenceAIIcon: some View {
         ZStack {
-            Circle().stroke(Color.stockedGold, lineWidth: 1)
+            Circle().stroke(session.accentColor, lineWidth: 1)
             Image(systemName: "sparkles")
                 .font(.stockedSans(16, weight: .semibold, relativeTo: .body))
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(session.accentColor)
         }
         .frame(width: 38, height: 38)
         .accessibilityHidden(true)
@@ -435,7 +442,7 @@ struct RecipeVaultView: View {
             .foregroundStyle(Color.stockedCharcoal)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .background(Color.stockedGold)
+            .background(session.accentColor)
             .clipShape(Capsule())
             .fixedSize(horizontal: true, vertical: true)
     }
@@ -851,17 +858,12 @@ struct RecipeVaultView: View {
             // Clamped: a user who saved tab 3 (the removed For You tab) as their preferred
             // start must not land on an index that no longer exists.
             selectedTab = min(session.preferredRecipeTab, tabNames.count - 1)
-            onlineLoader.loadIfNeeded(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })  // #248
-            beginDiscoverVisit()
             consumePendingImportIfNeeded()
             recomputeHubStats()
         }
-        // The lower discovery rails are replaced by Find a Recipe. Do not classify
-        // their unused snapshots on every shared-loader revision.
-        .onReceive(NotificationCenter.default.publisher(for: .stockedTabDidBecomeActive)) { note in
-            guard note.object as? StockedTab == .recipes else { return }
-            beginDiscoverVisit()
-        }
+        // The visible Recipes root is now the destination grid + Find a Recipe.
+        // Do not hydrate and classify the retired Discover rails behind `if false`
+        // when the tab appears; their actual destination owns loading on demand.
         // #3 — recompute prepared hub stats only when their real inputs change (cheap
         // Int signature avoids comparing recipe image blobs every render).
         .onChange(of: hubStatsSignature) { _, _ in recomputeHubStats() }
@@ -1501,7 +1503,7 @@ struct RecipeVaultView: View {
     private var discoverSkeleton: some View {
         VStack(alignment: .leading, spacing: 14) {
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                .fill(Color.stockedWhite.opacity(0.35))
+                .fill(session.themeCardColor)
                 .frame(height: 190)
                 .padding(.horizontal, 24)
             ForEach(0..<2, id: \.self) { _ in
@@ -1509,7 +1511,7 @@ struct RecipeVaultView: View {
                     HStack(spacing: 10) {
                         ForEach(0..<4, id: \.self) { _ in
                             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
-                                .fill(Color.stockedWhite.opacity(0.35))
+                                .fill(session.themeCardColor)
                                 .frame(width: 134, height: 128)
                         }
                     }
@@ -2230,7 +2232,7 @@ private struct PastMealRow: View {
     var body: some View {
         HStack(spacing: 0) {
             ZStack {
-                Rectangle().fill(Color.stockedWhite.opacity(0.6)).frame(width: 80, height: 72)
+                Rectangle().fill(session.themeCardColor).frame(width: 80, height: 72)
                 Image(systemName: "fork.knife").scaledFont(20)
                     .foregroundStyle(session.themeTextColor.opacity(0.25))
             }

@@ -644,7 +644,7 @@ struct CreateRecipeView: View {
             .padding(.top, 20)
             .padding(.bottom, 16)
         VStack(spacing: 0) { content() }
-            .background(Color.stockedWhite.opacity(0.35))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 20)
     }
@@ -657,7 +657,7 @@ struct CreateRecipeView: View {
         return VStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                    .fill(Color.stockedWhite.opacity(0.25))
+                    .fill(session.themeCardColor)
                 if imageData != nil || !imageURL.isEmpty || !title.isEmpty {
                     RecipeHeroImage(
                         imageData: imageData,

@@ -65,9 +65,7 @@ struct CookHubIllustratedButton: View {
     }
 
     private var illustration: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFit()
+        StockedKitchenArtwork(asset: assetName)
             .accessibilityHidden(true)
     }
 
@@ -418,10 +416,8 @@ struct CookIllustratedRow: View {
     // scaledToFit inside a fixed frame never overflows, so the art cannot extend the row's
     // layout or hit-test bounds the way a scaledToFill photo can.
     @ViewBuilder private var art: some View {
-        if let photo = cookAssetImage(assetName) {
-            photo
-                .resizable()
-                .scaledToFit()
+        if let assetName, !assetName.isEmpty {
+            StockedKitchenArtwork(asset: assetName)
                 .frame(width: artSize, height: artSize)
                 .opacity(dimmed ? 0.55 : 1.0)
         } else {

@@ -1,277 +1,177 @@
-// InventoryDetailsSheet.swift
-// "View details" on the Inventory Status card now opens this sheet instead of
-// firing a drawer quick-action that had no listener on that screen. Shows the
-// full stock picture: per-zone breakdown, low items, and expiring items — all
-// live from the store.
-
+// Live inventory health. The sheet shares the Inventory editorial canvas and data owners.
 import SwiftUI
 
 struct InventoryDetailsSheet: View {
-    @Environment(AppSession.self) var session
-    @Environment(\.dismiss) var dismiss
-
+    @Environment(AppSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedItem: LocalInventoryItem?
+    @State private var expandedSections: Set<String> = []
+    private var ledger: ReservationLedger { .shared }
     private var items: [LocalInventoryItem] { session.guestStore.inventoryItems }
-    // RL-003 — derived reservations (Total / Reserved / Available per item).
-    private var ledger: ReservationLedger { ReservationLedger.shared }
-
-    private func zoneStats(_ zones: [String]) -> (count: Int, pct: Int) {
-        let zi = items.filter { zones.contains($0.zone) }
-        guard !zi.isEmpty else { return (0, 0) }
-        let avg = zi.map(\.effectiveLevel).reduce(0, +) / Double(zi.count)
-        return (zi.count, Int((avg * 100).rounded()))
-    }
-
     private var lowItems: [LocalInventoryItem] {
         items.filter { KitchenAvailability.isRunningLow($0) }
-             .sorted { $0.effectiveLevel < $1.effectiveLevel }
+            .sorted { $0.effectiveLevel < $1.effectiveLevel }
     }
-    private var emptyItems: [LocalInventoryItem] {
-        items.filter { $0.effectiveLevel <= 0 }
-    }
-    private var expiring: [LocalInventoryItem] {
-        session.guestStore.expiringSoonItems
-    }
+    private var emptyItems: [LocalInventoryItem] { items.filter { $0.effectiveLevel <= 0 } }
+    private var refreshID: String { "\(session.guestStore.inventoryRevision)-\(session.guestStore.planRevision)" }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                session.themeBgColor.ignoresSafeArea()
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Inventory Details")
-                                .scaledFont(22, weight: .bold, design: .serif)
-                                .foregroundStyle(session.themeTextColor)
-                            Text("\(session.guestStore.stockPercent)% stocked across \(items.count) item\(items.count == 1 ? "" : "s")")
-                                .scaledFont(13)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
-                        }
-                        .padding(.top, 18)
-
-                        // ── Zone breakdown ────────────────────────────
-                        VStack(spacing: 10) {
-                            zoneRow("Fridge",  icon: "refrigerator.fill", tint: Color.stockedGreen, zones: ["Fridge"])
-                            zoneRow("Freezer", icon: "snowflake",          tint: Color.stockedInfo,  zones: ["Freezer"])
-                            zoneRow("Pantry",  icon: "cabinet.fill",       tint: Color.stockedGoldDark, zones: ["Pantry", "Staples"])
-                        }
-
-                        // ── Reserved for planned meals (RL-003) ──────
-                        reservationSection
-
-                        // ── Running low ───────────────────────────────
-                        detailSection("Running Low", icon: "arrow.down.circle.fill",
-                                      tint: Color.stockedGold,
-                                      items: lowItems,
-                                      emptyText: "Nothing is running low.")
-
-                        // ── Out of stock ──────────────────────────────
-                        detailSection("Out of Stock", icon: "xmark.circle.fill",
-                                      tint: Color.stockedError,
-                                      items: emptyItems,
-                                      emptyText: "Nothing is fully out.")
-
-                        // ── Expiring soon ─────────────────────────────
-                        detailSection("Expiring Soon", icon: "clock.badge.exclamationmark",
-                                      tint: Color.orange,
-                                      items: Array(expiring.prefix(10)),
-                                      emptyText: "Nothing expiring in the next few days.")
-
-                        Spacer(minLength: 30)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    InventoryEditorialHeading(title: "Inventory details",
+                        subtitle: "\(session.guestStore.stockPercent)% stocked across \(items.count) item\(items.count == 1 ? "" : "s").",
+                        artwork: 1)
+                    VStack(spacing: 10) {
+                        zoneRow("Fridge", icon: "refrigerator", zones: ["Fridge"])
+                        zoneRow("Freezer", icon: "snowflake", zones: ["Freezer"])
+                        zoneRow("Pantry & Staples", icon: "cabinet", zones: ["Pantry", "Staples"])
                     }
-                    .padding(.horizontal, 22)
+                    reservationSection
+                    detailSection("Running Low", icon: "arrow.down.circle", items: lowItems,
+                                  emptyText: "Nothing is running low.")
+                    detailSection("Out of Stock", icon: "xmark.circle", items: emptyItems,
+                                  emptyText: "Nothing is fully out.")
+                    detailSection("Expiring Soon", icon: "clock.badge.exclamationmark",
+                                  items: session.guestStore.expiringSoonItems,
+                                  emptyText: "Nothing expiring in the next few days.", expiry: true)
                 }
+                .padding(.horizontal, 20).padding(.bottom, 28)
             }
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .scaledFont(15, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
-                }
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
             }
+            .background(session.inventoryCanvas.ignoresSafeArea())
         }
-        .presentationDetents([.large, .medium])
-        // RL-006 — reservations re-derive whenever the plan or inventory moves.
-        .task { ledger.refreshIfNeeded(store: session.guestStore) }
-        .onChange(of: session.guestStore.inventoryRevision) { _, _ in ledger.refreshIfNeeded(store: session.guestStore) }
-        .onChange(of: session.guestStore.planRevision)      { _, _ in ledger.refreshIfNeeded(store: session.guestStore) }
+        .stockedPresentationSurface(width: .form, canvasColor: session.inventoryCanvas)
+        .presentationDetents([.medium, .large])
+        .task(id: refreshID) { await ledger.refreshForPresentation(store: session.guestStore) }
+        .sheet(item: $selectedItem) { item in
+            NavigationStack { EditItemSheet(item: item).environment(session) }
+        }
     }
 
-    // MARK: - Reserved for planned meals (RL-003)
-
-    private func claimDayLabel(_ claim: ReservationClaim) -> String {
-        if claim.dayIndex == 0 { return "Today" }
-        if claim.dayIndex == 1 { return "Tomorrow" }
-        let f = DateFormatter(); f.dateFormat = "EEE"
-        return f.string(from: claim.date)
+    private func zoneRow(_ name: String, icon: String, zones: [String]) -> some View {
+        let zoneItems = items.filter { zones.contains($0.zone) }
+        let average = zoneItems.isEmpty ? 0 : zoneItems.reduce(0.0) { $0 + $1.effectiveLevel } / Double(zoneItems.count)
+        return HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.stocked(.title2)).foregroundStyle(session.inventoryGold)
+                .frame(width: 38).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name).font(.stockedSerif(18, weight: .semibold, relativeTo: .headline))
+                Text("\(zoneItems.count) item\(zoneItems.count == 1 ? "" : "s")")
+                    .font(.stocked(.caption)).foregroundStyle(session.themeSecondaryText)
+            }.fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            Text(zoneItems.isEmpty ? "—" : "\(Int((average * 100).rounded()))%")
+                .font(.stockedSerif(20, weight: .bold, relativeTo: .title3))
+                .monospacedDigit().foregroundStyle(session.inventoryGold)
+        }
+        .modifier(InventoryEditorialCard())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name), \(zoneItems.count) items")
+        .accessibilityValue(zoneItems.isEmpty ? "No stock recorded" : "Average fill \(Int((average * 100).rounded())) percent")
     }
 
-    @ViewBuilder
+    private func sectionHeading(_ title: String, icon: String, count: Int) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).foregroundStyle(session.inventoryGold).accessibilityHidden(true)
+            Text(title).font(.stockedSerif(19, weight: .semibold, relativeTo: .headline))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Text(count.formatted()).font(.stocked(.subheadline).bold())
+                .monospacedDigit().foregroundStyle(session.inventoryGold)
+        }
+        .accessibilityAddTraits(.isHeader)
+    }
+
     private var reservationSection: some View {
         let breakdowns = ledger.snapshot.breakdowns
-        let conflictCount = ledger.snapshot.conflicts.count
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                Image(systemName: "calendar.badge.clock").scaledFont(13).foregroundStyle(Color.stockedGold)
-                Text("Reserved for Planned Meals")
-                    .scaledFont(16, weight: .bold, design: .serif)
-                    .foregroundStyle(session.themeTextColor)
-                Spacer()
-                if !breakdowns.isEmpty {
-                    Text("\(breakdowns.count)")
-                        .scaledFont(12, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
-                }
-            }
+        let showAll = expandedSections.contains("reservations")
+        return VStack(alignment: .leading, spacing: 12) {
+            sectionHeading("Reserved for planned meals", icon: "calendar.badge.clock", count: breakdowns.count)
             if breakdowns.isEmpty {
                 Text("Nothing is reserved — every item is fully available.")
-                    .scaledFont(12.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .font(.stocked(.subheadline)).foregroundStyle(session.themeSecondaryText)
             } else {
-                if conflictCount > 0 {
-                    Text("\(conflictCount) planned meal\(conflictCount == 1 ? " is" : "s are") short — see the planner for fixes.")
-                        .scaledFont(11.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedError.opacity(0.85))
+                if !ledger.snapshot.conflicts.isEmpty {
+                    Label("\(ledger.snapshot.conflicts.count) planned meals have a shortage. Review them in the planner.",
+                          systemImage: "exclamationmark.triangle")
+                        .font(.stocked(.subheadline)).foregroundStyle(session.inventoryGold)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                VStack(spacing: 0) {
-                    ForEach(Array(breakdowns.prefix(10).enumerated()), id: \.element.id) { idx, b in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 10) {
-                                FoodIconView(name: b.itemName, size: 26, emojiSize: 16)
-                                Text(b.itemName.displayNormalized)
-                                    .scaledFont(13.5, weight: .semibold)
-                                    .foregroundStyle(session.themeTextColor)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 6)
-                                // Total / Reserved / Available in the item's own units;
-                                // Available is floored at zero — a deficit shows as a
-                                // shortage state, never a misleading negative.
-                                if b.quantified {
-                                    Text("\(b.totalDisplay) · \(b.reservedDisplay) held · \(b.availableDisplay) free")
-                                        .scaledFont(10.5, weight: .semibold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
-                                        .fixedSize(horizontal: false, vertical: true).fixedSize()
-                                } else {
-                                    Text("Reserved for \(b.claims.count) meal\(b.claims.count == 1 ? "" : "s")")
-                                        .scaledFont(10.5, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGold)
-                                        .fixedSize(horizontal: false, vertical: true).fixedSize()
-                                }
+                ForEach(breakdowns.prefix(showAll ? breakdowns.count : 10)) { breakdown in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(breakdown.itemName.displayNormalized)
+                            .font(.stockedSerif(17, weight: .semibold, relativeTo: .headline))
+                        Text(breakdown.quantified
+                            ? "\(breakdown.totalDisplay) total · \(breakdown.reservedDisplay) held · \(breakdown.availableDisplay) available"
+                            : "Reserved for \(breakdown.claims.count) meals")
+                            .font(.stocked(.caption)).foregroundStyle(session.themeSecondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        // No hidden four-claim cap or non-actionable '+ more' label.
+                        ForEach(breakdown.claims) { claim in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Label(claim.mealTitle.displayNormalized, systemImage: claim.prepared ? "checkmark.circle" : "calendar")
+                                Text("\(claim.date.formatted(date: .abbreviated, time: .omitted)) · \(claim.amountDisplay)")
+                                    .foregroundStyle(session.themeSecondaryText)
                             }
-                            // Every reservation labeled with its meal, day, and amount.
-                            ForEach(b.claims.prefix(4)) { claim in
-                                HStack(spacing: 6) {
-                                    Image(systemName: claim.prepared ? "checkmark.circle" : "calendar")
-                                        .scaledFont(9.5)
-                                        .foregroundStyle(claim.prepared ? Color.stockedGreen : Color.stockedGold.opacity(0.8))
-                                    Text("\(claim.mealTitle.displayNormalized) · \(claimDayLabel(claim))")
-                                        .scaledFont(11)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Spacer(minLength: 4)
-                                    Text(claim.amountDisplay)
-                                        .scaledFont(10.5, weight: .semibold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.45))
-                                        .fixedSize()
-                                }
-                                .padding(.leading, 36)
-                            }
-                            if b.claims.count > 4 {
-                                Text("+ \(b.claims.count - 4) more")
-                                    .scaledFont(10.5)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
-                                    .padding(.leading, 36)
-                            }
+                            .font(.stocked(.caption)).fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(.horizontal, 12).padding(.vertical, 9)
-                        if idx < min(breakdowns.count, 10) - 1 {
-                            Divider().overlay(session.themeTextColor.opacity(0.08)).padding(.leading, 46)
-                        }
-                    }
+                    }.modifier(InventoryEditorialCard())
                 }
-                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                expandButton(key: "reservations", count: breakdowns.count)
             }
         }
     }
 
-    private func zoneRow(_ name: String, icon: String, tint: Color, zones: [String]) -> some View {
-        let stats = zoneStats(zones)
-        return HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(tint.opacity(0.14)).frame(width: 38, height: 38)
-                Image(systemName: icon).scaledFont(15).foregroundStyle(tint)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .scaledFont(14.5, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor)
-                Text("\(stats.count) item\(stats.count == 1 ? "" : "s")")
-                    .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
-            }
-            Spacer()
-            Text(stats.count == 0 ? "—" : "\(stats.pct)%")
-                .scaledFont(16, weight: .bold)
-                .foregroundStyle(session.themeTextColor)
-        }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-    }
-
-    @ViewBuilder
-    private func detailSection(_ title: String, icon: String, tint: Color,
-                               items: [LocalInventoryItem], emptyText: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                Image(systemName: icon).scaledFont(13).foregroundStyle(tint)
-                Text(title)
-                    .scaledFont(16, weight: .bold, design: .serif)
-                    .foregroundStyle(session.themeTextColor)
-                Spacer()
-                if !items.isEmpty {
-                    Text("\(items.count)")
-                        .scaledFont(12, weight: .bold)
-                        .foregroundStyle(tint)
-                }
-            }
+    private func detailSection(_ title: String, icon: String, items: [LocalInventoryItem],
+                               emptyText: String, expiry: Bool = false) -> some View {
+        let showAll = expandedSections.contains(title)
+        return VStack(alignment: .leading, spacing: 12) {
+            sectionHeading(title, icon: icon, count: items.count)
             if items.isEmpty {
-                Text(emptyText)
-                    .scaledFont(12.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                Text(emptyText).font(.stocked(.subheadline)).foregroundStyle(session.themeSecondaryText)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
-                        HStack(spacing: 10) {
-                            FoodIconView(name: item.name, size: 26, emojiSize: 16)
-                            Text(item.name.displayNormalized)
-                                .scaledFont(13.5)
-                                .foregroundStyle(session.themeTextColor)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 6)
-                            if let d = item.daysUntilExpiry, title == "Expiring Soon" {
-                                Text(d < 0 ? "Expired" : d == 0 ? "Today" : d == 1 ? "Tomorrow" : "\(d) days")
-                                    .scaledFont(11.5, weight: .semibold)
-                                    .foregroundStyle(d <= 1 ? Color.red.opacity(0.8) : Color.orange)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .fixedSize()
-                            } else {
-                                Text("\(Int((item.effectiveLevel * 100).rounded()))%")
-                                    .scaledFont(11.5, weight: .semibold)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .fixedSize()
-                            }
-                        }
-                        .padding(.horizontal, 12).padding(.vertical, 9)
-                        if idx < items.count - 1 {
-                            Divider().overlay(session.themeTextColor.opacity(0.08)).padding(.leading, 46)
-                        }
+                ForEach(items.prefix(showAll ? items.count : 10)) { item in
+                    Button { selectedItem = item } label: {
+                        HStack(spacing: 12) {
+                            FoodIconView(name: item.name, size: 34, emojiSize: 22).accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(item.name.displayNormalized)
+                                    .font(.stockedSerif(17, weight: .semibold, relativeTo: .headline))
+                                Text(item.zone + " · " + status(item, expiry: expiry))
+                                    .font(.stocked(.caption)).foregroundStyle(session.themeSecondaryText)
+                            }.fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right").foregroundStyle(session.inventoryGold)
+                                .accessibilityHidden(true)
+                        }.modifier(InventoryEditorialCard())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Review and update this inventory item")
                 }
-                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                expandButton(key: title, count: items.count)
             }
         }
+    }
+
+    @ViewBuilder private func expandButton(key: String, count: Int) -> some View {
+        if count > 10 {
+            Button(expandedSections.contains(key) ? "Show fewer" : "Show all \(count)") {
+                if !expandedSections.insert(key).inserted { expandedSections.remove(key) }
+            }
+            .font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
+            .foregroundStyle(session.inventoryGold).frame(minHeight: 44)
+        }
+    }
+
+    private func status(_ item: LocalInventoryItem, expiry: Bool) -> String {
+        if expiry, let days = item.daysUntilExpiry {
+            return days < 0 ? "Past date" : days == 0 ? "Due today" : days == 1 ? "Due tomorrow" : "\(days) days left"
+        }
+        return "\(Int((item.effectiveLevel * 100).rounded()))% remaining"
     }
 }

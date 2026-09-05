@@ -5,7 +5,11 @@ import SwiftUI
   var hits: [FinderHit] = []
   private var requestState = FinderRequestState()
   var count: Int { requestState.count }
-  var loading: Bool { requestState.phase == .loading }
+  /// Blocking initial load. Once a preview has real matches, the result screen is
+  /// ready even if optional sources are still being checked in the background.
+  var loading: Bool { requestState.isBlocking }
+  var enriching: Bool { requestState.isWorking && !requestState.isBlocking }
+  private var working: Bool { requestState.isWorking }
   var error: Bool { requestState.phase == .failed }
   var catalogueUnavailable = false
   var alternatives: [FinderAlternative] = []
@@ -27,8 +31,8 @@ import SwiftUI
     }
     let key =
       "\(ConnectivityMonitor.isOnlineFlag)|\(store.recipeRevision)|\(store.inventoryRevision)|\(store.pastMealsRevision)|\(RecipeDatabaseManager.shared.recipesVersion)|\(RecipeDatabaseManager.shared.catalogueRevision)|\(limit)|\(store.cookingProfile.allergens.sorted())"
-    if !force, !loading, !error, completedKey == key, completedFilters == flow.filters { return }
-    if !force, loading, requestedKey == key, requestedFilters == flow.filters { return }
+    if !force, !working, !error, completedKey == key, completedFilters == flow.filters { return }
+    if !force, working, requestedKey == key, requestedFilters == flow.filters { return }
     request?.cancel()
     if requestedFilters != flow.filters {
       hits = []
@@ -139,7 +143,7 @@ import SwiftUI
   func cancel() {
     request?.cancel()
     request = nil
-    if loading { requestState.cancel() }
+    if working { requestState.cancel() }
   }
   private var completedFilters: FinderFilters?
 }
@@ -280,8 +284,8 @@ struct RecipeFinderView: View {
     Button(action: action) {
       Text(text).font(.stocked(.headline)).multilineTextAlignment(.center)
         .frame(maxWidth: .infinity, minHeight: 48).padding(8)
-        .foregroundStyle(Color.stockedWhite).background(
-          Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 18))
+        .foregroundStyle(Color.selectedTabForeground(session.isDarkMode)).background(
+          Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 18))
     }.buttonStyle(.plain)
   }
   private func quiz(_ index: Int) -> some View {
@@ -344,12 +348,12 @@ struct RecipeFinderView: View {
               Text(choice.label).font(.stocked(.body).weight(.semibold)).fixedSize(
                 horizontal: false, vertical: true)
               if selected {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGoldDark)
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(session.accentColor)
               }
             }
           }
           .frame(maxWidth: .infinity, minHeight: category == .meal ? 100 : 48).padding(12)
-          .foregroundStyle(selected ? Color.stockedWhite : session.themeTextColor)
+          .foregroundStyle(selected ? Color.selectedTabForeground(session.isDarkMode) : session.themeTextColor)
           .background(
             selected ? Color.stockedCharcoal : surface, in: RoundedRectangle(cornerRadius: 18)
           )
@@ -525,7 +529,7 @@ struct RecipeFinderView: View {
             }.buttonStyle(.plain)
           }
         }
-        if !model.loading && model.hits.count < model.count {
+        if !model.enriching && model.hits.count < model.count {
           primary("Load more recipes") {
             model.limit += 60
             model.refresh(store: session.guestStore)
@@ -588,6 +592,8 @@ struct RecipeFinderView: View {
           model.hits.isEmpty
             ? "Looking for matching recipes…"
             : "Finding more recipes… You can open these matches now.")
+      } else if model.enriching {
+        Text("Matches are ready. Checking optional recipe sources in the background.")
       }
       if model.webUnavailable {
         Text(

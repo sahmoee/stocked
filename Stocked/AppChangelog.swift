@@ -4364,7 +4364,7 @@ struct AppVersionView: View {
                         }
                     }
                 }
-                .background(Color.stockedWhite.opacity(0.2))
+                .background(session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)

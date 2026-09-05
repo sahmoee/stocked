@@ -315,7 +315,7 @@ extension MealPlannerView {
                 summaryBadge(value: "\(planConflicts.count)", label: "Conflicts")
             }
             .padding(16)
-            .background(Color.stockedWhite.opacity(0.28)).clipShape(RoundedRectangle(cornerRadius: 14))
+            .background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
             .padding(.horizontal, 20)
 
             if !missingIngredients.isEmpty {

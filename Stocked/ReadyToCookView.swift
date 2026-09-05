@@ -233,6 +233,7 @@ private struct ReadyToCoookContent: View {
 // This list deliberately avoids mixing food photography with ingredient emoji fallbacks.
 // Every recipe receives the same neutral symbol so the visual hierarchy stays cohesive.
 private struct ReadyToCookThumb: View {
+    @Environment(AppSession.self) private var session
     let isReady: Bool
 
     var body: some View {
@@ -253,7 +254,7 @@ private struct ReadyToCookThumb: View {
                 Image(systemName: "checkmark.circle.fill")
                     .scaledFont(16)
                     .foregroundStyle(Color.stockedGreen)
-                    .background(Circle().fill(Color.stockedWhite).frame(width: 16, height: 16))
+                    .background(Circle().fill(session.themeCardColor).frame(width: 16, height: 16))
                     .padding(3)
             }
         }

@@ -50,6 +50,18 @@ private nonisolated struct CachedImageTaskID: Hashable, Sendable {
 }
 
 // MARK: - ImageCache
+nonisolated enum ArtworkPreparationResult: @unchecked Sendable {
+    case ready(UIImage)
+    case unavailable
+    case cancelled
+
+    /// A still-visible view can retry evicted work once, but a missing asset is permanent.
+    func shouldRetry(completedRetries: Int) -> Bool {
+        guard case .cancelled = self else { return false }
+        return completedRetries == 0
+    }
+}
+
 final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private init() {
@@ -116,6 +128,7 @@ final class ImageCache: @unchecked Sendable {
     private var prefetchTasks: [String: PrefetchRequest] = [:]
     private var scheduledPrefetchTasks: [String: ScheduledPrefetch] = [:]
     private var inFlightRequests: [String: InFlightImageRequest] = [:]
+    private var artworkPreparations: [String: (id: UUID, task: Task<ArtworkPreparationResult, Never>)] = [:]
 
     private func withStateLock<T>(_ body: () -> T) -> T {
         stateLock.lock()
@@ -165,6 +178,46 @@ final class ImageCache: @unchecked Sendable {
 
     func localImage(for signature: ImageDataSignature, maxDimension: CGFloat) -> UIImage? {
         localDataCache.object(forKey: localDataKey(for: signature, maxDimension: maxDimension))
+    }
+
+    /// Bundled illustration variants share the existing bounded, memory-pressure-aware cache.
+    func artwork(named name: String) -> UIImage? {
+        localDataCache.object(forKey: "artwork-v1-\(name)" as NSString)
+    }
+
+    func prepareArtwork(named name: String) async -> UIImage? {
+        if case .ready(let image) = await prepareArtworkResult(named: name) { return image }
+        return nil
+    }
+
+    func prepareArtworkResult(named name: String) async -> ArtworkPreparationResult {
+        guard !Task.isCancelled else { return .cancelled }
+        if let hit = artwork(named: name) { return .ready(hit) }
+        if let pending = artworkPreparations[name] {
+            let result = await pending.task.value
+            return Task.isCancelled ? .cancelled : result
+        }
+        let id = UUID()
+        let worker = Task.detached(priority: .utility) { () -> ArtworkPreparationResult in
+            guard !Task.isCancelled else { return .cancelled }
+            guard let original = UIImage(named: name) else { return .unavailable }
+            // Never decode a full atlas or a multi-megapixel PNG in a SwiftUI body.
+            guard let image = original.preparingThumbnail(of: CGSize(width: 720, height: 720)) else {
+                return Task.isCancelled ? .cancelled : .unavailable
+            }
+            guard !Task.isCancelled else { return .cancelled }
+            return .ready(image)
+        }
+        artworkPreparations[name] = (id, worker)
+        let result = await worker.value
+        // Memory-pressure eviction invalidates the request; it does not mean the asset is missing.
+        guard artworkPreparations[name]?.id == id else { return .cancelled }
+        artworkPreparations[name] = nil
+        if case .ready(let image) = result {
+            localDataCache.setObject(image, forKey: "artwork-v1-\(name)" as NSString,
+                                     cost: Self.memoryCost(of: image))
+        }
+        return Task.isCancelled ? .cancelled : result
     }
 
     func storeLocal(_ image: UIImage, for signature: ImageDataSignature, maxDimension: CGFloat) {
@@ -608,6 +661,8 @@ final class ImageCache: @unchecked Sendable {
     /// request here would turn an already-visible card back into a placeholder.
     /// The disk cache remains cheap to reload and survives pressure.
     func evictMemory() {
+        artworkPreparations.values.forEach { $0.task.cancel() }
+        artworkPreparations.removeAll()
         let tasks = withStateLock { () -> [Task<Void, Never>] in
             let t = prefetchTasks.values.map(\.task) + scheduledPrefetchTasks.values.map(\.task)
             prefetchTasks.removeAll()
@@ -620,6 +675,8 @@ final class ImageCache: @unchecked Sendable {
     }
 
     func clearAll() {
+        artworkPreparations.values.forEach { $0.task.cancel() }
+        artworkPreparations.removeAll()
         let tasks = withStateLock { () -> [Task<Void, Never>] in
             let tasks = prefetchTasks.values.map(\.task) + scheduledPrefetchTasks.values.map(\.task)
             prefetchTasks.removeAll()

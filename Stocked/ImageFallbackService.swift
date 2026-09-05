@@ -79,6 +79,7 @@ private struct AsyncFoodImageTaskID: Hashable {
 /// Drop-in image view with automatic fallback chain.
 /// Usage: AsyncFoodImage(name: "Chicken Breast", url: item.imageURL, size: 60)
 struct AsyncFoodImage: View {
+    @Environment(AppSession.self) private var session
     @Environment(\.stockedScrollActivity) private var scrollActivity
     @State private var connectivity = ConnectivityMonitor.shared
     let name:    String
@@ -121,14 +122,14 @@ struct AsyncFoodImage: View {
             } else if failed && showEmojiFallback {
                 ZStack {
                     RoundedRectangle(cornerRadius: radius)
-                        .fill(Color.stockedWhite.opacity(0.3))
+                        .fill(session.themeCardColor)
                     FoodIconView(name: name, category: category, size: size * 0.9, emojiSize: size * 0.55)
                 }
                 .frame(width: size, height: size)
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: radius)
-                        .fill(Color.stockedWhite.opacity(0.2))
+                        .fill(session.themeCardColor.opacity(0.72))
                     if !failed && scrollActivity.mayLoadVisibleImages {
                         ProgressView().scaleEffect(0.6)
                     }

@@ -523,8 +523,8 @@ struct RecipeBrowserView: View {
         if importing { cancelImport() } else { startImport() }
       }
       .font(.stocked(.headline)).frame(maxWidth: .infinity, minHeight: 48).padding(.vertical, 4)
-      .foregroundStyle(Color.stockedWhite).background(
-        Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 16)
+      .foregroundStyle(Color.selectedTabForeground(session.isDarkMode)).background(
+        Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 16)
       )
       .disabled(!importing && browser.page.importURL == nil)
       .accessibilityHint("Opens an editable recipe review. Nothing is saved automatically.")

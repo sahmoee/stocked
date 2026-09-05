@@ -283,7 +283,7 @@ struct GroceryStoreFinderView: View {
                     }
                 }
             }
-            .padding(11).background(Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .padding(11).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 24).padding(.bottom, 10)
 
             // Use location button
@@ -395,7 +395,7 @@ struct GroceryStoreFinderView: View {
                 .buttonStyle(.plain)
             }
         }
-        .background(Color.stockedWhite.opacity(0.25))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal, 20).padding(.bottom, 12)
     }

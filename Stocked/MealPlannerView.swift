@@ -164,7 +164,7 @@ struct MealPlannerView: View {
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
                         }
                         .frame(width: 52, height: 44)
-                        .background(Color.stockedWhite.opacity(0.35))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     }.buttonStyle(.plain)
                 }

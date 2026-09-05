@@ -18,8 +18,10 @@ struct CategoryRow: View {
     var assetName: String? = nil
 
     var body: some View {
-        if let name = assetName, let ui = UIImage(named: name) {
-            photoRow(Image(uiImage: ui))
+        if let name = assetName {
+            CookIllustratedRow(title: label, assetName: name, fallbackIcon: icon,
+                               tone: .soft, artSize: 88)
+                .padding(.horizontal, 20)
         } else {
             plainRow
         }
@@ -86,7 +88,7 @@ struct FoodsCategoryView: View {
     @Environment(AppSession.self) var session
     let servings: Int
     var body: some View {
-        StockedShell(showBack: true, scrollDisabled: true) {
+        StockedShell(showBack: true) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Foods")
                     .scaledFont(40, weight: .bold, design: .serif)
@@ -94,7 +96,7 @@ struct FoodsCategoryView: View {
                     .padding(.horizontal, 28).padding(.bottom, 4)
                 Text("Build your meal around")
                     .scaledFont(17, weight: .bold, design: .serif)
-                    .foregroundStyle(Color.stockedWhite)
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 28).padding(.bottom, 20)
 
                 // Rows spread evenly to fill the screen
@@ -736,7 +738,7 @@ struct MoodRecipeFinderView: View {
                         .scaledFont(12, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(Color.stockedWhite.opacity(0.45))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                 }
             }

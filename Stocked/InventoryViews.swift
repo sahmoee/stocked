@@ -145,7 +145,7 @@ struct LiveInventoryItemCard: View {
             }
         }
         .padding(16)
-        .background(Color.stockedWhite.opacity(0.25))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedRadius.md))
         .contextMenu {
             Button {
@@ -247,7 +247,7 @@ struct ReceiptRow: View {
             }
         }
         .padding(14)
-        .background(Color.stockedWhite.opacity(0.3))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedRadius.md))
         .padding(.horizontal, 4)
     }
@@ -298,7 +298,7 @@ struct StashView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding(18)
-                            .background(Color.stockedWhite.opacity(0.3))
+                            .background(session.themeCardColor)
                             .clipShape(RoundedRectangle(cornerRadius: StockedRadius.lg))
                         }
                         .buttonStyle(.plain)
@@ -328,7 +328,7 @@ struct StashView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .foregroundStyle(session.themeTextColor)
-                                .background(Color.stockedWhite.opacity(0.4))
+                                .background(session.themeCardColor)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedRadius.md))
                         }
                         Button { moveModal = nil } label: {

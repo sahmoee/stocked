@@ -155,7 +155,7 @@ struct InventorySpatialView: View {
             }
             .padding(.horizontal, 16).padding(.bottom, 16)
         }
-        .background(Color.stockedWhite.opacity(isEmpty ? 0.2 : 0.35))
+        .background(session.themeCardColor.opacity(isEmpty ? 0.72 : 1))
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
         .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
     }

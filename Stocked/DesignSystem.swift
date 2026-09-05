@@ -100,10 +100,11 @@ struct StockedPresentationSurface: ViewModifier {
     @Environment(AppSession.self) private var session
     @Environment(\.stockedLayout) private var layoutMetrics
     let width: StockedPresentationWidth
+    var canvasColor: Color? = nil
 
     func body(content: Content) -> some View {
         ZStack {
-            session.themeBgColor.ignoresSafeArea()
+            (canvasColor ?? session.themeBgColor).ignoresSafeArea()
             content
                 .stockedAdaptiveInterface()
                 .stockedSizeAwareScrollBounce([.vertical, .horizontal])
@@ -112,15 +113,53 @@ struct StockedPresentationSurface: ViewModifier {
                        alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(session.themeBgColor)
-        .presentationBackground(session.themeBgColor)
+        .background(canvasColor ?? session.themeBgColor)
+        .presentationBackground(canvasColor ?? session.themeBgColor)
         .stockedThemeEnvironment()
     }
 }
 
 extension View {
-    func stockedPresentationSurface(width: StockedPresentationWidth = .form) -> some View {
-        modifier(StockedPresentationSurface(width: width))
+    func stockedPresentationSurface(width: StockedPresentationWidth = .form, canvasColor: Color? = nil) -> some View {
+        modifier(StockedPresentationSurface(width: width, canvasColor: canvasColor))
+    }
+}
+
+/// Storage controls share the same parchment/gold treatment in add and edit sheets.
+/// Available width controls the column count; Dynamic Type grows each choice vertically.
+struct InventoryStoragePicker: View {
+    @Environment(AppSession.self) private var session
+    @Binding var selection: String
+    var choices: [String] = ["Fridge", "Freezer", "Pantry", "Staples"]
+    var onSelection: (() -> Void)? = nil
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
+            ForEach(choices, id: \.self) { choice in
+                let selected = selection == choice
+                Button {
+                    selection = choice
+                    onSelection?()
+                    HapticManager.select()
+                } label: {
+                    Text(choice)
+                        .font(.stockedSerif(15, weight: selected ? .bold : .medium, relativeTo: .body))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(selected
+                            ? (session.isDarkMode ? Color.stockedCharcoal : .stockedWhite)
+                            : session.themeTextColor)
+                        .padding(.horizontal, 10).padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(selected ? session.inventoryGold : session.themeCardColor,
+                                    in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12)
+                            .stroke(session.inventoryGold.opacity(selected ? 0.5 : 0.25), lineWidth: 0.7))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Store in \(choice)")
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+            }
+        }
     }
 }
 
@@ -359,12 +398,13 @@ struct HapticManager {
 
 // MARK: - Skeleton loading (UI #1)
 struct SkeletonView: View {
+    @Environment(AppSession.self) private var session
     @Environment(\.stockedMotion) private var motion
     @State private var phase: CGFloat = 0
     var body: some View {
         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
             .fill(LinearGradient(
-                colors: [Color.stockedCharcoal.opacity(0.06), Color.stockedCharcoal.opacity(0.13), Color.stockedCharcoal.opacity(0.06)],
+                colors: [session.themeTextColor.opacity(0.06), session.themeTextColor.opacity(0.13), session.themeTextColor.opacity(0.06)],
                 startPoint: .init(x: phase - 1, y: 0), endPoint: .init(x: phase, y: 0)))
             .onAppear {
                 guard motion.permitsContinuousMotion else { return }
@@ -373,6 +413,7 @@ struct SkeletonView: View {
     }
 }
 struct SkeletonRow: View {
+    @Environment(AppSession.self) private var session
     var body: some View {
         HStack(spacing: 14) {
             SkeletonView().frame(width: 52, height: 52).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -380,7 +421,7 @@ struct SkeletonRow: View {
                 SkeletonView().frame(maxWidth: .infinity).frame(height: 14)
                 SkeletonView().frame(width: 140).frame(height: 10)
             }
-        }.padding(14).background(Color.stockedWhite.opacity(0.28)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        }.padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }
 struct SkeletonListView: View {

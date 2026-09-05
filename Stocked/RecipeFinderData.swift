@@ -274,6 +274,7 @@ enum FinderService {
     var seen = Set<String>()
     var matched = Set<String>()
     var lastPreview = Date.distantPast
+    var lastPreviewCount = 0
     var alternatives = FinderQuery.alternatives(for: filters)
     let rules = DietaryGuard.Rules(allergens: allergens, dislikes: [])
     let historyByTitle = Dictionary(grouping: history, by: { FinderQuery.normalize($0.title) })
@@ -309,9 +310,17 @@ enum FinderService {
     }
     func publish() async throws {
       try Task.checkCancellation()
-      guard let onProgress, count > 0, Date().timeIntervalSince(lastPreview) >= 0.2 else { return }
+      guard let onProgress, count > 0 else { return }
+      // Publishing a new 60-card array five times a second made SwiftUI repeatedly
+      // diff/layout an image grid while the detached corpus walk was still running.
+      // Publish the first useful result immediately, then only meaningful, paced
+      // progress. The final response remains generation-gated by the caller.
+      let elapsed = Date().timeIntervalSince(lastPreview)
+      let meaningfulGrowth = count - lastPreviewCount >= max(30, limit)
+      guard lastPreviewCount == 0 || (meaningfulGrowth && elapsed >= 1.25) else { return }
       trim()
       lastPreview = Date()
+      lastPreviewCount = count
       await onProgress(
         FinderResponse(
           hits: hits, count: count, catalogueUnavailable: false, matchedIdentities: matched))

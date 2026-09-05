@@ -303,7 +303,9 @@ final class HouseholdSync {
         default: backoffIsServerImposed = false
         }
         syncStatus.backoffIsServerImposed = backoffIsServerImposed
-        nextRetryAllowedAt = Date().addingTimeInterval(max(exponential, serverDelay) * jitter)
+        nextRetryAllowedAt = Date().addingTimeInterval(NetworkRetryPolicy.queueDelay(
+            exponential: exponential, serverMinimum: serverDelay,
+            serverImposed: backoffIsServerImposed, jitter: jitter))
         syncStatus.nextRetryAllowedAt = nextRetryAllowedAt
         syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
@@ -730,7 +732,7 @@ final class HouseholdSync {
             // This prevents failure/partial receipts from self-spawning an unbounded retry loop.
             let shouldContinue = syncRequestedWhileInFlight
             syncRequestedWhileInFlight = false
-            if shouldContinue {
+            if shouldContinue && !Task.isCancelled {
                 let remainingDelay = max(0, nextRetryAllowedAt.timeIntervalSinceNow)
                 deferredSyncTask?.cancel()
                 deferredSyncTask = Task { @MainActor [weak self, weak store] in
@@ -1082,6 +1084,7 @@ final class HouseholdSync {
 
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
         lastPostFailure = nil
+        guard !Task.isCancelled else { lastPostFailure = .cancelled; return nil }
         guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else {
             lastPostFailure = .notConfigured("Household sync")
             return nil
@@ -1103,12 +1106,19 @@ final class HouseholdSync {
         defer { isRepairingHouseholdStorage = false }
         for attempt in 0...repairDelays.count {
           do {
+            try Task.checkCancellation()
             let (data, response) = try await URLSession.shared.data(for: request)
+            try Task.checkCancellation()
             guard let http = response as? HTTPURLResponse else {
                 lastPostFailure = .malformedResponse("Household sync returned no HTTP response.")
                 return nil
             }
-            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let responseBox = await Task.detached(priority: .utility) { () -> HouseholdJSONBox? in
+                guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+                return HouseholdJSONBox(value: object)
+            }.value
+            try Task.checkCancellation()
+            let object = responseBox?.value
             guard (200...299).contains(http.statusCode) else {
                 let detail = object?["error"] as? String
                 let code = object?["code"] as? String
@@ -1116,20 +1126,23 @@ final class HouseholdSync {
                     if attempt < repairDelays.count {
                         isRepairingHouseholdStorage = true
                         lastError = "Repairing household storage…"
-                        try? await Task.sleep(for: repairDelays[attempt])
-                        guard !Task.isCancelled else { lastPostFailure = .cancelled; return nil }
+                        try await Task.sleep(for: repairDelays[attempt])
                         continue
                     }
                     lastPostFailure = .transport(detail ?? "Household storage repair couldn't finish. Sync will retry automatically.")
                 } else if code == "kvQuota" {
                     lastPostFailure = .quotaExhausted(detail ?? "Household sync storage is temporarily unavailable.")
                 } else if http.statusCode == 429 {
-                    let retry = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+                    let retry = NetworkRetryPolicy.retryAfterSeconds(http.value(forHTTPHeaderField: "Retry-After"))
                     lastPostFailure = .rateLimited(retryAfter: retry)
                 } else {
                     lastPostFailure = .httpStatus(http.statusCode, detail)
                 }
                 Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
+                return nil
+            }
+            guard let object else {
+                lastPostFailure = .malformedResponse("Household sync returned an unreadable response. Local changes remain queued.")
                 return nil
             }
             lastError = nil
@@ -1138,7 +1151,8 @@ final class HouseholdSync {
             lastPostFailure = .cancelled
             return nil
         } catch {
-            lastPostFailure = .transport(error.localizedDescription)
+            lastPostFailure = Task.isCancelled || (error as? URLError)?.code == .cancelled
+                ? .cancelled : .transport(error.localizedDescription)
             return nil
           }
         }

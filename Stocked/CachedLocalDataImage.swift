@@ -4,6 +4,74 @@
 import SwiftUI
 import UIKit
 
+/// Only decorative navigation art is mapped here; publisher/product photos never enter this path.
+nonisolated enum KitchenArtworkCatalog {
+    static let inventoryActions = ["inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference"]
+    static func approvedAsset(for name: String) -> String {
+        switch name {
+        case "cook_now_hero", "recipes_ready": return "home_widget_cooking"
+        case "cook_later_hero", "recipes_past": return "home_widget_planning"
+        case "recipes_collection": return "recipes_hero"
+        case "protein": return "kitchen_protein_reference"
+        case "vegetables": return "inventory_category_produce"
+        case "expiring_soon": return inventoryActions[0]
+        case "leftovers": return "kitchen_leftovers_reference"
+        default: return name
+        }
+    }
+}
+
+/// One aspect-preserving cutout renderer for Home and Inventory. Only memory hits
+/// are read during layout; bundle loading and display preparation happen off-main.
+struct StockedKitchenArtwork: View {
+    let asset: String
+    @Environment(\.stockedScrollActivity) private var scrollActivity
+    @State private var image: UIImage?
+    @State private var loadedAsset: String?
+    @State private var failedAsset: String?
+    private var resolvedAsset: String { KitchenArtworkCatalog.approvedAsset(for: asset) }
+
+    var body: some View {
+        Group {
+            if let rendered = (loadedAsset == resolvedAsset ? image : nil) ?? ImageCache.shared.artwork(named: resolvedAsset) {
+                Image(uiImage: rendered).renderingMode(.original).resizable().interpolation(.high).scaledToFit()
+            } else if failedAsset == resolvedAsset {
+                Image(systemName: "leaf.circle")
+                    .font(.stocked(.largeTitle)).foregroundStyle(.secondary)
+            } else {
+                Color.clear
+            }
+        }
+        .task(id: "\(resolvedAsset):\(scrollActivity.mayLoadVisibleImages)") {
+            guard scrollActivity.mayLoadVisibleImages else { return }
+            var completedRetries = 0
+            while !Task.isCancelled {
+                let result = await ImageCache.shared.prepareArtworkResult(named: resolvedAsset)
+                guard !Task.isCancelled else { return }
+                switch result {
+                case .ready(let prepared):
+                    image = prepared
+                    loadedAsset = resolvedAsset
+                    failedAsset = nil
+                    return
+                case .unavailable:
+                    image = nil
+                    loadedAsset = nil
+                    failedAsset = resolvedAsset
+                    return
+                case .cancelled:
+                    // Eviction is transient. Never turn it into a permanent missing-art leaf.
+                    guard result.shouldRetry(completedRetries: completedRetries) else { return }
+                    completedRetries += 1
+                    do { try await Task.sleep(for: .milliseconds(120)) }
+                    catch { return }
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 enum StockedLocalImageClip: Equatable, Sendable {
     case none
     case circle

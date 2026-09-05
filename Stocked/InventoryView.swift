@@ -53,9 +53,13 @@ enum InventorySheet: Identifiable {
 }
 
 struct InventoryView: View {
+    init(initialZone: String = "Fridge") {
+        _selectedZone = State(initialValue: initialZone)
+    }
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) private var device
     @Environment(\.stockedMotion) private var motion
+    @FocusState private var inventorySearchFocused: Bool
     @State private var selectedZone   = "Fridge"
     @State private var expandedSubs:   Set<String> = []
     @State private var preEditExpanded: Set<String> = []   // restore on exiting edit mode
@@ -150,11 +154,21 @@ struct InventoryView: View {
     var body: some View {
         StockedShell(showBack: true, scrollDisabled: true,
                      trailingIcon: "magnifyingglass", trailingLabel: "Search",
-                     onTrailing: { withAnimation(.easeInOut(duration: 0.2)) { showSearchField.toggle() } },
+                     onTrailing: {
+                         motion.animate(.selection, intent: .spatial) {
+                             showSearchField.toggle()
+                             if !showSearchField { invSearch = "" }
+                         }
+                         inventorySearchFocused = showSearchField
+                     },
                      trailingIcon2: "line.3.horizontal.decrease", trailingLabel2: "Sort",
-                     onTrailing2: { showSortDialog = true }) {
+                     onTrailing2: { showSortDialog = true }, canvasColor: session.inventoryCanvas) {
             HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
+
+                InventoryEditorialHeading(title: selectedZone == "All" ? "Your inventory" : selectedZone,
+                    subtitle: "Browse, organize, and keep good food in reach.", artwork: 1)
+                    .padding(.horizontal, 24)
 
                 // ── Combined expiry + drag-to-plan strip ─────────────
                 WeeklyPlanStrip(
@@ -192,7 +206,8 @@ struct InventoryView: View {
                         }
                     }
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(session.inventoryGold)
+                    .frame(minWidth: 44, minHeight: 44)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 4)
 
@@ -200,51 +215,33 @@ struct InventoryView: View {
                 batchActionBar
 
                 // Scanner buttons row
-                HStack(spacing: 10) {
-                    Button { activeSheet = .barcode } label: {
-                        Label("Scan Barcode", systemImage: "barcode.viewfinder")
-                            .scaledFont(12, weight: .semibold)
-                            .foregroundStyle(Color.stockedWhite)
-                            .frame(maxWidth: .infinity).padding(.vertical, 11)
-                            .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
-                    }.buttonStyle(.plain)
-                    .a11yButton("Scan barcode", hint: "Add an item by scanning its barcode")
-                    Button { activeSheet = .receipt } label: {
-                        Label("Scan Receipt", systemImage: "doc.text.viewfinder")
-                            .scaledFont(12, weight: .semibold)
-                            .foregroundStyle(Color.stockedWhite)
-                            .frame(maxWidth: .infinity).padding(.vertical, 11)
-                            .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
-                    }.buttonStyle(.plain)
-                    .a11yButton("Scan receipt", hint: "Add multiple items by scanning a grocery receipt")
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) { scannerActions }.fixedSize(horizontal: true, vertical: false)
+                    VStack(spacing: 10) { scannerActions }
                 }
                 .padding(.horizontal, 24).padding(.bottom, 16)
 
-                // Zone tabs — tighter spacing in portrait so all five pills fit comfortably.
-                // #22 — each chip is a mini heatmap: colored dot = average fill of that zone
-                // (green/gold/red), small number = item count. Gaps are visible at a glance.
-                // #241 — exact mockup zone chips: boxy rounded cards, icon + label only.
-                // (Heatmap dots/counts and the "All" chip removed for mockup fidelity —
-                // counts live in the header below; All remains reachable via search.)
+                // Zone tabs remain scrollable so long localized labels retain their size.
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(zones.filter { $0 != "All" }, id: \.self) { z in
+                        ForEach(zones, id: \.self) { z in
                             let isSel = selectedZone == z
-                            Button { withAnimation { selectedZone = z } } label: {
-                                HStack(spacing: 7) {
-                                    Image(systemName: zoneIcon(z))
-                                        .scaledFont(13, weight: .semibold)
-                                        .foregroundStyle(isSel ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.55))
-                                    Text(z)
-                                        .scaledFont(14, weight: .semibold)
-                                        .foregroundStyle(isSel ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.6))
-                                }
-                                .padding(.horizontal, 14).padding(.vertical, 11)
-                                .background(isSel ? Color.stockedWhite.opacity(0.95) : Color.stockedWhite.opacity(0.35))
-                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm + 2))
-                                .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm + 2)
-                                    .stroke(isSel ? Color.stockedCharcoal.opacity(0.25) : .clear, lineWidth: 1.2))
-                            }.buttonStyle(.plain)
+                            Button { motion.animate(.selection, intent: .spatial) { selectedZone = z } } label: {
+                                Label(z, systemImage: zoneIcon(z))
+                                    .font(.stockedSerif(14, weight: .semibold, relativeTo: .subheadline))
+                                    .foregroundStyle(isSel
+                                        ? (session.isDarkMode ? Color.stockedCharcoal : .stockedWhite)
+                                        : session.themeTextColor)
+                                    .padding(.horizontal, 14)
+                                    .frame(minHeight: 44)
+                                    .background(isSel ? session.inventoryGold : session.themeCardColor,
+                                                in: RoundedRectangle(cornerRadius: 12))
+                                    .overlay(RoundedRectangle(cornerRadius: 12)
+                                        .stroke(session.inventoryGold.opacity(isSel ? 0.5 : 0.22), lineWidth: 0.7))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(isSel ? [.isSelected] : [])
+                            .accessibilityLabel("\(z) inventory")
                         }
                     }
                     .stockedScrollTargetLayout().padding(.horizontal, 24)
@@ -277,7 +274,7 @@ struct InventoryView: View {
                         }
                         .foregroundStyle(session.themeTextColor.opacity(0.75))
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(Color.stockedWhite.opacity(0.35))
+                        .background(session.themeCardColor)
                         .clipShape(Capsule())
                     }
                 }
@@ -342,7 +339,7 @@ struct InventoryView: View {
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .add:
-                AddItemSheet(defaultZone: selectedZone).environment(session)
+                AddItemSheet(defaultZone: selectedZone == "All" ? "Fridge" : selectedZone).environment(session)
             case .barcode:
                 BarcodeScannerView { _, _ in }.environment(session)
             case .receipt:
@@ -540,23 +537,45 @@ struct InventoryView: View {
         }
     }
 
-    // #245 — mockup keeps the chrome clean; search appears on demand.
+    @ViewBuilder private var scannerActions: some View {
+        scannerAction("Scan Barcode", icon: "barcode.viewfinder", sheet: .barcode)
+        scannerAction("Scan Receipt", icon: "doc.text.viewfinder", sheet: .receipt)
+    }
+
+    private func scannerAction(_ title: String, icon: String, sheet: InventorySheet) -> some View {
+        Button { activeSheet = sheet } label: {
+            Label(title, systemImage: icon)
+                .font(.stockedSerif(14, weight: .semibold, relativeTo: .subheadline))
+                .fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(Color.stockedWhite)
+                .padding(.horizontal, 12).padding(.vertical, 10)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(session.themeButtonColor, in: RoundedRectangle(cornerRadius: 14))
+        }.buttonStyle(.plain)
+    }
+
+    // Search is visible whenever it filters the list; closing it clears the query.
     @ViewBuilder private var inlineSearchField: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
-                .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.5))
-            TextField("", text: $invSearch, prompt: Text("Search items").foregroundColor(Color.stockedWhite.opacity(0.4)))
-                .scaledFont(13).foregroundStyle(Color.stockedWhite)
+                .scaledFont(15).foregroundStyle(session.inventoryGold)
+            TextField("Search items", text: $invSearch)
+                .scaledFont(15).foregroundStyle(session.themeTextColor)
                 .autocorrectionDisabled()
+                .focused($inventorySearchFocused)
+                .submitLabel(.search)
+                .onSubmit { inventorySearchFocused = false }
             if !invSearch.isEmpty {
                 Button { invSearch = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.4))
-                }.buttonStyle(.plain)
+                        .scaledFont(16).foregroundStyle(session.themeSecondaryText)
+                        .frame(width: 44, height: 44)
+                }.buttonStyle(.plain).accessibilityLabel("Clear inventory search")
             }
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(session.themeButtonColor.opacity(0.6)).clipShape(Capsule())
+        .padding(.horizontal, 14).frame(minHeight: 48)
+        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(session.inventoryGold.opacity(0.3), lineWidth: 0.7))
         .padding(.horizontal, 24).padding(.bottom, 12)
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
@@ -619,7 +638,19 @@ struct InventoryView: View {
             VStack(alignment: .leading, spacing: 0) {
                     // #A5 receipt-first onboarding: an empty pantry's hero action is the
                     // one-photo bulk populate (receipt scan), with manual add secondary.
-                    if session.guestStore.inventoryItems.isEmpty {
+                    if !invSearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        StockedEmptyState(
+                            icon: "🔎", title: "No matching items",
+                            subtitle: "Nothing in \(selectedZone) matches “\(invSearch)”. Clear your search to browse this area.",
+                            ctaLabel: "Clear Search", onCTA: { invSearch = "" }
+                        )
+                        if selectedZone != "All" {
+                            Button("Search all inventory") { selectedZone = "All" }
+                                .font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
+                                .foregroundStyle(session.inventoryGold)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                    } else if session.guestStore.inventoryItems.isEmpty {
                         VStack(spacing: 14) {
                             StockedEmptyState(
                                 icon: "🧺",
@@ -1166,7 +1197,7 @@ struct InventoryItemRow: View {
                 ) {
                     ZStack {
                         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
-                            .fill(Color.stockedWhite.opacity(0.55))
+                            .fill(session.themeCardColor)
                             .frame(width: 42, height: 42)
                         Text(ImageFallbackService.emoji(for: item.name))
                             .scaledFont(22)
@@ -1175,7 +1206,7 @@ struct InventoryItemRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(item.name.displayNormalized)
-                        .scaledFont(15.5, weight: .semibold)
+                        .font(.stockedSerif(18, weight: .semibold, relativeTo: .headline))
 
                         .foregroundStyle(session.themeTextColor)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1229,14 +1260,14 @@ struct InventoryItemRow: View {
                 }
                 Image(systemName: "chevron.right")
                     .scaledFont(12, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.inventoryGold)
             }
             .padding(.horizontal, 14).padding(.vertical, 13)
             .background(item.isExpired ? Color.red.opacity(0.08)
-                        : (session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.50)))
+                        : (session.isDarkMode ? session.themeCardColor : session.inventoryCanvas.opacity(0.5)))
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
-                .stroke(item.isExpired ? Color.red.opacity(0.3) : Color.clear, lineWidth: 1))
+                .stroke(item.isExpired ? Color.red.opacity(0.3) : session.inventoryGold.opacity(0.25), lineWidth: 0.7))
         }
         .buttonStyle(.plain)
         .contextMenu {

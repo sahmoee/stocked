@@ -25,11 +25,27 @@ The following protections are the implementation checklist for every future feat
 18. Disk-cache pruning is gated, modification-date driven, size bounded, and never enumerated from a SwiftUI body.
 19. Household JSON serialization and payload trimming run at utility priority away from the main actor.
 20. QA persistence is disk backed, hitch summaries are maintained incrementally, display-link sampling is capped, and memory alerts are band/rate limited.
+    Home/Inventory bundled cutouts use StockedKitchenArtwork: layout only reads prepared memory
+    hits; utility tasks load and prepare aspect-preserving thumbnails capped at 720 pixels in
+    ImageCache's existing bounded local-image cache. No full-atlas decode or multiply compositing.
+    Simultaneous decorative asset requests coalesce into one preparation task; eviction cancels
+    pending preparation, and missing-asset presentation must distinguish eviction from a missing file.
+    Keep KitchenArtworkCatalog aliases semantic and stable across Home, Inventory, Cook and Recipes.
+    Inventory navigation uses ReservationLedger.refreshForPresentation with immutable utility
+    inputs and cancellation/revision guards; authoritative mutation checks retain the synchronous API.
+    QA gesture captures use the 1x committed layer tree, never drawHierarchy GPU readback; video,
+    Metal and live blur fidelity remain a disclosed capture limitation, not an empty-state assertion.
 21. Cook Now async classification snapshots live state once and runs substitution lookup and classification
     off the main actor, checking cancellation between recipes and rejecting stale results before caching.
     Grocery equivalents use an immutable canonical-key index and pre-normalized brand names.
 22. RecipeDatabase batch ingestion trims once per batch and removes only evicted rows from search indexes;
     manual recipes remain protected even when their count exceeds the automatic-cache budget.
+23. GET retry loops honor cancellation/offline state and server Retry-After minimums without retrying
+    permanent transport errors. Household response decoding stays off-main; invalid 2xx responses
+    cannot acknowledge pending local work. Worker JSON limits count streaming UTF-8 bytes, scheduled
+    brief reads page by 100 with concurrency four, and queue acknowledgement follows persistence.
+24. Inventory editors assemble one change from a draft baseline and the current item, preserving
+    untouched concurrent fields and skipping no-op writes rather than syncing each edited property.
 
 Find a Recipe scans keyset pages on a cancellable utility task, never eagerly materializes the full
 corpus in view state, and reuses completed results by recipe/inventory/history/database revision.

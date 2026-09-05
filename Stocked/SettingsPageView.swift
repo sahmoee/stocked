@@ -94,7 +94,7 @@ struct SettingsPageView: View {
                             .scaledFont(11).foregroundStyle(.secondary)
                     }
                     .padding(14)
-                    .background(Color.stockedWhite.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
                     BuildInfoFooter()
                         .padding(.top, 10)

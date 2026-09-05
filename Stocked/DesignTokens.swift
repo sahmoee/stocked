@@ -9,7 +9,17 @@ nonisolated enum RecipeCardStyle {
     static let titleSize: CGFloat = 15
     static let metadataSize: CGFloat = 12
     static let padding: CGFloat = 12
-    static func surface(isDark: Bool) -> Color { isDark ? Color.appSurface(true) : .stockedWhite }
+    /// Recipe tiles are ordinary app cards, not a separate white design system.
+    /// Keeping this routed through the semantic surface token makes every finder,
+    /// browser, saved-recipe, and preview card change together in light/dark mode.
+    static func surface(isDark: Bool) -> Color { Color.appSurface(isDark) }
+
+    /// The three Recipes destinations form one visual row at standard text sizes.
+    /// A shared minimum height prevents optional count copy from making My Collection
+    /// look selected or oversized. Content may grow beyond this floor at every text size.
+    static func destinationHeight(isAccessibilitySize: Bool) -> CGFloat? {
+        isAccessibilitySize ? nil : 164
+    }
 }
 
 // MARK: - Brand Colors
@@ -54,6 +64,7 @@ nonisolated extension Color {
     static let secondaryLight = Color(red: 0.302, green: 0.282, blue: 0.247) // #4D483F
     static let secondaryDark  = Color(red: 0.741, green: 0.722, blue: 0.690) // #BDB8B0
     static func appSecondary(_ dark: Bool) -> Color { dark ? secondaryDark : secondaryLight }
+    static func appAccent(_ dark: Bool) -> Color { dark ? stockedGoldDark : stockedGold }
     static func appSubtext(_ dark: Bool) -> Color { dark ? darkLabel.opacity(0.55) : stockedBlack.opacity(0.55) }
     static func appButton(_ dark: Bool)  -> Color { dark ? Color(white: 0.22) : stockedCharcoal }
     // Elevated surfaces deliberately move in the opposite direction from their page:

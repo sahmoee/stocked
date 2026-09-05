@@ -701,7 +701,7 @@ struct ExpiringItemsView: View {
                                             }
                                             .frame(width: 130, alignment: .leading)
                                             .padding(12)
-                                            .background(Color.stockedWhite.opacity(0.3))
+                                            .background(session.themeCardColor)
                                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                         }
                                         .buttonStyle(.plain)
@@ -882,7 +882,7 @@ struct ExpiringItemsView: View {
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 12)
-        .background(Color.stockedWhite.opacity(0.25))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .padding(.horizontal, 16).padding(.bottom, 6)
     }

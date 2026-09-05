@@ -75,7 +75,7 @@ struct MealPrepView: View {
                             .background(active ? Color.stockedGold : Color.clear)
                     }
                 }
-                .background(Color.stockedWhite.opacity(0.3))
+                .background(session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24).padding(.bottom, 20)
 
                 // Step content
@@ -410,7 +410,7 @@ struct MealPrepView: View {
             Text(label).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.45))
         }
         .frame(maxWidth: .infinity).padding(.vertical, 10)
-        .background(Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }
 

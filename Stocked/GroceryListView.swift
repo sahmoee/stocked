@@ -56,6 +56,7 @@ enum GrocerySheet: Identifiable {
 struct GroceryListView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedMotion) private var motion
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var newItem      = ""
     @State private var searchText   = ""
     // One accordion may be open at a time. Starting nil keeps the grocery list compact
@@ -390,7 +391,345 @@ struct GroceryListView: View {
         HapticManager.success()
     }
 
-    var body: some View {
+    var body: some View { editorialPresentation }
+
+    private var editorialPresentation: some View {
+        StockedShell {
+            VStack(alignment: .leading, spacing: 24) {
+                groceryHero
+                shoppingTripCard
+                    .coachmarkAnchor("grocery.segments")
+                forThisWeekSection
+                editorialListSection
+                if let suggestion = editorialSuggestion {
+                    editorialSuggestionCard(name: suggestion.name, reason: suggestion.reason)
+                }
+            }
+            .stockedSnapTargetLayout()
+            .frame(maxWidth: layoutMetrics.readableContentWidth)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, layoutMetrics.horizontalPadding)
+            .padding(.bottom, 110)
+        }
+        .sheet(item: $grocerySheet) { sheet in
+            switch sheet {
+            case .storePicker: quickStorePickerSheet
+            case .share: ShareSheet(items: [shareText])
+            case .scanList:
+                HandwrittenListScanner { lines in
+                    var count = 0
+                    for line in lines {
+                        let name = line.trimmingCharacters(in: .whitespaces)
+                        guard name.count >= 2,
+                              !store.groceryItems.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })
+                        else { continue }
+                        store.groceryItems.append(LocalGroceryItem(name: name, isChecked: false))
+                        count += 1
+                    }
+                    loopMessage = "Added \(count) item\(count == 1 ? "" : "s") from your list"
+                    grocerySheet = nil
+                }
+                .environment(session)
+            case .cookLater(let context):
+                NavigationStack { CookLaterWorkspaceView(context: context).environment(session) }
+            case .purchaseReview(let context):
+                PurchaseDedupReviewView(
+                    context: context,
+                    onCommit: { resolutions in
+                        grocerySheet = nil
+                        commitPantryTransfer(candidates: context.candidates, resolutions: resolutions)
+                    },
+                    onCancel: { grocerySheet = nil }
+                )
+                .environment(session)
+            }
+        }
+        .onAppear { rebuildSections() }
+        .task {
+            let sync = HouseholdSync.shared
+            if sync.state == .owner || sync.state == .member {
+                householdMemberNames = await sync.fetchMembers().map(\.name).filter { !$0.isEmpty }
+            }
+        }
+        .onChange(of: store.groceryRevision) { _, _ in rebuildSections() }
+        .onChange(of: searchText) { _, _ in rebuildSections() }
+        .onChange(of: showBought) { _, _ in rebuildSections() }
+        .onChange(of: showMineOnly) { _, _ in rebuildSections() }
+        .onChange(of: sortAZ) { _, _ in rebuildSections() }
+        .onChange(of: groupByStore) { _, _ in rebuildSections() }
+        .onChange(of: selectedStore) { _, _ in rebuildSections() }
+        .onChange(of: selectedAisle) { _, _ in rebuildSections() }
+        .confirmationDialog("Organize Grocery", isPresented: $showMoreDialog, titleVisibility: .visible) {
+            Button("Add Item") { showQuickAdd = true }
+            Button(showBought ? "Show To Buy" : "Show Bought") { showBought.toggle() }
+            if store.groceryItems.contains(where: { !$0.assignedTo.isEmpty }) {
+                Button(showMineOnly ? "Show Everyone’s Items" : "Show My Items") { showMineOnly.toggle() }
+            }
+            Button(sortAZ ? "Sort by Aisle" : "Sort by Name") { sortAZ.toggle() }
+            Button(groupByStore ? "Group by Aisle" : "Group by Store") { groupByStore.toggle() }
+            Button("Shopping at \(session.preferredStore) — Change Store") { grocerySheet = .storePicker }
+            Button("Share List") { prepareShare() }
+            Button("Scan a List") { grocerySheet = .scanList }
+            if store.groceryItems.contains(where: { $0.isChecked }) {
+                Button("Move Bought Items to Inventory") {
+                    beginPantryTransfer(store.groceryItems.filter(\.isChecked))
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Add Item", isPresented: $showQuickAdd) {
+            TextField("Item name", text: $quickAddName)
+            Button("Add") {
+                let name = quickAddName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    store.addGroceryItem(name: name)
+                    HapticManager.success()
+                }
+                quickAddName = ""
+            }
+            Button("Cancel", role: .cancel) { quickAddName = "" }
+        } message: {
+            Text("Add something to your grocery list.")
+        }
+        .coachmarks(page: .grocery, steps: GroceryCoachmarks.steps)
+    }
+
+    private var groceryHero: some View {
+        HStack(alignment: .center, spacing: 4) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("\(toBuyCount) things for\nyour next trip.")
+                    .font(.stockedSerif(36, weight: .bold, relativeTo: .largeTitle))
+                    .foregroundStyle(text)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Organized for a quicker shop at \(session.preferredStore).")
+                    .font(.stocked(.body))
+                    .foregroundStyle(sub)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 0)
+            Image("home_grocery_bag")
+                .resizable()
+                .scaledToFit()
+                .frame(width: layoutMetrics.contentWidth >= 700 ? 260 : 165,
+                       height: layoutMetrics.contentWidth >= 700 ? 260 : 210,
+                       alignment: .bottomTrailing)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var toBuyCount: Int { store.groceryItems.filter { !$0.isChecked }.count }
+    private var boughtCount: Int { store.groceryItems.count - toBuyCount }
+    private var estimatedTripMinutes: Int { max(8, min(60, toBuyCount * 2)) }
+
+    private var shoppingTripCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { shoppingTripIdentity; Spacer(); shoppingTripFacts }
+                VStack(alignment: .leading, spacing: 10) { shoppingTripIdentity; shoppingTripFacts }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("\(boughtCount) of \(store.groceryItems.count) in cart")
+                    .font(.stocked(.subheadline))
+                    .foregroundStyle(text)
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(session.themeTextColor.opacity(0.10))
+                        Capsule().fill(Color.stockedGreen)
+                            .frame(width: proxy.size.width * shoppingProgress)
+                    }
+                }
+                .frame(height: 7)
+            }
+            Button {
+                showBought = false
+                selectedStore = "All Stores"
+                groupByStore = false
+                sortForShopping()
+                expandedSection = sections.first?.title
+                loopMessage = "Your list is arranged in shopping order"
+            } label: {
+                Text("Start Shopping")
+                    .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                    .foregroundStyle(Color.selectedTabForeground(dark))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.stockedCharcoal,
+                                in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .background(session.themeCardColor,
+                    in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(text.opacity(0.07), lineWidth: 1)
+        }
+    }
+
+    private var shoppingTripIdentity: some View {
+        Text(session.preferredStore)
+            .font(.stockedSerif(24, weight: .bold, relativeTo: .title2))
+            .foregroundStyle(Color.stockedGreen)
+    }
+
+    private var shoppingTripFacts: some View {
+        HStack(spacing: 18) {
+            Label("\(toBuyCount) items", systemImage: "bag")
+            Label("About \(estimatedTripMinutes) min", systemImage: "clock")
+        }
+        .font(.stocked(.subheadline))
+        .foregroundStyle(text)
+    }
+
+    private var shoppingProgress: CGFloat {
+        guard !store.groceryItems.isEmpty else { return 0 }
+        return CGFloat(boughtCount) / CGFloat(store.groceryItems.count)
+    }
+
+    private var forThisWeekSection: some View {
+        let meals = Array(store.plannedMeals.filter { !$0.isCooked }.prefix(6))
+        return VStack(alignment: .leading, spacing: 12) {
+            editorialSectionTitle("For This Week")
+            if meals.isEmpty {
+                HStack(spacing: 12) {
+                    StockedKitchenArtwork(asset: "home_widget_planning").frame(width: 92, height: 72)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Plan a meal")
+                            .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                        Text("Recipe ingredients will stay grouped here.")
+                            .font(.stocked(.subheadline)).foregroundStyle(sub)
+                    }
+                }
+                .padding(14)
+                .background(session.themeCardColor,
+                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 12) {
+                        ForEach(meals) { meal in
+                            Button {
+                                grocerySheet = .cookLater(.grocery(name: meal.title, recipeSource: meal.title))
+                            } label: {
+                                HStack(spacing: 10) {
+                                    StockedKitchenArtwork(asset: "home_widget_planning")
+                                        .frame(width: 104, height: 92)
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(meal.title)
+                                            .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                                            .foregroundStyle(text).fixedSize(horizontal: false, vertical: true)
+                                        Text("· \(meal.ingredients.count) items")
+                                            .font(.stocked(.caption).weight(.semibold))
+                                            .foregroundStyle(Color.stockedGreen)
+                                    }
+                                }
+                                .padding(12)
+                                .frame(width: 286, alignment: .leading)
+                                .background(session.themeCardColor,
+                                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .stockedScrollTargetLayout()
+                }
+                .stockedHorizontalSnap()
+            }
+        }
+    }
+
+    private var editorialListSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                editorialSectionTitle(showBought ? "Bought" : "Your List")
+                Spacer()
+                Button("Organize") { showMoreDialog = true }
+                    .font(.stocked(.subheadline).weight(.semibold))
+                    .foregroundStyle(session.accentColor)
+            }
+            if !loopMessage.isEmpty {
+                Text(loopMessage).font(.stocked(.caption)).foregroundStyle(session.accentColor)
+            }
+            if sections.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: showBought ? "checkmark.circle" : "cart.badge.plus")
+                        .font(.stocked(.largeTitle))
+                        .foregroundStyle(session.accentColor)
+                    Text(showBought ? "Nothing in the cart yet" : "Your list is clear")
+                        .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
+                    Button("Add Item") { showQuickAdd = true }
+                        .font(.stocked(.subheadline).weight(.semibold))
+                        .foregroundStyle(session.accentColor)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(28)
+                .background(session.themeCardColor,
+                            in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(sections) { sectionCard($0) }
+                }
+            }
+        }
+    }
+
+    private func editorialSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.stockedSerif(26, weight: .bold, relativeTo: .title2))
+            .foregroundStyle(text)
+    }
+
+    private var editorialSuggestion: (name: String, reason: String)? {
+        if let item = store.inventoryItems.first(where: { inventoryItem in
+            KitchenAvailability.isRunningLow(inventoryItem) &&
+            !GroceryDedup.isDuplicate(inventoryItem.name, in: store.groceryItems.map(\.name))
+        }) {
+            return (item.name.displayNormalized, "\(item.name.displayNormalized) is running low")
+        }
+        if let name = cachedPredicted.first { return (name.displayNormalized, "Likely to run out soon") }
+        if let name = GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map(\.name), limit: 1).first {
+            return (name.displayNormalized, "One of your usuals")
+        }
+        return nil
+    }
+
+    private func editorialSuggestionCard(name: String, reason: String) -> some View {
+        HStack(spacing: 14) {
+            FoodIconView(name: name, size: 72, emojiSize: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Suggested for your list")
+                    .font(.stocked(.caption).weight(.semibold))
+                    .foregroundStyle(session.accentColor)
+                Text(reason)
+                    .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                    .foregroundStyle(text)
+            }
+            Spacer(minLength: 8)
+            Button("Add") {
+                store.addToGroceryIfMissing(name, recommended: true)
+                HapticManager.success()
+            }
+            .font(.stockedSerif(16, weight: .bold, relativeTo: .headline))
+            .foregroundStyle(session.accentColor)
+        }
+        .padding(16)
+        .background(session.themeCardColor,
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(text.opacity(0.07), lineWidth: 1)
+        }
+    }
+
+    private func prepareShare() {
+        let items = store.groceryItems.filter { !$0.isChecked }
+        let lines = items.map { "• \($0.name)\($0.recipeSource.isEmpty ? "" : " (\($0.recipeSource))")" }
+        shareText = lines.isEmpty ? "No items on the list." : "My Grocery List:\n\n" + lines.joined(separator: "\n")
+        grocerySheet = .share
+    }
+
+    private var legacyPresentation: some View {
         StockedShell(scrollDisabled: true,
                      titleText: "Grocery List",
                      trailingIcon: "ellipsis", trailingLabel: "More",
@@ -919,46 +1258,35 @@ struct GroceryListView: View {
         let total  = section.items.count
 
         VStack(spacing: 0) {
-            // Header — tapping the row toggles; trailing trash removes the whole group.
-            HStack(spacing: 0) {
-                Button {
-                    motion.animate(.standard, intent: .spatial) {
-                        expandedSection = isOpen ? nil : section.title
+            Button {
+                motion.animate(.standard, intent: .spatial) {
+                    expandedSection = isOpen ? nil : section.title
+                }
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.stockedGold.opacity(0.09))
+                        FoodIconView(name: section.title, size: 62, emojiSize: 34)
                     }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: section.icon)
-                            .scaledFont(14)
-                            .foregroundStyle(Color.stockedGold)
-                            .frame(width: 22)
+                    .frame(width: 78, height: 72)
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(section.title)
-                            .scaledFont(15, weight: .semibold, design: .serif)
+                            .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
                             .foregroundStyle(text)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer()
-                        Text("\(done)/\(total)")
-                            .scaledFont(11, weight: .semibold)
+                        Text("\(done) of \(total)")
+                            .font(.stocked(.subheadline).weight(.semibold))
                             .foregroundStyle(done == total && total > 0 ? Color.stockedGreen : sub)
-                        Image(systemName: isOpen ? "chevron.up" : "chevron.down")
-                            .scaledFont(11).foregroundStyle(sub)
                     }
-                    .padding(.leading, 14).padding(.vertical, 13)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    pendingDeleteTitle = section.title
-                } label: {
-                    Image(systemName: "trash")
-                        .scaledFont(13)
+                    Spacer()
+                    Image(systemName: isOpen ? "chevron.up" : "chevron.right")
+                        .font(.stocked(.subheadline).weight(.semibold))
                         .foregroundStyle(sub)
-                        .padding(.leading, 8).padding(.trailing, 14).padding(.vertical, 13)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Remove all items in \(section.title)")
+                .padding(14)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .confirmationDialog("Remove \"\(section.title)\"?",
                                 isPresented: Binding(get: { pendingDeleteTitle == section.title },
                                                      set: { if !$0 { pendingDeleteTitle = nil } }),
@@ -973,17 +1301,23 @@ struct GroceryListView: View {
                 Text("Removes every item in this group from your list.")
             }
 
-            // Rows
-            if isOpen {
-                Divider().padding(.horizontal, 14)
-                ForEach(section.items) { item in
-                    groceryRow(item)
-                    if item.id != section.items.last?.id {
-                        Divider().padding(.leading, 52)
-                    }
+            Divider().padding(.horizontal, 14)
+            let visibleItems = isOpen ? section.items : Array(section.items.prefix(3))
+            ForEach(visibleItems) { item in
+                editorialGroceryRow(item)
+                if item.id != visibleItems.last?.id {
+                    Divider().padding(.leading, 58)
                 }
+            }
+            if !isOpen && total > visibleItems.count {
+                Button("\(total - visibleItems.count) more") { expandedSection = section.title }
+                    .font(.stocked(.caption).weight(.semibold))
+                    .foregroundStyle(Color.stockedGoldDark)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
 
-                // Clear checked button
+            if isOpen {
                 if done > 0 {
                     Divider().padding(.horizontal, 14)
                     Button {
@@ -1023,7 +1357,86 @@ struct GroceryListView: View {
             }
         }
         .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(text.opacity(0.07), lineWidth: 1)
+        }
+        .contextMenu {
+            Button(role: .destructive) { pendingDeleteTitle = section.title } label: {
+                Label("Remove \(section.title)", systemImage: "trash")
+            }
+        }
+    }
+
+    private func editorialGroceryRow(_ item: LocalGroceryItem) -> some View {
+        let parsed = GroceryNameParser.parse(item.name)
+        let size = item.sizeText.isEmpty ? parsed.sizeText : item.sizeText
+        return Button {
+            motion.animate(.selection, intent: .spatial) {
+                if let index = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
+                    store.groceryItems[index].isChecked.toggle()
+                    if store.groceryItems[index].isChecked {
+                        GroceryUsuals.shared.record(store.groceryItems[index].name)
+                    }
+                    HapticManager.light()
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
+                    .font(.stocked(.title2))
+                    .foregroundStyle(item.isChecked ? Color.stockedGreen : sub.opacity(0.75))
+                    .frame(width: 32, height: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(parsed.name.displayNormalized)
+                        .font(.stocked(.body).weight(.medium))
+                        .foregroundStyle(item.isChecked ? sub : text)
+                        .strikethrough(item.isChecked)
+                    if !item.recipeSource.isEmpty {
+                        Text(item.recipeSource)
+                            .font(.stocked(.caption))
+                            .foregroundStyle(sub)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                Text(size.isEmpty ? (item.quantity == 1 ? "1" : "\(item.quantity)") : size)
+                    .font(.stocked(.subheadline))
+                    .foregroundStyle(sub)
+                Menu {
+                    Button("Add one", systemImage: "plus") {
+                        store.updateGroceryQty(id: item.id, qty: item.quantity + 1)
+                    }
+                    if item.quantity > 1 {
+                        Button("Remove one", systemImage: "minus") {
+                            store.updateGroceryQty(id: item.id, qty: item.quantity - 1)
+                        }
+                    }
+                    Button("Plan with this item", systemImage: "calendar.badge.plus") {
+                        grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
+                    }
+                    Button("Find at \(resolvedStore(for: item))", systemImage: "cart") {
+                        openInStore(item.name)
+                    }
+                    Button("Remove", systemImage: "trash", role: .destructive) {
+                        undoItem = item
+                        store.groceryItems.removeAll { $0.id == item.id }
+                        showUndo = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.stocked(.body).weight(.semibold))
+                        .foregroundStyle(sub)
+                        .frame(width: 44, height: 44)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.isChecked ? "Uncheck" : "Check") \(parsed.name.displayNormalized), quantity \(item.quantity)")
     }
 
     // MARK: - Individual row — full cell tappable

@@ -1,6 +1,68 @@
 import SwiftUI
 import os
 
+/// Reference roles use the SAME cutout family and renderer as Home.
+struct InventoryReferenceArtwork: View {
+    let cell: Int
+    private var asset: String {
+        switch cell {
+        case 0: return "home_kitchen_still_life"
+        case 1: return "inventory_refrigerator_hero"
+        case 2: return KitchenArtworkCatalog.inventoryActions[0]
+        case 3: return KitchenArtworkCatalog.inventoryActions[1]
+        case 5: return "kitchen_leftovers_reference"
+        default: return KitchenArtworkCatalog.inventoryActions[2]
+        }
+    }
+    var body: some View {
+        StockedKitchenArtwork(asset: asset)
+    }
+}
+
+// Shared editorial language for the Inventory landing and its destinations.
+extension AppSession {
+    var inventoryCanvas: Color { isDarkMode ? themeBgColor : Color(red: 0.89, green: 0.76, blue: 0.57) }
+    var inventoryGold: Color { isDarkMode ? .stockedGoldDark : Color(red: 0.57, green: 0.32, blue: 0.025) }
+}
+
+struct InventoryEditorialHeading: View {
+    @Environment(AppSession.self) private var session
+    let title: String
+    let subtitle: String
+    var artwork: Int = 0
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text("Your Kitchen")
+                    .font(.stockedSerif(12, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(session.inventoryGold)
+                Text(title)
+                    .font(.stockedSerif(28, weight: .bold, relativeTo: .title))
+                    .foregroundStyle(session.themeTextColor)
+                Text(subtitle)
+                    .font(.stockedSerif(14, relativeTo: .body))
+                    .foregroundStyle(session.themeSecondaryText)
+            }.fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            InventoryReferenceArtwork(cell: artwork)
+                .frame(width: 88, height: 88)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, 12)
+    }
+}
+
+struct InventoryEditorialCard: ViewModifier {
+    @Environment(AppSession.self) private var session
+    func body(content: Content) -> some View {
+        content.padding(16)
+            .background(session.isDarkMode ? session.themeCardColor : session.inventoryCanvas.opacity(0.5),
+                        in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(session.inventoryGold.opacity(0.25), lineWidth: 0.7))
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Build 246 — Inventory hub (mockup screen 3).
 //
@@ -13,11 +75,16 @@ import os
 
 struct InventoryHubView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var showSearchField = false
     @State private var searchText = ""
     @State private var showSortDialog = false
     @State private var goAllInventory = false
+    @State private var referenceZone: String?
+    @State private var showLowStock = false
+    @State private var showLeftovers = false
     @State private var goExpiringList = false
     @State private var goCookFromInventory = false
     @State private var selectedCategory: MockCategory? = nil
@@ -64,85 +131,32 @@ struct InventoryHubView: View {
     }
 
     var body: some View {
-        StockedShell(scrollDisabled: false,
-                     titleText: "Inventory",
-                     trailingIcon: "magnifyingglass", trailingLabel: "Search",
-                     onTrailing: { withAnimation(.easeInOut(duration: 0.2)) { showSearchField.toggle(); if !showSearchField { searchText = "" } } },
-                     trailingIcon2: "line.3.horizontal.decrease", trailingLabel2: "Sort",
-                     onTrailing2: { showSortDialog = true }) {
-            VStack(alignment: .leading, spacing: 22) {
+        StockedShell(trailingIcon: "magnifyingglass", trailingLabel: "Search inventory",
+                     onTrailing: { withAnimation { showSearchField.toggle() } },
+                     canvasColor: session.isDarkMode ? session.themeBgColor : Color(red: 0.89, green: 0.76, blue: 0.57)) {
+            VStack(alignment: .leading, spacing: 10) {
+                referenceHero
 
                 if showSearchField { inlineSearchField }
 
                 if showSearchField && !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                     searchResults
-                } else if allItems.isEmpty {
-                    emptyKitchenCard
                 } else {
-                    // #FB — the drag-to-plan calendar strip was removed from THIS landing
-                    // page; it still lives on "View all inventory" (the full item list),
-                    // where items can actually be dragged onto days.
-                    statusCard
-                        .coachmarkAnchor("inv.status")
-                    // RL-003 — surface Available vs Reserved where people look first.
-                    reservedSummaryRow
-                    Button { goCookFromInventory = true } label: {
-                        HStack(spacing: 10) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.stockedGold).frame(width: 34, height: 34)
-                                Image(systemName: "fork.knife.circle.fill")
-                                    .scaledFont(16).foregroundStyle(Color.stockedCharcoal)
-                            }
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Find meals from inventory")
-                                    .scaledFont(13.5, weight: .bold).foregroundStyle(session.themeTextColor)
-                                Text("Scans every available item, saved recipe, and substitution")
-                                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
-                        }
-                        .padding(10)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                    }
-                    .buttonStyle(.plain)
-                    .a11yButton("Find recipes using all available inventory and substitutions")
-                    // AI assistant: change inventory in plain language (use/remove/clear items).
-                    Button { showAIAssistant = true } label: {
-                        HStack(spacing: 10) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.15)).frame(width: 34, height: 34)
-                                Image(systemName: "sparkles").scaledFont(14).foregroundStyle(Color.stockedGold)
-                            }
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Inventory Assistant").scaledFont(13.5, weight: .bold).foregroundStyle(session.themeTextColor)
-                                Text("Update, remove, or clear items by asking").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.35))
-                        }
-                        .padding(10)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                    }
-                    .buttonStyle(.plain)
-                    .coachmarkAnchor("inv.assistant")
-                    categoriesSection
-                        .coachmarkAnchor("inv.categories")
-                    viewAllRow
-                    expiringSoonSection
-                        .coachmarkAnchor("inv.expiring")
+                    referenceKitchen
+                    referenceActions
+                    referenceAI
                 }
             }
             .stockedSnapTargetLayout()
-            .padding(.horizontal, 20)
-            .padding(.top, 6)
-            .padding(.bottom, 110)
+            .frame(maxWidth: layoutMetrics.readableContentWidth)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 10)
         }
-        .navigationDestination(isPresented: $goAllInventory) { InventoryView() }
+        .navigationDestination(isPresented: $goAllInventory) { InventoryView(initialZone: "All") }
+        .navigationDestination(item: $referenceZone) { zone in InventoryView(initialZone: zone) }
+        .navigationDestination(isPresented: $showLowStock) { LowStockReportView().stockedScreen() }
+        .navigationDestination(isPresented: $showLeftovers) { LeftoversView().stockedScreen() }
         .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
         .navigationDestination(isPresented: $goCookFromInventory) {
             CookNowResultsView(focus: .readyFirst)
@@ -193,24 +207,431 @@ struct InventoryHubView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             goAllInventory = false; goExpiringList = false; goCookFromInventory = false
             selectedCategory = nil
+            referenceZone = nil; showLowStock = false; showLeftovers = false
             showSearchField = false; searchText = ""
         }
         .coachmarks(page: .inventory, steps: InventoryCoachmarks.steps)
         // RL-006 — reservations are derived: re-check whenever the plan or the
         // inventory moves. refreshIfNeeded is revision-keyed, so this is free
         // when nothing changed and idempotent when it did.
-        .task {
+        .task(id: "\(session.guestStore.inventoryRevision):\(session.guestStore.planRevision)") {
             // Present Inventory's first frame before reconciling meal-plan reservations.
             // Large restored kitchens previously performed this synchronous revision
             // pass during tab construction and could trip the main-thread watchdog.
             await Task.yield()
-            ReservationLedger.shared.refreshIfNeeded(store: session.guestStore)
+            await ReservationLedger.shared.refreshForPresentation(store: session.guestStore)
         }
-        .onChange(of: session.guestStore.inventoryRevision) { _, _ in
-            ReservationLedger.shared.refreshIfNeeded(store: session.guestStore)
+    }
+
+    // MARK: - Editorial inventory landing
+
+    private var referenceScale: CGFloat { min(1.65, max(0.8, (layoutMetrics.contentWidth - 28) / 365)) }
+    private var referenceGold: Color { session.isDarkMode ? .stockedGoldDark : Color(red: 0.57, green: 0.32, blue: 0.025) }
+    private var referenceBorder: Color { referenceGold.opacity(session.isDarkMode ? 0.35 : 0.23) }
+
+    private var referenceHero: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("\(StockedFormatters.timeOfDayGreeting), \(session.effectiveName)")
+                .font(.stockedSerif(12, weight: .semibold, relativeTo: .subheadline))
+                .foregroundStyle(referenceGold)
+            ZStack(alignment: .topLeading) {
+                InventoryReferenceArtwork(cell: 0)
+                    .frame(width: 174 * referenceScale, height: 174 * referenceScale)
+                    .opacity(dynamicTypeSize.isAccessibilitySize ? 0 : 1)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .offset(x: 7, y: -24 * referenceScale)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 9) {
+                    Text("Here’s everything\nin your kitchen.")
+                        .font(.stockedSerif(29 * referenceScale, weight: .bold, relativeTo: .largeTitle))
+                        .tracking(-0.6)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Browse, stay organized,\nand always know what you have.")
+                        .font(.stockedSerif(13 * referenceScale, relativeTo: .body))
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(minHeight: 141 * referenceScale, alignment: .top)
         }
-        .onChange(of: session.guestStore.planRevision) { _, _ in
-            ReservationLedger.shared.refreshIfNeeded(store: session.guestStore)
+        .foregroundStyle(session.themeTextColor)
+        .padding(.horizontal, 9)
+        .padding(.top, 14)
+    }
+
+    private var referenceKitchen: some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Your Kitchen").font(.stockedSerif(16 * referenceScale, weight: .bold, relativeTo: .title2))
+                Spacer(minLength: 4)
+                Button { goAllInventory = true } label: {
+                    HStack(spacing: 7) {
+                        Text("View All Inventory")
+                        Image(systemName: "chevron.right")
+                    }.font(.stockedSerif(12 * referenceScale, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundStyle(referenceGold)
+                }.buttonStyle(.plain).frame(minHeight: 44)
+            }.padding(.horizontal, 9)
+            HStack(spacing: 0) {
+                InventoryReferenceArtwork(cell: 1)
+                    .frame(maxWidth: .infinity, minHeight: 282 * referenceScale, alignment: .center)
+                    .accessibilityHidden(true)
+                VStack(spacing: 0) {
+                    referenceZoneRow("Fridge", count: allItems.filter { $0.zone == "Fridge" }.count) { referenceZone = "Fridge" }
+                    Divider().overlay(referenceBorder)
+                    referenceZoneRow("Freezer", count: allItems.filter { $0.zone == "Freezer" }.count) { referenceZone = "Freezer" }
+                    Divider().overlay(referenceBorder)
+                    referenceZoneRow("Pantry", count: allItems.filter { $0.zone == "Pantry" }.count) { referenceZone = "Pantry" }
+                    Divider().overlay(referenceBorder)
+                    referenceZoneRow("Leftovers", count: LeftoversStore.shared.entries.count) { showLeftovers = true }
+                }
+                .padding(.horizontal, 16 * referenceScale)
+                .frame(maxWidth: .infinity)
+            }
+            .background(session.themeBgColor.opacity(0.35))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(referenceBorder, lineWidth: 0.6))
+            .coachmarkAnchor("inv.categories")
+        }
+    }
+
+    private func referenceZoneRow(_ title: String, count: Int, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title).font(.stockedSerif(17 * referenceScale, weight: .semibold, relativeTo: .headline))
+                        .foregroundStyle(session.themeTextColor)
+                    Text("\(count) items").font(.stockedSerif(12 * referenceScale, relativeTo: .subheadline))
+                        .foregroundStyle(referenceGold)
+                }.fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                referenceArrow
+            }.frame(maxWidth: .infinity, minHeight: 68 * referenceScale, alignment: .leading)
+        }.buttonStyle(.plain)
+            .accessibilityLabel("\(title), \(count) items")
+    }
+
+    private var referenceArrow: some View {
+        Image(systemName: "chevron.right")
+            .font(.stockedSans(12, weight: .bold))
+            .foregroundStyle(session.isDarkMode ? Color.stockedCharcoal : .stockedWhite)
+            .frame(width: 24 * referenceScale, height: 24 * referenceScale)
+            .background(referenceGold, in: Circle())
+            .accessibilityHidden(true)
+    }
+
+    private var referenceActions: some View {
+        let layout = layoutMetrics.contentWidth < 350
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(StockedEqualHeightRow(spacing: 4))
+        return layout {
+            referenceAction("Expiring Soon", detail: expiringItems.count == 1 ? "1 item needs\nattention." : "\(expiringItems.count) items need\nattention.", cell: 2) { goExpiringList = true }
+            referenceAction("Running Low", detail: allItems.filter(\.isLow).count == 1 ? "1 item is\nrunning low." : "\(allItems.filter(\.isLow).count) items are\nrunning low.", cell: 3) { showLowStock = true }
+            referenceAction("Add Items", detail: "Quickly add items\nto your inventory.", cell: 4) { showAddItem = true }
+        }.coachmarkAnchor("inv.expiring")
+    }
+
+    private func referenceAction(_ title: String, detail: String, cell: Int, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                InventoryReferenceArtwork(cell: cell)
+                    .aspectRatio(1.25, contentMode: .fit)
+                    .accessibilityHidden(true)
+                Text(title).font(.stockedSerif(13 * referenceScale, weight: .semibold, relativeTo: .headline))
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .bottom, spacing: 2) {
+                    Text(detail).font(.stockedSerif(10.5 * referenceScale, relativeTo: .caption))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    referenceArrow
+                }
+            }
+            .foregroundStyle(session.themeTextColor)
+            .padding(10 * referenceScale)
+            .frame(maxWidth: .infinity, minHeight: 143 * referenceScale, maxHeight: .infinity, alignment: .topLeading)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(referenceBorder, lineWidth: 0.6))
+        }.buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(detail.replacingOccurrences(of: "\n", with: " "))
+            .accessibilityHint(cell == 4 ? "Opens the add item form" : "Opens the matching inventory list")
+    }
+
+    private var referenceAI: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.stocked(.title2))
+                .foregroundStyle(referenceGold)
+                .frame(width: 34, height: 34)
+                .overlay(Circle().stroke(referenceGold, lineWidth: 1))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Organize with Stocked AI").font(.stockedSerif(14 * referenceScale, weight: .semibold, relativeTo: .headline))
+                Text("Coming Soon").font(.stockedSerif(11 * referenceScale, relativeTo: .caption))
+            }
+            Spacer(minLength: 0)
+            Text("Coming Soon").font(.stockedSerif(12 * referenceScale, weight: .semibold, relativeTo: .subheadline))
+                .foregroundStyle(session.isDarkMode ? Color.stockedCharcoal : .stockedWhite)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(referenceGold, in: Capsule())
+        }
+        .foregroundStyle(Color.stockedWhite)
+        .padding(11)
+        .frame(maxWidth: .infinity, minHeight: 49 * referenceScale)
+        .background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 15))
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var inventoryHero: some View {
+        if dynamicTypeSize.isAccessibilitySize || layoutMetrics.contentWidth < 350 {
+            VStack(alignment: .leading, spacing: 8) {
+                inventoryHeroCopy
+                inventoryHeroArtwork(width: min(230, layoutMetrics.contentWidth), height: 230)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        } else {
+            ZStack(alignment: .bottomTrailing) {
+                inventoryHeroArtwork(
+                    width: layoutMetrics.contentWidth >= 700 ? 320 : 218,
+                    height: layoutMetrics.contentWidth >= 700 ? 370 : 270
+                )
+                .offset(x: layoutMetrics.contentWidth >= 700 ? 0 : 14)
+
+                inventoryHeroCopy
+                    .frame(maxWidth: layoutMetrics.contentWidth >= 700 ? 470 : 242,
+                           alignment: .leading)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.top, layoutMetrics.contentWidth >= 700 ? 38 : 8)
+            }
+            .frame(height: layoutMetrics.contentWidth >= 700 ? 360 : 270)
+        }
+    }
+
+    private var inventoryHeroCopy: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(session.guestStore.stockPercent >= 65
+                 ? "Your kitchen is\nin good shape."
+                 : "Let’s refresh\nyour kitchen.")
+                .font(.stockedSerif(36, weight: .bold, relativeTo: .largeTitle))
+                .foregroundStyle(session.themeTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(session.guestStore.stockPercent >= 65
+                 ? "Everything you need is already inside your kitchen."
+                 : "A few smart additions will unlock more meals and keep the week moving.")
+                .font(.stocked(.body))
+                .foregroundStyle(session.themeSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: 390, alignment: .leading)
+        .layoutPriority(1)
+    }
+
+    private func inventoryHeroArtwork(width: CGFloat, height: CGFloat) -> some View {
+        Image("inventory_refrigerator_hero")
+            .resizable()
+            .scaledToFit()
+            .frame(width: width, height: height, alignment: .bottomTrailing)
+            .accessibilityHidden(true)
+    }
+
+    private var kitchenOverviewCard: some View {
+        Button { showStatusDetails = true } label: {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Kitchen overview")
+                        .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.stocked(.caption).weight(.semibold))
+                        .foregroundStyle(session.themeSecondaryText)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    overviewMetric("\(session.guestStore.stockPercent)%", label: "stocked", tint: .stockedGreen)
+                    overviewDivider
+                    overviewMetric("\(allItems.count)", label: "items", tint: session.themeTextColor)
+                    overviewDivider
+                    overviewMetric("\(expiringItems.count)", label: "use soon", tint: .stockedGoldDark)
+                }
+                GeometryProxyFreeBar(fraction: Double(session.guestStore.stockPercent) / 100)
+            }
+            .foregroundStyle(session.themeTextColor)
+            .padding(20)
+            .background(session.themeCardColor,
+                        in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(session.themeTextColor.opacity(0.07), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .a11yButton("Kitchen overview, \(session.guestStore.stockPercent) percent stocked, \(allItems.count) items, \(expiringItems.count) use soon")
+    }
+
+    private func overviewMetric(_ value: String, label: String, tint: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.stockedSerif(31, weight: .semibold, relativeTo: .title))
+                .foregroundStyle(tint)
+                .minimumScaleFactor(0.72)
+            Text(label)
+                .font(.stocked(.subheadline))
+                .foregroundStyle(session.themeSecondaryText)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var overviewDivider: some View {
+        Rectangle()
+            .fill(session.themeTextColor.opacity(0.12))
+            .frame(width: 1, height: 50)
+    }
+
+    private var useFirstSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                editorialSectionTitle("Use First")
+                Spacer()
+                if !expiringItems.isEmpty {
+                    Button("View All") { goExpiringList = true }
+                        .font(.stocked(.subheadline).weight(.semibold))
+                        .foregroundStyle(session.accentColor)
+                }
+            }
+            if expiringItems.isEmpty {
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.stocked(.title2))
+                        .foregroundStyle(Color.stockedGreen)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Nothing needs attention")
+                            .font(.stockedSerif(16, weight: .bold, relativeTo: .headline))
+                        Text("Your dated food is in good shape.")
+                            .font(.stocked(.subheadline))
+                            .foregroundStyle(session.themeSecondaryText)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(session.themeCardColor,
+                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 12) {
+                        ForEach(expiringItems.prefix(8)) { item in
+                            InventoryUseFirstCard(item: item)
+                                .containerRelativeFrame(.horizontal, count: 3, spacing: 12)
+                        }
+                    }
+                    .stockedScrollTargetLayout()
+                }
+                .stockedHorizontalSnap()
+            }
+        }
+    }
+
+    private var editorialKitchenSection: some View {
+        let cards: [(String, Int, String, MockCategory?)] = [
+            ("Fridge", allItems.filter { $0.zone == "Fridge" }.count, "inventory_category_fridge", nil),
+            ("Pantry", allItems.filter { $0.zone == "Pantry" || $0.zone == "Staples" }.count, "inventory_category_pantry", .pantry),
+            ("Freezer", allItems.filter { $0.zone == "Freezer" }.count, "inventory_category_freezer", .frozen),
+            ("Produce", allItems.filter { MockCategory.classify($0) == .produce }.count, "inventory_category_produce", .produce)
+        ]
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                editorialSectionTitle("Your Kitchen")
+                Spacer()
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showSearchField.toggle() }
+                } label: {
+                    Label("Search", systemImage: "magnifyingglass")
+                        .font(.stocked(.subheadline).weight(.semibold))
+                        .foregroundStyle(session.accentColor)
+                }
+                .buttonStyle(.plain)
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(cards, id: \.0) { card in
+                    Button {
+                        if let category = card.3 { selectedCategory = category }
+                        else { goAllInventory = true }
+                    } label: {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) {
+                                Image(card.2)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: 94, maxHeight: 94)
+                                    .accessibilityHidden(true)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(card.0)
+                                        .font(.stockedSerif(18, weight: .bold, relativeTo: .headline))
+                                    Text("\(card.1)")
+                                        .font(.stockedSerif(29, weight: .semibold, relativeTo: .title2))
+                                        .foregroundStyle(Color.stockedGreen)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            VStack(alignment: .leading, spacing: 6) {
+                                Image(card.2)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 86)
+                                    .accessibilityHidden(true)
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(card.0)
+                                        .font(.stockedSerif(18, weight: .bold, relativeTo: .headline))
+                                    Spacer()
+                                    Text("\(card.1)")
+                                        .font(.stockedSerif(25, weight: .semibold, relativeTo: .title2))
+                                        .foregroundStyle(Color.stockedGreen)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+                        .foregroundStyle(session.themeTextColor)
+                        .padding(12)
+                        .background(session.themeCardColor,
+                                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(session.themeTextColor.opacity(0.07), lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(card.0), \(card.1) items")
+                }
+            }
+        }
+    }
+
+    private func editorialSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.stockedSerif(26, weight: .bold, relativeTo: .title2))
+            .foregroundStyle(session.themeTextColor)
+    }
+
+    private var addInventoryButton: some View {
+        VStack(spacing: 10) {
+            Button { showAddItem = true } label: {
+                Label("Add to Inventory", systemImage: "plus")
+                    .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                    .foregroundStyle(Color.selectedTabForeground(session.isDarkMode))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.stockedCharcoal,
+                                in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            HStack(spacing: 18) {
+                Button("View all") { goAllInventory = true }
+                Button("Find meals") { goCookFromInventory = true }
+                Button("Ask Stocked") { showAIAssistant = true }
+            }
+            .font(.stocked(.subheadline).weight(.semibold))
+            .foregroundStyle(session.accentColor)
+            .buttonStyle(.plain)
         }
     }
 
@@ -571,6 +992,58 @@ struct InventoryHubView: View {
     }
 }
 
+// ── Editorial use-first card ────────────────────────────────────────
+
+private struct InventoryUseFirstCard: View {
+    @Environment(AppSession.self) private var session
+    let item: LocalInventoryItem
+    @State private var showEdit = false
+
+    private var urgency: String {
+        guard let days = item.daysUntilExpiry else { return "Use soon" }
+        if days <= 0 { return "Use today" }
+        if days == 1 { return "Use tomorrow" }
+        return "Use within \(days) days"
+    }
+
+    var body: some View {
+        Button { showEdit = true } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                CachedLocalDataImage(
+                    data: item.imageData,
+                    maxDimension: 220,
+                    width: nil,
+                    height: 108,
+                    clip: .roundedRectangle(cornerRadius: 14)
+                ) {
+                    ZStack {
+                        Color.stockedGold.opacity(0.07)
+                        FoodIconView(name: item.name, size: 74, emojiSize: 44)
+                    }
+                }
+                Text(item.name.displayNormalized)
+                    .font(.stockedSerif(16, weight: .bold, relativeTo: .headline))
+                    .foregroundStyle(session.themeTextColor)
+                    .lineLimit(2)
+                Text(urgency)
+                    .font(.stocked(.caption).weight(.semibold))
+                    .foregroundStyle(Color.stockedGoldDark)
+            }
+            .padding(12)
+            .frame(minHeight: 178, alignment: .topLeading)
+            .background(session.themeCardColor,
+                        in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(session.themeTextColor.opacity(0.07), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showEdit) { EditItemSheet(item: item).environment(session) }
+        .accessibilityLabel("\(item.name.displayNormalized), \(urgency)")
+    }
+}
+
 // ── Expiring preview row (emoji thumb · name · expiry text) ─────────
 
 private struct ExpiringPreviewRow: View {
@@ -819,7 +1292,7 @@ struct CategoryItemsView: View {
                     GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
-        StockedShell(showBack: true, scrollDisabled: false) {
+        StockedShell(showBack: true, scrollDisabled: false, canvasColor: session.inventoryCanvas) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 10) {
                     Image(systemName: category.icon)
@@ -979,17 +1452,9 @@ struct ExpiringSoonListView: View {
     }
 
     var body: some View {
-        StockedShell(showBack: true, scrollDisabled: false) {
+        StockedShell(showBack: true, scrollDisabled: false, canvasColor: session.inventoryCanvas) {
             VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Expiring Soon")
-                        .scaledFont(22, weight: .bold, design: .serif)
-                        .foregroundStyle(session.themeTextColor)
-                    Text("Use these first to avoid waste.")
-                        .scaledFont(13.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
-                }
-                .padding(.top, 4)
+                InventoryEditorialHeading(title: "Expiring Soon", subtitle: "Use these first to avoid waste.", artwork: 2)
 
                 if items.isEmpty {
                     StockedEmptyState(icon: "checkmark.seal",

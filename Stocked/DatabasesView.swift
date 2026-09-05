@@ -79,6 +79,7 @@ struct DatabasesView: View {
 // MARK: - Shared search bar
 // ─────────────────────────────────────────────────────────────────────────────
 private struct DBSearchBar: View {
+    @Environment(AppSession.self) private var session
     @Binding var text: String
     let placeholder: String
 
@@ -96,7 +97,7 @@ private struct DBSearchBar: View {
             }
         }
         .padding(11)
-        .background(Color.stockedWhite.opacity(0.3))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .padding(.horizontal, 20).padding(.bottom, 2)
     }

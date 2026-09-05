@@ -6,6 +6,11 @@ nonisolated struct FinderRequestState: Equatable, Sendable {
     private(set) var phase: Phase = .idle
     private(set) var count = 0
     private var generation = 0
+    var isWorking: Bool { phase == .loading }
+    /// A full-screen loading treatment is appropriate only until the first usable
+    /// result arrives. Optional web/catalog enrichment must not make found results
+    /// continue to look as though they are still refreshing.
+    var isBlocking: Bool { phase == .loading && count == 0 }
     mutating func begin() -> Int { generation &+= 1; count = 0; phase = .loading; return generation }
     /// Partial results are usable while other sources are still loading. They must
     /// obey the same generation gate as the final response.

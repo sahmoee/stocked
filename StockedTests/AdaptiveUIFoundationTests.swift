@@ -4,13 +4,59 @@ import SwiftUI
 
 @MainActor
 final class AdaptiveUIFoundationTests: XCTestCase {
+    func testKitchenArtworkKeepsAspectRatioAndCachesPreparedCutouts() async {
+        for name in ["home_kitchen_still_life", "inventory_refrigerator_hero",
+                     "home_widget_planning", "inventory_category_fridge", "home_widget_pantry",
+                     "inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference",
+                     "kitchen_protein_reference", "kitchen_leftovers_reference"] {
+            let original = UIImage(named: name)
+            let prepared = await ImageCache.shared.prepareArtwork(named: name)
+            XCTAssertNotNil(prepared, name)
+            guard let original, let prepared else { continue }
+            XCTAssertEqual(original.size.width / original.size.height,
+                           prepared.size.width / prepared.size.height, accuracy: 0.01, name)
+            XCTAssertLessThanOrEqual(max(prepared.size.width, prepared.size.height), 720)
+            XCTAssertTrue(ImageCache.shared.artwork(named: name) === prepared)
+        }
+    }
+
+    func testDecorativeArtworkUsesOneApprovedFamilyWithoutReplacingRealPhotoNames() {
+        XCTAssertEqual(KitchenArtworkCatalog.inventoryActions.count, 3)
+        XCTAssertEqual(Set(KitchenArtworkCatalog.inventoryActions).count, 3)
+        let aliases = [
+            "cook_now_hero": "home_widget_cooking", "recipes_ready": "home_widget_cooking",
+            "cook_later_hero": "home_widget_planning", "recipes_past": "home_widget_planning",
+            "recipes_collection": "recipes_hero", "protein": "kitchen_protein_reference",
+            "vegetables": "inventory_category_produce", "expiring_soon": "inventory_expiring_reference",
+            "leftovers": "kitchen_leftovers_reference"
+        ]
+        for (input, expected) in aliases {
+            XCTAssertEqual(KitchenArtworkCatalog.approvedAsset(for: input), expected)
+            XCTAssertNotNil(UIImage(named: expected), expected)
+        }
+        for name in ["publisher-recipe-photo", "user-photo", "home_kitchen_still_life"] {
+            XCTAssertEqual(KitchenArtworkCatalog.approvedAsset(for: name), name)
+        }
+    }
+
+    func testConcurrentArtworkRequestsShareOnePreparedImage() async {
+        ImageCache.shared.evictMemory()
+        async let first = ImageCache.shared.prepareArtwork(named: "inventory_add_reference")
+        async let second = ImageCache.shared.prepareArtwork(named: "inventory_add_reference")
+        let (left, right) = await (first, second)
+        XCTAssertNotNil(left)
+        XCTAssertTrue(left === right)
+    }
+
     func testRecipeTilesShareReadableSizing() {
         XCTAssertEqual(RecipeCardStyle.imageHeight, 120)
         XCTAssertGreaterThanOrEqual(RecipeCardStyle.titleSize, 15)
         XCTAssertGreaterThanOrEqual(RecipeCardStyle.metadataSize, 12)
         XCTAssertEqual(RecipeCardStyle.padding, 12)
-        XCTAssertEqual(RecipeCardStyle.surface(isDark: false), Color.stockedWhite)
+        XCTAssertEqual(RecipeCardStyle.surface(isDark: false), Color.appSurface(false))
         XCTAssertEqual(RecipeCardStyle.surface(isDark: true), Color.appSurface(true))
+        XCTAssertEqual(RecipeCardStyle.destinationHeight(isAccessibilitySize: false), 164)
+        XCTAssertNil(RecipeCardStyle.destinationHeight(isAccessibilitySize: true))
     }
 
     func testDrawerSettlesFromAbsolutePredictedPosition() {
@@ -28,6 +74,8 @@ final class AdaptiveUIFoundationTests: XCTestCase {
     }
 
     func testSelectedTabsUseWarmContentAndKeepCharcoalFill() {
+        XCTAssertEqual(Color.appAccent(false), .stockedGold)
+        XCTAssertEqual(Color.appAccent(true), .stockedGoldDark)
         XCTAssertEqual(Color.selectedTabForeground(false), .stockedBg)
         XCTAssertEqual(Color.selectedTabForeground(true), .stockedGoldDark)
         XCTAssertEqual(Color.selectedTabBackground, .stockedCharcoal)

@@ -353,7 +353,7 @@ struct OnboardingQuiz: View {
                     }
                 }
                 .padding(10)
-                .background(Color.stockedWhite.opacity(0.6))
+                .background(session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 22)
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -524,7 +524,7 @@ struct OnboardingQuiz: View {
                 Slider(value: Binding(get: { Double(weeklyMeals) }, set: { weeklyMeals = Int($0) }), in: 1...21, step: 1)
                     .tint(Color.stockedGold)
             }
-            .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 22)
 
             VStack(alignment: .leading, spacing: 8) {

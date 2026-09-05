@@ -186,16 +186,17 @@ final class QAAccessibilitySweep {
     /// Something a person is meant to press. Deliberately narrow: a `UIView` with
     /// a tap recognizer attached is included, a decorative image is not.
     private func isInteractive(_ view: UIView) -> Bool {
-        // UIKit/SwiftUI collection and navigation internals are UIControls too,
-        // but many are accessibility containers whose child is the real element.
-        // Auditing those implementation views produced dozens of false positives.
-        if view is UIControl, view.isAccessibilityElement { return true }
-        if view.accessibilityTraits.contains(.button) { return true }
-        if view.accessibilityTraits.contains(.link) { return true }
-        guard view.isUserInteractionEnabled else { return false }
-        return view.gestureRecognizers?.contains {
+        let hasGesture = view.gestureRecognizers?.contains {
             $0 is UITapGestureRecognizer || $0 is UILongPressGestureRecognizer
         } ?? false
+        return QAAccessibilityAuditPolicy.shouldAudit(
+            isAccessibilityElement: view.isAccessibilityElement,
+            isControl: view is UIControl,
+            hasButtonOrLinkTrait: view.accessibilityTraits.contains(.button) ||
+                view.accessibilityTraits.contains(.link),
+            isUserInteractionEnabled: view.isUserInteractionEnabled,
+            hasTapOrLongPressGesture: hasGesture
+        )
     }
 
     /// A button wrapping a `UILabel` is announced using that label's text, so it
