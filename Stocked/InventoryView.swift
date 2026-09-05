@@ -167,7 +167,9 @@ struct InventoryView: View {
             VStack(alignment: .leading, spacing: 0) {
 
                 InventoryEditorialHeading(title: selectedZone == "All" ? "Your inventory" : selectedZone,
-                    subtitle: "Browse, organize, and keep good food in reach.", artwork: 1)
+                    subtitle: "Browse, organize, and keep good food in reach.",
+                    artwork: selectedZone == "Freezer" ? 6 : selectedZone == "Pantry" ? 7 : 1,
+                    artworkLeading: selectedZone == "Freezer" || selectedZone == "Pantry")
                     .padding(.horizontal, 24)
 
                 // ── Combined expiry + drag-to-plan strip ─────────────

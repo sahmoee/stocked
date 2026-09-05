@@ -6,11 +6,13 @@ struct InventoryReferenceArtwork: View {
     let cell: Int
     private var asset: String {
         switch cell {
-        case 0: return "home_kitchen_still_life"
+        case 0: return "inventory_kitchen_board_reference"
         case 1: return "inventory_refrigerator_hero"
         case 2: return KitchenArtworkCatalog.inventoryActions[0]
         case 3: return KitchenArtworkCatalog.inventoryActions[1]
         case 5: return "kitchen_leftovers_reference"
+        case 6: return "inventory_category_freezer"
+        case 7: return "inventory_category_pantry"
         default: return KitchenArtworkCatalog.inventoryActions[2]
         }
     }
@@ -30,9 +32,11 @@ struct InventoryEditorialHeading: View {
     let title: String
     let subtitle: String
     var artwork: Int = 0
+    var artworkLeading = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
+            if artworkLeading { headingArtwork }
             VStack(alignment: .leading, spacing: 7) {
                 Text("Your Kitchen")
                     .font(.stockedSerif(12, weight: .semibold, relativeTo: .subheadline))
@@ -45,11 +49,16 @@ struct InventoryEditorialHeading: View {
                     .foregroundStyle(session.themeSecondaryText)
             }.fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
-            InventoryReferenceArtwork(cell: artwork)
-                .frame(width: 88, height: 88)
-                .accessibilityHidden(true)
+            if !artworkLeading { headingArtwork }
         }
         .padding(.vertical, 12)
+    }
+
+    private var headingArtwork: some View {
+        InventoryReferenceArtwork(cell: artwork)
+            .frame(width: 88, height: 88)
+            .clipped()
+            .accessibilityHidden(true)
     }
 }
 
@@ -234,26 +243,29 @@ struct InventoryHubView: View {
             Text("\(StockedFormatters.timeOfDayGreeting), \(session.effectiveName)")
                 .font(.stockedSerif(12, weight: .semibold, relativeTo: .subheadline))
                 .foregroundStyle(referenceGold)
-            ZStack(alignment: .topLeading) {
-                InventoryReferenceArtwork(cell: 0)
-                    .frame(width: 174 * referenceScale, height: 174 * referenceScale)
-                    .opacity(dynamicTypeSize.isAccessibilitySize ? 0 : 1)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .offset(x: 7, y: -24 * referenceScale)
-                    .accessibilityHidden(true)
+            // Allocate distinct bounds: an offset overlay let the plant paint over
+            // the heading. Text now wraps/grows while art owns the trailing column.
+            let narrow = min(layoutMetrics.contentWidth, layoutMetrics.readableContentWidth) < 350
+            let heroLayout = narrow
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+            heroLayout {
                 VStack(alignment: .leading, spacing: 9) {
-                    Text("Here’s everything\nin your kitchen.")
-                        .font(.stockedSerif(29 * referenceScale, weight: .bold, relativeTo: .largeTitle))
-                        .tracking(-0.6)
+                    Text("Here’s everything in your kitchen.")
+                        .font(.stockedSerif(25 * referenceScale, weight: .bold, relativeTo: .largeTitle))
+                        .tracking(-0.3)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Browse, stay organized,\nand always know what you have.")
+                    Text("Browse, stay organized, and always know what you have.")
                         .font(.stockedSerif(13 * referenceScale, relativeTo: .body))
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                InventoryReferenceArtwork(cell: 0)
+                    .frame(width: min(138, 120 * referenceScale), height: min(154, 134 * referenceScale))
+                    .clipped()
+                    .accessibilityHidden(true)
             }
-            .frame(minHeight: 141 * referenceScale, alignment: .top)
         }
         .foregroundStyle(session.themeTextColor)
         .padding(.horizontal, 9)

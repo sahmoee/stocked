@@ -5,18 +5,22 @@ nonisolated struct FinderRequestState: Equatable, Sendable {
     enum Phase: Equatable, Sendable { case idle, loading, ready, failed }
     private(set) var phase: Phase = .idle
     private(set) var count = 0
+    private var hasPreview = false
     private var generation = 0
     var isWorking: Bool { phase == .loading }
     /// A full-screen loading treatment is appropriate only until the first usable
     /// result arrives. Optional web/catalog enrichment must not make found results
     /// continue to look as though they are still refreshing.
-    var isBlocking: Bool { phase == .loading && count == 0 }
-    mutating func begin() -> Int { generation &+= 1; count = 0; phase = .loading; return generation }
-    /// Partial results are usable while other sources are still loading. They must
-    /// obey the same generation gate as the final response.
+    var isBlocking: Bool { phase == .loading && !hasPreview }
+    func canReportCount(catalogueLoading: Bool, query: String) -> Bool {
+        phase == .ready || (phase == .loading && hasPreview)
+    }
+    mutating func begin() -> Int { generation &+= 1; count = 0; hasPreview = false; phase = .loading; return generation }
+    /// Partial counts are useful, provided the UI merges stable identities rather
+    /// than replacing its whole grid for each scan page.
     mutating func preview(_ token: Int, count: Int) -> Bool {
-        guard token == generation, phase == .loading else { return false }
-        self.count = count; return true
+        guard token == generation, phase == .loading, count > 0 else { return false }
+        hasPreview = true; self.count = max(self.count, count); return true
     }
     mutating func complete(_ token: Int, count: Int) -> Bool {
         guard token == generation, phase == .loading else { return false }
@@ -143,6 +147,36 @@ nonisolated enum FinderChoice: String, Codable, Sendable, CaseIterable, Identifi
     case .sideDish: "bowl"; case .dessert: "birthday.cake"; case .drink: "cup.and.saucer"
     default: "checkmark"
     } }
+
+    /// Routes the complete stored taxonomy into Find a Recipe's smaller visible set.
+    /// Some honest regional classifications belong in two tiles.
+    nonisolated static func finderCuisines(for canonicalCuisine: String) -> Set<FinderChoice> {
+        switch canonicalCuisine {
+        case "African": [.african]
+        case "American", "BBQ", "New England", "Soul Food", "Hawaiian": [.american]
+        case "Southern": [.southern, .american]
+        case "Cajun & Creole": [.cajun, .american]
+        case "Tex-Mex": [.mexican, .american]
+        case "Caribbean": [.caribbean]
+        case "Jamaican": [.jamaican, .caribbean]
+        case "Chinese": [.chinese]
+        case "French": [.french]
+        case "Greek": [.greek, .mediterranean]
+        case "Indian": [.indian]
+        case "Italian": [.italian, .mediterranean]
+        case "Japanese": [.japanese]
+        case "Korean": [.korean]
+        case "Latin American", "Brazilian": [.latin]
+        case "Mediterranean", "Spanish": [.mediterranean]
+        case "Mexican": [.mexican, .latin]
+        case "Middle Eastern": [.middleEastern]
+        case "Moroccan": [.african, .mediterranean]
+        case "Turkish": [.middleEastern, .mediterranean]
+        case "Thai": [.thai]
+        case "Vietnamese": [.vietnamese]
+        default: []
+        }
+    }
 }
 
 nonisolated enum FinderSort: String, CaseIterable, Codable, Sendable, Identifiable {

@@ -92,6 +92,10 @@ nonisolated enum FinderData {
         }
       }
     }
+    // Canonical cuisine is authoritative. Do not depend on an incidental free-form tag
+    // to place a classified recipe into the visible cuisine tiles.
+    r.facets[.cuisine, default: []].formUnion(
+      FinderChoice.finderCuisines(for: cuisine))
     let aliases: [(String, FinderCategory, FinderChoice)] = [
       ("main dish", .meal, .dinner), ("main course", .meal, .dinner), ("beverage", .meal, .drink),
       ("side", .meal, .sideDish), ("comfort food", .mood, .comfort), ("cajun", .cuisine, .cajun),
@@ -311,13 +315,10 @@ enum FinderService {
     func publish() async throws {
       try Task.checkCancellation()
       guard let onProgress, count > 0 else { return }
-      // Publishing a new 60-card array five times a second made SwiftUI repeatedly
-      // diff/layout an image grid while the detached corpus walk was still running.
-      // Publish the first useful result immediately, then only meaningful, paced
-      // progress. The final response remains generation-gated by the caller.
+      // Progress is useful, but paced. The session merges stable identities so
+      // these snapshots append/update cards rather than replacing the whole grid.
       let elapsed = Date().timeIntervalSince(lastPreview)
-      let meaningfulGrowth = count - lastPreviewCount >= max(30, limit)
-      guard lastPreviewCount == 0 || (meaningfulGrowth && elapsed >= 1.25) else { return }
+      guard lastPreviewCount == 0 || (count - lastPreviewCount >= 20 && elapsed >= 0.75) else { return }
       trim()
       lastPreview = Date()
       lastPreviewCount = count

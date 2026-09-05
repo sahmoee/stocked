@@ -2,6 +2,13 @@
 
 ## September 5 reference restoration and follow-through (current)
 
+Hero overlap correction: the still-life now occupies a bounded trailing column, separated from
+the naturally wrapping 25-point scaled heading by 14 points. Below 350 points of available width,
+the group stacks. Text grows vertically at larger sizes; artwork is no longer offset behind it
+or hidden at accessibility sizes. Existing art, colors, navigation and live data are unchanged.
+Validation: generic iOS-device Stocked build and whitespace checks passed. Physical-device visual
+verification is pending; no simulator was used and no device installation was performed.
+
 The reference's three action subjects are restored with individual transparent assets:
 `inventory_expiring_reference` (calendar/tomato jar), `inventory_low_reference` (milk/tin basket),
 and `inventory_add_reference` (wooden grocery crate). Corresponding Home actions and Inventory
@@ -48,7 +55,7 @@ The shared header and tab bar remain owned by the app shell.
 Implemented: serif greeting/title, kitchen still-life hero, appliance/category panel, explicit
 Fridge/Freezer/Pantry/Leftovers destinations, All inventory destination, illustrated Expiring Soon,
 Running Low and Add Items actions, and a noninteractive Coming Soon AI banner. Large accessibility
-text grows the action cards and hides decorative hero art to prevent overlap. Dark mode uses the
+text grows the action cards and hero copy within separate artwork/text bounds. Dark mode uses the
 existing semantic text/background colors.
 
 Artwork: `Stocked/Assets .xcassets/inventory_reference_atlas.imageset/inventory_reference_atlas.png`.

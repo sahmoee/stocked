@@ -1,5 +1,11 @@
 # Read me first
 
+Recipe content is local-first. The writable library and public catalogue remain durable on-device;
+Worker updates commit in bounded 100-row pages and checkpoint only after the SQLite page write.
+Launch restores the cached count immediately, reconciles it with a scalar disk count off the first
+frame, and never materializes the complete public catalogue. Find a Recipe reads bounded disk pages
+and publishes stable incremental matches while its existing 250 MB image cache serves artwork.
+
 The ten coordinated kitchen capabilities and their ownership/rollout matrix are recorded in
 `STOCKED_MAJOR_WINS.md`. Shared cooking now publishes a bounded household presence with progress and
 claimable helper tasks; recipe instructions, quantities, notes and timers remain local. App Health
@@ -7,6 +13,10 @@ also reports recipe catalogue state, household queue health and memory footprint
 
 Recipe tiles share `RecipeCardStyle` typography/artwork/padding and semantic theme card surfaces;
 recipe and grocery supporting text uses the solid secondary-text token in both appearances.
+The Inventory hero reserves separate text/artwork columns (stacked only below 350-point width),
+with a smaller linked heading and natural wrapping; never overlay or offset art across its text.
+Inventory uses the recreated cutting-board/basil/utensil still life. Freezer, Pantry and Leftovers
+destination headers show their own existing transparent illustrations at the top left.
 Inventory follows the supplied September 4 reference: serif kitchen hero, illustrated appliance
 panel with Fridge/Freezer/Pantry/Leftovers routes, three illustrated action cards, and a disabled
 Stocked AI banner. Counts remain live; View All Inventory opens All rather than Fridge.
@@ -43,6 +53,17 @@ Recipe and Import to STOCKED. The shared WebKit browser keeps navigation across 
 the finished page into the existing reviewable editor. The editor preserves URL/publisher/tags;
 browser/preview imports do not automatically rewrite publisher text with AI. A saved UserRecipe
 continues through the existing Inventory/Grocery/Cook/Collection owners.
+
+Find a Recipe publishes early and paced progress. Stable-identity merging updates existing cards and
+appends new ones without clearing, reordering, or rebuilding the visible grid. The count says loaded
+until the query settles, then results. Background recipe pages and catalogue completion never restart
+the query; typing reads newly stored recipes with the existing 300-ms debounce. Allergen and selected
+inventory-eligibility safety refreshes remain active.
+
+Canonical cuisine classification feeds the visible Find a Recipe tiles directly. The finder maps
+specific and legacy labels into its smaller honest regional set (for example Jamaican also appears
+under Caribbean, Brazilian under Latin, and Turkish under Middle Eastern/Mediterranean) without
+changing the stored cuisine or relaxing any other filter.
 
 Do not make users choose Online versus Database. Downloaded matches stream in while web discovery
 runs, then one canonical-URL-deduplicated, globally sorted list includes both. Same-title personal

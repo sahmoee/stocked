@@ -22,6 +22,10 @@ Every page, sheet, popover, and cover must fill its presentation with the active
 App-level headers and root tab bars have one shared implementation and one geometry source. Feature pages must not locally override brand placement, chrome height, safe-area spacing, icon slots, labels, or selected-tab geometry.
 Inventory destinations reuse InventoryEditorialHeading, InventoryEditorialCard and the session's
 inventoryCanvas/inventoryGold tokens; do not create a separate header or store for the redesign.
+The Inventory landing hero reserves separate text/artwork bounds with natural wrapping. Never
+restore an offset artwork overlay; only available width may switch its columns to a stack.
+Keep Freezer/Pantry/Leftovers header artwork category-specific and leading, through the shared
+InventoryEditorialHeading. The hero uses inventory_kitchen_board_reference with the same renderer.
 Home/Inventory artwork uses StockedKitchenArtwork and the shared ImageCache, with aspect-fit
 cutouts and off-main preparation. Do not restore atlas stretching or multiply blending.
 Use KitchenArtworkCatalog for decorative navigation aliases; never remap publisher/product photos.
@@ -72,6 +76,13 @@ checks and generic-device compilation meanwhile, and never describe those as dev
 Find a Recipe discovery owns no backend API or independent user store. RecipeDatabaseManager owns
 the additive public catalogue table in GrowthDatabase and HarvestRecipeSync owns its resumable
 server-page cursor. Never reconcile that table from a bounded view snapshot or load it all into RAM.
+Restore the persisted catalogue count immediately, reconcile it with a count-only SQLite query, and
+checkpoint each bounded page only after its durable write; cached rows remain usable while offline.
+Publish paced progress through stable-identity merging: update existing cards and append into free
+slots without replacing or reordering the visible grid. Label partial counts as loaded and final
+counts as results. Do not restart searches on background recipe/page revisions, download completion,
+or from catalogue downloads inside query refresh. Preserve debounced typing plus allergen and
+selected inventory-eligibility updates.
 Unified discovery uses bounded publisher requests, no source-count qualification gate, no automatic
 catalogue writes, and no new vendor. Search the downloaded database concurrently, publish early
 matches, then merge website matches into the SAME sorted/deduplicated list. No Online/Database

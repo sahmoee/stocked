@@ -8,7 +8,8 @@ struct KitchenArtworkAudit {
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? FileManager.default.currentDirectoryPath)
         let names = ["inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference",
-                     "kitchen_protein_reference", "kitchen_leftovers_reference"]
+                     "kitchen_protein_reference", "kitchen_leftovers_reference",
+                     "inventory_kitchen_board_reference", "inventory_category_freezer", "inventory_category_pantry"]
         var checks = 0
         for name in names {
             let directory = root.appendingPathComponent("Stocked/Assets .xcassets/\(name).imageset")

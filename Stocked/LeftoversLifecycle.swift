@@ -140,7 +140,7 @@ struct LeftoversView: View {
     var body: some View {
         StockedShell(showBack: true, trailingIcon: "plus", trailingLabel: "Add leftovers",
                      onTrailing: { showAdd = true }, canvasColor: session.inventoryCanvas) {
-            InventoryEditorialHeading(title: "Leftovers", subtitle: "Good food, ready for another moment.", artwork: 5)
+            InventoryEditorialHeading(title: "Leftovers", subtitle: "Good food, ready for another moment.", artwork: 5, artworkLeading: true)
                 .padding(.horizontal, 20)
             if store.entries.isEmpty {
                 VStack(spacing: 10) {

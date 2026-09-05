@@ -5,6 +5,11 @@ import SwiftUI
   var hits: [FinderHit] = []
   private var requestState = FinderRequestState()
   var count: Int { requestState.count }
+  var canReportCount: Bool {
+    requestState.canReportCount(catalogueLoading: HarvestRecipeSync.shared.refreshingCatalogue,
+                               query: flow.filters.query)
+  }
+  var countIsFinal: Bool { requestState.phase == .ready }
   /// Blocking initial load. Once a preview has real matches, the result screen is
   /// ready even if optional sources are still being checked in the background.
   var loading: Bool { requestState.isBlocking }
@@ -31,7 +36,7 @@ import SwiftUI
     }
     let key =
       "\(ConnectivityMonitor.isOnlineFlag)|\(store.recipeRevision)|\(store.inventoryRevision)|\(store.pastMealsRevision)|\(RecipeDatabaseManager.shared.recipesVersion)|\(RecipeDatabaseManager.shared.catalogueRevision)|\(limit)|\(store.cookingProfile.allergens.sorted())"
-    if !force, !working, !error, completedKey == key, completedFilters == flow.filters { return }
+    if !force, requestState.phase == .ready, completedKey == key, completedFilters == flow.filters { return }
     if !force, working, requestedKey == key, requestedFilters == flow.filters { return }
     request?.cancel()
     if requestedFilters != flow.filters {
@@ -58,7 +63,6 @@ import SwiftUI
     let searchKey = terms.joined(separator: "|")
     let cached =
       !force && webKey == searchKey && Date().timeIntervalSince(webAt) < 600 ? webCache : nil
-    HarvestRecipeSync.shared.refreshFullCatalogue()
     request = Task { [weak self] in
       do {
         try await Task.sleep(for: .milliseconds(300))
@@ -101,7 +105,7 @@ import SwiftUI
         try Task.checkCancellation()
         if response.count == 0 && local.catalogueUnavailable { throw CocoaError(.fileReadUnknown) }
         guard let self, requestState.complete(current, count: response.count) else { return }
-        hits = response.hits
+        mergeVisible(response.hits)
         catalogueUnavailable = response.catalogueUnavailable
         alternatives = response.alternatives
         webUnavailable = online && (batch?.reachedSources ?? 0) == 0
@@ -117,7 +121,9 @@ import SwiftUI
           detail:
             "\(count) matches; partial catalogue: \(catalogueUnavailable); web unavailable: \(webUnavailable)"
         )
-        UIAccessibility.post(notification: .announcement, argument: "\(count) recipes found")
+        if canReportCount {
+          UIAccessibility.post(notification: .announcement, argument: "\(count) recipes found")
+        }
         if count == 0 { AppAnalytics.shared.log(.finderNoResults) }
       } catch is CancellationError {} catch {
         guard let self, requestState.fail(current) else { return }
@@ -129,9 +135,19 @@ import SwiftUI
   }
   private func acceptPreview(_ response: FinderResponse, token: Int) {
     guard requestState.preview(token, count: response.count) else { return }
-    hits = response.hits
+    mergeVisible(response.hits)
     catalogueUnavailable = response.catalogueUnavailable
-    alternatives = response.alternatives
+  }
+  /// Preserve card identity and position while a running query discovers more rows.
+  /// Existing cards receive fresher data; genuinely new cards append into free slots.
+  private func mergeVisible(_ incoming: [FinderHit]) {
+    let updates = Dictionary(incoming.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    var merged = hits.compactMap { updates[$0.id] ?? $0 }
+    var known = Set(merged.map(\.id))
+    for hit in incoming where known.insert(hit.id).inserted && merged.count < limit {
+      merged.append(hit)
+    }
+    hits = merged
   }
   nonisolated private static func discover(
     terms: [String], cached: WebRecipeFetcher.DiscoveryBatch?, online: Bool
@@ -164,8 +180,8 @@ struct RecipeFinderView: View {
   private var surface: Color { RecipeCardStyle.surface(isDark: session.isDarkMode) }
   private var categories: [FinderCategory] { FinderCategory.allCases }
   private var showCount: String {
-    model.loading
-      ? "Finding matches…" : model.error ? "Show recipes" : "Show \(model.count) recipes"
+    model.canReportCount ? "Show \(model.count) recipes"
+      : model.loading ? "Finding matches…" : "Show recipes"
   }
 
   var body: some View {
@@ -219,6 +235,9 @@ struct RecipeFinderView: View {
       }
     }
     .onAppear {
+      // Download lifecycle is independent of each filter/search pass. Its completion
+      // may refresh results once, but a result query must never start it again.
+      HarvestRecipeSync.shared.refreshFullCatalogue()
       refresh()
       logStep()
       if model.shouldFocusSearch {
@@ -236,17 +255,12 @@ struct RecipeFinderView: View {
       refresh()
       logStep()
     }
-    .onChange(of: session.guestStore.inventoryRevision) { _, _ in refresh() }
-    .onChange(of: session.guestStore.recipeRevision) { _, _ in refresh() }
-    .onChange(of: session.guestStore.pastMealsRevision) { _, _ in refresh() }
-    .onChange(of: RecipeDatabaseManager.shared.recipesVersion) { _, _ in
-      if !HarvestRecipeSync.shared.refreshingCatalogue { refresh() }
+    .onChange(of: session.guestStore.inventoryRevision) { _, _ in
+      // Eligibility must remain safe when the user requires available ingredients.
+      if model.flow.filters.usesInventory { refresh() }
     }
-    .onChange(of: RecipeDatabaseManager.shared.catalogueRevision) { _, _ in
-      if !HarvestRecipeSync.shared.refreshingCatalogue { refresh() }
-    }
-    .onChange(of: HarvestRecipeSync.shared.refreshingCatalogue) { _, busy in if !busy { refresh() }
-    }
+    // Recipe enrichment, individual pages, and download completion do not restart
+    // a visible query. Typing or an explicit filter/retry reads newly stored rows.
     .onChange(of: ConnectivityMonitor.shared.isOnline) { _, _ in refresh() }
     .onChange(of: session.guestStore.cookingProfile.allergens) { _, _ in refresh() }
     .onChange(of: session.guestStore.hasCompletedInitialHydration) { _, _ in refresh() }
@@ -401,7 +415,7 @@ struct RecipeFinderView: View {
           .accessibilityLabel("Edit \(category.title)")
         }.padding(16).background(surface, in: RoundedRectangle(cornerRadius: 20))
       }
-      if model.error { errorState } else if !model.loading && model.count == 0 { noMatchGuidance }
+      if model.error { errorState } else if model.canReportCount && model.count == 0 { noMatchGuidance }
       sourceNotice
       primary(showCount) {
         model.flow.phase = .results
@@ -464,7 +478,7 @@ struct RecipeFinderView: View {
       heading(
         model.loading && model.hits.isEmpty
           ? "Finding recipes for you"
-          : model.error ? "Recipes for you" : "\(model.count) recipes for you")
+          : model.canReportCount ? "\(model.count) recipes for you" : "Recipes for you")
       search
       if !session.guestStore.cookingProfile.allergens.isEmpty {
         Text(
@@ -507,7 +521,9 @@ struct RecipeFinderView: View {
           ).frame(minHeight: 44)
         }.accessibilityLabel("Sort recipes, \(model.flow.filters.sort.label)")
         Spacer()
-        Text(model.loading ? "\(model.count) so far" : "\(model.count) results").font(
+        Text(model.canReportCount
+             ? "\(model.count) \(model.countIsFinal ? "results" : "loaded")"
+             : model.error ? "Results unavailable" : "Loading results…").font(
           .stocked(.subheadline))
       }
       sourceNotice
@@ -516,6 +532,9 @@ struct RecipeFinderView: View {
         skeletons
       } else if model.hits.isEmpty && model.error {
         errorState
+      } else if model.hits.isEmpty && !model.canReportCount {
+        Text("Available matches will appear when loading finishes.")
+          .font(.stocked(.body)).foregroundStyle(session.themeSecondaryText)
       } else if model.hits.isEmpty {
         emptyState
       } else {
@@ -529,7 +548,7 @@ struct RecipeFinderView: View {
             }.buttonStyle(.plain)
           }
         }
-        if !model.enriching && model.hits.count < model.count {
+        if model.canReportCount && model.hits.count < model.count {
           primary("Load more recipes") {
             model.limit += 60
             model.refresh(store: session.guestStore)

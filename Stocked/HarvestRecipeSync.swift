@@ -30,7 +30,6 @@ import Observation
 @MainActor
 final class HarvestRecipeSync {
     static let shared = HarvestRecipeSync()
-    private init() {}
 
     // MARK: Cadence
 
@@ -44,11 +43,12 @@ final class HarvestRecipeSync {
     private let lastSyncKey = "harvestRecipeSyncLastAt_v1"
     private let cursorKey = "harvestRecipeSyncCursor_v2"
     private let completedKey = "harvestRecipeCatalogueCompleted_v2"
-    var catalogueCount = 0
+    private let cachedCountKey = "harvestRecipeCatalogueCachedCount_v1"
+    var catalogueCount: Int
     var refreshingCatalogue = false
     var catalogueError = false
     private var cataloguePaused = false
-    var catalogueComplete = UserDefaults.standard.double(forKey: "harvestRecipeCatalogueCompleted_v2") > 0
+    var catalogueComplete: Bool
     private var fullCatalogueTask: Task<Void, Never>?
     private var lastPageSucceeded = false
 
@@ -56,6 +56,20 @@ final class HarvestRecipeSync {
     private var inFlight: Task<Int, Never>?
     private var pendingPublications: [UUID: UserRecipe] = [:]
     private var publicationTask: Task<Void, Never>?
+
+    private init() {
+        let defaults = UserDefaults.standard
+        catalogueCount = defaults.integer(forKey: cachedCountKey)
+        catalogueComplete = defaults.double(forKey: completedKey) > 0
+        // Show the persisted count on the first frame, then cheaply reconcile it with the
+        // disk-backed catalogue without loading recipe payloads into memory.
+        Task { [weak self] in
+            guard let self else { return }
+            let diskCount = await GrowthDatabase.shared.recipePageCount()
+            self.catalogueCount = diskCount
+            defaults.set(diskCount, forKey: self.cachedCountKey)
+        }
+    }
 
     private var lastSyncAt: Date? {
         get {
@@ -291,6 +305,7 @@ final class HarvestRecipeSync {
             }
             ingested += entries.count
             catalogueCount = await GrowthDatabase.shared.recipePageCount()
+            UserDefaults.standard.set(catalogueCount, forKey: cachedCountKey)
             lastSyncAt = Date()
             if next == nil { break }
           }
