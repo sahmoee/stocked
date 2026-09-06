@@ -41,3 +41,6 @@ node_modules/
 # Local development guidance
 /AGENTS.md
 /CLAUDE.md
+
+# Local editor and source backups
+*.b*-backup
