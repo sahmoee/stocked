@@ -168,6 +168,17 @@ struct DataStorageSectionView: View {
                 }
                 .buttonStyle(.plain)
 
+                NavigationLink { FreeKitchenHubView() } label: {
+                    navigationRow(dark: dark, icon: "point.3.connected.trianglepath.dotted", title: "Free Kitchen Connections", detail: "Recipes, calendars, prices and household delivery", color: Color.stockedGreen)
+                }.buttonStyle(.plain)
+
+                if HouseholdDeliveryService.shared.status?.webhookEnabled == true {
+                    Text("A household webhook is still on. Turn it off in Household delivery before erasing if you want its notices to stop. Erasing removes this device’s owner key and does not turn off the remote receiver.")
+                        .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                    NavigationLink { DeliverySettingsView() } label: {
+                        navigationRow(dark: dark, icon: "antenna.radiowaves.left.and.right", title: "Review Household Delivery", detail: "Manage the receiver before erasing", color: Color.stockedGreen)
+                    }.buttonStyle(.plain)
+                }
                 destructiveRow(dark: dark, icon: "trash.fill", title: "Erase All Data", detail: "This device and iCloud", action: onEraseAllData)
             }
         }
@@ -231,6 +242,11 @@ struct HelpSectionView: View {
                 actionRow(dark: dark, icon: "lock.shield.fill", title: "Privacy Policy", detail: "How your data is handled", action: onPrivacyPolicy)
                 actionRow(dark: dark, icon: "doc.text.fill", title: "Terms of Service", detail: "The rules for using Stocked", action: onTermsOfService)
                 actionRow(dark: dark, icon: "globe", title: "Website", detail: "sowensstudios.com", action: onWebsite)
+                NavigationLink {
+                    OpenKitchenCreditsView()
+                } label: {
+                    navigationRow(dark: dark, icon: "heart.text.clipboard", title: "Sources & Credits", detail: "Open formats, data licenses and contributors", color: Color.stockedGreen)
+                }.buttonStyle(.plain)
             }
         }
     }

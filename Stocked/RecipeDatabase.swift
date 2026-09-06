@@ -43,6 +43,9 @@ nonisolated struct RecipeDatabaseEntry: Identifiable, Codable, Hashable, Sendabl
     var rating:      Double?
     var cachedAt:    Date    = Date()
     var openCount:   Int     = 0          // popularity tracking
+    var author: String? = nil
+    var license: String? = nil
+    var imageAttribution: String? = nil
 
     // Full-text index built once and reused for fast filtering
     var searchIndex: String {
@@ -228,6 +231,10 @@ nonisolated struct AddRecipeForm: Sendable {
     /// re-structure the import with AI and to power "Show original text". Empty for
     /// from-scratch entry.
     var originalText = ""
+    var portableSource: PortableRecipeSource? = nil
+    var author = ""
+    var license = ""
+    var imageAttribution = ""
 
     mutating func fill(from entry: RecipeDatabaseEntry) {
         title       = entry.title
@@ -243,6 +250,9 @@ nonisolated struct AddRecipeForm: Sendable {
         steps       = entry.steps
         imageURL    = entry.imageURL
         sourceURL   = entry.sourceURL
+        author = entry.author ?? ""
+        license = entry.license ?? ""
+        imageAttribution = entry.imageAttribution ?? ""
     }
 }
 
@@ -1134,7 +1144,8 @@ final class RecipeDatabaseManager {
             tags: Array(Set(recipe.tags + (recipe.categories ?? []))),
             ingredients: recipe.ingredients.map { "\($0.amount) \($0.name)" },
             steps: recipe.instructions,
-            imageURL: reference.storedValue
+            imageURL: reference.storedValue,
+            author: recipe.author, license: recipe.license, imageAttribution: recipe.imageAttribution
         )
     }
 

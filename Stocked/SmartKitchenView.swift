@@ -135,11 +135,17 @@ struct NutritionToolView: View {
                 }.disabled(loading)
 
                 if let r = result {
+                    Text(r.complete == true ? "Estimated total" : "Subtotal of ingredients we could estimate")
+                        .font(.headline).foregroundStyle(session.themeTextColor)
+                    Text(r.note ?? "Estimates can be incomplete. Missing nutrition or quantities aren't zero.")
+                        .font(.caption).foregroundStyle(session.themeSecondaryText)
+                    if r.items.contains(where: { $0.kcal != nil }) {
                     HStack(spacing: 10) {
                         macro("\(r.total.kcal)", "kcal")
                         macro("\(r.total.protein)g", "protein")
                         macro("\(r.total.carbs)g", "carbs")
                         macro("\(r.total.fat)g", "fat")
+                    }
                     }
                     ForEach(Array(r.items.enumerated()), id: \.offset) { _, it in
                         HStack {

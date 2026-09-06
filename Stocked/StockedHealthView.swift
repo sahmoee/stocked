@@ -138,6 +138,13 @@ struct StockedHealthView: View {
                 }
             } header: { Text("Sync") }
 
+            Section {
+                NavigationLink { DeliverySettingsView() } label: { Label("Household update delivery", systemImage: "antenna.radiowaves.left.and.right") }
+                NavigationLink { FreeKitchenHubView() } label: { Label("Free connections and recovery", systemImage: "point.3.connected.trianglepath.dotted") }
+                row("Saved community price checks", "\(CommunityPriceWatchStore.shared.watches.count)")
+                Text("Price checks refresh only when requested. Failed lookups retain their dated previous results; receipt prices remain separate.").font(.stocked(.footnote))
+            } header: { Text("Optional connections") }
+
             // ── Storage ──────────────────────────────────────────────────────
             Section {
                 row("Feature data", byteLabel(FeatureStoreKeys.diskBytes()))

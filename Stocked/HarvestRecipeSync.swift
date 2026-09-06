@@ -193,6 +193,7 @@ final class HarvestRecipeSync {
     }
 
     private func isPublishable(_ recipe: UserRecipe) -> Bool {
+        if let source = recipe.portableSource, source.catalogueSharingApproved != true { return false }
         func isHTTPS(_ value: String?) -> Bool {
             guard let value, let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
             return url.scheme?.lowercased() == "https" && url.host?.isEmpty == false
@@ -218,6 +219,8 @@ final class HarvestRecipeSync {
             "ingredients": recipe.ingredients.map { ["name": $0.name, "amount": $0.amount] },
             "instructions": recipe.instructions, "sourceURL": sourceURL,
             "attribution": source, "imageURL": imageURL,
+            "author": recipe.author ?? "", "license": recipe.license ?? "",
+            "imageAttribution": recipe.imageAttribution ?? "",
             "servings": max(1, recipe.servings), "prepTime": recipe.prepTime,
             "cookTime": recipe.cookTime, "importedBy": "stocked-ios",
             "importedAt": StockedFormatters.iso8601.string(from: recipe.dateCreated),
@@ -355,6 +358,9 @@ nonisolated private struct HarvestWireRecipe: Decodable, Sendable {
     var importedAt: String?
     var storedAt: String?
     var attribution: String?
+    var author: String?
+    var license: String?
+    var imageAttribution: String?
     var confidence: Double?
     var image: String?        // relative Worker path, e.g. "/harvest/img/<id>.jpg"
     var imageURL: String?     // absolute original image URL, when the Mac had one
@@ -376,7 +382,7 @@ nonisolated private struct HarvestWireRecipe: Decodable, Sendable {
     /// Returns nil for a recipe with no title or no usable instructions — the same bar
     /// RecipeSourceHub.isFullRecipe holds other feeds to.
     func toDatabaseEntry(workerBase: String) -> RecipeDatabaseEntry? {
-        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanTitle = RecipeDisplayPolicy.cleanedTitle(title)
         guard !cleanTitle.isEmpty else { return nil }
 
         let steps = (instructions ?? [])
@@ -394,15 +400,19 @@ nonisolated private struct HarvestWireRecipe: Decodable, Sendable {
         // Prefer the absolute original image; otherwise resolve the Worker's cached-image path
         // against the Worker base so <id>.jpg becomes a full https URL the resolver can load.
         let resolvedImage: String = {
-            if let abs = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines), abs.hasPrefix("http") {
+            if let abs = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+               RecipeDisplayPolicy.isLikelyRecipeImageURL(abs, sourceURL: sourceURL) {
                 return abs
             }
             guard let rel = image?.trimmingCharacters(in: .whitespacesAndNewlines), !rel.isEmpty else { return "" }
-            if rel.hasPrefix("http") { return rel }
+            if rel.hasPrefix("http") {
+                return RecipeDisplayPolicy.isLikelyRecipeImageURL(rel, sourceURL: sourceURL) ? rel : ""
+            }
             let base = workerBase.hasSuffix("/") ? String(workerBase.dropLast()) : workerBase
             return rel.hasPrefix("/") ? base + rel : base + "/" + rel
         }()
-        guard !resolvedImage.isEmpty else { return nil }
+        guard !resolvedImage.isEmpty,
+              RecipeDisplayPolicy.isLikelyRecipeImageURL(resolvedImage, sourceURL: sourceURL) else { return nil }
 
         // Attribution is the Mac's display source (host/author). Fall back to a neutral,
         // non-blocklisted label so the recipe still counts under a source in the browser.
@@ -436,7 +446,8 @@ nonisolated private struct HarvestWireRecipe: Decodable, Sendable {
             tags:        tagList,
             ingredients: ingredientLines,
             steps:       steps,
-            imageURL:    resolvedImage
+            imageURL:    resolvedImage,
+            author: author, license: license, imageAttribution: imageAttribution
         )
     }
 

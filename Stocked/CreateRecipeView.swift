@@ -14,6 +14,12 @@ struct CreateRecipeView: View {
     var prefill: AddRecipeForm? = nil
     var prefillSource: String = "Imported"
     var allowAIStructuring = true
+    /// Batch migration reviews return an edited draft without writing to the library yet.
+    var onReviewed: ((UserRecipe) -> Void)? = nil
+    var initialImageData: Data? = nil
+    var forcePrivateSave = false
+    /// Optional final review gate; throwing leaves the editor open without saving.
+    var validateBeforeSave: ((UserRecipe) throws -> Void)? = nil
     var onSaved: ((UserRecipe) -> Void)? = nil
 
     // ── Form state ──────────────────────────────────────────────────────
@@ -33,6 +39,13 @@ struct CreateRecipeView: View {
     @State private var publisher = ""
     @State private var sourceTags: [String] = []
     @State private var sourceCategory = ""
+    @State private var portableSource: PortableRecipeSource?
+    @State private var author = ""
+    @State private var license = ""
+    @State private var imageAttribution = ""
+    @State private var sharePortableRecipe = false
+    @State private var confirmPortablePublication = false
+    @State private var saveValidationError: String?
 
     // ── NEW: autofill state ─────────────────────────────────────────────
     /// The form that RecipePredictiveTextField fills on tap.
@@ -69,6 +82,28 @@ struct CreateRecipeView: View {
                                 Text("Original source credited. Rights remain with the publisher.")
                                     .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                             }.padding(.bottom, 20)
+                        }
+
+                        if portableSource != nil {
+                            formSection("Recipe credits") {
+                                bigField("Recipe author", text: $author)
+                                bigField("Recipe license, if supplied", text: $license)
+                                bigField("Photo credit", text: $imageAttribution)
+                            }
+                            Text(forcePrivateSave
+                                 ? "Keep the creator’s credit and license with the recipe. Use changes returns to the import preview without saving."
+                                 : "Keep the creator’s credit and license with the recipe. The original imported file remains unchanged.")
+                                .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                                .padding(.bottom, 12)
+                            if !forcePrivateSave {
+                                Toggle("Share with the Stocked recipe catalogue", isOn: $sharePortableRecipe)
+                                    .disabled(!hasPublicRecipeLinks)
+                            }
+                            Text(forcePrivateSave ? "This collection import saves privately for you and your household. It will not publish recipes publicly." : sharePortableRecipe
+                                 ? "Saving will publish the recipe, ingredients, instructions, image link and credits for other Stocked users. The original file and private notes stay private."
+                                 : "Save privately for you and your household. Public sharing is optional and needs an original website link and a web image link.")
+                                .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                                .padding(.top, 6).padding(.bottom, 20)
                         }
 
                         if let prefill, !prefill.sourceURL.isEmpty {
@@ -242,7 +277,7 @@ struct CreateRecipeView: View {
                             }
                             .buttonStyle(.plain)
 
-                            if !ingredients.isEmpty {
+                            if !ingredients.isEmpty && onReviewed == nil {
                                 formDivider
                                 Button {
                                     let n = session.guestStore.addRecipeIngredientsToGrocery(
@@ -353,6 +388,7 @@ struct CreateRecipeView: View {
                 guard let prefill, !didStructure else { return }
                 didStructure = true
                 if imageURL.isEmpty { imageURL = prefill.imageURL }
+                if imageData == nil { imageData = initialImageData }
                 originalText = prefill.originalText
                 if title.isEmpty, !prefill.title.isEmpty { title = prefill.title }
                 preserveSource(prefill, name: prefillSource)
@@ -364,7 +400,7 @@ struct CreateRecipeView: View {
                                                     ingredients: prefill.ingredients, steps: prefill.steps)
                     : prefill.originalText
 
-                if allowAIStructuring, RecipeImportAI.isAvailable,
+                if allowAIStructuring, prefill.portableSource == nil, RecipeImportAI.isAvailable,
                    rawText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 12 {
                     isStructuring = true
                     // #8 — resolve the hero image in parallel with the AI call so it's
@@ -395,11 +431,34 @@ struct CreateRecipeView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveRecipe() }
+                    Button(onReviewed == nil ? "Save" : "Use changes") {
+                        if portableSource != nil && sharePortableRecipe && hasPublicRecipeLinks {
+                            confirmPortablePublication = true
+                        } else {
+                            portableSource?.catalogueSharingApproved = false
+                            saveRecipe()
+                        }
+                    }
                         .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                  || (imageData == nil && imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                                  || (!canSaveWithoutImage && imageData == nil && imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                 }
             }
+            .confirmationDialog("Publish this recipe to the Stocked catalogue?", isPresented: $confirmPortablePublication, titleVisibility: .visible) {
+                Button("Save and publish") {
+                    portableSource?.catalogueSharingApproved = true
+                    saveRecipe()
+                }
+                Button("Keep it private and save") {
+                    sharePortableRecipe = false; portableSource?.catalogueSharingApproved = false
+                    saveRecipe()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("“\(title)” and its web image will be available to other Stocked users. Continue only if you have permission to share the recipe and image with the credits shown above. Private notes and the original imported document will not be published.")
+            }
+            .alert("Recipe was not saved", isPresented: Binding(get: { saveValidationError != nil }, set: { if !$0 { saveValidationError = nil } })) {
+                Button("OK") { saveValidationError = nil }
+            } message: { Text(saveValidationError ?? "") }
         }
     }
 
@@ -500,6 +559,10 @@ struct CreateRecipeView: View {
     }
 
     private func preserveSource(_ form: AddRecipeForm, name: String) {
+        if let importedSource = form.portableSource { portableSource = importedSource }
+        else if !forcePrivateSave { portableSource = nil }
+        author = form.author; license = form.license; imageAttribution = form.imageAttribution
+        if !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { publisher = name }
         if let url = RecipeBrowserPolicy.url(form.sourceURL) {
             sourceURL = url.absoluteString
             publisher = name.isEmpty ? (url.host ?? "Original publisher") : name
@@ -517,9 +580,17 @@ struct CreateRecipeView: View {
     }
 
     // MARK: - Save (with DB write-back)
+    private var canSaveWithoutImage: Bool {
+        portableSource != nil && instructions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private var hasPublicRecipeLinks: Bool {
+        RecipeBrowserPolicy.url(sourceURL) != nil && RecipeBrowserPolicy.url(imageURL) != nil
+    }
+
     private func saveRecipe() {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        guard imageData != nil || !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard canSaveWithoutImage || imageData != nil || !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let steps = instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -550,9 +621,35 @@ struct CreateRecipeView: View {
         recipe.sourceURL = sourceURL.isEmpty ? nil : sourceURL
         recipe.sourceName = publisher.isEmpty ? nil : publisher
         recipe.categories = [classification.category]
+        recipe.portableSource = portableSource
+        if forcePrivateSave { recipe.portableSource?.catalogueSharingApproved = false }
+        if var importedSource = recipe.portableSource {
+            importedSource.originalSourceURL = sourceURL.isEmpty ? importedSource.originalSourceURL : sourceURL
+            recipe.portableSource = importedSource
+            if importedSource.catalogueSharingApproved != true {
+                // Released clients publish by the top-level sourceURL. Keep it empty until
+                // explicit consent, even when an older client cannot decode portableSource.
+                recipe.sourceURL = nil
+                recipe.notes = recipe.notes.replacingOccurrences(of: #"(?im)^(\s*)source\s*:"#,
+                    with: "$1Original reference:", options: .regularExpression)
+            }
+        }
+        recipe.author = author.isEmpty ? nil : author
+        recipe.license = license.isEmpty ? nil : license
+        recipe.imageAttribution = imageAttribution.isEmpty ? nil : imageAttribution
+
+        do { try validateBeforeSave?(recipe) }
+        catch { saveValidationError = error.localizedDescription; return }
+
+        if let onReviewed {
+            onReviewed(recipe)
+            dismiss()
+            return
+        }
 
         // ── Save to AppSession (existing) ──
         session.guestStore.addUserRecipe(recipe)
+        guard session.guestStore.userRecipes.contains(where: { $0.id == recipe.id }) else { return }
         QARecorder.shared.record(.success, screen: "Recipe Import Review", label: "Recipe saved",
             detail: "\(recipe.ingredients.count) ingredients; \(recipe.instructions.count) steps; source credited: \(!sourceURL.isEmpty)")
         QABackgroundRunner.shared.runSoon()
@@ -658,11 +755,11 @@ struct CreateRecipeView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
                     .fill(session.themeCardColor)
-                if imageData != nil || !imageURL.isEmpty || !title.isEmpty {
+                if imageData != nil || (!forcePrivateSave && (!imageURL.isEmpty || !title.isEmpty)) {
                     RecipeHeroImage(
                         imageData: imageData,
-                        imageURL: imageURL.isEmpty ? nil : imageURL,
-                        recipeName: title,
+                        imageURL: forcePrivateSave || imageURL.isEmpty ? nil : imageURL,
+                        recipeName: forcePrivateSave ? "" : title,
                         height: 200
                     )
                     .frame(maxWidth: .infinity)

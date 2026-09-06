@@ -55,7 +55,11 @@ final class FeatureSync {
             activeStore: StoreLayoutStore.shared.activeStore,
             gardenHarvests: HarvestStore.shared.entries,
             containerLabels: ContainerLabelStore.shared.labels,
-            takeoutLog: TakeoutStore.shared.entries
+            takeoutLog: TakeoutStore.shared.entries,
+            scheduledMeals: PlanAheadStore.shared.scheduledMeals,
+            mealPlanRules: PlanAheadStore.shared.rules,
+            mealPlanTemplates: PlanAheadStore.shared.templates,
+            smartCookbooks: SmartCookbookStore.shared.rules
         )
     }
 
@@ -64,6 +68,7 @@ final class FeatureSync {
     func restoreBackupSnapshot(_ snapshot: KitchenFeatureSnapshot, merge: Bool) {
         isApplyingRemote = true
         defer { isApplyingRemote = false }
+        PlanAheadStore.shared.clearUndo()
 
         if merge {
             LeftoversStore.shared.entries = backupMerge(LeftoversStore.shared.entries, snapshot.leftovers)
@@ -91,6 +96,19 @@ final class FeatureSync {
             TakeoutStore.shared.entries = snapshot.takeoutLog
         }
 
+        if let rows = snapshot.scheduledMeals {
+            PlanAheadStore.shared.scheduledMeals = merge ? backupMerge(PlanAheadStore.shared.scheduledMeals, rows) : rows
+        }
+        if let rows = snapshot.mealPlanRules {
+            PlanAheadStore.shared.rules = merge ? backupMerge(PlanAheadStore.shared.rules, rows) : rows
+        }
+        if let rows = snapshot.mealPlanTemplates {
+            PlanAheadStore.shared.templates = merge ? backupMerge(PlanAheadStore.shared.templates, rows) : rows
+        }
+        if let rows = snapshot.smartCookbooks {
+            SmartCookbookStore.shared.rules = merge ? backupMerge(SmartCookbookStore.shared.rules, rows) : rows
+        }
+
         LeftoversStore.shared.flush()
         FamilyProfileStore.shared.flush()
         EventStore.shared.flush()
@@ -99,6 +117,8 @@ final class FeatureSync {
         HarvestStore.shared.flush()
         ContainerLabelStore.shared.flush()
         TakeoutStore.shared.flush()
+        PlanAheadStore.shared.flush()
+        SmartCookbookStore.shared.flush()
     }
 
     private func backupMerge<T: HouseholdSyncable>(_ local: [T], _ incoming: [T]) -> [T] {
@@ -132,6 +152,7 @@ final class FeatureSync {
     func wipeAll() {
         isApplyingRemote = true
         defer { isApplyingRemote = false }
+        PlanAheadStore.shared.clearUndo()
         tombstones = [:]
         tombstoneRevisions = [:]
         tombstoneDeletedAt = [:]
@@ -147,6 +168,10 @@ final class FeatureSync {
         ContainerLabelStore.shared.labels  = []
         TakeoutStore.shared.entries        = []
         HouseholdCookStore.shared.entries  = []
+        PlanAheadStore.shared.scheduledMeals = []
+        PlanAheadStore.shared.rules = []
+        PlanAheadStore.shared.templates = []
+        SmartCookbookStore.shared.rules = []
     }
 
     // ── Stamping ─────────────────────────────────────────────────────────────
@@ -181,16 +206,23 @@ final class FeatureSync {
         for i in out.indices {
             let cur = out[i]
             if let prev = oldByID[cur.id] {
-                if cur.updatedAt == prev.updatedAt, !FeatureSync.semanticallyEqual(cur, prev) {
+                if cur.updatedAt == prev.updatedAt || Self.entityType(for: key) != .featureData,
+                   !FeatureSync.semanticallyEqual(cur, prev) {
                     out[i] = FeatureSync.stamped(cur)
-                    recordEdit(id: cur.id)
+                    recordEdit(collection: key, id: cur.id)
                 }
-            } else if cur.updatedAt == 0 {
+            } else if cur.updatedAt == 0 || Self.entityType(for: key) != .featureData {
                 out[i] = FeatureSync.stamped(cur)
-                recordEdit(id: cur.id)
+                // A restored plan/cookbook ID must clear an already-acknowledged server tombstone.
+                // Restore is also safe for a brand new ID; both need the same domain capability.
+                recordEdit(collection: key, id: cur.id,
+                    operation: Self.entityType(for: key) == .featureData ? .update : .restore)
             }
             // An id reappearing after a delete (undo) must not stay tombstoned.
-            if tombstones[key]?.remove(cur.id.uuidString) != nil { saveTombstones() }
+            if tombstones[key]?.remove(cur.id.uuidString) != nil {
+                tombstoneDeletedAt[key]?[cur.id.uuidString] = nil
+                saveTombstones()
+            }
         }
 
         let newIDs = Set(out.map(\.id))
@@ -230,12 +262,17 @@ final class FeatureSync {
         tombstoneDeletedAt[collection, default: [:]][id.uuidString] = Date()
         saveTombstones()
         // Nudge the household push loop the same way core-collection edits do.
-        HouseholdSync.shared.enqueue(entityID: id, entityType: .featureData, operation: .delete)
+        HouseholdSync.shared.enqueue(entityID: id, entityType: Self.entityType(for: collection), operation: .delete)
     }
 
     func recordEdit(id: UUID) {
         guard !isApplyingRemote else { return }
         HouseholdSync.shared.enqueue(entityID: id, entityType: .featureData, operation: .update)
+    }
+
+    func recordEdit(collection: String, id: UUID, operation: HouseholdOperationType = .update) {
+        guard !isApplyingRemote else { return }
+        HouseholdSync.shared.enqueue(entityID: id, entityType: Self.entityType(for: collection), operation: operation)
     }
 
     private func loadTombstones() {
@@ -259,8 +296,11 @@ final class FeatureSync {
     }
 
     /// Called after a successful push — the server has the deletes; stop carrying them.
-    func acknowledgeTombstones(_ snapshot: [String: Set<String>]) {
-        for (key, acked) in snapshot {
+    func acknowledgeTombstones(_ snapshot: [String: Set<String>], capturedDates: [String: [String: Date]]? = nil) {
+        for (key, captured) in snapshot {
+            let acked = capturedDates.map { dates in
+                Set(captured.filter { dates[key]?[$0] == tombstoneDeletedAt[key]?[$0] })
+            } ?? captured
             tombstones[key]?.subtract(acked)
             if tombstones[key]?.isEmpty == true { tombstones[key] = nil }
             let pending = tombstones[key] ?? []
@@ -269,12 +309,18 @@ final class FeatureSync {
         }
         saveTombstones()
     }
-    func tombstoneSnapshot() -> [String: Set<String>] { tombstones }
+    func tombstoneSnapshot(included: Set<String>? = nil) -> [String: Set<String>] {
+        guard let included else { return tombstones }
+        return tombstones.filter { included.contains($0.key) }
+    }
+    func tombstoneDateSnapshot(included: Set<String>) -> [String: [String: Date]] {
+        tombstoneDeletedAt.filter { included.contains($0.key) }
+    }
 
     // ── Collection registry ──────────────────────────────────────────────────
     // Adding a collection = one line here + the same key in the Worker's FEATURE_COLLECTIONS.
 
-    struct Keys {
+    nonisolated struct Keys {
         static let leftovers      = "leftovers"
         static let familyProfiles = "familyProfiles"
         static let events         = "events"
@@ -284,13 +330,36 @@ final class FeatureSync {
         static let containerLabels = "containerLabels"
         static let takeoutLog     = "takeoutLog"
         static let activeCookSessions = "activeCookSessions"
+        static let scheduledMeals = "scheduledMeals"
+        static let mealPlanRules = "mealPlanRules"
+        static let mealPlanTemplates = "mealPlanTemplates"
+        static let smartCookbooks = "smartCookbooks"
+    }
+
+    nonisolated static func entityType(for collection: String) -> HouseholdEntityType {
+        switch collection {
+        case Keys.scheduledMeals: return .scheduledMeal
+        case Keys.mealPlanRules: return .mealPlanRule
+        case Keys.mealPlanTemplates: return .mealPlanTemplate
+        case Keys.smartCookbooks: return .smartCookbook
+        default: return .featureData
+        }
+    }
+
+    nonisolated static func collections(inventory: Bool, mealPlans: Bool, recipes: Bool) -> Set<String> {
+        var keys: Set<String> = []
+        if inventory { keys.formUnion([Keys.leftovers, Keys.familyProfiles, Keys.events, Keys.sharedExpenses,
+            Keys.storeLayouts, Keys.gardenHarvests, Keys.containerLabels, Keys.takeoutLog, Keys.activeCookSessions]) }
+        if mealPlans { keys.formUnion([Keys.scheduledMeals, Keys.mealPlanRules, Keys.mealPlanTemplates]) }
+        if recipes { keys.insert(Keys.smartCookbooks) }
+        return keys
     }
 
     // ── Push payload ─────────────────────────────────────────────────────────
 
     /// Extra keys for the `/household/push` body. Same shape the Worker's mergeLWW expects:
     /// arrays of dicts each carrying `id`, `updatedAt`, `lastWriterID`, plus `<key>Deleted`.
-    func pushPayload() -> [String: Any] {
+    func pushPayload(included: Set<String>? = nil) -> [String: Any] {
         var body: [String: Any] = [:]
         add(&body, Keys.leftovers,       LeftoversStore.shared.entries)
         add(&body, Keys.familyProfiles,  FamilyProfileStore.shared.profiles)
@@ -301,10 +370,16 @@ final class FeatureSync {
         add(&body, Keys.containerLabels, ContainerLabelStore.shared.labels)
         add(&body, Keys.takeoutLog,      TakeoutStore.shared.entries)
         add(&body, Keys.activeCookSessions, HouseholdCookStore.shared.entries.filter(\.isFresh))
+        add(&body, Keys.scheduledMeals, PlanAheadStore.shared.scheduledMeals)
+        add(&body, Keys.mealPlanRules, PlanAheadStore.shared.rules)
+        add(&body, Keys.mealPlanTemplates, PlanAheadStore.shared.templates)
+        add(&body, Keys.smartCookbooks, SmartCookbookStore.shared.rules)
+        let included = included ?? Self.collections(inventory: true, mealPlans: true, recipes: true)
+        body = body.filter { entry in included.contains(entry.key) || included.contains(String(entry.key.dropLast("Deleted".count))) && entry.key.hasSuffix("Deleted") }
         body["featureSyncCheckpoint"] = [
             "protocolVersion": 2,
-            "tombstoneRevisions": tombstoneRevisions,
-            "tombstoneDeletedAt": tombstoneDeletedAt.mapValues {
+            "tombstoneRevisions": tombstoneRevisions.filter { included.contains($0.key) },
+            "tombstoneDeletedAt": tombstoneDeletedAt.filter { included.contains($0.key) }.mapValues {
                 $0.mapValues { $0.timeIntervalSince1970 * 1_000 }
             },
         ]
@@ -343,9 +418,13 @@ final class FeatureSync {
 
     /// Merge the feature collections out of a pulled household document.
     /// Per-id last-write-wins via the same policy as inventory; tombstones honored both ways.
-    func apply(_ hh: [String: Any]) {
+    func apply(_ household: [String: Any], included: Set<String>? = nil) {
         isApplyingRemote = true
         defer { isApplyingRemote = false }
+        let hh: [String: Any]
+        if let included {
+            hh = household.filter { entry in included.contains(entry.key) || included.contains(String(entry.key.dropLast("Deleted".count))) && entry.key.hasSuffix("Deleted") }
+        } else { hh = household }
 
         LeftoversStore.shared.entries = merge(hh, Keys.leftovers, LeftoversStore.shared.entries,
             entityType: "Leftover") { $0.title }
@@ -365,6 +444,22 @@ final class FeatureSync {
         HouseholdCookStore.shared.entries = merge(
             hh, Keys.activeCookSessions, HouseholdCookStore.shared.entries.filter(\.isFresh),
             entityType: "Cooking session") { $0.recipeTitle }
+        if hh[Keys.scheduledMeals] != nil {
+            PlanAheadStore.shared.scheduledMeals = merge(hh, Keys.scheduledMeals, PlanAheadStore.shared.scheduledMeals,
+                entityType: "Dated meal") { $0.title }
+        }
+        if hh[Keys.mealPlanRules] != nil {
+            PlanAheadStore.shared.rules = merge(hh, Keys.mealPlanRules, PlanAheadStore.shared.rules,
+                entityType: "Meal repeat") { $0.name }
+        }
+        if hh[Keys.mealPlanTemplates] != nil {
+            PlanAheadStore.shared.templates = merge(hh, Keys.mealPlanTemplates, PlanAheadStore.shared.templates,
+                entityType: "Meal template") { $0.name }
+        }
+        if hh[Keys.smartCookbooks] != nil {
+            SmartCookbookStore.shared.rules = merge(hh, Keys.smartCookbooks, SmartCookbookStore.shared.rules,
+                entityType: "Smart cookbook") { $0.name }
+        }
     }
 
     /// G7 (QA gap): every feature collection now routes a last-write-wins overwrite through
@@ -380,12 +475,18 @@ final class FeatureSync {
             guard let data = try? JSONSerialization.data(withJSONObject: dict) else { return nil }
             return try? JSONDecoder().decode(T.self, from: data)
         }
+        let domainType = Self.entityType(for: key)
+        let pending = domainType == .featureData ? Set<UUID>() : Set(HouseholdSync.shared.pendingOps
+            .filter { $0.entityType == domainType && $0.operationType != .delete }.map(\.entityID))
         let deleted = Set((hh["\(key)Deleted"] as? [String]) ?? [])
         let localTombstones = tombstones[key] ?? []
 
         var byID: [UUID: T] = [:]
-        for item in local where !deleted.contains(item.id.uuidString) { byID[item.id] = item }
+        for item in local where !deleted.contains(item.id.uuidString) || pending.contains(item.id) { byID[item.id] = item }
         for r in remote {
+            // A later batch still owns this local edit/restore. Its full value must survive
+            // earlier receipts and polls, including a server tombstone awaiting restore.
+            if pending.contains(r.id), byID[r.id] != nil { continue }
             guard !deleted.contains(r.id.uuidString),
                   !localTombstones.contains(r.id.uuidString) else { continue }
             if let mine = byID[r.id] {

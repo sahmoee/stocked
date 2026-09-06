@@ -45,6 +45,11 @@ nonisolated struct KitchenFeatureSnapshot: Codable, Sendable {
     var gardenHarvests: [HarvestEntry] = []
     var containerLabels: [ContainerLabel] = []
     var takeoutLog: [TakeoutEntry] = []
+    // Optional keys preserve older feature snapshots. Missing fields never clear a newer store.
+    var scheduledMeals: [ScheduledMeal]? = nil
+    var mealPlanRules: [MealPlanRule]? = nil
+    var mealPlanTemplates: [MealPlanTemplate]? = nil
+    var smartCookbooks: [SmartCookbookRule]? = nil
 }
 
 // MARK: - Versioned backup contract
@@ -395,6 +400,8 @@ nonisolated enum KitchenBackupCodec {
         return value.leftovers.count + value.familyProfiles.count + value.events.count
             + value.sharedExpenses.count + value.splitPeople.count + value.storeLayouts.count
             + value.gardenHarvests.count + value.containerLabels.count + value.takeoutLog.count
+            + (value.scheduledMeals?.count ?? 0) + (value.mealPlanRules?.count ?? 0)
+            + (value.mealPlanTemplates?.count ?? 0) + (value.smartCookbooks?.count ?? 0)
     }
 }
 
@@ -1111,6 +1118,8 @@ class KitchenTransferManager {
             + (features?.splitPeople.count ?? 0) + (features?.storeLayouts.count ?? 0)
             + (features?.gardenHarvests.count ?? 0) + (features?.containerLabels.count ?? 0)
             + (features?.takeoutLog.count ?? 0)
+            + (features?.scheduledMeals?.count ?? 0) + (features?.mealPlanRules?.count ?? 0)
+            + (features?.mealPlanTemplates?.count ?? 0) + (features?.smartCookbooks?.count ?? 0)
         return [
             .profile: 1,
             .inventory: snapshot.inventoryItems.count,
@@ -1166,46 +1175,10 @@ class KitchenTransferManager {
     }
 
     // MARK: Paprika Recipe Manager export
-    // Paprika exports { "recipes": [{ "name", "ingredients", "directions", "prepTime", "cookTime", "servings" }] }
+    // Third-party recipes use the reviewed migration flow, never backup replacement semantics.
     private func importPaprika(_ data: Data, into store: GuestDataStore, merge: Bool) -> Bool {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let recipes = json["recipes"] as? [[String: Any]]
-        else { errorMessage = "Could not read Paprika file."; return false }
-
-        let newRecipes = recipes.compactMap { obj -> UserRecipe? in
-            guard let name = obj["name"] as? String, !name.isEmpty else { return nil }
-            let ingredients = (obj["ingredients"] as? String ?? "")
-                .components(separatedBy: "\n")
-                .compactMap { line -> RecipeIngredient? in
-                    let t = line.trimmingCharacters(in: .whitespaces)
-                    guard !t.isEmpty else { return nil }
-                    return RecipeIngredient(name: t, amount: "")
-                }
-            let steps = (obj["directions"] as? String ?? "")
-                .components(separatedBy: "\n")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-            var recipe = UserRecipe(title: name)
-            recipe.ingredients  = ingredients
-            recipe.instructions = steps
-            recipe.cookTime     = obj["cookTime"]  as? String ?? ""
-            recipe.prepTime     = obj["prepTime"]  as? String ?? ""
-            let servingsRaw     = obj["servings"]  as? String ?? ""
-            recipe.servings     = Int(servingsRaw.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()) ?? 4
-            recipe.notes        = obj["notes"] as? String ?? ""
-            return recipe
-        }
-
-        Task { @MainActor in
-            if merge {
-                let existing = Set(store.userRecipes.map { self.normKey($0.title) })
-                store.userRecipes += newRecipes.filter { !existing.contains(self.normKey($0.title)) }
-            } else {
-                store.userRecipes = newRecipes
-            }
-            self.statusMessage = "Imported \(newRecipes.count) recipes from Paprika."
-        }
-        return true
+        errorMessage = "Paprika recipes need review before importing. Open Recipes → Add Recipe → Import or export recipe files → Bring recipes from another app. Your current collection is unchanged."
+        return false
     }
 
     // MARK: Mealime meal plan export

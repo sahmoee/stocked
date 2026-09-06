@@ -1804,7 +1804,8 @@ private nonisolated struct RecipeCollectionSnapshotBuilder {
                 let rhsRatio = rhs.stockTotal == 0 ? 0 : Double(rhs.stockHave) / Double(rhs.stockTotal)
                 if lhsRatio != rhsRatio { return lhsRatio > rhsRatio }
                 if lhs.profileBoost != rhs.profileBoost { return lhs.profileBoost > rhs.profileBoost }
-                return lhs.recipe.title.localizedCaseInsensitiveCompare(rhs.recipe.title) == .orderedAscending
+                return RecipeDisplayPolicy.titleSortKey(lhs.recipe.title)
+                    .localizedCaseInsensitiveCompare(RecipeDisplayPolicy.titleSortKey(rhs.recipe.title)) == .orderedAscending
             }
         }
 
@@ -1924,6 +1925,11 @@ private struct RecipeMyCollectionView: View {
     var body: some View {
         let entries = collectionSnapshot.entries
         VStack(alignment: .leading, spacing: 0) {
+            NavigationLink { SmartCookbooksView() } label: {
+                Label("Smart cookbooks", systemImage: "books.vertical")
+                    .font(.stocked(.headline)).frame(minHeight: 44)
+            }.buttonStyle(.plain).foregroundStyle(session.accentColor)
+                .padding(.horizontal, 20).padding(.bottom, 10)
             HStack {
                 Text("Recipes you've saved or created")
                     .scaledFont(14, weight: .bold).foregroundStyle(session.themeTextColor)
@@ -2447,6 +2453,13 @@ struct CollectionsListView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 24).padding(.bottom, 12)
+
+                NavigationLink { SmartCookbooksView() } label: {
+                    Label("Smart cookbooks · your saved recipe rules", systemImage: "books.vertical")
+                        .font(.stocked(.headline)).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(14).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+                }.buttonStyle(.plain).foregroundStyle(session.themeTextColor)
+                    .padding(.horizontal, 24).padding(.bottom, 16)
 
                 if cuisines.isEmpty {
                     StockedEmptyState(icon: "🗂️",

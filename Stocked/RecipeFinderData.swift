@@ -34,6 +34,9 @@ nonisolated enum FinderData {
     r.imageURL = entry.imageURL
     r.sourceURL = entry.sourceURL
     r.sourceName = entry.sourceName
+    r.author = entry.author
+    r.license = entry.license
+    r.imageAttribution = entry.imageAttribution
     r.servings = Int(entry.servings) ?? 4
     return r
   }

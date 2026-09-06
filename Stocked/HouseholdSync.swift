@@ -504,6 +504,7 @@ final class HouseholdSync {
         if current.isEmpty || current == "You" { myDisplayName = resolvedName() }
         let body: [String: Any] = [
             "ownerName": myDisplayName, "memberId": memberId,
+            "deliveryOwner": true,
             "syncProtocolVersion": 2,
             "capabilities": HouseholdPermission.allCases.map(\.rawValue),
         ]
@@ -517,6 +518,9 @@ final class HouseholdSync {
         }
         joinCode = code
         state = .owner
+        if let capability = resp["ownerCapability"] as? String {
+            HouseholdDeliveryService.shared.rememberOwnerCapability(capability, code: code)
+        }
         applyAccessSnapshot(.owner)
         persistCurrentAccess()
         persist()
@@ -649,6 +653,7 @@ final class HouseholdSync {
         deferredSyncTask?.cancel()
         deferredSyncTask = nil
         guard state == .owner || state == .member else { return }
+        HouseholdDeliveryService.shared.start(store: store)
         // Relaunch-surviving work is pushed immediately only when its persisted retry gate allows
         // it. Keep the kick task retained so background/leave can cancel it.
         if HouseholdAutomaticSyncPolicy.decision(
@@ -671,7 +676,7 @@ final class HouseholdSync {
                 // Pending local ops → push (which also pulls the merged state back).
                 // Clean queue → lightweight pull only.
                 switch HouseholdAutomaticSyncPolicy.decision(
-                    hasPendingOperations: !self.pendingOps.isEmpty,
+                    hasPendingOperations: self.pendingOps.contains { self.shares($0.entityType) },
                     retryIsAllowed: self.retryIsAllowed,
                     serverImposedPause: self.backoffIsServerImposed) {
                 case .pull:
@@ -685,6 +690,7 @@ final class HouseholdSync {
         }
     }
     func stopAutoSync() {
+        HouseholdDeliveryService.shared.stop()
         pollTask?.cancel(); pollTask = nil
         deferredSyncTask?.cancel(); deferredSyncTask = nil
         fgTask?.cancel(); fgTask = nil
@@ -701,6 +707,7 @@ final class HouseholdSync {
     }
     /// #18 Pause polling when the app backgrounds (no orphaned network loop); resume on foreground.
     func pauseAutoSync() {
+        HouseholdDeliveryService.shared.stop()
         pollTask?.cancel(); pollTask = nil
         deferredSyncTask?.cancel(); deferredSyncTask = nil
         fgTask?.cancel(); fgTask = nil
@@ -712,6 +719,11 @@ final class HouseholdSync {
 
     @ObservationIgnored private var syncInFlight = false
     @ObservationIgnored private var syncRequestedWhileInFlight = false
+
+    private func shares(_ type: HouseholdEntityType) -> Bool {
+        HouseholdSharingScope.includes(type, inventory: syncInventory, grocery: syncGrocery,
+            recipes: syncRecipes, mealPlans: syncMealPlans)
+    }
 
     /// Manual two-way sync for an existing owner/member: push local collaborative data, pull merged.
     /// Single-flight prevents overlapping poll/foreground/manual pushes from acknowledging edits
@@ -749,9 +761,19 @@ final class HouseholdSync {
             }
         }
 
-        let capturedOps = pendingOps
+        // The provider accepts 200 journal entries at a time. Remaining work stays durable;
+        // the normal polling loop drains later batches without an unbounded retry loop.
+        let capturedOps = Array(pendingOps.filter { shares($0.entityType) }.prefix(200))
         let capturedOperationIDs = Set(capturedOps.map(\.id))
-        let capturedTombstones = store.householdTombstoneSnapshot()
+        var capturedTombstones = store.householdTombstoneSnapshot()
+        if !syncInventory { capturedTombstones.inventory = [] }
+        if !syncGrocery { capturedTombstones.grocery = [] }
+        if !syncRecipes { capturedTombstones.userRecipes = []; capturedTombstones.generatedRecipes = [] }
+        if !syncMealPlans { capturedTombstones.plannedMeals = [] }
+        let sentCoreIDs = capturedTombstones.inventory.union(capturedTombstones.grocery)
+            .union(capturedTombstones.userRecipes).union(capturedTombstones.generatedRecipes)
+            .union(capturedTombstones.plannedMeals)
+        capturedTombstones.deletedAt = capturedTombstones.deletedAt.filter { sentCoreIDs.contains($0.key) }
         let requestID = UUID()
         let requestStartedAt = Date()
         syncStatus.activeRoute = .workerPush
@@ -794,19 +816,23 @@ final class HouseholdSync {
         // #3 — carry the household name so it syncs, but only once this user has set one
         // (avoids a member who never renamed it clobbering the owner's name with the default).
         if householdNameIsCustom { body["householdName"] = householdName }
-        // Launch readiness 1.4 — the feature collections (leftovers, family, events, shared
-        // costs, store layouts, harvests, labels, takeout) ride the same push. Gated on the
-        // inventory toggle: they're all kitchen-contents data, and a user who opted their
-        // inventory out of sharing has clearly opted this out too.
-        let capturedFeatureTombstones = FeatureSync.shared.tombstoneSnapshot()
-        if syncInventory {
-            body.merge(FeatureSync.shared.pushPayload()) { _, new in new }
-        }
+        let sharedFeatures = FeatureSync.collections(inventory: syncInventory,
+            mealPlans: syncMealPlans, recipes: syncRecipes)
+        let capturedFeatureTombstones = FeatureSync.shared.tombstoneSnapshot(included: sharedFeatures)
+        let capturedFeatureDates = FeatureSync.shared.tombstoneDateSnapshot(included: sharedFeatures)
+        body.merge(FeatureSync.shared.pushPayload(included: sharedFeatures)) { _, new in new }
         // Fit the Worker's body limit before sending. Over it the server answers 413 and
         // nothing syncs at all — not the recipe carrying the big photo, the entire kitchen.
         // The Mac shed pictures to stay under; the phone did not, so a phone that had
         // collected a dozen photographed recipes could stop syncing groceries.
         body = await HouseholdSync.trimmedForPush(body)
+
+        guard let encodedBody = try? JSONSerialization.data(withJSONObject: body), encodedBody.count <= 2 * 1024 * 1024 else {
+            let message = "This kitchen is too large to sync in one update. Your changes are still saved on this device; reduce shared content or photos and retry."
+            fail(message)
+            markQueueFailed(message, failure: nil, operationIDs: capturedOperationIDs)
+            return
+        }
 
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
@@ -830,8 +856,26 @@ final class HouseholdSync {
         let fullyAcknowledged = receipt.outcome == .acknowledged
             && acknowledgedIDs == capturedOperationIDs
         if fullyAcknowledged {
+            let currentTombstones = store.householdTombstoneSnapshot()
+            let sameDeletion = Set(sentCoreIDs.filter {
+                capturedTombstones.deletedAt[$0] == currentTombstones.deletedAt[$0]
+            })
+            capturedTombstones.inventory.formIntersection(sameDeletion)
+            capturedTombstones.grocery.formIntersection(sameDeletion)
+            capturedTombstones.userRecipes.formIntersection(sameDeletion)
+            capturedTombstones.generatedRecipes.formIntersection(sameDeletion)
+            capturedTombstones.plannedMeals.formIntersection(sameDeletion)
+            // A successful receipt cannot acknowledge a deletion the server did not accept.
+            capturedTombstones.inventory.formIntersection(Set(hh["invDeleted"] as? [String] ?? []))
+            capturedTombstones.grocery.formIntersection(Set(hh["groDeleted"] as? [String] ?? []))
+            capturedTombstones.userRecipes.formIntersection(Set(hh["userRecipeDeleted"] as? [String] ?? []))
+            capturedTombstones.generatedRecipes.formIntersection(Set(hh["genRecipeDeleted"] as? [String] ?? []))
+            capturedTombstones.plannedMeals.formIntersection(Set(hh["mealDeleted"] as? [String] ?? []))
             store.acknowledgeHouseholdTombstones(capturedTombstones)
-            FeatureSync.shared.acknowledgeTombstones(capturedFeatureTombstones)   // 1.4
+            let acceptedFeatures = capturedFeatureTombstones.reduce(into: [String: Set<String>]()) { result, entry in
+                    result[entry.key] = entry.value.intersection(Set(hh[entry.key + "Deleted"] as? [String] ?? []))
+                }
+            FeatureSync.shared.acknowledgeTombstones(acceptedFeatures, capturedDates: capturedFeatureDates)
         }
         markQueueCompleted(operationIDs: acknowledgedIDs, route: .workerPush, receipt: receipt)
         let counts = await applyHousehold(hh, into: store)
@@ -847,7 +891,9 @@ final class HouseholdSync {
         guard let code = joinCode else { resetLocal(); return }
         let name = myDisplayName
         let mid = memberId
-        Task { _ = await post("/household/leave", [
+        Task {
+            await HouseholdDeliveryService.shared.leaving(code: code)
+            _ = await post("/household/leave", [
             "code": code, "memberName": name, "memberId": mid, "actorId": mid,
             "requestId": UUID().uuidString.lowercased(),
         ]) }
@@ -884,6 +930,16 @@ final class HouseholdSync {
         UserDefaults.standard.removeObject(forKey: "hh_role")
         UserDefaults.standard.removeObject(forKey: "hh_code")
         UserDefaults.standard.removeObject(forKey: Self.accessSnapshotKey)
+    }
+
+    /// Local erase is not a remote leave or webhook disable. Stop transport before cleared
+    /// stores can be repopulated; a later share requires an explicit create/join action.
+    func resetForLocalErase() {
+        resetLocal()
+        pendingOps.removeAll()
+        pendingConflicts.removeAll()
+        syncStatus = HouseholdSyncStatus()
+        lastAppliedUpdatedAt = 0
     }
 
     // MARK: - Activity + members (for the feed and member screens)
@@ -1671,12 +1727,8 @@ final class HouseholdSync {
             if touched { store.plannedMeals = Array(byID.values) }
         }
 
-        // Launch readiness 1.4 — merge the feature collections (leftovers, family, events, shared
-        // costs, store layouts, harvests, labels, takeout) with the same per-id LWW policy.
-        // Gated like the push: these travel with the inventory toggle.
-        if syncInventory {
-            FeatureSync.shared.apply(hh)
-        }
+        FeatureSync.shared.apply(hh, included: FeatureSync.collections(inventory: syncInventory,
+            mealPlans: syncMealPlans, recipes: syncRecipes))
         return (invAdded, groAdded)
     }
 

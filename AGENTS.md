@@ -39,6 +39,65 @@ colors use shared design tokens: tan-on-charcoal in light mode, bright-gold-on-c
 
 ## Cross-project ownership and synchronization
 
+Optional kitchen connections are original clients with explicit operations, not autonomous mirrors.
+Grocy reads enter the existing inventory/grocery owners only after review; never silently turn a
+matching row into an adjustment or treat a stock weight as a container count. CalDAV publication
+uses stable event IDs, conditional creation and unchanged strong-ETag/body receipts. An external
+edit must never become an ownership receipt permitting its later replacement. Credentials remain
+in WhenUnlockedThisDeviceOnly Keychain; refuse credential redirects and bound body/XML parsing.
+Cooklang Federation uses its documented search/detail API, shared byte-identical iOS/Mac core/panel,
+and private import review with final duplicate/permission recheck. No feed registration, paid AI,
+public catalogue save or invented recipe authorship is authorized by discovery.
+Community price checks are device-only FeatureStore preferences/results, separate from receipt
+history and backups. Refresh explicitly, compare only like currency/basis/location/date/discount
+facts, preserve dated results on failures and reject late responses after editing/removal. Alerts
+are opt-in through the existing permission coordinator and contain no product details.
+UnifiedWorker owns household invalidation delivery and its encrypted opt-in outbox. Live notices
+trigger normal sync; keep polling fallback. Apple acceptance is not delivery confirmation, missing
+keys must stay unavailable, and owner capabilities must never be inferred for old shares. Keep
+receiver setup explicitly reviewed, signatures secret, payloads metadata-only and retries bounded.
+Deploy the verified provider before clients, preserve legacy saves/brief generation without implying
+monitoring, and test protocol/permission/retry boundaries. Generic builds and fixture tests cannot
+sign off QA 53–57 device journeys. Refer to dedicated connection/delivery guides for exact limits.
+
+PlanAheadStore owns dated meals, repeat rules and templates in existing FeatureStore collections;
+GuestDataStore alone owns active plannedMeals. Never put future calendar rows directly into active
+plannedMeals: its relative slots drive inventory reservations, grocery and cooking consumers.
+Use reviewed stable-ID handoffs, exact current-source/active baselines and unchanged-pair undo.
+Repeat expansion is finite and explicit; template edits never overwrite accepted dates. Smart
+cookbooks persist only rules and scan the current saved library off-main, never the public corpus.
+UnifiedWorker owns additive feature registration and permissions. Plan collections follow meal-plan
+sharing/edit rights; cookbooks follow recipe sharing/edit rights, independently of inventory.
+Keep unsent, disabled and unacknowledged domains queued; preserve pending restores and newer delete
+timestamps during merge/ack. Remote unions must never be truncated to local growth limits. Optional
+backup fields omitted by old files preserve existing data; wipe/restore clears temporary undo.
+Roll out Worker first, retain omitted-field compatibility and local fallback, and verify native
+store/sync/backup plus Worker protocol fixtures before generic iOS builds. Mac has no new planner
+consumer or backup support; iOS Kitchen Transfer owns backup of these collections. QA 51–52 stay
+untested until actual device journeys. See PLAN_AHEAD.md and SMART_COOKBOOKS.md.
+
+Recipe collection migration uses the shared system-framework KitchenMigration/KitchenArchive contract
+with byte-identical copies on Mac. The iOS RecipeMigrationReview owns only preview/selection and
+serial private commits through GuestDataStore. Keep at most 250 recipes and 32 MiB retained preview
+data across selected files; reject unsafe archives before review. Recheck duplicates and permission
+at commit, keep completed rows after cancellation, and undo only unchanged stamped additions.
+Keep deterministic undo history for the newest 250 added IDs; dropping an old fingerprint never
+removes its recipe, and the UI must disclose that bound before undo.
+Unknown serving counts require editor review. Preserve imported times/yield/credits and distinguish
+extracted source text from an original ZIP/gzip container. Never revive the blind Paprika replacement
+path in KitchenTransferManager, and retain Stocked backup restoration separately.
+
+Free recipe exchange is iOS/Mac-owned original code using Cooklang and Schema.org formats.
+Retain optional bounded portableSource on private recipes and author/license/imageAttribution across
+all readers/exporters. UnifiedWorker strips raw portableSource from public harvest. Import preview
+is not a save or permission to publish copyrighted content. No automatic paid AI runs for file imports.
+Open Prices is a Worker-owned explicit barcode read, separate from personal price history and retailer
+data; display dates, currencies, discounts and ODbL/OSM credits. Deploy provider before clients;
+old clients decode additive fields and old providers show an unavailable lookup. Plan copies use the
+existing permission-checked plannedMeals owner and exact unchanged-ID undo; calendar exports require
+backupExport and never include ingredients/member IDs. Native checks and generic builds do not sign
+off section49 physical-device QA. See FREE_KITCHEN_DELIVERY.md.
+
 
 - `StockedMac`: creates/edits/imports the shared image-complete recipe library.
 - `UnifiedWorker`: AI, household, recipe/harvest content, QA, queues, and compatibility routes.

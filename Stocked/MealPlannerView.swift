@@ -83,6 +83,8 @@ struct MealPlannerView: View {
     @State var pickingDay   = 0
     @State var pickingType  = "Dinner"
     @State var saved        = false
+    @State private var showPlanTools = false
+    @State private var showPlanAhead = false
     @State var isCalendarView = false
     @State var cookingMeal: PlannedMeal? = nil
     @State var navigateToCook = false
@@ -170,6 +172,14 @@ struct MealPlannerView: View {
                 }
                 .padding(.horizontal, 24).padding(.bottom, 20)
 
+                Button { showPlanTools = true } label: {
+                    Label("Repeat meals & export calendar", systemImage: "calendar.badge.plus")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                Button { showPlanAhead = true } label: {
+                    Label("Plan ahead · dates, templates & repeats", systemImage: "calendar.badge.clock")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
                 if isCalendarView {
                     calendarGrid
                 } else {
@@ -181,6 +191,13 @@ struct MealPlannerView: View {
                     summaryFooter
                 }
             }
+        }
+        .sheet(isPresented: $showPlanTools, onDismiss: { plannedMeals = session.guestStore.plannedMeals }) {
+            MealPlanToolsView(meals: Binding(get: { session.guestStore.plannedMeals },
+                                            set: { session.guestStore.plannedMeals = $0 }))
+        }
+        .sheet(isPresented: $showPlanAhead, onDismiss: { plannedMeals = session.guestStore.plannedMeals }) {
+            PlanAheadView().environment(session)
         }
         .navigationDestination(isPresented: $navigateToCook) {
             if let meal = cookingMeal {

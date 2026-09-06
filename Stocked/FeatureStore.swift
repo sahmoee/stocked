@@ -88,11 +88,17 @@ nonisolated enum FeatureStoreKeys {
     static let syncConflicts   = "syncConflictLog_v1"
     static let notifyEngagement = "notifyEngagement_v1"
     static let householdCookPresence = "householdCookPresence_v1"
+    static let scheduledMeals = "scheduledMeals_v1"
+    static let mealPlanRules = "mealPlanRules_v1"
+    static let mealPlanTemplates = "mealPlanTemplates_v1"
+    static let smartCookbooks = "smartCookbooks_v1"
+    static let communityPriceWatches = "communityPriceWatches_v1"
 
     static let all: [String] = [
         leftovers, familyProfiles, events, sharedExpenses, storeLayouts,
         takeoutLog, gardenHarvests, containerLabels, toolboxUsage,
         syncConflicts, notifyEngagement, householdCookPresence,
+        scheduledMeals, mealPlanRules, mealPlanTemplates, smartCookbooks, communityPriceWatches,
     ]
 
     /// Total bytes on disk across all feature stores — surfaced in the health view.
@@ -129,5 +135,8 @@ enum StockedFeatureStores {
         NotificationEngagement.shared.flush()
         SyncConflictLog.shared.flush()
         HouseholdCookStore.shared.flush()
+        PlanAheadStore.shared.flush()
+        SmartCookbookStore.shared.flush()
+        CommunityPriceWatchStore.shared.flush()
     }
 }

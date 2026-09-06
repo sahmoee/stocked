@@ -27,7 +27,7 @@ import XCTest
     let section = try XCTUnwrap(QAFeatureCoverage.sections.first { $0.number == 48 })
     XCTAssertEqual(section.rows.count, 11)
     XCTAssertTrue(section.rows.allSatisfy { !$0.0.isEmpty })
-    XCTAssertEqual(QAFeatureCoverage.sections.map(\.number), Array(37...48))
+    XCTAssertEqual(QAFeatureCoverage.sections.map(\.number), Array(37...57))
   }
   func testUntestedSafetyCheckBlocksSignOff() {
     XCTAssertTrue(QAFeatureCoverage.isOpenBlocker(blocker: true, verdict: "untested"))

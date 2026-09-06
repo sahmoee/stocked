@@ -314,6 +314,10 @@ nonisolated enum HouseholdEntityType: String, Codable, Sendable, Hashable {
     case generatedRecipe
     case savedRecipe
     case plannedMeal
+    case scheduledMeal
+    case mealPlanRule
+    case mealPlanTemplate
+    case smartCookbook
     case householdActivity
     /// Launch readiness 1.4 — the generic bucket for the feature collections (leftovers, family,
     /// events, shared costs, store layouts, harvests, labels, takeout). One case for all eight:
@@ -329,6 +333,20 @@ nonisolated enum HouseholdOperationType: String, Codable, Sendable {
     case update
     case delete
     case restore
+}
+
+/// A disabled sharing switch keeps both its data and durable operations on this device.
+nonisolated enum HouseholdSharingScope {
+    static func includes(_ type: HouseholdEntityType, inventory: Bool, grocery: Bool,
+                         recipes: Bool, mealPlans: Bool) -> Bool {
+        switch type {
+        case .inventoryItem, .featureData: return inventory
+        case .groceryItem: return grocery
+        case .userRecipe, .generatedRecipe, .savedRecipe, .smartCookbook: return recipes
+        case .plannedMeal, .scheduledMeal, .mealPlanRule, .mealPlanTemplate: return mealPlans
+        case .householdActivity: return true
+        }
+    }
 }
 
 /// Canonical capability required for a local collaborative mutation. Keeping the mapping pure
@@ -349,9 +367,9 @@ nonisolated enum HouseholdMutationAuthorization {
             case .update: return .groceryEdit
             case .delete: return .groceryRemove
             }
-        case .userRecipe, .generatedRecipe, .savedRecipe:
+        case .userRecipe, .generatedRecipe, .savedRecipe, .smartCookbook:
             return .recipeEdit
-        case .plannedMeal:
+        case .plannedMeal, .scheduledMeal, .mealPlanRule, .mealPlanTemplate:
             return .mealPlanEdit
         case .householdActivity, .featureData:
             return nil

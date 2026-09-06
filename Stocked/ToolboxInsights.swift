@@ -404,6 +404,18 @@ struct PriceLookupView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
+                NavigationLink {
+                    CommunityPricesView()
+                } label: {
+                    Label("Look up free community prices", systemImage: "barcode.viewfinder")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                NavigationLink {
+                    CommunityPriceWatchesView()
+                } label: {
+                    Label("Saved community price checks", systemImage: "tag.circle")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
                 let items = groups
                 if items.isEmpty {
                     ToolboxEmptyState(icon: "tag",

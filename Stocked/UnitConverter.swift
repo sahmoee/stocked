@@ -3,8 +3,8 @@
 // volume ⇄ weight (cups ⇄ grams), which depends on the ingredient's density.
 //
 // Scope (per product decision): Metric/US with cups↔grams. Densities cover common
-// cooking ingredients; anything unknown falls back to a water-like density so the
-// conversion still produces a sensible (if approximate) number rather than failing.
+// cooking ingredients; unknown densities stay unknown. Volume and mass conversions
+// within their own families remain available without guessing an ingredient's weight.
 
 import Foundation
 
@@ -25,8 +25,7 @@ enum MeasureKind: Sendable {
 struct UnitConverter {
 
     // MARK: - Density table (grams per millilitre)
-    // Used to bridge volume ⇄ mass. Keys are matched as substrings of the ingredient
-    // name (lowercased). Order doesn't matter; the most specific match wins.
+    // Used to bridge volume ⇄ mass. Only exact normalized ingredient names match.
     private static let densities: [(key: String, gPerMl: Double)] = [
         ("water", 1.00), ("milk", 1.03), ("cream", 1.01), ("oil", 0.92),
         ("olive oil", 0.92), ("honey", 1.42), ("maple syrup", 1.37), ("syrup", 1.33),
@@ -40,14 +39,11 @@ struct UnitConverter {
         ("breadcrumbs", 0.36), ("parmesan", 0.42), ("shredded cheese", 0.40),
     ]
 
-    /// grams per millilitre for an ingredient (substring match, water fallback).
-    static func density(for ingredient: String) -> Double {
-        let n = ingredient.lowercased()
-        // Prefer the longest matching key (more specific) for better accuracy.
-        let match = densities
-            .filter { n.contains($0.key) }
-            .max(by: { $0.key.count < $1.key.count })
-        return match?.gPerMl ?? 1.0
+    /// Exact normalized identities only: almond flour is not all-purpose flour,
+    /// and cooked rice is not dry rice. Values remain kitchen estimates.
+    static func density(for ingredient: String) -> Double? {
+        let n = ingredient.lowercased().split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        return densities.first(where: { $0.key == n })?.gPerMl
     }
 
     // MARK: - Base conversions (to ml / to g)
@@ -81,17 +77,20 @@ struct UnitConverter {
     /// (value, unit) pair chosen for readability. Count units pass through unchanged.
     static func convert(amount: Double, unit: String, ingredient: String,
                         to system: UnitSystem) -> (value: Double, unit: String) {
+        guard amount.isFinite, amount >= 0 else { return (amount, unit) }
         let u = unit.lowercased().trimmingCharacters(in: .whitespaces)
         switch kind(of: u) {
         case .count:
             return (amount, unit)
         case .volume:
             let ml = amount * (mlPer[u] ?? 1.0)
+            guard ml.isFinite else { return (amount, unit) }
             return system == .metric
                 ? readableMetricVolume(ml)
                 : readableUSVolume(ml)
         case .mass:
             let g = amount * (gPer[u] ?? 1.0)
+            guard g.isFinite else { return (amount, unit) }
             return system == .metric
                 ? readableMetricMass(g)
                 : readableUSMass(g)
@@ -99,18 +98,34 @@ struct UnitConverter {
     }
 
     /// The headline cross-conversion: cups (volume) → grams (mass) for an ingredient.
-    static func cupsToGrams(_ cups: Double, ingredient: String) -> Double {
+    static func cupsToGrams(_ cups: Double, ingredient: String) -> Double? {
+        guard cups.isFinite, cups >= 0, let density = density(for: ingredient) else { return nil }
         let ml = cups * (mlPer["cup"] ?? 236.588)
-        return ml * density(for: ingredient)
+        let grams = ml * density
+        return grams.isFinite ? grams : nil
     }
 
     /// grams → cups for an ingredient.
-    static func gramsToCups(_ grams: Double, ingredient: String) -> Double {
-        let ml = grams / density(for: ingredient)
-        return ml / (mlPer["cup"] ?? 236.588)
+    static func gramsToCups(_ grams: Double, ingredient: String) -> Double? {
+        guard grams.isFinite, grams >= 0, let density = density(for: ingredient) else { return nil }
+        let cups = (grams / density) / (mlPer["cup"] ?? 236.588)
+        return cups.isFinite ? cups : nil
     }
 
     // MARK: - Readable formatting
+    /// Imported numbers must never pass through Int(Double), which traps when a
+    /// finite value exceeds Int.max. Formatting also avoids multiplication overflow.
+    static func formatAmount(_ value: Double, fractionDigits: Int = 1) -> String? {
+        guard value.isFinite else { return nil }
+        let digits = min(3, max(0, fractionDigits))
+        var text = String(format: "%.*f", digits, value)
+        if digits > 0 {
+            while text.last == "0" { text.removeLast() }
+            if text.last == "." { text.removeLast() }
+        }
+        return text
+    }
+
     private static func readableMetricVolume(_ ml: Double) -> (Double, String) {
         ml >= 1000 ? (round1(ml / 1000), "l") : (round1(ml), "ml")
     }
@@ -129,5 +144,8 @@ struct UnitConverter {
         return lb >= 1 ? (round1(lb), lb == 1 ? "lb" : "lbs") : (round1(g / 28.3495), "oz")
     }
 
-    private static func round1(_ x: Double) -> Double { (x * 10).rounded() / 10 }
+    private static func round1(_ x: Double) -> Double {
+        let scaled = x * 10
+        return scaled.isFinite ? scaled.rounded() / 10 : x
+    }
 }

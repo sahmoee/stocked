@@ -375,6 +375,11 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var sourceURL:    String?   = nil
     var sourceName:   String?   = nil
     var categories:   [String]? = nil
+    /// Bounded, private import provenance. Never included in the public harvest wire.
+    var portableSource: PortableRecipeSource? = nil
+    var author: String? = nil
+    var license: String? = nil
+    var imageAttribution: String? = nil
     var isFavorited:  Bool     = false
     var dateCreated:  Date     = Date()
     var cookCount:    Int      = 0          // how many times this recipe has been cooked

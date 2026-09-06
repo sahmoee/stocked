@@ -23,6 +23,7 @@ struct RecipeFinderPreview: View {
                     Text(hit.recipe.title).font(.stockedSerif(30, weight: .bold, relativeTo: .title))
                     Label(hit.recipe.sourceName ?? "Original publisher", systemImage: "globe")
                         .font(.stocked(.headline)).foregroundStyle(session.themeSecondaryText)
+                    RecipeCreditsView(recipe: hit.recipe)
                     if let time = hit.record.totalMinutes { Label("\(time) min total", systemImage: "clock").font(.stocked(.body)) }
                     if let rating = hit.record.rating {
                         Label(String(format: "%.1f", rating), systemImage: "star.fill").foregroundStyle(session.themeContrastAccent)

@@ -12,6 +12,8 @@ struct WeekMealPlannerView: View {
     @State private var newMealType = "Dinner"
     /// #11 — the meal awaiting a "what did this use?" confirm.
     @State private var cookedMeal: PlannedMeal? = nil
+    @State private var showPlanTools = false
+    @State private var showPlanAhead = false
 
     private let mealTypes = RecipeTaxonomy.categories.filter { ["Breakfast", "Lunch", "Dinner"].contains($0) }
     private var weekdayNames: [String] {
@@ -29,6 +31,14 @@ struct WeekMealPlannerView: View {
     var body: some View {
         StockedShell(showBack: true, titleText: "Meal Plan") {
             VStack(spacing: 14) {
+                Button { showPlanAhead = true } label: {
+                    Label("Plan ahead · dates, templates & repeats", systemImage: "calendar.badge.clock")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                Button { showPlanTools = true } label: {
+                    Label("Repeat meals & export calendar", systemImage: "calendar.badge.plus")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
                 ForEach(0..<7, id: \.self) { day in
                     dayCard(day)
                 }
@@ -40,6 +50,11 @@ struct WeekMealPlannerView: View {
         .sheet(item: $cookedMeal) { meal in
             CookCompletionSheet(meal: meal)
         }
+        .sheet(isPresented: $showPlanTools) {
+            MealPlanToolsView(meals: Binding(get: { session.guestStore.plannedMeals },
+                                            set: { session.guestStore.plannedMeals = $0 }))
+        }
+        .sheet(isPresented: $showPlanAhead) { PlanAheadView().environment(session) }
     }
 
     private func meals(on day: Int) -> [PlannedMeal] {

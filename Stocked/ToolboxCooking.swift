@@ -391,7 +391,7 @@ struct MeasurementConverterView: View {
                     .frame(maxWidth: .infinity)
                     .accessibilityElement(children: .combine)
                 }
-                Text("Cup-to-gram conversions use each ingredient's density — a cup of flour and a cup of honey weigh very different amounts.")
+                Text("Cup-to-gram estimates appear only for ingredients with a known density. If a weight is missing, use a kitchen scale; your original measurement stays unchanged.")
                     .scaledFont(12)
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)

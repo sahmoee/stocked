@@ -37,19 +37,23 @@ enum IngredientIntel {
     // MARK: Predictive conversions (2 sensible targets, formatted)
     static func convertTargets(measure: String, name: String) -> [String] {
         let (amt, unit) = parseMeasure(measure)
-        guard let a = amt, !unit.isEmpty else { return [] }
+        guard let a = amt, a.isFinite, a >= 0, !unit.isEmpty else { return [] }
         let dens = UnitConverter.density(for: name)
         if let ml = mlPer[unit] {                    // volume in → show weight + tidy volume
             let totalMl = a * ml
-            return [fmtMass(totalMl * dens), fmtVol(totalMl)]
+            guard totalMl.isFinite else { return [] }
+            let mass = dens.map { totalMl * $0 }
+            return (mass.flatMap { $0.isFinite ? ["≈ " + fmtMass($0)] : nil } ?? []) + [fmtVol(totalMl)]
         } else if let g = gPer[unit] {               // mass in → show volume + other mass unit
             let totalG = a * g
-            return [fmtVol(totalG / dens), fmtMassUS(totalG)]
+            guard totalG.isFinite else { return [] }
+            let volume = dens.map { totalG / $0 }
+            return (volume.flatMap { $0.isFinite ? ["≈ " + fmtVol($0)] : nil } ?? []) + [fmtMassUS(totalG)]
         }
         return []
     }
 
-    private static func fmtMass(_ g: Double) -> String { g >= 1000 ? "\(r1(g/1000)) kg" : "\(Int(g.rounded())) g" }
+    private static func fmtMass(_ g: Double) -> String { g >= 1000 ? "\(r1(g/1000)) kg" : "\(UnitConverter.formatAmount(g, fractionDigits: 0) ?? "") g" }
     private static func fmtMassUS(_ g: Double) -> String { g >= 453.592 ? "\(r1(g/453.592)) lb" : "\(r1(g/28.3495)) oz" }
     private static func fmtVol(_ ml: Double) -> String {
         let cups = ml / 236.588
@@ -59,8 +63,7 @@ enum IngredientIntel {
         return "\(r1(ml / 4.92892)) tsp"
     }
     private static func r1(_ x: Double) -> String {
-        let v = (x * 10).rounded() / 10
-        return v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
+        UnitConverter.formatAmount(x) ?? ""
     }
 
     // MARK: Substitutions (compact local table; sub + ratio)

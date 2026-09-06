@@ -1,5 +1,37 @@
 # Read me first
 
+Settings → Data & Storage → Free Kitchen Connections now joins the optional tools: reviewed Grocy
+inventory/shopping reads, conditional CalDAV meal-copy publication, actual Cooklang Federation
+discovery, device-only saved community price checks, and household delivery status. No paid service
+or AI request was added. Outside servers require explicit setup; Apple background delivery requires
+the server's actual push credentials and device opt-in. Existing household polling/local reminders
+remain available. Webhooks are off until a verified share owner configures a supported receiver.
+See FREE_CONNECTIONS.md, COOKLANG_CONNECTIONS.md and COMMUNITY_PRICE_CHECKS.md for direction, bounds,
+privacy and recovery. Mac gains recipe discovery only. Sources & Credits and website source notices
+are aligned; no TestFlight or website publication is implied by these implementation changes.
+
+Plan ahead is available from both iOS meal planners: real dated meals, reusable templates and finite
+repeat schedules with a review before adding. Future dates stay separate from active-week inventory,
+grocery and cooking effects until an explicit handoff. Smart cookbooks filter saved recipes without
+copying the library. Both use existing feature storage and household sync; plan rules follow meal-plan
+sharing and cookbooks follow recipe sharing. Full iOS backups include them and older omitted fields
+are preserved. Deploy the compatible Worker first; Mac remains recipe/content only. See PLAN_AHEAD.md
+and SMART_COOKBOOKS.md for bounds, recovery, ownership and verification. No new paid service or key.
+
+Recipe Files now includes a reviewed collection-import flow for supported Mealie, Tandoor, Paprika
+and Recipya exports and multiple recipe files. It reads bounded archives locally, skips duplicates,
+requires review for unknown servings, saves privately through GuestDataStore, and undoes only
+unchanged additions. Normalized previews are not labelled original archives. See `RECIPE_MIGRATION.md`.
+Legacy Paprika Kitchen Transfer imports redirect to that review instead of replacing recipes.
+
+Free kitchen exchange (September 5): Add Recipe opens reviewed Cooklang/Recipe JSON/HTML/text
+file import and export. Original Cooklang and optional author/license/photo credits remain on private
+recipes; the public catalogue strips raw portable source. Plan tools repeat meals within the current
+week and export private calendar copies. Price Lookup offers explicit Open Prices barcode reads,
+separate from personal prices. Unknown densities remain unknown. No new package, subscription,
+hosted AI, secret or household migration is required. See FREE_KITCHEN_DELIVERY.md for exact scope,
+rollout, limits and verification; Settings → Help → Sources & Credits contains acknowledgements.
+
 Recipe content is local-first. The writable library and public catalogue remain durable on-device;
 Worker updates commit in bounded 100-row pages and checkpoint only after the SQLite page write.
 Launch restores the cached count immediately, reconciles it with a scalar disk count off the first

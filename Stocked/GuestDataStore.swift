@@ -796,6 +796,13 @@ class GuestDataStore {
         // deleteAll() above, but the in-memory arrays weren't — and the next mutation/flush would
         // re-persist them. Reset the live singletons so a cleared kitchen can't come back.
         FeatureSync.shared.wipeAll()
+        CommunityPriceWatchStore.shared.clear()
+        do {
+            try FreeKitchenLocalReset.clearAllConnections()
+            UserDefaults.standard.removeObject(forKey: "stocked.freeConnections.resetWarning.v1")
+        } catch {
+            UserDefaults.standard.set("Some saved connection keys could not be removed. Unlock this device and retry removal in Free Kitchen Connections.", forKey: "stocked.freeConnections.resetWarning.v1")
+        }
         SyncConflictLog.shared.clear()
     }
 
@@ -2102,7 +2109,8 @@ class GuestDataStore {
         // passes through here, so blank/whitespace steps are dropped once, centrally —
         // no recipe can render an empty numbered instruction row.
         var r = recipeIn
-        guard r.imageData != nil
+        guard (r.portableSource != nil && r.instructions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                || r.imageData != nil
                 || r.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         r.instructions = r.instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -2113,7 +2121,7 @@ class GuestDataStore {
         // the user sees the raw version instantly and it quietly improves moments later.
         let looksBroken = (r.instructions.isEmpty && !r.description.isEmpty)
             || (r.instructions.count == 1 && (r.instructions.first?.count ?? 0) > 350)
-        if looksBroken, RecipeImportAI.isAvailable {
+        if looksBroken, r.portableSource == nil, RecipeImportAI.isAvailable {
             let recipeID = r.id
             let raw = RecipeImportAI.composeRawText(
                 title: r.title, description: r.description,
@@ -2172,7 +2180,8 @@ class GuestDataStore {
     }
     func updateUserRecipe(_ recipeIn: UserRecipe) {
         var r = recipeIn
-        guard r.imageData != nil
+        guard (r.portableSource != nil && r.instructions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                || r.imageData != nil
                 || r.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         r.instructions = r.instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }

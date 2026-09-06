@@ -45,6 +45,7 @@ struct RecipeCreateOptionsSheet: View {
     @Environment(\.dismiss) var dismiss
     /// Called with the chosen route; the parent presents the matching destination.
     var onChoose: (RecipeCreateRoute) -> Void
+    @State private var showRecipeFiles = false
 
     var body: some View {
         NavigationStack {
@@ -77,6 +78,10 @@ struct RecipeCreateOptionsSheet: View {
                     optionCard(icon: "text.alignleft", tint: Color.stockedCharcoal,
                                title: "Text Manually",
                                subtitle: "Paste recipe text and we'll structure it") { choose(.manual) }
+
+                    optionCard(icon: "doc.badge.arrow.up", tint: Color.stockedInfo,
+                               title: "Import or export recipe files",
+                               subtitle: "Cooklang, recipe JSON, HTML and text · no AI needed") { showRecipeFiles = true }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 24)
             }
@@ -88,6 +93,7 @@ struct RecipeCreateOptionsSheet: View {
                     Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
                 }
             }
+            .sheet(isPresented: $showRecipeFiles) { PortableRecipeFilesView().environment(session) }
         }
     }
 
@@ -611,7 +617,7 @@ enum RecipeImportQuality {
         guard let source = RecipeBrowserPolicy.importURL(form.sourceURL) else { return nil }
         let identity = FinderWebPolicy.identity(source.absoluteString)
         return recipes.first { recipe in
-            guard let saved = RecipeBrowserPolicy.importURL(recipe.sourceURL ?? "") else { return false }
+            guard let saved = RecipeBrowserPolicy.importURL(recipe.attributedSourceURL ?? "") else { return false }
             return identity == FinderWebPolicy.identity(saved.absoluteString)
         }
     }
@@ -631,7 +637,7 @@ enum RecipeImportQuality {
         let source = RecipeImportCoordinator.normalizedURLString(from: form.sourceURL)
         return recipes.first {
             OnlineRecipeFacts.normalizedTitle($0.title) == title ||
-            (source != nil && RecipeImportCoordinator.normalizedURLString(from: $0.sourceURL ?? "") == source) ||
+            (source != nil && RecipeImportCoordinator.normalizedURLString(from: $0.attributedSourceURL ?? "") == source) ||
             (source != nil && $0.notes.localizedCaseInsensitiveContains(source!))
         }
     }

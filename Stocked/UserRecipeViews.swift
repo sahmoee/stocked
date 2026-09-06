@@ -168,7 +168,7 @@ struct UserRecipeDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { recipeOptionsToolbar }
             .sheet(isPresented: $showOriginalRecipe) {
-                if let url = RecipeBrowserPolicy.url(recipe.sourceURL ?? "") { RecipeBrowserView(initialURL: url) }
+                if let url = RecipeBrowserPolicy.url(recipe.attributedSourceURL ?? "") { RecipeBrowserView(initialURL: url) }
             }
             .onChange(of: session.guestStore.inventoryRevision) { _, _ in recomputeCookClassification() }
             .navigationDestination(isPresented: $showKitchenCheck) {
@@ -259,7 +259,7 @@ struct UserRecipeDetailView: View {
     private var recipeOptionsToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                if RecipeBrowserPolicy.url(recipe.sourceURL ?? "") != nil {
+                if RecipeBrowserPolicy.url(recipe.attributedSourceURL ?? "") != nil {
                     Button("View original recipe", systemImage: "safari") { showOriginalRecipe = true }
                 }
                 Button { renameText = recipe.title; showRenameAlert = true } label: {
@@ -461,6 +461,8 @@ struct UserRecipeDetailView: View {
                             }
                         }
                     }.padding(.horizontal, 20)
+
+                    RecipeCreditsView(recipe: recipe).padding(.horizontal, 20)
 
                     // Cook Now readiness header — only when arriving via Cook Now
                     if cookSession != nil, let c = cookClassification {

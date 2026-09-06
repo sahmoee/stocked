@@ -560,7 +560,8 @@ actor RecipeStore {
             }
             ranked.sort {
                 if $0.quality != $1.quality { return $0.quality > $1.quality }
-                return $0.entry.title.localizedCaseInsensitiveCompare($1.entry.title) == .orderedAscending
+                return RecipeDisplayPolicy.titleSortKey($0.entry.title)
+                    .localizedCaseInsensitiveCompare(RecipeDisplayPolicy.titleSortKey($1.entry.title)) == .orderedAscending
             }
         }
         return Array(ranked.prefix(requested).map(\.entry))

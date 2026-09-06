@@ -14,7 +14,13 @@ nonisolated struct SmartSubstitution: Codable, Sendable, Hashable { let sub: Str
 nonisolated struct SmartGroceryLine: Codable, Sendable, Hashable { let name: String; let aisle: String; let quantity: String }
 nonisolated struct SmartNutritionItem: Codable, Sendable { let name: String; let grams: Int?; let kcal: Int? }
 nonisolated struct SmartNutritionTotal: Codable, Sendable { let kcal: Int; let protein: Int; let carbs: Int; let fat: Int }
-nonisolated struct SmartNutrition: Codable, Sendable { let items: [SmartNutritionItem]; let total: SmartNutritionTotal }
+nonisolated struct SmartNutrition: Codable, Sendable {
+    let items: [SmartNutritionItem]
+    let total: SmartNutritionTotal
+    var estimated: Bool? = nil
+    var complete: Bool? = nil
+    var note: String? = nil
+}
 nonisolated struct SmartExpiry: Codable, Sendable { let category: String; let storage: String; let days: Int; let source: String? }
 nonisolated struct SmartMealSuggestion: Codable, Sendable { let title: String; let makeable: Bool; let score: Double; let have: [String]; let missing: [String] }
 nonisolated struct SmartBatchBarcode: Codable, Sendable { let code: String; let ok: Bool }
