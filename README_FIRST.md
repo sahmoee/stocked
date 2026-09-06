@@ -1,5 +1,10 @@
 # Read me first
 
+Stocked's approved default icon is `Brand/Stocked-AppIcon-Master.png`, promoted from the
+matching `AppIcon-08` artwork. This repository owns the master. The iOS/iPadOS app icon set,
+StockedMac copy, and public website image are byte-derived consumers; regenerate every required
+size from this master and verify asset-catalog dimensions before publishing any icon change.
+
 Settings → Data & Storage → Free Kitchen Connections now joins the optional tools: reviewed Grocy
 inventory/shopping reads, conditional CalDAV meal-copy publication, actual Cooklang Federation
 discovery, device-only saved community price checks, and household delivery status. No paid service
