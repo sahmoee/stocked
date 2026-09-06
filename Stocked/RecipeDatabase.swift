@@ -333,7 +333,7 @@ actor RecipeDatabase {
     }
 
     nonisolated static func standardizedRecipeTitle(_ raw: String) -> String {
-        let cleaned = OnlineRecipeFacts.normalizedTitle(raw)
+        let cleaned = RecipeDisplayPolicy.cleanedTitle(OnlineRecipeFacts.normalizedTitle(raw))
         let letters = cleaned.filter(\.isLetter)
         guard !letters.isEmpty,
               letters == letters.lowercased() || letters == letters.uppercased() else { return cleaned }

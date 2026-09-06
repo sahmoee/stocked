@@ -32,6 +32,7 @@ struct CookNowResultsView: View {
     @State private var showMore = false
     @State private var isGeneratingRecipe = false
     @State private var generationMessage: String?
+    @State private var contentKind = ContentKind.food
     // RL-004 — Cook Anyway review for recipes that touch meal-plan reservations.
     @State private var overridePayload: ReservationOverridePayload? = nil
 
@@ -42,6 +43,14 @@ struct CookNowResultsView: View {
                     .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
+
+                if hasDrinks {
+                    Picker("Recipe type", selection: $contentKind) {
+                        ForEach(ContentKind.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, CookStyle.screenHPad)
+                }
 
                 if focus == .readyFirst {
                     inventoryRecipeButton
@@ -130,7 +139,26 @@ struct CookNowResultsView: View {
     // computed property that re-filtered and re-sorted the whole catalog. Between
     // this check and the sections below, one body pass ran ~10 full passes over
     // ~150 recipes. The tiers are stored on Output now and this is a Bool read.
-    private var isEmptyEverywhere: Bool { snapshot.isEmptyEverywhere }
+    private var isEmptyEverywhere: Bool {
+        filtered(snapshot.readyNow).isEmpty && filtered(snapshot.needsReview).isEmpty
+            && filtered(snapshot.almostReady).isEmpty && filtered(snapshot.morePossibilities).isEmpty
+    }
+
+    private enum ContentKind: CaseIterable { case food, drinks; var label: String { self == .food ? "Food" : "Drinks" } }
+    private var hasDrinks: Bool { snapshot.classified.contains { isDrink($0.recipe) } }
+    private func isDrink(_ recipe: UserRecipe) -> Bool {
+        RecipeDisplayPolicy.isDrink(title: recipe.title,
+                                    categories: recipe.categories ?? [], tags: recipe.tags)
+    }
+    private func filtered(_ items: [ClassifiedRecipe]) -> [ClassifiedRecipe] {
+        items.filter { item in
+            let presentable = RecipeDisplayPolicy.isPresentable(
+                title: item.recipe.title, imageURL: item.recipe.imageURL,
+                imageData: item.recipe.imageData, ingredients: item.recipe.ingredients.count,
+                steps: item.recipe.instructions.count, sourceURL: item.recipe.sourceURL)
+            return presentable && (contentKind == .drinks ? isDrink(item.recipe) : !isDrink(item.recipe))
+        }
+    }
 
     private var inventoryRecipeButton: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -191,32 +219,32 @@ struct CookNowResultsView: View {
     private var readySection: some View {
         tierSection(title: "Ready now",
                     subtitle: snapshot.metrics.readyBreakdown,
-                    items: snapshot.readyNow)
+                    items: filtered(snapshot.readyNow))
     }
 
     private var reviewSection: some View {
         tierSection(title: "Swaps to review",
                     subtitle: "One confirmation away",
-                    items: snapshot.needsReview)
+                    items: filtered(snapshot.needsReview))
     }
 
     private var almostSection: some View {
         tierSection(title: "Almost ready",
                     subtitle: "Missing 6 or more items after substitutions",
-                    items: snapshot.almostReady)
+                    items: filtered(snapshot.almostReady))
     }
 
     private func moreSection(expanded: Bool) -> some View {
         Group {
-            if !snapshot.morePossibilities.isEmpty {
+            if !filtered(snapshot.morePossibilities).isEmpty {
                 if expanded {
                     tierSection(title: "More possibilities",
                                 subtitle: "Meals to build toward — closest first",
-                                items: snapshot.morePossibilities)
+                                items: filtered(snapshot.morePossibilities))
                 } else {
                     Button { withAnimation { showMore = true } } label: {
                         HStack {
-                            Text("More possibilities (\(snapshot.morePossibilities.count))")
+                            Text("More possibilities")
                                 .scaledFont(13.5, weight: .semibold)
                             Spacer()
                             Image(systemName: "chevron.down").scaledFont(11, weight: .semibold)
@@ -228,7 +256,7 @@ struct CookNowResultsView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, CookStyle.screenHPad)
-                    .a11yButton("Show more possibilities, \(snapshot.morePossibilities.count) recipes missing six or more items")
+                    .a11yButton("Show more possibilities")
                 }
             }
         }
@@ -254,7 +282,7 @@ struct CookNowResultsView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(items.prefix(12)) { c in
                             CookRecipeCard(
-                                title: c.recipe.title,
+                                title: RecipeDisplayPolicy.cleanedTitle(c.recipe.title),
                                 subtitle: rowSubtitle(c),
                                 matchPercent: matchPercent(c),
                                 imageURL: c.recipe.imageURL,

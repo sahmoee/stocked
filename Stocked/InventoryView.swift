@@ -77,6 +77,7 @@ struct InventoryView: View {
     @State private var showSearchField = false   // #245 — header magnifier toggles the field
     @State private var showSortDialog  = false   // #245 — header funnel
     @State private var showAllRows     = false   // #245 — "View All <zone> Items" footer
+    @State private var listHasScrolled = false
     let zones = ["All","Fridge","Freezer","Pantry","Staples"]
 
     // #235 mockup — per-zone chip icon.
@@ -166,6 +167,7 @@ struct InventoryView: View {
             HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
 
+                if !listHasScrolled {
                 InventoryEditorialHeading(title: selectedZone == "All" ? "Your inventory" : selectedZone,
                     subtitle: "Browse, organize, and keep good food in reach.",
                     artwork: selectedZone == "Freezer" ? 6 : selectedZone == "Pantry" ? 7 : 1,
@@ -282,6 +284,7 @@ struct InventoryView: View {
                 }
                 .padding(.horizontal, 24).padding(.bottom, 10)
                 .onChange(of: selectedZone) { _, _ in showAllRows = false }
+                }
 
                 // ── Search field — hidden until the header magnifier (#245) ──
                 if showSearchField { inlineSearchField }
@@ -729,7 +732,13 @@ struct InventoryView: View {
                            columns: 1,
                            interItemSpacing: 8,
                            lineSpacing: 8,
-                           contentInsets: .init(top: 4, leading: 24, bottom: 110, trailing: 24)) { item in
+                           contentInsets: .init(top: 4, leading: 24, bottom: 110, trailing: 24),
+                           onVerticalCollapseChange: { collapsed in
+                               guard listHasScrolled != collapsed else { return }
+                               withAnimation(.easeInOut(duration: 0.22)) {
+                                   listHasScrolled = collapsed
+                               }
+                           }) { item in
                 InventoryItemRow(item: item, onSelect: splitActive ? { id in
                     motion.animate(.navigation, intent: .spatial) {
                         detailItemID = id

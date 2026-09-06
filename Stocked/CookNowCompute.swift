@@ -304,7 +304,15 @@ enum CookNowCompute {
     }
 
     nonisolated private static func compute(_ input: Input, cancellable: Bool) -> Output? {
-        let recipes = input.recipes
+        // Reject incomplete catalogue rows before building substitution indexes. Imported
+        // title-only pages and image-less stubs cannot produce a useful recipe card and
+        // previously made this pass scan thousands of unusable ingredients.
+        let recipes = input.recipes.filter { recipe in
+            RecipeDisplayPolicy.isPresentable(
+                title: recipe.title, imageURL: recipe.imageURL, imageData: recipe.imageData,
+                ingredients: recipe.ingredients.count, steps: recipe.instructions.count,
+                sourceURL: recipe.sourceURL)
+        }
 
         // Pre-resolve in-stock substitutes for every ingredient the classifier
         // might ask about (anything not directly in stock). One store pass;

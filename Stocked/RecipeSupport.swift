@@ -72,9 +72,12 @@ nonisolated enum RecipeQuality {
             "protein prep", "recipe roundup", "recipes roundup", "recipe collection",
             "recipes collection", "recipe ideas", "meal ideas", "dinner ideas",
             "lunch ideas", "breakfast ideas", "weekly menu", "holiday menu",
-            "meal plan", "ways to use", "what to cook"
+            "meal plan", "ways to use", "what to cook", "best party appetizers",
+            "best appetizers", "top appetizers", "appetizer ideas"
         ]
         if broadPagePhrases.contains(where: { key.contains($0) }) { return false }
+        if key.range(of: #"\b\d+\s+(?:best|easy|quick|favorite|favourite|top)\b"#,
+                     options: .regularExpression) != nil { return false }
         return true
     }
 

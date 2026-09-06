@@ -16,6 +16,7 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
     var lineSpacing: CGFloat = 12
     var contentInsets: NSDirectionalEdgeInsets = .init(top: 12, leading: 12, bottom: 12, trailing: 12)
     var onSelect: @MainActor (Item) -> Void = { _ in }
+    var onVerticalCollapseChange: @MainActor (Bool) -> Void = { _ in }
     @ViewBuilder var cell: (Item) -> Cell
 
     // Non-isolated so its synthesized Hashable/Sendable conformance can satisfy
@@ -24,7 +25,8 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
     nonisolated enum Section: Hashable, Sendable { case main }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(cell: cell, onSelect: onSelect)
+        Coordinator(cell: cell, onSelect: onSelect,
+                    onVerticalCollapseChange: onVerticalCollapseChange)
     }
 
     func makeUIView(context: Context) -> UICollectionView {
@@ -46,6 +48,7 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
     func updateUIView(_ collectionView: UICollectionView, context: Context) {
         context.coordinator.cell = cell
         context.coordinator.onSelect = onSelect
+        context.coordinator.onVerticalCollapseChange = onVerticalCollapseChange
         context.coordinator.reduceMotion = context.environment.accessibilityReduceMotion
         context.coordinator.apply(
             items,
@@ -59,14 +62,18 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
     final class Coordinator: NSObject, UICollectionViewDelegate {
         var cell: (Item) -> Cell
         var onSelect: (Item) -> Void
+        var onVerticalCollapseChange: (Bool) -> Void
         var reduceMotion = false
         private var scrollActivity = StockedScrollActivity.idle
         private weak var collectionView: UICollectionView?
         private var dataSource: UICollectionViewDiffableDataSource<Section, Item>?
+        private var headerIsCollapsed = false
 
-        init(cell: @escaping (Item) -> Cell, onSelect: @escaping (Item) -> Void) {
+        init(cell: @escaping (Item) -> Cell, onSelect: @escaping (Item) -> Void,
+             onVerticalCollapseChange: @escaping (Bool) -> Void) {
             self.cell = cell
             self.onSelect = onSelect
+            self.onVerticalCollapseChange = onVerticalCollapseChange
         }
 
         func makeLayout(columns: Int,
@@ -121,6 +128,13 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
 
         func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
             setScrollActivity(.tracking)
+        }
+
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            let collapsed = scrollView.contentOffset.y > 24
+            guard collapsed != headerIsCollapsed else { return }
+            headerIsCollapsed = collapsed
+            onVerticalCollapseChange(collapsed)
         }
 
         func scrollViewWillEndDragging(

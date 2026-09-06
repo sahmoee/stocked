@@ -6,9 +6,15 @@ nonisolated enum RecipeDisplayPolicy {
         var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "_", with: " ")
         value = value.replacingOccurrences(
+            of: #"^\s*(?:#?\d+[.)\]:-]?\s+|(?:best|easy|quick|amazing|delicious|ultimate|perfect)\s+)"#,
+            with: "", options: [.regularExpression, .caseInsensitive]
+        )
+        value = value.replacingOccurrences(
             of: #"(?:\s+|\s*[-–—|:]\s*)(?:recipe\s+id\s*|id\s*)?\d{5,}\s*$"#,
             with: "", options: [.regularExpression, .caseInsensitive]
         )
+        value = value.replacingOccurrences(of: #"^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$"#,
+                                            with: "", options: .regularExpression)
         value = value.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
         return value.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "-–—|:")))
     }
@@ -25,5 +31,19 @@ nonisolated enum RecipeDisplayPolicy {
         let token = (url.lastPathComponent + " " + url.path).lowercased()
         let branding = ["logo", "favicon", "app-icon", "appicon", "site-icon", "default-og", "og-default", "placeholder", "stocked-social", "stocked-logo"]
         return !branding.contains { token.contains($0) }
+    }
+
+    static func isPresentable(title: String, imageURL: String?, imageData: Data? = nil,
+                              ingredients: Int, steps: Int, sourceURL: String? = nil) -> Bool {
+        guard RecipeQuality.hasMeaningfulTitle(cleanedTitle(title)), ingredients >= 3, steps > 0 else { return false }
+        if let imageData, !imageData.isEmpty { return true }
+        guard let imageURL else { return false }
+        return isLikelyRecipeImageURL(imageURL, sourceURL: sourceURL)
+    }
+
+    static func isDrink(title: String, categories: [String], tags: [String]) -> Bool {
+        let text = ([title] + categories + tags).joined(separator: " ").lowercased()
+        return ["drink", "beverage", "cocktail", "mocktail", "smoothie", "juice", "lemonade",
+                "coffee", "tea", "punch", "shake"].contains { text.contains($0) }
     }
 }

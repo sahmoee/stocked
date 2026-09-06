@@ -72,7 +72,7 @@ final class QABackgroundRunner {
             // Let launch hydration and the first visible transition settle before
             // the expensive baseline. Running this on the first Home frame was a
             // major contributor to the build 68/77 launch-stall tickets.
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(12))
             guard !Task.isCancelled else { return }
             await self?.runNow(force: false)
             while !Task.isCancelled {
@@ -99,7 +99,7 @@ final class QABackgroundRunner {
         // becomes one run, and it never lands on the exact frame of a transition.
         pendingRun?.cancel()
         pendingRun = Task { @MainActor [weak self] in
-            do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
             guard !Task.isCancelled else { return }
             await self?.runNow(force: false)
         }

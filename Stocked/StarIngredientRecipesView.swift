@@ -198,6 +198,8 @@ struct StarIngredientRecipesView: View {
         for term in terms {
             let hits = await RecipeDatabase.shared.search(term, limit: 30)
             appendUnique(hits, to: &pool, seen: &seen)
+            let corpusHits = await RecipeDatabaseManager.shared.corpusSearch(term, limit: 30)
+            appendUnique(corpusHits, to: &pool, seen: &seen)
         }
 
         var results = await rank(pool: pool, terms: terms, items: items, seed: seed)
@@ -214,7 +216,7 @@ struct StarIngredientRecipesView: View {
             if results.isEmpty { loadingMessage = "Checking more recipe sources…" }
             let webRecipes = await WebRecipeFetcher.shared.fetchExpandedPublisherRecipes(
                 query: query,
-                limitPerSource: 1
+                limitPerSource: 2
             )
             let webEntries = webRecipes.map { databaseEntry(from: $0) }
             appendUnique(webEntries, to: &pool, seen: &seen)
@@ -253,8 +255,12 @@ struct StarIngredientRecipesView: View {
     private func appendUnique(_ entries: [RecipeDatabaseEntry],
                               to pool: inout [RecipeDatabaseEntry],
                               seen: inout Set<String>) {
-        for entry in entries where !entry.steps.isEmpty && !entry.ingredients.isEmpty {
-            let key = entry.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        for var entry in entries where RecipeDisplayPolicy.isPresentable(
+            title: entry.title, imageURL: entry.imageURL,
+            ingredients: entry.ingredients.count, steps: entry.steps.count,
+            sourceURL: entry.sourceURL) {
+            entry.title = RecipeDisplayPolicy.cleanedTitle(entry.title)
+            let key = entry.title.lowercased()
             if seen.insert(key).inserted { pool.append(entry) }
         }
     }

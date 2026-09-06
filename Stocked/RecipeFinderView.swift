@@ -19,8 +19,7 @@ import SwiftUI
   var catalogueUnavailable = false
   var alternatives: [FinderAlternative] = []
   var webUnavailable = false
-  var limit = 60
-  var shouldFocusSearch = false
+  var limit = 30
   private var request: Task<Void, Never>?
   private var completedKey: String?
   private var requestedKey: String?
@@ -121,9 +120,6 @@ import SwiftUI
           detail:
             "\(count) matches; partial catalogue: \(catalogueUnavailable); web unavailable: \(webUnavailable)"
         )
-        if canReportCount {
-          UIAccessibility.post(notification: .announcement, argument: "\(count) recipes found")
-        }
         if count == 0 { AppAnalytics.shared.log(.finderNoResults) }
       } catch is CancellationError {} catch {
         guard let self, requestState.fail(current) else { return }
@@ -141,10 +137,16 @@ import SwiftUI
   /// Preserve card identity and position while a running query discovers more rows.
   /// Existing cards receive fresher data; genuinely new cards append into free slots.
   private func mergeVisible(_ incoming: [FinderHit]) {
-    let updates = Dictionary(incoming.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    let presentable = incoming.filter {
+      RecipeDisplayPolicy.isPresentable(
+        title: $0.recipe.title, imageURL: $0.recipe.imageURL, imageData: $0.recipe.imageData,
+        ingredients: $0.recipe.ingredients.count, steps: $0.recipe.instructions.count,
+        sourceURL: $0.recipe.sourceURL)
+    }
+    let updates = Dictionary(presentable.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     var merged = hits.compactMap { updates[$0.id] ?? $0 }
     var known = Set(merged.map(\.id))
-    for hit in incoming where known.insert(hit.id).inserted && merged.count < limit {
+    for hit in presentable where known.insert(hit.id).inserted && merged.count < limit {
       merged.append(hit)
     }
     hits = merged
@@ -179,10 +181,7 @@ struct RecipeFinderView: View {
   @FocusState private var searchFocused: Bool
   private var surface: Color { RecipeCardStyle.surface(isDark: session.isDarkMode) }
   private var categories: [FinderCategory] { FinderCategory.allCases }
-  private var showCount: String {
-    model.canReportCount ? "Show \(model.count) recipes"
-      : model.loading ? "Finding matches…" : "Show recipes"
-  }
+  private var showCount: String { model.loading ? "Finding matches…" : "See recipes" }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -240,14 +239,10 @@ struct RecipeFinderView: View {
       HarvestRecipeSync.shared.refreshFullCatalogue()
       refresh()
       logStep()
-      if model.shouldFocusSearch {
-        searchFocused = true
-        model.shouldFocusSearch = false
-      }
     }
     .onDisappear { model.cancel() }
     .onChange(of: model.flow.filters) { _, _ in
-      model.limit = 60
+      model.limit = 30
       refresh()
     }
     .onChange(of: model.flow.phase) { _, _ in
@@ -444,11 +439,11 @@ struct RecipeFinderView: View {
         } label: {
           VStack(alignment: .leading, spacing: 4) {
             Text(alternative.label)
-            Text("Show \(alternative.count) recipes").fontWeight(.semibold)
+            Text("Show these recipes").fontWeight(.semibold)
           }.font(.stocked(.body)).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         }.foregroundStyle(session.themeContrastAccent)
           .accessibilityLabel(
-            "\(alternative.label). Show \(alternative.count) recipes. Adjust these preferences.")
+            "\(alternative.label). Show recipes with these adjusted preferences.")
       }
     }.padding(16).background(surface, in: RoundedRectangle(cornerRadius: 18))
   }
@@ -470,15 +465,12 @@ struct RecipeFinderView: View {
         }
         .accessibilityLabel("Clear search")
       }
-    }.padding(.horizontal, 16).frame(minHeight: 54).background(
-      surface, in: RoundedRectangle(cornerRadius: 18))
+    }.padding(.horizontal, 12).frame(minHeight: 44).background(
+      surface, in: RoundedRectangle(cornerRadius: 14))
   }
   private var results: some View {
     VStack(alignment: .leading, spacing: 16) {
-      heading(
-        model.loading && model.hits.isEmpty
-          ? "Finding recipes for you"
-          : model.canReportCount ? "\(model.count) recipes for you" : "Recipes for you")
+      heading(model.loading && model.hits.isEmpty ? "Finding recipes for you" : "Recipes for you")
       search
       if !session.guestStore.cookingProfile.allergens.isEmpty {
         Text(
@@ -521,10 +513,7 @@ struct RecipeFinderView: View {
           ).frame(minHeight: 44)
         }.accessibilityLabel("Sort recipes, \(model.flow.filters.sort.label)")
         Spacer()
-        Text(model.canReportCount
-             ? "\(model.count) \(model.countIsFinal ? "results" : "loaded")"
-             : model.error ? "Results unavailable" : "Loading results…").font(
-          .stocked(.subheadline))
+        if model.loading { ProgressView().accessibilityLabel("Loading recipes") }
       }
       sourceNotice
       if model.error && !model.hits.isEmpty { errorState }
@@ -550,7 +539,7 @@ struct RecipeFinderView: View {
         }
         if model.canReportCount && model.hits.count < model.count {
           primary("Load more recipes") {
-            model.limit += 60
+            model.limit += 30
             model.refresh(store: session.guestStore)
           }
         }

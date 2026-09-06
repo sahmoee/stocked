@@ -27,7 +27,8 @@ class FinderRefreshContract(unittest.TestCase):
         self.assertIn("mergeVisible(response.hits)", view)
         self.assertIn("merged.append(hit)", view)
         self.assertNotIn("so far", view)
-        self.assertIn("if canReportCount {", view)
+        self.assertNotIn('Text("\\(model.count)', view)
+        self.assertIn('private var showCount: String { model.loading ? "Finding matches…" : "See recipes" }', view)
         self.assertIn("model.canReportCount && model.count == 0", view)
 
 if __name__ == "__main__": unittest.main()

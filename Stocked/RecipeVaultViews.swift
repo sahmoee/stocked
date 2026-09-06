@@ -270,10 +270,13 @@ struct RecipeVaultView: View {
     }
 
     private func openFinder(search: Bool) {
-        finder.flow.start(search: search)
-        finder.flow.editingReview = false
-        finder.shouldFocusSearch = search
-        if !search { finder.flow.phase = .quiz(0); AppAnalytics.shared.log(.finderStarted) }
+        if search {
+            finder.flow.start(search: true)
+            finder.flow.editingReview = false
+        } else {
+            finder.flow = FinderFlow()
+            AppAnalytics.shared.log(.finderStarted)
+        }
         navTarget = .finder
     }
 

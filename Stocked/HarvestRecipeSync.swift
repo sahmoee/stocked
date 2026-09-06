@@ -193,12 +193,15 @@ final class HarvestRecipeSync {
     }
 
     private func isPublishable(_ recipe: UserRecipe) -> Bool {
-        if let source = recipe.portableSource, source.catalogueSharingApproved != true { return false }
         func isHTTPS(_ value: String?) -> Bool {
             guard let value, let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
             return url.scheme?.lowercased() == "https" && url.host?.isEmpty == false
         }
-        return isHTTPS(recipe.sourceURL) && isHTTPS(recipe.imageURL) && !recipe.instructions.isEmpty
+        // Source-attributed imports from Stocked Mac/server/import caches contribute
+        // automatically. Source-less personal recipes remain private because they fail
+        // the provenance checks below and stay in My Collection only.
+        return isHTTPS(recipe.sourceURL) && isHTTPS(recipe.imageURL)
+            && recipe.ingredients.count >= 3 && !recipe.instructions.isEmpty
     }
 
     private func wireRecipe(_ recipe: UserRecipe) -> [String: Any]? {

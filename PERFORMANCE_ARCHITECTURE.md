@@ -50,7 +50,7 @@ The following protections are the implementation checklist for every future feat
 Find a Recipe scans keyset pages on a cancellable utility task, never eagerly materializes the full
 corpus in view state, and reuses completed results by recipe/inventory/history/database revision.
 Counts cover the union of matching downloaded records and discovered website recipes; card windows
-start at 60 and grow only on request. Keep all matched identities, not full models, for union counts.
+start at 30 and grow only on request. Keep all matched identities, not full models, for union counts.
 Coalesce early result snapshots to at most one per 200 ms; generation-gate partial and final updates.
 
 Web-first Find a Recipe is explicitly user-triggered. Reuse the publisher registry/parser,
@@ -87,6 +87,9 @@ warms the small writable snapshot from the first page. A complete download has n
 Reads use 256-row keyset pages; filtering never materializes the whole corpus in SwiftUI. In-progress
 archive revisions do not continuously cancel/restart visible queries; completion invalidates the
 results once. No bulk image downloads, no household/private rows, and no destructive reconciliation.
+Source-attributed, image-complete imports from Stocked Mac, Stocked server, and import caches
+contribute automatically to that public catalogue. Source-less personal creations remain in My
+Collection. Catalogue ingestion still rejects incomplete pages and preserves publisher attribution.
 
 The user currently requires approval before any simulator build/test. Native finder checks and
 generic-device compilation are allowed; UI/runtime verification must not be claimed from them.
