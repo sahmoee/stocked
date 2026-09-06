@@ -20,7 +20,34 @@ nonisolated struct StoreLayout: Codable, Hashable, Sendable {
     var store: String
     /// normalized item name -> average position (0…1 through the store)
     var positions: [String: Double] = [:]
+    /// aisle raw value -> learned average position. Added decode-safely so layouts written before
+    /// aisle learning remain valid and immediately benefit from their item observations.
+    var aislePositions: [String: Double] = [:]
     var trips: Int = 0
+
+    init(updatedAt: Double = 0, lastWriterID: String = "", store: String,
+         positions: [String: Double] = [:], aislePositions: [String: Double] = [:], trips: Int = 0) {
+        self.updatedAt = updatedAt
+        self.lastWriterID = lastWriterID
+        self.store = store
+        self.positions = positions
+        self.aislePositions = aislePositions
+        self.trips = trips
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case updatedAt, lastWriterID, store, positions, aislePositions, trips
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
+        lastWriterID = try c.decodeIfPresent(String.self, forKey: .lastWriterID) ?? ""
+        store = try c.decodeIfPresent(String.self, forKey: .store) ?? ""
+        positions = try c.decodeIfPresent([String: Double].self, forKey: .positions) ?? [:]
+        aislePositions = try c.decodeIfPresent([String: Double].self, forKey: .aislePositions) ?? [:]
+        trips = try c.decodeIfPresent(Int.self, forKey: .trips) ?? 0
+    }
 
     /// Exponential moving average: recent trips matter more, so a store remodel is absorbed in
     /// a couple of visits instead of being outvoted by a year of history.
@@ -28,16 +55,42 @@ nonisolated struct StoreLayout: Codable, Hashable, Sendable {
         guard order.count > 1 else { return }
         let alpha = 0.4
         for (i, raw) in order.enumerated() {
-            let key = StoreLayout.normalize(raw)
+            let identity = ProductCatalog.identity(for: raw)
+            let key = identity.familyKey
             guard !key.isEmpty else { continue }
             let pos = Double(i) / Double(order.count - 1)
             positions[key] = positions[key].map { $0 * (1 - alpha) + pos * alpha } ?? pos
+            let aisle = GroceryKnowledgeBase.inferAisle(for: raw).rawValue
+            aislePositions[aisle] = aislePositions[aisle].map {
+                $0 * (1 - alpha) + pos * alpha
+            } ?? pos
+        }
+        trips += 1
+    }
+
+    mutating func learn(order: [StoreRouteItem]) {
+        guard order.count > 1 else { return }
+        let alpha = 0.4
+        for (index, item) in order.enumerated() {
+            let position = Double(index) / Double(order.count - 1)
+            positions[item.identity.familyKey] = positions[item.identity.familyKey].map {
+                $0 * (1 - alpha) + position * alpha
+            } ?? position
+            aislePositions[item.aisle.rawValue] = aislePositions[item.aisle.rawValue].map {
+                $0 * (1 - alpha) + position * alpha
+            } ?? position
         }
         trips += 1
     }
 
     /// Known position, or nil if we've never seen this item here.
-    func position(of name: String) -> Double? { positions[StoreLayout.normalize(name)] }
+    func position(of name: String) -> Double? {
+        let identity = ProductCatalog.identity(for: name)
+        return positions[identity.familyKey] ?? positions[identity.stableKey]
+            ?? positions[StoreLayout.normalize(name)]
+    }
+
+    func position(of aisle: GroceryAisle) -> Double? { aislePositions[aisle.rawValue] }
 
     static func normalize(_ s: String) -> String {
         s.lowercased()
@@ -48,23 +101,76 @@ nonisolated struct StoreLayout: Codable, Hashable, Sendable {
 
 // MARK: - Engine (pure)
 
+nonisolated struct StoreRouteItem: Identifiable, Hashable, Sendable {
+    var id: String
+    var name: String
+    var identity: ProductIdentity
+    var aisle: GroceryAisle
+
+    init(id: String? = nil, name: String, identity: ProductIdentity? = nil,
+         aisle: GroceryAisle? = nil) {
+        let resolvedIdentity = identity ?? ProductCatalog.identity(for: name)
+        self.id = id ?? resolvedIdentity.stableKey
+        self.name = name
+        self.identity = resolvedIdentity
+        self.aisle = aisle ?? GroceryKnowledgeBase.inferAisle(for: name)
+    }
+}
+
+nonisolated struct StoreRouteSection: Identifiable, Equatable, Sendable {
+    var aisle: GroceryAisle
+    var items: [StoreRouteItem]
+    var id: String { aisle.rawValue }
+}
+
 nonisolated enum StoreRouting {
     /// Sort a list into walking order. Learned positions always win. Unknown items remain grouped
     /// after learned items, but use the common department database instead of an arbitrary order.
     static func sort(_ items: [String], layout: StoreLayout) -> [String] {
+        route(items.map { StoreRouteItem(name: $0) }, layout: layout).map(\.name)
+    }
+
+    /// Canonical, aisle-aware walking route. Exact learned item positions win; otherwise a store's
+    /// learned aisle order wins; the common department order is the deterministic final fallback.
+    static func route(_ items: [StoreRouteItem], layout: StoreLayout) -> [StoreRouteItem] {
         items.enumerated().sorted { a, b in
-            let pa = layout.position(of: a.element)
-            let pb = layout.position(of: b.element)
+            let pa = layout.positions[a.element.identity.familyKey]
+                ?? layout.positions[a.element.identity.stableKey]
+                ?? layout.position(of: a.element.name)
+            let pb = layout.positions[b.element.identity.familyKey]
+                ?? layout.positions[b.element.identity.stableKey]
+                ?? layout.position(of: b.element.name)
             switch (pa, pb) {
             case let (x?, y?): return x == y ? a.offset < b.offset : x < y
             case (_?, nil):    return true
             case (nil, _?):    return false
             default:
-                let aa = GroceryKnowledgeBase.inferAisle(for: a.element).defaultOrder
-                let ab = GroceryKnowledgeBase.inferAisle(for: b.element).defaultOrder
-                return aa == ab ? a.offset < b.offset : aa < ab
+                let learnedA = layout.position(of: a.element.aisle)
+                let learnedB = layout.position(of: b.element.aisle)
+                switch (learnedA, learnedB) {
+                case let (x?, y?): return x == y ? a.offset < b.offset : x < y
+                case (_?, nil): return true
+                case (nil, _?): return false
+                default:
+                    let aa = a.element.aisle.defaultOrder
+                    let ab = b.element.aisle.defaultOrder
+                    return aa == ab ? a.offset < b.offset : aa < ab
+                }
             }
         }.map(\.element)
+    }
+
+    static func sections(_ items: [StoreRouteItem], layout: StoreLayout) -> [StoreRouteSection] {
+        let ordered = route(items, layout: layout)
+        var sections: [StoreRouteSection] = []
+        for item in ordered {
+            if let index = sections.firstIndex(where: { $0.aisle == item.aisle }) {
+                sections[index].items.append(item)
+            } else {
+                sections.append(StoreRouteSection(aisle: item.aisle, items: [item]))
+            }
+        }
+        return sections
     }
 
     static func knownCount(_ items: [String], layout: StoreLayout) -> Int {
@@ -111,6 +217,20 @@ final class StoreLayoutStore {
         guard !store.isEmpty, order.count > 1 else { return }
         var l = layout(for: store)
         l.learn(order: order)
+        save(l, store: store)
+    }
+
+    /// Structured overload for future grocery/retail call sites that already resolved product
+    /// identity and aisle. The string API remains as a compatibility adapter.
+    func record(store: String, order: [StoreRouteItem]) {
+        guard !store.isEmpty, order.count > 1 else { return }
+        var l = layout(for: store)
+        l.learn(order: order)
+        save(l, store: store)
+    }
+
+    private func save(_ learnedLayout: StoreLayout, store: String) {
+        var l = learnedLayout
         // Launch readiness 1.4 — stamp for household sync (layouts are shared: same store,
         // same aisles, everyone's trips make everyone's list smarter).
         l.updatedAt = Date().timeIntervalSince1970 * 1000
@@ -158,7 +278,7 @@ struct StoreLayoutView: View {
                         Text("\(Int(StoreRouting.confidence(listItems, layout: layout) * 100))% confident")
                             .foregroundStyle(session.accentColor)
                     }
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                 }
             } footer: {
                 Text(layout.trips == 0
@@ -185,7 +305,7 @@ struct StoreLayoutView: View {
                     Section("Picked up (\(tripOrder.count))") {
                         ForEach(Array(tripOrder.enumerated()), id: \.offset) { i, item in
                             HStack {
-                                Text("\(i + 1)").font(.system(size: 12, weight: .bold, design: .monospaced))
+                                Text("\(i + 1)").scaledFont(12, weight: .bold, design: .monospaced)
                                     .foregroundStyle(session.accentColor).frame(width: 22, alignment: .leading)
                                 Text(item).strikethrough().foregroundStyle(.secondary)
                             }
@@ -205,13 +325,13 @@ struct StoreLayoutView: View {
                 Section("Your list, in walking order") {
                     ForEach(Array(sorted.enumerated()), id: \.offset) { i, item in
                         HStack {
-                            Text("\(i + 1)").font(.system(size: 12, weight: .bold, design: .monospaced))
+                            Text("\(i + 1)").scaledFont(12, weight: .bold, design: .monospaced)
                                 .foregroundStyle(layout.position(of: item) == nil ? .secondary : session.accentColor)
                                 .frame(width: 22, alignment: .leading)
                             Text(item).foregroundStyle(session.themeTextColor)
                             Spacer()
                             if layout.position(of: item) == nil {
-                                Text("new here").font(.system(size: 10)).foregroundStyle(.secondary)
+                                Text("new here").scaledFont(10).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -236,7 +356,7 @@ struct StoreLayoutView: View {
                                 Text(name).foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Text("\(store.layout(for: name).trips) trips")
-                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                                    .scaledFont(11).foregroundStyle(.secondary)
                             }
                         }
                     }

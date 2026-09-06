@@ -2,6 +2,18 @@
 // Header: centered "Stocked." + chevron.down, tappable → Daily Brief.
 import SwiftUI
 
+/// Shared hub greeting: live Preferences name and identical adaptive typography.
+struct StockedGreeting: View {
+    @Environment(AppSession.self) private var session
+
+    var body: some View {
+        Text("\(StockedFormatters.timeOfDayGreeting), \(session.effectiveName)")
+            .font(.stocked(.headline).weight(.semibold))
+            .foregroundStyle(session.accentColor)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 struct StockedShell<Content: View>: View {
     var showBack:       Bool
     var scrollDisabled: Bool
@@ -10,23 +22,24 @@ struct StockedShell<Content: View>: View {
     var trailingIcon:   String?          // optional top-right action (e.g. search) (#7)
     var trailingLabel:  String           // VoiceOver label for the trailing action
     var onTrailing:     (() -> Void)?
-    var leadingTitle:   Bool                 // #245 — Home: wordmark pinned left (mockup)
     var trailingIcon2:  String?              // #245 — optional second top-right action
     var trailingLabel2: String
     var onTrailing2:    (() -> Void)?
     var onRefresh:      (() async -> Void)?  // custom pull-to-refresh; nil = standard app refresh
     var content:        Content
+    var canvasColor: Color?
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.stockedDismiss) private var stockedDismiss
     @Environment(\.stockedTitleTap) private var titleTap
     @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.stockedMotion) private var motion
+    @State private var scrollActivity = StockedScrollActivity.idle
 
     init(
         showBack:       Bool = false,
         scrollDisabled: Bool = false,
         titleText:      String = "Stocked",
-        leadingTitle:   Bool = false,
         onTitleTap:     (() -> Void)? = nil,
         trailingIcon:   String? = nil,
         trailingLabel:  String = "",
@@ -35,6 +48,7 @@ struct StockedShell<Content: View>: View {
         trailingLabel2: String = "",
         onTrailing2:    (() -> Void)? = nil,
         onRefresh:      (() async -> Void)? = nil,
+        canvasColor: Color? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.showBack       = showBack
@@ -44,17 +58,17 @@ struct StockedShell<Content: View>: View {
         self.trailingIcon   = trailingIcon
         self.trailingLabel  = trailingLabel
         self.onTrailing     = onTrailing
-        self.leadingTitle   = leadingTitle
         self.trailingIcon2  = trailingIcon2
         self.trailingLabel2 = trailingLabel2
         self.onTrailing2    = onTrailing2
         self.onRefresh      = onRefresh
         self.content        = content()
+        self.canvasColor    = canvasColor
     }
 
     var body: some View {
         ZStack(alignment: .top) {
-            session.themeBgColor.ignoresSafeArea()
+            (canvasColor ?? session.themeBgColor).ignoresSafeArea()
 
             // Tap anywhere to dismiss keyboard — UIKit-backed, passes through child taps.
             KeyboardDismissView()
@@ -75,11 +89,27 @@ struct StockedShell<Content: View>: View {
                     // with the id. Purely additive — normal scrolling is unaffected.
                     ScrollViewReader { scrollProxy in
                         ScrollView(showsIndicators: false) {
-                            content
-                                .frame(maxWidth: layoutMetrics.readableContentWidth, alignment: .leading)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.bottom, StockedUI.scrollBottomPad)
+                            VStack(spacing: 0) {
+                                // A concrete first child is more reliable than using the generic
+                                // content view itself as a scroll target, particularly when a tab
+                                // root rebuild and the reselect notification happen together.
+                                Color.clear
+                                    .frame(height: 1)
+                                    .id("stocked-shell-top")
+                                    .accessibilityHidden(true)
+
+                                content
+                                    .frame(maxWidth: layoutMetrics.readableContentWidth, alignment: .leading)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.bottom, StockedUI.scrollBottomPad)
+                            }
                         }
+                        // Short pages stay planted and long pages use native continuous
+                        // deceleration. Section targets remain available to coach marks,
+                        // but ordinary low-velocity scrolling is never forced to a card.
+                        .stockedSectionSnapping(axes: .vertical, anchor: .top)
+                        .stockedTrackScrollActivity($scrollActivity)
+                        .defaultScrollAnchor(.top)
                         .scrollDismissesKeyboard(.interactively)
                         // App-wide pull-to-refresh. Screens with their own refresh needs pass
                         // onRefresh; everything else gets the standard refresh (household pull +
@@ -93,14 +123,21 @@ struct StockedShell<Content: View>: View {
                         }
                         .onReceive(NotificationCenter.default.publisher(for: .coachmarkScrollTo)) { note in
                             guard let id = note.object as? String else { return }
-                            withAnimation(.easeInOut(duration: 0.35)) {
+                            motion.animate(.navigation, intent: .spatial) {
                                 scrollProxy.scrollTo(id, anchor: .center)
+                            }
+                        }
+                        .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
+                            motion.animate(.navigation, intent: .spatial) {
+                                scrollProxy.scrollTo("stocked-shell-top", anchor: .top)
                             }
                         }
                     }
                 }
             }
         }
+        .environment(\.stockedScrollActivity, scrollActivity)
+        .stockedAdaptiveInterface()
         .ignoresSafeArea(.keyboard)
         .toolbar(.hidden, for: .navigationBar)
     }
@@ -113,24 +150,25 @@ struct StockedShell<Content: View>: View {
             // doesn't swallow taps meant for the back button.
             Group {
                 // #246 — mockup headers: each tab pins its OWN wordmark left ("Stocked.",
-                // "Cook.", "Inventory.") with no chevron. The trailing period now matches the
-                // wordmark text color (black in light mode) rather than the gold accent.
+                // "Cook.", "Inventory.") with no chevron. The brand period remains the single
+                // gold accent while the word continues to use the active theme text color.
                 // Centered mode (sub-screens) keeps "Stocked." + chevron.
                 // The header brand wordmark is ALWAYS "Stocked." on every screen — it
                 // never switches to the section name (Cook / Inventory / Recipes / …).
                 // `titleText` is kept only for the VoiceOver label so screen-reader users
                 // still hear which screen they're on.
-                let wordmark = Text("Stocked.").foregroundColor(session.themeTextColor)
-                    .font(.stockedSerif(26, weight: .bold))
+                let wordmark = StockedWordmark(
+                    size: StockedChrome.wordmarkSize,
+                    color: session.themeTextColor,
+                    dotColor: .stockedGold
+                )
 
                 let titleCore = Button { (titleTap ?? onTitleTap)?() } label: {
                     HStack(spacing: 5) {
                         wordmark
-                        if !leadingTitle {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
-                        }
+                        Image(systemName: "chevron.down")
+                            .font(.stockedSystem(size: StockedChrome.wordmarkChevronSize, weight: .semibold))
+                            .foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     .contentShape(Rectangle())
                 }
@@ -140,14 +178,7 @@ struct StockedShell<Content: View>: View {
                 .accessibilityLabel(titleText == "Stocked" ? "Stocked" : "Stocked, \(titleText)")
                 .coachmarkAnchor("shell.title")
 
-                if leadingTitle {
-                    // #4 — headers are centered app-wide (tab roots included). The
-                    // wordmark sits centered; trailing icons remain pinned right via the
-                    // separate overlay below.
-                    titleCore
-                } else {
-                    titleCore
-                }
+                titleCore
             }
 
             // Back button pinned left — only the chevron is tappable; the Spacer is inert
@@ -156,7 +187,7 @@ struct StockedShell<Content: View>: View {
                 HStack {
                     Button { (stockedDismiss ?? { dismiss() })() } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .scaledFont(20, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
@@ -177,7 +208,7 @@ struct StockedShell<Content: View>: View {
                     if let trailingIcon, let onTrailing {
                         Button { onTrailing() } label: {
                             Image(systemName: trailingIcon)
-                                .font(.system(size: 19, weight: .semibold))
+                                .scaledFont(19, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
@@ -188,7 +219,7 @@ struct StockedShell<Content: View>: View {
                     if let trailingIcon2, let onTrailing2 {
                         Button { onTrailing2() } label: {
                             Image(systemName: trailingIcon2)
-                                .font(.system(size: 19, weight: .semibold))
+                                .scaledFont(19, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
@@ -204,9 +235,19 @@ struct StockedShell<Content: View>: View {
         // it), so we just need a small gap below the status bar — NOT another full
         // safeTopInset, which double-counted the inset and left a large empty band
         // above the wordmark on every screen.
-        .padding(.top, 8)
-        .padding(.bottom, 14)
+        .frame(height: StockedChrome.headerHeight)
+        .padding(.top, StockedChrome.headerTopPadding)
+        .padding(.bottom, StockedChrome.headerBottomPadding)
     }
+}
+
+/// Stable app chrome geometry. Page content may adapt, but the brand header must not.
+enum StockedChrome {
+    static let wordmarkSize: CGFloat = 20
+    static let wordmarkChevronSize: CGFloat = 10
+    static let headerHeight: CGFloat = 32
+    static let headerTopPadding: CGFloat = 8
+    static let headerBottomPadding: CGFloat = 14
 }
 
 

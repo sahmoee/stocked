@@ -41,29 +41,29 @@ struct EditPreferencesView: View {
                     .listRowBackground(Color.clear)
 
                     Stepper("Meals/week: \(weeklyMeals)", value: $weeklyMeals, in: 1...21)
-                        .font(.system(size: 14, design: .serif))
+                        .scaledFont(14, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .listRowBackground(Color.clear)
 
                 } header: {
-                    Text("COOKING PROFILE").font(.system(size: 10, weight: .bold)).tracking(1)
+                    Text("COOKING PROFILE").scaledFont(10, weight: .bold).tracking(1)
                 }
 
                 // #16 — Kitchen Goals editable here too, not only via the Kitchen Health ring.
                 Section {
                     Button { showKitchenGoals = true } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: "checklist").font(.system(size: 14)).foregroundStyle(Color.stockedGreen)
+                            Image(systemName: "checklist").scaledFont(14).foregroundStyle(Color.stockedGreen)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Kitchen Goals")
-                                    .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                                    .scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
                                 Text(session.guestStore.stockGoalsConfigured
                                      ? "\(session.guestStore.stockStaples.count) staples anchor your Kitchen Health score"
                                      : "Define what stocked means to you")
-                                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                            Image(systemName: "chevron.right").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.3))
                         }
                     }
                     .buttonStyle(.plain)
@@ -74,14 +74,14 @@ struct EditPreferencesView: View {
                             .environment(session)
                     }
                 } header: {
-                    Text("KITCHEN GOALS").font(.system(size: 10, weight: .bold)).tracking(1)
+                    Text("KITCHEN GOALS").scaledFont(10, weight: .bold).tracking(1)
                 }
 
                 Section {
                     let cuisines = RecipeTaxonomy.cuisines
                     ForEach(cuisines, id: \.self) { cuisine in
                         HStack {
-                            Text(cuisine).font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                            Text(cuisine).scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
                             Spacer()
                             if cuisinePrefs.contains(cuisine) {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGold)
@@ -95,7 +95,7 @@ struct EditPreferencesView: View {
                         .listRowBackground(Color.clear)
                     }
                 } header: {
-                    Text("FAVOURITE CUISINES").font(.system(size: 10, weight: .bold)).tracking(1)
+                    Text("FAVOURITE CUISINES").scaledFont(10, weight: .bold).tracking(1)
                 }
             }
             .listStyle(.insetGrouped)

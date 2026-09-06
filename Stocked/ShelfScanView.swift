@@ -19,11 +19,11 @@ struct ShelfScanView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Take or pick a clear photo of a shelf or a group of items. Stocked reads the labels and lets you confirm what to add.")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
 
                 PhotosPicker(selection: $photo, matching: .images) {
                     Label(scanned ? "Choose another photo" : "Choose a photo", systemImage: "camera.viewfinder")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
                         .background(session.accentColor).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -32,23 +32,23 @@ struct ShelfScanView: View {
 
                 if loading {
                     HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Reading labels…")
-                        .font(.system(size: 13)).foregroundStyle(session.themeSecondaryText) }
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText) }
                 }
 
                 if scanned && candidates.isEmpty && !loading {
                     Text("Couldn't make out any item names. Try a closer, better-lit photo with the labels facing the camera.")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
 
                 if !candidates.isEmpty {
-                    Text("Tap to include or exclude, then add.").font(.system(size: 12))
+                    Text("Tap to include or exclude, then add.").scaledFont(12)
                         .foregroundStyle(session.themeSecondaryText)
                     ForEach(candidates, id: \.self) { name in
                         Button { toggle(name) } label: {
                             HStack {
                                 Image(systemName: picked.contains(name) ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(picked.contains(name) ? session.accentColor : session.themeSecondaryText)
-                                Text(name.capitalized).font(.system(size: 15)).foregroundStyle(session.themeTextColor)
+                                Text(name.capitalized).scaledFont(15).foregroundStyle(session.themeTextColor)
                                 Spacer()
                             }
                             .padding(.vertical, 10).padding(.horizontal, 12)
@@ -60,7 +60,7 @@ struct ShelfScanView: View {
 
                     Button(action: addPicked) {
                         Text(picked.isEmpty ? "Select some items" : "Add \(picked.count) to inventory")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(15, weight: .semibold)
                             .frame(maxWidth: .infinity).padding(.vertical, 13)
                             .background(picked.isEmpty ? Color.gray.opacity(0.3) : session.accentColor)
                             .foregroundStyle(.white).clipShape(RoundedRectangle(cornerRadius: 12))

@@ -585,10 +585,10 @@ nonisolated private func proteinCookTime(_ protein: String) -> String {
         Color.stockedBg.ignoresSafeArea()
         VStack(spacing: 20) {
             Text("On-Device Recipe Engine")
-                .font(.system(size: 20, weight: .bold, design: .serif))
+                .scaledFont(20, weight: .bold, design: .serif)
                 .foregroundStyle(.primary)
             Text("Generates recipes locally.\nNo network required.")
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(Color.primary.opacity(0.5))
                 .multilineTextAlignment(.center)
         }

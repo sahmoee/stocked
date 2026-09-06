@@ -62,15 +62,15 @@ struct BeforeYouStartView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Let's get set up")
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             if let method {
                 Text("\(method.name) · \(anchor.displayNormalized)")
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .scaledFont(13.5, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
             }
             Text("Get everything ready before any heat. Check items off as you go.")
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -98,13 +98,13 @@ struct BeforeYouStartView: View {
         let avail = equipmentService.availability(of: eq)
         let owned = equipmentService.owned(from: profile).contains(eq)
         return HStack(spacing: 10) {
-            Text(eq.emoji).font(.system(size: 18)).frame(width: 26)
+            Text(eq.emoji).scaledFont(18).frame(width: 26)
             VStack(alignment: .leading, spacing: 1) {
                 Text(eq.rawValue)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                 Text(owned ? avail.label : "Not in your equipment list")
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(avail.isUsable && owned ? Color.stockedGreen : Color.stockedGold)
             }
             Spacer()
@@ -119,7 +119,7 @@ struct BeforeYouStartView: View {
                 }
             } label: {
                 Image(systemName: avail.isUsable && owned ? "checkmark.circle.fill" : "exclamationmark.circle")
-                    .font(.system(size: 18))
+                    .scaledFont(18)
                     .foregroundStyle(avail.isUsable && owned ? Color.stockedGreen : Color.stockedGold)
             }
         }
@@ -162,29 +162,29 @@ struct BeforeYouStartView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 17))
+                    .scaledFont(17)
                     .foregroundStyle(done ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
                 Text(name.displayNormalized)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                     .strikethrough(done, color: session.themeTextColor.opacity(0.4))
                 Spacer()
                 if let match {
                     Text(match.zone)
-                        .font(.system(size: 10.5))
+                        .scaledFont(10.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.4))
                     if match.isExpiringSoonOrExpired {
-                        Image(systemName: "clock.fill").font(.system(size: 9)).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "clock.fill").scaledFont(9).foregroundStyle(Color.stockedGold)
                     }
                 } else {
                     let subs = store.inStockSubstitutes(for: name)
                     if let sub = subs.first {
                         Text("sub: \(sub.displayNormalized)")
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .scaledFont(10.5, weight: .semibold)
                             .foregroundStyle(Color.stockedGold)
                     } else {
                         Text("not logged")
-                            .font(.system(size: 10.5))
+                            .scaledFont(10.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.35))
                     }
                 }
@@ -233,10 +233,10 @@ struct BeforeYouStartView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 17))
+                    .scaledFont(17)
                     .foregroundStyle(done ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
                 Text(task)
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor)
                     .strikethrough(done, color: session.themeTextColor.opacity(0.4))
                     .fixedSize(horizontal: false, vertical: true)
@@ -265,8 +265,8 @@ struct BeforeYouStartView: View {
                 bodyText("None of these are required — the entrée alone is a complete cook.")
                 ForEach(optionalDecisions, id: \.self) { d in
                     HStack(spacing: 8) {
-                        Image(systemName: "circle.dotted").font(.system(size: 13)).foregroundStyle(Color.stockedGold)
-                        Text(d).font(.system(size: 12.5)).foregroundStyle(session.themeTextColor.opacity(0.7))
+                        Image(systemName: "circle.dotted").scaledFont(13).foregroundStyle(Color.stockedGold)
+                        Text(d).scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.7))
                         Spacer(minLength: 0)
                     }
                 }
@@ -284,7 +284,7 @@ struct BeforeYouStartView: View {
                 goCook = true
             } label: {
                 Text("Start Cooking")
-                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .scaledFont(16, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                     .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -293,7 +293,7 @@ struct BeforeYouStartView: View {
             }
             .buttonStyle(.plain)
             Text("You can start even with items unchecked — this is your call.")
-                .font(.system(size: 11))
+                .scaledFont(11)
                 .foregroundStyle(session.themeTextColor.opacity(0.45))
         }
         .padding(.horizontal, CookStyle.screenHPad)
@@ -330,8 +330,8 @@ struct BeforeYouStartView: View {
     private func sectionCard<Content: View>(title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedGold)
-                Text(title).font(.system(size: 15, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
+                Image(systemName: icon).scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
+                Text(title).scaledFont(15, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
             }
             content()
         }
@@ -340,7 +340,7 @@ struct BeforeYouStartView: View {
 
     private func bodyText(_ t: String) -> some View {
         Text(t)
-            .font(.system(size: 12.5))
+            .scaledFont(12.5)
             .foregroundStyle(session.themeTextColor.opacity(0.6))
             .fixedSize(horizontal: false, vertical: true)
     }

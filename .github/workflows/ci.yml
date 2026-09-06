@@ -2,12 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
 
 jobs:
-  ios-build:
-    name: Generic iOS device build
+  ios-validation:
+    name: iOS build and unit tests
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,3 +25,26 @@ jobs:
             -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
             clean build
+      - name: Run Stocked unit and performance tests on iPhone and iPad
+        run: |
+          PHONE_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')"
+          IPAD_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPad/{print $2; exit}')"
+          test -n "$PHONE_ID" && test -n "$IPAD_ID"
+          xcodebuild \
+            -project Stocked.xcodeproj \
+            -scheme Stocked \
+            -destination "platform=iOS Simulator,id=$PHONE_ID" \
+            -skipPackagePluginValidation \
+            build-for-testing
+          xcodebuild \
+            -project Stocked.xcodeproj \
+            -scheme Stocked \
+            -destination "platform=iOS Simulator,id=$PHONE_ID" \
+            -skipPackagePluginValidation \
+            test-without-building
+          xcodebuild \
+            -project Stocked.xcodeproj \
+            -scheme Stocked \
+            -destination "platform=iOS Simulator,id=$IPAD_ID" \
+            -skipPackagePluginValidation \
+            test-without-building

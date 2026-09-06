@@ -39,7 +39,7 @@ nonisolated struct QASyncAttempt: Identifiable, Codable, Sendable {
     // per line, and `exportText` maps it over every attempt inside a `body` that
     // ShareLink evaluates eagerly — hundreds of formatter allocations per redraw
     // of the Sync queue screen. Same pattern as QAEvent.line.
-    nonisolated(unsafe) private static let timeFormatter: DateFormatter = {
+    private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
         return f
@@ -182,7 +182,7 @@ struct QASyncQueueView: View {
         List {
             Section {
                 Text(queue.summary)
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(queue.failures.isEmpty ? Color.stockedGreen : Color.stockedWarning)
             } header: {
                 Text("Status")
@@ -200,13 +200,13 @@ struct QASyncQueueView: View {
                                                  : (h.successes == h.attempts ? Color.stockedGreen : Color.stockedWarning))
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack {
-                                    Text(h.destination).font(.system(size: 13, weight: .medium))
+                                    Text(h.destination).scaledFont(13, weight: .medium)
                                     Spacer()
                                     Text(h.rate)
-                                        .font(.system(size: 12, design: .monospaced))
+                                        .scaledFont(12, design: .monospaced)
                                         .foregroundStyle(.secondary)
                                 }
-                                Text(h.lastNote).font(.caption2).foregroundStyle(.secondary)
+                                Text(h.lastNote).font(.stocked(.caption2)).foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -232,7 +232,7 @@ struct QASyncQueueView: View {
                 }
                 .disabled(busy)
                 if !result.isEmpty {
-                    Text(result).font(.caption).foregroundStyle(.secondary)
+                    Text(result).font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
                 ShareLink(item: queue.exportText) {
                     Label("Share the log", systemImage: "square.and.arrow.up")
@@ -249,11 +249,11 @@ struct QASyncQueueView: View {
                     ForEach(queue.attempts.prefix(80)) { a in
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: a.ok ? "checkmark" : "xmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .scaledFont(10, weight: .bold)
                                 .foregroundStyle(a.ok ? Color.stockedGreen : .red)
                                 .frame(width: 14)
                             Text(a.line)
-                                .font(.system(size: 11, design: .monospaced))
+                                .scaledFont(11, design: .monospaced)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }

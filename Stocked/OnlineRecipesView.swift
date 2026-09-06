@@ -67,6 +67,8 @@ class OnlineRecipesLoader {
     var recipes:   [OnlineRecipe] = []
     var isLoading  = false
     var error:     String?
+    /// Visible freshness signal shared by every Recipes presentation.
+    private(set) var lastUpdated: Date?
     /// Changes whenever the published recipe content changes, even when the count does not.
     var revision   = 0
 
@@ -77,6 +79,7 @@ class OnlineRecipesLoader {
     private var loadTask: Task<Void, Never>?
     private var bootstrapTask: Task<Void, Never>?
     private var seedTask: Task<Void, Never>?
+    private var databaseRefreshTask: Task<Void, Never>?
     private var fetchGeneration = 0
     private var didBootstrapCache = false
     private var cachedAt: Date?
@@ -105,23 +108,25 @@ class OnlineRecipesLoader {
         // immediately, and only start the bounded source funnel when that cache is stale.
         let cacheKey = self.cacheKey
         let timestampKey = self.cacheTimestampKey
-        let preferredCuisines = profile?.cuisinePrefs ?? []
+        let profileSnapshot = profile
         bootstrapTask = Task { [weak self] in
             let cached = await OnlineRecipesPersistentCache.shared.load(
                 cacheKey: cacheKey, timestampKey: timestampKey)
             guard let self, !Task.isCancelled else { return }
             self.cachedAt = cached.savedAt
+            self.lastUpdated = cached.savedAt
             self.didBootstrapCache = true
             if self.recipes.isEmpty, !cached.recipes.isEmpty {
                 let filtered = await Task.detached(priority: .utility) {
-                    Self.filterByProfile(cached.recipes, preferredCuisines: preferredCuisines)
+                    let balanced = RecipeSourceHub.balancedRecipes(cached.recipes, limit: 400)
+                    return Self.filterByProfile(balanced, profile: profileSnapshot)
                 }.value
                 guard !Task.isCancelled else { return }
                 self.publish(filtered)
             }
-            if self.recipes.isEmpty { self.seedFromLocalDatabase(profile: profile) }
+            if self.recipes.isEmpty { self.seedFromLocalDatabase(profile: profileSnapshot) }
             let isFresh = cached.savedAt.map { Date().timeIntervalSince($0) < self.cacheTTL } ?? false
-            if !isFresh { self.fetchInBackground(profile: profile) }
+            if !isFresh { self.fetchInBackground(profile: profileSnapshot) }
             self.bootstrapTask = nil
         }
     }
@@ -130,38 +135,57 @@ class OnlineRecipesLoader {
     /// synced there) into `recipes` so the UI has content offline. No-ops if empty.
     private func seedFromLocalDatabase(profile: UserCookingProfile?) {
         guard seedTask == nil else { return }
-        let preferredCuisines = profile?.cuisinePrefs ?? []
+        let profileSnapshot = profile
         seedTask = Task { [weak self] in
             guard let self else { return }
             defer { self.seedTask = nil }
 
             let entries = await RecipeDatabaseManager.shared.loadSnapshot()
             guard !Task.isCancelled else { return }
-            let presentableCount = await Task.detached(priority: .utility) {
-                entries.lazy.filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }.prefix(12).count
-            }.value
-            let corpus: [RecipeDatabaseEntry]
-            if presentableCount < 12 {
-                corpus = await RecipeDatabaseManager.shared.corpusPresentable(limit: 60)
-            } else {
-                corpus = []
-            }
+            let corpus = await RecipeDatabaseManager.shared.corpusPresentable(limit: 60)
 
             let local = await Task.detached(priority: .utility) {
-                var mapped = entries
-                    .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
-                    .prefix(60)
+                let mappedEntries = (entries + corpus)
+                    .filter { Self.isPresentable($0) }
                     .map { Self.makeOnlineRecipe(from: $0) }
-                if mapped.count < 12 {
-                    mapped += corpus
-                        .filter { !$0.steps.isEmpty }
-                        .map { Self.makeOnlineRecipe(from: $0) }
-                }
-                return Self.filterByProfile(Array(mapped), preferredCuisines: preferredCuisines)
+                let mapped = RecipeSourceHub.balancedRecipes(mappedEntries, limit: 120)
+                return Self.filterByProfile(Array(mapped), profile: profileSnapshot)
             }.value
 
             guard !Task.isCancelled, self.recipes.isEmpty, !local.isEmpty else { return }
             self.publish(local)
+        }
+    }
+
+    /// Incorporate database writes (especially StockedMac harvest pulls) without launching a
+    /// second network discovery pass. A fresh six-hour cache must not hide recipes that arrived
+    /// from the Worker moments after it was decoded.
+    func refreshFromSharedDatabase(profile: UserCookingProfile? = nil) {
+        databaseRefreshTask?.cancel()
+        databaseRefreshTask = Task { [weak self] in
+            guard let self else { return }
+            let entries = await RecipeDatabaseManager.shared.loadSnapshot()
+            async let rotatingCorpus = RecipeDatabaseManager.shared.corpusPresentable(limit: 80)
+            async let qualityCorpus = RecipeDatabaseManager.shared.corpusTopByQuality(limit: 24)
+            let corpusParts = await (rotatingCorpus, qualityCorpus)
+            let corpus = corpusParts.0 + corpusParts.1
+            let current = self.recipes
+            let refreshed = await Task.detached(priority: .utility) {
+                // The writable database is capped for performance, while RecipeStore owns
+                // the full bundled corpus. Include a rotating, image-complete corpus window
+                // on every Recipes visit so the 98k catalogue participates without ever
+                // loading an unbounded array into SwiftUI.
+                let databaseRecipes = (entries + corpus)
+                    .filter { Self.isPresentable($0) }
+                    .map { Self.makeOnlineRecipe(from: $0) }
+                let merged = Self.deduplicateAndMerge(databaseRecipes + current)
+                let balanced = RecipeSourceHub.balancedRecipes(merged, limit: 400)
+                return Self.filterByProfile(balanced, profile: profile)
+            }.value
+            guard !Task.isCancelled, !refreshed.isEmpty else { return }
+            self.publish(refreshed)
+            self.saveCacheAsync(refreshed)
+            self.databaseRefreshTask = nil
         }
     }
 
@@ -178,6 +202,10 @@ class OnlineRecipesLoader {
             measures: Array(repeating: "", count: entry.ingredients.count),
             source: entry.sourceName.isEmpty ? "My Database" : entry.sourceName
         )
+    }
+
+    nonisolated private static func isPresentable(_ entry: RecipeDatabaseEntry) -> Bool {
+        !entry.steps.isEmpty && URL(string: entry.imageURL)?.scheme?.lowercased() == "https"
     }
 
     /// Map a live JSON-LD publisher recipe into the shared Discover model.
@@ -201,6 +229,8 @@ class OnlineRecipesLoader {
         bootstrapTask = nil
         seedTask?.cancel()
         seedTask = nil
+        databaseRefreshTask?.cancel()
+        databaseRefreshTask = nil
         didBootstrapCache = true
         fetchGeneration &+= 1
         loadTask?.cancel()
@@ -213,6 +243,7 @@ class OnlineRecipesLoader {
         fetchGeneration &+= 1
         bootstrapTask?.cancel(); bootstrapTask = nil
         seedTask?.cancel(); seedTask = nil
+        databaseRefreshTask?.cancel(); databaseRefreshTask = nil
         loadTask?.cancel(); loadTask = nil
         isLoading = false
     }
@@ -255,18 +286,27 @@ class OnlineRecipesLoader {
             OnlineRecipeFacts.hasRealInstructions($0.instructions)
         }
         guard !usable.isEmpty, recipes.isEmpty else { return }
-        publish(usable)
+        publish(RecipeSourceHub.balancedRecipes(usable, limit: 400))
     }
 
     private nonisolated static func filterByProfile(
         _ all: [OnlineRecipe],
-        preferredCuisines: [String]
+        profile: UserCookingProfile?
     ) -> [OnlineRecipe] {
         // Always drop recipes that have no real step-by-step instructions, or whose
         // "instructions" are just a link to the source (e.g. Edamam, which doesn't
         // license step text). These should never surface anywhere in Discover/search.
-        let withSteps = all.filter { OnlineRecipeFacts.hasRealInstructions($0.instructions) }
+        let rules = DietaryGuard.Rules(allergens: profile?.allergens ?? [])
+        let withSteps = all.filter {
+            OnlineRecipeFacts.hasRealInstructions($0.instructions)
+                && !DietaryGuard.isExcluded(
+                    ingredientLines: $0.ingredients,
+                    title: $0.title,
+                    rules: rules
+                )
+        }
 
+        let preferredCuisines = profile?.cuisinePrefs ?? []
         guard !preferredCuisines.isEmpty else { return withSteps }
         let preferred = preferredCuisines.map { $0.lowercased() }
         return withSteps.sorted { a, b in
@@ -280,7 +320,7 @@ class OnlineRecipesLoader {
         guard loadTask == nil else { return }
         fetchGeneration &+= 1
         let generation = fetchGeneration
-        let preferredCuisines = profile?.cuisinePrefs ?? []
+        let profileSnapshot = profile
         loadTask = Task(priority: .background) { [weak self] in
             guard let self, !Task.isCancelled, self.fetchGeneration == generation else { return }
             self.isLoading = true
@@ -292,10 +332,6 @@ class OnlineRecipesLoader {
 
             var fetched: [OnlineRecipe] = []
 
-            // Phase 0: Sowens curated content hosted on Namecheap cPanel (static JSON + images,
-            // cached on-device with ETag). Cheap, offline-friendly, and returns [] until published.
-            fetched += await RemoteContentClient.shared.onlineRecipes(limit: 40)
-
             let spoonacularRemainingPoints = await SpoonacularClient.shared.remainingPointsToday
             let sourcePlan = RecipeDiscoveryPlan.make(
                 cacheCount: self.recipes.count,
@@ -303,6 +339,22 @@ class OnlineRecipesLoader {
                 mealDBHealth: SourceHealth.shared.score("TheMealDB"),
                 isForced: false
             )
+
+            // Phase 0: begin with the shared database. It contains StockedMac harvests,
+            // household sync, imports, and earlier providers; putting it first also gives an
+            // offline launch useful cross-source content while live feeds refresh below.
+            let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
+            async let rotatingCorpus = RecipeDatabaseManager.shared.corpusPresentable(limit: 80)
+            async let qualityCorpus = RecipeDatabaseManager.shared.corpusTopByQuality(limit: 24)
+            let corpusParts = await (rotatingCorpus, qualityCorpus)
+            let corpusEntries = corpusParts.0 + corpusParts.1
+            let dbRecipes = await Task.detached(priority: .utility) {
+                let mapped = (dbEntries + corpusEntries)
+                    .filter { Self.isPresentable($0) }
+                    .map { Self.makeOnlineRecipe(from: $0) }
+                return RecipeSourceHub.balancedRecipes(mapped, limit: 120)
+            }.value
+            fetched.append(contentsOf: dbRecipes)
 
             // Phase 1: pull from ALL DB categories (was 11 of 11 — now the full list every
             // refresh for maximum fill), bounded so we don't hammer MealDB.
@@ -316,16 +368,6 @@ class OnlineRecipesLoader {
                 { if let recipe = await Self.fetchOne(session: session) { return [recipe] } else { return [] } }
             }
             fetched += await RecipeDiscoveryCoordinator.boundedGather(randomTasks)
-
-            // Phase 3: Pull from local RecipeDatabase (Spoonacular/CocktailDB already synced there)
-            let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
-            let dbRecipes = await Task.detached(priority: .utility) {
-                dbEntries
-                    .filter { !$0.imageURL.isEmpty && !$0.steps.isEmpty }
-                    .shuffled().prefix(60)
-                    .map { Self.makeOnlineRecipe(from: $0) }
-            }.value
-            fetched.append(contentsOf: dbRecipes)
 
             // Phase 4: DummyJSON removed — fake placeholder data, not real recipes
 
@@ -361,10 +403,6 @@ class OnlineRecipesLoader {
                 supplementalTasks.append { await RecipeSourcesPlus.mealDBByIngredient(term, limit: 5) }
             }
             supplementalTasks.append { await CocktailDBClient.shared.discoverRecipes(limit: 8) }
-            supplementalTasks.append { await RecipeSourcesPlus.dummyJSONRecipes(limit: 20) }
-            for term in seedTerms {
-                supplementalTasks.append { await RecipeSourcesPlus.dummyJSONSearch(term, limit: 6) }
-            }
             for ingredient in pantrySeeds {
                 supplementalTasks.append { await RecipeSourcesPlus.mealDBByIngredient(ingredient, limit: 5) }
             }
@@ -423,9 +461,9 @@ class OnlineRecipesLoader {
             if !unique.isEmpty {
                 let existingIds = Set(self.recipes.map(\.id))
                 let newOnes = unique.filter { !existingIds.contains($0.id) }
-                let combined = Array((newOnes + self.recipes).prefix(400))
+                let combined = RecipeSourceHub.balancedRecipes(newOnes + self.recipes, limit: 400)
                 let filtered = await Task.detached(priority: .utility) {
-                    Self.filterByProfile(combined, preferredCuisines: preferredCuisines)
+                    Self.filterByProfile(combined, profile: profileSnapshot)
                 }.value
                 guard !Task.isCancelled, self.fetchGeneration == generation else { return }
                 self.publish(filtered)
@@ -567,7 +605,7 @@ class OnlineRecipesLoader {
 
         for raw in input {
             guard RecipeSourceHub.isFullRecipe(raw) else { continue }
-            if raw.imageURL.isEmpty && RecipeSourceHub.canonicalSourceName(raw.source) != "Wikibooks Cookbook" { continue }
+            guard URL(string: raw.imageURL)?.scheme == "https" else { continue }
 
             let recipe = OnlineRecipe(
                 id: raw.id,
@@ -617,6 +655,7 @@ class OnlineRecipesLoader {
     private func saveCacheAsync(_ recipes: [OnlineRecipe]) {
         let savedAt = Date()
         cachedAt = savedAt
+        lastUpdated = savedAt
         let cacheKey = self.cacheKey
         let timestampKey = self.cacheTimestampKey
         Task(priority: .background) {
@@ -637,6 +676,8 @@ enum BrowseSort: String, CaseIterable, Identifiable {
 
 struct OnlineRecipesView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var loader       = OnlineRecipesLoader.shared
     @State private var selected:    OnlineRecipe?
     @State private var searchText   = ""
@@ -648,6 +689,12 @@ struct OnlineRecipesView: View {
     @State private var selectedSource: String? = nil
     @State private var sort: BrowseSort = .relevance
     @State private var showFilters = false
+    // Tracks the chip nearest the center so choosing a cuisine/diet brings the complete
+    // chip into focus and the rail does not jump back when recipe results refresh.
+    @State private var cuisineFilterRailPosition: String? = nil
+    @State private var pageScrollActivity = StockedScrollActivity.idle
+    @State private var lastApproachingRecipeID: String? = nil
+    @State private var prefetchScope = UUID().uuidString
     // #C1 — filters now SEED from the saved dietary profile so protection is the
     // default, not an every-session opt-in. The buttons still toggle per session.
     @State private var seededFromProfile = false
@@ -655,6 +702,7 @@ struct OnlineRecipesView: View {
 
     // Predictive suggestions from local RecipeDatabase
     @State private var dbSnapshot:    [RecipeDatabaseEntry] = []
+    @State private var dbRevision:    UInt64 = 0
     @State private var dbSuggestions: [RecipeDatabaseEntry] = []
 
     @State private var displayRecipes: [OnlineRecipe] = []
@@ -776,11 +824,11 @@ struct OnlineRecipesView: View {
         switch sort {
         case .relevance: break
         case .pantryMatch:
-            let pantry = pantryNames.map { $0.lowercased() }
             func matches(_ recipe: OnlineRecipe) -> Int {
                 recipe.ingredients.reduce(into: 0) { count, ingredient in
-                    let name = ingredient.lowercased()
-                    if pantry.contains(where: { name.contains($0) || $0.contains(name) }) { count += 1 }
+                    if pantryNames.contains(where: { FoodNameMatcher.matches(ingredient, $0).isConfident }) {
+                        count += 1
+                    }
                 }
             }
             filtered.sort { matches($0) > matches($1) }
@@ -800,7 +848,7 @@ struct OnlineRecipesView: View {
             // ── Header ───────────────────────────────────────────────
             HStack {
                 Text("Discover Recipes")
-                    .font(.system(size: 14, weight: .bold)).foregroundStyle(session.themeTextColor)
+                    .scaledFont(14, weight: .bold).foregroundStyle(session.themeTextColor)
                     .onAppear {
                         // #C1 — apply the saved dietary profile once per session: allergen
                         // hide defaults ON when allergens are saved; the diet chip seeds
@@ -824,10 +872,20 @@ struct OnlineRecipesView: View {
                 } else {
                     Button { loader.forceRefresh(profile: session.guestStore.cookingProfile) } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
-                            .font(.system(size: 12)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(12).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 24).padding(.bottom, 8)
+
+            HStack(spacing: 6) {
+                Image(systemName: ConnectivityMonitor.isOnlineFlag ? "checkmark.circle.fill" : "internaldrive.fill")
+                Text(recipeFreshnessLabel)
+                Spacer()
+                Text("Full catalogue searchable")
+            }
+            .scaledFont(10.5, weight: .medium)
+            .foregroundStyle(session.themeSecondaryText)
             .padding(.horizontal, 24).padding(.bottom, 8)
 
             // #C1 glue — when the saved profile is shaping results, say so and give a
@@ -835,13 +893,13 @@ struct OnlineRecipesView: View {
             if hideAllergens || selectedDiet != nil {
                 Button { showProfileEditor = true } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "leaf.circle.fill").font(.system(size: 12))
+                        Image(systemName: "leaf.circle.fill").scaledFont(12)
                             .foregroundStyle(Color.stockedGreen)
                         Text("Filtered for your dietary profile")
-                            .font(.system(size: 11.5, weight: .semibold))
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(11.5, weight: .semibold)
+                            .foregroundStyle(session.themeSecondaryText)
                         Text("Edit")
-                            .font(.system(size: 11.5, weight: .bold))
+                            .scaledFont(11.5, weight: .bold)
                             .foregroundStyle(Color.stockedGold)
                         Spacer()
                     }
@@ -859,10 +917,10 @@ struct OnlineRecipesView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                     TextField("Try \"quick chicken no dairy\" or \"Italian breakfast\"…", text: $searchText)
                                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-.font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+.scaledFont(14).foregroundStyle(session.themeTextColor)
                         .autocorrectionDisabled()
                         .onSubmit { runLiveSearch() }
                         .onChange(of: searchText) { _, q in
@@ -890,37 +948,37 @@ struct OnlineRecipesView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 4) {
                             Image(systemName: "book.closed.fill")
-                                .font(.system(size: 10)).foregroundStyle(Color.stockedGold.opacity(0.7))
+                                .scaledFont(10).foregroundStyle(Color.stockedGold.opacity(0.7))
                             Text("Matching Recipes")
-                                .font(.system(size: 10, weight: .semibold, design: .serif))
+                                .scaledFont(10, weight: .semibold, design: .serif)
                                 .foregroundStyle(Color.stockedGold.opacity(0.7))
                         }
                         .padding(.horizontal, 10)
 
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
+                            LazyHStack(spacing: 8) {
                                 ForEach(dbSuggestions) { entry in
                                     Button { selectDBEntry(entry) } label: {
                                         HStack(spacing: 6) {
                                             Image(systemName: "fork.knife")
-                                                .font(.system(size: 11))
+                                                .scaledFont(11)
                                                 .foregroundStyle(Color.stockedGold)
                                             VStack(alignment: .leading, spacing: 1) {
                                                 Text(entry.title)
-                                                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                                                    .scaledFont(13, weight: .semibold, design: .serif)
                                                     .foregroundStyle(session.themeTextColor)
-                                                    .lineLimit(1)
+                                                    .fixedSize(horizontal: false, vertical: true)
                                                 HStack(spacing: 4) {
                                                     if !entry.cuisine.isEmpty {
                                                         Text(entry.cuisine)
-                                                            .font(.system(size: 10))
+                                                            .scaledFont(10)
                                                             .foregroundStyle(.secondary)
                                                     }
                                                     if !entry.sourceName.isEmpty && entry.sourceName != "My Recipes" {
                                                         Text(entry.cuisine.isEmpty ? entry.sourceName : "· \(entry.sourceName)")
-                                                            .font(.system(size: 10))
+                                                            .scaledFont(10)
                                                             .foregroundStyle(.secondary)
-                                                            .lineLimit(1)
+                                                            .fixedSize(horizontal: false, vertical: true)
                                                     }
                                                 }
                                             }
@@ -931,15 +989,16 @@ struct OnlineRecipesView: View {
                                         .clipShape(Capsule())
                                     }
                                     .buttonStyle(.plain)
+                                    .id(entry.id)
                                 }
 
                                 // "Search online for more" pill
                                 Button { runLiveSearch() } label: {
                                     HStack(spacing: 5) {
                                         Image(systemName: "arrow.up.right")
-                                            .font(.system(size: 10, weight: .semibold))
+                                            .scaledFont(10, weight: .semibold)
                                         Text("More online")
-                                            .font(.system(size: 12, weight: .semibold, design: .serif))
+                                            .scaledFont(12, weight: .semibold, design: .serif)
                                     }
                                     .foregroundStyle(session.themeTextColor)
                                     .padding(.horizontal, 12).padding(.vertical, 12)
@@ -948,125 +1007,151 @@ struct OnlineRecipesView: View {
                                     .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
+                                .id("more-online")
                             }
                             .stockedScrollTargetLayout()
-                            .padding(.horizontal, 10).padding(.bottom, 8)
+                            .padding(.bottom, 8)
                         }
                         .stockedHorizontalSnap()
+                        .contentMargins(.horizontal, 10, for: .scrollContent)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 24).padding(.bottom, 12)
-            .animation(.easeInOut(duration: 0.15), value: dbSuggestions.map(\.id))
+            .stockedAnimation(.selection, intent: .spatial, value: dbSuggestions.map(\.id))
 
             // ── Cuisine browsing grid (#20) ─────────────────────────────
             let cuisines = RecipeTaxonomy.cuisines.map { "\(CuisineBrowseView.flag(for: $0)) \($0)" }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                LazyHStack(spacing: 8) {
                     // #251 — allergen hide toggle (only shown if the user set allergens).
                     if hasAllergens {
                         Button {
-                            withAnimation(.spring(response: 0.2)) { hideAllergens.toggle() }
+                            motion.animate(.selection, intent: .spatial) {
+                                hideAllergens.toggle()
+                                cuisineFilterRailPosition = "allergens"
+                            }
                         } label: {
                             HStack(spacing: 5) {
                                 Image(systemName: hideAllergens ? "checkmark.shield.fill" : "shield")
-                                    .font(.system(size: 11, weight: .bold))
-                                Text("Hide allergens").font(.system(size: 12, weight: .semibold))
+                                    .scaledFont(11, weight: .bold)
+                                Text("Hide allergens").scaledFont(12, weight: .semibold)
                             }
                             .foregroundStyle(hideAllergens ? Color.stockedWhite : (session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal))
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .background(hideAllergens ? Color.stockedError.opacity(0.9) : Color.stockedCharcoal.opacity(0.08))
                             .clipShape(Capsule())
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .id("allergens")
                     }
                     // #261 — diet filter chips: keep only recipes whose inferred dietary
                     // flags include the chosen diet (DietaryClassifier, same as the badges).
                     ForEach(["Vegetarian", "Vegan", "Gluten-Free"], id: \.self) { diet in
                         Button {
-                            withAnimation(.spring(response: 0.2)) {
+                            motion.animate(.selection, intent: .spatial) {
                                 selectedDiet = selectedDiet == diet ? nil : diet
+                                cuisineFilterRailPosition = "diet-\(diet)"
                             }
                         } label: {
                             HStack(spacing: 5) {
-                                Image(systemName: "leaf").font(.system(size: 10, weight: .bold))
-                                Text(diet).font(.system(size: 12, weight: .semibold))
+                                Image(systemName: "leaf").scaledFont(10, weight: .bold)
+                                Text(diet).scaledFont(12, weight: .semibold)
                             }
                             .foregroundStyle(selectedDiet == diet ? Color.stockedWhite : (session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal))
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .background(selectedDiet == diet ? Color.stockedGreen : Color.stockedCharcoal.opacity(0.08))
                             .clipShape(Capsule())
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .id("diet-\(diet)")
                     }
                     ForEach(cuisines, id: \.self) { cuisine in
                         let name = cuisine.components(separatedBy: " ").dropFirst().joined(separator: " ")
                         Button {
-                            withAnimation(.spring(response: 0.2)) {
+                            motion.animate(.selection, intent: .spatial) {
                                 selectedCuisine = selectedCuisine == name ? nil : name
+                                cuisineFilterRailPosition = "cuisine-\(name)"
                             }
                         } label: {
                             Text(cuisine)
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                                 .foregroundStyle(selectedCuisine == name ? Color.stockedWhite : (session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal))
                                 .padding(.horizontal, 12).padding(.vertical, 7)
                                 .background(selectedCuisine == name ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.08))
                                 .clipShape(Capsule())
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .id("cuisine-\(name)")
                     }
                     if selectedCuisine != nil {
-                        Button { withAnimation { selectedCuisine = nil } } label: {
+                        Button {
+                            motion.animate(.selection, intent: .spatial) {
+                                selectedCuisine = nil
+                                cuisineFilterRailPosition = "clear-cuisine"
+                            }
+                        } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(Color.stockedGold)
-                                .font(.system(size: 16))
-                        }.buttonStyle(.plain)
+                                .scaledFont(16)
+                        }
+                        .buttonStyle(.plain)
+                        .id("clear-cuisine")
                     }
                 }
-                .stockedScrollTargetLayout().padding(.horizontal, 24).padding(.bottom, 10)
+                .stockedScrollTargetLayout().padding(.bottom, 10)
             }
             .stockedHorizontalSnap()
+            .scrollPosition(id: $cuisineFilterRailPosition, anchor: .center)
+            .contentMargins(.horizontal, layoutMetrics.horizontalPadding, for: .scrollContent)
 
             // ── Live search label ─────────────────────────────────────
             HStack(spacing: 8) {
                 Button { showFilters = true } label: {
                     Label(activeFilterCount == 0 ? "Filters" : "Filters (\(activeFilterCount))", systemImage: "line.3.horizontal.decrease.circle")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                 }.buttonStyle(.bordered).tint(Color.stockedGold)
                 Text("\(displayRecipes.count) recipe\(displayRecipes.count == 1 ? "" : "s")")
-                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 Spacer()
                 if activeFilterCount > 0 {
                     Button("Clear all") { clearFilters() }
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(12, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }
             }
             .padding(.horizontal, 24).padding(.bottom, 10)
 
             if activeFilterCount > 0 {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                    LazyHStack(spacing: 6) {
                         if let selectedCuisine { filterToken(selectedCuisine) { self.selectedCuisine = nil } }
                         if let selectedCategory { filterToken(selectedCategory) { self.selectedCategory = nil } }
                         if let selectedSource { filterToken(selectedSource) { self.selectedSource = nil } }
                         if let selectedDiet { filterToken(selectedDiet) { self.selectedDiet = nil } }
                         if hideAllergens { filterToken("No allergens") { hideAllergens = false } }
-                    }.padding(.horizontal, 24)
-                }.padding(.bottom, 8)
+                    }
+                    .stockedScrollTargetLayout()
+                }
+                .stockedHorizontalSnap()
+                .contentMargins(.horizontal, layoutMetrics.horizontalPadding, for: .scrollContent)
+                .padding(.bottom, 8)
             }
 
             if !liveResults.isEmpty {
                 HStack(spacing: 6) {
-                    Image(systemName: "wifi").font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "wifi").scaledFont(11).foregroundStyle(Color.stockedGold)
                     Text("Online results for \"\(searchText)\"  · \(liveResults.count) recipes")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                     Spacer()
                     Button {
                         liveResults = []
                         searchText = ""
                         dbSuggestions = []
                     } label: {
-                        Text("Clear").font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+                        Text("Clear").scaledFont(11).foregroundStyle(Color.stockedGold)
                     }.buttonStyle(.plain)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 6)
@@ -1075,12 +1160,12 @@ struct OnlineRecipesView: View {
             // ── Recipe grid ───────────────────────────────────────────
             if let err = loader.error, loader.recipes.isEmpty, liveResults.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "wifi.slash").font(.system(size: 32))
+                    Image(systemName: "wifi.slash").scaledFont(32)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text(err).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(err).scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                     Button { loader.forceRefresh(profile: session.guestStore.cookingProfile) } label: {
-                        Text("Try Again").font(.system(size: 13, weight: .semibold))
+                        Text("Try Again").scaledFont(13, weight: .semibold)
                             .foregroundStyle(Color.stockedWhite)
                             .padding(.horizontal, 24).padding(.vertical, 10)
                             .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -1112,27 +1197,38 @@ struct OnlineRecipesView: View {
                         ZStack(alignment: .topTrailing) {
                             Button { selected = recipe } label: { OnlineRecipeCard(recipe: recipe) }
                                 .buttonStyle(.plain).contentShape(Rectangle())
+                                .onAppear {
+                                    lastApproachingRecipeID = recipe.id
+                                    prefetchImages(
+                                        after: recipe.id,
+                                        in: displayRecipes,
+                                        activity: pageScrollActivity
+                                    )
+                                }
                             Button { quickSave(recipe) } label: {
                                 Image(systemName: OnlineRecipeFacts.isSaved(recipe, savedTitles: session.guestStore.savedRecipeTitles) ? "bookmark.fill" : "bookmark")
-                                    .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                                    .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedWhite)
                                     .padding(9).background(.black.opacity(0.58)).clipShape(Circle())
                             }.padding(7).buttonStyle(.plain)
                         }
                     }
                 }
                 .padding(.horizontal, 20)
-                .animation(.easeInOut(duration: 0.25), value: displayRecipes.count)
+                .stockedAnimation(.selection, intent: .spatial, value: displayRecipes.count)
             }
         }
         } // end ScrollView
+        .stockedSizeAwareScrollBounce(.vertical)
+        .stockedTrackScrollActivity($pageScrollActivity)
+        .environment(\.stockedScrollActivity, pageScrollActivity)
         .onAppear {
             loader.loadIfNeeded(profile: session.guestStore.cookingProfile)
-            Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
+            reloadDatabaseSnapshot()
         }
-        // Newly harvested recipes bump the pool's version; reload the snapshot in place so
-        // they surface here without the user leaving and reopening Discover.
-        .onChange(of: RecipeDatabaseManager.shared.recipesVersion) { _, _ in
-            Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
+        // Adjacent actor revisions are applied as deltas. A complete reload is reserved for
+        // an actual revision gap (for example, this screen was suspended between writes).
+        .onReceive(DatabaseSyncBus.shared.recipeMutations) { change in
+            applyDatabaseChange(change)
         }
         .task(id: filterKey) {
             if !searchText.isEmpty {
@@ -1167,12 +1263,28 @@ struct OnlineRecipesView: View {
             }.value
             guard !Task.isCancelled else { return }
             displayRecipes = filtered
-            ImageCache.shared.prefetch(
-                urls: filtered.prefix(40).map(\.imageURL).filter { !$0.isEmpty })
+            lastApproachingRecipeID = filtered.first?.id
+            prefetchInitialImages(filtered, activity: pageScrollActivity)
+        }
+        .onChange(of: pageScrollActivity.phase) { _, phase in
+            guard phase == .idle else {
+                ImageCache.shared.cancelScheduledPrefetch(scope: prefetchScope)
+                return
+            }
+            if let lastApproachingRecipeID {
+                prefetchImages(
+                    after: lastApproachingRecipeID,
+                    in: displayRecipes,
+                    activity: pageScrollActivity
+                )
+            } else {
+                prefetchInitialImages(displayRecipes, activity: pageScrollActivity)
+            }
         }
         .onDisappear {
             suggestionTask?.cancel()
             searchTask?.cancel()
+            ImageCache.shared.cancelScheduledPrefetch(scope: prefetchScope)
         }
         .navigationDestination(item: $selected) { recipe in
             OnlineRecipeDetailView(recipe: recipe).environment(session)
@@ -1186,6 +1298,18 @@ struct OnlineRecipesView: View {
         }
     }
 
+    private var recipeFreshnessLabel: String {
+        if loader.isLoading { return "Updating recipes…" }
+        guard let date = loader.lastUpdated else {
+            return ConnectivityMonitor.isOnlineFlag ? "Using on-device catalogue" : "Offline catalogue"
+        }
+        let seconds = Date().timeIntervalSince(date)
+        if seconds < 60 { return "Updated just now" }
+        if seconds < 3_600 { return "Updated \(max(1, Int(seconds / 60)))m ago" }
+        if !ConnectivityMonitor.isOnlineFlag { return "Offline · saved locally" }
+        return "Updated \(max(1, Int(seconds / 3_600)))h ago"
+    }
+
     private var activeFilterCount: Int {
         [selectedCuisine, selectedCategory, selectedSource, selectedDiet].compactMap { $0 }.count + (hideAllergens ? 1 : 0)
     }
@@ -1193,6 +1317,58 @@ struct OnlineRecipesView: View {
     private func clearFilters() {
         selectedCuisine = nil; selectedCategory = nil; selectedSource = nil
         selectedDiet = nil; hideAllergens = false
+    }
+
+    /// The lazy grid creates cards only near the viewport. As each card approaches,
+    /// warm a short look-ahead window rather than scheduling the entire filtered set.
+    /// This keeps rapid scrolling smooth without turning a broad search into a burst of
+    /// hundreds of image requests.
+    private func prefetchImages(
+        after recipeID: String,
+        in recipes: [OnlineRecipe],
+        activity: StockedScrollActivity
+    ) {
+        let policy = StockedImageWorkPolicy()
+        guard let priority = remotePrefetchPriority(activity: activity, policy: policy) else { return }
+        guard let index = recipes.firstIndex(where: { $0.id == recipeID }) else { return }
+        let visibleRange = index..<min(recipes.endIndex, index + 2)
+        let indexes = policy.candidateIndices(
+            itemCount: recipes.count,
+            visibleRange: visibleRange,
+            axis: .vertical,
+            activity: activity
+        )
+        ImageCache.shared.schedulePrefetch(
+            scope: prefetchScope,
+            urls: indexes.map { recipes[$0].imageURL }.filter { !$0.isEmpty },
+            priority: priority
+        )
+    }
+
+    private func prefetchInitialImages(
+        _ recipes: [OnlineRecipe],
+        activity: StockedScrollActivity
+    ) {
+        let policy = StockedImageWorkPolicy()
+        guard let priority = remotePrefetchPriority(activity: activity, policy: policy) else { return }
+        ImageCache.shared.schedulePrefetch(
+            scope: prefetchScope,
+            urls: recipes.prefix(6).map(\.imageURL).filter { !$0.isEmpty },
+            priority: priority
+        )
+    }
+
+    private func remotePrefetchPriority(
+        activity: StockedScrollActivity,
+        policy: StockedImageWorkPolicy
+    ) -> TaskPriority? {
+        let directive = policy.directive(
+            for: .init(source: .remote, purpose: .prefetch),
+            activity: activity,
+            remoteAccessAllowed: ConnectivityMonitor.isOnlineFlag
+        )
+        if case let .loadNow(priority) = directive { return priority.taskPriority }
+        return nil
     }
 
     private func quickSave(_ recipe: OnlineRecipe) {
@@ -1203,9 +1379,9 @@ struct OnlineRecipesView: View {
     private func filterToken(_ label: String, remove: @escaping () -> Void) -> some View {
         Button(action: remove) {
             HStack(spacing: 4) {
-                Text(label).lineLimit(1)
+                Text(label).fixedSize(horizontal: false, vertical: true)
                 Image(systemName: "xmark.circle.fill")
-            }.font(.system(size: 11, weight: .semibold))
+            }.scaledFont(11, weight: .semibold)
                 .padding(.horizontal, 9).padding(.vertical, 6)
                 .background(Color.stockedGold.opacity(0.14)).clipShape(Capsule())
         }.buttonStyle(.plain)
@@ -1261,8 +1437,6 @@ struct OnlineRecipesView: View {
         )
         dbSuggestions = []
         selected = recipe
-        // Snapshot keeps growing as user discovers more
-        Task { dbSnapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
     }
 
     // MARK: - Live TheMealDB search
@@ -1294,9 +1468,28 @@ struct OnlineRecipesView: View {
             }
             // Learn all results into RecipeDatabase for future predictive use
             for r in parsed { StockedKnowledgeBase.shared.learnFromOnlineRecipe(r) }
-            // Refresh snapshot so chips reflect new entries next time
-            let fresh = await RecipeDatabaseManager.shared.loadSnapshot()
-            await MainActor.run { dbSnapshot = fresh }
+            // Each successful learn publishes an exact actor-owned delta. The mutation
+            // subscription above updates this snapshot without a redundant full reload.
+        }
+    }
+
+    private func applyDatabaseChange(_ change: RecipeDatabaseChange) {
+        guard change.revision > dbRevision else { return }
+        guard change.revision == dbRevision &+ 1 else {
+            reloadDatabaseSnapshot()
+            return
+        }
+        dbSnapshot = change.applying(to: dbSnapshot)
+        dbRevision = change.revision
+    }
+
+    private func reloadDatabaseSnapshot() {
+        let requestedAfter = dbRevision
+        Task {
+            let snapshot = await RecipeDatabaseManager.shared.loadVersionedSnapshot()
+            guard snapshot.revision >= requestedAfter, snapshot.revision >= dbRevision else { return }
+            dbSnapshot = snapshot.entries
+            dbRevision = snapshot.revision
         }
     }
 }
@@ -1381,11 +1574,11 @@ struct OnlineRecipeCard: View {
             ZStack(alignment: .topLeading) {
                 if recipe.imageURL.isEmpty {
                     ZStack {
-                        Rectangle().fill(Color.stockedGold.opacity(0.12)).frame(height: 120)
-                        Text(fallbackEmoji).font(.system(size: 48))
+                        Rectangle().fill(session.themeCardColor).frame(height: RecipeCardStyle.imageHeight)
+                        Text(fallbackEmoji).scaledFont(48)
                     }
                 } else {
-                    CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: 120, resolveName: recipe.title, resolveCategory: recipe.category)
+                    CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: RecipeCardStyle.imageHeight, resolveName: recipe.title, resolveCategory: recipe.category)
                 }
                 // #251 — live badges: can-I-make-this + already-saved.
                 HStack(spacing: 4) {
@@ -1398,16 +1591,26 @@ struct OnlineRecipeCard: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text(recipe.title)
-                    .font(.system(size: 13, weight: .semibold, design: .serif))
-                    .foregroundStyle(session.themeTextColor).lineLimit(2)
+                    .scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
+                    .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
+
+                let insight = RecipeRecommendationExplainer.insight(
+                    for: recipe,
+                    inventory: session.guestStore.inventoryItems,
+                    allergens: session.guestStore.cookingProfile.allergens
+                )
+                Label(insight.primaryReason, systemImage: insight.expiring.isEmpty ? "sparkles" : "clock.badge.exclamationmark")
+                    .scaledFont(RecipeCardStyle.metadataSize, weight: .medium)
+                    .foregroundStyle(session.themeSecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 // #251 — allergen flag (only when the user has allergens configured).
                 let hits = OnlineRecipeFacts.allergenHits(recipe, allergens: session.guestStore.cookingProfile.allergens)
                 if !hits.isEmpty {
                     HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 8.5, weight: .bold))
+                        Image(systemName: "exclamationmark.triangle.fill").scaledFont(8.5, weight: .bold)
                         Text("Contains: \(hits.joined(separator: ", "))")
-                            .font(.system(size: 9.5, weight: .semibold)).lineLimit(1)
+                            .scaledFont(9.5, weight: .semibold).fixedSize(horizontal: false, vertical: true)
                     }
                     .foregroundStyle(Color.stockedError)
                 }
@@ -1415,26 +1618,26 @@ struct OnlineRecipeCard: View {
                 HStack(spacing: 4) {
                     if !recipe.area.isEmpty {
                         Text(recipe.area)
-                            .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                     if !recipe.area.isEmpty && !recipe.category.isEmpty {
-                        Text("·").font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Text("·").scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeTextColor.opacity(0.3))
                     }
                     if !recipe.category.isEmpty {
                         Text(recipe.category)
-                            .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     Text(sourceTag)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(9, weight: .bold)
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 5).padding(.vertical, 2)
                         .background(session.themeTextColor.opacity(0.08))
                         .clipShape(Capsule())
                 }
             }
-            .padding(10)
-            .background(session.themeBgColor)
+            .padding(RecipeCardStyle.padding)
+            .background(RecipeCardStyle.surface(isDark: session.isDarkMode))
         }
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
@@ -1469,8 +1672,8 @@ struct OnlineRecipeCard: View {
 
     private func badge(text: String, system: String?, bg: Color) -> some View {
         HStack(spacing: 3) {
-            if let system { Image(systemName: system).font(.system(size: 8, weight: .bold)) }
-            Text(text).font(.system(size: 9.5, weight: .bold))
+            if let system { Image(systemName: system).scaledFont(8, weight: .bold) }
+            Text(text).scaledFont(9.5, weight: .bold)
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 6).padding(.vertical, 3)
@@ -1483,6 +1686,7 @@ struct OnlineRecipeCard: View {
 struct OnlineRecipeDetailView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedMotion) private var motion
     let recipe: OnlineRecipe
     @State private var addedIngredients = false
     @State private var addedToCalendar  = false
@@ -1493,6 +1697,8 @@ struct OnlineRecipeDetailView: View {
     @State private var repairedIngredients: [AIRecipe.Ingredient] = []
     @State private var aiFixingIngredients = false
     @State private var detailSnapshot = OnlineRecipeDetailSnapshot.empty
+    @State private var feedbackMessage: String?
+    @State private var goCooking = false
 
     private var ingredientRepairKey: String { "online:\(recipe.id):\(recipe.title)" }
 
@@ -1528,16 +1734,16 @@ struct OnlineRecipeDetailView: View {
                 switch detailSnapshot.stockStatus {
                 case .ready:
                     HStack(spacing: 5) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .bold))
-                        Text("You can make this now").font(.system(size: 12, weight: .bold))
+                        Image(systemName: "checkmark.circle.fill").scaledFont(11, weight: .bold)
+                        Text("You can make this now").scaledFont(12, weight: .bold)
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Color.stockedGreen).clipShape(Capsule())
                 case .missing(let n):
                     HStack(spacing: 5) {
-                        Image(systemName: "cart.badge.plus").font(.system(size: 11, weight: .bold))
-                        Text(n == 1 ? "1 ingredient missing" : "\(n) ingredients missing").font(.system(size: 12, weight: .bold))
+                        Image(systemName: "cart.badge.plus").scaledFont(11, weight: .bold)
+                        Text(n == 1 ? "1 ingredient missing" : "\(n) ingredients missing").scaledFont(12, weight: .bold)
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 10).padding(.vertical, 5)
@@ -1548,8 +1754,8 @@ struct OnlineRecipeDetailView: View {
                 // Plain-language explanation ("Missing only sour cream", "Uses chicken expiring soon").
                 if let line = MatchExplanation.line(for: coverage) {
                     Text(line)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .scaledFont(11, weight: .medium)
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
         }
@@ -1578,13 +1784,38 @@ struct OnlineRecipeDetailView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text(recipe.title)
-                                .font(.system(size: RecipeTextPrefs.shared.scaled(24), weight: .bold, design: .serif)).dynamicTypeSize(.xSmall ... .accessibility2)
+                                .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(24), weight: .bold, design: .serif))
                                 .foregroundStyle(session.themeTextColor)
                             Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
-                                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(13).foregroundStyle(session.themeSecondaryText)
 
                             // #251 — "Can I make this?" computed live against the pantry.
                             detailStockBadge
+
+                            let insight = RecipeRecommendationExplainer.insight(
+                                for: displayedRecipe,
+                                inventory: session.guestStore.inventoryItems,
+                                allergens: session.guestStore.cookingProfile.allergens
+                            )
+                            VStack(alignment: .leading, spacing: 5) {
+                                Label("Why this fits", systemImage: "sparkles")
+                                    .scaledFont(12, weight: .bold)
+                                Text(insight.primaryReason)
+                                    .scaledFont(12.5, weight: .medium)
+                                Text(insight.coverageText)
+                                    .scaledFont(11.5)
+                                    .foregroundStyle(session.themeSecondaryText)
+                                if !insight.missing.isEmpty {
+                                    Text("Missing: \(insight.missing.prefix(3).joined(separator: ", "))")
+                                        .scaledFont(11.5)
+                                        .foregroundStyle(session.themeSecondaryText)
+                                }
+                            }
+                            .foregroundStyle(session.themeTextColor)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.stockedGold.opacity(0.09))
+                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
 
                             // #12 auto-inferred dietary tags from the ingredient list (+ title
                             // so meat dishes like "Lamb Chops" aren't mislabeled when the
@@ -1593,7 +1824,7 @@ struct OnlineRecipeDetailView: View {
                                 HStack(spacing: 6) {
                                     ForEach(detailSnapshot.dietLabels, id: \.self) { label in
                                         Text(label)
-                                            .font(.system(size: 11, weight: .semibold))
+                                            .scaledFont(11, weight: .semibold)
                                             .foregroundStyle(Color.stockedGreen)
                                             .padding(.horizontal, 9).padding(.vertical, 4)
                                             .background(Color.stockedGreen.opacity(0.12))
@@ -1607,10 +1838,10 @@ struct OnlineRecipeDetailView: View {
                             if !allergenHits.isEmpty {
                                 HStack(spacing: 6) {
                                     Image(systemName: "exclamationmark.triangle.fill")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .scaledFont(11, weight: .bold)
                                         .foregroundStyle(Color.stockedError)
                                     Text("Contains: \(allergenHits.joined(separator: ", "))")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedError)
                                 }
                                 .padding(.horizontal, 10).padding(.vertical, 6)
@@ -1621,16 +1852,34 @@ struct OnlineRecipeDetailView: View {
 
                         VStack(spacing: 10) {
                             Button {
+                                if savedRecipeID == nil { toggleSaveToCollection() }
+                                RecipeInterest.shared.record(
+                                    category: recipe.category, area: recipe.area,
+                                    ingredients: displayedRecipe.ingredients, event: .cooked
+                                )
+                                goCooking = true
+                            } label: {
+                                Label("Start cooking", systemImage: "flame.fill")
+                                    .scaledFont(15, weight: .semibold, design: .serif)
+                                    .foregroundStyle(Color.stockedWhite)
+                                    .frame(maxWidth: .infinity).padding(.vertical, 15)
+                                    .background(Color.stockedCharcoal)
+                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                            }
+                            .buttonStyle(.plain)
+                            .a11yButton("Start cooking \(recipe.title)")
+
+                            Button {
                                 autoFillIngredients()
                                 RecipeInterest.shared.record(category: recipe.category, area: recipe.area,
                                                              ingredients: displayedIngredientLines.map(\.ingredient),
                                                              event: .groceryAdded)
-                                withAnimation(.spring(response: 0.3)) { addedIngredients = true }
+                                motion.animate(.standard) { addedIngredients = true }
                             } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: addedIngredients ? "checkmark.circle.fill" : "cart.badge.plus")
                                     Text(addedIngredients ? "Added to grocery list!" : "Add missing ingredients to list")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                 }
                                 .foregroundStyle(addedIngredients ? Color.stockedGreen : Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -1654,7 +1903,7 @@ struct OnlineRecipeDetailView: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: addedToCalendar ? "checkmark.circle.fill" : "calendar.badge.plus")
                                     Text(addedToCalendar ? "Planned in Cook Later" : "Plan in Cook Later")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                 }
                                 .foregroundStyle(addedToCalendar ? Color.stockedGold : Color.stockedCharcoal)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -1667,16 +1916,16 @@ struct OnlineRecipeDetailView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Text("Ingredients")
-                                    .font(.system(size: 16, weight: .bold, design: .serif))
+                                    .scaledFont(16, weight: .bold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 if RecipeImportAI.isAvailable {
                                     Button { Task { await fixIngredientsWithAI() } } label: {
                                         HStack(spacing: 4) {
                                             if aiFixingIngredients { ProgressView().controlSize(.mini) }
-                                            else { Image(systemName: "wand.and.stars").font(.system(size: 11)) }
+                                            else { Image(systemName: "wand.and.stars").scaledFont(11) }
                                             Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
-                                                .font(.system(size: 11.5, weight: .semibold))
+                                                .scaledFont(11.5, weight: .semibold)
                                         }
                                         .foregroundStyle(Color.stockedGold)
                                         .padding(.horizontal, 9).padding(.vertical, 5)
@@ -1691,7 +1940,7 @@ struct OnlineRecipeDetailView: View {
                                 HStack(spacing: 10) {
                                     Circle().fill(Color.stockedGold).frame(width: 6, height: 6)
                                     Text([pair.measure, pair.ingredient].filter { !$0.isEmpty }.joined(separator: " "))
-                                        .font(.system(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor)
+                                        .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor)
                                     Spacer(minLength: 0)
                                     // Subtle, predictive: tap to convert units / see substitutions (no typing).
                                     IngredientActionsButton(measure: pair.measure, name: pair.ingredient)
@@ -1699,19 +1948,19 @@ struct OnlineRecipeDetailView: View {
                                 .ingredientQuickActions(measure: pair.measure, name: pair.ingredient)
                             }
                         }
-                        .padding(16).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.15)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(16).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 24)
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Instructions")
-                                .font(.system(size: 16, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
+                                .scaledFont(16, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                             if detailSnapshot.hasRealInstructions {
                                 // #9 live cooking — numbered steps; any step that mentions a
                                 // duration gets a tappable timer (notification + Live Activity).
                                 let steps = instructionSteps
                                 if steps.isEmpty {
                                     Text(recipe.instructions)
-                                        .font(.system(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor.opacity(0.8))
+                                        .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(14))).foregroundStyle(session.themeTextColor.opacity(0.8))
                                         .fixedSize(horizontal: false, vertical: true)
                                 } else {
                                     VStack(alignment: .leading, spacing: 14) {
@@ -1726,32 +1975,32 @@ struct OnlineRecipeDetailView: View {
                                 // link; the full method is one tap away via View source.
                                 HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: "doc.text.magnifyingglass")
-                                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                                     Text(sourceURL != nil
                                          ? "This source doesn't include step-by-step instructions here. Tap View source below for the full method."
                                          : "This source doesn't include step-by-step instructions.")
-                                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                                        .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                         }
-                        .padding(16).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.15)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(16).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 24)
 
                         // #251 — source attribution + link out to the original.
                         if !recipe.source.isEmpty {
                             HStack(spacing: 6) {
-                                Image(systemName: "link").font(.system(size: 11))
+                                Image(systemName: "link").scaledFont(11)
                                 Text("Recipe from \(recipe.source)")
-                                    .font(.system(size: 12))
+                                    .scaledFont(12)
                                 if sourceURL != nil {
                                     Spacer()
                                     Text("View source")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedGold)
                                 }
                             }
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24)
                             .contentShape(Rectangle())
                             .onTapGesture { if let url = sourceURL { UIApplication.shared.open(url) } }
@@ -1760,9 +2009,17 @@ struct OnlineRecipeDetailView: View {
                         Color.clear.frame(height: 18)
                     }
                 }
+                .stockedTrackedScrollScope()
             }
             .navigationTitle(recipe.title)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $goCooking) {
+                RecipeOverviewView(
+                    title: displayedRecipe.title,
+                    servings: max(1, session.guestStore.cookingProfile.householdSize),
+                    ingredients: displayedRecipe.ingredientLines.map(\.ingredient)
+                )
+            }
             .toolbarBackground(session.themeBgColor, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(session.themeBgColor, for: .navigationBar)
@@ -1772,13 +2029,37 @@ struct OnlineRecipeDetailView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { toggleSaveToCollection() } label: {
                         Image(systemName: savedRecipeID != nil ? "heart.fill" : "heart")
-                            .font(.system(size: 17, weight: .semibold))
+                            .scaledFont(17, weight: .semibold)
                             .foregroundStyle(savedRecipeID != nil ? Color.stockedGold : session.themeTextColor.opacity(0.6))
                     }
                     .accessibilityLabel(savedRecipeID != nil ? "Remove from My Collection" : "Save to My Collection")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        feedbackButton("More like this", systemImage: "hand.thumbsup", event: .moreLikeThis)
+                        feedbackButton("Not interested", systemImage: "hand.thumbsdown", event: .notInterested)
+                        feedbackButton("Too complicated", systemImage: "timer", event: .tooComplicated)
+                        feedbackButton("Doesn't fit my diet", systemImage: "exclamationmark.shield", event: .dietaryMismatch)
+                        feedbackButton("Missing too many ingredients", systemImage: "cart.badge.minus", event: .missingTooMany)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("Recommendation feedback")
+                }
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if let feedbackMessage {
+                    Text(feedbackMessage)
+                        .scaledFont(12.5, weight: .semibold)
+                        .foregroundStyle(Color.stockedWhite)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .background(Color.stockedCharcoal.opacity(0.94))
+                        .clipShape(Capsule())
+                        .padding(.bottom, 18)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .onAppear {
@@ -1800,10 +2081,31 @@ struct OnlineRecipeDetailView: View {
         .sheet(item: $planningContext) { context in
             NavigationStack {
                 CookLaterWorkspaceView(context: context) {
-                    withAnimation(.spring(response: 0.3)) { addedToCalendar = true }
+                    motion.animate(.standard) { addedToCalendar = true }
                 }
                 .environment(session)
             }
+        }
+    }
+
+    private func feedbackButton(_ title: String, systemImage: String, event: RecipeInterest.Event) -> some View {
+        Button {
+            RecipeInterest.shared.record(
+                category: recipe.category,
+                area: recipe.area,
+                ingredients: displayedRecipe.ingredients,
+                event: event
+            )
+            motion.animate(.standard, intent: .opacity) {
+                feedbackMessage = "Thanks — recommendations will adjust"
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                motion.animate(.standard, intent: .opacity) { feedbackMessage = nil }
+            }
+        } label: {
+            Label(title, systemImage: systemImage)
         }
     }
 
@@ -1860,25 +2162,26 @@ struct OnlineRecipeDetailView: View {
             session.guestStore.deleteUserRecipe(id: id)
             RecipeInterest.shared.record(category: recipe.category, area: recipe.area,
                                          ingredients: displayedIngredientLines.map(\.ingredient), event: .dismissed)
-            withAnimation(.spring(response: 0.3)) { savedRecipeID = nil }
+            motion.animate(.standard) { savedRecipeID = nil }
             return
         }
         // #251 — import with structured ParsedQuantity fields so scaling + grocery
         // consolidation work on this imported recipe like a hand-entered one.
         let id = session.guestStore.importOnlineRecipe(displayedRecipe)
         UsageMetrics.shared.record(.recipeImportedOnline)
-        withAnimation(.spring(response: 0.3)) { savedRecipeID = id }
+        motion.animate(.standard) { savedRecipeID = id }
     }
 
     private func autoFillIngredients() {
         StockedKnowledgeBase.shared.learnFromOnlineRecipe(displayedRecipe)
-        let stockedLower = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
+        let stocked = session.guestStore.inventoryItems.filter { $0.effectiveLevel > 0 }
         for pair in displayedRecipe.ingredientLines {
             let ing = pair.ingredient
-            let inStock = stockedLower.contains { $0.contains(ing.lowercased()) || ing.lowercased().contains($0) }
+            let inStock = FoodNameMatcher.bestMatch(for: ing, in: stocked, name: \.name) != nil
             if !inStock {
-                let key = ing.lowercased()
-                let alreadyInGrocery = session.guestStore.groceryItems.contains { $0.name.lowercased().contains(key) }
+                let alreadyInGrocery = FoodNameMatcher.bestMatch(
+                    for: ing, in: session.guestStore.groceryItems, name: \.name
+                ) != nil
                 if !alreadyInGrocery {
                     let label = pair.measure.isEmpty ? ing : "\(pair.measure) \(ing)"
                     session.guestStore.addToGroceryIfMissing(label, recommended: true, recipeSource: recipe.title)

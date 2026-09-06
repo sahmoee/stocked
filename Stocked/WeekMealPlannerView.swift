@@ -12,6 +12,8 @@ struct WeekMealPlannerView: View {
     @State private var newMealType = "Dinner"
     /// #11 — the meal awaiting a "what did this use?" confirm.
     @State private var cookedMeal: PlannedMeal? = nil
+    @State private var showPlanTools = false
+    @State private var showPlanAhead = false
 
     private let mealTypes = RecipeTaxonomy.categories.filter { ["Breakfast", "Lunch", "Dinner"].contains($0) }
     private var weekdayNames: [String] {
@@ -29,6 +31,14 @@ struct WeekMealPlannerView: View {
     var body: some View {
         StockedShell(showBack: true, titleText: "Meal Plan") {
             VStack(spacing: 14) {
+                Button { showPlanAhead = true } label: {
+                    Label("Plan ahead · dates, templates & repeats", systemImage: "calendar.badge.clock")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                Button { showPlanTools = true } label: {
+                    Label("Repeat meals & export calendar", systemImage: "calendar.badge.plus")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
                 ForEach(0..<7, id: \.self) { day in
                     dayCard(day)
                 }
@@ -40,6 +50,11 @@ struct WeekMealPlannerView: View {
         .sheet(item: $cookedMeal) { meal in
             CookCompletionSheet(meal: meal)
         }
+        .sheet(isPresented: $showPlanTools) {
+            MealPlanToolsView(meals: Binding(get: { session.guestStore.plannedMeals },
+                                            set: { session.guestStore.plannedMeals = $0 }))
+        }
+        .sheet(isPresented: $showPlanAhead) { PlanAheadView().environment(session) }
     }
 
     private func meals(on day: Int) -> [PlannedMeal] {
@@ -49,36 +64,36 @@ struct WeekMealPlannerView: View {
     private func dayCard(_ day: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(weekdayNames[day]).font(.system(size: 16, weight: .bold, design: .serif))
+                Text(weekdayNames[day]).scaledFont(16, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 Button { addingDay = (addingDay == day ? nil : day); newTitle = "" } label: {
                     Image(systemName: addingDay == day ? "xmark" : "plus")
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain)
                 .a11yButton(addingDay == day ? "Cancel adding meal" : "Add a meal to \(weekdayNames[day])")
             }
 
             let dayMeals = meals(on: day)
             if dayMeals.isEmpty && addingDay != day {
-                Text("No meals planned").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                Text("No meals planned").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
             }
             ForEach(dayMeals) { meal in
                 HStack(spacing: 10) {
                     Button { toggleCooked(meal) } label: {
                         Image(systemName: meal.isCooked ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 18)).foregroundStyle(meal.isCooked ? Color.stockedGold : session.themeTextColor.opacity(0.3))
+                            .scaledFont(18).foregroundStyle(meal.isCooked ? Color.stockedGold : session.themeTextColor.opacity(0.3))
                     }.buttonStyle(.plain)
                     .a11yButton(meal.isCooked ? "Mark \(meal.title) not cooked" : "Mark \(meal.title) cooked")
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(meal.title).font(.system(size: 14, weight: .medium))
+                        Text(meal.title).scaledFont(14, weight: .medium)
                             .foregroundStyle(session.themeTextColor)
                             .strikethrough(meal.isCooked)
-                        Text(meal.mealType).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        Text(meal.mealType).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                     Spacer()
                     Button { remove(meal) } label: {
-                        Image(systemName: "trash").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        Image(systemName: "trash").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.35))
                     }.buttonStyle(.plain)
                     .a11yButton("Remove \(meal.title)")
                 }
@@ -88,13 +103,13 @@ struct WeekMealPlannerView: View {
             if addingDay == day {
                 VStack(spacing: 8) {
                     TextField("Meal name", text: $newTitle)
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(14).foregroundStyle(session.themeTextColor)
                         .padding(10).background(session.themeBgColor, in: RoundedRectangle(cornerRadius: 8))
                     Picker("Type", selection: $newMealType) {
                         ForEach(mealTypes, id: \.self) { Text($0).tag($0) }
                     }.pickerStyle(.segmented)
                     Button { addMeal(day) } label: {
-                        Text("Add").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                        Text("Add").scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 10)
                             .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 8))
                     }.buttonStyle(.plain).disabled(newTitle.trimmingCharacters(in: .whitespaces).isEmpty)

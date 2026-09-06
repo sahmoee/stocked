@@ -23,12 +23,14 @@ enum RecipeCreateRoute: Identifiable, Equatable {
     case scratch
     case ai
     case url
+    case browser
     case screenshot
     case manual
     case form(AddRecipeForm, String)   // prefilled form + source label
     var id: String {
         switch self {
         case .scratch: return "scratch"; case .ai: return "ai"; case .url: return "url"
+        case .browser: return "browser"
         case .screenshot: return "screenshot"; case .manual: return "manual"
         case .form: return "form"
         }
@@ -43,13 +45,14 @@ struct RecipeCreateOptionsSheet: View {
     @Environment(\.dismiss) var dismiss
     /// Called with the chosen route; the parent presents the matching destination.
     var onChoose: (RecipeCreateRoute) -> Void
+    @State private var showRecipeFiles = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
                     Text("How do you want to add this recipe?")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
                         .padding(.top, 8).padding(.bottom, 4)
 
                     optionCard(icon: "square.and.pencil", tint: Color.stockedGold,
@@ -58,7 +61,11 @@ struct RecipeCreateOptionsSheet: View {
 
                     optionCard(icon: "sparkles", tint: Color.stockedGold,
                                title: "Create with AI",
-                               subtitle: "Describe it and we'll build the recipe") { choose(.ai) }
+                               subtitle: "Coming Soon") { }.disabled(true)
+
+                    optionCard(icon: "safari", tint: Color.stockedCharcoal,
+                               title: "Browse recipe websites",
+                               subtitle: "View a recipe, then import it into STOCKED") { choose(.browser) }
 
                     optionCard(icon: "link", tint: Color.stockedInfo,
                                title: "Import from URL",
@@ -71,6 +78,10 @@ struct RecipeCreateOptionsSheet: View {
                     optionCard(icon: "text.alignleft", tint: Color.stockedCharcoal,
                                title: "Text Manually",
                                subtitle: "Paste recipe text and we'll structure it") { choose(.manual) }
+
+                    optionCard(icon: "doc.badge.arrow.up", tint: Color.stockedInfo,
+                               title: "Import or export recipe files",
+                               subtitle: "Cooklang, recipe JSON, HTML and text · no AI needed") { showRecipeFiles = true }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 24)
             }
@@ -82,6 +93,7 @@ struct RecipeCreateOptionsSheet: View {
                     Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
                 }
             }
+            .sheet(isPresented: $showRecipeFiles) { PortableRecipeFilesView().environment(session) }
         }
     }
 
@@ -93,16 +105,16 @@ struct RecipeCreateOptionsSheet: View {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd).fill(tint).frame(width: 44, height: 44)
-                    Image(systemName: icon).font(.system(size: 19)).foregroundStyle(Color.stockedWhite)
+                    Image(systemName: icon).scaledFont(19).foregroundStyle(Color.stockedWhite)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 16, weight: .semibold, design: .serif))
+                    Text(title).scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                Image(systemName: "chevron.right").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
             .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
@@ -125,7 +137,7 @@ struct RecipeURLImportSheet: View {
     @State private var error: String?
     @State private var stage = ""
     @State private var importTask: Task<Void, Never>?
-    @State private var clipboardURL: String?
+    @State private var importState = RecipeBrowserImportState()
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -133,38 +145,35 @@ struct RecipeURLImportSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
                         .fixedSize(horizontal: false, vertical: true)
 
                     TextField("https://…", text: $urlText)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .keyboardType(.URL).focused($focused)
-                        .font(.system(size: 15))
+                        .scaledFont(15)
                         .padding(14)
                         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .foregroundStyle(session.themeTextColor)
 
-                    if urlText.isEmpty, let clipboardURL {
-                        Button {
-                            urlText = clipboardURL
-                        } label: {
-                            Label("Paste recipe link from clipboard", systemImage: "doc.on.clipboard")
-                                .font(.system(size: 13, weight: .semibold))
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(Color.stockedGold)
-                    }
+                    RecipeBrowserLink(url: urlText, title: "View before importing")
+
+                    PasteButton(payloadType: String.self) { values in
+                        if let text = values.first, let url = RecipeImportCoordinator.normalizedURLString(from: text) { urlText = url }
+                        else { error = "The clipboard doesn’t contain a supported recipe link." }
+                    }.tint(session.isDarkMode ? .stockedGoldDark : .stockedGold).disabled(loading)
+                        .accessibilityLabel("Paste recipe link")
 
                     if loading {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small).tint(Color.stockedGold)
-                            Text(stage).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            Text(stage).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }
                     }
 
                     if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
                     }
                 }
                 .padding(20)
@@ -179,13 +188,13 @@ struct RecipeURLImportSheet: View {
             }
             .safeAreaInset(edge: .bottom) {
                 Button {
-                    if loading { importTask?.cancel() }
+                    if loading { cancelImport() }
                     else { importTask = Task { await fetch() } }
                 } label: {
                     HStack {
                         if loading { ProgressView().tint(.white) }
                         Text(loading ? "Cancel Import" : "Import")
-                            .font(.system(size: 16, weight: .semibold))
+                            .scaledFont(16, weight: .semibold)
                     }
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
@@ -195,13 +204,7 @@ struct RecipeURLImportSheet: View {
                 .buttonStyle(.plain).disabled(!loading && !isValidURL)
                 .padding(.horizontal, 20).padding(.bottom, 12)
             }
-            .onAppear {
-                if let value = UIPasteboard.general.string,
-                   RecipeImportCoordinator.normalizedURLString(from: value) != nil {
-                    clipboardURL = value
-                }
-            }
-            .onDisappear { importTask?.cancel() }
+            .onDisappear { cancelImport() }
         }
     }
 
@@ -210,6 +213,7 @@ struct RecipeURLImportSheet: View {
     }
 
     private func fetch() async {
+        guard !loading else { return }
         error = nil; focused = false
         guard let trimmed = RecipeImportCoordinator.normalizedURLString(from: urlText) else {
             error = "Enter a valid recipe link."
@@ -217,12 +221,14 @@ struct RecipeURLImportSheet: View {
         }
         guard ConnectivityMonitor.isOnlineFlag else { error = "You're offline — connect and try again."; return }
         loading = true
-        defer { loading = false }
+        let token = importState.begin()
+        defer { if importState.accepts(token) { importState.finish(token); loading = false } }
         do {
             let result = try await RecipeImportCoordinator.importURL(trimmed) { next in
-                Task { @MainActor in stage = next }
+                if importState.accepts(token) { stage = next }
             }
             try Task.checkCancellation()
+            guard importState.accepts(token) else { return }
             var form = result.form
             form.notes = [form.notes, RecipeImportQuality.summary(form)].filter { !$0.isEmpty }.joined(separator: "\n")
             if let existing = RecipeImportQuality.duplicate(form, in: session.guestStore.userRecipes) {
@@ -235,10 +241,14 @@ struct RecipeURLImportSheet: View {
             // present/dismiss endlessly.
             onParsed(form, result.source)
         } catch is CancellationError {
-            stage = "Import cancelled"
+            if importState.accepts(token) { stage = "Import cancelled" }
         } catch {
-            self.error = "Couldn't read that page. Retry, paste its text, or import screenshots instead."
+            if importState.accepts(token) { self.error = (error as? RecipePageLoadError)?.message ?? "Couldn't read that page. Retry, paste its text, or import screenshots instead." }
         }
+    }
+
+    private func cancelImport() {
+        importState.cancel(); importTask?.cancel(); importTask = nil; loading = false; stage = "Import cancelled"
     }
 
     private func hostName(_ s: String) -> String {
@@ -258,35 +268,39 @@ struct RecipeScreenshotImportSheet: View {
     @State private var error: String?
 
     var body: some View {
+        let pickerLabel = working ? "Reading…" : "Choose Screenshots"
+        let pickerText = session.themeTextColor
+        let pickerSurface = session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5)
+        let pickerRadius = StockedUI.cornerRadiusLg
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
                     Text("Pick a screenshot of a recipe. We'll read the text on your device and structure it for you to review.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
 
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 12, matching: .images) {
                         VStack(spacing: 10) {
-                            Image(systemName: "photo.badge.plus").font(.system(size: 40)).foregroundStyle(Color.stockedGold)
-                            Text(working ? "Reading…" : "Choose Screenshots")
-                                .font(.system(size: 16, weight: .semibold, design: .serif))
-                                .foregroundStyle(session.themeTextColor)
+                            Image(systemName: "photo.badge.plus").scaledFont(40).foregroundStyle(Color.stockedGold)
+                            Text(pickerLabel)
+                                .scaledFont(16, weight: .semibold, design: .serif)
+                                .foregroundStyle(pickerText)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+                        .background(pickerSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: pickerRadius))
                     }
                     .disabled(working)
 
                     if working { ProgressView().tint(Color.stockedGold) }
                     if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
                             .multilineTextAlignment(.center)
                     }
                     Text("Tip: the clearer the screenshot, the better the result. You can fix anything on the next screen.")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                         .multilineTextAlignment(.center).padding(.top, 4)
                 }
                 .padding(20)
@@ -345,27 +359,22 @@ struct RecipeManualTextSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Paste the recipe text — title, ingredients, and steps. We'll structure it; you can fix anything before saving.")
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
                         .fixedSize(horizontal: false, vertical: true)
 
                     ZStack(alignment: .topLeading) {
                         if text.isEmpty {
                             Text("Paste recipe here…")
-                                .font(.system(size: 15)).foregroundStyle(session.themeTextColor.opacity(0.35))
-                                .padding(.horizontal, 14).padding(.vertical, 14)
+                                .stockedTextEditorPlaceholder()
                         }
                         TextEditor(text: $text)
-                            .font(.system(size: 15)).foregroundStyle(session.themeTextColor)
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 220)
-                            .padding(.horizontal, 10).padding(.vertical, 8)
+                            .stockedTextEditorContent(minimumHeight: 220)
                             .focused($focused)
                     }
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .stockedInputSurface()
 
                     if let error {
-                        Text(error).font(.system(size: 13)).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
                     }
                 }
                 .padding(20)
@@ -380,7 +389,7 @@ struct RecipeManualTextSheet: View {
             }
             .safeAreaInset(edge: .bottom) {
                 Button { structure() } label: {
-                    Text("Structure Recipe").font(.system(size: 16, weight: .semibold))
+                    Text("Structure Recipe").scaledFont(16, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15)
                         .background(text.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray.opacity(0.5) : session.themeButtonColor)
@@ -429,7 +438,7 @@ enum RecipeOCR {
 // MARK: - Shared recipe-text parser (screenshot OCR + manual paste)
 // Heuristic, on-device. Splits a free-text recipe into title / ingredients / steps.
 // Deliberately conservative: when unsure it leaves text for the user to fix in the form.
-enum RecipeTextParser {
+nonisolated enum RecipeTextParser {
     static func mergeOCRPages(_ pages: [String]) -> String {
         var seen = Set<String>()
         return pages.flatMap { $0.components(separatedBy: .newlines) }
@@ -531,24 +540,17 @@ enum RecipeTextParser {
 // MARK: - Shared URL import pipeline
 
 enum RecipeImportCoordinator {
-    struct Result { let form: AddRecipeForm; let source: String }
+    nonisolated struct Result: Sendable { let form: AddRecipeForm; let source: String }
 
     static func normalizedURLString(from input: String) -> String? {
+        // A bare URL is checked before link detection, so invalid schemes or
+        // embedded credentials cannot be rescued into a different link silently.
+        if let direct = RecipeBrowserPolicy.importURL(input) { return direct.absoluteString }
+        guard input.count <= 16_384, !input.trimmingCharacters(in: .whitespacesAndNewlines).contains("://") || input.contains(where: \.isWhitespace) else { return nil }
         let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         let range = NSRange(input.startIndex..., in: input)
-        var candidate = detector?.firstMatch(in: input, range: range)?.url?.absoluteString
-            ?? input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !candidate.contains("://") { candidate = "https://" + candidate }
-        guard var components = URLComponents(string: candidate),
-              let scheme = components.scheme?.lowercased(), ["http", "https"].contains(scheme),
-              components.host != nil else { return nil }
-        components.fragment = nil
-        let preserved = Set(["v", "id", "p"])
-        components.queryItems = components.queryItems?.filter {
-            preserved.contains($0.name.lowercased()) || !$0.name.lowercased().hasPrefix("utm_") &&
-            !["fbclid", "gclid", "igsh", "ref", "source"].contains($0.name.lowercased())
-        }
-        return components.url?.absoluteString
+        guard let candidate = detector?.firstMatch(in: input, range: range)?.url?.absoluteString else { return nil }
+        return RecipeBrowserPolicy.importURL(candidate)?.absoluteString
     }
 
     @MainActor
@@ -567,38 +569,64 @@ enum RecipeImportCoordinator {
             form.originalText = content.combinedText
             return Result(form: form, source: platform.displayName)
         }
-        progress("Finding structured recipe…")
-        let web: WebRecipe
-        do {
-            web = try await WebRecipeManager.shared.importFromURL(url)
-        } catch {
-            progress("Reading visible page text…")
-            if let fallback = await SharedRecipeImporter.parsePageText(url) {
-                return Result(form: fallback, source: URL(string: url)?.host ?? "Imported")
-            }
-            throw error
+        let page = try await WebRecipeFetcher.shared.importPageHTML(url)
+        try Task.checkCancellation()
+        progress("Reading ingredients and instructions…")
+        guard let result = await parsePage(html: page.html, url: page.url) else {
+            try Task.checkCancellation(); throw StockedError.noResults(url)
         }
+        try Task.checkCancellation()
+        progress("Recipe ready to review")
+        return result
+    }
+
+    /// Parse the same downloaded/rendered page once, away from the UI actor. The
+    /// visible-text fallback reuses these bytes instead of making a second request.
+    nonisolated static func parsePage(html: String, url: URL, allowTextFallback: Bool = true) async -> Result? {
+        guard html.utf8.count <= RecipePageResponsePolicy.maximumHTMLBytes,
+              RecipeBrowserPolicy.url(url.absoluteString) != nil, !Task.isCancelled else { return nil }
+        let work = Task.detached(priority: .utility) { () -> Result? in
+            guard !Task.isCancelled else { return nil }
+            if let web = JSONLDRecipeParser.parse(html: html, pageURL: url.absoluteString),
+               !web.ingredients.isEmpty, !web.steps.isEmpty {
+                return Result(form: form(from: web), source: web.sourceName)
+            }
+            guard allowTextFallback, !Task.isCancelled,
+                  let form = SharedRecipeImporter.visiblePageForm(html: html, urlStr: url.absoluteString) else { return nil }
+            return Result(form: form, source: RecipeBrowserPolicy.hostLabel(url))
+        }
+        let result = await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
+        return Task.isCancelled ? nil : result
+    }
+
+    private nonisolated static func form(from web: WebRecipe) -> AddRecipeForm {
         var form = AddRecipeForm()
         form.title = web.title; form.ingredients = web.ingredients; form.steps = web.steps.map(\.text)
-        form.imageURL = web.imageURL; form.sourceURL = url; form.servings = web.servings
+        form.imageURL = web.imageURL; form.sourceURL = web.sourceURL; form.servings = web.servings
         form.description = web.description; form.prepTime = web.prepTime; form.cookTime = web.cookTime
-        form.cuisine = web.cuisine
-        form.originalText = RecipeImportAI.composeRawText(title: web.title, description: web.description,
-                                                          ingredients: web.ingredients, steps: web.steps.map(\.text))
-        progress("Checking imported recipe…")
-        guard !form.title.isEmpty || !form.ingredients.isEmpty || !form.steps.isEmpty else {
-            throw StockedError.noResults(url)
-        }
-        return Result(form: form, source: URL(string: url)?.host?.replacingOccurrences(of: "www.", with: "") ?? "Imported")
+        form.cuisine = web.cuisine; form.totalTime = web.totalTime
+        form.tags = web.tags; form.category = web.category; form.sourceURL = web.sourceURL
+        form.originalText = [web.title, web.description, "Ingredients", web.ingredients.joined(separator: "\n"),
+                             "Instructions", web.steps.map(\.text).joined(separator: "\n")].joined(separator: "\n\n")
+        return form
     }
 }
 
 enum RecipeImportQuality {
+    static func exactDuplicate(_ form: AddRecipeForm, in recipes: [UserRecipe]) -> UserRecipe? {
+        guard let source = RecipeBrowserPolicy.importURL(form.sourceURL) else { return nil }
+        let identity = FinderWebPolicy.identity(source.absoluteString)
+        return recipes.first { recipe in
+            guard let saved = RecipeBrowserPolicy.importURL(recipe.attributedSourceURL ?? "") else { return false }
+            return identity == FinderWebPolicy.identity(saved.absoluteString)
+        }
+    }
     static func summary(_ form: AddRecipeForm) -> String {
         var found = ["\(form.ingredients.count) ingredients", "\(form.steps.count) steps"]
         if !form.cookTime.isEmpty { found.append("cook time") }
         if !form.imageURL.isEmpty { found.append("image") }
-        let missing = [(form.title.isEmpty, "title"), (form.ingredients.isEmpty, "ingredients"), (form.steps.isEmpty, "instructions")]
+        let missing = [(form.title.isEmpty, "title"), (form.ingredients.isEmpty, "ingredients"), (form.steps.isEmpty, "instructions"),
+                       (form.imageURL.isEmpty, "image"), (RecipePageMarkup.servings(form.servings) == nil, "serving count")]
             .compactMap { $0.0 ? $0.1 : nil }
         return "Import quality: Found " + found.joined(separator: ", ") +
             (missing.isEmpty ? "." : ". Needs review: " + missing.joined(separator: ", ") + ".")
@@ -609,6 +637,7 @@ enum RecipeImportQuality {
         let source = RecipeImportCoordinator.normalizedURLString(from: form.sourceURL)
         return recipes.first {
             OnlineRecipeFacts.normalizedTitle($0.title) == title ||
+            (source != nil && RecipeImportCoordinator.normalizedURLString(from: $0.attributedSourceURL ?? "") == source) ||
             (source != nil && $0.notes.localizedCaseInsensitiveContains(source!))
         }
     }

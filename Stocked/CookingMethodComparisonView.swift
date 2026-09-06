@@ -62,11 +62,11 @@ struct CookingMethodComparisonView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("How do you want to cook \(anchor.displayNormalized)?")
-                .font(.system(size: 20, weight: .bold, design: .serif))
+                .scaledFont(20, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Each method gives you a different result. Pick the tradeoffs you want.")
-                .font(.system(size: 13.5))
+                .scaledFont(13.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
@@ -77,7 +77,7 @@ struct CookingMethodComparisonView: View {
     private var equipmentStrip: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your equipment right now")
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(12.5, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.6))
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -92,10 +92,10 @@ struct CookingMethodComparisonView: View {
                         } label: {
                             let avail = equipmentService.availability(of: eq)
                             HStack(spacing: 5) {
-                                Text(eq.emoji).font(.system(size: 13))
-                                Text(eq.rawValue).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                                Text(eq.emoji).scaledFont(13)
+                                Text(eq.rawValue).scaledFont(12, weight: .semibold).fixedSize(horizontal: false, vertical: true)
                                 Image(systemName: avail.isUsable ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .font(.system(size: 10))
+                                    .scaledFont(10)
                                     .foregroundStyle(avail.isUsable ? Color.stockedGreen : Color.stockedError.opacity(0.8))
                             }
                             .foregroundStyle(session.themeTextColor)
@@ -106,11 +106,13 @@ struct CookingMethodComparisonView: View {
                     }
                     if equipmentService.owned(from: profile).isEmpty {
                         Text("Set your equipment in your cooking profile to get tailored methods.")
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                 }
+                .stockedScrollTargetLayout()
             }
+            .stockedHorizontalSnap()
         }
         .padding(.horizontal, CookStyle.screenHPad)
     }
@@ -125,17 +127,17 @@ struct CookingMethodComparisonView: View {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(method.name)
-                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .scaledFont(16, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(method.resultSummary)
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
                 if method.isCombined {
                     Text("2-step")
-                        .font(.system(size: 9.5, weight: .bold))
+                        .scaledFont(9.5, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
@@ -148,13 +150,13 @@ struct CookingMethodComparisonView: View {
                 stat("timer", "\(method.totalMinutes)m total")
                 if method.goodForCookAhead { stat("calendar", "cook ahead") }
             }
-            .font(.system(size: 11.5))
+            .scaledFont(11.5)
             .foregroundStyle(session.themeTextColor.opacity(0.6))
 
             if !available {
                 let blocking = method.blockingEquipment(usable: usable).map { $0.rawValue }.joined(separator: ", ")
                 Label(blocking.isEmpty ? "Equipment not available" : "Needs: \(blocking)", systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .scaledFont(11.5, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
             }
 
@@ -162,7 +164,7 @@ struct CookingMethodComparisonView: View {
                 Divider().background(session.themeTextColor.opacity(0.1))
                 detailGrid(method)
                 Text(method.bestUseCase)
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .italic()
             }
@@ -172,7 +174,7 @@ struct CookingMethodComparisonView: View {
                     withAnimation { if isOpen { expanded.remove(method.id) } else { expanded.insert(method.id) } }
                 } label: {
                     Text(isOpen ? "Less" : "Details")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .scaledFont(12.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(dark ? Color.darkSurface.opacity(0.6) : Color.stockedWhite.opacity(0.5))
@@ -182,7 +184,7 @@ struct CookingMethodComparisonView: View {
 
                 Button { choose(method) } label: {
                     Text(available ? "Use This Method" : "Use Anyway")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .scaledFont(12.5, weight: .semibold)
                         .foregroundStyle(available ? Color.stockedWhite : session.themeTextColor)
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
                         .background(available ? (dark ? Color.darkSurface : Color.stockedCharcoal) : Color.stockedGold.opacity(0.14))
@@ -225,11 +227,11 @@ struct CookingMethodComparisonView: View {
     private func detailRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
-                .font(.system(size: 11.5, weight: .semibold))
+                .scaledFont(11.5, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                 .frame(width: 100, alignment: .leading)
             Text(value)
-                .font(.system(size: 11.5))
+                .scaledFont(11.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)

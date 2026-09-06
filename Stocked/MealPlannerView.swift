@@ -45,7 +45,7 @@ struct CalendarDayCell: View {
                     )
                 VStack(spacing: 2) {
                     Text("\(dayNum)")
-                        .font(.system(size: 14, weight: isToday || isSelected ? .bold : .regular))
+                        .font(.stockedSystem(size: 14, weight: isToday || isSelected ? .bold : .regular))
                         .foregroundStyle(isToday ? Color.stockedWhite :
                                          isPast  ? Color.stockedCharcoal.opacity(0.3)
                                                  : Color.stockedCharcoal)
@@ -77,11 +77,14 @@ struct MealPlannerView: View {
     var initialItemName: String = ""   // set when opened by inventory drag
     var initialDayIndex: Int    = 0    // day index to pre-select (0 = today)
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) var motion
     @State var plannedMeals: [PlannedMeal] = []
     @State var selectedDay  = 0
     @State var pickingDay   = 0
     @State var pickingType  = "Dinner"
     @State var saved        = false
+    @State private var showPlanTools = false
+    @State private var showPlanAhead = false
     @State var isCalendarView = false
     @State var cookingMeal: PlannedMeal? = nil
     @State var navigateToCook = false
@@ -144,31 +147,39 @@ struct MealPlannerView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Meal Planner")
-                            .font(.system(size: 28, weight: .bold, design: .serif))
+                            .scaledFont(28, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Plan meals for the week.")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                     }
                     Spacer()
                     // Calendar / List view toggle — icon shows where you'll GO, not where you are
                     Button {
-                        withAnimation(.spring(response: 0.3)) { isCalendarView.toggle() }
+                        motion.animate(.standard, intent: .spatial) { isCalendarView.toggle() }
                     } label: {
                         VStack(spacing: 3) {
                             Image(systemName: isCalendarView ? "list.bullet" : "calendar")
-                                .font(.system(size: 18))
+                                .scaledFont(18)
                                 .foregroundStyle(Color.stockedGold)
                             Text(isCalendarView ? "List" : "Calendar")
-                                .font(.system(size: 9, weight: .semibold))
+                                .scaledFont(9, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
                         }
                         .frame(width: 52, height: 44)
-                        .background(Color.stockedWhite.opacity(0.35))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     }.buttonStyle(.plain)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 20)
 
+                Button { showPlanTools = true } label: {
+                    Label("Repeat meals & export calendar", systemImage: "calendar.badge.plus")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                Button { showPlanAhead = true } label: {
+                    Label("Plan ahead · dates, templates & repeats", systemImage: "calendar.badge.clock")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
                 if isCalendarView {
                     calendarGrid
                 } else {
@@ -180,6 +191,13 @@ struct MealPlannerView: View {
                     summaryFooter
                 }
             }
+        }
+        .sheet(isPresented: $showPlanTools, onDismiss: { plannedMeals = session.guestStore.plannedMeals }) {
+            MealPlanToolsView(meals: Binding(get: { session.guestStore.plannedMeals },
+                                            set: { session.guestStore.plannedMeals = $0 }))
+        }
+        .sheet(isPresented: $showPlanAhead, onDismiss: { plannedMeals = session.guestStore.plannedMeals }) {
+            PlanAheadView().environment(session)
         }
         .navigationDestination(isPresented: $navigateToCook) {
             if let meal = cookingMeal {
@@ -221,7 +239,7 @@ struct MealPlannerView: View {
             if let toast = savedRecipeToast {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
-                    Text(toast).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                    Text(toast).scaledFont(13, weight: .semibold).foregroundStyle(.white)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
                 .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -346,7 +364,7 @@ struct MealPlannerView: View {
         return NavigationStack {
             VStack(spacing: 0) {
                 Text("Add Meal — Day \(day == 0 ? "Today" : "in \(day) day\(day == 1 ? "" : "s")")")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.45))
                     .padding(.top, 8)
                 List {
                     ForEach(mealTypes, id: \.self) { mealType in
@@ -360,11 +378,11 @@ struct MealPlannerView: View {
                         } label: {
                             HStack {
                                 Text(mealType)
-                                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                                    .scaledFont(16, weight: .semibold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.3))
                             }
                             .padding(.vertical, 4)
                         }

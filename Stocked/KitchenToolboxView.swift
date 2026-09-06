@@ -361,27 +361,27 @@ private struct ToolboxTile: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 0) {
                 Image(systemName: tool.icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .scaledFont(20, weight: .medium)
                     .foregroundStyle(session.accentColor)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(session.accentColor.opacity(session.isDarkMode ? 0.16 : 0.12)))
                 Spacer(minLength: 0)
                 if isFavorite {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 9))
+                        .scaledFont(9)
                         .foregroundStyle(session.accentColor.opacity(0.7))
                         .padding(.top, 2)
                 }
             }
             Text(tool.title)
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+
             Text(tool.subtitle)
-                .font(.system(size: 11))
+                .scaledFont(11)
                 .foregroundStyle(session.themeSecondaryText)
-                .lineLimit(2, reservesSpace: true)
+                .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
         }
         .padding(12)

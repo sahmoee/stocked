@@ -13,6 +13,14 @@ struct CreateRecipeView: View {
     // it's applied once on appear via the existing applyAutofill path.
     var prefill: AddRecipeForm? = nil
     var prefillSource: String = "Imported"
+    var allowAIStructuring = true
+    /// Batch migration reviews return an edited draft without writing to the library yet.
+    var onReviewed: ((UserRecipe) -> Void)? = nil
+    var initialImageData: Data? = nil
+    var forcePrivateSave = false
+    /// Optional final review gate; throwing leaves the editor open without saving.
+    var validateBeforeSave: ((UserRecipe) throws -> Void)? = nil
+    var onSaved: ((UserRecipe) -> Void)? = nil
 
     // ── Form state ──────────────────────────────────────────────────────
     @State private var title       = ""
@@ -27,6 +35,17 @@ struct CreateRecipeView: View {
     @State private var notes       = ""
     @State private var imageData:  Data?
     @State private var imageURL    = ""
+    @State private var sourceURL = ""
+    @State private var publisher = ""
+    @State private var sourceTags: [String] = []
+    @State private var sourceCategory = ""
+    @State private var portableSource: PortableRecipeSource?
+    @State private var author = ""
+    @State private var license = ""
+    @State private var imageAttribution = ""
+    @State private var sharePortableRecipe = false
+    @State private var confirmPortablePublication = false
+    @State private var saveValidationError: String?
 
     // ── NEW: autofill state ─────────────────────────────────────────────
     /// The form that RecipePredictiveTextField fills on tap.
@@ -56,6 +75,56 @@ struct CreateRecipeView: View {
                         // Photo — shows the pulled / auto-resolved image; tap to set your own
                         photoSection.padding(.bottom, 24)
 
+                        if !sourceURL.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("From \(publisher)").font(.stocked(.headline))
+                                RecipeBrowserLink(url: sourceURL)
+                                Text("Original source credited. Rights remain with the publisher.")
+                                    .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                            }.padding(.bottom, 20)
+                        }
+
+                        if portableSource != nil {
+                            formSection("Recipe credits") {
+                                bigField("Recipe author", text: $author)
+                                bigField("Recipe license, if supplied", text: $license)
+                                bigField("Photo credit", text: $imageAttribution)
+                            }
+                            Text(forcePrivateSave
+                                 ? "Keep the creator’s credit and license with the recipe. Use changes returns to the import preview without saving."
+                                 : "Keep the creator’s credit and license with the recipe. The original imported file remains unchanged.")
+                                .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                                .padding(.bottom, 12)
+                            if !forcePrivateSave {
+                                Toggle("Share with the Stocked recipe catalogue", isOn: $sharePortableRecipe)
+                                    .disabled(!hasPublicRecipeLinks)
+                            }
+                            Text(forcePrivateSave ? "This collection import saves privately for you and your household. It will not publish recipes publicly." : sharePortableRecipe
+                                 ? "Saving will publish the recipe, ingredients, instructions, image link and credits for other Stocked users. The original file and private notes stay private."
+                                 : "Save privately for you and your household. Public sharing is optional and needs an original website link and a web image link.")
+                                .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
+                                .padding(.top, 6).padding(.bottom, 20)
+                        }
+
+                        if let prefill, !prefill.sourceURL.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Review your import", systemImage: "checklist").font(.stocked(.headline))
+                                Text(RecipeImportQuality.summary(prefill)).font(.stocked(.body))
+                                if !prefill.servings.isEmpty {
+                                    Text("Publisher yield: \(prefill.servings)").font(.stocked(.footnote))
+                                    if RecipePageMarkup.servings(prefill.servings) == nil {
+                                        Text("Confirm the serving count below; the publisher’s yield is not an exact serving count.")
+                                            .font(.stocked(.footnote))
+                                    }
+                                }
+                                Text("Check amounts, servings and instructions before saving. Saving adds this recipe to My Collection.")
+                                    .font(.stocked(.footnote))
+                            }.foregroundStyle(session.themeSecondaryText).padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RecipeCardStyle.surface(isDark: session.isDarkMode), in: RoundedRectangle(cornerRadius: 18))
+                                .padding(.bottom, 20)
+                        }
+
                         // ── Recipe Details ─────────────────────────────────
                         formSection("Recipe Details") {
 
@@ -68,7 +137,7 @@ struct CreateRecipeView: View {
                                         applyAutofill(from: autofillForm, sourceName: entry.sourceName)
                                     }
                                 )
-                                .font(.system(size: 17, weight: .semibold))
+                                .scaledFont(17, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                                 .padding(16)
 
@@ -86,7 +155,7 @@ struct CreateRecipeView: View {
                                     HStack(spacing: 8) {
                                         ProgressView().controlSize(.small)
                                         Text("Tidying up the import…")
-                                            .font(.system(size: 12))
+                                            .scaledFont(12)
                                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                                     }
                                     .padding(.horizontal, 16).padding(.bottom, 10)
@@ -95,7 +164,7 @@ struct CreateRecipeView: View {
                                 if !originalText.isEmpty {
                                     Button { showOriginal = true } label: {
                                         Label("Show original text", systemImage: "doc.plaintext")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .scaledFont(12, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                                     }
                                     .buttonStyle(.plain)
@@ -116,20 +185,20 @@ struct CreateRecipeView: View {
                             HStack(spacing: 0) {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Prep Time")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                                     TextField("15 min", text: $prepTime)
-                                        .font(.system(size: 17))
+                                        .scaledFont(17)
                                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 }
                                 .padding(16)
                                 Divider().frame(height: 48)
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Cook Time")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.45))
                                     TextField("30 min", text: $cookTime)
-                                        .font(.system(size: 17))
+                                        .scaledFont(17)
                                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 }
                                 .padding(16)
@@ -138,12 +207,12 @@ struct CreateRecipeView: View {
                             formDivider
                             HStack {
                                 Text("Servings")
-                                    .font(.system(size: 16))
+                                    .scaledFont(16)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Stepper("", value: $servings, in: 1...50).labelsHidden()
                                 Text("\(servings)")
-                                    .font(.system(size: 17, weight: .semibold, design: .serif))
+                                    .scaledFont(17, weight: .semibold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                     .frame(minWidth: 30)
                             }
@@ -152,13 +221,13 @@ struct CreateRecipeView: View {
                             formDivider
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Difficulty")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .scaledFont(12, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                                 HStack(spacing: 8) {
                                     ForEach(difficulties, id: \.self) { d in
                                         Button { difficulty = d } label: {
                                             Text(d)
-                                                .font(.system(size: 13, weight: .semibold))
+                                                .scaledFont(13, weight: .semibold)
                                                 .foregroundStyle(difficulty == d ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
                                                 .padding(.horizontal, 14).padding(.vertical, 9)
                                                 .background(difficulty == d ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
@@ -176,7 +245,7 @@ struct CreateRecipeView: View {
                         formSection("Ingredients") {
                             if ingredients.isEmpty {
                                 Text("No ingredients yet — tap below to add some.")
-                                    .font(.system(size: 14))
+                                    .scaledFont(14)
                                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
@@ -187,8 +256,8 @@ struct CreateRecipeView: View {
                                     }
                                     if flaggedIngredientIDs.contains(ing.id) {
                                         HStack(spacing: 5) {
-                                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10))
-                                            Text("Double-check this one").font(.system(size: 11, weight: .semibold))
+                                            Image(systemName: "exclamationmark.triangle.fill").scaledFont(10)
+                                            Text("Double-check this one").scaledFont(11, weight: .semibold)
                                         }
                                         .foregroundStyle(Color.stockedGold)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -201,14 +270,14 @@ struct CreateRecipeView: View {
                                 withAnimation { ingredients.append(RecipeIngredient(name: "", amount: "")) }
                             } label: {
                                 Label("Add Ingredient", systemImage: "plus.circle.fill")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(15, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
                             }
                             .buttonStyle(.plain)
 
-                            if !ingredients.isEmpty {
+                            if !ingredients.isEmpty && onReviewed == nil {
                                 formDivider
                                 Button {
                                     let n = session.guestStore.addRecipeIngredientsToGrocery(
@@ -220,7 +289,7 @@ struct CreateRecipeView: View {
                                     }
                                 } label: {
                                     Label("Add missing to grocery list", systemImage: "cart.badge.plus")
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .scaledFont(15, weight: .semibold)
                                         .foregroundStyle(Color.stockedGreen)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(16)
@@ -228,7 +297,7 @@ struct CreateRecipeView: View {
                                 .buttonStyle(.plain)
                                 if let msg = groceryPushMsg {
                                     Text(msg)
-                                        .font(.system(size: 12))
+                                        .scaledFont(12)
                                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                                         .padding(.horizontal, 16).padding(.bottom, 12)
                                 }
@@ -240,7 +309,7 @@ struct CreateRecipeView: View {
                             ForEach(instructions.indices, id: \.self) { idx in
                                 HStack(alignment: .top, spacing: 12) {
                                     Text("\(idx + 1)")
-                                        .font(.system(size: 14, weight: .bold, design: .serif))
+                                        .scaledFont(14, weight: .bold, design: .serif)
                                         .foregroundStyle(Color.stockedWhite)
                                         .frame(width: 26, height: 26)
                                         .background(Circle().fill(Color.stockedGold))
@@ -249,8 +318,8 @@ struct CreateRecipeView: View {
                                         bigEditor(placeholder: "Describe step \(idx + 1)…", text: $instructions[idx], minHeight: 60)
                                         if let secs = StepTimerEngine.detectSeconds(in: instructions[idx]), secs > 0 {
                                             HStack(spacing: 5) {
-                                                Image(systemName: "timer").font(.system(size: 10))
-                                                Text("\(timerLabel(secs)) timer").font(.system(size: 11, weight: .semibold))
+                                                Image(systemName: "timer").scaledFont(10)
+                                                Text("\(timerLabel(secs)) timer").scaledFont(11, weight: .semibold)
                                             }
                                             .foregroundStyle(Color.stockedGold)
                                             .padding(.horizontal, 14).padding(.bottom, 8)
@@ -273,7 +342,7 @@ struct CreateRecipeView: View {
                                 withAnimation { instructions.append("") }
                             } label: {
                                 Label("Add Step", systemImage: "plus.circle.fill")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(15, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
@@ -297,7 +366,7 @@ struct CreateRecipeView: View {
                 NavigationStack {
                     ScrollView {
                         Text(originalText)
-                            .font(.system(size: 14))
+                            .scaledFont(14)
                             .foregroundStyle(session.themeTextColor)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -315,11 +384,14 @@ struct CreateRecipeView: View {
                 .presentationDetents([.medium, .large])
             }
             .onAppear {
+                QARecorder.shared.enteredScreen(prefill == nil ? "Create Recipe" : "Recipe Import Review")
                 guard let prefill, !didStructure else { return }
                 didStructure = true
                 if imageURL.isEmpty { imageURL = prefill.imageURL }
+                if imageData == nil { imageData = initialImageData }
                 originalText = prefill.originalText
                 if title.isEmpty, !prefill.title.isEmpty { title = prefill.title }
+                preserveSource(prefill, name: prefillSource)
 
                 // Prefer the true source text; otherwise compose from the parsed fields so
                 // the model can still clean up names/amounts.
@@ -328,7 +400,7 @@ struct CreateRecipeView: View {
                                                     ingredients: prefill.ingredients, steps: prefill.steps)
                     : prefill.originalText
 
-                if RecipeImportAI.isAvailable,
+                if allowAIStructuring, prefill.portableSource == nil, RecipeImportAI.isAvailable,
                    rawText.trimmingCharacters(in: .whitespacesAndNewlines).count >= 12 {
                     isStructuring = true
                     // #8 — resolve the hero image in parallel with the AI call so it's
@@ -359,11 +431,34 @@ struct CreateRecipeView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveRecipe() }
+                    Button(onReviewed == nil ? "Save" : "Use changes") {
+                        if portableSource != nil && sharePortableRecipe && hasPublicRecipeLinks {
+                            confirmPortablePublication = true
+                        } else {
+                            portableSource?.catalogueSharingApproved = false
+                            saveRecipe()
+                        }
+                    }
                         .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                  || (imageData == nil && imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                                  || (!canSaveWithoutImage && imageData == nil && imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                 }
             }
+            .confirmationDialog("Publish this recipe to the Stocked catalogue?", isPresented: $confirmPortablePublication, titleVisibility: .visible) {
+                Button("Save and publish") {
+                    portableSource?.catalogueSharingApproved = true
+                    saveRecipe()
+                }
+                Button("Keep it private and save") {
+                    sharePortableRecipe = false; portableSource?.catalogueSharingApproved = false
+                    saveRecipe()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("“\(title)” and its web image will be available to other Stocked users. Continue only if you have permission to share the recipe and image with the credits shown above. Private notes and the original imported document will not be published.")
+            }
+            .alert("Recipe was not saved", isPresented: Binding(get: { saveValidationError != nil }, set: { if !$0 { saveValidationError = nil } })) {
+                Button("OK") { saveValidationError = nil }
+            } message: { Text(saveValidationError ?? "") }
         }
     }
 
@@ -413,16 +508,18 @@ struct CreateRecipeView: View {
 
     // MARK: - Apply autofill from AddRecipeForm → local @State
     private func applyAutofill(from form: AddRecipeForm, sourceName: String) {
+        preserveSource(form, name: sourceName)
         withAnimation {
             // Only overwrite fields that are still empty
             if description.isEmpty { description = form.description }
             if cuisine.isEmpty     { cuisine     = form.cuisine }
             if prepTime.isEmpty    { prepTime    = StockedFormatters.prettyDuration(form.prepTime) }
             if cookTime.isEmpty {
-                let cook = StockedFormatters.prettyDuration(form.cookTime)
-                cookTime = cook.isEmpty ? StockedFormatters.prettyDuration(form.totalTime) : cook
+                // Total time is not cook time (it can include prep/resting). Do not
+                // silently double-count prep in later kitchen/time filters.
+                cookTime = StockedFormatters.prettyDuration(form.cookTime)
             }
-            if servings == 4, let s = Int(form.servings) { servings = s }
+            if servings == 4, let s = RecipePageMarkup.servings(form.servings) { servings = s }
 
             // Ingredients: split each line with ParsedQuantity (handles "1/4 cup …",
             // "2 4-ounce …", "12 strawberries, sliced", "salt and pepper to taste") and
@@ -441,7 +538,8 @@ struct CreateRecipeView: View {
                         unit: parsed.canonicalUnit.isEmpty ? nil : parsed.canonicalUnit
                     )
                 }
-                ingredients = Self.dedupeByCanonical(ingredients)   // #8
+                // Repeated ingredients may belong to different recipe components.
+                // Preserve publisher lines and amounts for review instead of dropping them.
             }
 
             // Steps — keep the source wording but ensure they don't arrive all-lowercase.
@@ -460,10 +558,39 @@ struct CreateRecipeView: View {
         }
     }
 
+    private func preserveSource(_ form: AddRecipeForm, name: String) {
+        if let importedSource = form.portableSource { portableSource = importedSource }
+        else if !forcePrivateSave { portableSource = nil }
+        author = form.author; license = form.license; imageAttribution = form.imageAttribution
+        if !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { publisher = name }
+        if let url = RecipeBrowserPolicy.url(form.sourceURL) {
+            sourceURL = url.absoluteString
+            publisher = name.isEmpty ? (url.host ?? "Original publisher") : name
+        }
+        if notes.isEmpty { notes = form.notes }
+        if !form.totalTime.isEmpty {
+            let timing = "Publisher total time: \(form.totalTime)"
+            if !notes.contains(timing) { notes = [notes, timing].filter { !$0.isEmpty }.joined(separator: "\n") }
+        }
+        if !form.servings.isEmpty {
+            let yield = "Publisher yield: \(form.servings)"
+            if !notes.contains(yield) { notes = [notes, yield].filter { !$0.isEmpty }.joined(separator: "\n") }
+        }
+        sourceTags = form.tags; sourceCategory = form.category
+    }
+
     // MARK: - Save (with DB write-back)
+    private var canSaveWithoutImage: Bool {
+        portableSource != nil && instructions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private var hasPublicRecipeLinks: Bool {
+        RecipeBrowserPolicy.url(sourceURL) != nil && RecipeBrowserPolicy.url(imageURL) != nil
+    }
+
     private func saveRecipe() {
         guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        guard imageData != nil || !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard canSaveWithoutImage || imageData != nil || !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let steps = instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -471,8 +598,8 @@ struct CreateRecipeView: View {
         let classification = RecipeClassifier.classify(
             title: trimmedTitle,
             rawCuisine: cuisine,
-            rawCategory: nil,
-            keywords: [],
+            rawCategory: sourceCategory,
+            keywords: sourceTags,
             ingredients: ingredients,
             instructions: steps
         )
@@ -484,22 +611,55 @@ struct CreateRecipeView: View {
             servings:     servings,
             difficulty:   difficulty,
             cuisine:      classification.cuisine,
-            tags:         classification.tags,
+            tags:         Array(Set(classification.tags + sourceTags)).sorted(),
             ingredients:  ingredients,
             instructions: steps,
             notes:        notes,
             imageURL:     imageURL.isEmpty ? nil : imageURL
         )
         if let data = imageData { recipe.imageData = data }
+        recipe.sourceURL = sourceURL.isEmpty ? nil : sourceURL
+        recipe.sourceName = publisher.isEmpty ? nil : publisher
+        recipe.categories = [classification.category]
+        recipe.portableSource = portableSource
+        if forcePrivateSave { recipe.portableSource?.catalogueSharingApproved = false }
+        if var importedSource = recipe.portableSource {
+            importedSource.originalSourceURL = sourceURL.isEmpty ? importedSource.originalSourceURL : sourceURL
+            recipe.portableSource = importedSource
+            if importedSource.catalogueSharingApproved != true {
+                // Released clients publish by the top-level sourceURL. Keep it empty until
+                // explicit consent, even when an older client cannot decode portableSource.
+                recipe.sourceURL = nil
+                recipe.notes = recipe.notes.replacingOccurrences(of: #"(?im)^(\s*)source\s*:"#,
+                    with: "$1Original reference:", options: .regularExpression)
+            }
+        }
+        recipe.author = author.isEmpty ? nil : author
+        recipe.license = license.isEmpty ? nil : license
+        recipe.imageAttribution = imageAttribution.isEmpty ? nil : imageAttribution
+
+        do { try validateBeforeSave?(recipe) }
+        catch { saveValidationError = error.localizedDescription; return }
+
+        if let onReviewed {
+            onReviewed(recipe)
+            dismiss()
+            return
+        }
 
         // ── Save to AppSession (existing) ──
         session.guestStore.addUserRecipe(recipe)
+        guard session.guestStore.userRecipes.contains(where: { $0.id == recipe.id }) else { return }
+        QARecorder.shared.record(.success, screen: "Recipe Import Review", label: "Recipe saved",
+            detail: "\(recipe.ingredients.count) ingredients; \(recipe.instructions.count) steps; source credited: \(!sourceURL.isEmpty)")
+        QABackgroundRunner.shared.runSoon()
 
         // ── NEW: Also write into RecipeDatabase for future predictive search ──
         Task(priority: .background) {
             await RecipeDatabaseManager.shared.save(userRecipe: recipe)
         }
 
+        onSaved?(recipe)
         dismiss()
     }
 
@@ -536,7 +696,7 @@ struct CreateRecipeView: View {
     /// A small section/field label.
     private func fieldLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .scaledFont(12, weight: .semibold)
             .foregroundStyle(session.themeTextColor.opacity(0.45))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 2)
@@ -545,7 +705,7 @@ struct CreateRecipeView: View {
     /// A larger single-line text field — roomier tap target and bigger type.
     private func bigField(_ placeholder: String, text: Binding<String>) -> some View {
         TextField(placeholder, text: text)
-            .font(.system(size: 16))
+            .scaledFont(16)
             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
             .padding(.horizontal, 18).padding(.vertical, 16)
     }
@@ -556,18 +716,12 @@ struct CreateRecipeView: View {
         ZStack(alignment: .topLeading) {
             if text.wrappedValue.isEmpty {
                 Text(placeholder)
-                    .font(.system(size: 16))
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
-                    .padding(.horizontal, 18).padding(.vertical, 16)
-                    .allowsHitTesting(false)
+                    .stockedTextEditorPlaceholder()
             }
             TextEditor(text: text)
-                .font(.system(size: 16))
-                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: minHeight)
-                .padding(.horizontal, 14).padding(.vertical, 8)
+                .stockedTextEditorContent(minimumHeight: minHeight)
         }
+        .stockedInputSurface()
     }
 
     private var formDivider: some View {
@@ -580,14 +734,14 @@ struct CreateRecipeView: View {
     @ViewBuilder
     private func formSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .bold))
+            .scaledFont(12, weight: .bold)
             .tracking(0.3)
             .foregroundStyle(session.themeTextColor.opacity(0.5))
             .padding(.horizontal, 28)
             .padding(.top, 20)
             .padding(.bottom, 16)
         VStack(spacing: 0) { content() }
-            .background(Color.stockedWhite.opacity(0.35))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 20)
     }
@@ -595,17 +749,17 @@ struct CreateRecipeView: View {
     // MARK: - Photo section
     // Shows the pulled image (from the autofilled imageURL) or one resolved by title,
     // and lets the user pick their own from the photo library.
-    @ViewBuilder
     private var photoSection: some View {
-        VStack(spacing: 12) {
+        let photoLabel = imageData == nil ? "Choose Photo" : "Change Photo"
+        return VStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                    .fill(Color.stockedWhite.opacity(0.25))
-                if imageData != nil || !imageURL.isEmpty || !title.isEmpty {
+                    .fill(session.themeCardColor)
+                if imageData != nil || (!forcePrivateSave && (!imageURL.isEmpty || !title.isEmpty)) {
                     RecipeHeroImage(
                         imageData: imageData,
-                        imageURL: imageURL.isEmpty ? nil : imageURL,
-                        recipeName: title,
+                        imageURL: forcePrivateSave || imageURL.isEmpty ? nil : imageURL,
+                        recipeName: forcePrivateSave ? "" : title,
                         height: 200
                     )
                     .frame(maxWidth: .infinity)
@@ -614,10 +768,10 @@ struct CreateRecipeView: View {
                 } else {
                     VStack(spacing: 8) {
                         Image(systemName: "photo.badge.plus")
-                            .font(.system(size: 34))
+                            .scaledFont(34)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                         Text("Add a photo")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                 }
@@ -627,8 +781,8 @@ struct CreateRecipeView: View {
 
             HStack(spacing: 18) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    Label(imageData == nil ? "Choose Photo" : "Change Photo", systemImage: "photo.on.rectangle")
-                        .font(.system(size: 14, weight: .semibold))
+                    Label(photoLabel, systemImage: "photo.on.rectangle")
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 if imageData != nil {
@@ -636,7 +790,7 @@ struct CreateRecipeView: View {
                         withAnimation { imageData = nil; selectedPhoto = nil }
                     } label: {
                         Label("Remove", systemImage: "trash")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(.red.opacity(0.7))
                     }
                     .buttonStyle(.plain)

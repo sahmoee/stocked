@@ -76,13 +76,24 @@ actor OpenFoodFactsClient {
         components.queryItems = [URLQueryItem(name: "fields", value: fields)]
         guard let url = components.url else { return nil }
 
-        guard let (data, response) = try? await session.data(from: url),
-              (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true
-        else { return nil }
-
-        guard let result = parseProduct(data, barcode: cleaned) else { return nil }
-        await APIResponseCache.shared.store(result, for: cacheKey, ttl: cacheTTL)
-        return result
+        let startedAt = Date()
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? true else {
+                await SourceHealth.shared.record("open-food-facts", success: false,
+                                                 latency: Date().timeIntervalSince(startedAt))
+                return nil
+            }
+            await SourceHealth.shared.record("open-food-facts", success: true,
+                                             latency: Date().timeIntervalSince(startedAt))
+            guard let result = parseProduct(data, barcode: cleaned) else { return nil }
+            await APIResponseCache.shared.store(result, for: cacheKey, ttl: cacheTTL)
+            return result
+        } catch {
+            await SourceHealth.shared.record("open-food-facts", success: false,
+                                             latency: Date().timeIntervalSince(startedAt))
+            return nil
+        }
     }
 
     /// All JSON-dictionary work happens here — nonisolated + synchronous — so the non-Sendable

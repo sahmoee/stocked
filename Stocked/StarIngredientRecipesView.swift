@@ -59,10 +59,10 @@ struct StarIngredientRecipesView: View {
                 HStack(alignment: .center, spacing: 14) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("\(selection) recipes")
-                            .font(.system(size: 24, weight: .bold, design: .serif))
+                            .scaledFont(24, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Real recipes starring \(selection.lowercased()), sorted by what you already have.")
-                            .font(.system(size: 12.5))
+                            .scaledFont(12.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -72,8 +72,8 @@ struct StarIngredientRecipesView: View {
                         Task { await load() }
                     } label: {
                         HStack(spacing: 5) {
-                            Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .bold))
-                            Text("Refresh").font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "arrow.clockwise").scaledFont(11, weight: .bold)
+                            Text("Refresh").scaledFont(12, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -89,7 +89,7 @@ struct StarIngredientRecipesView: View {
                     HStack {
                         Spacer()
                         ProgressView(loadingMessage)
-                            .font(.system(size: 12.5)).tint(Color.stockedGold)
+                            .scaledFont(12.5).tint(Color.stockedGold)
                         Spacer()
                     }
                     .padding(.top, 60)
@@ -134,7 +134,7 @@ struct StarIngredientRecipesView: View {
                         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm)
                             .fill(Color.stockedGold.opacity(0.12))
                         Text(ImageFallbackService.emoji(for: r.entry.title))
-                            .font(.system(size: 24))
+                            .scaledFont(24)
                     }
                     .frame(width: 62, height: 62)
                 } else {
@@ -146,37 +146,37 @@ struct StarIngredientRecipesView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(r.entry.title)
-                        .font(.system(size: 14.5, weight: .semibold))
+                        .scaledFont(14.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                     Text([r.entry.sourceName, r.entry.cuisine,
                           r.entry.totalTime.isEmpty ? r.entry.cookTime : r.entry.totalTime]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 11.5))
+                        .scaledFont(11.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 6)
 
                 if r.missing == 0 {
                     HStack(spacing: 3) {
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 10))
-                        Text("Ready").font(.system(size: 10.5, weight: .bold))
+                        Image(systemName: "checkmark.circle.fill").scaledFont(10)
+                        Text("Ready").scaledFont(10.5, weight: .bold)
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color.stockedGreen).clipShape(Capsule())
                 } else {
                     Text(r.missing == 1 ? "1 missing" : "\(r.missing) missing")
-                        .font(.system(size: 10.5, weight: .bold))
+                        .scaledFont(10.5, weight: .bold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(r.missing <= 2 ? Color.stockedGold : Color.stockedError.opacity(0.88))
                         .clipShape(Capsule())
                 }
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(10)
@@ -198,6 +198,8 @@ struct StarIngredientRecipesView: View {
         for term in terms {
             let hits = await RecipeDatabase.shared.search(term, limit: 30)
             appendUnique(hits, to: &pool, seen: &seen)
+            let corpusHits = await RecipeDatabaseManager.shared.corpusSearch(term, limit: 30)
+            appendUnique(corpusHits, to: &pool, seen: &seen)
         }
 
         var results = await rank(pool: pool, terms: terms, items: items, seed: seed)
@@ -214,7 +216,7 @@ struct StarIngredientRecipesView: View {
             if results.isEmpty { loadingMessage = "Checking more recipe sources…" }
             let webRecipes = await WebRecipeFetcher.shared.fetchExpandedPublisherRecipes(
                 query: query,
-                limitPerSource: 1
+                limitPerSource: 2
             )
             let webEntries = webRecipes.map { databaseEntry(from: $0) }
             appendUnique(webEntries, to: &pool, seen: &seen)
@@ -253,8 +255,12 @@ struct StarIngredientRecipesView: View {
     private func appendUnique(_ entries: [RecipeDatabaseEntry],
                               to pool: inout [RecipeDatabaseEntry],
                               seen: inout Set<String>) {
-        for entry in entries where !entry.steps.isEmpty && !entry.ingredients.isEmpty {
-            let key = entry.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        for var entry in entries where RecipeDisplayPolicy.isPresentable(
+            title: entry.title, imageURL: entry.imageURL,
+            ingredients: entry.ingredients.count, steps: entry.steps.count,
+            sourceURL: entry.sourceURL) {
+            entry.title = RecipeDisplayPolicy.cleanedTitle(entry.title)
+            let key = entry.title.lowercased()
             if seen.insert(key).inserted { pool.append(entry) }
         }
     }

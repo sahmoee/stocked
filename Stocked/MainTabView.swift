@@ -22,7 +22,10 @@ struct TabRootPopGate {
 }
 
 struct MainTabView: View {
+    // iPhone tab switches recreate the active NavigationStack; drafts must outlive it.
+    @State private var recipeFinder = RecipeFinderSession()
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     @State private var sharedRecipeForm: AddRecipeForm? = nil
     @State private var sharedRecipeSource = "Shared"
     @State private var shareImportError: String? = nil
@@ -31,6 +34,7 @@ struct MainTabView: View {
     @State private var selected:     StockedTab = .home
     @State private var rootPopID:    [StockedTab: UUID] = [:]   // bump to pop a specific tab's stack to root
     @State private var rootPopGate = TabRootPopGate()
+    @State private var interHub = InterHubCoordinator.shared
 
     // MARK: - Shared navigation — used by BOTH global nav bar AND drawer
     // Single source of truth: closes drawer, dismisses all overlays, switches tab.
@@ -54,24 +58,24 @@ struct MainTabView: View {
 
     // MARK: - iPhone auto-hide tab bar control (mirrors iPad)
     private func revealIPhoneTabBar() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { iPhoneTabBarVisible = true }
+        motion.animate(.navigation, intent: .spatial) { iPhoneTabBarVisible = true }
         scheduleIPhoneTabBarAutoHide()
     }
     private func hideIPhoneTabBar() {
         iPhoneTabBarHideTask?.cancel()
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { iPhoneTabBarVisible = false }
+        motion.animate(.navigation, intent: .spatial) { iPhoneTabBarVisible = false }
     }
     private func scheduleIPhoneTabBarAutoHide() {
         iPhoneTabBarHideTask?.cancel()
         iPhoneTabBarHideTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 4_000_000_000)   // 4s idle → hide
             guard !Task.isCancelled else { return }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { iPhoneTabBarVisible = false }
+            motion.animate(.navigation, intent: .spatial) { iPhoneTabBarVisible = false }
         }
     }
 
     func navigate(to tab: StockedTab) {
-        withAnimation(.spring(response: 0.3)) {
+        motion.animate(.standard, intent: .spatial) {
             showDrawer   = false
             showBrief    = false
             showReceipt  = false
@@ -97,7 +101,7 @@ struct MainTabView: View {
     // Force-return to a clean Home: pop the Home tab's stack to root, then select it.
     // Used by deep flows (e.g. cook → rating) so finishing always lands on Home root.
     func goHomeToRoot() {
-        withAnimation(.spring(response: 0.3)) {
+        motion.animate(.standard, intent: .spatial) {
             showDrawer = false; showReceipt = false; showAddItems = false
             showSearch = false; showStats = false; showDatabases = false
         }
@@ -111,9 +115,12 @@ struct MainTabView: View {
     // (instead of a detached Task inside DrawerContent mutating parent bindings) fixes
     // the crash when opening Scan Receipt from the drawer.
     func performDrawerQuickAction(_ action: DrawerQuickAction) {
-        withAnimation(.spring(response: 0.3)) { showDrawer = false }
+        motion.animate(.standard, intent: .spatial) { showDrawer = false }
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 320_000_000)
+            if motion.permitsSpatialMotion {
+                try? await Task.sleep(nanoseconds: 320_000_000)
+            }
+            guard !Task.isCancelled else { return }
             switch action {
             case .scanReceipt: showReceipt   = true
             case .scanBarcode: showBarcode   = true
@@ -131,6 +138,9 @@ struct MainTabView: View {
             case .transferKitchen: activeDrawerSheet = .transferKitchen
             case .recipeSources:   activeDrawerSheet = .recipeSources
             case .storePopout:     activeDrawerSheet = .storePopout
+            case .homeWidgets:
+                selected = .home
+                NotificationCenter.default.post(name: .stockedOpenHomeWidgets, object: nil)
             }
         }
     }
@@ -162,7 +172,81 @@ struct MainTabView: View {
     private var tabBarHeight:  CGFloat { SS.tabBarH.value(for: device) }
 
     private func openBrief() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showBrief = true }
+        motion.animate(.navigation, intent: .spatial) { showBrief = true }
+    }
+
+    /// The only UI consumer of durable cross-hub intents. Producers can enqueue before the
+    /// shell exists; this method delivers them once, switches the owning hub, then bridges
+    /// exact-item routes to legacy hub-local observers during the staged migration.
+    @MainActor
+    private func consumeInterHubIntent() {
+        guard let intent = interHub.request else { return }
+        switch intent.route {
+        case .tab(let tab):
+            navigate(to: tab.stockedTab)
+        case .recipe(let id, let kind):
+            navigate(to: .recipes)
+            Task { @MainActor in
+                await Task.yield()
+                NotificationCenter.default.post(
+                    name: .stockedOpenRecipe,
+                    object: nil,
+                    userInfo: ["id": id, "kind": kind.rawValue]
+                )
+            }
+        case .inventoryItem(let id):
+            navigate(to: .inventory)
+            Task { @MainActor in
+                await Task.yield()
+                NotificationCenter.default.post(name: .stockedOpenInventoryItem, object: id)
+            }
+        case .groceryItem(let id):
+            navigate(to: .grocery)
+            Task { @MainActor in
+                await Task.yield()
+                NotificationCenter.default.post(name: .stockedOpenGroceryItem, object: id)
+            }
+        case .cook(let recipeID):
+            navigate(to: .cook)
+            if let recipeID {
+                Task { @MainActor in
+                    await Task.yield()
+                    NotificationCenter.default.post(name: .stockedOpenCookRightNow, object: recipeID)
+                }
+            }
+        case .search:
+            motion.animate(.navigation, intent: .spatial) { showSearch = true }
+        case .scan(let kind):
+            motion.animate(.navigation, intent: .spatial) {
+                switch kind {
+                case .receipt: showReceipt = true
+                case .barcode: showBarcode = true
+                case .shelf, .inventoryPhoto: showAddItems = true
+                }
+            }
+        case .presentation(let presentation):
+            switch presentation {
+            case .search: showSearch = true
+            case .dailyBrief: showBrief = true
+            case .addItems: showAddItems = true
+            case .quickUpdate: activeDrawerSheet = .quickUpdate
+            case .household: activeDrawerSheet = .household
+            case .activity: activeDrawerSheet = .activity
+            case .notifications: activeDrawerSheet = .notifications
+            case .dataStorage: activeDrawerSheet = .dataStorage
+            case .transferKitchen: activeDrawerSheet = .transferKitchen
+            case .recipeSources: activeDrawerSheet = .recipeSources
+            case .editProfile: activeDrawerSheet = .editProfile
+            case .preferredStore: activeDrawerSheet = .storePopout
+            case .importRecipe:
+                navigate(to: .recipes)
+                NotificationCenter.default.post(name: .stockedOpenRecipeImport, object: nil)
+            case .homeWidgets:
+                navigate(to: .home)
+                NotificationCenter.default.post(name: .stockedOpenHomeWidgets, object: nil)
+            }
+        }
+        interHub.completeCurrent()
     }
 
     private var safeBottomInset: CGFloat { StockedScreen.safeBottomInset }
@@ -187,17 +271,21 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stockedSwitchTab)) { note in
             if let tab = note.object as? StockedTab { navigate(to: tab) }
         }
+        .onChange(of: selected) { _, tab in
+            NotificationCenter.default.post(name: .stockedTabDidBecomeActive, object: tab)
+        }
         // #235 — Home's redesigned cards fire drawer quick actions + the Daily Brief
         // without needing MainTabView bindings threaded through.
         .onReceive(NotificationCenter.default.publisher(for: .stockedQuickAction)) { note in
             if let action = note.object as? DrawerQuickAction { performDrawerQuickAction(action) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedShowBrief)) { _ in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showBrief = true }
+            motion.animate(.navigation, intent: .spatial) { showBrief = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedOpenSearch)) { _ in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showSearch = true }
+            motion.animate(.navigation, intent: .spatial) { showSearch = true }
         }
+        .onChange(of: interHub.revision) { _, _ in consumeInterHubIntent() }
         .background(keyboardShortcuts)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -226,6 +314,9 @@ struct MainTabView: View {
             Task { await runShareImport() }
         }
         .task {
+            interHub.activateNext()
+            consumeInterHubIntent()
+            Task { await SharedGroceryCatalog.shared.refreshIfNeeded() }
             // LAG FIX: notification rescheduling + widget refresh used to run on the very
             // first frame of the main UI, stacked on top of household sync, migrations and
             // image backfill. Defer them a few seconds — they are background maintenance and
@@ -346,7 +437,7 @@ struct MainTabView: View {
                         onScanReceipt:  { showBrief = false; Task { try? await Task.sleep(nanoseconds: 300_000_000); showReceipt = true } },
                         onScanBarcode:  { showBrief = false; Task { try? await Task.sleep(nanoseconds: 300_000_000); showBarcode = true } },
                         onShoppingList: { showBrief = false; navigate(to: .grocery) },
-                        onPreferences:  { showBrief = false; withAnimation(.spring(response: 0.3)) { showDrawer = true } },
+                        onPreferences:  { showBrief = false; motion.animate(.standard, intent: .spatial) { showDrawer = true } },
                         onKitchenReport: { showBrief = false; Task { try? await Task.sleep(nanoseconds: 300_000_000); showStats = true } }
                     )
                     .environment(session)
@@ -395,7 +486,7 @@ struct MainTabView: View {
                             onScanReceipt:  { showBrief = false; Task { try? await Task.sleep(nanoseconds: 300_000_000); showReceipt = true } },
                             onScanBarcode:  { showBrief = false; Task { try? await Task.sleep(nanoseconds: 300_000_000); showBarcode = true } },
                             onShoppingList: { showBrief = false; navigate(to: .grocery) },
-                            onPreferences:  { showBrief = false; withAnimation(.spring(response: 0.3)) { showDrawer = true } },
+                            onPreferences:  { showBrief = false; motion.animate(.standard, intent: .spatial) { showDrawer = true } },
                             onKitchenReport: { showBrief = false; Task { try? await Task.sleep(nanoseconds: 300_000_000); showStats = true } }
                         )
                         .environment(session)
@@ -480,11 +571,11 @@ struct MainTabView: View {
         }
         .id("\(selected.rawValue)#\(rootPopID[selected]?.uuidString ?? "0")")
         .background(session.themeBgColor)
-        .textFieldStyle(StockedOutlinedTextFieldStyle())
+        .textFieldStyle(StockedThemedTextFieldStyle())
         .scrollContentBackground(.hidden)
         .environment(\.stockedTitleTap, openBrief)
         .environment(\.stockedGoHome, { goHomeToRoot() })
-        .textFieldStyle(StockedOutlinedTextFieldStyle())
+        .textFieldStyle(StockedThemedTextFieldStyle())
     }
 
     // MARK: - iPad tab area
@@ -544,7 +635,7 @@ struct MainTabView: View {
             Color.black.opacity(0.45)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onTapGesture {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    motion.animate(.navigation, intent: .spatial) {
                         isPresented.wrappedValue = false
                     }
                 }
@@ -556,14 +647,14 @@ struct MainTabView: View {
             content()
                 .environment(session)
                 .environment(\.stockedDismiss, {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    motion.animate(.navigation, intent: .spatial) {
                         isPresented.wrappedValue = false
                     }
                 })
                 .environment(\.stockedTitleTap, {
                     // On an overlay sub-screen, tapping the title closes back to the
                     // main shell (where the Daily Brief lives).
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    motion.animate(.navigation, intent: .spatial) {
                         isPresented.wrappedValue = false
                     }
                 })
@@ -581,8 +672,10 @@ struct MainTabView: View {
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 40)
                         .onEnded { value in
-                            if value.translation.height > 100 && abs(value.translation.width) < 80 {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            let projected = value.predictedEndTranslation
+                            if projected.height > 100,
+                               abs(projected.width) < max(80, abs(projected.height) * 0.7) {
+                                motion.animate(.navigation, intent: .spatial) {
                                     isPresented.wrappedValue = false
                                 }
                             }
@@ -605,7 +698,7 @@ struct MainTabView: View {
         case .inventory:
             InventoryHubView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Inventory")
         case .recipes:
-            RecipeVaultView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Recipes")
+            RecipeVaultView(finder: recipeFinder).withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Recipes")
         case .grocery:
             GroceryListView().withQuickMenu(onScanReceipt: { showReceipt = true }, onAddItems: { showAddItems = true }, onShoppingList: { navigate(to: .grocery) }).qaScreen("Grocery")
         }
@@ -621,6 +714,8 @@ extension Notification.Name {
     static let stockedQuickAction = Notification.Name("stockedQuickAction")   // #235 — Home cards → drawer quick actions
     static let stockedShowBrief = Notification.Name("stockedShowBrief")       // #235 — Home row → Daily Brief
     static let stockedOpenSearch = Notification.Name("stockedOpenSearch")     // header search button (#7)
+    static let stockedOpenHomeWidgets = Notification.Name("stockedOpenHomeWidgets")
+    static let stockedTabDidBecomeActive = Notification.Name("stockedTabDidBecomeActive")
     static let stockedOpenCookRightNow = Notification.Name("stockedOpenCookRightNow") // #13/#14 notif → Cook Right Now
 }
 
@@ -635,6 +730,7 @@ extension Notification.Name {
 struct DrawerDragLayer: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) var device
+    @Environment(\.stockedMotion) private var motion
 
     @Binding var showDrawer:    Bool
     @Binding var selected:      StockedTab
@@ -651,8 +747,9 @@ struct DrawerDragLayer: View {
     // Live finger translation while a drag is in progress (0 when not dragging). Combined with
     // the resting position below so the drawer tracks the finger 1:1, then springs to a final
     // open/closed state on release.
-    @State private var dragOffset: CGFloat = 0
-    @State private var isDragging: Bool = false
+    // Reset even if QA or a system gesture cancels before onEnded.
+    @GestureState private var dragOffset: CGFloat = 0
+    private var isDragging: Bool { dragOffset != 0 }
 
     // Resting position: open (0) or closed (-drawerWidth).
     private var restOffsetX: CGFloat { showDrawer ? 0 : -drawerWidth }
@@ -670,7 +767,6 @@ struct DrawerDragLayer: View {
         return (drawerOffsetX + drawerWidth) / drawerWidth
     }
 
-    private let openSpring  = Animation.spring(response: 0.35, dampingFraction: 0.85)
     // Minimum horizontal travel before we treat a drag as a drawer drag (lets vertical
     // scrolls and taps pass through untouched).
     private let dragActivate: CGFloat = 12
@@ -678,14 +774,20 @@ struct DrawerDragLayer: View {
     // Decide the resting state on release from BOTH position and throw velocity, so a quick
     // flick opens/closes even if the finger did not travel past the halfway point.
     private func settle(predictedTranslation: CGFloat) {
-        let projected = drawerOffsetX + (predictedTranslation - dragOffset)
-        let shouldOpen = projected > -drawerWidth / 2
+        let projected = restOffsetX + predictedTranslation
+        let projectedOpenOffset = projected + drawerWidth
+        let target = StockedVelocitySnapPolicy(distanceThreshold: 0.5).targetIndex(
+            currentIndex: showDrawer ? 1 : 0,
+            currentOffset: projectedOpenOffset,
+            itemExtent: drawerWidth,
+            velocity: 0,
+            itemCount: 2
+        )
+        let shouldOpen = target == 1
         let changed = shouldOpen != showDrawer
-        withAnimation(openSpring) {
+        motion.animate(.navigation, intent: .spatial) {
             showDrawer = shouldOpen
-            dragOffset = 0
         }
-        isDragging = false
         if changed { HapticManager.select() }
     }
 
@@ -697,7 +799,7 @@ struct DrawerDragLayer: View {
                 Color.black.opacity(0.35 * openFraction)
                     .ignoresSafeArea()
                     .allowsHitTesting(showDrawer && !isDragging)
-                    .onTapGesture { withAnimation(openSpring) { showDrawer = false } }
+                    .onTapGesture { motion.animate(.navigation, intent: .spatial) { showDrawer = false } }
                     .zIndex(1100)
             }
 
@@ -720,7 +822,7 @@ struct DrawerDragLayer: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             HapticManager.select()
-                            withAnimation(openSpring) { showDrawer = true }
+                            motion.animate(.navigation, intent: .spatial) { showDrawer = true }
                         }
                         .gesture(edgeDragGesture)
                 }
@@ -742,8 +844,12 @@ struct DrawerDragLayer: View {
                 onQuickAction: onQuickAction
             )
             .frame(width: drawerWidth)
+            .transaction { $0.animation = nil }
             .offset(x: drawerOffsetX)
-            .animation(isDragging ? nil : openSpring, value: showDrawer)
+            .animation(
+                isDragging ? nil : motion.animation(.navigation, intent: .spatial),
+                value: showDrawer
+            )
             // Open-state drag: a leftward drag on the panel itself closes the drawer.
             .gesture(panelDragGesture)
             .zIndex(1200)
@@ -758,13 +864,14 @@ struct DrawerDragLayer: View {
     // Drag that OPENS the drawer from the closed state (starts at the left edge).
     private var edgeDragGesture: some Gesture {
         DragGesture(minimumDistance: dragActivate)
-            .onChanged { value in
+            .updating($dragOffset) { value, offset, transaction in
+                guard abs(value.translation.width) >= abs(value.translation.height) || isDragging else { return }
                 guard value.translation.width > 0 || isDragging else { return }
-                isDragging = true
-                dragOffset = max(0, value.translation.width)
+                transaction.animation = nil
+                offset = max(0, value.translation.width)
             }
             .onEnded { value in
-                guard isDragging else { return }
+                guard abs(value.translation.width) >= abs(value.translation.height) else { return }
                 settle(predictedTranslation: value.predictedEndTranslation.width)
             }
     }
@@ -772,14 +879,15 @@ struct DrawerDragLayer: View {
     // Drag that CLOSES the drawer from the open state (leftward on the panel).
     private var panelDragGesture: some Gesture {
         DragGesture(minimumDistance: dragActivate)
-            .onChanged { value in
+            .updating($dragOffset) { value, offset, transaction in
                 guard showDrawer else { return }
+                guard abs(value.translation.width) >= abs(value.translation.height) || isDragging else { return }
                 guard value.translation.width < 0 || isDragging else { return }
-                isDragging = true
-                dragOffset = min(0, value.translation.width)
+                transaction.animation = nil
+                offset = min(0, value.translation.width)
             }
             .onEnded { value in
-                guard isDragging else { return }
+                guard abs(value.translation.width) >= abs(value.translation.height) else { return }
                 settle(predictedTranslation: value.predictedEndTranslation.width)
             }
     }
@@ -792,12 +900,12 @@ struct DrawerDragLayer: View {
             Spacer()
             Button {
                 HapticManager.select()
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                motion.animate(.navigation, intent: .spatial) {
                     showDrawer = true
                 }
             } label: {
                 ZStack(alignment: .leading) {
-                    Color.clear.frame(width: 26, height: 72)          // easy-to-hit target
+                    Color.clear.frame(width: 44, height: 72)          // accessible hit target
                     Capsule()
                         .fill(Color.stockedCharcoal.opacity(0.55))
                         .frame(width: 5, height: 46)
@@ -813,7 +921,10 @@ struct DrawerDragLayer: View {
         }
         // Pull tab rides the drawer edge: follows the live drag, then settles with the spring.
         .offset(x: openFraction * drawerWidth)
-        .animation(isDragging ? nil : .spring(response: 0.35, dampingFraction: 0.82), value: showDrawer)
+        .animation(
+            isDragging ? nil : motion.animation(.navigation, intent: .spatial),
+            value: showDrawer
+        )
         .opacity(showDrawer ? 0 : 1)
     }
 }
@@ -835,21 +946,21 @@ private struct InProgressCookPill: View {
                 Button { resumeCook = cook } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(Color.stockedGold)
                         Text("Cooking: \(cook.title)")
-                            .font(.system(size: 13, weight: .semibold, design: .serif))
+                            .scaledFont(13, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
-                            .lineLimit(1)
+                            .stockedAdaptiveLabel(maxLines: 2, alignment: .leading, minimumScale: 0.82)
                         Image(systemName: "chevron.up")
-                            .font(.system(size: 11, weight: .bold))
+                            .scaledFont(11, weight: .bold)
                             .foregroundStyle(Color.stockedWhite.opacity(0.5))
                     }
                     .padding(.horizontal, 16).padding(.vertical, 11)
                     .background(Color.stockedCharcoal.opacity(0.95))
                     .clipShape(Capsule())
                     .shadow(color: .black.opacity(0.25), radius: 10, y: 3)
-                    .frame(maxWidth: 280)
+                    .frame(maxWidth: 320)
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, bottomInset)

@@ -35,7 +35,8 @@ nonisolated enum RecipeClassifier {
         ingredients: [RecipeIngredient],
         instructions: [String]
     ) -> Classification {
-        var cuisine = canonicalCuisine(rawCuisine)
+        let resolved = RecipeTaxonomy.resolvedCuisine(rawCuisine ?? "", title: title, keywords: keywords)
+        var cuisine: String? = resolved == "Other" ? nil : resolved
         var category = canonicalCategory(rawCategory)
         var styles: [String] = []
 

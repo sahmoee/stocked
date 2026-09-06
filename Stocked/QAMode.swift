@@ -133,17 +133,14 @@ final class QARecorder {
                 armAutoOff()
                 record(.note, screen: "QA", label: "QA mode enabled")
                 QARuntimeMonitor.shared.start()
-                // Auto-publish a baseline 30 s after enabling when autoPublish is on.
-                // The delay lets the invariant runner complete its first pass (which
-                // starts immediately in QABackgroundRunner.start) so the baseline
-                // report includes real data rather than empty counters.
-                if QABackgroundRunner.shared.autoPublish {
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(30))
-                        guard QARecorder.shared.isEnabled else { return }
-                        await QABackgroundRunner.shared.publish()
-                    }
+                Task { @MainActor in
+                    guard QARecorder.shared.isEnabled else { return }
+                    QABackgroundRunner.shared.resume()
+                    QABackgroundRunner.shared.runSoon()
                 }
+                // The runner publishes its fresh baseline after diagnostics.
+                // No independent delayed publisher: it could outlive QA disable,
+                // ignore a later Auto-publish change, or duplicate a new session.
             } else {
                 // Stop everything and keep whatever was captured — including a
                 // snapshot on disk, so turning QA off is not the same as losing
@@ -175,6 +172,8 @@ final class QARecorder {
     /// unbounded log is a memory leak with a friendly name.
     private(set) var events: [QAEvent] = []
     private let cap = 600
+    private var lastFailureSnapshotAt: Date?
+    private var pendingFailureSnapshot: Task<Void, Never>?
 
     /// Current screen, so `attempt` calls do not each have to name it.
     private(set) var currentScreen: String = "—"
@@ -270,7 +269,7 @@ final class QARecorder {
             dropCrumb("\(kind == .failure ? "✗" : "!") \(e.screen): \(label)")
             // A failure is exactly the moment the session becomes worth keeping,
             // and exactly the moment the app is most likely to be killed next.
-            persistSnapshot(reason: "after \(kind.rawValue)")
+            scheduleFailureSnapshot(reason: "after \(kind.rawValue)")
         case .note:
             dropCrumb("• \(label)")
         default:
@@ -285,6 +284,7 @@ final class QARecorder {
         if !visitedScreens.contains(name) { visitedScreens.append(name) }
         dropCrumb("→ \(name)")
         record(.screen, screen: name, label: "appeared")
+        QAAccessibilitySweep.shared.schedule(screen: name)
     }
 
     /// Log an attempt. Call `succeeded` or `failed` on the returned token so an
@@ -443,6 +443,9 @@ final class QARecorder {
     // MARK: Session control
 
     func clear() {
+        pendingFailureSnapshot?.cancel()
+        pendingFailureSnapshot = nil
+        lastFailureSnapshotAt = nil
         events = []
         invariantResults = []
         previousInvariantResults = []
@@ -493,6 +496,32 @@ final class QARecorder {
 
     private static let snapshotKey = "qa.lastSessionSnapshot.v1"
     private(set) var previousSessionReport: String?
+
+    /// Save the first failure immediately, then collapse a burst into at most one
+    /// snapshot every 30 seconds. The old per-event path could serialize, mirror,
+    /// and republish a report every five seconds while memory was already high.
+    private func scheduleFailureSnapshot(reason: String) {
+        let minimumInterval: TimeInterval = 30
+        let now = Date()
+        let elapsed = lastFailureSnapshotAt.map { now.timeIntervalSince($0) } ?? minimumInterval
+        if elapsed >= minimumInterval {
+            pendingFailureSnapshot?.cancel()
+            pendingFailureSnapshot = nil
+            lastFailureSnapshotAt = now
+            persistSnapshot(reason: reason)
+            return
+        }
+
+        guard pendingFailureSnapshot == nil else { return }
+        let delay = minimumInterval - elapsed
+        pendingFailureSnapshot = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            self.pendingFailureSnapshot = nil
+            self.lastFailureSnapshotAt = Date()
+            self.persistSnapshot(reason: "coalesced failure burst")
+        }
+    }
 
     func persistSnapshot(reason: String) {
         // NOT gated on `isEnabled`. The two moments most worth snapshotting are
@@ -620,6 +649,7 @@ final class QARecorder {
     /// diagnostics and the device log. One share instead of six.
     var fullExportText: String {
         var out = ["════════ STOCKED QA — FULL EXPORT ════════",
+                   QAIdentityStore.shared.capture().label,
                    Date().formatted(),
                    "Build \(BuildConfig.version) (\(BuildConfig.buildNumber)) · \(BuildConfig.buildTag)",
                    ""]

@@ -43,19 +43,19 @@ struct SubstitutionReviewSheet: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Review substitutions")
-                        .font(.system(size: 21, weight: .bold, design: .serif))
+                        .scaledFont(21, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("You don't have these exact ingredients, but you have swaps that work. Confirm the ones you want to use.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
 
                     if reviewRows.isEmpty {
                         VStack(spacing: 10) {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 38)).foregroundStyle(Color.stockedGreen)
+                                .scaledFont(38).foregroundStyle(Color.stockedGreen)
                             Text("All substitutions confirmed.")
-                                .font(.system(size: 15, weight: .semibold, design: .serif))
+                                .scaledFont(15, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 30)
@@ -71,7 +71,7 @@ struct SubstitutionReviewSheet: View {
 
                     Button { dismiss() } label: {
                         Text("Done")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 13)
                             .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -98,20 +98,20 @@ struct SubstitutionReviewSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text(row.name.displayNormalized)
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                 Text("you have: \(row.suggestion.displayNormalized)")
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .scaledFont(13.5, weight: .semibold)
                     .foregroundStyle(Color.stockedGreen)
                 Spacer()
             }
 
             if let note = guidance(for: row.name, substitute: row.suggestion) {
                 Text(note)
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -121,7 +121,7 @@ struct SubstitutionReviewSheet: View {
                     confirm(row)
                 } label: {
                     Label("Use This Swap", systemImage: "checkmark")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .scaledFont(12.5, weight: .semibold)
                         .foregroundStyle(Color.stockedGreen)
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
                         .background(Color.stockedGreen.opacity(0.12))
@@ -135,7 +135,7 @@ struct SubstitutionReviewSheet: View {
                 } label: {
                     Label(addedToGrocery.contains(row.name.lowercased()) ? "Added" : "Add to Grocery",
                           systemImage: addedToGrocery.contains(row.name.lowercased()) ? "checkmark" : "cart.badge.plus")
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .scaledFont(12.5, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
                         .background(Color.stockedGold.opacity(0.12))

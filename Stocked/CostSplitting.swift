@@ -24,6 +24,28 @@ nonisolated struct SharedExpense: Codable, Identifiable, Hashable, Sendable, Hou
     var date: Date = Date()
     var store: String = ""
 
+    init(updatedAt: Double = 0, lastWriterID: String = "", id: UUID = UUID(), label: String,
+         amount: Double, paidBy: String, sharedWith: [String] = [], date: Date = Date(), store: String = "") {
+        self.updatedAt = updatedAt; self.lastWriterID = lastWriterID; self.id = id; self.label = label
+        self.amount = amount; self.paidBy = paidBy; self.sharedWith = sharedWith; self.date = date; self.store = store
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case updatedAt, lastWriterID, id, label, amount, paidBy, sharedWith, date, store
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        updatedAt = try c.decodeIfPresent(Double.self, forKey: .updatedAt) ?? 0
+        lastWriterID = try c.decodeIfPresent(String.self, forKey: .lastWriterID) ?? ""
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        label = try c.decodeIfPresent(String.self, forKey: .label) ?? "Expense"
+        amount = try c.decodeIfPresent(Double.self, forKey: .amount) ?? 0
+        paidBy = try c.decodeIfPresent(String.self, forKey: .paidBy) ?? ""
+        sharedWith = try c.decodeIfPresent([String].self, forKey: .sharedWith) ?? []
+        date = try c.decodeIfPresent(Date.self, forKey: .date) ?? Date()
+        store = try c.decodeIfPresent(String.self, forKey: .store) ?? ""
+    }
+
     func participants(all: [String]) -> [String] {
         let list = sharedWith.isEmpty ? all : sharedWith
         return list.isEmpty ? [paidBy] : list
@@ -179,15 +201,15 @@ struct CostSplittingView: View {
             if store.people.count >= 2 {
                 Section {
                     if store.settlements.isEmpty {
-                        Text("Everyone's square.").font(.system(size: 14)).foregroundStyle(.green)
+                        Text("Everyone's square.").scaledFont(14).foregroundStyle(.green)
                     } else {
                         ForEach(store.settlements) { s in
                             HStack {
                                 Text("\(s.from) pays \(s.to)")
-                                    .font(.system(size: 14, weight: .medium))
+                                    .scaledFont(14, weight: .medium)
                                 Spacer()
                                 Text(s.amount, format: .currency(code: currencyCode))
-                                    .font(.system(size: 15, weight: .bold))
+                                    .scaledFont(15, weight: .bold)
                                     .foregroundStyle(session.accentColor)
                             }
                         }
@@ -202,18 +224,18 @@ struct CostSplittingView: View {
 
             Section {
                 if store.expenses.isEmpty {
-                    Text("No shared purchases yet.").font(.system(size: 14)).foregroundStyle(.secondary)
+                    Text("No shared purchases yet.").scaledFont(14).foregroundStyle(.secondary)
                 } else {
                     ForEach(store.recent) { e in
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
-                                Text(e.label).font(.system(size: 14, weight: .semibold))
+                                Text(e.label).scaledFont(14, weight: .semibold)
                                 Spacer()
                                 Text(e.amount, format: .currency(code: currencyCode))
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(14, weight: .semibold)
                             }
                             Text("\(e.paidBy) paid · split \(e.sharedWith.isEmpty ? "evenly" : e.sharedWith.joined(separator: ", ")) · \(e.date.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                                .scaledFont(11).foregroundStyle(.secondary)
                         }
                     }
                     .onDelete { idx in idx.map { store.recent[$0] }.forEach { store.remove($0) } }
@@ -283,12 +305,13 @@ private struct AddSharedExpenseSheet: View {
                                                 sharedWith: splitWith.count == store.people.count ? [] : Array(splitWith)))
                         dismiss()
                     }
-                    .font(.body.bold())
+                    .font(.stocked(.body).bold())
                     .disabled(label.trimmingCharacters(in: .whitespaces).isEmpty || (Double(amount) ?? 0) <= 0)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
             .onAppear { if paidBy.isEmpty { paidBy = store.people.first ?? "" } }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }

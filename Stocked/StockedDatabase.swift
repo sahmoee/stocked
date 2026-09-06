@@ -10,13 +10,13 @@ import SwiftUI
 // MARK: - Shared Models
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct IngredientSubstitution: Identifiable {
+nonisolated struct IngredientSubstitution: Identifiable, Sendable {
     let id = UUID()
     let substitute: String
     let notes: String
 }
 
-struct SubstitutionEntry: Identifiable {
+nonisolated struct SubstitutionEntry: Identifiable, Sendable {
     let id = UUID()
     let ingredient: String       // canonical lowercase key
     let displayName: String

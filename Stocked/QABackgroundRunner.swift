@@ -37,6 +37,8 @@ final class QABackgroundRunner {
     private(set) var runCount = 0
     private(set) var lastPublish: Date?
     private(set) var lastPublishOutcome: String = "never published"
+    private(set) var lastDiagnostics: QADiagnosticsReport?
+    private var diagnosticsAt = Date.distantPast
 
     /// Auto-publish to the worker after a run that found something new.
     var autoPublish: Bool {
@@ -44,15 +46,22 @@ final class QABackgroundRunner {
     }
 
     private var timer: Task<Void, Never>?
+    private var pendingRun: Task<Void, Never>?
     private var lastSignature: String = ""
     private weak var store: GuestDataStore?
     private var session: CookNowSession?
 
     private init() {
-        autoPublish = UserDefaults.standard.bool(forKey: "qa.autoPublish")
+        autoPublish = UserDefaults.standard.object(forKey: "qa.autoPublish") == nil
+            ? true : UserDefaults.standard.bool(forKey: "qa.autoPublish")
     }
 
     // MARK: Lifecycle
+
+    func resume() {
+        guard let store else { return }
+        start(store: store, session: session)
+    }
 
     func start(store: GuestDataStore, session: CookNowSession?) {
         self.store = store
@@ -63,7 +72,7 @@ final class QABackgroundRunner {
             // Let launch hydration and the first visible transition settle before
             // the expensive baseline. Running this on the first Home frame was a
             // major contributor to the build 68/77 launch-stall tickets.
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(12))
             guard !Task.isCancelled else { return }
             await self?.runNow(force: false)
             while !Task.isCancelled {
@@ -75,19 +84,24 @@ final class QABackgroundRunner {
     }
 
     func stop() {
+        QAAccessibilitySweep.shared.cancel()
         timer?.cancel()
         timer = nil
+        pendingRun?.cancel()
+        pendingRun = nil
     }
 
     /// Nudge a run after a meaningful state change. Debounced by the signature
     /// check inside `runNow`, so calling it liberally is safe.
     func runSoon() {
-        guard QARecorder.shared.isEnabled else { return }
+        guard QARecorder.shared.isEnabled, UIApplication.shared.applicationState == .active else { return }
         // Small debounce so a burst of mutations (finishing a cook fires several)
         // becomes one run, and it never lands on the exact frame of a transition.
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.5))
-            await runNow(force: false)
+        pendingRun?.cancel()
+        pendingRun = Task { @MainActor [weak self] in
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            guard !Task.isCancelled else { return }
+            await self?.runNow(force: false)
         }
     }
 
@@ -98,33 +112,75 @@ final class QABackgroundRunner {
     private func signature(_ store: GuestDataStore) -> String {
         let allergens = (store.cookingProfile.allergens + FamilyProfileStore.shared.activeAllergens).sorted()
         return [
-            "i\(store.inventoryItems.count)",
-            "r\(store.userRecipes.count)",
+            "store\(ObjectIdentifier(store))",
+            "i\(store.inventoryRevision)",
+            "r\(store.recipeRevision)",
+            "h\(store.pastMealsRevision)",
+            "grocery\(store.groceryRevision)",
             "g\(store.savedGeneratedRecipes.count)",
-            "p\(store.plannedMeals.count)",
-            "d\(OnlineRecipesLoader.shared.recipes.count)",
+            "p\(store.planRevision)",
+            "d\(OnlineRecipesLoader.shared.revision)",
+            "catalogue\(RecipeDatabaseManager.shared.catalogueRevision)",
             "a\(allergens.joined(separator: "|"))",
-            "l\(store.inventoryItems.reduce(0.0) { $0 + $1.effectiveLevel }.rounded())",
+            "dislikes\(FamilyProfileStore.shared.profiles.filter(\.isPresent).flatMap(\.dislikes).sorted())",
+            "minute\(Int(Date().timeIntervalSince1970 / 60))",
+            "subs\(store.userSubstitutions.map { "\($0.ingredient):\($0.substitute)" }.sorted())",
+            "overrides\(session?.overridesSnapshotForEngine.map { "\($0.key):\($0.value.rawValue)" }.sorted() ?? [])",
+            "confirmed\(session?.confirmedSubstitutionKeys.sorted() ?? [])",
         ].joined(separator: ",")
     }
 
     func runNow(force: Bool) async {
-        guard QARecorder.shared.isEnabled, !isRunning, let store else { return }
+        guard QARecorder.shared.isEnabled, !Task.isCancelled, !isRunning, let store,
+              store.hasCompletedInitialHydration, UIApplication.shared.applicationState == .active else { return }
         // WATCHDOG FIX: never auto-run while the user is actively mid-cook — the
         // classification probes are the heaviest main-actor work in the app, and
         // stacking them on live timer ticks froze Cook Now badly enough for iOS
         // to SIGKILL the app. Manual runs (force) are still allowed.
         if !force, let snap = ActiveCookSessionStore.shared.resumable, snap.status == .active { return }
+        QAAccessibilitySweep.shared.schedule(screen: QARecorder.shared.currentScreen)
         let sig = signature(store)
-        if !force && sig == lastSignature { return }
+        let diagnosticsDue = Date().timeIntervalSince(diagnosticsAt) >= 600
+        if !force && sig == lastSignature && !diagnosticsDue { return }
 
         isRunning = true
+        defer { isRunning = false }
         surfaceNewCrashes()
         let results = await QAInvariants.runAllYielding(store: store, session: session)
+        guard !results.isEmpty, !Task.isCancelled, QARecorder.shared.isEnabled,
+              UIApplication.shared.applicationState == .active, sig == signature(store) else {
+            return // Cancellation or changing inputs: retry, don't record a clean run.
+        }
         QARecorder.shared.setInvariantResults(results)
         lastSignature = sig
         runCount += 1
-        isRunning = false
+
+        // Automatic, read-only diagnostics share this same invariant snapshot.
+        // No synthetic UI taps, recipe imports, purchases or manual sign-offs.
+        var freshDiagnosticRows: [QAInvariantResult] = []
+        if diagnosticsDue || force {
+            let report = await QAFullDiagnostics.run(store: store, session: session, invariantResults: results)
+            guard !Task.isCancelled, QARecorder.shared.isEnabled,
+                  UIApplication.shared.applicationState == .active, sig == signature(store) else { return }
+            lastDiagnostics = report; diagnosticsAt = Date()
+            freshDiagnosticRows = report.sections.filter { $0.title != "Invariants" }.flatMap(\.rows)
+        }
+
+        let freshRows = results + freshDiagnosticRows
+        let identity = QAIdentityStore.shared.capture()
+        let alreadyOpen = Set(QATicketStore.shared.tickets.filter {
+            $0.needsAttention && QAReportIdentity.sameOrigin($0.context.identity, identity)
+        }.compactMap(\.automaticCheckID))
+        // Bound writes without starving the fourth finding behind three known
+        // failures forever. New findings and fresh regressions get first slots.
+        let critical = freshRows.filter { $0.status == .violation && $0.critical }
+        let prioritized = critical.filter { !alreadyOpen.contains($0.name) }
+            + critical.filter { alreadyOpen.contains($0.name) }
+        for finding in prioritized.prefix(3) {
+            _ = QATicketStore.shared.open(title: "Automatic check: \(finding.name)", body: finding.detail,
+                severity: .blocker, context: QAContextCapture.current(), origin: .automatic,
+                automaticCheckID: finding.name)
+        }
 
         let violations = results.filter { $0.status == .violation }
         // Publish when the invariant suite found something, OR when a tester filed
@@ -132,7 +188,7 @@ final class QABackgroundRunner {
         // clean invariant run meant there was nothing to say; now a run can be
         // spotless while three hand-written blockers sit unsynced on the device.
         let ticketsWaiting = !QATicketStore.shared.unsynced.isEmpty
-        if autoPublish && (!violations.isEmpty || ticketsWaiting) {
+        if autoPublish && (!violations.isEmpty || ticketsWaiting || diagnosticsDue || force) {
             await publish()
         }
     }
@@ -193,6 +249,12 @@ final class QABackgroundRunner {
             ["name": r.name, "status": r.status.rawValue,
              "detail": r.detail, "critical": r.critical]
         }
+        if let report = lastDiagnostics {
+            health["autonomousDiagnostics"] = ["at": ISO8601DateFormatter().string(from: report.startedAt),
+                "sections": report.sections.map { section in
+                    ["title": section.title, "checks": section.rows.map { ["name": $0.name, "status": $0.status.rawValue, "detail": $0.detail] }] as [String: Any]
+                }]
+        }
 
         // Tester-filed tickets and live runtime measurements ride along in the same
         // envelope. A report that says "0 violations" while the device is thermally
@@ -226,24 +288,13 @@ final class QABackgroundRunner {
 
         let openBlockers = results.filter { $0.status == .violation && $0.critical }.count
             + tickets.blockers.count
-        let payload: [String: Any] = [
-            "schema": "stocked-qa-report/v1",
-            "source": "stocked-app",
-            "generatedAt": ISO8601DateFormatter().string(from: Date()),
-            "app": ["name": "Stocked",
-                    "version": BuildConfig.version,
-                    "build": BuildConfig.buildNumber],
-            "device": ["model": UIDevice.current.model, "os": "iOS " + UIDevice.current.systemVersion],
-            "worker": ["baseURL": BuildConfig.receiptWorkerURL],
-            "checkbook": ["version": "\(BuildConfig.version) build \(BuildConfig.buildNumber)",
-                          "checks": 270, "blockers": 126],
-            "signOff": ["passed": results.filter { $0.status == .ok }.count,
-                        "failed": results.filter { $0.status == .violation }.count,
-                        "blocked": results.filter { $0.status == .blocked }.count,
-                        "openBlockers": openBlockers],
-            "checklists": [],
-            "health": health,
-        ]
+        // Manual and background publication must expose the same current checkbook.
+        // A clean invariant run must not replace device verdicts or erase new rows.
+        var payload = StockedQABridge.buildReport()
+        payload["health"] = health
+        var signOff = payload["signOff"] as? [String: Int] ?? [:]
+        signOff["openBlockers"] = (signOff["openBlockers"] ?? 0) + openBlockers
+        payload["signOff"] = signOff
 
         let attempt = recorder.attempt("Publish QA report", detail: "POST /qa/reports")
         do {

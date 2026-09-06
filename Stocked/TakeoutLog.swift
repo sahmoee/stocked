@@ -151,15 +151,15 @@ struct TakeoutLogView: View {
         Group {
             if store.entries.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "bag").font(.system(size: 34))
+                    Image(systemName: "bag").scaledFont(34)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("Nothing logged yet").font(.system(size: 16, weight: .semibold))
+                    Text("Nothing logged yet").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Log takeout and restaurant meals and your real food spend finally adds up — plus you build a list of what was worth reordering.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
                     Button { showAdd = true } label: {
-                        Text("Log a meal").font(.system(size: 14, weight: .semibold))
+                        Text("Log a meal").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
                             .background(session.accentColor).foregroundStyle(.white).clipShape(Capsule())
                     }.buttonStyle(.plain).padding(.top, 4)
@@ -184,15 +184,15 @@ struct TakeoutLogView: View {
                                 Text("Cooking the same meals at home")
                                 Spacer()
                                 Text(summary.homeCookedEquivalent, format: .currency(code: currency))
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(14, weight: .semibold)
                             }
                             if summary.difference > 0 {
                                 Text("About \(summary.difference.formatted(.currency(code: currency))) more this month than cooking would have cost.")
-                                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                                    .scaledFont(12).foregroundStyle(.secondary)
                             }
                             if let day = TakeoutMath.busiestWeekday(store.entries) {
                                 Text("\(day) is your most common order-out night — worth prepping something ahead for.")
-                                    .font(.system(size: 12)).foregroundStyle(session.accentColor)
+                                    .scaledFont(12).foregroundStyle(session.accentColor)
                             }
                         } header: { Text("For comparison") } footer: {
                             Text("Home cost is estimated at \(TakeoutMath.homeCostPerServing.formatted(.currency(code: currency))) per serving. It's a rough benchmark, not your actual grocery spend.")
@@ -204,11 +204,11 @@ struct TakeoutLogView: View {
                         Section("Worth reordering") {
                             ForEach(favs.prefix(5), id: \.place) { f in
                                 HStack {
-                                    Text(f.place).font(.system(size: 14))
+                                    Text(f.place).scaledFont(14)
                                     Spacer()
                                     Text(String(repeating: "★", count: Int(f.rating.rounded())))
-                                        .font(.system(size: 12)).foregroundStyle(.orange)
-                                    Text("×\(f.visits)").font(.system(size: 11)).foregroundStyle(.secondary)
+                                        .scaledFont(12).foregroundStyle(.orange)
+                                    Text("×\(f.visits)").scaledFont(11).foregroundStyle(.secondary)
                                 }
                             }
                         }
@@ -218,14 +218,14 @@ struct TakeoutLogView: View {
                         ForEach(store.recent) { e in
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack {
-                                    Text(e.place).font(.system(size: 14, weight: .semibold))
+                                    Text(e.place).scaledFont(14, weight: .semibold)
                                     Spacer()
                                     Text(e.cost, format: .currency(code: currency))
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                 }
                                 Text("\(e.kind) · \(e.mealType) · \(e.date.formatted(date: .abbreviated, time: .omitted))"
                                      + (e.dish.isEmpty ? "" : " · \(e.dish)"))
-                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                                    .scaledFont(11).foregroundStyle(.secondary)
                             }
                         }
                         .onDelete { idx in idx.map { store.recent[$0] }.forEach { store.remove($0) } }
@@ -244,8 +244,8 @@ struct TakeoutLogView: View {
 
     private func stat(_ label: String, _ value: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 16, weight: .bold)).foregroundStyle(session.accentColor)
-            Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
+            Text(value).scaledFont(16, weight: .bold).foregroundStyle(session.accentColor)
+            Text(label).scaledFont(10).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity)
     }
 }
@@ -295,11 +295,12 @@ private struct AddTakeoutSheet: View {
                         store.add(e)
                         dismiss()
                     }
-                    .font(.body.bold())
+                    .font(.stocked(.body).bold())
                     .disabled(entry.place.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }

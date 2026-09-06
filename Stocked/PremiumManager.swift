@@ -175,13 +175,13 @@ struct HouseholdPaywallView: View {
             ScrollView {
                 VStack(spacing: 22) {
                     Image(systemName: "person.2.badge.key.fill")
-                        .font(.system(size: 52)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(52).foregroundStyle(Color.stockedGold)
                         .padding(.top, 20)
                     Text("Household Sync")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .scaledFont(26, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Share one kitchen across your whole family — each person uses their own Apple ID, and everyone sees the same pantry and grocery list in real time.")
-                        .font(.system(size: 15))
+                        .scaledFont(15)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -199,13 +199,13 @@ struct HouseholdPaywallView: View {
                     .padding(.horizontal, 4)
 
                     Text("Only the household owner needs to buy this. Once you do, everyone you invite gets Household Sync at no extra cost.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 12)
 
                     if let errorText {
-                        Text(errorText).font(.system(size: 12)).foregroundStyle(.red)
+                        Text(errorText).scaledFont(12).foregroundStyle(.red)
                     }
 
                     Button {
@@ -224,7 +224,7 @@ struct HouseholdPaywallView: View {
                         HStack {
                             if purchasing { ProgressView().tint(.white) }
                             Text(purchasing ? "Processing…" : "Unlock Household Sync")
-                                .font(.system(size: 16, weight: .semibold))
+                                .scaledFont(16, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15)
@@ -238,13 +238,13 @@ struct HouseholdPaywallView: View {
                         Task { await premium.restorePurchases()
                             if premium.isHouseholdSyncUnlocked { dismiss(); onUnlocked() } }
                     }
-                    .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                    .scaledFont(13).foregroundStyle(Color.stockedGold)
 
                     // Real localized price from StoreKit once the product loads.
                     Text(premium.displayPrice.isEmpty
                          ? "Pricing shown at checkout."
                          : "\(premium.displayPrice) · one-time purchase")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                         .padding(.bottom, 24)
                 }
                 .padding(20)
@@ -263,8 +263,8 @@ struct HouseholdPaywallView: View {
 
     private func benefitRow(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(Color.stockedGreen).frame(width: 24)
-            Text(text).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGreen).frame(width: 24)
+            Text(text).scaledFont(14).foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }

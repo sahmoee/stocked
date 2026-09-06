@@ -76,11 +76,11 @@ struct FoodPredictiveTextField: View {
                                 onSelect(entry.name)
                             } label: {
                                 HStack(spacing: 5) {
-                                    Text(correctedFoodEmoji(name: entry.name, fallback: entry.emoji)).font(.system(size: 14))
+                                    Text(correctedFoodEmoji(name: entry.name, fallback: entry.emoji)).scaledFont(14)
                                     Text(entry.name)
-                                        .font(.system(size: 13, weight: .medium, design: .serif))
+                                        .scaledFont(13, weight: .medium, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 .padding(.horizontal, 11).padding(.vertical, 7)
                                 .background(Color.stockedGold.opacity(0.18))

@@ -54,6 +54,13 @@ enum HouseholdSchema {
         static let kind = "kind"; static let itemName = "itemName"
         static let actorName = "actorName"; static let date = "date"
     }
+    // Additive sync-v2 metadata. Older records simply decode as revision zero.
+    enum Sync {
+        static let updatedAt = "updatedAt"
+        static let lastWriterID = "lastWriterID"
+        static let recordRevision = "recordRevision"
+        static let fieldRevisions = "fieldRevisions"
+    }
 }
 
 // MARK: - Manager
@@ -526,6 +533,12 @@ final class HouseholdCloudKit {
         if let e = item.expirationDate { r[HouseholdSchema.Inv.expiration] = e as CKRecordValue }
         if let b = item.brand { r[HouseholdSchema.Inv.brand] = b as CKRecordValue }
         r[HouseholdSchema.Inv.level] = item.level as CKRecordValue
+        r[HouseholdSchema.Sync.updatedAt] = item.updatedAt as CKRecordValue
+        r[HouseholdSchema.Sync.lastWriterID] = item.lastWriterID as CKRecordValue
+        r[HouseholdSchema.Sync.recordRevision] = Int64(max(0, item.updatedAt)) as CKRecordValue
+        r[HouseholdSchema.Sync.fieldRevisions] = revisionData(
+            fields: ["name": item.updatedAt, "quantity": item.updatedAt,
+                     "zone": item.updatedAt, "level": item.updatedAt]) as CKRecordValue
         return r
     }
 
@@ -544,6 +557,8 @@ final class HouseholdCloudKit {
         item.expirationDate = r[HouseholdSchema.Inv.expiration] as? Date
         item.brand = r[HouseholdSchema.Inv.brand] as? String
         if let lvl = r[HouseholdSchema.Inv.level] as? Double { item.level = lvl }
+        item.updatedAt = (r[HouseholdSchema.Sync.updatedAt] as? Double) ?? 0
+        item.lastWriterID = (r[HouseholdSchema.Sync.lastWriterID] as? String) ?? ""
         return item
     }
 
@@ -555,6 +570,12 @@ final class HouseholdCloudKit {
         r[HouseholdSchema.Gro.isChecked] = (item.isChecked ? 1 : 0) as CKRecordValue
         r[HouseholdSchema.Gro.recipeSource] = item.recipeSource as CKRecordValue
         r[HouseholdSchema.Gro.addedByName] = item.addedByName as CKRecordValue
+        r[HouseholdSchema.Sync.updatedAt] = item.updatedAt as CKRecordValue
+        r[HouseholdSchema.Sync.lastWriterID] = item.lastWriterID as CKRecordValue
+        r[HouseholdSchema.Sync.recordRevision] = Int64(max(0, item.updatedAt)) as CKRecordValue
+        r[HouseholdSchema.Sync.fieldRevisions] = revisionData(
+            fields: ["name": item.updatedAt, "quantity": item.updatedAt,
+                     "isChecked": item.updatedAt]) as CKRecordValue
         return r
     }
 
@@ -569,7 +590,13 @@ final class HouseholdCloudKit {
         item.quantity = (r[HouseholdSchema.Gro.quantity] as? Int) ?? 1
         item.recipeSource = (r[HouseholdSchema.Gro.recipeSource] as? String) ?? ""
         item.addedByName = (r[HouseholdSchema.Gro.addedByName] as? String) ?? ""
+        item.updatedAt = (r[HouseholdSchema.Sync.updatedAt] as? Double) ?? 0
+        item.lastWriterID = (r[HouseholdSchema.Sync.lastWriterID] as? String) ?? ""
         return item
+    }
+
+    private func revisionData(fields: [String: Double]) -> Data {
+        (try? JSONEncoder().encode(fields)) ?? Data()
     }
 
     // MARK: - Push / pull (Session 1: manual; later: CKSyncEngine + subscriptions)
@@ -622,8 +649,17 @@ final class HouseholdCloudKit {
         state = .syncing
         let records = store.inventoryItems.map { record(from: $0, zoneID: zoneID) }
                     + store.groceryItems.map { record(from: $0, zoneID: zoneID) }
+        let capturedTombstones = store.householdTombstoneSnapshot()
+        let inventoryDeletes = capturedTombstones.inventory.compactMap(UUID.init(uuidString:)).map {
+            CKRecord.ID(recordName: $0.uuidString, zoneID: zoneID)
+        }
+        let groceryDeletes = capturedTombstones.grocery.compactMap(UUID.init(uuidString:)).map {
+            CKRecord.ID(recordName: $0.uuidString, zoneID: zoneID)
+        }
+        let deleteIDs = inventoryDeletes + groceryDeletes
         do {
-            let result = try await db.modifyRecords(saving: records, deleting: [], savePolicy: .changedKeys)
+            let result = try await db.modifyRecords(saving: records, deleting: deleteIDs,
+                                                    savePolicy: .changedKeys)
             // Inspect for per-record conflicts (someone else changed the same record).
             var conflicts: [CKRecord] = []
             for (_, saveResult) in result.saveResults {
@@ -643,6 +679,19 @@ final class HouseholdCloudKit {
                 _ = try? await db.modifyRecords(saving: conflicts, deleting: [], savePolicy: .changedKeys)
                 Log.transfer.notice("Resolved \(conflicts.count, privacy: .public) household conflicts")
             }
+            let acknowledgedDeletes = Set(result.deleteResults.compactMap { id, outcome in
+                if case .success = outcome { return id.recordName }
+                return nil
+            })
+            if !acknowledgedDeletes.isEmpty {
+                store.acknowledgeHouseholdTombstones(HouseholdTombstoneState(
+                    inventory: capturedTombstones.inventory.intersection(acknowledgedDeletes),
+                    grocery: capturedTombstones.grocery.intersection(acknowledgedDeletes),
+                    revision: capturedTombstones.revision,
+                    deletedAt: capturedTombstones.deletedAt.filter {
+                        acknowledgedDeletes.contains($0.key)
+                    }))
+            }
             Log.transfer.notice("Pushed \(records.count, privacy: .public) household records")
         } catch {
             lastError = "Sync push failed: \(error.localizedDescription)"
@@ -658,6 +707,8 @@ final class HouseholdCloudKit {
         guard let (zoneID, db) = await activeZoneAndDB() else { return }
         var inv: [LocalInventoryItem] = []
         var gro: [LocalGroceryItem] = []
+        var deletedInventory = Set<UUID>()
+        var deletedGrocery = Set<UUID>()
 
         // Resume from a saved change token if we have one (delta sync; nil = full fetch).
         let tokenKey = "householdZoneToken_\(zoneID.zoneName)"
@@ -683,6 +734,11 @@ final class HouseholdCloudKit {
                         if case .downloading = self.syncStage { self.syncStage = .downloading(total) }
                     }
                 }
+                op.recordWithIDWasDeletedBlock = { recordID, recordType in
+                    guard let id = UUID(uuidString: recordID.recordName) else { return }
+                    if recordType == HouseholdSchema.inventoryType { deletedInventory.insert(id) }
+                    if recordType == HouseholdSchema.groceryType { deletedGrocery.insert(id) }
+                }
                 op.recordZoneChangeTokensUpdatedBlock = { _, token, _ in
                     if let token, let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
                         UserDefaults.standard.set(data, forKey: tokenKey)
@@ -703,8 +759,8 @@ final class HouseholdCloudKit {
                 }
                 db.add(op)
             }
-            mergeInventory(remote: inv, into: store)
-            mergeGrocery(remote: gro, into: store)
+            mergeInventory(remote: inv, deleted: deletedInventory, into: store)
+            mergeGrocery(remote: gro, deleted: deletedGrocery, into: store)
             Log.transfer.notice("Pulled household: \(inv.count, privacy: .public) inv, \(gro.count, privacy: .public) gro")
         } catch {
             // If our saved change token went stale, clear it and do a full re-fetch once.
@@ -723,19 +779,41 @@ final class HouseholdCloudKit {
     // it has to be made in both: this path runs for CloudKit households, that one
     // for the key-value store, and a delete that survives one merge only to be
     // undone by the other is still a delete that does not stick.
-    private func mergeInventory(remote: [LocalInventoryItem], into store: GuestDataStore) {
+    private func mergeInventory(remote: [LocalInventoryItem], deleted: Set<UUID> = [],
+                                into store: GuestDataStore) {
         let tombstones = store.pendingInvTombstones
         var byID = Dictionary(keepingLastValues: store.inventoryItems.map { ($0.id, $0) })
-        for item in remote where !tombstones.contains(item.id.uuidString) { byID[item.id] = item }
+        for id in deleted where !tombstones.contains(id.uuidString) { byID[id] = nil }
+        for item in remote where !tombstones.contains(item.id.uuidString) {
+            if let local = byID[item.id] {
+                if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: item.updatedAt,
+                                                    remoteWriterID: item.lastWriterID,
+                                                    localUpdatedAt: local.updatedAt,
+                                                    localWriterID: local.lastWriterID) {
+                    byID[item.id] = item
+                }
+            } else { byID[item.id] = item }
+        }
         let merged = Array(byID.values)
             .filter { !tombstones.contains($0.id.uuidString) }
             .sorted { $0.name < $1.name }
         if merged != store.inventoryItems { store.inventoryItems = merged }
     }
-    private func mergeGrocery(remote: [LocalGroceryItem], into store: GuestDataStore) {
+    private func mergeGrocery(remote: [LocalGroceryItem], deleted: Set<UUID> = [],
+                              into store: GuestDataStore) {
         let tombstones = store.pendingGroTombstones
         var byID = Dictionary(keepingLastValues: store.groceryItems.map { ($0.id, $0) })
-        for item in remote where !tombstones.contains(item.id.uuidString) { byID[item.id] = item }
+        for id in deleted where !tombstones.contains(id.uuidString) { byID[id] = nil }
+        for item in remote where !tombstones.contains(item.id.uuidString) {
+            if let local = byID[item.id] {
+                if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: item.updatedAt,
+                                                    remoteWriterID: item.lastWriterID,
+                                                    localUpdatedAt: local.updatedAt,
+                                                    localWriterID: local.lastWriterID) {
+                    byID[item.id] = item
+                }
+            } else { byID[item.id] = item }
+        }
         let merged = Array(byID.values).filter { !tombstones.contains($0.id.uuidString) }
         if merged != store.groceryItems { store.groceryItems = merged }
     }

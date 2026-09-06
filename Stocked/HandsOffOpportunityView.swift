@@ -47,18 +47,18 @@ struct HandsOffOpportunityView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Image(systemName: "timer").font(.system(size: 22, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                Image(systemName: "timer").scaledFont(22, weight: .semibold).foregroundStyle(Color.stockedGold)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(anchor.displayNormalized) is cooking")
-                        .font(.system(size: 19, weight: .bold, design: .serif))
+                        .scaledFont(19, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("About \(remainingMinutes) minutes hands-off remaining.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
             }
             Text("What would you like to do?")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .padding(.top, 2)
         }
@@ -113,20 +113,20 @@ struct HandsOffOpportunityView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.14)).frame(width: 40, height: 40)
-                    Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(tint)
+                    Image(systemName: icon).scaledFont(16, weight: .semibold).foregroundStyle(tint)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 14.5, weight: .semibold, design: .serif))
+                        .scaledFont(14.5, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -164,10 +164,10 @@ struct HandsOffOpportunityView: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 14) {
                     Text(title)
-                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .scaledFont(18, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Fits your remaining window and uses what you have.")
-                        .font(.system(size: 12.5))
+                        .scaledFont(12.5)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 8) {
@@ -179,9 +179,9 @@ struct HandsOffOpportunityView: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(systemName: picked ? "checkmark.circle.fill" : "plus.circle")
-                                            .font(.system(size: 17))
+                                            .scaledFont(17)
                                             .foregroundStyle(picked ? Color.stockedGreen : Color.stockedGold)
-                                        Text(side).font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                                        Text(side).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                                         Spacer()
                                     }
                                     .padding(13)
@@ -194,7 +194,7 @@ struct HandsOffOpportunityView: View {
                     }
                     Button { showQuickSides = false; showLongerSides = false } label: {
                         Text("Done")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 13)
                             .background(dark ? Color.darkSurface : Color.stockedCharcoal)

@@ -1,3 +1,49 @@
+09:05:26 — Reference action artwork, 40-point polish, and sync reliability
+Restored the calendar/tomato jar, wire milk basket and wooden grocery crate from the visual direction;
+corresponding Home widgets share the same images. Added matching protein/leftover illustrations,
+unified decorative Cook/Recipes artwork, and removed random Grocery planning artwork selection.
+Inventory pages/sheets gain ten UI and ten interaction improvements, including draft protection,
+atomic permission-aware editing, exact undo, clear search recovery and truthful grocery handoff.
+Ten client/Worker fixes harden bounded input, retries, context paging and persistence-before-acknowledgement.
+See STOCKED_POLISH_40_2026_09_05.md. Production rollout and physical-device visual QA are separate.
+
+09:05:26 — Consistent kitchen artwork and QA blocking-path repairs
+Home and Inventory now share watercolor cutouts and a bounded asynchronous artwork renderer.
+The fridge is centered and larger, without distorted atlas scaling. Inventory reservation matching
+no longer blocks navigation; QA capture avoids synchronous hierarchy/GPU snapshots. Four current
+tickets have scoped code resolutions; runtime/device verification remains pending.
+
+09:04:26 — Inventory destination design follow-through
+Extended the reference's editorial style to full inventory, shared item/search rows, Expiring Soon,
+Running Low, Leftovers, and add/edit/browse presentations. Storage filters now expose All explicitly;
+adding from All defaults to Fridge. Low-stock reports react to inventory changes. Existing scanners,
+quantity edits, planning actions and grocery transfers remain on their established paths.
+
+09:04:26 — Reference-driven Inventory landing
+Rebuilt the Inventory landing around the supplied visual reference with kitchen still-life artwork,
+an illustrated appliance/category panel, live counts, three working quick actions and a Coming Soon
+AI banner. View All now opens all storage zones; category buttons open their explicit destinations.
+Shared app chrome and adaptive dark-mode text remain in place.
+
+09:04:26 — Adaptive app theme and QA performance repair
+Recipe cards, older secondary-screen cards and form fields, loading placeholders, and functional
+accents now use the shared semantic surface/selection palette in both light and dark mode.
+Recipes now uses the same semantic card surface as every Stocked area,
+and its three destination cards share one standard height while remaining content-driven at
+accessibility sizes. Recipe Results becomes usable after its first real matches instead of appearing
+to refresh throughout optional source enrichment, with paced preview publication to avoid repeated
+image-grid layout. The Recipes root no longer performs hidden retired-Discover work, and Home reuses
+one off-main ready-to-cook snapshot rather than rescanning recipes during SwiftUI layout. Seven current
+QA tickets receive shipped resolutions; physical-device verification remains tester-controlled.
+
+09:04:26 — Inventory hero spacing and accessibility QA precision
+The Inventory refrigerator now fills the right side of its phone hero instead of leaving an empty
+fixed-height gap, with a vertical accessibility-text fallback. Fridge, Pantry, Freezer and Produce
+now use matching transparent watercolor category illustrations instead of generic symbols. The automated accessibility sweep now
+audits only exposed VoiceOver elements, eliminating repeat reports for window, scroll-host,
+passthrough and floating-bar implementation containers. STK-128-0170 receives the shipped fix while
+physical-device verification remains tester-controlled.
+
 08:16:26 — v4.13 — Adaptive themed presentation surfaces
 Centralized sheets now fill their complete host with the active Stocked theme instead of revealing system white. Sheet content responds to live window width, iPad multitasking, safe areas, and the full accessibility text range without a fixed phone-sized layout or unnecessary forced scrolling. STK-110-0014 receives the precise shipped resolution while verification remains tester-controlled.
 

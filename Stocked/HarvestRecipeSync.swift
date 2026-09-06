@@ -17,18 +17,19 @@
 // tighter cadence would just re-read the same cache), then folds each recipe into the on-device
 // `RecipeDatabase` — the single pool that powers Discover's offline seed, recipe search, the
 // mood finder and cook ranking. Same `X-Stocked-Key` header as every other Worker call, so no
-// new credential. ETag-revalidated: an unchanged cache returns 304 and costs nothing to ingest.
+// new credential. The paginated route walks actual records, independently of the flat index.
 //
 // Everything here degrades silently. A harvest recipe that never arrives is a recipe the user
 // simply doesn't see yet — never an error surfaced in the kitchen.
 
 import Foundation
 import os
+import Observation
 
+@Observable
 @MainActor
 final class HarvestRecipeSync {
     static let shared = HarvestRecipeSync()
-    private init() {}
 
     // MARK: Cadence
 
@@ -39,11 +40,36 @@ final class HarvestRecipeSync {
     /// hammer the route. A launch/foreground within this window of the last sync is skipped.
     private let minForegroundGap: TimeInterval = 5 * 60
 
-    private let etagKey = "harvestRecipeSyncETag_v1"
     private let lastSyncKey = "harvestRecipeSyncLastAt_v1"
+    private let cursorKey = "harvestRecipeSyncCursor_v2"
+    private let completedKey = "harvestRecipeCatalogueCompleted_v2"
+    private let cachedCountKey = "harvestRecipeCatalogueCachedCount_v1"
+    var catalogueCount: Int
+    var refreshingCatalogue = false
+    var catalogueError = false
+    private var cataloguePaused = false
+    var catalogueComplete: Bool
+    private var fullCatalogueTask: Task<Void, Never>?
+    private var lastPageSucceeded = false
 
     private var loopTask: Task<Void, Never>?
     private var inFlight: Task<Int, Never>?
+    private var pendingPublications: [UUID: UserRecipe] = [:]
+    private var publicationTask: Task<Void, Never>?
+
+    private init() {
+        let defaults = UserDefaults.standard
+        catalogueCount = defaults.integer(forKey: cachedCountKey)
+        catalogueComplete = defaults.double(forKey: completedKey) > 0
+        // Show the persisted count on the first frame, then cheaply reconcile it with the
+        // disk-backed catalogue without loading recipe payloads into memory.
+        Task { [weak self] in
+            guard let self else { return }
+            let diskCount = await GrowthDatabase.shared.recipePageCount()
+            self.catalogueCount = diskCount
+            defaults.set(diskCount, forKey: self.cachedCountKey)
+        }
+    }
 
     private var lastSyncAt: Date? {
         get {
@@ -81,6 +107,129 @@ final class HarvestRecipeSync {
     @discardableResult
     func syncNow() async -> Int { await sync() }
 
+    /// Completes the entire server walk without an index/page-count cap. Work and
+    /// disk writes are still page bounded; a retry/relaunch resumes the last committed
+    /// cursor. UI never waits for this to start showing already-cached matches.
+    func refreshFullCatalogue(force: Bool = false) {
+        guard fullCatalogueTask == nil, ConnectivityMonitor.isOnlineFlag else { return }
+        guard force || (!cataloguePaused && !catalogueError) else { return }
+        let completed = UserDefaults.standard.double(forKey: completedKey)
+        guard force || completed == 0 || Date().timeIntervalSince1970 - completed > 3600 else { return }
+        refreshingCatalogue = true; catalogueError = false; cataloguePaused = false
+        fullCatalogueTask = Task { [weak self] in
+            guard let self else { return }
+            defer { refreshingCatalogue = false; fullCatalogueTask = nil }
+            repeat {
+                guard !Task.isCancelled, ConnectivityMonitor.isOnlineFlag else { return }
+                _ = await sync()
+                guard lastPageSucceeded else { catalogueError = true; return }
+                if UserDefaults.standard.string(forKey: cursorKey) == nil { return }
+                do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            } while !Task.isCancelled
+        }
+    }
+
+    func stopCatalogueRefresh() { cataloguePaused = true; fullCatalogueTask?.cancel() }
+
+    /// Source-attributed imports belong to the shared recipe database, independent of
+    /// household membership. Personal/source-less recipes remain local/household data.
+    func publishImported(_ recipe: UserRecipe) {
+        guard isPublishable(recipe) else { return }
+        pendingPublications[recipe.id] = recipe
+        guard publicationTask == nil else { return }
+        publicationTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self else { return }
+            defer { self.publicationTask = nil }
+            // One worker, not one task/request per recipe during a bulk import.
+            while !Task.isCancelled, !self.pendingPublications.isEmpty {
+                let batch = Array(self.pendingPublications.values.prefix(20))
+                for recipe in batch { self.pendingPublications[recipe.id] = nil }
+                guard await self.performPublish(batch) else {
+                    for recipe in batch where self.pendingPublications[recipe.id] == nil {
+                        self.pendingPublications[recipe.id] = recipe
+                    }
+                    // Do not spin while offline; a later change retries this queue and
+                    // the persisted local recipes remain the relaunch backfill source.
+                    return
+                }
+                await Task.yield()
+            }
+        }
+    }
+
+    /// Idempotently repairs older installations. Batches keep hundreds of historical
+    /// imports from becoming hundreds of requests or one oversized allocation.
+    func backfillImported(_ recipes: [UserRecipe]) async {
+        let imported = recipes.filter(isPublishable)
+        var offset = 0
+        while offset < imported.count {
+            guard !Task.isCancelled else { return }
+            guard await performPublish(Array(imported[offset..<min(offset + 20, imported.count)])) else { return }
+            offset += 20
+        }
+    }
+
+    private func performPublish(_ recipes: [UserRecipe]) async -> Bool {
+        guard StockedUnifiedWorker.isConfigured,
+              let url = StockedUnifiedWorker.url("harvest/cache") else { return false }
+        let rows = recipes.compactMap(wireRecipe)
+        guard !rows.isEmpty,
+              let body = try? JSONSerialization.data(withJSONObject: ["schemaVersion": 2, "recipes": rows])
+        else { return false }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        BuildConfig.authorizeWorkerRequest(&request)
+        request.httpBody = body
+        request.timeoutInterval = 20
+        do {
+            let (_, response) = try await URLSession.stocked.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200..<300).contains(http.statusCode) else { return false }
+            lastSyncAt = nil
+            return true
+        } catch { return false }
+    }
+
+    private func isPublishable(_ recipe: UserRecipe) -> Bool {
+        func isHTTPS(_ value: String?) -> Bool {
+            guard let value, let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+            return url.scheme?.lowercased() == "https" && url.host?.isEmpty == false
+        }
+        // Source-attributed imports from Stocked Mac/server/import caches contribute
+        // automatically. Source-less personal recipes remain private because they fail
+        // the provenance checks below and stay in My Collection only.
+        return isHTTPS(recipe.sourceURL) && isHTTPS(recipe.imageURL)
+            && recipe.ingredients.count >= 3 && !recipe.instructions.isEmpty
+    }
+
+    private func wireRecipe(_ recipe: UserRecipe) -> [String: Any]? {
+        guard isPublishable(recipe) else { return nil }
+        guard let sourceURL = recipe.sourceURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+              sourceURL.lowercased().hasPrefix("https://"),
+              let imageURL = recipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+              imageURL.lowercased().hasPrefix("https://"),
+              !recipe.instructions.isEmpty else { return nil }
+        let cleanSource = recipe.sourceName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = cleanSource?.isEmpty == false
+            ? cleanSource!
+            : (URL(string: sourceURL)?.host ?? "Original publisher")
+        return [
+            "id": recipe.id.uuidString, "title": recipe.title,
+            "description": recipe.description, "cuisine": recipe.cuisine,
+            "tags": recipe.tags, "categories": recipe.categories ?? recipe.tags,
+            "ingredients": recipe.ingredients.map { ["name": $0.name, "amount": $0.amount] },
+            "instructions": recipe.instructions, "sourceURL": sourceURL,
+            "attribution": source, "imageURL": imageURL,
+            "author": recipe.author ?? "", "license": recipe.license ?? "",
+            "imageAttribution": recipe.imageAttribution ?? "",
+            "servings": max(1, recipe.servings), "prepTime": recipe.prepTime,
+            "cookTime": recipe.cookTime, "importedBy": "stocked-ios",
+            "importedAt": StockedFormatters.iso8601.string(from: recipe.dateCreated),
+        ]
+    }
+
     // MARK: Sync
 
     private func syncIfStale(minGap: TimeInterval) async {
@@ -107,45 +256,46 @@ final class HarvestRecipeSync {
     }
 
     private func performFetch() async -> Int {
+        lastPageSucceeded = false
         guard StockedUnifiedWorker.isConfigured,
               !BuildConfig.stockedWorkerKey.isEmpty,
               ConnectivityMonitor.isOnlineFlag,
               let url = StockedUnifiedWorker.url("harvest/recipes") else { return 0 }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        BuildConfig.authorizeWorkerRequest(&request)
-        if let etag = UserDefaults.standard.string(forKey: etagKey), !etag.isEmpty {
-            request.setValue(etag, forHTTPHeaderField: "If-None-Match")
-        }
-        request.timeoutInterval = 20
-
+        var ingested = 0
         do {
+          for _ in 0..<4 {
+            try Task.checkCancellation()
+            let cursor = UserDefaults.standard.string(forKey: cursorKey)
+            var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+            parts.queryItems = [URLQueryItem(name: "pageSize", value: "100")]
+            if let cursor { parts.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+            var request = URLRequest(url: parts.url!)
+            BuildConfig.authorizeWorkerRequest(&request)
+            request.timeoutInterval = 20
             let (data, response) = try await URLSession.stocked.data(for: request)
-            guard let http = response as? HTTPURLResponse else { return 0 }
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
 
-            if http.statusCode == 304 {
-                lastSyncAt = Date()          // cache still current — nothing to ingest
-                return 0
-            }
-            guard (200..<300).contains(http.statusCode) else {
-                Log.data.error("Harvest sync HTTP \(http.statusCode, privacy: .public)")
-                return 0
-            }
-
-            let decoded = try JSONDecoder().decode(HarvestWireResponse.self, from: data)
             let base = StockedUnifiedWorker.baseURLString
-            let imports = decoded.recipes.compactMap { recipe -> HarvestImport? in
-                guard let entry = recipe.toDatabaseEntry(workerBase: base) else { return nil }
-                return HarvestImport(entry: entry, importedAt: recipe.importDate)
-            }
+            let (imports, next) = try await Task.detached(priority: .utility) {
+                let decoded = try JSONDecoder().decode(HarvestWireResponse.self, from: data)
+                let next = try RecipeCataloguePaging.next(current: cursor, complete: decoded.complete, next: decoded.nextCursor)
+                let imports = decoded.recipes.compactMap { recipe -> HarvestImport? in
+                    guard let entry = recipe.toDatabaseEntry(workerBase: base) else { return nil }
+                    return HarvestImport(entry: entry, importedAt: recipe.importDate)
+                }
+                return (imports, next)
+            }.value
             let entries = imports.map(\.entry)
+            try Task.checkCancellation()
+            // Commit EVERY public row to the durable catalogue before the small
+            // in-memory discovery snapshot can evict it, and before checkpointing.
+            try await RecipeDatabaseManager.shared.ingestCataloguePage(entries)
 
-            if !entries.isEmpty {
-                // Route through the manager (not the actor directly) so the count refreshes,
-                // the version token bumps, and a bus event tells every open surface the pool
-                // grew — otherwise harvested recipes land silently and only appear the next
-                // time a view is reopened.
+            if !entries.isEmpty, cursor == nil {
+                // Keep a small warm first page for existing rails. Do not cycle the
+                // complete corpus through the bounded snapshot, evict useful rows, or
+                // repeatedly announce historical catalogue pages as household imports.
                 let inserted = await RecipeDatabaseManager.shared.ingestHarvested(entries)
                 let insertedIDs = Set(inserted.map(\.id))
                 let activity = imports
@@ -153,12 +303,20 @@ final class HarvestRecipeSync {
                     .map { (id: $0.entry.id, title: $0.entry.title, importedAt: $0.importedAt) }
                 await HouseholdSync.shared.logStockedMacImports(activity)
             }
-            if let etag = http.value(forHTTPHeaderField: "ETag"), !etag.isEmpty {
-                UserDefaults.standard.set(etag, forKey: etagKey)
+            if let next { UserDefaults.standard.set(next, forKey: cursorKey) }
+            else {
+                UserDefaults.standard.removeObject(forKey: cursorKey)
+                UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: completedKey)
+                catalogueComplete = true
             }
+            ingested += entries.count
+            catalogueCount = await GrowthDatabase.shared.recipePageCount()
+            UserDefaults.standard.set(catalogueCount, forKey: cachedCountKey)
             lastSyncAt = Date()
-            Log.data.notice("Harvest sync: ingested \(entries.count, privacy: .public) of \(decoded.count, privacy: .public) cached recipe(s)")
-            return entries.count
+            if next == nil { break }
+          }
+            lastPageSucceeded = true; catalogueError = false
+            return ingested
         } catch is CancellationError {
             return 0
         } catch {
@@ -170,24 +328,26 @@ final class HarvestRecipeSync {
 
 // MARK: - Wire format (matches Stocked Mac's HarvestCloudSync payload)
 
-private struct HarvestWireResponse: Decodable {
+nonisolated private struct HarvestWireResponse: Decodable, Sendable {
     var version: Int?
     var updatedAt: String?
     var count: Int = 0
     var recipes: [HarvestWireRecipe] = []
+    var complete: Bool?
+    var nextCursor: String?
 }
 
-private struct HarvestWireIngredient: Decodable {
+nonisolated private struct HarvestWireIngredient: Decodable, Sendable {
     var name: String = ""
     var amount: String = ""
 }
 
-private struct HarvestImport {
+nonisolated private struct HarvestImport: Sendable {
     var entry: RecipeDatabaseEntry
     var importedAt: Date
 }
 
-private struct HarvestWireRecipe: Decodable {
+nonisolated private struct HarvestWireRecipe: Decodable, Sendable {
     var id: String = ""
     var title: String = ""
     var description: String?
@@ -201,6 +361,9 @@ private struct HarvestWireRecipe: Decodable {
     var importedAt: String?
     var storedAt: String?
     var attribution: String?
+    var author: String?
+    var license: String?
+    var imageAttribution: String?
     var confidence: Double?
     var image: String?        // relative Worker path, e.g. "/harvest/img/<id>.jpg"
     var imageURL: String?     // absolute original image URL, when the Mac had one
@@ -222,7 +385,7 @@ private struct HarvestWireRecipe: Decodable {
     /// Returns nil for a recipe with no title or no usable instructions — the same bar
     /// RecipeSourceHub.isFullRecipe holds other feeds to.
     func toDatabaseEntry(workerBase: String) -> RecipeDatabaseEntry? {
-        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanTitle = RecipeDisplayPolicy.cleanedTitle(title)
         guard !cleanTitle.isEmpty else { return nil }
 
         let steps = (instructions ?? [])
@@ -240,15 +403,19 @@ private struct HarvestWireRecipe: Decodable {
         // Prefer the absolute original image; otherwise resolve the Worker's cached-image path
         // against the Worker base so <id>.jpg becomes a full https URL the resolver can load.
         let resolvedImage: String = {
-            if let abs = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines), abs.hasPrefix("http") {
+            if let abs = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+               RecipeDisplayPolicy.isLikelyRecipeImageURL(abs, sourceURL: sourceURL) {
                 return abs
             }
             guard let rel = image?.trimmingCharacters(in: .whitespacesAndNewlines), !rel.isEmpty else { return "" }
-            if rel.hasPrefix("http") { return rel }
+            if rel.hasPrefix("http") {
+                return RecipeDisplayPolicy.isLikelyRecipeImageURL(rel, sourceURL: sourceURL) ? rel : ""
+            }
             let base = workerBase.hasSuffix("/") ? String(workerBase.dropLast()) : workerBase
             return rel.hasPrefix("/") ? base + rel : base + "/" + rel
         }()
-        guard !resolvedImage.isEmpty else { return nil }
+        guard !resolvedImage.isEmpty,
+              RecipeDisplayPolicy.isLikelyRecipeImageURL(resolvedImage, sourceURL: sourceURL) else { return nil }
 
         // Attribution is the Mac's display source (host/author). Fall back to a neutral,
         // non-blocklisted label so the recipe still counts under a source in the browser.
@@ -282,7 +449,8 @@ private struct HarvestWireRecipe: Decodable {
             tags:        tagList,
             ingredients: ingredientLines,
             steps:       steps,
-            imageURL:    resolvedImage
+            imageURL:    resolvedImage,
+            author: author, license: license, imageAttribution: imageAttribution
         )
     }
 

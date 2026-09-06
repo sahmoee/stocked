@@ -22,17 +22,17 @@ struct KitchenActivityView: View {
                 syncCard
                 if !events.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Recent activity").font(.system(size: 12, weight: .bold))
+                        Text("Recent activity").scaledFont(12, weight: .bold)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                             .padding(.bottom, 8)
                         ForEach(events) { e in
                             HStack(spacing: 12) {
-                                Image(systemName: e.icon).font(.system(size: 13))
+                                Image(systemName: e.icon).scaledFont(13)
                                     .foregroundStyle(e.tint).frame(width: 22)
-                                Text(e.text).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                                Text(e.text).scaledFont(14).foregroundStyle(session.themeTextColor)
                                 Spacer(minLength: 8)
                                 Text(e.date, format: .relative(presentation: .named))
-                                    .font(.system(size: 11)).foregroundStyle(session.themeSecondaryText)
+                                    .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                             }
                             .padding(.vertical, 7)
                             Divider().opacity(0.25)
@@ -43,7 +43,7 @@ struct KitchenActivityView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                 } else {
                     Text("No recent activity yet. As you and your household use things up, shop, and sync, it'll show here.")
-                        .font(.system(size: 13)).foregroundStyle(session.themeSecondaryText)
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center).padding(.horizontal, 20).padding(.top, 30)
                 }
             }
@@ -58,13 +58,13 @@ struct KitchenActivityView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: inHousehold ? "person.2.circle.fill" : "person.circle")
-                    .font(.system(size: 22)).foregroundStyle(session.accentColor)
+                    .scaledFont(22).foregroundStyle(session.accentColor)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(inHousehold ? "Connected household" : "Just this device")
-                        .font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
                     Text(inHousehold ? "Code \(session.householdCode) · you're \(session.householdMemberName)"
                                      : "Not sharing with anyone yet")
-                        .font(.system(size: 12)).foregroundStyle(session.themeSecondaryText)
+                        .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
             }
@@ -82,7 +82,7 @@ struct KitchenActivityView: View {
                     HStack(spacing: 8) {
                         if syncing { ProgressView().controlSize(.small) }
                         Text(syncing ? "Syncing…" : (syncedJustNow ? "Synced" : "Sync now"))
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 11)
                     .background(session.accentColor.opacity(0.14))
@@ -93,7 +93,7 @@ struct KitchenActivityView: View {
 
                 if conflicts.hasRecentUnreviewed {
                     Text("\(conflicts.unreviewed.count) of your edits were replaced by another device — see the banner on Home to review.")
-                        .font(.system(size: 12)).foregroundStyle(.orange)
+                        .scaledFont(12).foregroundStyle(.orange)
                 }
             }
         }

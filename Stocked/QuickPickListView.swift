@@ -54,10 +54,10 @@ struct QuickPickListView: View {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(pick)
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 .padding(.horizontal, 22).padding(.top, 4)
@@ -80,16 +80,16 @@ struct QuickPickListView: View {
                                         .clipped()
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(recipe.title)
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .scaledFont(13, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
-                                            .lineLimit(2)
+                                            .fixedSize(horizontal: false, vertical: true)
                                             .multilineTextAlignment(.leading)
                                             .frame(height: 32, alignment: .top)
                                         Text([recipe.area.isEmpty ? recipe.category : recipe.area, recipe.source]
                                                 .filter { !$0.isEmpty }.joined(separator: " · "))
-                                            .font(.system(size: 10.5))
+                                            .scaledFont(10.5)
                                             .foregroundStyle(session.themeTextColor.opacity(0.5))
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .padding(9)
                                     .frame(maxWidth: .infinity, alignment: .leading)

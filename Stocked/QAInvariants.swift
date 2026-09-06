@@ -65,7 +65,9 @@ enum QAInvariants {
         // apart with an inventory edit in between, a real divergence and a
         // perfectly ordinary edit look exactly the same. Every probe now judges
         // the same snapshot, taken once, before the first yield.
-        let snapshot = CookNowCompute.run(store: store, session: session)
+        guard let snapshot = await CookNowCompute.runYielding(store: store, session: session) else {
+            return [] // Interrupted snapshots are not evidence of failed invariants.
+        }
         await Task.yield()
 
         var out: [QAInvariantResult] = []
@@ -86,8 +88,13 @@ enum QAInvariants {
             { workerConfigured() },
         ]
         for probe in probes {
+            guard !Task.isCancelled else { return [] }
             out.append(probe())
             await Task.yield()   // let UI/timer work interleave between probes
+        }
+        out += QAFeatureContracts.run().map {
+            QAInvariantResult(name: $0.name, status: $0.passed ? .ok : .violation,
+                detail: $0.detail, critical: !$0.passed)
         }
         return out
     }
@@ -110,6 +117,10 @@ enum QAInvariants {
         out.append(optionalIngredientsExcluded(store: store))
         out.append(classificationNotRepeating())
         out.append(workerConfigured())
+        out += QAFeatureContracts.run().map {
+            QAInvariantResult(name: $0.name, status: $0.passed ? .ok : .violation,
+                detail: $0.detail, critical: !$0.passed)
+        }
         return out
     }
 
@@ -248,8 +259,10 @@ enum QAInvariants {
             guard let reserved = ledger.reserved(for: item), reserved > 0,
                   let available = ledger.available(for: item) else { continue }
             checked += 1
-            // item.quantity is Int (container count); the ledger deals in Double amounts.
-            let expected = max(0, Double(item.quantity) - reserved)
+            // The engine may convert a container count into ounces/grams before reserving.
+            // Compare like-for-like against the ledger's canonical display-unit total rather
+            // than subtracting a converted reservation from the raw container count.
+            let expected = max(0, (ledger.breakdown(for: item)?.totalOwned ?? 0) - reserved)
             if abs(available - expected) > 0.001 {
                 bad.append("\(item.name): available \(available), expected \(expected)")
             }
@@ -332,13 +345,12 @@ enum QAInvariants {
         if Set(recipeIDs).count != recipeIDs.count {
             problems.append("recipes have \(recipeIDs.count - Set(recipeIDs).count) duplicate id(s)")
         }
-        let titles = store.userRecipes.map { OnlineRecipeFacts.normalizedTitle($0.title) }
-        let dupTitles = titles.count - Set(titles).count
-        if dupTitles > 0 { problems.append("\(dupTitles) duplicate recipe title(s)") }
+        // Recipe identity is its stable ID, not its title. Publishers, personal
+        // variants and explicitly reviewed copies can legitimately share a title.
 
         return problems.isEmpty
             ? QAInvariantResult(name: "No duplicate identities", status: .ok,
-                                detail: "\(invIDs.count) items and \(recipeIDs.count) recipes, all unique",
+                                detail: "\(invIDs.count) items and \(recipeIDs.count) recipes have unique IDs; equal titles are allowed",
                                 critical: false)
             : QAInvariantResult(name: "No duplicate identities", status: .violation,
                                 detail: problems.joined(separator: "; "), critical: true)
@@ -368,7 +380,6 @@ enum QAInvariants {
     static func optionalIngredientsExcluded(store: GuestDataStore) -> QAInvariantResult {
         let withOptional = store.cookCatalog.first { r in
             r.ingredients.contains(where: \.isOptional)
-                || r.ingredients.contains { KitchenAvailability.isOptionalLine($0.name) }
         }
         guard let recipe = withOptional else {
             return QAInvariantResult(name: "Optional ingredients excluded", status: .blocked,
@@ -378,8 +389,10 @@ enum QAInvariants {
         let cov = KitchenAvailability.coverage(lines: recipe.ingredients.map(\.name),
                                                optionalFlags: recipe.ingredients.map(\.isOptional),
                                                availableNames: store.inStockNameSet)
+        // Explicit flags override text inference, including explicit false. Raw
+        // imports without flags are tested separately by the coverage unit suite.
         let required = recipe.ingredients.filter {
-            !$0.isOptional && !KitchenAvailability.isOptionalLine($0.name)
+            !$0.isOptional && !KitchenAvailability.parsedName($0.name).isEmpty
         }.count
         return cov.total == required
             ? QAInvariantResult(name: "Optional ingredients excluded", status: .ok,

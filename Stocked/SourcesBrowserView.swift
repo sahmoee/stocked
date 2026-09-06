@@ -34,7 +34,7 @@ struct SourcesBrowserView: View {
                 let sites = listings.filter { !$0.isLiveFeed }
 
                 Text("Sources appear after at least 6 unique, complete recipes are available. Counts are live.")
-                    .font(.system(size: 11.5))
+                    .scaledFont(11.5)
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -49,13 +49,13 @@ struct SourcesBrowserView: View {
                 if feeds.isEmpty && sites.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "books.vertical")
-                            .font(.system(size: 28))
+                            .scaledFont(28)
                             .foregroundStyle(session.themeSecondaryText.opacity(0.5))
                         Text(query.isEmpty ? "No qualified sources yet" : "No matching qualified sources")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                         Text("A source is shown after Stocked has cached 6 complete recipes from it.")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeSecondaryText)
                             .multilineTextAlignment(.center)
                     }
@@ -65,7 +65,7 @@ struct SourcesBrowserView: View {
 
                 Button { showManage = true } label: {
                     Label("Add or Manage Sources", systemImage: "plus.circle")
-                        .font(.system(size: 13.5, weight: .semibold))
+                        .scaledFont(13.5, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -96,7 +96,7 @@ struct SourcesBrowserView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .bold))
+            .scaledFont(12, weight: .bold)
             .foregroundStyle(session.themeSecondaryText)
             .textCase(.uppercase)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,35 +111,35 @@ struct SourcesBrowserView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Color.stockedGold.opacity(0.14)).frame(width: 38, height: 38)
-                    Text(src.emoji).font(.system(size: 17))
+                    Text(src.emoji).scaledFont(17)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(src.name)
-                            .font(.system(size: 14.5, weight: .semibold))
+                            .scaledFont(14.5, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                         if src.isCustom {
                             Text("Yours")
-                                .font(.system(size: 9, weight: .bold))
+                                .scaledFont(9, weight: .bold)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
                                 .background(Capsule().fill(Color.stockedGold.opacity(0.2)))
                                 .foregroundStyle(Color.stockedGold)
                         }
                     }
                     Text(src.specialty)
-                        .font(.system(size: 11.5))
+                        .scaledFont(11.5)
                         .foregroundStyle(session.themeSecondaryText)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 if src.recipeCount > 0 {
                     Text("\(src.recipeCount)")
-                        .font(.system(size: 12, weight: .bold))
+                        .scaledFont(12, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(12, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
@@ -180,13 +180,13 @@ struct SourceRecipesView: View {
             if recipes.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "tray")
-                        .font(.system(size: 34))
+                        .scaledFont(34)
                         .foregroundStyle(session.themeSecondaryText.opacity(0.5))
                     Text("Nothing from \(sourceName) yet")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Recipes from this source appear here as they're pulled into Discover or imported. Pull down on the Recipes tab to refresh, or import any recipe by URL.")
-                        .font(.system(size: 12.5))
+                        .scaledFont(12.5)
                         .foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 30)
@@ -207,15 +207,15 @@ struct SourceRecipesView: View {
                                     .frame(maxWidth: .infinity)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                                 Text(r.title)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(13, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
-                                    .lineLimit(2, reservesSpace: true)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.leading)
                                 if !r.category.isEmpty {
                                     Text(r.category)
-                                        .font(.system(size: 10.5))
+                                        .scaledFont(10.5)
                                         .foregroundStyle(session.themeSecondaryText)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                         }
@@ -225,6 +225,7 @@ struct SourceRecipesView: View {
                 .padding(.horizontal, 20).padding(.vertical, 8)
             }
         }
+        .stockedTrackedScrollScope()
         .background(session.themeBgColor.ignoresSafeArea())
         .navigationTitle(sourceName)
         .navigationBarTitleDisplayMode(.inline)
@@ -237,11 +238,7 @@ struct SourceRecipesView: View {
         }
         .sheet(isPresented: $showWebsite) {
             if let sourceWebsite {
-                NavigationStack {
-                    RecipeSourceWebView(url: sourceWebsite)
-                        .navigationTitle(sourceName)
-                        .navigationBarTitleDisplayMode(.inline)
-                }
+                RecipeBrowserView(initialURL: sourceWebsite)
             }
         }
         .task {
@@ -267,32 +264,24 @@ struct SourceRecipesView: View {
     }
 }
 
-private struct RecipeSourceWebView: UIViewRepresentable {
-    let url: URL
-
-    func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
-        let view = WKWebView(frame: .zero, configuration: configuration)
-        view.allowsBackForwardNavigationGestures = true
-        return view
-    }
-
-    func updateUIView(_ view: WKWebView, context: Context) {
-        guard view.url != url else { return }
-        view.load(URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 20))
-    }
-}
-
 // MARK: - Drinks section
 
 struct DrinksBrowseView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     let pool: [OnlineRecipe]
     let onOpenRecipe: (OnlineRecipe) -> Void
 
     @State private var loaded: [OnlineRecipe] = []
     @State private var isLoading = false
+    @State private var cardRailViewportWidth: CGFloat = 0
+
+    private var cardRailContentMargin: CGFloat {
+        let viewportWidth = cardRailViewportWidth > 0
+            ? cardRailViewportWidth
+            : layoutMetrics.contentWidth
+        return max(24, (viewportWidth - 132) / 2)
+    }
 
     private var drinks: [OnlineRecipe] {
         // Pool drinks + any freshly fetched batch, deduplicated by id.
@@ -321,18 +310,18 @@ struct DrinksBrowseView: View {
                     HStack {
                         Spacer()
                         ProgressView("Pouring the drinks list…")
-                            .font(.system(size: 12.5))
+                            .scaledFont(12.5)
                             .padding(.top, 60)
                         Spacer()
                     }
                 } else if drinks.isEmpty {
                     VStack(spacing: 10) {
-                        Text("🍹").font(.system(size: 40))
+                        Text("🍹").scaledFont(40)
                         Text("No drinks yet")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Pull down to fetch cocktails, mocktails, shots, and more from TheCocktailDB, the IBA official list, Open Drinks, and API Ninjas.")
-                            .font(.system(size: 12.5))
+                            .scaledFont(12.5)
                             .foregroundStyle(session.themeSecondaryText)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -342,7 +331,7 @@ struct DrinksBrowseView: View {
                 } else {
                     ForEach(groups, id: \.0) { name, items in
                         Text(name)
-                            .font(.system(size: 15, weight: .bold, design: .serif))
+                            .scaledFont(15, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                             .padding(.horizontal, 24)
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -356,9 +345,9 @@ struct DrinksBrowseView: View {
                                             UniformRecipeIcon(size: 72)
                                                 .frame(width: 132, height: 96)
                                             Text(d.title)
-                                                .font(.system(size: 12.5, weight: .semibold))
+                                                .scaledFont(12.5, weight: .semibold)
                                                 .foregroundStyle(session.themeTextColor)
-                                                .lineLimit(2, reservesSpace: true)
+                                                .fixedSize(horizontal: false, vertical: true)
                                                 .multilineTextAlignment(.leading)
                                         }
                                         .frame(width: 132, alignment: .leading)
@@ -367,13 +356,22 @@ struct DrinksBrowseView: View {
                                 }
                             }
                             .stockedScrollTargetLayout()
-                            .padding(.horizontal, 24)
                         }
-                        .stockedHorizontalSnap()
+                        .stockedCardRailSnap()
+                        .contentMargins(
+                            .horizontal,
+                            cardRailContentMargin,
+                            for: .scrollContent
+                        )
                     }
                 }
             }
             .padding(.vertical, 8)
+        }
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { width in
+            cardRailViewportWidth = width
         }
         .background(session.themeBgColor.ignoresSafeArea())
         .navigationTitle("Drinks")

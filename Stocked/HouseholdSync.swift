@@ -15,10 +15,17 @@ import Observation
 import os
 import UIKit
 
+/// The JSON graph is immutable while boxed. Foundation's `[String: Any]` cannot express
+/// Sendable, so this narrowly-scoped wrapper lets expensive serialization run off MainActor.
+nonisolated private struct HouseholdJSONBox: @unchecked Sendable {
+    let value: [String: Any]
+}
+
 @MainActor
 @Observable
 final class HouseholdSync {
     static let shared = HouseholdSync()
+    private static let accessSnapshotKey = "hh_member_access_v1"
     private init() {
         switch UserDefaults.standard.string(forKey: "hh_role") {
         case "owner":  state = .owner
@@ -26,6 +33,7 @@ final class HouseholdSync {
         default:       state = .idle
         }
         joinCode = UserDefaults.standard.string(forKey: "hh_code")
+        restorePersistedAccess()
         loadQueue()
     }
 
@@ -44,8 +52,48 @@ final class HouseholdSync {
     var myCanAdd: Bool = true
     var myCanEdit: Bool = true
     var myCanRemove: Bool = true
+    private(set) var myPermissions: Set<HouseholdPermission> = Set(HouseholdPermission.allCases)
     private(set) var lastError: String?
     private(set) var joinCode: String?
+
+    private func applyAccessSnapshot(_ snapshot: HouseholdMemberAccessSnapshot) {
+        myAccessRole = snapshot.role
+        myPermissions = snapshot.permissions
+        myCanAdd = snapshot.canAdd
+        myCanEdit = snapshot.canEdit
+        myCanRemove = snapshot.canRemove
+    }
+
+    private func persistCurrentAccess() {
+        guard state == .owner || state == .member else { return }
+        let snapshot = HouseholdMemberAccessSnapshot(
+            role: myAccessRole, permissions: myPermissions,
+            canAdd: myCanAdd, canEdit: myCanEdit, canRemove: myCanRemove)
+        if let data = try? JSONEncoder().encode(snapshot) {
+            UserDefaults.standard.set(data, forKey: Self.accessSnapshotKey)
+        }
+    }
+
+    /// Restore capabilities before GuestDataStore can accept a local mutation. A legacy member
+    /// without a snapshot is view-only until a verified member list arrives; owners/solo users
+    /// retain full access.
+    private func restorePersistedAccess() {
+        switch state {
+        case .owner:
+            applyAccessSnapshot(.owner)
+        case .member:
+            let decoded = UserDefaults.standard.data(forKey: Self.accessSnapshotKey)
+                .flatMap { try? JSONDecoder().decode(HouseholdMemberAccessSnapshot.self, from: $0) }
+            if let decoded, decoded.role != .owner {
+                applyAccessSnapshot(decoded)
+            } else {
+                applyAccessSnapshot(.restrictedMember)
+            }
+        default:
+            applyAccessSnapshot(.owner)
+            UserDefaults.standard.removeObject(forKey: Self.accessSnapshotKey)
+        }
+    }
 
     // MARK: - Durable operation queue (sync plan Drop 1)
     // Every household-bound local mutation enqueues an operation, persisted through
@@ -72,8 +120,22 @@ final class HouseholdSync {
                                                     key: DBKey.householdOpQueue.rawValue) ?? []
         syncStatus = LocalDatabase.shared.load(HouseholdSyncStatus.self,
                                                key: DBKey.householdSyncStatus.rawValue) ?? HouseholdSyncStatus()
+        // v1 queue entries decode with sequence zero. Repair them once in stable creation order
+        // without changing their ids/idempotency keys, so a request replay remains the same op.
+        var nextSequence = max(syncStatus.nextClientSequence, 1)
+        for index in pendingOps.indices.sorted(by: { pendingOps[$0].createdAt < pendingOps[$1].createdAt }) {
+            if pendingOps[index].clientSequence == 0 {
+                pendingOps[index].clientSequence = nextSequence
+                nextSequence &+= 1
+            } else {
+                nextSequence = max(nextSequence, pendingOps[index].clientSequence &+ 1)
+            }
+        }
+        syncStatus.nextClientSequence = nextSequence
         syncStatus.pendingOperationCount = pendingOps.count
         nextRetryAllowedAt = syncStatus.nextRetryAllowedAt ?? .distantPast
+        backoffIsServerImposed = syncStatus.backoffIsServerImposed
+        persistQueue()
     }
     private func persistQueue() {
         LocalDatabase.shared.save(pendingOps, key: DBKey.householdOpQueue.rawValue)
@@ -84,42 +146,145 @@ final class HouseholdSync {
     /// Record a household-bound mutation. Dedupes per entity: a newer operation on the same
     /// entity replaces the older one (an update superseded by a delete keeps the delete; a
     /// re-create after delete keeps the create). No-op when not in a household.
-    func enqueue(entityID: UUID, entityType: HouseholdEntityType, operation: HouseholdOperationType) {
+    func enqueue(entityID: UUID, entityType: HouseholdEntityType,
+                 operation: HouseholdOperationType,
+                 changedFields: Set<String> = ["*"]) {
         guard state == .owner || state == .member else { return }
-        pendingOps.removeAll { $0.entityID == entityID && $0.entityType == entityType }
-        pendingOps.append(PendingHouseholdOperation(entityID: entityID,
-                                                    entityType: entityType,
-                                                    operationType: operation))
+        pendingOps = HouseholdOperationJournal.retaining(pendingOps, replacingWith: [
+            .init(entityID: entityID, entityType: entityType, operationType: operation)
+        ])
+        let revision = advanceRecordRevision(entityID: entityID, entityType: entityType,
+                                             changedFields: changedFields)
+        pendingOps.append(makePendingOperation(entityID: entityID, entityType: entityType,
+                                               operation: operation, revision: revision))
+        persistQueue()
+    }
+
+    /// Record an additive quantity intent alongside the absolute snapshot operation. A Worker
+    /// that understands protocol v2 applies unique deltas against the common base; a v1 Worker
+    /// safely ignores this additive field and continues using the absolute quantity.
+    func enqueueQuantityDelta(entityID: UUID, entityType: HouseholdEntityType,
+                              delta: Int, baseValue: Int? = nil) {
+        guard state == .owner || state == .member, delta != 0,
+              entityType == .inventoryItem || entityType == .groceryItem else { return }
+        let revision = advanceRecordRevision(entityID: entityID, entityType: entityType,
+                                             changedFields: ["quantity"])
+        let quantity = HouseholdQuantityOperation(
+            entityID: entityID, entityType: entityType, delta: delta, baseValue: baseValue,
+            baseRecordRevision: revision.record > 0 ? revision.record - 1 : 0,
+            actorID: memberId)
+        pendingOps.append(makePendingOperation(
+            id: quantity.id, entityID: entityID, entityType: entityType, operation: .update,
+            revision: revision, idempotencyKey: quantity.idempotencyKey,
+            quantityOperation: quantity))
         persistQueue()
     }
 
     /// Batch variant: one persist for a bulk mutation (receipt import, AI assistant apply).
     func enqueueBatch(_ ops: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)]) {
         guard state == .owner || state == .member, !ops.isEmpty else { return }
-        for o in ops {
-            pendingOps.removeAll { $0.entityID == o.id && $0.entityType == o.type }
-            pendingOps.append(PendingHouseholdOperation(entityID: o.id, entityType: o.type,
-                                                        operationType: o.op))
+        struct EntityKey: Hashable { let id: UUID; let type: HouseholdEntityType }
+        // Last mutation wins for each entity in this batch. Filtering the durable queue once
+        // avoids O(existing × batch) `removeAll` work during large receipt/recipe imports.
+        var replacements: [EntityKey: HouseholdOperationType] = [:]
+        replacements.reserveCapacity(ops.count)
+        for operation in ops {
+            replacements[EntityKey(id: operation.id, type: operation.type)] = operation.op
+        }
+        pendingOps = HouseholdOperationJournal.retaining(
+            pendingOps,
+            replacingWith: replacements.map {
+                .init(entityID: $0.key.id, entityType: $0.key.type, operationType: $0.value)
+            })
+        pendingOps.reserveCapacity(pendingOps.count + replacements.count)
+        for (key, operation) in replacements {
+            let revision = advanceRecordRevision(entityID: key.id, entityType: key.type,
+                                                 changedFields: ["*"])
+            pendingOps.append(makePendingOperation(entityID: key.id, entityType: key.type,
+                                                   operation: operation, revision: revision))
         }
         persistQueue()
     }
 
+    private func revisionKey(entityID: UUID, entityType: HouseholdEntityType) -> String {
+        "\(entityType.rawValue):\(entityID.uuidString.lowercased())"
+    }
+
+    @discardableResult
+    private func advanceRecordRevision(entityID: UUID, entityType: HouseholdEntityType,
+                                       changedFields: Set<String>) -> HouseholdRecordRevision {
+        let key = revisionKey(entityID: entityID, entityType: entityType)
+        var revision = syncStatus.recordRevisions[key] ?? HouseholdRecordRevision()
+        revision.advance(changedFields: changedFields, writerID: memberId)
+        syncStatus.recordRevisions[key] = revision
+        return revision
+    }
+
+    private func makePendingOperation(id: UUID = UUID(), entityID: UUID,
+                                      entityType: HouseholdEntityType,
+                                      operation: HouseholdOperationType,
+                                      revision: HouseholdRecordRevision,
+                                      idempotencyKey: String? = nil,
+                                      quantityOperation: HouseholdQuantityOperation? = nil)
+        -> PendingHouseholdOperation {
+        let sequence = syncStatus.nextClientSequence
+        syncStatus.nextClientSequence &+= 1
+        return PendingHouseholdOperation(
+            id: id, entityID: entityID, entityType: entityType, operationType: operation,
+            idempotencyKey: idempotencyKey, clientSequence: sequence,
+            baseServerRevision: syncStatus.checkpoint.serverRevision,
+            recordRevision: revision.record, fieldRevisions: revision.fields,
+            quantityOperation: quantityOperation)
+    }
+
     /// A push only acknowledges operations captured in that request. Mutations created while the
     /// request was in flight stay queued for the next pass instead of being silently discarded.
-    private func markQueueCompleted(operationIDs: Set<UUID>, route: HouseholdSyncRoute) {
+    private func markQueueCompleted(operationIDs: Set<UUID>, route: HouseholdSyncRoute,
+                                    receipt: HouseholdSyncReceipt) {
+        let completedSequence = pendingOps
+            .filter { operationIDs.contains($0.id) }
+            .map(\.clientSequence)
+            .max() ?? 0
         pendingOps.removeAll { operationIDs.contains($0.id) }
         syncStatus.lastSuccessfulPush = Date()
         syncStatus.lastError = nil
-        syncStatus.activeRoute = route
-        nextRetryAllowedAt = .distantPast
-        backoffIsServerImposed = false
-        syncStatus.nextRetryAllowedAt = nil
+        syncStatus.lastCompletedRoute = route
+        syncStatus.activeRoute = nil
+        syncStatus.consecutiveFailureCount = 0
+        syncStatus.lastRoundTripMilliseconds = receipt.roundTripMilliseconds
+        syncStatus.receipts.append(receipt)
+        if syncStatus.receipts.count > 50 { syncStatus.receipts.removeFirst(syncStatus.receipts.count - 50) }
+        syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, receipt.serverRevision)
+        syncStatus.checkpoint.serverRevision = max(syncStatus.checkpoint.serverRevision,
+                                                   receipt.serverRevision)
+        syncStatus.checkpoint.lastClientSequence = max(
+            syncStatus.checkpoint.lastClientSequence, completedSequence)
+        syncStatus.checkpoint.recordedAt = receipt.receivedAt
+        if receipt.outcome == .partial && !pendingOps.isEmpty {
+            // A partial response is progress, not transport failure, but immediately replaying
+            // the remainder can spin if the server repeatedly accepts no additional keys.
+            nextRetryAllowedAt = Date().addingTimeInterval(1)
+            syncStatus.nextRetryAllowedAt = nextRetryAllowedAt
+            backoffIsServerImposed = false
+            syncStatus.backoffIsServerImposed = false
+        } else {
+            nextRetryAllowedAt = .distantPast
+            backoffIsServerImposed = false
+            syncStatus.nextRetryAllowedAt = nil
+            syncStatus.backoffIsServerImposed = false
+        }
         syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
     }
-    private func markQueueFailed(_ message: String, failure: StockedServiceError?) {
-        for i in pendingOps.indices { pendingOps[i].retryCount += 1; pendingOps[i].lastError = message }
+    private func markQueueFailed(_ message: String, failure: StockedServiceError?,
+                                 operationIDs: Set<UUID>) {
+        // Only work serialized into this request failed. Mutations enqueued while it was in
+        // flight were never sent and must not inherit retry count, error, or stuck status.
+        pendingOps = HouseholdOperationJournal.markingFailure(
+            pendingOps, operationIDs: operationIDs, message: message)
         syncStatus.lastError = message
+        syncStatus.consecutiveFailureCount += 1
+        syncStatus.activeRoute = nil
         // Persisted exponential backoff with jitter. Honor server Retry-After, and pause longer
         // after a KV quota response so a client loop cannot keep spending the remaining quota.
         let maxRetry = pendingOps.map(\.retryCount).max() ?? 0
@@ -137,7 +302,10 @@ final class HouseholdSync {
         case .rateLimited, .quotaExhausted: backoffIsServerImposed = true
         default: backoffIsServerImposed = false
         }
-        nextRetryAllowedAt = Date().addingTimeInterval(max(exponential, serverDelay) * jitter)
+        syncStatus.backoffIsServerImposed = backoffIsServerImposed
+        nextRetryAllowedAt = Date().addingTimeInterval(NetworkRetryPolicy.queueDelay(
+            exponential: exponential, serverMinimum: serverDelay,
+            serverImposed: backoffIsServerImposed, jitter: jitter))
         syncStatus.nextRetryAllowedAt = nextRetryAllowedAt
         syncStatus.hasStuckOperations = pendingOps.contains { $0.retryCount >= 8 }
         persistQueue()
@@ -158,6 +326,7 @@ final class HouseholdSync {
         guard !backoffIsServerImposed else { return }
         nextRetryAllowedAt = .distantPast
         syncStatus.nextRetryAllowedAt = nil
+        syncStatus.backoffIsServerImposed = false
         LocalDatabase.shared.save(syncStatus, key: DBKey.householdSyncStatus.rawValue)
     }
 
@@ -180,7 +349,10 @@ final class HouseholdSync {
     }
     private func markPullSucceeded(route: HouseholdSyncRoute) {
         syncStatus.lastSuccessfulPull = Date()
-        syncStatus.activeRoute = route
+        syncStatus.lastCompletedRoute = route
+        syncStatus.activeRoute = nil
+        syncStatus.lastError = nil
+        syncStatus.consecutiveFailureCount = 0
         LocalDatabase.shared.save(syncStatus, key: DBKey.householdSyncStatus.rawValue)
     }
 
@@ -196,6 +368,7 @@ final class HouseholdSync {
         }
     }
     private(set) var syncStage: SyncStage? = nil
+    private(set) var isRepairingHouseholdStorage = false
     func clearStage() { syncStage = nil }
 
     /// Display name used for attribution and the member list. Set from the app.
@@ -259,10 +432,17 @@ final class HouseholdSync {
     /// Save + sync the household name. Marks it custom so it rides on the next push and sticks.
     func setHouseholdName(_ name: String, store: GuestDataStore? = nil) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, authorize(.manageHousehold) else { return }
         householdName = trimmed
         householdNameIsCustom = true
-        if let store, state == .owner || state == .member { Task { await syncNow(store: store) } }
+        if state == .owner || state == .member {
+            // One stable synthetic entity makes the shared name part of the same relaunch-safe
+            // journal as the snapshot it rides in, without creating a second control queue.
+            enqueue(entityID: UUID(uuidString: "4D3A7047-A782-4D91-8EE2-9B7621783F15")!,
+                    entityType: .featureData, operation: .update,
+                    changedFields: ["householdName"])
+            if let store { Task { await syncNow(store: store) } }
+        }
     }
 
     /// Called by the app (from AppSession) whenever the user's profile name is known or changes.
@@ -322,7 +502,12 @@ final class HouseholdSync {
         // real name with a placeholder.
         let current = myDisplayName.trimmingCharacters(in: .whitespaces)
         if current.isEmpty || current == "You" { myDisplayName = resolvedName() }
-        let body: [String: Any] = ["ownerName": myDisplayName, "memberId": memberId]
+        let body: [String: Any] = [
+            "ownerName": myDisplayName, "memberId": memberId,
+            "deliveryOwner": true,
+            "syncProtocolVersion": 2,
+            "capabilities": HouseholdPermission.allCases.map(\.rawValue),
+        ]
         guard let resp = await post("/household/create", body) else {
             fail("Couldn't create a household. Check your connection and try again.")
             return false
@@ -333,6 +518,11 @@ final class HouseholdSync {
         }
         joinCode = code
         state = .owner
+        if let capability = resp["ownerCapability"] as? String {
+            HouseholdDeliveryService.shared.rememberOwnerCapability(capability, code: code)
+        }
+        applyAccessSnapshot(.owner)
+        persistCurrentAccess()
         persist()
         if let hh = resp["household"] as? [String: Any] { await applyHousehold(hh, into: nil) }
         syncStage = .done(invAdded: 0, groAdded: 0)
@@ -352,7 +542,10 @@ final class HouseholdSync {
             fail("Only the household owner can regenerate the code.")
             return false
         }
-        guard let resp = await post("/household/regenerate", ["code": code]),
+        guard let resp = await post("/household/regenerate", [
+            "code": code, "actorId": memberId, "syncProtocolVersion": 2,
+            "requestId": UUID().uuidString.lowercased(),
+        ]),
               let newCode = resp["code"] as? String else {
             fail("Couldn't regenerate the code. Check your connection and try again.")
             return false
@@ -373,7 +566,11 @@ final class HouseholdSync {
         }
         syncStage = .joining
         myDisplayName = resolvedName()   // never join as "You"
-        let body: [String: Any] = ["code": code, "memberName": myDisplayName, "memberId": memberId]
+        let body: [String: Any] = [
+            "code": code, "memberName": myDisplayName, "memberId": memberId,
+            "syncProtocolVersion": 2,
+            "capabilities": HouseholdPermission.allCases.map(\.rawValue),
+        ]
         guard let resp = await post("/household/join", body) else {
             fail("Couldn't find a household with that code.")
             return false
@@ -384,6 +581,10 @@ final class HouseholdSync {
         }
         joinCode = code
         state = .member
+        // Never carry solo/full permissions across the transition into a household. The member
+        // response refresh replaces this fail-closed snapshot once the server identifies us.
+        applyAccessSnapshot(.restrictedMember)
+        persistCurrentAccess()
         persist()
         let counts = await applyHousehold(hh, into: store)
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
@@ -395,6 +596,7 @@ final class HouseholdSync {
     // MARK: - Automatic incoming sync (polling)
 
     @ObservationIgnored private var pollTask: Task<Void, Never>? = nil
+    @ObservationIgnored private var deferredSyncTask: Task<Void, Never>? = nil
     @ObservationIgnored private weak var pollStore: GuestDataStore? = nil
 
     /// Pull the latest household snapshot and merge it in, without pushing. Cheap; used by the
@@ -403,23 +605,38 @@ final class HouseholdSync {
         guard let code = joinCode, state == .owner || state == .member else { return }
         // #1 changed-since: send the last updatedAt we applied; the server returns a tiny
         // "unchanged" reply when nothing is new, so frequent polling stays cheap.
-        guard let resp = await post("/household/pull", ["code": code, "since": lastAppliedUpdatedAt,
-                                                        "sinceRevision": syncStatus.lastServerRevision,
-                                                        "memberId": memberId, "memberName": myDisplayName]) else { return }
+        syncStatus.activeRoute = .workerPull
+        persistQueue()
+        let pullBody: [String: Any] = [
+            "code": code, "since": lastAppliedUpdatedAt,
+            "sinceRevision": syncStatus.checkpoint.serverRevision,
+            "memberId": memberId, "memberName": myDisplayName,
+            "syncProtocolVersion": 2,
+            "checkpoint": checkpointDict(syncStatus.checkpoint),
+        ]
+        guard let resp = await post("/household/pull", pullBody) else {
+            syncStatus.lastError = lastPostFailure?.localizedDescription ?? "Household pull failed."
+            syncStatus.consecutiveFailureCount += 1
+            syncStatus.activeRoute = nil
+            persistQueue()
+            return
+        }
         if (resp["unchanged"] as? Bool) == true {
-            if let revision = (resp["revision"] as? NSNumber)?.intValue {
-                syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
-            }
+            advanceCheckpoint(response: resp, household: nil)
             markPullSucceeded(route: .workerPull); return
         }
-        guard let hh = resp["household"] as? [String: Any] else { return }
+        guard let hh = resp["household"] as? [String: Any] else {
+            syncStatus.lastError = "The household server returned an incomplete pull response."
+            syncStatus.consecutiveFailureCount += 1
+            syncStatus.activeRoute = nil
+            persistQueue()
+            return
+        }
         detectConflictsOnApply = true          // pull path: guard local unsynced edits
         _ = await applyHousehold(hh, into: store)
         detectConflictsOnApply = false
         if let u = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = u }
-        if let revision = (hh["revision"] as? NSNumber)?.intValue {
-            syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
-        }
+        advanceCheckpoint(response: resp, household: hh)
         markPullSucceeded(route: .workerPull)
     }
 
@@ -433,10 +650,23 @@ final class HouseholdSync {
         // reconnect recovery works even for devices not in a household.
         OfflineQueueCenter.shared.activate()
         pollTask?.cancel()
+        deferredSyncTask?.cancel()
+        deferredSyncTask = nil
         guard state == .owner || state == .member else { return }
-        // Anything queued before the last quit (offline edits) gets pushed right away.
-        if !pendingOps.isEmpty {
-            Task { await syncNow(store: store) }
+        HouseholdDeliveryService.shared.start(store: store)
+        // Relaunch-surviving work is pushed immediately only when its persisted retry gate allows
+        // it. Keep the kick task retained so background/leave can cancel it.
+        if HouseholdAutomaticSyncPolicy.decision(
+            hasPendingOperations: !pendingOps.isEmpty,
+            retryIsAllowed: retryIsAllowed,
+            serverImposedPause: backoffIsServerImposed) == .push {
+            deferredSyncTask = Task { @MainActor [weak self, weak store] in
+                await Task.yield()
+                guard !Task.isCancelled, let self, let store else { return }
+                self.deferredSyncTask = nil
+                guard self.retryIsAllowed else { return }
+                await self.syncNow(store: store)
+            }
         }
         pollTask = Task { @MainActor [weak self, weak store] in
             while !Task.isCancelled {
@@ -445,17 +675,26 @@ final class HouseholdSync {
                 guard self.state == .owner || self.state == .member else { continue }
                 // Pending local ops → push (which also pulls the merged state back).
                 // Clean queue → lightweight pull only.
-                if self.pendingOps.isEmpty {
+                switch HouseholdAutomaticSyncPolicy.decision(
+                    hasPendingOperations: self.pendingOps.contains { self.shares($0.entityType) },
+                    retryIsAllowed: self.retryIsAllowed,
+                    serverImposedPause: self.backoffIsServerImposed) {
+                case .pull:
                     await self.pullNow(into: store)
-                } else if self.retryIsAllowed {
+                case .push:
                     await self.syncNow(store: store)
-                } else {
-                    await self.pullNow(into: store)   // still receive others' changes while backing off
+                case .wait:
+                    continue
                 }
             }
         }
     }
-    func stopAutoSync() { pollTask?.cancel(); pollTask = nil; fgTask?.cancel(); fgTask = nil }
+    func stopAutoSync() {
+        HouseholdDeliveryService.shared.stop()
+        pollTask?.cancel(); pollTask = nil
+        deferredSyncTask?.cancel(); deferredSyncTask = nil
+        fgTask?.cancel(); fgTask = nil
+    }
     @ObservationIgnored private var fgTask: Task<Void, Never>? = nil
     /// Pull immediately (e.g. on foreground), then let the poller continue.
     func syncOnForeground() {
@@ -467,7 +706,12 @@ final class HouseholdSync {
         }
     }
     /// #18 Pause polling when the app backgrounds (no orphaned network loop); resume on foreground.
-    func pauseAutoSync() { pollTask?.cancel(); pollTask = nil }
+    func pauseAutoSync() {
+        HouseholdDeliveryService.shared.stop()
+        pollTask?.cancel(); pollTask = nil
+        deferredSyncTask?.cancel(); deferredSyncTask = nil
+        fgTask?.cancel(); fgTask = nil
+    }
     func resumeAutoSync() {
         guard let store = pollStore, pollTask == nil, state == .owner || state == .member else { return }
         startAutoSync(store: store)
@@ -475,6 +719,11 @@ final class HouseholdSync {
 
     @ObservationIgnored private var syncInFlight = false
     @ObservationIgnored private var syncRequestedWhileInFlight = false
+
+    private func shares(_ type: HouseholdEntityType) -> Bool {
+        HouseholdSharingScope.includes(type, inventory: syncInventory, grocery: syncGrocery,
+            recipes: syncRecipes, mealPlans: syncMealPlans)
+    }
 
     /// Manual two-way sync for an existing owner/member: push local collaborative data, pull merged.
     /// Single-flight prevents overlapping poll/foreground/manual pushes from acknowledging edits
@@ -485,25 +734,65 @@ final class HouseholdSync {
             syncRequestedWhileInFlight = true
             return
         }
+        deferredSyncTask?.cancel()
+        deferredSyncTask = nil
         syncInFlight = true
         defer {
             syncInFlight = false
-            if syncRequestedWhileInFlight || !pendingOps.isEmpty {
-                syncRequestedWhileInFlight = false
-                Task { @MainActor [weak self, weak store] in
+            // Remaining journal work is owned by the normal poll/reconnect loop. Only a sync
+            // explicitly requested while this call was in flight gets a deferred continuation.
+            // This prevents failure/partial receipts from self-spawning an unbounded retry loop.
+            let shouldContinue = syncRequestedWhileInFlight
+            syncRequestedWhileInFlight = false
+            if shouldContinue && !Task.isCancelled {
+                let remainingDelay = max(0, nextRetryAllowedAt.timeIntervalSinceNow)
+                deferredSyncTask?.cancel()
+                deferredSyncTask = Task { @MainActor [weak self, weak store] in
+                    if remainingDelay > 0 {
+                        let nanoseconds = UInt64(min(remainingDelay, 60 * 60) * 1_000_000_000)
+                        try? await Task.sleep(nanoseconds: nanoseconds)
+                        guard !Task.isCancelled else { return }
+                    }
                     guard let self, let store else { return }
+                    self.deferredSyncTask = nil
+                    guard self.retryIsAllowed else { return }
                     await self.syncNow(store: store)
                 }
             }
         }
 
-        let capturedOps = pendingOps
+        // The provider accepts 200 journal entries at a time. Remaining work stays durable;
+        // the normal polling loop drains later batches without an unbounded retry loop.
+        let capturedOps = Array(pendingOps.filter { shares($0.entityType) }.prefix(200))
         let capturedOperationIDs = Set(capturedOps.map(\.id))
-        let capturedTombstones = store.householdTombstoneSnapshot()
+        var capturedTombstones = store.householdTombstoneSnapshot()
+        if !syncInventory { capturedTombstones.inventory = [] }
+        if !syncGrocery { capturedTombstones.grocery = [] }
+        if !syncRecipes { capturedTombstones.userRecipes = []; capturedTombstones.generatedRecipes = [] }
+        if !syncMealPlans { capturedTombstones.plannedMeals = [] }
+        let sentCoreIDs = capturedTombstones.inventory.union(capturedTombstones.grocery)
+            .union(capturedTombstones.userRecipes).union(capturedTombstones.generatedRecipes)
+            .union(capturedTombstones.plannedMeals)
+        capturedTombstones.deletedAt = capturedTombstones.deletedAt.filter { sentCoreIDs.contains($0.key) }
+        let requestID = UUID()
+        let requestStartedAt = Date()
+        syncStatus.activeRoute = .workerPush
+        persistQueue()
         syncStage = .uploading(store.groceryItems.count)
         // #2 — only include the categories the user chose to share. Omitted categories aren't
         // merged server-side, so this device keeps that data private to itself.
-        var body: [String: Any] = ["code": code, "actorId": memberId]
+        var body: [String: Any] = [
+            "code": code, "actorId": memberId,
+            "requestId": requestID.uuidString.lowercased(),
+            "syncProtocolVersion": 2,
+            "checkpoint": checkpointDict(syncStatus.checkpoint),
+            "operations": capturedOps.map(operationDict),
+            "quantityOperations": capturedOps.compactMap(\.quantityOperation).map(quantityOperationDict),
+            "tombstoneRevision": capturedTombstones.revision,
+            "tombstoneDeletedAt": capturedTombstones.deletedAt.mapValues {
+                $0.timeIntervalSince1970 * 1_000
+            },
+        ]
         if syncGrocery {
             body["grocery"] = store.groceryItems.map { groceryDict($0) }
             body["groDeleted"] = Array(capturedTombstones.grocery)
@@ -513,12 +802,10 @@ final class HouseholdSync {
             body["invDeleted"] = Array(capturedTombstones.inventory)
         }
         if syncRecipes {
-            body["userRecipes"] = store.userRecipes
-                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
-                .map { userRecipeDict($0) }
-            body["genRecipes"] = store.savedGeneratedRecipes
-                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
-                .map { genRecipeDict($0) }
+            // Household-private recipes are user data, not public catalogue candidates. Text-only
+            // recipes are complete collaborative records and must never be filtered by imagery.
+            body["userRecipes"] = store.userRecipes.map { userRecipeDict($0) }
+            body["genRecipes"] = store.savedGeneratedRecipes.map { genRecipeDict($0) }
             body["userRecipeDeleted"] = Array(capturedTombstones.userRecipes)
             body["genRecipeDeleted"] = Array(capturedTombstones.generatedRecipes)
         }
@@ -529,37 +816,71 @@ final class HouseholdSync {
         // #3 — carry the household name so it syncs, but only once this user has set one
         // (avoids a member who never renamed it clobbering the owner's name with the default).
         if householdNameIsCustom { body["householdName"] = householdName }
-        // Launch readiness 1.4 — the feature collections (leftovers, family, events, shared
-        // costs, store layouts, harvests, labels, takeout) ride the same push. Gated on the
-        // inventory toggle: they're all kitchen-contents data, and a user who opted their
-        // inventory out of sharing has clearly opted this out too.
-        let capturedFeatureTombstones = FeatureSync.shared.tombstoneSnapshot()
-        if syncInventory {
-            body.merge(FeatureSync.shared.pushPayload()) { _, new in new }
-        }
+        let sharedFeatures = FeatureSync.collections(inventory: syncInventory,
+            mealPlans: syncMealPlans, recipes: syncRecipes)
+        let capturedFeatureTombstones = FeatureSync.shared.tombstoneSnapshot(included: sharedFeatures)
+        let capturedFeatureDates = FeatureSync.shared.tombstoneDateSnapshot(included: sharedFeatures)
+        body.merge(FeatureSync.shared.pushPayload(included: sharedFeatures)) { _, new in new }
         // Fit the Worker's body limit before sending. Over it the server answers 413 and
         // nothing syncs at all — not the recipe carrying the big photo, the entire kitchen.
         // The Mac shed pictures to stay under; the phone did not, so a phone that had
         // collected a dozen photographed recipes could stop syncing groceries.
-        body = HouseholdSync.trimmedForPush(body)
+        body = await HouseholdSync.trimmedForPush(body)
+
+        guard let encodedBody = try? JSONSerialization.data(withJSONObject: body), encodedBody.count <= 2 * 1024 * 1024 else {
+            let message = "This kitchen is too large to sync in one update. Your changes are still saved on this device; reduce shared content or photos and retry."
+            fail(message)
+            markQueueFailed(message, failure: nil, operationIDs: capturedOperationIDs)
+            return
+        }
 
         guard let resp = await post("/household/push", body),
               let hh = resp["household"] as? [String: Any] else {
             let message = lastPostFailure?.localizedDescription
                 ?? "Sync didn't finish. Check your connection and try again."
             fail(message)
-            markQueueFailed(message, failure: lastPostFailure)
+            markQueueFailed(message, failure: lastPostFailure, operationIDs: capturedOperationIDs)
             return
         }
 
-        store.acknowledgeHouseholdTombstones(capturedTombstones)
-        FeatureSync.shared.acknowledgeTombstones(capturedFeatureTombstones)   // 1.4
-        markQueueCompleted(operationIDs: capturedOperationIDs, route: .workerPush)
+        let receipt = syncReceipt(from: resp, household: hh, requestID: requestID,
+                                  captured: capturedOps, startedAt: requestStartedAt)
+        if receipt.outcome == .rejected {
+            let message = receipt.detail ?? "The household server rejected this sync batch."
+            fail(message)
+            markQueueFailed(message, failure: nil, operationIDs: capturedOperationIDs)
+            return
+        }
+        let acknowledgedIDs = HouseholdAcknowledgement.operationIDs(captured: capturedOps,
+                                                                     receipt: receipt)
+        let fullyAcknowledged = receipt.outcome == .acknowledged
+            && acknowledgedIDs == capturedOperationIDs
+        if fullyAcknowledged {
+            let currentTombstones = store.householdTombstoneSnapshot()
+            let sameDeletion = Set(sentCoreIDs.filter {
+                capturedTombstones.deletedAt[$0] == currentTombstones.deletedAt[$0]
+            })
+            capturedTombstones.inventory.formIntersection(sameDeletion)
+            capturedTombstones.grocery.formIntersection(sameDeletion)
+            capturedTombstones.userRecipes.formIntersection(sameDeletion)
+            capturedTombstones.generatedRecipes.formIntersection(sameDeletion)
+            capturedTombstones.plannedMeals.formIntersection(sameDeletion)
+            // A successful receipt cannot acknowledge a deletion the server did not accept.
+            capturedTombstones.inventory.formIntersection(Set(hh["invDeleted"] as? [String] ?? []))
+            capturedTombstones.grocery.formIntersection(Set(hh["groDeleted"] as? [String] ?? []))
+            capturedTombstones.userRecipes.formIntersection(Set(hh["userRecipeDeleted"] as? [String] ?? []))
+            capturedTombstones.generatedRecipes.formIntersection(Set(hh["genRecipeDeleted"] as? [String] ?? []))
+            capturedTombstones.plannedMeals.formIntersection(Set(hh["mealDeleted"] as? [String] ?? []))
+            store.acknowledgeHouseholdTombstones(capturedTombstones)
+            let acceptedFeatures = capturedFeatureTombstones.reduce(into: [String: Set<String>]()) { result, entry in
+                    result[entry.key] = entry.value.intersection(Set(hh[entry.key + "Deleted"] as? [String] ?? []))
+                }
+            FeatureSync.shared.acknowledgeTombstones(acceptedFeatures, capturedDates: capturedFeatureDates)
+        }
+        markQueueCompleted(operationIDs: acknowledgedIDs, route: .workerPush, receipt: receipt)
         let counts = await applyHousehold(hh, into: store)
         if let updated = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = updated }
-        if let revision = (hh["revision"] as? NSNumber)?.intValue {
-            syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
-        }
+        advanceCheckpoint(response: resp, household: hh)
         markPullSucceeded(route: .workerPush)
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
         lastError = nil
@@ -570,22 +891,62 @@ final class HouseholdSync {
         guard let code = joinCode else { resetLocal(); return }
         let name = myDisplayName
         let mid = memberId
-        Task { _ = await post("/household/leave", ["code": code, "memberName": name, "memberId": mid]) }
+        Task {
+            await HouseholdDeliveryService.shared.leaving(code: code)
+            _ = await post("/household/leave", [
+            "code": code, "memberName": name, "memberId": mid, "actorId": mid,
+            "requestId": UUID().uuidString.lowercased(),
+        ]) }
         resetLocal()
+    }
+
+    /// Remove another member through the same server-enforced leave endpoint. The Worker checks
+    /// `manageMembers`, protects the owner, and treats a repeated request as idempotent.
+    @discardableResult
+    func removeMember(memberId targetId: String) async -> Bool {
+        guard let code = joinCode, targetId != memberId,
+              state == .owner || state == .member, can(.manageMembers) else {
+            fail("You don't have permission to remove that household member.")
+            return false
+        }
+        let body: [String: Any] = [
+            "code": code, "actorId": memberId, "memberId": memberId,
+            "targetMemberId": targetId, "requestId": UUID().uuidString.lowercased(),
+        ]
+        guard let response = await post("/household/leave", body),
+              (response["ok"] as? Bool) == true else {
+            fail("Couldn't remove that member. Check your connection and try again.")
+            return false
+        }
+        lastError = nil
+        return true
     }
 
     private func resetLocal() {
         stopAutoSync()          // #18 cancel the polling task so it can't run after leaving
         state = .idle
         joinCode = nil
+        applyAccessSnapshot(.owner)
         UserDefaults.standard.removeObject(forKey: "hh_role")
         UserDefaults.standard.removeObject(forKey: "hh_code")
+        UserDefaults.standard.removeObject(forKey: Self.accessSnapshotKey)
+    }
+
+    /// Local erase is not a remote leave or webhook disable. Stop transport before cleared
+    /// stores can be repopulated; a later share requires an explicit create/join action.
+    func resetForLocalErase() {
+        resetLocal()
+        pendingOps.removeAll()
+        pendingConflicts.removeAll()
+        syncStatus = HouseholdSyncStatus()
+        lastAppliedUpdatedAt = 0
     }
 
     // MARK: - Activity + members (for the feed and member screens)
 
     func logActivity(_ kind: HouseholdActivity.Kind, itemName: String) async {
-        guard let code = joinCode, state == .owner || state == .member else { return }
+        guard PrivacyControlCenter.shared.allowHouseholdActivity,
+              let code = joinCode, state == .owner || state == .member else { return }
         // RL-008: each event carries a stable eventId + its ORIGINAL timestamp, so a replay
         // of a request whose response was lost merges as the same event, never a duplicate,
         // and an offline edit keeps its true time in the feed after reconnect.
@@ -609,7 +970,8 @@ final class HouseholdSync {
     /// uses a deterministic event id, so multiple household devices ingesting the same
     /// Worker response converge on one feed row instead of producing one row per phone.
     func logStockedMacImports(_ recipes: [(id: UUID, title: String, importedAt: Date)]) async {
-        guard let code = joinCode, state == .owner || state == .member, !recipes.isEmpty else { return }
+        guard PrivacyControlCenter.shared.allowHouseholdActivity,
+              let code = joinCode, state == .owner || state == .member, !recipes.isEmpty else { return }
         let activity: [[String: Any]] = recipes.map { recipe in
             [
                 "eventId": "stocked-mac-recipe-\(recipe.id.uuidString.lowercased())",
@@ -630,7 +992,8 @@ final class HouseholdSync {
     /// #3 Fire-and-forget activity emit for use from store didSets. No-op outside a household.
     /// Coalesced lightly: only emits when in a household and not applying a remote snapshot.
     func emitActivity(_ kind: HouseholdActivity.Kind, itemName: String) {
-        guard state == .owner || state == .member else { return }
+        guard PrivacyControlCenter.shared.allowHouseholdActivity,
+              state == .owner || state == .member else { return }
         Task { await logActivity(kind, itemName: itemName) }
     }
 
@@ -642,49 +1005,64 @@ final class HouseholdSync {
         return raw.compactMap { parseActivity($0) }.prefix(limit).map { $0 }
     }
 
+    private func members(from household: [String: Any]) -> [HouseholdMember]? {
+        guard let raw = household["members"] as? [[String: Any]] else { return nil }
+        let ownerName = household["ownerName"] as? String
+        let ownerId = household["ownerId"] as? String
+        let myId = memberId
+        return raw.map { member in
+            let name = (member["name"] as? String) ?? "Member"
+            let mid = (member["memberId"] as? String) ?? name
+            let joined = (member["joinedAt"] as? Double).map {
+                Date(timeIntervalSince1970: $0 / 1000)
+            }
+            let isOwner = (ownerId != nil) ? (mid == ownerId) : (name == ownerName)
+            let storedRole = (member["role"] as? String).flatMap(HouseholdMember.Role.init(rawValue:))
+            let role: HouseholdMember.Role = isOwner ? .owner : (storedRole ?? .adult)
+            let customLabel = (member["label"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            let permissionGrants = (member["permissions"] as? [String]).map {
+                Set($0.compactMap(HouseholdPermission.init(rawValue:)))
+            }
+            let permissionDenials = Set(
+                ((member["deniedPermissions"] as? [String]) ?? [])
+                    .compactMap(HouseholdPermission.init(rawValue:)))
+            return HouseholdMember(
+                id: mid, name: name, role: role, customLabel: customLabel,
+                overrideCanAdd: member["overrideCanAdd"] as? Bool,
+                overrideCanEdit: member["overrideCanEdit"] as? Bool,
+                overrideCanRemove: member["overrideCanRemove"] as? Bool,
+                permissionGrants: permissionGrants, permissionDenials: permissionDenials,
+                joinedAt: joined, isMe: mid == myId)
+        }
+    }
+
     func fetchMembers() async -> [HouseholdMember] {
         guard let code = joinCode, state == .owner || state == .member else { return [] }
         guard let resp = await post("/household/pull", ["code": code]),
               let hh = resp["household"] as? [String: Any],
-              let raw = hh["members"] as? [[String: Any]] else {
-            let solo = [HouseholdMember(id: "me", name: myDisplayName, role: state == .owner ? .owner : .member, joinedAt: nil, isMe: true)]
-            refreshMyAccessRole(from: solo)
+              let mapped = members(from: hh) else {
+            // An offline/error fallback is display-only. Never replace the last server-verified
+            // member snapshot with permissive role defaults just because the pull failed.
+            let solo = [HouseholdMember(id: "me", name: myDisplayName,
+                                        role: state == .owner ? .owner : myAccessRole,
+                                        joinedAt: nil, isMe: true)]
             return solo
-        }
-        let ownerName = hh["ownerName"] as? String
-        let ownerId = hh["ownerId"] as? String
-        let myId = memberId
-        let mapped: [HouseholdMember] = raw.map { m in
-            let name = (m["name"] as? String) ?? "Member"
-            let mid = (m["memberId"] as? String) ?? name
-            let joined = (m["joinedAt"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
-            let isOwner = (ownerId != nil) ? (mid == ownerId) : (name == ownerName)
-            let storedRole = (m["role"] as? String).flatMap { HouseholdMember.Role(rawValue: $0) }
-            let role: HouseholdMember.Role = isOwner ? .owner : (storedRole ?? .adult)
-            let customLabel = (m["label"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-            return HouseholdMember(
-                id: mid,
-                name: name,
-                role: role,
-                customLabel: customLabel,
-                overrideCanAdd: m["overrideCanAdd"] as? Bool,
-                overrideCanEdit: m["overrideCanEdit"] as? Bool,
-                overrideCanRemove: m["overrideCanRemove"] as? Bool,
-                joinedAt: joined,
-                isMe: mid == myId)
         }
         refreshMyAccessRole(from: mapped)
         return mapped
     }
 
-    /// Owner action: set a member's access level and optional custom label. Persists to the
-    /// household document so every device sees it. No-op if the current device isn't the owner.
+    /// Privileged action: set a member's access level and optional custom label. The client gate
+    /// mirrors the permission sent to the Worker; the Worker remains the enforcement boundary.
     @discardableResult
     func setMemberRole(memberId targetId: String, role: HouseholdMember.Role, label: String?,
                        overrideCanAdd: Bool? = nil, overrideCanEdit: Bool? = nil,
-                       overrideCanRemove: Bool? = nil) async -> Bool {
-        guard let code = joinCode, state == .owner else {
-            fail("Only the household owner can change member levels.")
+                       overrideCanRemove: Bool? = nil,
+                       permissionGrants: Set<HouseholdPermission>? = nil,
+                       permissionDenials: Set<HouseholdPermission> = []) async -> Bool {
+        guard let code = joinCode, state == .owner || state == .member,
+              can(.manageMembers) else {
+            fail("You don't have permission to manage household members.")
             return false
         }
         var body: [String: Any] = ["code": code, "memberId": targetId, "role": role.rawValue,
@@ -694,6 +1072,12 @@ final class HouseholdSync {
         body["overrideCanAdd"]    = overrideCanAdd    as Any? ?? NSNull()
         body["overrideCanEdit"]   = overrideCanEdit   as Any? ?? NSNull()
         body["overrideCanRemove"] = overrideCanRemove as Any? ?? NSNull()
+        if let permissionGrants {
+            body["permissions"] = permissionGrants.map(\.rawValue).sorted()
+        }
+        if !permissionDenials.isEmpty {
+            body["deniedPermissions"] = permissionDenials.map(\.rawValue).sorted()
+        }
         guard let resp = await post("/household/setrole", body),
               (resp["ok"] as? Bool) == true else {
             fail("Couldn't update that member. Check your connection and try again.")
@@ -710,18 +1094,44 @@ final class HouseholdSync {
         return members.first(where: { $0.isMe })?.role ?? .adult
     }
 
+    func can(_ permission: HouseholdPermission) -> Bool {
+        guard state == .owner || state == .member else { return true }
+        return myPermissions.contains(permission)
+    }
+
+    /// Mutation-boundary authorization with one consistent, observable failure path. The Worker
+    /// still enforces the same permission server-side; this keeps denied local edits from briefly
+    /// appearing, being journaled, and then bouncing back after sync.
+    @discardableResult
+    func authorize(_ permission: HouseholdPermission) -> Bool {
+        guard can(permission) else {
+            fail("You don't have permission to make that household change.")
+            return false
+        }
+        return true
+    }
+
     /// Refresh the cached myAccessRole from a member list (called after fetchMembers).
     private func refreshMyAccessRole(from members: [HouseholdMember]) {
         // Not in a household → treat as owner (full access) so solo use is never restricted.
         guard state == .owner || state == .member else {
-            myAccessRole = .owner; myCanAdd = true; myCanEdit = true; myCanRemove = true; return
+            applyAccessSnapshot(.owner)
+            UserDefaults.standard.removeObject(forKey: Self.accessSnapshotKey)
+            return
         }
-        myAccessRole = myRole(from: members)
-        if let me = members.first(where: { $0.isMe }) {
-            myCanAdd = me.effectiveCanAdd; myCanEdit = me.effectiveCanEdit; myCanRemove = me.effectiveCanRemove
-        } else {
-            myCanAdd = myAccessRole.canAdd; myCanEdit = myAccessRole.canEdit; myCanRemove = myAccessRole.canRemove
+        if state == .owner {
+            applyAccessSnapshot(.owner)
+            persistCurrentAccess()
+            return
         }
+        // Missing `me` is not evidence that access was broadened. Preserve the prior snapshot
+        // until a complete member response explicitly identifies this device.
+        guard let me = members.first(where: { $0.isMe }) else { return }
+        applyAccessSnapshot(HouseholdMemberAccessSnapshot(
+            role: me.role, permissions: me.effectivePermissions,
+            canAdd: me.effectiveCanAdd, canEdit: me.effectiveCanEdit,
+            canRemove: me.effectiveCanRemove))
+        persistCurrentAccess()
     }
 
     // MARK: - Networking
@@ -730,6 +1140,7 @@ final class HouseholdSync {
 
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
         lastPostFailure = nil
+        guard !Task.isCancelled else { lastPostFailure = .cancelled; return nil }
         guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else {
             lastPostFailure = .notConfigured("Household sync")
             return nil
@@ -739,25 +1150,46 @@ final class HouseholdSync {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         BuildConfig.authorizeWorkerRequest(&request)
         request.timeoutInterval = 12
-        guard let encoded = try? JSONSerialization.data(withJSONObject: body) else {
+        let boxedBody = HouseholdJSONBox(value: body)
+        guard let encoded = await Task.detached(priority: .utility, operation: {
+            try? JSONSerialization.data(withJSONObject: boxedBody.value)
+        }).value else {
             lastPostFailure = .invalidRequest("Household sync couldn't encode the local snapshot.")
             return nil
         }
         request.httpBody = encoded
-        do {
+        let repairDelays: [Duration] = [.milliseconds(500), .seconds(1), .seconds(2)]
+        defer { isRepairingHouseholdStorage = false }
+        for attempt in 0...repairDelays.count {
+          do {
+            try Task.checkCancellation()
             let (data, response) = try await URLSession.shared.data(for: request)
+            try Task.checkCancellation()
             guard let http = response as? HTTPURLResponse else {
                 lastPostFailure = .malformedResponse("Household sync returned no HTTP response.")
                 return nil
             }
-            let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let responseBox = await Task.detached(priority: .utility) { () -> HouseholdJSONBox? in
+                guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+                return HouseholdJSONBox(value: object)
+            }.value
+            try Task.checkCancellation()
+            let object = responseBox?.value
             guard (200...299).contains(http.statusCode) else {
                 let detail = object?["error"] as? String
                 let code = object?["code"] as? String
-                if code == "kvQuota" || http.statusCode == 503 {
+                if code == "householdCrash" || (http.statusCode == 503 && code != "kvQuota") {
+                    if attempt < repairDelays.count {
+                        isRepairingHouseholdStorage = true
+                        lastError = "Repairing household storage…"
+                        try await Task.sleep(for: repairDelays[attempt])
+                        continue
+                    }
+                    lastPostFailure = .transport(detail ?? "Household storage repair couldn't finish. Sync will retry automatically.")
+                } else if code == "kvQuota" {
                     lastPostFailure = .quotaExhausted(detail ?? "Household sync storage is temporarily unavailable.")
                 } else if http.statusCode == 429 {
-                    let retry = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+                    let retry = NetworkRetryPolicy.retryAfterSeconds(http.value(forHTTPHeaderField: "Retry-After"))
                     lastPostFailure = .rateLimited(retryAfter: retry)
                 } else {
                     lastPostFailure = .httpStatus(http.statusCode, detail)
@@ -765,14 +1197,22 @@ final class HouseholdSync {
                 Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
                 return nil
             }
+            guard let object else {
+                lastPostFailure = .malformedResponse("Household sync returned an unreadable response. Local changes remain queued.")
+                return nil
+            }
+            lastError = nil
             return object
         } catch is CancellationError {
             lastPostFailure = .cancelled
             return nil
         } catch {
-            lastPostFailure = .transport(error.localizedDescription)
+            lastPostFailure = Task.isCancelled || (error as? URLError)?.code == .cancelled
+                ? .cancelled : .transport(error.localizedDescription)
             return nil
+          }
         }
+        return nil
     }
 
     private func fail(_ message: String) {
@@ -780,23 +1220,145 @@ final class HouseholdSync {
         syncStage = .failed(message)
     }
 
+    // MARK: - Durable protocol v2 wire contracts
+
+    private func checkpointDict(_ checkpoint: HouseholdSyncCheckpoint) -> [String: Any] {
+        var value: [String: Any] = [
+            "protocolVersion": checkpoint.protocolVersion,
+            "serverRevision": checkpoint.serverRevision,
+            "collectionRevisions": checkpoint.collectionRevisions,
+            "lastClientSequence": checkpoint.lastClientSequence,
+            "recordedAt": checkpoint.recordedAt.timeIntervalSince1970 * 1_000,
+        ]
+        if let cursor = checkpoint.cursor { value["cursor"] = cursor }
+        return value
+    }
+
+    private func operationDict(_ operation: PendingHouseholdOperation) -> [String: Any] {
+        var value: [String: Any] = [
+            "operationId": operation.id.uuidString.lowercased(),
+            "idempotencyKey": operation.idempotencyKey,
+            "entityId": operation.entityID.uuidString.lowercased(),
+            "entityType": operation.entityType.rawValue,
+            "operationType": operation.operationType.rawValue,
+            "createdAt": operation.createdAt.timeIntervalSince1970 * 1_000,
+            "clientSequence": operation.clientSequence,
+            "baseServerRevision": operation.baseServerRevision,
+            "recordRevision": operation.recordRevision,
+            "fieldRevisions": operation.fieldRevisions,
+        ]
+        if let payload = operation.payloadJSON { value["payload"] = payload.base64EncodedString() }
+        return value
+    }
+
+    private func quantityOperationDict(_ operation: HouseholdQuantityOperation) -> [String: Any] {
+        var value: [String: Any] = [
+            "operationId": operation.id.uuidString.lowercased(),
+            "idempotencyKey": operation.idempotencyKey,
+            "entityId": operation.entityID.uuidString.lowercased(),
+            "entityType": operation.entityType.rawValue,
+            "delta": operation.delta,
+            "baseRecordRevision": operation.baseRecordRevision,
+            "actorId": operation.actorID,
+            "createdAt": operation.createdAt.timeIntervalSince1970 * 1_000,
+        ]
+        if let base = operation.baseValue { value["baseValue"] = base }
+        return value
+    }
+
+    private func syncReceipt(from response: [String: Any], household: [String: Any],
+                             requestID: UUID, captured: [PendingHouseholdOperation],
+                             startedAt: Date) -> HouseholdSyncReceipt {
+        let raw = response["receipt"] as? [String: Any]
+        let rawOutcome = raw?["outcome"] as? String
+        let outcome = rawOutcome.flatMap(HouseholdSyncReceipt.Outcome.init(rawValue:))
+            ?? .acknowledged
+        let acknowledged = (raw?["acknowledgedIdempotencyKeys"] as? [String])
+            ?? (raw?["acknowledgedOperations"] as? [String])
+            ?? (raw == nil ? captured.map(\.idempotencyKey) : [])
+        let revision = (raw?["serverRevision"] as? NSNumber)?.intValue
+            ?? (response["revision"] as? NSNumber)?.intValue
+            ?? (household["revision"] as? NSNumber)?.intValue
+            ?? syncStatus.lastServerRevision
+        let id = (raw?["receiptId"] as? String).flatMap(UUID.init(uuidString:)) ?? UUID()
+        return HouseholdSyncReceipt(
+            id: id, requestID: requestID, outcome: outcome,
+            acknowledgedIdempotencyKeys: Set(acknowledged), serverRevision: revision,
+            receivedAt: Date(),
+            roundTripMilliseconds: max(0, Int(Date().timeIntervalSince(startedAt) * 1_000)),
+            detail: raw?["detail"] as? String)
+    }
+
+    private func advanceCheckpoint(response: [String: Any], household: [String: Any]?) {
+        let raw = (response["checkpoint"] as? [String: Any])
+            ?? (household?["checkpoint"] as? [String: Any])
+        let revision = (raw?["serverRevision"] as? NSNumber)?.intValue
+            ?? (response["revision"] as? NSNumber)?.intValue
+            ?? (household?["revision"] as? NSNumber)?.intValue
+            ?? syncStatus.lastServerRevision
+        syncStatus.lastServerRevision = max(syncStatus.lastServerRevision, revision)
+        syncStatus.checkpoint.serverRevision = max(syncStatus.checkpoint.serverRevision, revision)
+        if let cursor = raw?["cursor"] as? String { syncStatus.checkpoint.cursor = cursor }
+        if let revisions = raw?["collectionRevisions"] as? [String: NSNumber] {
+            for (key, value) in revisions {
+                syncStatus.checkpoint.collectionRevisions[key] = max(
+                    syncStatus.checkpoint.collectionRevisions[key] ?? 0, value.intValue)
+            }
+        }
+        syncStatus.checkpoint.recordedAt = Date()
+        persistQueue()
+    }
+
+    private func revisionMetadata(entityID: UUID,
+                                  entityType: HouseholdEntityType) -> [String: Any] {
+        let revision = syncStatus.recordRevisions[
+            revisionKey(entityID: entityID, entityType: entityType)
+        ] ?? HouseholdRecordRevision()
+        return [
+            "recordRevision": revision.record,
+            "fieldRevisions": revision.fields,
+            "serverCheckpoint": revision.serverCheckpoint,
+        ]
+    }
+
+    private func adoptRevisionMetadata(_ dictionary: [String: Any], entityID: UUID,
+                                       entityType: HouseholdEntityType) {
+        let record = (dictionary["recordRevision"] as? NSNumber)?.uint64Value ?? 0
+        let rawFields = dictionary["fieldRevisions"] as? [String: NSNumber] ?? [:]
+        let fields = rawFields.mapValues(\.uint64Value)
+        guard record > 0 || !fields.isEmpty else { return }
+        let remote = HouseholdRecordRevision(
+            record: record, fields: fields,
+            serverCheckpoint: (dictionary["serverCheckpoint"] as? NSNumber)?.intValue ?? 0,
+            writerID: (dictionary["lastWriterID"] as? String) ?? "",
+            updatedAt: Date(timeIntervalSince1970:
+                ((dictionary["updatedAt"] as? Double) ?? 0) / 1_000))
+        let key = revisionKey(entityID: entityID, entityType: entityType)
+        syncStatus.recordRevisions[key] = (syncStatus.recordRevisions[key]
+            ?? HouseholdRecordRevision()).merged(with: remote)
+    }
+
     // MARK: - Mapping between the household document and local models
 
     private func inventoryDict(_ item: LocalInventoryItem) -> [String: Any] {
-        [
+        var value: [String: Any] = [
             "id": item.id.uuidString, "name": item.name, "quantity": item.quantity,
             "zone": item.zone, "level": item.effectiveLevel, "brand": item.brand ?? "",
             "updatedAt": item.updatedAt, "lastWriterID": item.lastWriterID,
         ]
+        value.merge(revisionMetadata(entityID: item.id, entityType: .inventoryItem)) { _, new in new }
+        return value
     }
     private func groceryDict(_ item: LocalGroceryItem) -> [String: Any] {
-        [
+        var value: [String: Any] = [
             "id": item.id.uuidString, "name": item.name, "quantity": item.quantity,
             "isChecked": item.isChecked, "recipeSource": item.recipeSource,
             "addedByName": item.addedByName, "updatedAt": item.updatedAt,
             "lastWriterID": item.lastWriterID,
             "assignedTo": item.assignedTo, "sizeText": item.sizeText,
         ]
+        value.merge(revisionMetadata(entityID: item.id, entityType: .groceryItem)) { _, new in new }
+        return value
     }
     private func parseGrocery(_ d: [String: Any]) -> LocalGroceryItem? {
         guard let name = d["name"] as? String, !name.isEmpty else { return nil }
@@ -832,7 +1394,7 @@ final class HouseholdSync {
     /// The whole push body has to fit the Worker's 2 MB limit, or the server answers 413 and
     /// nothing syncs — see `MAX_BODY` in the Worker's household route. Kept under it with
     /// headroom for the fields added after this check runs.
-    private static let maxPushBodyBytes = 1_700_000
+    nonisolated private static let maxPushBodyBytes = 1_700_000
 
     /// Sheds `imageData` from the largest recipes until the encoded body fits.
     ///
@@ -840,30 +1402,33 @@ final class HouseholdSync {
     /// shows the picture — it just loads it from the web rather than out of the payload.
     /// Nothing is ever dropped: only pictures come off, never recipes. Mirrors
     /// `MacHouseholdSync.trimmedForPush` so both ends degrade the same way.
-    private static func trimmedForPush(_ body: [String: Any]) -> [String: Any] {
-        func size(_ value: [String: Any]) -> Int {
-            (try? JSONSerialization.data(withJSONObject: value))?.count ?? 0
-        }
-        guard size(body) > maxPushBodyBytes else { return body }
+    nonisolated private static func trimmedForPush(_ body: [String: Any]) async -> [String: Any] {
+        let boxed = HouseholdJSONBox(value: body)
+        let result = await Task.detached(priority: .utility) { () -> HouseholdJSONBox in
+            func size(_ value: [String: Any]) -> Int {
+                (try? JSONSerialization.data(withJSONObject: value))?.count ?? 0
+            }
+            guard size(boxed.value) > maxPushBodyBytes else { return boxed }
 
-        var trimmed = body
-        for key in ["genRecipes", "userRecipes"] {
-            guard var rows = trimmed[key] as? [[String: Any]] else { continue }
-            // Heaviest first — one 200 KB photo buys back more room than ten small ones.
-            let order = rows.indices.sorted {
-                ((rows[$0]["imageData"] as? String)?.count ?? 0)
-                    > ((rows[$1]["imageData"] as? String)?.count ?? 0)
-            }
-            for index in order {
-                guard size(trimmed) > maxPushBodyBytes else { break }
-                guard rows[index]["imageData"] != nil else { continue }
-                rows[index]["imageData"] = nil
+            var trimmed = boxed.value
+            for key in ["genRecipes", "userRecipes"] {
+                guard var rows = trimmed[key] as? [[String: Any]] else { continue }
+                let order = rows.indices.sorted {
+                    ((rows[$0]["imageData"] as? String)?.count ?? 0)
+                        > ((rows[$1]["imageData"] as? String)?.count ?? 0)
+                }
+                for index in order {
+                    guard size(trimmed) > maxPushBodyBytes else { break }
+                    guard rows[index]["imageData"] != nil else { continue }
+                    rows[index]["imageData"] = nil
+                    trimmed[key] = rows
+                }
                 trimmed[key] = rows
+                if size(trimmed) <= maxPushBodyBytes { break }
             }
-            trimmed[key] = rows
-            if size(trimmed) <= maxPushBodyBytes { break }
-        }
-        return trimmed
+            return HouseholdJSONBox(value: trimmed)
+        }.value
+        return result.value
     }
 
     private func userRecipeDict(_ r: UserRecipe) -> [String: Any] {
@@ -875,6 +1440,7 @@ final class HouseholdSync {
         }
         obj["updatedAt"] = r.updatedAt
         obj["lastWriterID"] = r.lastWriterID
+        obj.merge(revisionMetadata(entityID: r.id, entityType: .userRecipe)) { _, new in new }
         return obj
     }
     private func parseUserRecipe(_ d: [String: Any]) -> UserRecipe? {
@@ -893,6 +1459,7 @@ final class HouseholdSync {
         }
         obj["updatedAt"] = r.updatedAt
         obj["lastWriterID"] = r.lastWriterID
+        obj.merge(revisionMetadata(entityID: r.id, entityType: .generatedRecipe)) { _, new in new }
         return obj
     }
     private func parseGenRecipe(_ d: [String: Any]) -> GeneratedRecipe? {
@@ -909,6 +1476,7 @@ final class HouseholdSync {
         }
         obj["updatedAt"] = m.updatedAt
         obj["lastWriterID"] = m.lastWriterID
+        obj.merge(revisionMetadata(entityID: m.id, entityType: .plannedMeal)) { _, new in new }
         return obj
     }
     private func parsePlannedMeal(_ d: [String: Any]) -> PlannedMeal? {
@@ -933,6 +1501,7 @@ final class HouseholdSync {
     /// Returns how many items were added so the sync prompt can report progress.
     @discardableResult
     private func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) async -> (inv: Int, gro: Int) {
+        if let members = members(from: hh) { refreshMyAccessRole(from: members) }
         guard let store else { return (0, 0) }
         // Suppress the store's own household push while we write remote data in, so applying a
         // pulled snapshot doesn't immediately echo back out as another push (sync loop).
@@ -964,6 +1533,11 @@ final class HouseholdSync {
 
         var groAdded = 0
         if syncGrocery, let groRaw = hh["grocery"] as? [[String: Any]] {
+            for dictionary in groRaw {
+                if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
+                    adoptRevisionMetadata(dictionary, entityID: id, entityType: .groceryItem)
+                }
+            }
             let remote = groRaw.compactMap { parseGrocery($0) }
             var byID = Dictionary(keepingLastValues: store.groceryItems.map { ($0.id, $0) })
             for r in remote {
@@ -994,6 +1568,11 @@ final class HouseholdSync {
         // title, zone), and removals all converge this way.
         var invAdded = 0
         if syncInventory, let invRaw = hh["inventory"] as? [[String: Any]] {
+            for dictionary in invRaw {
+                if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
+                    adoptRevisionMetadata(dictionary, entityID: id, entityType: .inventoryItem)
+                }
+            }
             let remote = invRaw.compactMap { parseInventory($0) }
             var byID = Dictionary(keepingLastValues: store.inventoryItems.map { ($0.id, $0) })
             for r in remote {
@@ -1028,7 +1607,12 @@ final class HouseholdSync {
                 }
             }
             let merged = Array(byID.values)
-            if merged != store.inventoryItems { store.inventoryItems = merged }
+            if merged != store.inventoryItems {
+                let previous = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0.updatedAt) })
+                store.inventoryItems = merged
+                let changed = merged.filter { previous[$0.id] != $0.updatedAt }.map(\.id)
+                RetailEnrichmentMaintenance.enqueueInventoryItems(ids: changed, store: store)
+            }
             // #12 — undo across the household: when another member's delete lands here via a
             // pull, offer a 10s undo. Re-adding uses a FRESH id (the old id is tombstoned
             // server-side, so restoring it would just be deleted again on the next pull);
@@ -1056,8 +1640,12 @@ final class HouseholdSync {
         // but this avoids needless local saves).
         let userRecipeTombstones = Set((hh["userRecipeDeleted"] as? [String]) ?? [])
         if syncRecipes, let raw = hh["userRecipes"] as? [[String: Any]] {
+            for dictionary in raw {
+                if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
+                    adoptRevisionMetadata(dictionary, entityID: id, entityType: .userRecipe)
+                }
+            }
             let remote = raw.compactMap { parseUserRecipe($0) }
-                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
             var byID = Dictionary(keepingLastValues: store.userRecipes.map { ($0.id, $0) })
             var touched = false
             for r in remote {
@@ -1081,8 +1669,12 @@ final class HouseholdSync {
         }
         let genRecipeTombstones = Set((hh["genRecipeDeleted"] as? [String]) ?? [])
         if syncRecipes, let raw = hh["genRecipes"] as? [[String: Any]] {
+            for dictionary in raw {
+                if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
+                    adoptRevisionMetadata(dictionary, entityID: id, entityType: .generatedRecipe)
+                }
+            }
             let remote = raw.compactMap { parseGenRecipe($0) }
-                .filter { $0.imageData != nil || $0.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
             var byID = Dictionary(keepingLastValues: store.savedGeneratedRecipes.map { ($0.id, $0) })
             var touched = false
             for r in remote {
@@ -1104,6 +1696,11 @@ final class HouseholdSync {
         // #13 Planned meals: LWW merge honoring tombstones, same pattern as recipes.
         let mealTombstones = Set((hh["mealDeleted"] as? [String]) ?? [])
         if syncMealPlans, let raw = hh["plannedMeals"] as? [[String: Any]] {
+            for dictionary in raw {
+                if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
+                    adoptRevisionMetadata(dictionary, entityID: id, entityType: .plannedMeal)
+                }
+            }
             let remote = raw.compactMap { parsePlannedMeal($0) }
             var byID = Dictionary(keepingLastValues: store.plannedMeals.map { ($0.id, $0) })
             var touched = false
@@ -1130,12 +1727,8 @@ final class HouseholdSync {
             if touched { store.plannedMeals = Array(byID.values) }
         }
 
-        // Launch readiness 1.4 — merge the feature collections (leftovers, family, events, shared
-        // costs, store layouts, harvests, labels, takeout) with the same per-id LWW policy.
-        // Gated like the push: these travel with the inventory toggle.
-        if syncInventory {
-            FeatureSync.shared.apply(hh)
-        }
+        FeatureSync.shared.apply(hh, included: FeatureSync.collections(inventory: syncInventory,
+            mealPlans: syncMealPlans, recipes: syncRecipes))
         return (invAdded, groAdded)
     }
 

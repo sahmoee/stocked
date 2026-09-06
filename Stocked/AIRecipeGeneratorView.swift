@@ -13,6 +13,7 @@ struct AIRecipeGeneratorView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
     @Environment(\.stockedDismiss) var stockedDismiss
+    @Environment(\.stockedMotion) private var motion
     private func close() { if let stockedDismiss { stockedDismiss() } else { dismiss() } }
 
     // Input
@@ -28,6 +29,7 @@ struct AIRecipeGeneratorView: View {
     @State private var result: GeneratedRecipe? = nil
     @State private var errorText: String? = nil
     @State private var didSave = false
+    @State private var chipRailPositions: [String: String] = [:]
 
     @FocusState private var ideaFocused: Bool
 
@@ -76,13 +78,13 @@ struct AIRecipeGeneratorView: View {
                     .font(.stockedSerif(24, weight: .bold))
                     .foregroundStyle(session.themeTextColor)
                 Text(result == nil ? "Describe it and we'll build the recipe." : "Review, then save it to your vault.")
-                    .font(.system(size: 12.5))
+                    .scaledFont(12.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
             }
             Spacer()
             Button { close() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .frame(width: 30, height: 30)
                     .background((session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.08))
@@ -102,8 +104,8 @@ struct AIRecipeGeneratorView: View {
             field(label: "What do you want to make?") {
                 TextField("e.g. peanut butter cookies, a cozy soup for a rainy day…",
                           text: $idea, axis: .vertical)
-                    .lineLimit(2...4)
-                    .font(.system(size: 15))
+                    .lineLimit(2...)
+                    .scaledFont(15)
                     .foregroundStyle(ink)
                     .focused($ideaFocused)
             }
@@ -111,7 +113,7 @@ struct AIRecipeGeneratorView: View {
             // On-hand ingredients
             field(label: "Ingredients you have (optional)") {
                 TextField("comma separated — chicken, rice, garlic…", text: $haveText)
-                    .font(.system(size: 15))
+                    .scaledFont(15)
                     .foregroundStyle(ink)
             }
 
@@ -131,7 +133,7 @@ struct AIRecipeGeneratorView: View {
                 HStack {
                     fieldLabel("Servings")
                     Spacer()
-                    Text("\(servings)").font(.system(size: 14, weight: .bold)).foregroundStyle(ink)
+                    Text("\(servings)").scaledFont(14, weight: .bold).foregroundStyle(ink)
                 }
             }
             .padding(12)
@@ -139,16 +141,16 @@ struct AIRecipeGeneratorView: View {
 
             Toggle(isOn: $useExpiringInventory) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Use expiring inventory").font(.system(size: 14, weight: .semibold)).foregroundStyle(ink)
+                    Text("Use expiring inventory").scaledFont(14, weight: .semibold).foregroundStyle(ink)
                     Text("Prioritize up to five safe items that need using soon")
-                        .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
             }
             .tint(Color.stockedGold)
 
             if let errorText {
                 Text(errorText)
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(.orange)
                     .padding(.top, 2)
             }
@@ -166,7 +168,7 @@ struct AIRecipeGeneratorView: View {
                         Text("Generate Recipe")
                     }
                 }
-                .font(.system(size: 16, weight: .semibold))
+                .scaledFont(16, weight: .semibold)
                 .foregroundStyle(Color.stockedWhite)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
@@ -179,7 +181,7 @@ struct AIRecipeGeneratorView: View {
 
             if !RecipeGeneratorAI.isAvailable {
                 Text("AI recipes need an internet connection and the recipe service set up.")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
             }
         }
@@ -210,7 +212,7 @@ struct AIRecipeGeneratorView: View {
                         HStack(alignment: .top, spacing: 8) {
                             Text("•").foregroundStyle(Color.stockedGold)
                             Text(ing.amount.isEmpty ? ing.name : "\(ing.amount) \(ing.name)")
-                                .font(.system(size: 14))
+                                .scaledFont(14)
                                 .foregroundStyle(session.themeTextColor.opacity(0.85))
                         }
                     }
@@ -223,12 +225,12 @@ struct AIRecipeGeneratorView: View {
                     ForEach(Array(r.steps.enumerated()), id: \.offset) { idx, step in
                         HStack(alignment: .top, spacing: 10) {
                             Text("\(idx + 1)")
-                                .font(.system(size: 12, weight: .bold))
+                                .scaledFont(12, weight: .bold)
                                 .foregroundStyle(Color.stockedWhite)
                                 .frame(width: 22, height: 22)
                                 .background(Circle().fill(Color.stockedGold))
                             Text(step)
-                                .font(.system(size: 14))
+                                .scaledFont(14)
                                 .foregroundStyle(session.themeTextColor.opacity(0.85))
                         }
                     }
@@ -238,7 +240,7 @@ struct AIRecipeGeneratorView: View {
             if !r.tips.isEmpty {
                 sectionTitle("Notes")
                 Text(r.tips)
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
 
@@ -249,7 +251,7 @@ struct AIRecipeGeneratorView: View {
                     didSave = false
                 } label: {
                     Text("Start Over")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
@@ -264,7 +266,7 @@ struct AIRecipeGeneratorView: View {
                         Image(systemName: didSave ? "checkmark" : "tray.and.arrow.down")
                         Text(didSave ? "Saved" : "Save Recipe")
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(15, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -305,7 +307,7 @@ struct AIRecipeGeneratorView: View {
             dietaryRules: DietaryGuard.Rules(allergens: session.guestStore.cookingProfile.allergens)
         )
         if let recipe = await RecipeGeneratorAI.generate(idea: idea, options: opts) {
-            withAnimation(.easeOut(duration: 0.2)) { result = recipe }
+            motion.animate(.selection, intent: .opacity) { result = recipe }
             AppAnalytics.shared.log(.recipeImported)
         } else {
             errorText = "Couldn't generate a recipe just now. Check your connection and try again."
@@ -325,40 +327,56 @@ struct AIRecipeGeneratorView: View {
 
     private func fieldLabel(_ s: String) -> some View {
         Text(s)
-            .font(.system(size: 12.5, weight: .semibold))
+            .scaledFont(12.5, weight: .semibold)
             .foregroundStyle(session.themeTextColor.opacity(0.5))
     }
 
     private func sectionTitle(_ s: String) -> some View {
         Text(s)
-            .font(.system(size: 13, weight: .bold))
+            .scaledFont(13, weight: .bold)
             .foregroundStyle(Color.stockedGold)
             .padding(.top, 4)
     }
 
     private func chipRow(_ options: [String], selection: Binding<String>) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+        let railKey = options.joined(separator: "|")
+        let position = Binding<String?>(
+            get: { chipRailPositions[railKey] },
+            set: { value in
+                if let value { chipRailPositions[railKey] = value }
+                else { chipRailPositions.removeValue(forKey: railKey) }
+            }
+        )
+        return ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 8) {
                 ForEach(options, id: \.self) { opt in
                     let isOn = selection.wrappedValue == opt
-                    Button { selection.wrappedValue = opt } label: {
+                    Button {
+                        motion.animate(.selection, intent: .spatial) {
+                            selection.wrappedValue = opt
+                            chipRailPositions[railKey] = opt
+                        }
+                    } label: {
                         Text(opt)
-                            .font(.system(size: 13, weight: .semibold))
+                            .scaledFont(13, weight: .semibold)
                             .foregroundStyle(isOn ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(Capsule().fill(isOn ? Color.stockedGold : fieldBg))
-                    }.buttonStyle(.plain)
+                    }
+                    .buttonStyle(.plain)
+                    .id(opt)
                 }
             }
             .stockedScrollTargetLayout()
         }
         .stockedHorizontalSnap()
+        .scrollPosition(id: position, anchor: .center)
     }
 
     private func metaPill(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 11))
-            Text(text).font(.system(size: 12, weight: .medium))
+            Image(systemName: icon).scaledFont(11)
+            Text(text).scaledFont(12, weight: .medium)
         }
         .foregroundStyle(session.themeTextColor.opacity(0.6))
     }

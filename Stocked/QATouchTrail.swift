@@ -82,6 +82,8 @@ nonisolated struct QATouchPoint: Identifiable, Sendable {
     /// are numbered in the annotation — numbering every move point would bury
     /// the picture under a hundred labels.
     let isDown: Bool
+    /// Session-wide tap order. Move samples are intentionally unnumbered.
+    let number: Int?
 
     func age(now: Date = Date()) -> TimeInterval { now.timeIntervalSince(at) }
 }
@@ -107,9 +109,12 @@ final class QATouchTrail {
     /// to depend on — an array append does invalidate, but the redraw timer
     /// also needs a reason to re-run when nothing was appended.
     private(set) var revision: Int = 0
+    private var nextTapNumber = 1
 
     func record(_ location: CGPoint, isDown: Bool) {
-        points.append(QATouchPoint(location: location, at: Date(), isDown: isDown))
+        let number = isDown ? nextTapNumber : nil
+        if isDown { nextTapNumber &+= 1 }
+        points.append(QATouchPoint(location: location, at: Date(), isDown: isDown, number: number))
         if points.count > Self.cap { points.removeFirst(points.count - Self.cap) }
         revision &+= 1
     }
@@ -124,6 +129,7 @@ final class QATouchTrail {
 
     func clear() {
         points.removeAll()
+        nextTapNumber = 1
         revision &+= 1
     }
 
@@ -192,9 +198,9 @@ enum QATouchTrailRenderer {
                                          width: r * 2, height: r * 2))
             ctx.restoreGState()
 
-            let label = "\(i + 1)" as NSString
+            let label = "\(p.number ?? i + 1)" as NSString
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 13, weight: .heavy),
+                .font: UIFont.systemFont(ofSize: StockedType.scaled(13), weight: .heavy),
                 .foregroundColor: UIColor.black.withAlphaComponent(alpha),
             ]
             let size = label.size(withAttributes: attrs)
@@ -419,7 +425,10 @@ private final class QATouchRingView: UIView {
         MainActor.assumeIsolated {
             guard let ctx = UIGraphicsGetCurrentContext() else { return }
             let now = Date()
-            for p in QATouchTrail.shared.overlayPoints(now: now) {
+            // Live QA shows completed touch-down locations only. Move samples still
+            // power the trail recorder, but drawing them would turn scrolling into
+            // a solid yellow smear and obscure the interface being tested.
+            for p in QATouchTrail.shared.overlayPoints(now: now).filter(\.isDown) {
                 let age = p.age(now: now)
                 let t = min(1, age / QATouchTrail.overlayWindow)
                 // Bloom outward and fade: the ring grows from 16 to 40 points
@@ -437,6 +446,16 @@ private final class QATouchRingView: UIView {
                                                width: r * 2, height: r * 2))
                 }
                 ctx.restoreGState()
+
+                let label = "\(p.number ?? 0)" as NSString
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: StockedType.scaled(12), weight: .heavy),
+                    .foregroundColor: UIColor.black.withAlphaComponent(alpha),
+                ]
+                let size = label.size(withAttributes: attrs)
+                label.draw(at: CGPoint(x: p.location.x - size.width / 2,
+                                       y: p.location.y - size.height / 2),
+                           withAttributes: attrs)
             }
         }
     }
@@ -446,31 +465,18 @@ private final class QATouchRingView: UIView {
 /// with QA mode itself.
 struct QATouchOverlayMount: View {
     @State private var recorder = QARecorder.shared
-    @State private var enabled = QATouchTrailSettings.overlayEnabled
-
-    private var shouldShow: Bool { recorder.isEnabled && enabled }
+    private var shouldShow: Bool { recorder.isEnabled }
 
     var body: some View {
         Color.clear
             .frame(width: 0, height: 0)
             .allowsHitTesting(false)
             .onAppear {
-                enabled = QATouchTrailSettings.overlayEnabled
                 QATouchOverlayWindow.shared.sync(visible: shouldShow)
             }
             .onDisappear { QATouchOverlayWindow.shared.sync(visible: false) }
             .onChange(of: shouldShow) { _, now in
                 QATouchOverlayWindow.shared.sync(visible: now)
-            }
-            .task {
-                // The setting can be flipped from the QA menu, which lives in a
-                // different window and so cannot hand this view a binding.
-                // Polling once a second is cheaper than the plumbing.
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(1))
-                    let now = QATouchTrailSettings.overlayEnabled
-                    if now != enabled { enabled = now }
-                }
             }
     }
 }

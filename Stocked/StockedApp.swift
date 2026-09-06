@@ -59,7 +59,7 @@ struct StockedApp: App {
         // This is the only reliable way to override environment-inherited colors
         UITextField.appearance().textColor = nil  // let system handle dark mode
         // We control via overrideUserInterfaceStyle instead
-        
+
         // Global keyboard dismissal
         UIScrollView.appearance().keyboardDismissMode = .onDrag
         // Clear ALL system backgrounds so nothing bleeds through
@@ -86,10 +86,15 @@ struct StockedApp: App {
             // available canvas.
             DeviceAdaptiveRoot {
                 RootView()
+                    .stockedAdaptiveInterface()
+                    .stockedSizeAwareScrollBounce([.vertical, .horizontal])
+                    .appWideExperience()
             }
-                .environment(session)
+            .stockedAppThemeSurface()
+            .environment(session)
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .background { QABackgroundRunner.shared.stop() }
             // Persist any pending debounced settings writes before we lose foreground.
             if phase != .active {
                 DebouncedDefaults.shared.flushAll()
@@ -114,7 +119,10 @@ struct StockedApp: App {
                 // throttled to one fetch per 15 min, ETag-revalidated.
                 Task { await StockedRemoteConfig.shared.refreshIfStale() }
                 // QA automation: re-check invariants when returning to the foreground.
-                if QARecorder.shared.isEnabled { QABackgroundRunner.shared.runSoon() }
+                if QARecorder.shared.isEnabled {
+                    QABackgroundRunner.shared.start(store: session.guestStore, session: nil)
+                    QABackgroundRunner.shared.runSoon()
+                }
                 // #drift — apply any "I used X" items queued by the Siri intent.
                 session.guestStore.drainPendingUsedItems()
                 let ud = UserDefaults.standard
@@ -255,21 +263,28 @@ struct RootView: View {
         // No .animation(value:) — causes CATransaction fence timeout on iPad
         // when splashDone + quizCompleted + isLoggedIn all change together.
         .preferredColorScheme(session.isDarkMode ? .dark : .light)
+        .task(id: session.guestStore.hasCompletedInitialHydration) {
+            guard session.guestStore.hasCompletedInitialHydration else { return }
+            // Wait for real local data, not the deliberately empty launch placeholders.
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            await HarvestRecipeSync.shared.backfillImported(session.guestStore.userRecipes)
+        }
         // Dynamic Type support (Change 16): honor the user's system text-size setting, but clamp
         // the extreme accessibility sizes so the app's fixed-size layouts don't break. Raised to
         // accessibility3 to support larger accessibility text sizes while still capping the two
         // largest steps (accessibility4/5), which most often break dense fixed layouts. This makes
         // the app usable across the accessibility text-size range and Display Zoom (Default/Zoomed).
-        .dynamicTypeSize(.xSmall ... .accessibility3)
+
         .onAppear {
             StockedApp.applyTextFieldAppearance(isDark: session.isDarkMode)
             // Deferred remote-config fetch (kill switches, maintenance, min version).
             StockedRemoteConfig.shared.startDeferredLaunchFetch()
             // QA automation: if QA mode was left enabled, the invariant runner starts
             // by itself at launch — no need to visit the QA screen first.
-            if QARecorder.shared.isEnabled {
-                QABackgroundRunner.shared.start(store: session.guestStore, session: nil)
-            }
+            // Retain the weak store reference even when QA starts disabled.
+            // start() does no work until enabled; otherwise the first enable's
+            // resume() has no store and silently leaves autonomy idle.
+            QABackgroundRunner.shared.start(store: session.guestStore, session: nil)
             // FR-01 FIX: the launch-time iCloud auto-restore was REMOVED. It ran for guests,
             // before login, with no consent, and re-imported a CloudKit backup that survives app
             // deletion — which is what made a "fresh" install come up with 94% stock, dark mode,
@@ -291,6 +306,8 @@ struct RootView: View {
                 await RecipePurge.run(store: session.guestStore)
                 RecipeImageResolver.backfillMissingImagesIfNeeded()
                 NutritionBackfill.runIfNeeded()
+                Task { await FoodRecallMonitor.shared.refreshIfNeeded(items: session.guestStore.inventoryItems) }
+                RetailEnrichmentMaintenance.runIfNeeded(store: session.guestStore)
                 // #17 — index recipes + inventory for system Spotlight search.
                 SpotlightIndexer.reindex(store: session.guestStore)
             }

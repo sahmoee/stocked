@@ -43,6 +43,9 @@ nonisolated struct RecipeDatabaseEntry: Identifiable, Codable, Hashable, Sendabl
     var rating:      Double?
     var cachedAt:    Date    = Date()
     var openCount:   Int     = 0          // popularity tracking
+    var author: String? = nil
+    var license: String? = nil
+    var imageAttribution: String? = nil
 
     // Full-text index built once and reused for fast filtering
     var searchIndex: String {
@@ -52,6 +55,158 @@ nonisolated struct RecipeDatabaseEntry: Identifiable, Codable, Hashable, Sendabl
 
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
+}
+
+// MARK: - Recipe database revisions
+
+/// Identifies the producer of a writable recipe-database mutation. The value is diagnostic
+/// and routing metadata only; consumers should use the inserted/updated/deleted payloads as
+/// the source of truth.
+nonisolated enum RecipeMutationOrigin: String, Codable, Hashable, Sendable {
+    case direct
+    case localAdd
+    case userRecipe
+    case harvested
+    case householdSync
+    case offlineCache
+    case webCatalogue
+    case fullSync
+    case sourcePurge
+    case bootstrap
+    case engagement
+}
+
+/// A precise, replayable delta for the writable recipe database.
+///
+/// `revision` is persisted as a scalar and increases once for every committed mutation. A
+/// consumer can apply adjacent revisions without reloading the complete recipe array. If it
+/// observes a gap, it can request `RecipeDatabaseSnapshot` and resume from that revision.
+nonisolated struct RecipeDatabaseChange: Sendable {
+    let revision: UInt64
+    let origin: RecipeMutationOrigin
+    let inserted: [RecipeDatabaseEntry]
+    let updated: [RecipeDatabaseEntry]
+    let deletedIDs: Set<UUID>
+    let totalCount: Int
+
+    var affectedCount: Int { inserted.count + updated.count + deletedIDs.count }
+    var isEmpty: Bool { affectedCount == 0 }
+
+    /// Applies this change to a previously loaded writable snapshot. Batch inserts use the
+    /// same front-insertion order as RecipeDatabase, while updates retain their visible slot.
+    func applying(to snapshot: [RecipeDatabaseEntry]) -> [RecipeDatabaseEntry] {
+        func makePositions(in entries: [RecipeDatabaseEntry]) -> [UUID: Int] {
+            var result: [UUID: Int] = [:]
+            result.reserveCapacity(entries.count)
+            for (index, entry) in entries.enumerated() { result[entry.id] = index }
+            return result
+        }
+
+        var seenIDs = Set<UUID>()
+        var result = snapshot.filter {
+            !deletedIDs.contains($0.id) && seenIDs.insert($0.id).inserted
+        }
+        var positionMap = makePositions(in: result)
+
+        for entry in updated where !deletedIDs.contains(entry.id) {
+            if let index = positionMap[entry.id] {
+                result[index] = entry
+            } else {
+                result.insert(entry, at: 0)
+                positionMap = makePositions(in: result)
+            }
+        }
+
+        for entry in inserted where !deletedIDs.contains(entry.id) {
+            if let index = positionMap[entry.id] {
+                result.remove(at: index)
+            }
+            result.insert(entry, at: 0)
+            positionMap = makePositions(in: result)
+        }
+        return result
+    }
+}
+
+nonisolated struct RecipeDatabaseSnapshot: Sendable {
+    let revision: UInt64
+    let entries: [RecipeDatabaseEntry]
+}
+
+// MARK: - Canonical recipe ingestion
+
+/// A rejected recipe never enters the searchable/published store. The reason remains typed
+/// so import UI and diagnostics can explain whether retrying or repairing the row is useful.
+nonisolated enum RecipeIngestionRejectionReason: String, Codable, Hashable, Sendable {
+    case invalidTitle
+    case blockedSource
+    case missingImage
+    case invalidRemoteImageURL
+    case invalidLocalImageData
+    case retainedImageMissing
+    case retainedImageInvalid
+}
+
+nonisolated struct RecipeQuarantineRecord: Identifiable, Codable, Error, Hashable, Sendable {
+    let id: UUID
+    let recipeID: UUID
+    let title: String
+    let origin: RecipeMutationOrigin
+    let reason: RecipeIngestionRejectionReason
+    let recordedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        recipeID: UUID,
+        title: String,
+        origin: RecipeMutationOrigin,
+        reason: RecipeIngestionRejectionReason,
+        recordedAt: Date = Date()
+    ) {
+        self.id = id
+        self.recipeID = recipeID
+        self.title = title
+        self.origin = origin
+        self.reason = reason
+        self.recordedAt = recordedAt
+    }
+}
+
+nonisolated struct RecipeIngestionDuplicate: Hashable, Sendable {
+    let incomingID: UUID
+    let existingID: UUID
+    let dedupKey: String
+}
+
+nonisolated enum RecipeIngestionResult: Sendable {
+    case inserted(RecipeDatabaseEntry)
+    case updated(RecipeDatabaseEntry)
+    case duplicate(RecipeIngestionDuplicate)
+    case rejected(RecipeQuarantineRecord)
+
+    var insertedEntry: RecipeDatabaseEntry? {
+        guard case .inserted(let entry) = self else { return nil }
+        return entry
+    }
+}
+
+nonisolated struct RecipeIngestionBatchResult: Sendable {
+    var inserted: [RecipeDatabaseEntry] = []
+    var updated: [RecipeDatabaseEntry] = []
+    var duplicates: [RecipeIngestionDuplicate] = []
+    var rejected: [RecipeQuarantineRecord] = []
+
+    var acceptedCount: Int { inserted.count + updated.count + duplicates.count }
+    var changedCount: Int { inserted.count + updated.count }
+
+    mutating func append(_ result: RecipeIngestionResult) {
+        switch result {
+        case .inserted(let entry): inserted.append(entry)
+        case .updated(let entry): updated.append(entry)
+        case .duplicate(let duplicate): duplicates.append(duplicate)
+        case .rejected(let rejection): rejected.append(rejection)
+        }
+    }
 }
 
 // MARK: - AddRecipeForm
@@ -76,6 +231,10 @@ nonisolated struct AddRecipeForm: Sendable {
     /// re-structure the import with AI and to power "Show original text". Empty for
     /// from-scratch entry.
     var originalText = ""
+    var portableSource: PortableRecipeSource? = nil
+    var author = ""
+    var license = ""
+    var imageAttribution = ""
 
     mutating func fill(from entry: RecipeDatabaseEntry) {
         title       = entry.title
@@ -91,6 +250,9 @@ nonisolated struct AddRecipeForm: Sendable {
         steps       = entry.steps
         imageURL    = entry.imageURL
         sourceURL   = entry.sourceURL
+        author = entry.author ?? ""
+        license = entry.license ?? ""
+        imageAttribution = entry.imageAttribution ?? ""
     }
 }
 
@@ -100,17 +262,179 @@ actor RecipeDatabase {
 
     private let storageKey       = "recipe_database_v3"
     private let legacyDefaultsKey = "recipeDatabase_v2"
+    private let revisionStorageKey = "recipeDatabaseRevisionV1"
     private let maxEntries       = 2000         // hard cap before LRU eviction
     private var entries: [RecipeDatabaseEntry] = []
-    private var titleIndex: [String: UUID] = [:]   // lowercase title → id for dedup
+    private var titleIndex: [String: UUID] = [:]   // canonical title key → id for dedup
+    private var sourceIndex: [String: UUID] = [:]  // canonical publisher URL → id
+    private var entriesByID: [UUID: RecipeDatabaseEntry] = [:]
     // #9 in-memory token index: search token → set of entry IDs. Rebuilt on load and
     // kept in sync on upsert/delete so search() doesn't scan the whole array each call.
     private var tokenIndex: [String: Set<UUID>] = [:]
+    // Quality is derived entirely from immutable entry fields. Ranking used to recompute it
+    // repeatedly inside sort comparators (O(n log n) expensive string/array work).
+    private var qualityScores: [UUID: Double] = [:]
+    private var revision: UInt64 = UInt64(
+        UserDefaults.standard.string(forKey: "recipeDatabaseRevisionV1") ?? ""
+    ) ?? 0
+    private var quarantine: [RecipeQuarantineRecord] = []
+    private let quarantineLimit = 250
+
+    private enum UpsertOutcome {
+        case duplicate(RecipeIngestionDuplicate)
+        case rejected(RecipeQuarantineRecord)
+        case inserted(RecipeDatabaseEntry, evicted: [UUID])
+        case updated(RecipeDatabaseEntry)
+
+        var publicResult: RecipeIngestionResult {
+            switch self {
+            case .duplicate(let duplicate): return .duplicate(duplicate)
+            case .rejected(let rejection): return .rejected(rejection)
+            case .inserted(let entry, _): return .inserted(entry)
+            case .updated(let entry): return .updated(entry)
+            }
+        }
+    }
+
+    private struct MutationAccumulator {
+        var inserted: [RecipeDatabaseEntry] = []
+        var updated: [RecipeDatabaseEntry] = []
+        var deletedIDs = Set<UUID>()
+
+        mutating func append(_ outcome: UpsertOutcome) {
+            switch outcome {
+            case .duplicate, .rejected:
+                break
+            case .inserted(let entry, let evicted):
+                // A later item in the same batch can re-introduce an entry evicted by an
+                // earlier insertion. Its final state is inserted, not deleted.
+                deletedIDs.remove(entry.id)
+                if let index = inserted.firstIndex(where: { $0.id == entry.id }) {
+                    inserted[index] = entry
+                } else {
+                    inserted.append(entry)
+                }
+                updated.removeAll { $0.id == entry.id }
+                deletedIDs.formUnion(evicted)
+            case .updated(let entry):
+                if let index = inserted.firstIndex(where: { $0.id == entry.id }) {
+                    inserted[index] = entry
+                } else if let index = updated.firstIndex(where: { $0.id == entry.id }) {
+                    updated[index] = entry
+                } else {
+                    updated.append(entry)
+                }
+            }
+        }
+
+        var hasChanges: Bool {
+            !inserted.isEmpty || !updated.isEmpty || !deletedIDs.isEmpty
+        }
+    }
+
+    nonisolated static func standardizedRecipeTitle(_ raw: String) -> String {
+        let cleaned = RecipeDisplayPolicy.cleanedTitle(OnlineRecipeFacts.normalizedTitle(raw))
+        let letters = cleaned.filter(\.isLetter)
+        guard !letters.isEmpty,
+              letters == letters.lowercased() || letters == letters.uppercased() else { return cleaned }
+        let minor: Set<String> = ["a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "of", "on", "or", "the", "to", "via", "with"]
+        let acronyms = ["bbq": "BBQ", "blt": "BLT", "pb&j": "PB&J", "diy": "DIY", "ipa": "IPA"]
+        let words = cleaned.split(separator: " ")
+        return words.enumerated().map { index, rawWord in
+            let lower = rawWord.lowercased()
+            if let acronym = acronyms[lower] { return acronym }
+            if index > 0, index < words.count - 1, minor.contains(lower) { return lower }
+            return lower.prefix(1).uppercased() + lower.dropFirst()
+        }.joined(separator: " ")
+    }
+
+    /// Stable across punctuation, accents, repeated whitespace, and display-title casing.
+    /// The key is deterministic and is never based on array count or insertion order.
+    nonisolated static func stableDedupKey(forTitle raw: String) -> String {
+        let folded = standardizedRecipeTitle(raw)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+            .lowercased()
+        return folded
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private static func canonicalSourceKey(_ raw: String) -> String? {
+        guard var components = URLComponents(string: raw),
+              components.scheme?.lowercased() == "https", components.host != nil else { return nil }
+        components.fragment = nil
+        components.queryItems = components.queryItems?.filter {
+            let key = $0.name.lowercased()
+            return !key.hasPrefix("utm_") && key != "fbclid" && key != "gclid" && key != "ref"
+        }
+        return components.url?.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")).lowercased()
+    }
+
+    nonisolated static func canonicalizedForIngestion(
+        _ incoming: RecipeDatabaseEntry,
+        origin: RecipeMutationOrigin,
+        mediaStore: RecipeMediaStore = .shared
+    ) -> Result<RecipeDatabaseEntry, RecipeQuarantineRecord> {
+        var entry = incoming
+        entry.title = standardizedRecipeTitle(entry.title)
+
+        guard RecipeQuality.hasMeaningfulTitle(entry.title),
+              !stableDedupKey(forTitle: entry.title).isEmpty else {
+            return .failure(RecipeQuarantineRecord(
+                recipeID: entry.id,
+                title: incoming.title,
+                origin: origin,
+                reason: .invalidTitle
+            ))
+        }
+        guard !RecipeSourceBlocklist.isBlocked(entry) else {
+            return .failure(RecipeQuarantineRecord(
+                recipeID: entry.id,
+                title: entry.title,
+                origin: origin,
+                reason: .blockedSource
+            ))
+        }
+
+        switch mediaStore.validateReference(entry.imageURL) {
+        case .success(let reference):
+            entry.imageURL = reference.storedValue
+            return .success(entry)
+        case .failure(let failure):
+            let reason: RecipeIngestionRejectionReason
+            switch failure {
+            case .missingReference: reason = .missingImage
+            case .invalidRemoteURL: reason = .invalidRemoteImageURL
+            case .invalidImageData: reason = .invalidLocalImageData
+            case .retainedAssetMissing: reason = .retainedImageMissing
+            case .retainedAssetInvalid: reason = .retainedImageInvalid
+            }
+            return .failure(RecipeQuarantineRecord(
+                recipeID: entry.id,
+                title: entry.title,
+                origin: origin,
+                reason: reason
+            ))
+        }
+    }
+
+    private func rememberQuarantine(_ records: [RecipeQuarantineRecord]) {
+        guard !records.isEmpty else { return }
+        quarantine.append(contentsOf: records)
+        if quarantine.count > quarantineLimit {
+            quarantine.removeFirst(quarantine.count - quarantineLimit)
+        }
+    }
 
     // Tokenize an entry's searchable text into lowercase word stems.
     private func tokens(for entry: RecipeDatabaseEntry) -> Set<String> {
+        // Search indexing only needs words. Parsing every ingredient's amount/unit here
+        // turned a bulk recipe sync into thousands of MeasureParser calls and was the hot
+        // stack behind the reported freeze. Raw ingredient lines contain the same searchable
+        // food names; harmless amount/unit tokens are discarded by the tokenizer below.
         let text = ([entry.title, entry.description, entry.category, entry.cuisine]
-                    + entry.tags + RecipeIngredients.names(entry.ingredients) + [entry.sourceName])
+                    + entry.tags + entry.ingredients + [entry.sourceName])
             .joined(separator: " ").lowercased()
             .folding(options: .diacriticInsensitive, locale: nil)
         let raw = text.components(separatedBy: CharacterSet.alphanumerics.inverted)
@@ -118,13 +442,24 @@ actor RecipeDatabase {
     }
 
     private func indexEntry(_ entry: RecipeDatabaseEntry) {
+        entriesByID[entry.id] = entry
         for t in tokens(for: entry) { tokenIndex[t, default: []].insert(entry.id) }
+        qualityScores[entry.id] = RecipeQuality.score(
+            title: entry.title, ingredients: entry.ingredients,
+            steps: entry.steps, imageURL: entry.imageURL)
     }
     private func unindexEntry(_ entry: RecipeDatabaseEntry) {
-        for t in tokens(for: entry) { tokenIndex[t]?.remove(entry.id) }
+        entriesByID.removeValue(forKey: entry.id)
+        for t in tokens(for: entry) {
+            tokenIndex[t]?.remove(entry.id)
+            if tokenIndex[t]?.isEmpty == true { tokenIndex.removeValue(forKey: t) }
+        }
+        qualityScores.removeValue(forKey: entry.id)
     }
     private func rebuildTokenIndex() {
         tokenIndex = [:]
+        qualityScores = [:]
+        entriesByID = [:]
         for e in entries { indexEntry(e) }
     }
 
@@ -134,6 +469,12 @@ actor RecipeDatabase {
 
     // MARK: Read
     func all() -> [RecipeDatabaseEntry] { entries }
+
+    func snapshot() -> RecipeDatabaseSnapshot {
+        RecipeDatabaseSnapshot(revision: revision, entries: entries)
+    }
+
+    func currentRevision() -> UInt64 { revision }
 
     func search(_ query: String, limit: Int = 8) -> [RecipeDatabaseEntry] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -168,8 +509,9 @@ actor RecipeDatabase {
 
     /// Cached/derived quality score for ranking (#10).
     private func qualityScore(_ e: RecipeDatabaseEntry) -> Double {
-        RecipeQuality.score(title: e.title, ingredients: e.ingredients,
-                            steps: e.steps, imageURL: e.imageURL)
+        qualityScores[e.id] ?? RecipeQuality.score(
+            title: e.title, ingredients: e.ingredients,
+            steps: e.steps, imageURL: e.imageURL)
     }
 
     /// Snapshot ranked by quality — used by views that want "best first".
@@ -178,83 +520,181 @@ actor RecipeDatabase {
     }
 
     func entry(for title: String) -> RecipeDatabaseEntry? {
-        entries.first { $0.title.lowercased() == title.lowercased() }
+        guard let id = titleIndex[Self.stableDedupKey(forTitle: title)] else { return nil }
+        return entriesByID[id]
     }
 
     func count() -> Int { entries.count }
 
-    func recordOpen(id: UUID) {
+    func recentQuarantine(limit: Int = 50) -> [RecipeQuarantineRecord] {
+        Array(quarantine.suffix(max(0, limit)).reversed())
+    }
+
+    func recordQuarantine(_ records: [RecipeQuarantineRecord]) {
+        rememberQuarantine(records)
+    }
+
+    func recordOpen(id: UUID) async {
         guard let idx = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[idx].openCount += 1
+        let updated = entries[idx]
+        entriesByID[id] = updated
+        persist()
+        var mutation = MutationAccumulator()
+        mutation.updated.append(updated)
+        await publish(mutation, origin: .engagement)
     }
 
     // MARK: Write
     @discardableResult
-    func upsert(_ entry: RecipeDatabaseEntry) -> Bool {
-        let result = upsertNoPersist(entry)
-        persist()
-        return result
+    func upsert(_ entry: RecipeDatabaseEntry) async -> Bool {
+        await upsert(entry, origin: .direct)
+    }
+
+    @discardableResult
+    func upsert(
+        _ entry: RecipeDatabaseEntry,
+        origin: RecipeMutationOrigin
+    ) async -> Bool {
+        let result = await ingest(entry, origin: origin)
+        return result.insertedEntry != nil
+    }
+
+    @discardableResult
+    func ingest(
+        _ entry: RecipeDatabaseEntry,
+        origin: RecipeMutationOrigin
+    ) async -> RecipeIngestionResult {
+        let outcome = upsertNoPersist(entry, origin: origin)
+        if case .rejected(let rejection) = outcome {
+            rememberQuarantine([rejection])
+        }
+        var mutation = MutationAccumulator()
+        mutation.append(outcome)
+        if mutation.hasChanges {
+            persist()
+            await publish(mutation, origin: origin)
+        }
+        return outcome.publicResult
     }
 
     /// Core upsert that does NOT write to disk — used by upsertAll so a batch persists once
     /// instead of rewriting the entire recipe file per item (was O(N²) disk writes, the
     /// main driver of the runaway disk-write / CPU resource terminations).
     @discardableResult
-    private func upsertNoPersist(_ entry: RecipeDatabaseEntry) -> Bool {
-        // Retired sources are refused here rather than at each caller. Every ingestion
-        // path in the app ends up in this method — the bundled-JSON importer, the web
-        // catalogue merge, the offline cache merge, manual saves — so one guard closes
-        // all of them, including any path added later. See RecipeSourceBlocklist.swift.
-        guard !RecipeSourceBlocklist.isBlocked(entry) else { return false }
-        let image = entry.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let imageURL = URL(string: image), imageURL.scheme == "https", imageURL.host != nil else {
-            return false
+    private func upsertNoPersist(
+        _ incoming: RecipeDatabaseEntry,
+        origin: RecipeMutationOrigin,
+        deferEviction: Bool = false
+    ) -> UpsertOutcome {
+        let canonicalResult = Self.canonicalizedForIngestion(incoming, origin: origin)
+        var entry: RecipeDatabaseEntry
+        switch canonicalResult {
+        case .success(let canonical): entry = canonical
+        case .failure(let rejection): return .rejected(rejection)
         }
 
-        let key = entry.title.lowercased()
-        if let existing = titleIndex[key], let idx = entries.firstIndex(where: { $0.id == existing }) {
+        let key = Self.stableDedupKey(forTitle: entry.title)
+        let sourceKey = Self.canonicalSourceKey(entry.sourceURL)
+        let existingID = titleIndex[key] ?? sourceKey.flatMap { sourceIndex[$0] }
+        if let existing = existingID, let idx = entries.firstIndex(where: { $0.id == existing }) {
             // Overwrite only if the incoming entry has richer data
             let current = entries[idx]
             if entry.steps.count >= current.steps.count && entry.ingredients.count >= current.ingredients.count {
+                entry.id = current.id
+                // Source refreshes must not erase local engagement metadata.
+                entry.openCount = max(entry.openCount, current.openCount)
+                guard !Self.hasSameRecipeContent(entry, current) else {
+                    return .duplicate(RecipeIngestionDuplicate(
+                        incomingID: incoming.id,
+                        existingID: current.id,
+                        dedupKey: key
+                    ))
+                }
                 unindexEntry(current)
+                titleIndex.removeValue(forKey: Self.stableDedupKey(forTitle: current.title))
+                if let oldSource = Self.canonicalSourceKey(current.sourceURL) { sourceIndex.removeValue(forKey: oldSource) }
                 entries[idx] = entry
                 titleIndex[key] = entry.id
+                if let sourceKey { sourceIndex[sourceKey] = entry.id }
                 indexEntry(entry)
+                return .updated(entry)
             }
-            return false   // was duplicate
+            return .duplicate(RecipeIngestionDuplicate(
+                incomingID: incoming.id,
+                existingID: current.id,
+                dedupKey: key
+            ))
         }
         entries.insert(entry, at: 0)
         titleIndex[key] = entry.id
+        if let sourceKey { sourceIndex[sourceKey] = entry.id }
         indexEntry(entry)
-        evictIfNeeded()
-        return true   // new entry
+        let evicted = deferEviction ? [] : evictIfNeeded()
+        return .inserted(entry, evicted: evicted)
     }
 
     @discardableResult
-    func upsertAll(_ batch: [RecipeDatabaseEntry]) -> [RecipeDatabaseEntry] {
-        guard !batch.isEmpty else { return [] }
-        var changed = false
-        var inserted: [RecipeDatabaseEntry] = []
-        for e in batch {
-            if upsertNoPersist(e) {
-                changed = true
-                inserted.append(e)
-            }
-        }
-        // Persist ONCE for the whole batch (was once per item → O(N²) writes).
-        if changed || !batch.isEmpty { persist() }
-        return inserted
+    func upsertAll(_ batch: [RecipeDatabaseEntry]) async -> [RecipeDatabaseEntry] {
+        await upsertAll(batch, origin: .direct)
     }
 
-    func delete(id: UUID) {
+    @discardableResult
+    func upsertAll(
+        _ batch: [RecipeDatabaseEntry],
+        origin: RecipeMutationOrigin
+    ) async -> [RecipeDatabaseEntry] {
+        let report = await ingestAll(batch, origin: origin)
+        return report.inserted
+    }
+
+    @discardableResult
+    func ingestAll(
+        _ batch: [RecipeDatabaseEntry],
+        origin: RecipeMutationOrigin
+    ) async -> RecipeIngestionBatchResult {
+        guard !batch.isEmpty else { return RecipeIngestionBatchResult() }
+        var mutation = MutationAccumulator()
+        var report = RecipeIngestionBatchResult()
+        for e in batch {
+            let outcome = upsertNoPersist(e, origin: origin, deferEviction: true)
+            mutation.append(outcome)
+            report.append(outcome.publicResult)
+        }
+        mutation.deletedIDs.formUnion(evictIfNeeded())
+        rememberQuarantine(report.rejected)
+        if mutation.hasChanges {
+            // Persist and publish ONCE for the whole batch (was once per item → O(N²)).
+            persist()
+            await publish(mutation, origin: origin)
+        }
+        let deletedIDs = mutation.deletedIDs
+        report.inserted.removeAll { deletedIDs.contains($0.id) }
+        report.updated.removeAll { deletedIDs.contains($0.id) }
+        return report
+    }
+
+    @discardableResult
+    func delete(id: UUID) async -> Bool {
+        await delete(id: id, origin: .direct)
+    }
+
+    @discardableResult
+    func delete(id: UUID, origin: RecipeMutationOrigin) async -> Bool {
         if let idx = entries.firstIndex(where: { $0.id == id }) {
             let removed = entries[idx]
-            let key = removed.title.lowercased()
+            let key = Self.stableDedupKey(forTitle: removed.title)
             unindexEntry(removed)
             entries.remove(at: idx)
             titleIndex.removeValue(forKey: key)
+            if let sourceKey = Self.canonicalSourceKey(removed.sourceURL) { sourceIndex.removeValue(forKey: sourceKey) }
             persist()
+            var mutation = MutationAccumulator()
+            mutation.deletedIDs.insert(id)
+            await publish(mutation, origin: origin)
+            return true
         }
+        return false
     }
 
     /// Removes every stored entry that came from a retired source, in one pass with one
@@ -264,20 +704,42 @@ actor RecipeDatabase {
     /// whole file per call, which on a 2000-entry database is 2000 full rewrites for one
     /// sweep — the same O(N²) disk-write pattern that `upsertAll` exists to avoid.
     @discardableResult
-    func purgeBlockedSources() -> Int {
-        let kept = entries.filter { !RecipeSourceBlocklist.isBlocked($0) }
+    func purgeBlockedSources() async -> Int {
+        await purgeBlockedSources(origin: .sourcePurge)
+    }
+
+    @discardableResult
+    func purgeBlockedSources(origin: RecipeMutationOrigin) async -> Int {
+        let deletedIDs = Set(entries.compactMap { entry in
+            RecipeSourceBlocklist.isBlocked(entry) || !RecipeQuality.hasMeaningfulTitle(entry.title)
+                ? entry.id : nil
+        })
+        let kept = entries.filter {
+            !RecipeSourceBlocklist.isBlocked($0)
+                && RecipeQuality.hasMeaningfulTitle($0.title)
+        }
         let removed = entries.count - kept.count
         guard removed > 0 else { return 0 }
         entries = kept
         rebuildIndex()
         persist()
+        var mutation = MutationAccumulator()
+        mutation.deletedIDs = deletedIDs
+        await publish(mutation, origin: origin)
         return removed
     }
 
     // MARK: Import helpers — merge from other caches
     // Accepts already-converted entries — callers do the mapping outside the actor
-    func mergeEntries(_ entries: [RecipeDatabaseEntry]) {
-        upsertAll(entries)
+    func mergeEntries(_ entries: [RecipeDatabaseEntry]) async {
+        await mergeEntries(entries, origin: .direct)
+    }
+
+    func mergeEntries(
+        _ entries: [RecipeDatabaseEntry],
+        origin: RecipeMutationOrigin
+    ) async {
+        await upsertAll(entries, origin: origin)
     }
 
     // MARK: Persistence
@@ -289,9 +751,23 @@ actor RecipeDatabase {
 
     private func load() {
         if let decoded = LocalDatabase.shared.loadArray(RecipeDatabaseEntry.self, key: storageKey) {
-            entries = decoded.filter(Self.hasUsableImage)
+            var repairedContent = false
+            var rejected: [RecipeQuarantineRecord] = []
+            entries = decoded.compactMap { existing in
+                switch Self.canonicalizedForIngestion(existing, origin: .bootstrap) {
+                case .success(let canonical):
+                    repairedContent = repairedContent || canonical != existing
+                    return canonical
+                case .failure(let rejection):
+                    rejected.append(rejection)
+                    return nil
+                }
+            }
+            rememberQuarantine(rejected)
+            let acceptedCountBeforeDedup = entries.count
             rebuildIndex()
-            if entries.count != decoded.count { persist() }
+            if repairedContent || entries.count != decoded.count
+                || entries.count != acceptedCountBeforeDedup { persist() }
             return
         }
 
@@ -299,42 +775,116 @@ actor RecipeDatabase {
         guard let data = UserDefaults.standard.data(forKey: legacyDefaultsKey),
               let decoded = try? JSONDecoder().decode([RecipeDatabaseEntry].self, from: data)
         else { return }
-        entries = decoded.filter(Self.hasUsableImage)
+        var rejected: [RecipeQuarantineRecord] = []
+        entries = decoded.compactMap { existing in
+            switch Self.canonicalizedForIngestion(existing, origin: .bootstrap) {
+            case .success(let canonical): return canonical
+            case .failure(let rejection):
+                rejected.append(rejection)
+                return nil
+            }
+        }
+        rememberQuarantine(rejected)
         rebuildIndex()
         persist()
         UserDefaults.standard.removeObject(forKey: legacyDefaultsKey)
     }
 
     private static func hasUsableImage(_ entry: RecipeDatabaseEntry) -> Bool {
-        let raw = entry.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: raw) else { return false }
-        return url.scheme == "https" && url.host != nil
+        if case .success = RecipeMediaStore.shared.validateReference(entry.imageURL) { return true }
+        return false
     }
 
     private func rebuildIndex() {
         titleIndex = [:]
-        for e in entries { titleIndex[e.title.lowercased()] = e.id }
+        sourceIndex = [:]
+        var deduplicated: [RecipeDatabaseEntry] = []
+        for entry in entries {
+            let titleKey = Self.stableDedupKey(forTitle: entry.title)
+            let sourceKey = Self.canonicalSourceKey(entry.sourceURL)
+            if titleIndex[titleKey] != nil || sourceKey.flatMap({ sourceIndex[$0] }) != nil { continue }
+            titleIndex[titleKey] = entry.id
+            if let sourceKey { sourceIndex[sourceKey] = entry.id }
+            deduplicated.append(entry)
+        }
+        entries = deduplicated
         rebuildTokenIndex()   // #9 keep the search token index in sync
     }
 
-    private func evictIfNeeded() {
-        guard entries.count > maxEntries else { return }
+    private func evictIfNeeded() -> [UUID] {
+        guard entries.count > maxEntries else { return [] }
         // Keep manual/user entries, evict oldest cached ones
         let manual = entries.filter { $0.sourceName == "Manual" || $0.sourceName == "My Recipes" }
         let auto   = entries.filter { $0.sourceName != "Manual" && $0.sourceName != "My Recipes" }
                             .sorted { $0.cachedAt > $1.cachedAt }
-                            .prefix(maxEntries - manual.count)
+                            .prefix(max(0, maxEntries - manual.count))
+        let retainedIDs = Set((manual + auto).map(\.id))
+        let evicted = entries.filter { !retainedIDs.contains($0.id) }
+        for entry in evicted {
+            unindexEntry(entry)
+            let titleKey = Self.stableDedupKey(forTitle: entry.title)
+            if titleIndex[titleKey] == entry.id { titleIndex.removeValue(forKey: titleKey) }
+            if let sourceKey = Self.canonicalSourceKey(entry.sourceURL), sourceIndex[sourceKey] == entry.id {
+                sourceIndex.removeValue(forKey: sourceKey)
+            }
+        }
         entries = manual + auto
-        rebuildIndex()
+        return evicted.map(\.id)
+    }
+
+    /// Cache observation time is deliberately excluded: periodic source merges commonly
+    /// rediscover identical recipes with a fresh timestamp. Treating that timestamp as
+    /// content caused needless full-file persistence and UI mutation traffic every run.
+    nonisolated static func hasSameRecipeContent(
+        _ lhs: RecipeDatabaseEntry,
+        _ rhs: RecipeDatabaseEntry
+    ) -> Bool {
+        lhs.id == rhs.id
+            && lhs.title == rhs.title
+            && lhs.description == rhs.description
+            && lhs.sourceURL == rhs.sourceURL
+            && lhs.sourceName == rhs.sourceName
+            && lhs.prepTime == rhs.prepTime
+            && lhs.cookTime == rhs.cookTime
+            && lhs.totalTime == rhs.totalTime
+            && lhs.servings == rhs.servings
+            && lhs.category == rhs.category
+            && lhs.cuisine == rhs.cuisine
+            && lhs.tags == rhs.tags
+            && lhs.ingredients == rhs.ingredients
+            && lhs.steps == rhs.steps
+            && lhs.imageURL == rhs.imageURL
+            && lhs.calories == rhs.calories
+            && lhs.rating == rhs.rating
+            && lhs.openCount == rhs.openCount
+    }
+
+    private func publish(_ mutation: MutationAccumulator, origin: RecipeMutationOrigin) async {
+        guard mutation.hasChanges else { return }
+        revision &+= 1
+        UserDefaults.standard.set(String(revision), forKey: revisionStorageKey)
+
+        let deletedIDs = mutation.deletedIDs
+        let change = RecipeDatabaseChange(
+            revision: revision,
+            origin: origin,
+            inserted: mutation.inserted.filter { !deletedIDs.contains($0.id) },
+            updated: mutation.updated.filter { !deletedIDs.contains($0.id) },
+            deletedIDs: deletedIDs,
+            totalCount: entries.count
+        )
+        await MainActor.run {
+            DatabaseSyncBus.shared.publishRecipeMutation(change)
+        }
     }
 
     // MARK: Seed / Bootstrap
-    private func bootstrap() {
+    private func bootstrap() async {
         load()
         guard entries.isEmpty else { return }   // already seeded
         let bootstrapDate = StockedFormatters.iso8601.date(from: "2026-05-31T00:00:00Z") ?? Date()
         let seed: [RecipeDatabaseEntry] = Self.seedRecipes(bootstrapDate: bootstrapDate)
-        upsertAll(seed)
+        await upsertAll(seed, origin: .bootstrap)
     }
 
     // MARK: - Seed Data (sourced from DeepSeek JSON import, Taste of Home)
@@ -376,16 +926,25 @@ final class RecipeDatabaseManager {
     static let shared = RecipeDatabaseManager()
 
     private let db = RecipeDatabase.shared
+    @ObservationIgnored private var mutationCancellable: AnyCancellable?
+    @ObservationIgnored private var corpusCount: Int = 0
 
     var totalCount: Int = 0
 
-    /// Bumped whenever the writable pool gains rows outside the per-recipe add paths —
-    /// today, the Mac-harvested cache landing via `ingestHarvested`. Views that hold a
-    /// snapshot can observe this and reload so newly synced recipes appear without waiting
-    /// for the screen to be dismissed and reopened.
-    var recipesVersion: Int = 0
+    /// Monotonic actor-owned revision for the writable recipe pool. Kept as a compatibility
+    /// observation token for existing views; new consumers should observe `recipeMutations`.
+    var recipesVersion: UInt64 = 0
+    var catalogueRevision: UInt64 = 0
+    var latestRecipeChange: RecipeDatabaseChange?
 
     init() {
+        mutationCancellable = DatabaseSyncBus.shared.recipeMutations
+            .sink { [weak self] change in
+                guard let self, change.revision > self.recipesVersion else { return }
+                self.recipesVersion = change.revision
+                self.latestRecipeChange = change
+                self.totalCount = change.totalCount + self.corpusCount
+            }
         Task { await refreshCount() }
         // Merge other caches on launch
         Task(priority: .background) {
@@ -404,7 +963,8 @@ final class RecipeDatabaseManager {
         let primary = await db.search(query, limit: limit)
         if primary.count >= limit { return primary }
 
-        let corpus = await RecipeStore.shared.search(query, limit: limit)
+        let archive = await GrowthDatabase.shared.searchRecipePages(query, limit: limit).filter { !RecipeSourceBlocklist.isBlocked($0) }
+        let corpus = archive + (await RecipeStore.shared.search(query, limit: limit))
         guard !corpus.isEmpty else { return primary }
 
         // Merge, de-duplicating by normalized title so a dish present in both the
@@ -425,20 +985,44 @@ final class RecipeDatabaseManager {
     /// Load `snapshot` once on view appear; keep it fresh with a background task.
     func suggestions(for query: String, in snapshot: [RecipeDatabaseEntry], limit: Int = 8) -> [RecipeDatabaseEntry] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard q.count >= 1 else { return [] }
-        let byTitle    = snapshot.filter { $0.title.lowercased().hasPrefix(q) }
-        let byAnywhere = snapshot.filter { entry in
-            let idx = ([entry.title, entry.description, entry.category, entry.cuisine]
-                + entry.tags + entry.ingredients + [entry.sourceName])
-                .joined(separator: " ").lowercased()
-            return !entry.title.lowercased().hasPrefix(q) && idx.contains(q)
+        guard !q.isEmpty, limit > 0 else { return [] }
+
+        // Keep the two-pass relevance order without allocating two full filtered arrays or
+        // building a giant joined search string for every row. Most UI calls now finish in
+        // the prefix pass and stop as soon as the visible result budget is satisfied.
+        var results: [RecipeDatabaseEntry] = []
+        results.reserveCapacity(limit)
+        var prefixIDs = Set<UUID>()
+        for entry in snapshot {
+            if entry.title.lowercased().hasPrefix(q) {
+                results.append(entry)
+                prefixIDs.insert(entry.id)
+                if results.count == limit { return results }
+            }
         }
-        return Array((byTitle + byAnywhere).prefix(limit))
+
+        for entry in snapshot where !prefixIDs.contains(entry.id) {
+            if entry.title.localizedCaseInsensitiveContains(q)
+                || entry.description.localizedCaseInsensitiveContains(q)
+                || entry.category.localizedCaseInsensitiveContains(q)
+                || entry.cuisine.localizedCaseInsensitiveContains(q)
+                || entry.sourceName.localizedCaseInsensitiveContains(q)
+                || entry.tags.contains(where: { $0.localizedCaseInsensitiveContains(q) })
+                || entry.ingredients.contains(where: { $0.localizedCaseInsensitiveContains(q) }) {
+                results.append(entry)
+                if results.count == limit { break }
+            }
+        }
+        return results
     }
 
     // MARK: Snapshot for Views
     func loadSnapshot() async -> [RecipeDatabaseEntry] {
         await db.all()
+    }
+
+    func loadVersionedSnapshot() async -> RecipeDatabaseSnapshot {
+        await db.snapshot()
     }
 
     // MARK: Corpus-backed reads (large read-only RecipeNLG store via RecipeStore)
@@ -461,7 +1045,14 @@ final class RecipeDatabaseManager {
 
     // MARK: Add / Delete
     func add(entry: RecipeDatabaseEntry) async {
-        await db.upsert(entry)
+        await add(entry: entry, origin: .localAdd)
+    }
+
+    func add(
+        entry: RecipeDatabaseEntry,
+        origin: RecipeMutationOrigin
+    ) async {
+        await db.upsert(entry, origin: origin)
         await refreshCount()
     }
 
@@ -475,63 +1066,91 @@ final class RecipeDatabaseManager {
         let imageComplete = entries.filter {
             let value = $0.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
             return URL(string: value)?.scheme == "https"
+                && RecipeQuality.hasMeaningfulTitle($0.title)
+                && $0.ingredients.count >= 3
+                && !$0.steps.isEmpty
         }
         guard !imageComplete.isEmpty else { return [] }
-        let inserted = await db.upsertAll(imageComplete)
+        let inserted = await db.upsertAll(imageComplete, origin: .harvested)
         await refreshCount()
-        recipesVersion &+= 1
-        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: inserted.count))
         return inserted
+    }
+
+    /// Durable, uncapped public tier; the existing writable snapshot remains bounded.
+    /// Only public, source-attributed imports enter this tier, never personal recipes.
+    func ingestCataloguePage(_ entries: [RecipeDatabaseEntry]) async throws {
+        let qualified = entries.filter {
+            !RecipeSourceBlocklist.isBlocked($0) && RecipeQuality.hasMeaningfulTitle($0.title)
+                && URL(string: $0.imageURL)?.scheme == "https" && !$0.ingredients.isEmpty && !$0.steps.isEmpty
+        }
+        try await GrowthDatabase.shared.storeRecipePage(qualified)
+        catalogueRevision &+= 1
+    }
+
+    nonisolated static func cataloguePage(after cursor: Int64) async throws -> (entries: [RecipeDatabaseEntry], cursor: Int64, done: Bool) {
+        let page = try await GrowthDatabase.shared.recipePage(after: cursor)
+        return (page.entries.filter { !RecipeSourceBlocklist.isBlocked($0) }, page.cursor, page.done)
     }
 
     /// Convert and save a UserRecipe into the database immediately.
     func save(userRecipe: UserRecipe) async {
-        guard userRecipe.imageData != nil
-                || userRecipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
-        let entry = RecipeDatabaseEntry(
-            id: userRecipe.id,
-            title: userRecipe.title, description: userRecipe.description,
-            sourceURL: userRecipe.sourceURL ?? "", sourceName: userRecipe.sourceName ?? "My Recipes",
-            prepTime: userRecipe.prepTime, cookTime: userRecipe.cookTime, totalTime: "",
-            servings: String(userRecipe.servings), category: userRecipe.categories?.first ?? userRecipe.tags.first ?? "",
-            cuisine: userRecipe.cuisine, tags: Array(Set(userRecipe.tags + (userRecipe.categories ?? []))),
-            ingredients: userRecipe.ingredients.map { "\($0.amount) \($0.name)" },
-            steps: userRecipe.instructions, imageURL: userRecipe.imageURL ?? ""
-        )
-        await db.upsert(entry)
+        let entry = await Task.detached(priority: .utility) {
+            Self.databaseEntry(from: userRecipe)
+        }.value
+        guard let entry else { return }
+        await db.upsert(entry, origin: .userRecipe)
         await refreshCount()
-        recipesVersion &+= 1
-        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: 0))
     }
 
     /// Reconciles household-delivered recipes through the same dependency hub used by
     /// local edits. This keeps Discover, search, source/category views, planners, and hub
     /// counts current after a Worker pull instead of updating only GuestDataStore.
     func syncHouseholdRecipes(_ recipes: [UserRecipe]) async {
-        let entries = recipes.compactMap { recipe -> RecipeDatabaseEntry? in
-            let image = recipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard URL(string: image)?.scheme == "https" else { return nil }
-            return RecipeDatabaseEntry(
-                id: recipe.id, title: recipe.title, description: recipe.description,
-                sourceURL: recipe.sourceURL ?? "", sourceName: recipe.sourceName ?? "My Recipes",
-                prepTime: recipe.prepTime, cookTime: recipe.cookTime, totalTime: "",
-                servings: String(recipe.servings),
-                category: recipe.categories?.first ?? recipe.tags.first ?? "",
-                cuisine: recipe.cuisine,
-                tags: Array(Set(recipe.tags + (recipe.categories ?? []))),
-                ingredients: recipe.ingredients.map { "\($0.amount) \($0.name)" },
-                steps: recipe.instructions, imageURL: image
-            )
-        }
+        let entries = await Task.detached(priority: .utility) {
+            recipes.compactMap(Self.databaseEntry(from:))
+        }.value
         guard !entries.isEmpty else { return }
-        _ = await db.upsertAll(entries)
+        _ = await db.upsertAll(entries, origin: .householdSync)
         await refreshCount()
-        recipesVersion &+= 1
-        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: entries.count))
+    }
+
+    /// Resolves every UserRecipe image through the same durable boundary used by imports.
+    /// This is nonisolated so lossless file retention never blocks SwiftUI's main actor.
+    nonisolated private static func databaseEntry(
+        from recipe: UserRecipe
+    ) -> RecipeDatabaseEntry? {
+        let reference: RecipeMediaReference
+        do {
+            reference = try RecipeMediaStore.shared.resolvedReference(
+                remoteURL: recipe.imageURL,
+                imageData: recipe.imageData
+            )
+        } catch {
+            return nil
+        }
+
+        return RecipeDatabaseEntry(
+            id: recipe.id,
+            title: recipe.title,
+            description: recipe.description,
+            sourceURL: recipe.sourceURL ?? "",
+            sourceName: recipe.sourceName ?? "My Recipes",
+            prepTime: recipe.prepTime,
+            cookTime: recipe.cookTime,
+            totalTime: "",
+            servings: String(recipe.servings),
+            category: recipe.categories?.first ?? recipe.tags.first ?? "",
+            cuisine: recipe.cuisine,
+            tags: Array(Set(recipe.tags + (recipe.categories ?? []))),
+            ingredients: recipe.ingredients.map { "\($0.amount) \($0.name)" },
+            steps: recipe.instructions,
+            imageURL: reference.storedValue,
+            author: recipe.author, license: recipe.license, imageAttribution: recipe.imageAttribution
+        )
     }
 
     func delete(id: UUID) async {
-        await db.delete(id: id)
+        await db.delete(id: id, origin: .userRecipe)
         await refreshCount()
     }
 
@@ -540,7 +1159,7 @@ final class RecipeDatabaseManager {
     /// through to the actor.
     @discardableResult
     func purgeBlockedSources() async -> Int {
-        let removed = await db.purgeBlockedSources()
+        let removed = await db.purgeBlockedSources(origin: .sourcePurge)
         if removed > 0 { await refreshCount() }
         return removed
     }
@@ -563,7 +1182,7 @@ final class RecipeDatabaseManager {
                 )
             }
         }.value
-        await db.mergeEntries(offlineEntries)
+        await db.mergeEntries(offlineEntries, origin: .offlineCache)
 
         // 2. WebRecipeCatalogue
         let webRaw = await WebRecipeCatalogue.shared.all()
@@ -582,15 +1201,12 @@ final class RecipeDatabaseManager {
                 )
             }
         }.value
-        await db.mergeEntries(webEntries)
+        await db.mergeEntries(webEntries, origin: .webCatalogue)
 
         // 3. Auto-discover and import any new bundled JSON files
         await BundleDataImporter.shared.importNewBundledFiles()
 
         await refreshCount()
-        // Let open surfaces refresh after a full merge (launch and .fullSync both land here).
-        recipesVersion &+= 1
-        DatabaseSyncBus.shared.publish(.recipeDatabaseChanged(count: 0))
     }
 
     // MARK: Autofill helper
@@ -619,7 +1235,10 @@ final class RecipeDatabaseManager {
         // Writable store (user/web/seed) + the large read-only corpus (RecipeStore).
         let writable = await db.count()
         let corpus   = await RecipeStore.shared.count()
+        corpusCount = corpus
         totalCount = writable + corpus
+        let revision = await db.currentRevision()
+        if revision > recipesVersion { recipesVersion = revision }
     }
     // MARK: - Bootstrap seed from DeepSeek/Taste of Home export (14 recipes, May 2026)
     func bootstrapSeedIfNeeded() async {
@@ -753,7 +1372,7 @@ final class RecipeDatabaseManager {
             steps: ["Preheat oven to 350°. In a large bowl, combine the broccoli, soup, mayonnaise, cheese, eggs and onion.", "Transfer to a greased 2-qt. baking dish.", "Sprinkle with crackers. Bake, uncovered, 25-30 minutes or until heated through."]
         )
         ]
-        for entry in seed { await RecipeDatabase.shared.upsert(entry) }
+        _ = await RecipeDatabase.shared.upsertAll(seed, origin: .bootstrap)
         UserDefaults.standard.set(true, forKey: key)
     }
 

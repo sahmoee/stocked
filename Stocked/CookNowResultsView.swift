@@ -32,6 +32,7 @@ struct CookNowResultsView: View {
     @State private var showMore = false
     @State private var isGeneratingRecipe = false
     @State private var generationMessage: String?
+    @State private var contentKind = ContentKind.food
     // RL-004 — Cook Anyway review for recipes that touch meal-plan reservations.
     @State private var overridePayload: ReservationOverridePayload? = nil
 
@@ -39,9 +40,17 @@ struct CookNowResultsView: View {
         StockedShell(showBack: true, titleText: title) {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Based on what's currently logged")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
+
+                if hasDrinks {
+                    Picker("Recipe type", selection: $contentKind) {
+                        ForEach(ContentKind.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, CookStyle.screenHPad)
+                }
 
                 if focus == .readyFirst {
                     inventoryRecipeButton
@@ -89,6 +98,8 @@ struct CookNowResultsView: View {
         }
         .qaScreen("Cook Now results")
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
+        .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recompute() }
+        .onDisappear { classificationTask?.cancel() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
         .onChange(of: store.planRevision)      { _, _ in recompute() }  // RL-006: plan edits move reservations
         .sheet(item: $overridePayload) { payload in
@@ -115,26 +126,51 @@ struct CookNowResultsView: View {
     }
 
     private func recompute() {
-        snapshot = CookNowCompute.run(store: store, session: cookSession)
+        classificationTask?.cancel()
+        classificationTask = Task {
+            if let result = await CookNowCompute.runYielding(store: store, session: cookSession),
+               !Task.isCancelled { snapshot = result }
+        }
     }
+
+    @State private var classificationTask: Task<Void, Never>?
 
     // PERF: this used to touch all four tier lists, and each of those was a
     // computed property that re-filtered and re-sorted the whole catalog. Between
     // this check and the sections below, one body pass ran ~10 full passes over
     // ~150 recipes. The tiers are stored on Output now and this is a Bool read.
-    private var isEmptyEverywhere: Bool { snapshot.isEmptyEverywhere }
+    private var isEmptyEverywhere: Bool {
+        filtered(snapshot.readyNow).isEmpty && filtered(snapshot.needsReview).isEmpty
+            && filtered(snapshot.almostReady).isEmpty && filtered(snapshot.morePossibilities).isEmpty
+    }
+
+    private enum ContentKind: CaseIterable { case food, drinks; var label: String { self == .food ? "Food" : "Drinks" } }
+    private var hasDrinks: Bool { snapshot.classified.contains { isDrink($0.recipe) } }
+    private func isDrink(_ recipe: UserRecipe) -> Bool {
+        RecipeDisplayPolicy.isDrink(title: recipe.title,
+                                    categories: recipe.categories ?? [], tags: recipe.tags)
+    }
+    private func filtered(_ items: [ClassifiedRecipe]) -> [ClassifiedRecipe] {
+        items.filter { item in
+            let presentable = RecipeDisplayPolicy.isPresentable(
+                title: item.recipe.title, imageURL: item.recipe.imageURL,
+                imageData: item.recipe.imageData, ingredients: item.recipe.ingredients.count,
+                steps: item.recipe.instructions.count, sourceURL: item.recipe.sourceURL)
+            return presentable && (contentKind == .drinks ? isDrink(item.recipe) : !isDrink(item.recipe))
+        }
+    }
 
     private var inventoryRecipeButton: some View {
         VStack(alignment: .leading, spacing: 7) {
             Button(action: generateInventoryRecipe) {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 15, weight: .bold))
+                        .scaledFont(15, weight: .bold)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isGeneratingRecipe ? "Creating your recipe…" : "Create a recipe with AI")
-                            .font(.system(size: 14, weight: .bold))
+                            .scaledFont(14, weight: .bold)
                         Text("Built from what's in your inventory")
-                            .font(.system(size: 11, weight: .medium))
+                            .scaledFont(11, weight: .medium)
                             .opacity(0.72)
                     }
                     Spacer()
@@ -142,7 +178,7 @@ struct CookNowResultsView: View {
                         ProgressView().tint(Color.stockedCharcoal)
                     } else {
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(12, weight: .bold)
                     }
                 }
                 .foregroundStyle(Color.stockedCharcoal)
@@ -157,7 +193,7 @@ struct CookNowResultsView: View {
 
             if let generationMessage {
                 Text(generationMessage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
             }
         }
@@ -183,35 +219,35 @@ struct CookNowResultsView: View {
     private var readySection: some View {
         tierSection(title: "Ready now",
                     subtitle: snapshot.metrics.readyBreakdown,
-                    items: snapshot.readyNow)
+                    items: filtered(snapshot.readyNow))
     }
 
     private var reviewSection: some View {
         tierSection(title: "Swaps to review",
                     subtitle: "One confirmation away",
-                    items: snapshot.needsReview)
+                    items: filtered(snapshot.needsReview))
     }
 
     private var almostSection: some View {
         tierSection(title: "Almost ready",
                     subtitle: "Missing 6 or more items after substitutions",
-                    items: snapshot.almostReady)
+                    items: filtered(snapshot.almostReady))
     }
 
     private func moreSection(expanded: Bool) -> some View {
         Group {
-            if !snapshot.morePossibilities.isEmpty {
+            if !filtered(snapshot.morePossibilities).isEmpty {
                 if expanded {
                     tierSection(title: "More possibilities",
                                 subtitle: "Meals to build toward — closest first",
-                                items: snapshot.morePossibilities)
+                                items: filtered(snapshot.morePossibilities))
                 } else {
                     Button { withAnimation { showMore = true } } label: {
                         HStack {
-                            Text("More possibilities (\(snapshot.morePossibilities.count))")
-                                .font(.system(size: 13.5, weight: .semibold))
+                            Text("More possibilities")
+                                .scaledFont(13.5, weight: .semibold)
                             Spacer()
-                            Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "chevron.down").scaledFont(11, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedGold)
                         .padding(.vertical, 11).padding(.horizontal, 14)
@@ -220,7 +256,7 @@ struct CookNowResultsView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, CookStyle.screenHPad)
-                    .a11yButton("Show more possibilities, \(snapshot.morePossibilities.count) recipes missing six or more items")
+                    .a11yButton("Show more possibilities")
                 }
             }
         }
@@ -232,11 +268,11 @@ struct CookNowResultsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         if !subtitle.isEmpty {
                             Text(subtitle)
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                     }
@@ -246,11 +282,11 @@ struct CookNowResultsView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(items.prefix(12)) { c in
                             CookRecipeCard(
-                                title: c.recipe.title,
+                                title: RecipeDisplayPolicy.cleanedTitle(c.recipe.title),
                                 subtitle: rowSubtitle(c),
                                 matchPercent: matchPercent(c),
                                 imageURL: c.recipe.imageURL,
-                                usesUniformIcon: true
+                                usesUniformIcon: false
                             ) {
                                 // RL-004 — a recipe using reserved ingredients gets the
                                 // informative Cook Anyway review first (never blocking:

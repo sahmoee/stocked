@@ -15,6 +15,7 @@ struct SettingsPageView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.stockedMotion) private var motion
     @AppStorage("stocked.qa.enabled") private var qaEnabled = false
 
     // ── Accordion state — one section open at a time ────────────────
@@ -26,11 +27,12 @@ struct SettingsPageView: View {
 
     // ── Detail sheets — single item-driven presenter ────────────────
     private enum Sheet: Int, Identifiable {
-        case storePopout, household, recipeSources, appIcon
+        case storePopout, household, recipeSources, appIcon, dietaryProfile
         case transfer, notifications, dataStorage
         case helpCenter, editProfile
         case qa
         case catalogImport
+        case appExperience
         var id: Int { rawValue }
     }
     @State private var activeSheet: Sheet? = nil
@@ -72,6 +74,11 @@ struct SettingsPageView: View {
                               title: "Help & Support", subtitle: "Guides and getting unstuck") {
                         helpContent
                     }
+                    settingsSectionRow(icon: "sparkles.rectangle.stack", tint: Color.stockedGreen,
+                                       title: "App Experience",
+                                       subtitle: "Setup, activity, notifications, privacy, accessibility, and QA") {
+                        activeSheet = .appExperience
+                    }
 
                     VStack(spacing: 8) {
                         Toggle("Enable Stocked QA", isOn: $qaEnabled)
@@ -84,10 +91,10 @@ struct SettingsPageView: View {
                             }
                         }
                         Text("Disabled by default. Enable only on builds being tested.")
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .scaledFont(11).foregroundStyle(.secondary)
                     }
                     .padding(14)
-                    .background(Color.stockedWhite.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
                     BuildInfoFooter()
                         .padding(.top, 10)
@@ -103,7 +110,7 @@ struct SettingsPageView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
+                        .scaledFont(20)
                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                 }
                 .a11yButton("Close settings")
@@ -115,6 +122,7 @@ struct SettingsPageView: View {
             case .household:     HouseholdHomeView().environment(session)
             case .recipeSources: RecipeSourcesManagerView().environment(session)
             case .appIcon:       NavigationStack { AppIconPickerView().environment(session) }
+            case .dietaryProfile: NavigationStack { DietaryProfileView().environment(session) }
             case .transfer:      KitchenTransferView().environment(session)
             case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
             case .dataStorage:   DataStorageView().environment(session)
@@ -127,6 +135,8 @@ struct SettingsPageView: View {
                 #else
                 EmptyView()
                 #endif
+            case .appExperience:
+                NavigationStack { AppExperienceCenterView().environment(session) }
             }
         }
         .alert("Erase All Data?", isPresented: $showClearAlert) {
@@ -170,16 +180,16 @@ struct SettingsPageView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 9).fill(tint).frame(width: 34, height: 34)
-                        Image(systemName: icon).font(.system(size: 15)).foregroundStyle(.white)
+                        Image(systemName: icon).scaledFont(15).foregroundStyle(.white)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(title).font(.system(size: 16, weight: .bold, design: .serif))
+                        Text(title).scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
-                        Text(subtitle).font(.system(size: 11.5))
-                            .foregroundStyle(session.themeTextColor.opacity(0.45)).lineLimit(1)
+                        Text(subtitle).scaledFont(11.5)
+                            .foregroundStyle(session.themeTextColor.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
+                    Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                 }
                 .padding(16)
@@ -207,7 +217,7 @@ struct SettingsPageView: View {
         // background(_:alignment:) warning).
         return VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                motion.animate(.standard, intent: .spatial) {
                     expanded = isOpen ? nil : section
                 }
                 HapticManager.light()
@@ -215,22 +225,22 @@ struct SettingsPageView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 9).fill(tint).frame(width: 34, height: 34)
-                        Image(systemName: icon).font(.system(size: 15)).foregroundStyle(.white)
+                        Image(systemName: icon).scaledFont(15).foregroundStyle(.white)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         if !isOpen {
                             Text(subtitle)
-                                .font(.system(size: 11.5))
+                                .scaledFont(11.5)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(13, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.35))
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
@@ -265,7 +275,8 @@ struct SettingsPageView: View {
         PreferencesSectionView(
             onPreferredStore: { activeSheet = .storePopout },
             onRecipeSources: { activeSheet = .recipeSources },
-            onAppIcon: { activeSheet = .appIcon }
+            onAppIcon: { activeSheet = .appIcon },
+            onDietaryProfile: { activeSheet = .dietaryProfile }
         )
     }
 
@@ -330,16 +341,16 @@ struct SettingsPageView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 7).fill(color).frame(width: 28, height: 28)
-                    Image(systemName: icon).font(.system(size: 13)).foregroundStyle(.white)
+                    Image(systemName: icon).scaledFont(13).foregroundStyle(.white)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
+                    Text(title).scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
                     if !detail.isEmpty {
-                        Text(detail).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text(detail).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 11))
+                Image(systemName: "chevron.right").scaledFont(11)
                     .foregroundStyle(session.themeTextColor.opacity(0.25))
             }
             .contentShape(Rectangle())
@@ -351,7 +362,7 @@ struct SettingsPageView: View {
     private func themeButton(_ label: String, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .scaledFont(13, weight: .semibold)
                 .foregroundStyle(active ? Color.stockedBlack : session.themeTextColor.opacity(0.7))
                 .frame(maxWidth: .infinity).padding(.vertical, 9)
                 .background(active ? Color.stockedGold : session.themeTextColor.opacity(0.12))

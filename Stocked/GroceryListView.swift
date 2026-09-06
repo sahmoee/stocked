@@ -20,7 +20,7 @@ struct StockedUndoToast: View {
             Text(message).stocked(.callout).foregroundStyle(Color.stockedWhite)
             Spacer()
             Button("Undo") { onUndo(); withAnimation { isShowing = false } }
-                .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
+                .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -55,6 +55,8 @@ enum GrocerySheet: Identifiable {
 
 struct GroceryListView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var newItem      = ""
     @State private var searchText   = ""
     // One accordion may be open at a time. Starting nil keeps the grocery list compact
@@ -98,12 +100,12 @@ struct GroceryListView: View {
     private func segmentButton(_ title: String, count: Int, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Text(title).font(.system(size: 13.5, weight: .bold))
+                Text(title).scaledFont(13.5, weight: .bold)
                 if count > 0 {
-                    Text("\(count)").font(.system(size: 11.5, weight: .bold)).opacity(0.7)
+                    Text("\(count)").scaledFont(11.5, weight: .bold).opacity(0.7)
                 }
             }
-            .foregroundStyle(active ? Color.stockedWhite : (dark ? Color.stockedWhite.opacity(0.6) : Color.stockedCharcoal.opacity(0.6)))
+            .foregroundStyle(active ? Color.selectedTabForeground(dark) : session.themeSecondaryText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
             .background(active ? Color.stockedCharcoal : Color.clear)
@@ -114,54 +116,33 @@ struct GroceryListView: View {
 
     private func filterPill(icon: String, title: String) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 11, weight: .semibold))
-            Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            Image(systemName: icon).scaledFont(11, weight: .semibold)
+            Text(title).scaledFont(12, weight: .semibold).fixedSize(horizontal: false, vertical: true)
             if icon != "xmark" {
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+                Image(systemName: "chevron.down").scaledFont(8, weight: .bold)
             }
         }
         .foregroundStyle(text.opacity(0.78))
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(dark ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.42))
+        .background(session.themeCardColor)
         .overlay(Capsule().stroke(text.opacity(0.14), lineWidth: 1))
         .clipShape(Capsule())
     }
 
-    private let aisleOrder: [String: Int] = [
-        "vegetable":1,"fruit":1,"apple":1,"banana":1,"berry":1,"lettuce":1,
-        "tomato":1,"onion":1,"garlic":1,"pepper":1,"broccoli":1,"carrot":1,"spinach":1,
-        "bread":2,"bagel":2,"tortilla":2,"roll":2,"muffin":2,
-        "milk":3,"cheese":3,"yogurt":3,"butter":3,"cream":3,"egg":3,
-        "chicken":4,"beef":4,"pork":4,"fish":4,"salmon":4,"shrimp":4,"turkey":4,"steak":4,
-        "deli":5,"ham":5,"bacon":5,"sausage":5,
-        "frozen":6,"ice cream":6,
-        "can":7,"canned":7,"pasta":7,"rice":7,"bean":7,"lentil":7,"soup":7,
-        "chip":8,"snack":8,"cereal":8,"cracker":8,"cookie":8,"nut":8,
-        "water":9,"juice":9,"soda":9,"coffee":9,"tea":9,
-        "oil":10,"vinegar":10,"salt":10,"spice":10,"herb":10,"ketchup":10,"mustard":10,"honey":10,
-    ]
-    private func aisleScore(_ name: String) -> Int {
-        let lower = name.lowercased()
-        return aisleOrder.first { lower.contains($0.key) }?.value ?? 99
-    }
     private func sortForShopping() {
-        // DEP-14 / G-07: if the Store Layout tool has learned a walking order for the store you
-        // shop at, use it — that's your ACTUAL aisle order, not the generic guess below. Falls
-        // back to the built-in aisle ranking when no layout has been taught for this store yet.
+        // StoreRouting owns both the learned branch order and the GroceryAisle fallback. Keeping
+        // the compatibility sort here avoids a second, screen-local aisle database drifting from
+        // GroceryKnowledgeBase when a store has not been taught yet.
         let layout = StoreLayoutStore.shared.layout(for: session.preferredStore)
-        withAnimation(.spring(response: 0.3)) {
-            if layout.trips > 0 {
-                let ordered = StoreRouting.sort(store.groceryItems.map(\.name), layout: layout)
-                var rank: [String: Int] = [:]
-                for (i, n) in ordered.enumerated() where rank[n.lowercased()] == nil { rank[n.lowercased()] = i }
-                store.groceryItems.sort {
-                    (rank[$0.name.lowercased()] ?? .max, $0.name) < (rank[$1.name.lowercased()] ?? .max, $1.name)
-                }
-            } else {
-                store.groceryItems.sort {
-                    let sa = aisleScore($0.name), sb = aisleScore($1.name)
-                    return sa == sb ? $0.name < $1.name : sa < sb
-                }
+        let ordered = StoreRouting.sort(store.groceryItems.map(\.name), layout: layout)
+        var rank: [String: Int] = [:]
+        for (index, name) in ordered.enumerated() where rank[name.lowercased()] == nil {
+            rank[name.lowercased()] = index
+        }
+        motion.animate(.standard, intent: .spatial) {
+            store.groceryItems.sort {
+                (rank[$0.name.lowercased()] ?? .max, $0.name)
+                    < (rank[$1.name.lowercased()] ?? .max, $1.name)
             }
             isSortedForShopping = true
         }
@@ -191,8 +172,8 @@ struct GroceryListView: View {
         if runningOut { return true }
         return !GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map { $0.name }, limit: 8).isEmpty
     }
-    private var text: Color  { dark ? Color.stockedWhite : Color.stockedCharcoal }
-    private var sub:  Color  { dark ? Color(white: 0.55) : Color.stockedCharcoal.opacity(0.45) }
+    private var text: Color  { session.themeTextColor }
+    private var sub:  Color  { session.themeSecondaryText }
 
     // MARK: - Grouped sections (search-filtered)
     private func filteredItems(_ items: [LocalGroceryItem]) -> [LocalGroceryItem] {
@@ -353,6 +334,7 @@ struct GroceryListView: View {
         let who = UserDefaults.standard.string(forKey: "householdMemberName_v1") ?? ""
         var moved = 0
         var importRecords: [PurchaseImportRecord] = []
+        var additions: [ProposedChange] = []
 
         for cand in candidates {
             guard let g = store.groceryItems.first(where: { $0.id == cand.id }) else { continue }
@@ -361,14 +343,20 @@ struct GroceryListView: View {
                 break   // duplicate — never enters inventory
             case .merge:
                 PurchaseImportMerge.refreshExisting(in: store, name: g.name,
-                                                    storeName: cand.store.isEmpty ? nil : cand.store)
+                                                    storeName: cand.store.isEmpty ? nil : cand.store,
+                                                    origin: .groceryTransfer)
             case .keepBoth:
                 var inv = LocalInventoryItem(name: g.name, level: 1.0, zone: "Pantry",
                                              quantity: max(1, g.quantity))
                 inv.purchaseDate     = Date()
                 inv.addedBy          = who
                 inv.storePurchasedAt = cand.store.isEmpty ? nil : cand.store
-                store.addInventoryItem(inv)   // merges equivalent rows (#2/#18)
+                additions.append(InventoryProposalBatch.reviewableAdd(
+                    item: inv,
+                    origin: .groceryTransfer,
+                    sourceID: "grocery-transfer",
+                    reason: "Moved from the grocery list"
+                ))
                 moved += 1
                 importRecords.append(PurchaseImportRecord(
                     normalizedName: PurchaseDedupEngine.normalizedName(g.name),
@@ -376,6 +364,18 @@ struct GroceryListView: View {
                     store: cand.store, source: .shoppingTrip,
                     transactionKey: tripID, importedAt: Date()))
             }
+        }
+        if !additions.isEmpty {
+            store.applyProposalBatch(
+                InventoryProposalBatch(
+                    origin: .groceryTransfer,
+                    title: "Move groceries to pantry",
+                    changes: additions,
+                    mergePolicy: .storeCompatible
+                ),
+                brandPreferences: store.cookingProfile.brandPreferences,
+                retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
+            )
         }
         // Every handled row leaves the list — skipped/merged lines were already bought
         // and accounted for; keeping them would just re-flag next time.
@@ -391,10 +391,347 @@ struct GroceryListView: View {
         HapticManager.success()
     }
 
-    var body: some View {
+    var body: some View { editorialPresentation }
+
+    private var editorialPresentation: some View {
+        StockedShell {
+            VStack(alignment: .leading, spacing: 24) {
+                groceryHero
+                shoppingTripCard
+                    .coachmarkAnchor("grocery.segments")
+                forThisWeekSection
+                editorialListSection
+                if let suggestion = editorialSuggestion {
+                    editorialSuggestionCard(name: suggestion.name, reason: suggestion.reason)
+                }
+            }
+            .stockedSnapTargetLayout()
+            .frame(maxWidth: layoutMetrics.readableContentWidth)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, layoutMetrics.horizontalPadding)
+            .padding(.bottom, 110)
+        }
+        .sheet(item: $grocerySheet) { sheet in
+            switch sheet {
+            case .storePicker: quickStorePickerSheet
+            case .share: ShareSheet(items: [shareText])
+            case .scanList:
+                HandwrittenListScanner { lines in
+                    var count = 0
+                    for line in lines {
+                        let name = line.trimmingCharacters(in: .whitespaces)
+                        guard name.count >= 2,
+                              !store.groceryItems.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })
+                        else { continue }
+                        store.groceryItems.append(LocalGroceryItem(name: name, isChecked: false))
+                        count += 1
+                    }
+                    loopMessage = "Added \(count) item\(count == 1 ? "" : "s") from your list"
+                    grocerySheet = nil
+                }
+                .environment(session)
+            case .cookLater(let context):
+                NavigationStack { CookLaterWorkspaceView(context: context).environment(session) }
+            case .purchaseReview(let context):
+                PurchaseDedupReviewView(
+                    context: context,
+                    onCommit: { resolutions in
+                        grocerySheet = nil
+                        commitPantryTransfer(candidates: context.candidates, resolutions: resolutions)
+                    },
+                    onCancel: { grocerySheet = nil }
+                )
+                .environment(session)
+            }
+        }
+        .onAppear { rebuildSections() }
+        .task {
+            let sync = HouseholdSync.shared
+            if sync.state == .owner || sync.state == .member {
+                householdMemberNames = await sync.fetchMembers().map(\.name).filter { !$0.isEmpty }
+            }
+        }
+        .onChange(of: store.groceryRevision) { _, _ in rebuildSections() }
+        .onChange(of: searchText) { _, _ in rebuildSections() }
+        .onChange(of: showBought) { _, _ in rebuildSections() }
+        .onChange(of: showMineOnly) { _, _ in rebuildSections() }
+        .onChange(of: sortAZ) { _, _ in rebuildSections() }
+        .onChange(of: groupByStore) { _, _ in rebuildSections() }
+        .onChange(of: selectedStore) { _, _ in rebuildSections() }
+        .onChange(of: selectedAisle) { _, _ in rebuildSections() }
+        .confirmationDialog("Organize Grocery", isPresented: $showMoreDialog, titleVisibility: .visible) {
+            Button("Add Item") { showQuickAdd = true }
+            Button(showBought ? "Show To Buy" : "Show Bought") { showBought.toggle() }
+            if store.groceryItems.contains(where: { !$0.assignedTo.isEmpty }) {
+                Button(showMineOnly ? "Show Everyone’s Items" : "Show My Items") { showMineOnly.toggle() }
+            }
+            Button(sortAZ ? "Sort by Aisle" : "Sort by Name") { sortAZ.toggle() }
+            Button(groupByStore ? "Group by Aisle" : "Group by Store") { groupByStore.toggle() }
+            Button("Shopping at \(session.preferredStore) — Change Store") { grocerySheet = .storePicker }
+            Button("Share List") { prepareShare() }
+            Button("Scan a List") { grocerySheet = .scanList }
+            if store.groceryItems.contains(where: { $0.isChecked }) {
+                Button("Move Bought Items to Inventory") {
+                    beginPantryTransfer(store.groceryItems.filter(\.isChecked))
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Add Item", isPresented: $showQuickAdd) {
+            TextField("Item name", text: $quickAddName)
+            Button("Add") {
+                let name = quickAddName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    store.addGroceryItem(name: name)
+                    HapticManager.success()
+                }
+                quickAddName = ""
+            }
+            Button("Cancel", role: .cancel) { quickAddName = "" }
+        } message: {
+            Text("Add something to your grocery list.")
+        }
+        .coachmarks(page: .grocery, steps: GroceryCoachmarks.steps)
+    }
+
+    private var groceryHero: some View {
+        HStack(alignment: .center, spacing: 4) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("\(toBuyCount) things for\nyour next trip.")
+                    .font(.stockedSerif(36, weight: .bold, relativeTo: .largeTitle))
+                    .foregroundStyle(text)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Organized for a quicker shop at \(session.preferredStore).")
+                    .font(.stocked(.body))
+                    .foregroundStyle(sub)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 0)
+            Image("home_grocery_bag")
+                .resizable()
+                .scaledToFit()
+                .frame(width: layoutMetrics.contentWidth >= 700 ? 260 : 165,
+                       height: layoutMetrics.contentWidth >= 700 ? 260 : 210,
+                       alignment: .bottomTrailing)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var toBuyCount: Int { store.groceryItems.filter { !$0.isChecked }.count }
+    private var boughtCount: Int { store.groceryItems.count - toBuyCount }
+    private var estimatedTripMinutes: Int { max(8, min(60, toBuyCount * 2)) }
+
+    private var shoppingTripCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { shoppingTripIdentity; Spacer(); shoppingTripFacts }
+                VStack(alignment: .leading, spacing: 10) { shoppingTripIdentity; shoppingTripFacts }
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("\(boughtCount) of \(store.groceryItems.count) in cart")
+                    .font(.stocked(.subheadline))
+                    .foregroundStyle(text)
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(session.themeTextColor.opacity(0.10))
+                        Capsule().fill(Color.stockedGreen)
+                            .frame(width: proxy.size.width * shoppingProgress)
+                    }
+                }
+                .frame(height: 7)
+            }
+            Button {
+                showBought = false
+                selectedStore = "All Stores"
+                groupByStore = false
+                sortForShopping()
+                expandedSection = sections.first?.title
+                loopMessage = "Your list is arranged in shopping order"
+            } label: {
+                Text("Start Shopping")
+                    .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                    .foregroundStyle(Color.selectedTabForeground(dark))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color.stockedCharcoal,
+                                in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .background(session.themeCardColor,
+                    in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(text.opacity(0.07), lineWidth: 1)
+        }
+    }
+
+    private var shoppingTripIdentity: some View {
+        Text(session.preferredStore)
+            .font(.stockedSerif(24, weight: .bold, relativeTo: .title2))
+            .foregroundStyle(Color.stockedGreen)
+    }
+
+    private var shoppingTripFacts: some View {
+        HStack(spacing: 18) {
+            Label("\(toBuyCount) items", systemImage: "bag")
+            Label("About \(estimatedTripMinutes) min", systemImage: "clock")
+        }
+        .font(.stocked(.subheadline))
+        .foregroundStyle(text)
+    }
+
+    private var shoppingProgress: CGFloat {
+        guard !store.groceryItems.isEmpty else { return 0 }
+        return CGFloat(boughtCount) / CGFloat(store.groceryItems.count)
+    }
+
+    private var forThisWeekSection: some View {
+        let meals = Array(store.plannedMeals.filter { !$0.isCooked }.prefix(6))
+        return VStack(alignment: .leading, spacing: 12) {
+            editorialSectionTitle("For This Week")
+            if meals.isEmpty {
+                HStack(spacing: 12) {
+                    StockedKitchenArtwork(asset: "home_widget_planning").frame(width: 92, height: 72)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Plan a meal")
+                            .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                        Text("Recipe ingredients will stay grouped here.")
+                            .font(.stocked(.subheadline)).foregroundStyle(sub)
+                    }
+                }
+                .padding(14)
+                .background(session.themeCardColor,
+                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 12) {
+                        ForEach(meals) { meal in
+                            Button {
+                                grocerySheet = .cookLater(.grocery(name: meal.title, recipeSource: meal.title))
+                            } label: {
+                                HStack(spacing: 10) {
+                                    StockedKitchenArtwork(asset: "home_widget_planning")
+                                        .frame(width: 104, height: 92)
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(meal.title)
+                                            .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                                            .foregroundStyle(text).fixedSize(horizontal: false, vertical: true)
+                                        Text("· \(meal.ingredients.count) items")
+                                            .font(.stocked(.caption).weight(.semibold))
+                                            .foregroundStyle(Color.stockedGreen)
+                                    }
+                                }
+                                .padding(12)
+                                .frame(width: 286, alignment: .leading)
+                                .background(session.themeCardColor,
+                                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .stockedScrollTargetLayout()
+                }
+                .stockedHorizontalSnap()
+            }
+        }
+    }
+
+    private var editorialListSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                editorialSectionTitle(showBought ? "Bought" : "Your List")
+                Spacer()
+                Button("Organize") { showMoreDialog = true }
+                    .font(.stocked(.subheadline).weight(.semibold))
+                    .foregroundStyle(session.accentColor)
+            }
+            if !loopMessage.isEmpty {
+                Text(loopMessage).font(.stocked(.caption)).foregroundStyle(session.accentColor)
+            }
+            if sections.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: showBought ? "checkmark.circle" : "cart.badge.plus")
+                        .font(.stocked(.largeTitle))
+                        .foregroundStyle(session.accentColor)
+                    Text(showBought ? "Nothing in the cart yet" : "Your list is clear")
+                        .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
+                    Button("Add Item") { showQuickAdd = true }
+                        .font(.stocked(.subheadline).weight(.semibold))
+                        .foregroundStyle(session.accentColor)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(28)
+                .background(session.themeCardColor,
+                            in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(sections) { sectionCard($0) }
+                }
+            }
+        }
+    }
+
+    private func editorialSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.stockedSerif(26, weight: .bold, relativeTo: .title2))
+            .foregroundStyle(text)
+    }
+
+    private var editorialSuggestion: (name: String, reason: String)? {
+        if let item = store.inventoryItems.first(where: { inventoryItem in
+            KitchenAvailability.isRunningLow(inventoryItem) &&
+            !GroceryDedup.isDuplicate(inventoryItem.name, in: store.groceryItems.map(\.name))
+        }) {
+            return (item.name.displayNormalized, "\(item.name.displayNormalized) is running low")
+        }
+        if let name = cachedPredicted.first { return (name.displayNormalized, "Likely to run out soon") }
+        if let name = GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map(\.name), limit: 1).first {
+            return (name.displayNormalized, "One of your usuals")
+        }
+        return nil
+    }
+
+    private func editorialSuggestionCard(name: String, reason: String) -> some View {
+        HStack(spacing: 14) {
+            FoodIconView(name: name, size: 72, emojiSize: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Suggested for your list")
+                    .font(.stocked(.caption).weight(.semibold))
+                    .foregroundStyle(session.accentColor)
+                Text(reason)
+                    .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+                    .foregroundStyle(text)
+            }
+            Spacer(minLength: 8)
+            Button("Add") {
+                store.addToGroceryIfMissing(name, recommended: true)
+                HapticManager.success()
+            }
+            .font(.stockedSerif(16, weight: .bold, relativeTo: .headline))
+            .foregroundStyle(session.accentColor)
+        }
+        .padding(16)
+        .background(session.themeCardColor,
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(text.opacity(0.07), lineWidth: 1)
+        }
+    }
+
+    private func prepareShare() {
+        let items = store.groceryItems.filter { !$0.isChecked }
+        let lines = items.map { "• \($0.name)\($0.recipeSource.isEmpty ? "" : " (\($0.recipeSource))")" }
+        shareText = lines.isEmpty ? "No items on the list." : "My Grocery List:\n\n" + lines.joined(separator: "\n")
+        grocerySheet = .share
+    }
+
+    private var legacyPresentation: some View {
         StockedShell(scrollDisabled: true,
                      titleText: "Grocery List",
-                     leadingTitle: true,
                      trailingIcon: "ellipsis", trailingLabel: "More",
                      onTrailing: { showMoreDialog = true }) {
             VStack(alignment: .leading, spacing: 0) {
@@ -425,7 +762,7 @@ struct GroceryListView: View {
                     }
                 }
                 .padding(4)
-                .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                .background(session.themeCardColor)
                 .clipShape(Capsule())
                 .padding(.horizontal, 24).padding(.bottom, 12)
                 .coachmarkAnchor("grocery.segments")
@@ -438,15 +775,18 @@ struct GroceryListView: View {
                                     selectedRecipe = recipe
                                     rebuildSections()
                                 } label: {
-                                    Text(recipe).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                                    Text(recipe).scaledFont(12, weight: .semibold).fixedSize(horizontal: false, vertical: true)
                                         .foregroundStyle(selectedRecipe == recipe ? Color.stockedWhite : text.opacity(0.7))
                                         .padding(.horizontal, 12).padding(.vertical, 8)
                                         .background(selectedRecipe == recipe ? Color.stockedCharcoal : Color.clear)
                                         .clipShape(Capsule())
                                 }.buttonStyle(.plain)
                             }
-                        }.padding(.horizontal, 24)
+                        }
+                        .stockedScrollTargetLayout()
+                        .padding(.horizontal, 24)
                     }
+                    .stockedHorizontalSnap()
                     .padding(.bottom, 10)
                     .accessibilityLabel("Filter grocery list by recipe")
                 }
@@ -500,8 +840,10 @@ struct GroceryListView: View {
                             .accessibilityLabel("Clear store and aisle filters")
                         }
                     }
+                    .stockedScrollTargetLayout()
                     .padding(.horizontal, 24)
                 }
+                .stockedHorizontalSnap()
                 .padding(.bottom, 10)
                 .accessibilityLabel("Filter grocery list by store or aisle")
 
@@ -509,11 +851,11 @@ struct GroceryListView: View {
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(showBought ? "Bought" : "To Buy")
-                            .font(.system(size: 24, weight: .bold, design: .serif))
+                            .scaledFont(24, weight: .bold, design: .serif)
                             .foregroundStyle(text)
                         let n = store.groceryItems.filter { $0.isChecked == showBought }.count
                         Text("\(n) item\(n == 1 ? "" : "s")")
-                            .font(.system(size: 13)).foregroundStyle(sub)
+                            .scaledFont(13).foregroundStyle(sub)
                     }
                     Spacer()
                     Menu {
@@ -531,13 +873,13 @@ struct GroceryListView: View {
                     } label: {
                         HStack(spacing: 5) {
                             Text(groupByStore ? "By Store" : "Sort: \(sortAZ ? "Name" : "Category")")
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 9, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                         }
                         .foregroundStyle(text.opacity(0.75))
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(dark ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.35))
+                        .background(session.themeCardColor)
                         .clipShape(Capsule())
                     }
                 }
@@ -546,7 +888,7 @@ struct GroceryListView: View {
 
                 if !loopMessage.isEmpty {
                     Text(loopMessage)
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 24).padding(.bottom, 8)
                         .transition(.opacity)
@@ -570,32 +912,32 @@ struct GroceryListView: View {
                             // suggestions below become the focus instead of a big "empty" block.
                             HStack(spacing: 12) {
                                 Image(systemName: "cart.badge.plus")
-                                    .font(.system(size: 22))
+                                    .scaledFont(22)
                                     .foregroundStyle(Color.stockedGold)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Your list is clear")
-                                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                                        .scaledFont(15, weight: .semibold, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
                                     Text("Add an item below, or tap a suggestion to restock.")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        .scaledFont(12)
+                                        .foregroundStyle(session.themeSecondaryText)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
                             }
                             .padding(14)
-                            .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.5))
+                            .background(session.themeCardColor)
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             .padding(.horizontal, 20)
                             .padding(.top, 16)
                             .padding(.bottom, 4)
                         } else if sections.isEmpty && !searchText.isEmpty {
                             VStack(spacing: 10) {
-                                Text("🔍").font(.system(size: 36))
+                                Text("🔍").scaledFont(36)
                                 Text("No results for \"\(searchText)\"")
-                                    .font(.system(size: 14)).foregroundStyle(sub)
+                                    .scaledFont(14).foregroundStyle(sub)
                                 Button("Add \"\(searchText)\" to list") { addItem() }
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(14, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                             }
                             .frame(maxWidth: .infinity).padding(.top, 40)
@@ -623,27 +965,27 @@ struct GroceryListView: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "exclamationmark.circle")
-                                            .font(.system(size: 16))
+                                            .scaledFont(16)
                                             .foregroundStyle(inv.effectiveLevel == 0 ? Color.red : text)
                                             .frame(width: 28)
                                         VStack(alignment: .leading, spacing: 10) {
-                                            Text(inv.name).font(.system(size: 14)).foregroundStyle(text)
+                                            Text(inv.name).scaledFont(14).foregroundStyle(text)
                                             Text("\(inv.zone) · \(Int(inv.effectiveLevel * 100))% left")
-                                                .font(.system(size: 11))
+                                                .scaledFont(11)
                                                 .foregroundStyle(inv.effectiveLevel == 0 ? Color.red : text)
                                             // #7 — where it's been cheapest lately
                                             if let deal = store.bestPrice(for: inv.name) {
                                                 Text("Cheapest at \(deal.store) · $\(String(format: "%.2f", deal.price))")
-                                                    .font(.system(size: 11))
+                                                    .scaledFont(11)
                                                     .foregroundStyle(Color.stockedGreen)
                                             }
                                         }
                                         Spacer()
-                                        Text("Add").font(.system(size: 13, weight: .semibold))
+                                        Text("Add").scaledFont(13, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -676,28 +1018,28 @@ struct GroceryListView: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "gauge.with.needle")
-                                            .font(.system(size: 16))
+                                            .scaledFont(16)
                                             .foregroundStyle(Color.stockedGold)
                                             .frame(width: 28)
                                         VStack(alignment: .leading, spacing: 10) {
-                                            Text(inv.name).font(.system(size: 14)).foregroundStyle(text)
+                                            Text(inv.name).scaledFont(14).foregroundStyle(text)
                                             if let ro = store.predictedRunOut(for: inv) {
                                                 Text("At your usual pace, gone by \(ro.formatted(.dateTime.weekday(.wide)))")
-                                                    .font(.system(size: 11))
+                                                    .scaledFont(11)
                                                     .foregroundStyle(Color.stockedGold)
                                             }
                                             if let deal = store.bestPrice(for: inv.name) {
                                                 Text("Cheapest at \(deal.store) · $\(String(format: "%.2f", deal.price))")
-                                                    .font(.system(size: 11))
+                                                    .scaledFont(11)
                                                     .foregroundStyle(Color.stockedGreen)
                                             }
                                         }
                                         Spacer()
-                                        Text("Add").font(.system(size: 13, weight: .semibold))
+                                        Text("Add").scaledFont(13, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -725,16 +1067,16 @@ struct GroceryListView: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "clock.arrow.circlepath")
-                                            .font(.system(size: 16))
+                                            .scaledFont(16)
                                             .foregroundStyle(Color.stockedGold)
                                             .frame(width: 28)
-                                        Text(name.displayNormalized).font(.system(size: 14)).foregroundStyle(text)
+                                        Text(name.displayNormalized).scaledFont(14).foregroundStyle(text)
                                         Spacer()
-                                        Text("Add").font(.system(size: 13, weight: .semibold))
+                                        Text("Add").scaledFont(13, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -760,16 +1102,16 @@ struct GroceryListView: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "arrow.counterclockwise.circle")
-                                            .font(.system(size: 16))
+                                            .scaledFont(16)
                                             .foregroundStyle(Color.stockedGold)
                                             .frame(width: 28)
-                                        Text(name).font(.system(size: 14)).foregroundStyle(text)
+                                        Text(name).scaledFont(14).foregroundStyle(text)
                                         Spacer()
-                                        Text("Add").font(.system(size: 13, weight: .semibold))
+                                        Text("Add").scaledFont(13, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(dark ? Color.white.opacity(0.06) : Color.stockedWhite.opacity(0.35))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
@@ -865,8 +1207,8 @@ struct GroceryListView: View {
             if !showBought {
                 Button { showQuickAdd = true } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "plus").font(.system(size: 15, weight: .bold))
-                        Text("Add Item").font(.system(size: 15, weight: .bold, design: .serif))
+                        Image(systemName: "plus").scaledFont(15, weight: .bold)
+                        Text("Add Item").scaledFont(15, weight: .bold, design: .serif)
                     }
                     .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 26).padding(.vertical, 14)
@@ -916,46 +1258,35 @@ struct GroceryListView: View {
         let total  = section.items.count
 
         VStack(spacing: 0) {
-            // Header — tapping the row toggles; trailing trash removes the whole group.
-            HStack(spacing: 0) {
-                Button {
-                    withAnimation(.spring(response: 0.28)) {
-                        expandedSection = isOpen ? nil : section.title
+            Button {
+                motion.animate(.standard, intent: .spatial) {
+                    expandedSection = isOpen ? nil : section.title
+                }
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.stockedGold.opacity(0.09))
+                        FoodIconView(name: section.title, size: 62, emojiSize: 34)
                     }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: section.icon)
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color.stockedGold)
-                            .frame(width: 22)
+                    .frame(width: 78, height: 72)
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(section.title)
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
                             .foregroundStyle(text)
-                            .lineLimit(1)
-                        Spacer()
-                        Text("\(done)/\(total)")
-                            .font(.system(size: 11, weight: .semibold))
+                        Text("\(done) of \(total)")
+                            .font(.stocked(.subheadline).weight(.semibold))
                             .foregroundStyle(done == total && total > 0 ? Color.stockedGreen : sub)
-                        Image(systemName: isOpen ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 11)).foregroundStyle(sub)
                     }
-                    .padding(.leading, 14).padding(.vertical, 13)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    pendingDeleteTitle = section.title
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 13))
+                    Spacer()
+                    Image(systemName: isOpen ? "chevron.up" : "chevron.right")
+                        .font(.stocked(.subheadline).weight(.semibold))
                         .foregroundStyle(sub)
-                        .padding(.leading, 8).padding(.trailing, 14).padding(.vertical, 13)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Remove all items in \(section.title)")
+                .padding(14)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .confirmationDialog("Remove \"\(section.title)\"?",
                                 isPresented: Binding(get: { pendingDeleteTitle == section.title },
                                                      set: { if !$0 { pendingDeleteTitle = nil } }),
@@ -970,17 +1301,23 @@ struct GroceryListView: View {
                 Text("Removes every item in this group from your list.")
             }
 
-            // Rows
-            if isOpen {
-                Divider().padding(.horizontal, 14)
-                ForEach(section.items) { item in
-                    groceryRow(item)
-                    if item.id != section.items.last?.id {
-                        Divider().padding(.leading, 52)
-                    }
+            Divider().padding(.horizontal, 14)
+            let visibleItems = isOpen ? section.items : Array(section.items.prefix(3))
+            ForEach(visibleItems) { item in
+                editorialGroceryRow(item)
+                if item.id != visibleItems.last?.id {
+                    Divider().padding(.leading, 58)
                 }
+            }
+            if !isOpen && total > visibleItems.count {
+                Button("\(total - visibleItems.count) more") { expandedSection = section.title }
+                    .font(.stocked(.caption).weight(.semibold))
+                    .foregroundStyle(Color.stockedGoldDark)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
 
-                // Clear checked button
+            if isOpen {
                 if done > 0 {
                     Divider().padding(.horizontal, 14)
                     Button {
@@ -996,7 +1333,7 @@ struct GroceryListView: View {
                         }
                     } label: {
                         Label("Clear \(done) checked", systemImage: "trash")
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(12, weight: .semibold)
                             .foregroundStyle(.red.opacity(0.7))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -1020,7 +1357,86 @@ struct GroceryListView: View {
             }
         }
         .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(text.opacity(0.07), lineWidth: 1)
+        }
+        .contextMenu {
+            Button(role: .destructive) { pendingDeleteTitle = section.title } label: {
+                Label("Remove \(section.title)", systemImage: "trash")
+            }
+        }
+    }
+
+    private func editorialGroceryRow(_ item: LocalGroceryItem) -> some View {
+        let parsed = GroceryNameParser.parse(item.name)
+        let size = item.sizeText.isEmpty ? parsed.sizeText : item.sizeText
+        return Button {
+            motion.animate(.selection, intent: .spatial) {
+                if let index = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
+                    store.groceryItems[index].isChecked.toggle()
+                    if store.groceryItems[index].isChecked {
+                        GroceryUsuals.shared.record(store.groceryItems[index].name)
+                    }
+                    HapticManager.light()
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
+                    .font(.stocked(.title2))
+                    .foregroundStyle(item.isChecked ? Color.stockedGreen : sub.opacity(0.75))
+                    .frame(width: 32, height: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(parsed.name.displayNormalized)
+                        .font(.stocked(.body).weight(.medium))
+                        .foregroundStyle(item.isChecked ? sub : text)
+                        .strikethrough(item.isChecked)
+                    if !item.recipeSource.isEmpty {
+                        Text(item.recipeSource)
+                            .font(.stocked(.caption))
+                            .foregroundStyle(sub)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                Text(size.isEmpty ? (item.quantity == 1 ? "1" : "\(item.quantity)") : size)
+                    .font(.stocked(.subheadline))
+                    .foregroundStyle(sub)
+                Menu {
+                    Button("Add one", systemImage: "plus") {
+                        store.updateGroceryQty(id: item.id, qty: item.quantity + 1)
+                    }
+                    if item.quantity > 1 {
+                        Button("Remove one", systemImage: "minus") {
+                            store.updateGroceryQty(id: item.id, qty: item.quantity - 1)
+                        }
+                    }
+                    Button("Plan with this item", systemImage: "calendar.badge.plus") {
+                        grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
+                    }
+                    Button("Find at \(resolvedStore(for: item))", systemImage: "cart") {
+                        openInStore(item.name)
+                    }
+                    Button("Remove", systemImage: "trash", role: .destructive) {
+                        undoItem = item
+                        store.groceryItems.removeAll { $0.id == item.id }
+                        showUndo = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.stocked(.body).weight(.semibold))
+                        .foregroundStyle(sub)
+                        .frame(width: 44, height: 44)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.isChecked ? "Uncheck" : "Check") \(parsed.name.displayNormalized), quantity \(item.quantity)")
     }
 
     // MARK: - Individual row — full cell tappable
@@ -1034,7 +1450,7 @@ struct GroceryListView: View {
         return HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 7) {
                 Button {
-                    withAnimation(.spring(response: 0.25)) {
+                    motion.animate(.selection, intent: .spatial) {
                         if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
                             store.groceryItems[idx].isChecked.toggle()
                             HapticManager.light()
@@ -1046,57 +1462,55 @@ struct GroceryListView: View {
                 } label: {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
-                            .font(.system(size: 20))
-                            .foregroundStyle(item.isChecked ? Color.stockedGold : Color.stockedCharcoal.opacity(0.35))
+                            .scaledFont(20)
+                            .foregroundStyle(item.isChecked ? session.themeContrastAccent : sub)
                             .frame(width: 26, height: 28, alignment: .center)
                             .a11yDecorative()
 
                         Text(ImageFallbackService.emoji(for: item.name))
-                            .font(.system(size: 17))
+                            .scaledFont(17)
                             .frame(width: 24, height: 28, alignment: .center)
 
                         VStack(alignment: .leading, spacing: 5) {
                             Text(displayName)
-                                .font(.system(size: 15, weight: .medium))
+                                .scaledFont(16, weight: .medium)
                                 .foregroundStyle(item.isChecked ? sub : text)
                                 .strikethrough(item.isChecked)
                                 .multilineTextAlignment(.leading)
-                                .lineLimit(2)
                                 .fixedSize(horizontal: false, vertical: true)
 
-                            HStack(spacing: 4) {
+                            StockedFlowLayout(spacing: 4, lineSpacing: 4) {
                                 if !item.recipeSource.isEmpty {
-                                    Image(systemName: "fork.knife").font(.system(size: 8))
-                                    Text(item.recipeSource).font(.system(size: 9, weight: .semibold))
+                                    Image(systemName: "fork.knife").scaledFont(8)
+                                    Text(item.recipeSource).scaledFont(12, weight: .semibold)
                                 } else if item.isRecommended {
-                                    Image(systemName: "arrow.2.circlepath").font(.system(size: 8))
-                                    Text("Auto-added").font(.system(size: 9, weight: .semibold))
+                                    Image(systemName: "arrow.2.circlepath").scaledFont(8)
+                                    Text("Auto-added").scaledFont(12, weight: .semibold)
                                 } else {
-                                    Image(systemName: "hand.point.right").font(.system(size: 8))
-                                    Text("Manual").font(.system(size: 9, weight: .semibold))
+                                    Image(systemName: "hand.point.right").scaledFont(8)
+                                    Text("Manual").scaledFont(12, weight: .semibold)
                                 }
                                 if StockedDatabase.shared.hasSubstitution(for: item.name) {
-                                    Text("·").font(.system(size: 8)).foregroundStyle(sub)
-                                    Image(systemName: "arrow.left.arrow.right").font(.system(size: 7))
-                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
-                                    Text("Sub available").font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                    Text("·").scaledFont(8).foregroundStyle(sub)
+                                    Image(systemName: "arrow.left.arrow.right").scaledFont(7)
+                                        .foregroundStyle(session.themeContrastAccent)
+                                    Text("Sub available").scaledFont(12, weight: .semibold)
+                                        .foregroundStyle(session.themeContrastAccent)
                                 }
                                 if !item.assignedTo.isEmpty {
-                                    Text("·").font(.system(size: 8)).foregroundStyle(sub)
-                                    Image(systemName: "person.fill").font(.system(size: 7))
+                                    Text("·").scaledFont(8).foregroundStyle(sub)
+                                    Image(systemName: "person.fill").scaledFont(7)
                                         .foregroundStyle(Color.stockedGreen)
-                                    Text(item.assignedTo).font(.system(size: 9, weight: .semibold))
+                                    Text(item.assignedTo).scaledFont(12, weight: .semibold)
                                         .foregroundStyle(Color.stockedGreen)
                                 } else if !item.addedByName.isEmpty {
-                                    Text("·").font(.system(size: 8)).foregroundStyle(sub)
-                                    Text("by \(item.addedByName)").font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                    Text("·").scaledFont(8).foregroundStyle(sub)
+                                    Text("by \(item.addedByName)").scaledFont(12, weight: .semibold)
+                                        .foregroundStyle(session.themeContrastAccent)
                                 }
                             }
-                            .foregroundStyle(item.recipeSource.isEmpty && !item.isRecommended
-                                ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold.opacity(0.7))
-                            .lineLimit(1)
+                            .foregroundStyle(sub)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -1105,11 +1519,12 @@ struct GroceryListView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(item.isChecked ? "Uncheck" : "Check") \(displayName)")
 
-                // Quantity sits on its own line beneath the name, aligned with the text column.
+                // Flexible inset yields to large text and the 44-point quantity controls.
                 HStack(spacing: 7) {
-                    Color.clear.frame(width: 60, height: 1)
+                    Color.clear.frame(minWidth: 0, maxWidth: 60, minHeight: 1, maxHeight: 1)
+                        .layoutPriority(-1)
                     Text("Qty")
-                        .font(.system(size: 10, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(sub)
                     Button {
                         if item.quantity > 1 {
@@ -1117,23 +1532,26 @@ struct GroceryListView: View {
                         }
                     } label: {
                         Image(systemName: "minus.circle.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(Color.stockedGold)
+                            .scaledFont(22)
+                            .foregroundStyle(session.themeContrastAccent)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Decrease quantity")
+                    .disabled(item.quantity <= 1)
 
                     Text("\(item.quantity)")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.stockedGold)
+                        .scaledFont(15, weight: .bold)
+                        .foregroundStyle(text)
                         .frame(minWidth: 18)
 
                     Button {
                         store.updateGroceryQty(id: item.id, qty: item.quantity + 1)
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(Color.stockedGold)
+                            .scaledFont(22)
+                            .foregroundStyle(session.themeContrastAccent)
+                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Increase quantity")
@@ -1147,9 +1565,9 @@ struct GroceryListView: View {
                     grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
                 } label: {
                     Image(systemName: "calendar.badge.plus")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.stockedGreen)
-                        .frame(width: 30, height: 30)
+                        .scaledFont(16)
+                        .foregroundStyle(session.themeContrastAccent)
+                        .frame(width: 44, height: 44)
                         .background(Color.stockedGreen.opacity(0.12))
                         .clipShape(Circle())
                 }
@@ -1158,9 +1576,9 @@ struct GroceryListView: View {
 
                 Button { openInStore(item.name) } label: {
                     Image(systemName: "cart.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.stockedGold)
-                        .frame(width: 30, height: 30)
+                        .scaledFont(16)
+                        .foregroundStyle(session.themeContrastAccent)
+                        .frame(width: 44, height: 44)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Circle())
                 }
@@ -1170,13 +1588,13 @@ struct GroceryListView: View {
                 Button {
                     undoItem = item
                     withAnimation { store.groceryItems.removeAll { $0.id == item.id } }
-                    withAnimation(.spring(response: 0.3)) { showUndo = true }
+                    motion.animate(.standard, intent: .spatial) { showUndo = true }
                     HapticManager.warning()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12))
-                        .foregroundStyle(sub.opacity(0.5))
-                        .frame(width: 30, height: 30)
+                        .scaledFont(16)
+                        .foregroundStyle(sub)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1231,7 +1649,7 @@ struct GroceryListView: View {
         .swipeToDelete {
             undoItem = item
             withAnimation { store.groceryItems.removeAll { $0.id == item.id } }
-            withAnimation(.spring(response: 0.3)) { showUndo = true }
+            motion.animate(.standard, intent: .spatial) { showUndo = true }
             HapticManager.warning()
         }
     }
@@ -1270,7 +1688,7 @@ struct GroceryListView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     Text("Tap to change your shopping store. Your preference is saved per-item when you use Find in Store.")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 20)
 
@@ -1282,12 +1700,12 @@ struct GroceryListView: View {
                         } label: {
                             HStack {
                                 Text(store)
-                                    .font(.system(size: 16, weight: session.preferredStore == store ? .bold : .regular, design: .serif))
+                                    .font(.stockedSystem(size: 16, weight: session.preferredStore == store ? .bold : .regular, design: .serif))
                                     .foregroundStyle(session.preferredStore == store ? Color.stockedGold : session.themeTextColor)
                                 Spacer()
                                 if session.preferredStore == store {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(Color.stockedGold).font(.system(size: 20))
+                                        .foregroundStyle(Color.stockedGold).scaledFont(20)
                                 }
                             }
                             .padding(.horizontal, 28).padding(.vertical, 14)
@@ -1353,20 +1771,20 @@ struct HandwrittenListScanner: View {
                 HStack {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28)).foregroundStyle(.white.opacity(0.8))
+                            .scaledFont(28).foregroundStyle(.white.opacity(0.8))
                     }
                     Spacer()
                 }.padding()
                 Spacer()
                 Text(status)
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                    .scaledFont(14, weight: .semibold).foregroundStyle(.white)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(.black.opacity(0.55)).clipShape(Capsule())
                 Button {
                     NotificationCenter.default.post(name: .captureReceiptShutter, object: nil)
                 } label: {
                     Text("Capture List")
-                        .font(.system(size: 16, weight: .semibold)).foregroundStyle(.black)
+                        .scaledFont(16, weight: .semibold).foregroundStyle(.black)
                         .padding(.horizontal, 28).padding(.vertical, 14)
                         .background(.white).clipShape(Capsule())
                 }.padding(.bottom, 36)

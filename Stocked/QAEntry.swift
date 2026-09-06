@@ -72,15 +72,15 @@ struct QAUnlockGate<Content: View>: View {
             session.themeBgColor.ignoresSafeArea()
             VStack(spacing: 18) {
                 Image(systemName: "checklist")
-                    .font(.system(size: 40))
+                    .scaledFont(40)
                     .foregroundStyle(Color.stockedGold)
                 Text(lockedTitle)
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text(gate.hasEverUnlocked
                      ? "The last unlock has expired. The code opens QA for another ten minutes."
                      : lockedMessage)
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .multilineTextAlignment(.center)
                 SecureField("QA code", text: $code)
@@ -93,18 +93,18 @@ struct QAUnlockGate<Content: View>: View {
                     .onSubmit(tryUnlock)
                 if wrong {
                     Text("That's not the code.")
-                        .font(.system(size: 12)).foregroundStyle(.red)
+                        .scaledFont(12).foregroundStyle(.red)
                 }
                 Button(action: tryUnlock) {
                     Text("Unlock")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedBlack)
                         .padding(.horizontal, 34).padding(.vertical, 11)
                         .background(Capsule().fill(Color.stockedGold))
                 }
                 .buttonStyle(.plain)
                 Text("One unlock lasts ten minutes across every QA screen.")
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                     .multilineTextAlignment(.center)
             }

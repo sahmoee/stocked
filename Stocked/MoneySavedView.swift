@@ -41,25 +41,25 @@ struct MoneySavedView: View {
             if !hasData {
                 VStack(spacing: 12) {
                     Image(systemName: "banknote")
-                        .font(.system(size: 34)).foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("Nothing to total yet").font(.system(size: 16, weight: .semibold))
+                        .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
+                    Text("Nothing to total yet").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("As you cook, use things up, and log garden harvests, Stocked tracks the value you keep instead of throwing away — and shows it here.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 34)
                 }.frame(maxWidth: .infinity).padding(.top, 80)
             } else {
                 VStack(spacing: 16) {
                     // Hero
                     VStack(spacing: 4) {
-                        Text("Kept, not wasted").font(.system(size: 13, weight: .medium))
+                        Text("Kept, not wasted").scaledFont(13, weight: .medium)
                             .foregroundStyle(session.themeSecondaryText)
                         Text(totalSaved.formatted(.currency(code: currencyCode)))
-                            .font(.system(size: 40, weight: .bold, design: .serif))
+                            .scaledFont(40, weight: .bold, design: .serif)
                             .foregroundStyle(session.accentColor)
                         if savingsRate > 0 {
                             Text("\(savingsRate)% of tracked food value used")
-                                .font(.system(size: 12)).foregroundStyle(session.themeSecondaryText)
+                                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 22)
@@ -74,15 +74,15 @@ struct MoneySavedView: View {
 
                     if wastedValue > 0 {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Most wasted").font(.system(size: 12, weight: .bold))
+                            Text("Most wasted").scaledFont(12, weight: .bold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                             ForEach(topWasted, id: \.name) { row in
                                 HStack {
-                                    Text(row.name.capitalized).font(.system(size: 14))
+                                    Text(row.name.capitalized).scaledFont(14)
                                         .foregroundStyle(session.themeTextColor)
                                     Spacer()
                                     Text(row.value.formatted(.currency(code: currencyCode)))
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                         .foregroundStyle(.red.opacity(0.8))
                                 }
                                 .padding(.vertical, 6)
@@ -95,7 +95,7 @@ struct MoneySavedView: View {
                     }
 
                     Text("Values are estimates from prices you've entered and typical market prices. They're a guide, not accounting.")
-                        .font(.system(size: 11)).foregroundStyle(session.themeSecondaryText)
+                        .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center).padding(.horizontal, 12)
                 }
                 .padding(18)
@@ -118,11 +118,11 @@ struct MoneySavedView: View {
 
     private func stat(_ label: String, _ value: Double, _ icon: String, _ color: Color) -> some View {
         VStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(color)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(color)
             Text(value.formatted(.currency(code: currencyCode)))
-                .font(.system(size: 15, weight: .bold)).foregroundStyle(session.themeTextColor)
-                .lineLimit(1).minimumScaleFactor(0.7)
-            Text(label).font(.system(size: 11)).foregroundStyle(session.themeSecondaryText)
+                .scaledFont(15, weight: .bold).foregroundStyle(session.themeTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(label).scaledFont(11).foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 14)
         .background(session.themeTextColor.opacity(0.04))

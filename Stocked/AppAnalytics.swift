@@ -29,9 +29,16 @@ final class AppAnalytics {
         case recipeViewed
         case recipeSaved
         case recipeImported
+        case finderStarted, finderStepViewed, finderOptionSelected, finderOptionDeselected
+        case finderStepSkipped, finderCleared, finderCompleted, finderReviewEdited
+        case finderSearchSubmitted, finderFilterRemoved, finderFiltersChanged
+        case finderSortOpened, finderSortApplied, finderRecipeOpened, finderNoResults
         // Cooking
         case cookStarted
         case cookCompleted
+        case householdCookShared
+        case householdCookTaskClaimed
+        case householdCookTaskReleased
         // Grocery
         case groceryItemAdded
         case groceryItemChecked

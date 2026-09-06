@@ -92,13 +92,13 @@ struct StockGoalsSetupView: View {
     private var introStep: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("What does “stocked” mean to you?")
-                .font(.system(size: 24, weight: .bold, design: .serif))
+                .scaledFont(24, weight: .bold, design: .serif)
                 .foregroundStyle(primaryText)
             Text("A few quick taps — pick the staples you like to keep on hand, one group at a time. We’ll track how many you actually have and turn that into your real kitchen stock level.")
-                .font(.system(size: 15))
+                .scaledFont(15)
                 .foregroundStyle(primaryText.opacity(0.7))
             Label("Takes about 30 seconds", systemImage: "clock")
-                .font(.system(size: 13, weight: .medium))
+                .scaledFont(13, weight: .medium)
                 .foregroundStyle(Color.stockedGreen)
                 .padding(.top, 4)
         }
@@ -108,14 +108,14 @@ struct StockGoalsSetupView: View {
     private func categoryStep(_ cat: StapleCategory) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("\(cat.icon)  \(cat.rawValue.uppercased())")
-                .font(.system(size: 13, weight: .bold))
+                .scaledFont(13, weight: .bold)
                 .tracking(1)
                 .foregroundStyle(Color.stockedGreen)
             Text("Which of these do you keep stocked?")
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(primaryText)
             Text("Tap the ones you usually have on hand.")
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(primaryText.opacity(0.55))
             chipGrid(cat.defaults)
                 .padding(.top, 2)
@@ -125,20 +125,20 @@ struct StockGoalsSetupView: View {
     private var reviewStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Anything we missed?")
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(primaryText)
             Text("Add your own staples, then you’re all set.")
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(primaryText.opacity(0.55))
             addOwnField
             if !extras.isEmpty {
                 Text("➕  Your additions")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(primaryText)
                 chipGrid(extras)
             }
             Text("\(selected.count) staple\(selected.count == 1 ? "" : "s") selected")
-                .font(.system(size: 14, weight: .semibold))
+                .scaledFont(14, weight: .semibold)
                 .foregroundStyle(Color.stockedGreen)
                 .padding(.top, 4)
         }
@@ -150,7 +150,7 @@ struct StockGoalsSetupView: View {
             if step > 0 {
                 Button { withAnimation(.easeInOut(duration: 0.2)) { step -= 1 } } label: {
                     Text("Back")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(primaryText)
                         .padding(.horizontal, 20).padding(.vertical, 13)
                         .background(chipSurface)
@@ -161,7 +161,7 @@ struct StockGoalsSetupView: View {
             if step < lastStep {
                 Button { withAnimation(.easeInOut(duration: 0.2)) { step += 1 } } label: {
                     Text(step == 0 ? "Start" : "Next")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 28).padding(.vertical, 13)
                         .background(Color.stockedGold)
@@ -170,7 +170,7 @@ struct StockGoalsSetupView: View {
             } else {
                 Button { save() } label: {
                     Text("Save")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 28).padding(.vertical, 13)
                         .background(selected.isEmpty ? Color.stockedGreen.opacity(0.4) : Color.stockedGreen)
@@ -193,9 +193,9 @@ struct StockGoalsSetupView: View {
         let isSel = selected.contains(item)
         return Button { toggle(item) } label: {
             Text(item)
-                .font(.system(size: 14, weight: .medium))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .scaledFont(14, weight: .medium)
+                .fixedSize(horizontal: false, vertical: true)
+
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12).padding(.vertical, 9)
                 .background(isSel ? Color.stockedGreen : chipSurface)
@@ -219,7 +219,7 @@ struct StockGoalsSetupView: View {
                 .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd).stroke(chipBorder, lineWidth: 1))
             Button(action: addCustom) {
                 Text("Add")
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(15, weight: .semibold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16).padding(.vertical, 11)
                     .background(Color.stockedGold)

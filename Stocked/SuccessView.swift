@@ -3,6 +3,7 @@ import SwiftUI
 import Combine
 struct SuccessView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     @State private var scale: CGFloat = 0.5
     var body: some View {
         ZStack {
@@ -17,13 +18,13 @@ struct SuccessView: View {
                     ZStack {
                         Circle().stroke(Color.stockedGreen, lineWidth: 3).frame(width: 90, height: 90)
                         Image(systemName: "checkmark")
-                            .font(.system(size: 40, weight: .medium))
+                            .scaledFont(40, weight: .medium)
                             .foregroundStyle(Color.stockedGreen)
                     }
                 }
                 .scaleEffect(scale)
                 .onAppear {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) { scale = 1 }
+                    motion.animate(.settle, intent: .decorative) { scale = 1 }
                     Task {
                         try? await Task.sleep(nanoseconds: 1200000000)
                         withAnimation { session.isLoggedIn = true }

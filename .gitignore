@@ -38,3 +38,11 @@ node_modules/
 ._*
 **/._*
 *.tgz
+
+# Local monotonic QA build reservations (never app data or version numbers)
+.qa-build/
+scripts/__pycache__/
+
+# Local development guidance
+/AGENTS.md
+/CLAUDE.md

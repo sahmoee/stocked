@@ -590,6 +590,7 @@ private enum CookLaterCommandSheet: Identifiable {
 
 struct CookLaterCommandCenterView: View {
   @Environment(AppSession.self) private var session
+  @Environment(\.stockedLayout) private var layoutMetrics
 
   let context: CookLaterContext?
   var onPlanCompleted: (() -> Void)?
@@ -611,6 +612,48 @@ struct CookLaterCommandCenterView: View {
   }
 
   private var store: GuestDataStore { session.guestStore }
+  /// Preserve the approved 22-point phone inset while allowing narrow Split View
+  /// windows to reclaim space and wide iPad canvases to breathe naturally.
+  private var commandHorizontalPadding: CGFloat {
+    if layoutMetrics.contentWidth < 350 { return 12 }
+    if layoutMetrics.contentWidth >= 600 { return 24 }
+    return CookStyle.screenHPad
+  }
+
+  private var contextActionColumns: [GridItem] {
+    layoutMetrics.gridColumns(
+      minimum: layoutMetrics.prefersVerticalControls ? 220 : 96,
+      maximum: layoutMetrics.prefersVerticalControls ? 1 : 3,
+      spacing: 8
+    )
+  }
+
+  private var modeColumns: [GridItem] {
+    layoutMetrics.gridColumns(
+      minimum: layoutMetrics.prefersVerticalControls ? 220 : 102,
+      maximum: layoutMetrics.prefersVerticalControls ? 1 : 3,
+      spacing: 4
+    )
+  }
+
+  private var smartActionCardWidth: CGFloat {
+    let available = max(1, layoutMetrics.contentWidth - commandHorizontalPadding * 2)
+    if layoutMetrics.prefersVerticalControls { return available }
+    if layoutMetrics.contentWidth >= 600 {
+      return min(210, max(160, (available - 24) / 3))
+    }
+    return 138
+  }
+
+  private var recipeIdeaCardWidth: CGFloat {
+    let available = max(1, layoutMetrics.contentWidth - commandHorizontalPadding * 2)
+    if layoutMetrics.prefersVerticalControls { return min(available, 250) }
+    if layoutMetrics.contentWidth >= 600 {
+      return min(240, max(190, available * 0.27))
+    }
+    return 160
+  }
+
   private var householdSize: Int { max(1, store.cookingProfile.householdSize) }
   private var activeMeals: [PlannedMeal] {
     store.plannedMeals.filter { !$0.isBuilding && (0..<7).contains($0.dayIndex) }
@@ -748,7 +791,7 @@ struct CookLaterCommandCenterView: View {
       if let toast {
         HStack(spacing: 8) {
           Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
-          Text(toast).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+          Text(toast).scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedWhite)
         }
         .padding(.horizontal, 16).padding(.vertical, 11)
         .background(Color.stockedCharcoal, in: Capsule())
@@ -767,69 +810,78 @@ struct CookLaterCommandCenterView: View {
   // MARK: Header and navigation
 
   private var weekHeader: some View {
-    HStack(spacing: 12) {
-      Button {
-        selectedDay = max(0, selectedDay - 1)
-      } label: {
-        Image(systemName: "chevron.left")
-          .font(.system(size: 13, weight: .bold))
-          .foregroundStyle(session.themeTextColor)
-          .frame(width: 34, height: 34)
-          .background(session.themeCardColor, in: Circle())
-      }
-      .buttonStyle(.plain)
-      .disabled(selectedDay == 0)
-      .opacity(selectedDay == 0 ? 0.35 : 1)
-
-      VStack(alignment: .leading, spacing: 2) {
-        Text("\(CookLaterPlanningEngine.dateLabel(0)) – \(CookLaterPlanningEngine.dateLabel(6))")
-          .font(.system(size: 15.5, weight: .bold, design: .serif))
-          .foregroundStyle(session.themeTextColor)
-        Text("Plan it. Shop for it. Prep it. Cook it.")
-          .font(.system(size: 11.5, weight: .medium))
-          .foregroundStyle(session.themeTextColor.opacity(0.48))
-      }
-      Spacer()
-      Button {
-        selectedDay = min(6, selectedDay + 1)
-      } label: {
-        Image(systemName: "chevron.right")
-          .font(.system(size: 13, weight: .bold))
-          .foregroundStyle(session.themeTextColor)
-          .frame(width: 34, height: 34)
-          .background(session.themeCardColor, in: Circle())
-      }
-      .buttonStyle(.plain)
-      .disabled(selectedDay == 6)
-      .opacity(selectedDay == 6 ? 0.35 : 1)
+    HStack(alignment: .center, spacing: 12) {
+      weekNavigationButton(backward: true)
+      weekRangeLabel
+        .frame(maxWidth: .infinity, alignment: .leading)
+      weekNavigationButton(backward: false)
     }
-    .padding(.horizontal, CookStyle.screenHPad)
+    .padding(.horizontal, commandHorizontalPadding)
+  }
+
+  private var weekRangeLabel: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text("\(CookLaterPlanningEngine.dateLabel(0)) – \(CookLaterPlanningEngine.dateLabel(6))")
+        .font(.stockedSerif(15.5, weight: .bold, relativeTo: .headline))
+        .foregroundStyle(session.themeTextColor)
+      Text("Plan it. Shop for it. Prep it. Cook it.")
+        .font(.stockedSans(11.5, weight: .medium, relativeTo: .caption))
+        .foregroundStyle(session.themeTextColor.opacity(0.48))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private func weekNavigationButton(backward: Bool) -> some View {
+    let disabled = backward ? selectedDay == 0 : selectedDay == 6
+    return Button {
+      selectedDay = min(6, max(0, selectedDay + (backward ? -1 : 1)))
+    } label: {
+      ZStack {
+        Circle().fill(session.themeCardColor).frame(width: 34, height: 34)
+        Image(systemName: backward ? "chevron.left" : "chevron.right")
+          .scaledFont(13, weight: .bold)
+          .foregroundStyle(session.themeTextColor)
+      }
+      .frame(minWidth: 44, minHeight: 44)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .disabled(disabled)
+    .opacity(disabled ? 0.35 : 1)
+    .accessibilityLabel(backward ? "Previous day" : "Next day")
   }
 
   private var modePicker: some View {
-    HStack(spacing: 4) {
+    LazyVGrid(columns: modeColumns, spacing: 4) {
       ForEach(CookLaterWorkspaceMode.allCases) { mode in
         Button {
           withAnimation(.snappy(duration: 0.22)) { selectedMode = mode }
           HapticManager.select()
         } label: {
           HStack(spacing: 6) {
-            Image(systemName: mode.icon).font(.system(size: 12, weight: .semibold))
-            Text(mode.rawValue).font(.system(size: 13.5, weight: .semibold))
+            Image(systemName: mode.icon).scaledFont(12, weight: .semibold)
+            Text(mode.rawValue)
+              .font(.stockedSans(13.5, weight: .semibold, relativeTo: .subheadline))
+              .multilineTextAlignment(.center)
+              .fixedSize(horizontal: false, vertical: true)
           }
           .foregroundStyle(
             selectedMode == mode ? Color.stockedWhite : session.themeTextColor.opacity(0.58)
           )
           .frame(maxWidth: .infinity)
-          .padding(.vertical, 10)
+          .frame(minHeight: layoutMetrics.minimumControlHeight)
+          .padding(.horizontal, 6)
           .background(selectedMode == mode ? Color.stockedCharcoal : Color.clear, in: Capsule())
         }
         .buttonStyle(.plain)
       }
     }
     .padding(4)
-    .background(session.themeCardColor, in: Capsule())
-    .padding(.horizontal, CookStyle.screenHPad)
+    .background(
+      session.themeCardColor,
+      in: RoundedRectangle(cornerRadius: layoutMetrics.prefersVerticalControls ? 14 : 999)
+    )
+    .padding(.horizontal, commandHorizontalPadding)
   }
 
   // MARK: Context entry
@@ -843,18 +895,18 @@ struct CookLaterCommandCenterView: View {
         HStack(spacing: 11) {
           ZStack {
             Circle().fill(presentation.tint.opacity(0.14)).frame(width: 40, height: 40)
-            Image(systemName: presentation.icon).font(.system(size: 16, weight: .semibold))
+            Image(systemName: presentation.icon).scaledFont(16, weight: .semibold)
               .foregroundStyle(presentation.tint)
           }
           VStack(alignment: .leading, spacing: 2) {
-            Text(presentation.eyebrow.uppercased()).font(.system(size: 9.5, weight: .bold))
+            Text(presentation.eyebrow.uppercased()).scaledFont(9.5, weight: .bold)
               .tracking(0.7).foregroundStyle(presentation.tint)
-            Text(presentation.title).font(.system(size: 14.5, weight: .semibold)).foregroundStyle(
+            Text(presentation.title).scaledFont(14.5, weight: .semibold).foregroundStyle(
               session.themeTextColor
-            ).lineLimit(1)
-            Text(presentation.detail).font(.system(size: 11.5)).foregroundStyle(
+            ).stockedAdaptiveLabel(maxLines: 3)
+            Text(presentation.detail).scaledFont(11.5).foregroundStyle(
               session.themeTextColor.opacity(0.48)
-            ).lineLimit(2)
+            ).stockedAdaptiveLabel(maxLines: 4)
           }
           Spacer()
         }
@@ -874,7 +926,7 @@ struct CookLaterCommandCenterView: View {
             context.focusMealTitle == nil ? "Plan this" : "Open planned meal",
             systemImage: "calendar.badge.plus"
           )
-          .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+          .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedWhite)
           .frame(maxWidth: .infinity).padding(.vertical, 11)
           .background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 12))
         }
@@ -886,7 +938,7 @@ struct CookLaterCommandCenterView: View {
         RoundedRectangle(cornerRadius: CookStyle.cardCorner).stroke(
           presentation.tint.opacity(0.18), lineWidth: 1)
       )
-      .padding(.horizontal, CookStyle.screenHPad)
+      .padding(.horizontal, commandHorizontalPadding)
     }
   }
 
@@ -897,29 +949,29 @@ struct CookLaterCommandCenterView: View {
         AsyncFoodImage(name: item.name, url: nil, size: 54)
           .clipShape(RoundedRectangle(cornerRadius: 12))
         VStack(alignment: .leading, spacing: 3) {
-          Text(item.name.displayNormalized).font(.system(size: 17, weight: .bold, design: .serif))
+          Text(item.name.displayNormalized).scaledFont(17, weight: .bold, design: .serif)
             .foregroundStyle(session.themeTextColor)
           Text("\(allocation.available) available")
-            .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.48))
+            .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48))
           Text("\(allocation.planned) planned · \(allocation.unallocated) unallocated")
-            .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Color.stockedGreen)
+            .scaledFont(11.5, weight: .semibold).foregroundStyle(Color.stockedGreen)
         }
         Spacer()
       }
       if !allocation.mealTitles.isEmpty {
         Text("Already reserved for \(allocation.mealTitles.joined(separator: ", ")).")
-          .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.5))
+          .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.5))
       }
       Button {
         openRecipesUsing(item.name)
       } label: {
         Text("Plan with this ingredient")
-          .font(.system(size: 13.5, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+          .scaledFont(13.5, weight: .semibold).foregroundStyle(Color.stockedWhite)
           .frame(maxWidth: .infinity).padding(.vertical, 12)
           .background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 12))
       }
       .buttonStyle(.plain)
-      HStack(spacing: 8) {
+      LazyVGrid(columns: contextActionColumns, spacing: 8) {
         contextQuickButton("Add to meal", icon: "calendar.badge.plus") {
           activeSheet = .editor(
             CookLaterPlanDraft(
@@ -938,7 +990,7 @@ struct CookLaterCommandCenterView: View {
       RoundedRectangle(cornerRadius: CookStyle.cardCorner).stroke(
         Color.stockedGreen.opacity(0.22), lineWidth: 1)
     )
-    .padding(.horizontal, CookStyle.screenHPad)
+    .padding(.horizontal, commandHorizontalPadding)
   }
 
   private func contextQuickButton(_ title: String, icon: String, action: @escaping () -> Void)
@@ -946,11 +998,14 @@ struct CookLaterCommandCenterView: View {
   {
     Button(action: action) {
       VStack(spacing: 5) {
-        Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-        Text(title).font(.system(size: 9.5, weight: .semibold)).lineLimit(1)
+        Image(systemName: icon).scaledFont(13, weight: .semibold)
+        Text(title)
+          .scaledFont(9.5, weight: .semibold)
+          .stockedAdaptiveLabel(maxLines: 2, alignment: .center)
       }
       .foregroundStyle(session.themeTextColor)
-      .frame(maxWidth: .infinity).padding(.vertical, 9)
+      .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight)
+      .padding(.horizontal, 5)
       .background(session.themeTextColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
     }
     .buttonStyle(.plain)
@@ -972,50 +1027,87 @@ struct CookLaterCommandCenterView: View {
     Button {
       selectedMode = shoppingNeeds.isEmpty ? .prep : .shop
     } label: {
-      HStack(spacing: 16) {
-        ZStack {
-          Circle().stroke(session.themeTextColor.opacity(0.08), lineWidth: 8)
-          Circle().trim(from: 0, to: CGFloat(readinessPercent) / 100)
-            .stroke(
-              readinessPercent >= 75 ? Color.stockedGreen : Color.stockedGold,
-              style: StrokeStyle(lineWidth: 8, lineCap: .round)
-            )
-            .rotationEffect(.degrees(-90))
-          Text("\(readinessPercent)%")
-            .font(.system(size: 17, weight: .bold, design: .serif)).foregroundStyle(
-              session.themeTextColor)
+      Group {
+        if layoutMetrics.prefersVerticalControls {
+          VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+              readinessGauge
+              readinessSummary
+            }
+            HStack {
+              Text(shoppingNeeds.isEmpty ? "Review prep" : "Review shopping")
+                .font(.stockedSans(11.5, weight: .semibold, relativeTo: .caption))
+              Spacer()
+              readinessChevron
+            }
+            .foregroundStyle(session.themeTextColor.opacity(0.48))
+          }
+        } else {
+          HStack(spacing: 16) {
+            readinessGauge
+            readinessSummary
+            Spacer(minLength: 8)
+            readinessChevron
+          }
         }
-        .frame(width: 72, height: 72)
-        VStack(alignment: .leading, spacing: 5) {
-          Text("Week Readiness").font(.system(size: 17, weight: .bold, design: .serif))
-            .foregroundStyle(session.themeTextColor)
-          readinessLine("\(upcomingMeals.count) meals planned", tint: Color.stockedGreen)
-          readinessLine(
-            "\(shoppingNeeds.count) groceries needed",
-            tint: shoppingNeeds.isEmpty ? Color.stockedGreen : Color.stockedError)
-          readinessLine(
-            "\(prepActions.filter { !completedPrepKeys.contains($0.id) }.count) prep tasks",
-            tint: Color.stockedGold)
-          readinessLine(
-            "\(conflictCount) conflicts",
-            tint: conflictCount == 0 ? Color.stockedGreen : Color.orange)
-        }
-        Spacer()
-        Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(
-          session.themeTextColor.opacity(0.3))
       }
       .padding(16)
       .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
     }
     .buttonStyle(.plain)
-    .padding(.horizontal, CookStyle.screenHPad)
+    .padding(.horizontal, commandHorizontalPadding)
+  }
+
+  private var readinessGauge: some View {
+    ZStack {
+      Circle().stroke(session.themeTextColor.opacity(0.08), lineWidth: 8)
+      Circle().trim(from: 0, to: CGFloat(readinessPercent) / 100)
+        .stroke(
+          readinessPercent >= 75 ? Color.stockedGreen : Color.stockedGold,
+          style: StrokeStyle(lineWidth: 8, lineCap: .round)
+        )
+        .rotationEffect(.degrees(-90))
+      Text("\(readinessPercent)%")
+        .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+        .foregroundStyle(session.themeTextColor)
+
+    }
+    .frame(width: 72, height: 72)
+    .accessibilityHidden(true)
+  }
+
+  private var readinessSummary: some View {
+    VStack(alignment: .leading, spacing: 5) {
+      Text("Week Readiness")
+        .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
+        .foregroundStyle(session.themeTextColor)
+        .stockedAdaptiveLabel(maxLines: 2)
+      readinessLine("\(upcomingMeals.count) meals planned", tint: Color.stockedGreen)
+      readinessLine(
+        "\(shoppingNeeds.count) groceries needed",
+        tint: shoppingNeeds.isEmpty ? Color.stockedGreen : Color.stockedError)
+      readinessLine(
+        "\(prepActions.filter { !completedPrepKeys.contains($0.id) }.count) prep tasks",
+        tint: Color.stockedGold)
+      readinessLine(
+        "\(conflictCount) conflicts",
+        tint: conflictCount == 0 ? Color.stockedGreen : Color.orange)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  private var readinessChevron: some View {
+    Image(systemName: "chevron.right")
+      .scaledFont(12, weight: .bold)
+      .foregroundStyle(session.themeTextColor.opacity(0.3))
   }
 
   private func readinessLine(_ text: String, tint: Color) -> some View {
     HStack(spacing: 6) {
       Circle().fill(tint).frame(width: 5, height: 5)
-      Text(text).font(.system(size: 11.5, weight: .medium)).foregroundStyle(
-        session.themeTextColor.opacity(0.58))
+      Text(text).scaledFont(11.5, weight: .medium).foregroundStyle(
+        session.themeTextColor.opacity(0.58)
+      ).stockedAdaptiveLabel(maxLines: 2)
     }
   }
 
@@ -1040,10 +1132,16 @@ struct CookLaterCommandCenterView: View {
             "Repeat favorites", icon: "arrow.counterclockwise", tint: Color.stockedCharcoal
           ) { repeatFavorites() }
         }
-        .padding(.horizontal, CookStyle.screenHPad)
         .stockedScrollTargetLayout()
       }
-      .stockedHorizontalSnap()
+      .stockedCardRailSnap()
+      .contentMargins(
+        .horizontal,
+        max(
+          commandHorizontalPadding,
+          layoutMetrics.horizontalPadding),
+        for: .scrollContent
+      )
     }
   }
 
@@ -1054,13 +1152,15 @@ struct CookLaterCommandCenterView: View {
       VStack(alignment: .leading, spacing: 10) {
         ZStack {
           Circle().fill(tint.opacity(0.15)).frame(width: 38, height: 38)
-          Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(tint)
+          Image(systemName: icon).scaledFont(15, weight: .semibold).foregroundStyle(tint)
         }
-        Text(title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(
+        Text(title).scaledFont(12.5, weight: .semibold).foregroundStyle(
           session.themeTextColor
-        ).lineLimit(2)
+        ).fixedSize(horizontal: false, vertical: true)
       }
-      .padding(13).frame(width: 138, height: 104, alignment: .leading)
+      .padding(13)
+      .frame(width: smartActionCardWidth, alignment: .leading)
+      .frame(minHeight: 104, alignment: .leading)
       .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
     }
     .buttonStyle(.plain)
@@ -1072,7 +1172,7 @@ struct CookLaterCommandCenterView: View {
       LazyVStack(spacing: 10) {
         ForEach(0..<7, id: \.self) { day in weekDayCard(day) }
       }
-      .padding(.horizontal, CookStyle.screenHPad)
+      .padding(.horizontal, commandHorizontalPadding)
     }
   }
 
@@ -1084,11 +1184,11 @@ struct CookLaterCommandCenterView: View {
       HStack(alignment: .firstTextBaseline) {
         VStack(alignment: .leading, spacing: 1) {
           Text(day == 0 ? "TODAY" : CookLaterPlanningEngine.dayLabel(day).uppercased())
-            .font(.system(size: 10, weight: .bold)).tracking(0.8)
+            .scaledFont(10, weight: .bold).tracking(0.8)
             .foregroundStyle(
               day == selectedDay ? Color.stockedGold : session.themeTextColor.opacity(0.45))
           Text(CookLaterPlanningEngine.dateLabel(day))
-            .font(.system(size: 15, weight: .bold, design: .serif)).foregroundStyle(
+            .scaledFont(15, weight: .bold, design: .serif).foregroundStyle(
               session.themeTextColor)
         }
         Spacer()
@@ -1098,7 +1198,7 @@ struct CookLaterCommandCenterView: View {
           }
         } label: {
           Label("Plan", systemImage: "plus")
-            .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Color.stockedGold)
+            .scaledFont(11.5, weight: .semibold).foregroundStyle(Color.stockedGold)
         }
       }
       if meals.isEmpty {
@@ -1107,7 +1207,7 @@ struct CookLaterCommandCenterView: View {
         } label: {
           HStack {
             Image(systemName: "plus.circle")
-            Text("Plan a meal").font(.system(size: 12.5, weight: .semibold))
+            Text("Plan a meal").scaledFont(12.5, weight: .semibold)
             Spacer()
           }
           .foregroundStyle(session.themeTextColor.opacity(0.45))
@@ -1142,26 +1242,26 @@ struct CookLaterCommandCenterView: View {
           .clipShape(RoundedRectangle(cornerRadius: 11))
         VStack(alignment: .leading, spacing: 3) {
           HStack(spacing: 6) {
-            Text(meal.mealType).font(.system(size: 9.5, weight: .bold)).tracking(0.5)
+            Text(meal.mealType).scaledFont(9.5, weight: .bold).tracking(0.5)
               .foregroundStyle(Color.stockedGold)
             if meal.isCooked {
-              Text("COOKED").font(.system(size: 8.5, weight: .bold)).foregroundStyle(
+              Text("COOKED").scaledFont(8.5, weight: .bold).foregroundStyle(
                 Color.stockedGreen)
             }
           }
-          Text(meal.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
+          Text(meal.title).scaledFont(14, weight: .semibold).foregroundStyle(
             session.themeTextColor
-          ).lineLimit(1)
+          ).stockedAdaptiveLabel(maxLines: 3)
           Text(
             "\(onHand)/\(checks.count) on hand\(missing > 0 ? " · \(missing) needed" : "")\(low > 0 ? " · \(low) low" : "")"
           )
-          .font(.system(size: 10.5, weight: .medium))
+          .scaledFont(10.5, weight: .medium)
           .foregroundStyle(
             missing == 0 && low == 0 ? Color.stockedGreen : session.themeTextColor.opacity(0.48))
         }
         Spacer()
         Image(systemName: meal.isCooked ? "checkmark.circle.fill" : "chevron.right")
-          .font(.system(size: meal.isCooked ? 17 : 11, weight: .bold))
+          .font(.stockedSystem(size: meal.isCooked ? 17 : 11, weight: .bold))
           .foregroundStyle(
             meal.isCooked ? Color.stockedGreen : session.themeTextColor.opacity(0.28))
       }
@@ -1198,30 +1298,38 @@ struct CookLaterCommandCenterView: View {
               activeSheet = .editor(draft(for: recipe, day: selectedDay))
             } label: {
               VStack(alignment: .leading, spacing: 8) {
-                AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: 140)
-                  .frame(width: 140, height: 78).clipped().clipShape(
+                let imageWidth = max(1, recipeIdeaCardWidth - 20)
+                AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: imageWidth)
+                  .frame(width: imageWidth, height: imageWidth * 0.56).clipped().clipShape(
                     RoundedRectangle(cornerRadius: 11))
-                Text(recipe.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(
+                Text(recipe.title).scaledFont(12.5, weight: .semibold).foregroundStyle(
                   session.themeTextColor
-                ).lineLimit(2)
+                ).stockedAdaptiveLabel(maxLines: 3)
                 let match = store.stockMatch(for: recipe)
                 Text(
                   match.total == 0 ? "Review ingredients" : "\(match.have)/\(match.total) stocked"
                 )
-                .font(.system(size: 10)).foregroundStyle(
+                .scaledFont(10).foregroundStyle(
                   match.total > 0 && match.have == match.total
                     ? Color.stockedGreen : session.themeTextColor.opacity(0.45))
               }
-              .padding(10).frame(width: 160, height: 154, alignment: .topLeading)
+              .padding(10)
+              .frame(width: recipeIdeaCardWidth, alignment: .topLeading)
               .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
           }
         }
-        .padding(.horizontal, CookStyle.screenHPad)
         .stockedScrollTargetLayout()
       }
-      .stockedHorizontalSnap()
+      .stockedCardRailSnap()
+      .contentMargins(
+        .horizontal,
+        max(
+          commandHorizontalPadding,
+          layoutMetrics.horizontalPadding),
+        for: .scrollContent
+      )
     }
   }
 
@@ -1257,7 +1365,7 @@ struct CookLaterCommandCenterView: View {
             : "\(expiringUsed) expiring item\(expiringUsed == 1 ? "" : "s") included",
           icon: "clock.badge.checkmark", tint: Color.orange)
       }
-      .padding(.horizontal, CookStyle.screenHPad)
+      .padding(.horizontal, commandHorizontalPadding)
     }
   }
 
@@ -1280,7 +1388,7 @@ struct CookLaterCommandCenterView: View {
           LazyVStack(spacing: 9) {
             ForEach(shoppingNeeds) { need in shoppingNeedRow(need) }
           }
-          .padding(.horizontal, CookStyle.screenHPad)
+          .padding(.horizontal, commandHorizontalPadding)
         }
       }
       shopConflictCard
@@ -1289,38 +1397,60 @@ struct CookLaterCommandCenterView: View {
 
   private var shoppingOverview: some View {
     VStack(alignment: .leading, spacing: 11) {
-      HStack(alignment: .top) {
-        VStack(alignment: .leading, spacing: 3) {
-          Text("Shopping Overview").font(.system(size: 18, weight: .bold, design: .serif))
-            .foregroundStyle(session.themeTextColor)
-          Text(
-            "\(shoppingNeeds.count) items needed across \(Set(shoppingNeeds.flatMap(\.mealTitles)).count) planned meals"
-          )
-          .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.48))
+      if layoutMetrics.prefersVerticalControls {
+        VStack(alignment: .leading, spacing: 10) {
+          shoppingOverviewCopy
+          addAllShoppingButton
         }
-        Spacer()
-        Button {
-          addAllShoppingNeeds()
-        } label: {
-          Label("Add All", systemImage: "cart.badge.plus")
-            .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Color.stockedWhite)
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(Color.stockedCharcoal, in: Capsule())
+      } else {
+        HStack(alignment: .top, spacing: 12) {
+          shoppingOverviewCopy
+          Spacer(minLength: 8)
+          addAllShoppingButton
         }
-        .buttonStyle(.plain).disabled(shoppingNeeds.isEmpty).opacity(
-          shoppingNeeds.isEmpty ? 0.4 : 1)
       }
       if !shoppingNeeds.isEmpty {
         Text(
           "Stocked combines shortages, avoids duplicate grocery rows, and keeps every meal that needs the item attached."
         )
-        .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.5)).fixedSize(
+        .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.5)).fixedSize(
           horizontal: false, vertical: true)
       }
     }
     .padding(15)
     .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
-    .padding(.horizontal, CookStyle.screenHPad)
+    .padding(.horizontal, commandHorizontalPadding)
+  }
+
+  private var shoppingOverviewCopy: some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text("Shopping Overview")
+        .font(.stockedSerif(18, weight: .bold, relativeTo: .title3))
+        .foregroundStyle(session.themeTextColor)
+        .stockedAdaptiveLabel(maxLines: 2)
+      Text(
+        "\(shoppingNeeds.count) items needed across \(Set(shoppingNeeds.flatMap(\.mealTitles)).count) planned meals"
+      )
+      .font(.stockedSans(11.5, relativeTo: .caption))
+      .foregroundStyle(session.themeTextColor.opacity(0.48))
+      .stockedAdaptiveLabel(maxLines: 3)
+    }
+  }
+
+  private var addAllShoppingButton: some View {
+    Button {
+      addAllShoppingNeeds()
+    } label: {
+      Label("Add All", systemImage: "cart.badge.plus")
+        .font(.stockedSans(11.5, weight: .semibold, relativeTo: .caption))
+        .foregroundStyle(Color.stockedWhite)
+        .frame(minHeight: layoutMetrics.minimumControlHeight)
+        .padding(.horizontal, 12)
+        .background(Color.stockedCharcoal, in: Capsule())
+    }
+    .buttonStyle(.plain)
+    .disabled(shoppingNeeds.isEmpty)
+    .opacity(shoppingNeeds.isEmpty ? 0.4 : 1)
   }
 
   private func shoppingNeedRow(_ need: CookLaterShoppingNeed) -> some View {
@@ -1328,39 +1458,18 @@ struct CookLaterCommandCenterView: View {
     let substitutions = CookLaterCrossCheckEngine.substitutions(
       for: need.name, inventory: store.inventoryItems)
     return VStack(alignment: .leading, spacing: 9) {
-      HStack(spacing: 11) {
-        AsyncFoodImage(name: need.name, url: nil, size: 46).clipShape(
-          RoundedRectangle(cornerRadius: 10))
-        VStack(alignment: .leading, spacing: 2) {
-          Text(need.name.displayNormalized).font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(session.themeTextColor)
-          Text(need.shortageReason).font(.system(size: 10.5)).foregroundStyle(
-            session.themeTextColor.opacity(0.45)
-          ).lineLimit(1)
-          if !need.sizeText.isEmpty {
-            Text("Short by about \(need.sizeText)").font(.system(size: 10.5, weight: .medium))
-              .foregroundStyle(Color.stockedError)
-          }
+      if layoutMetrics.prefersVerticalControls {
+        VStack(alignment: .leading, spacing: 10) {
+          shoppingNeedSummary(need)
+          shoppingQuantityControls(need: need, amount: amount)
         }
-        Spacer()
-        HStack(spacing: 10) {
-          Button {
-            shoppingOverrides[need.id] = max(1, amount - 1)
-          } label: {
-            Image(systemName: "minus").frame(width: 26, height: 26).background(
-              session.themeTextColor.opacity(0.06), in: Circle())
-          }
-          Text(amount.rounded(toPlaces: 1).clean).font(.system(size: 12.5, weight: .semibold))
-            .frame(minWidth: 20)
-          Button {
-            shoppingOverrides[need.id] = amount + 1
-          } label: {
-            Image(systemName: "plus").frame(width: 26, height: 26).background(
-              session.themeTextColor.opacity(0.06), in: Circle())
-          }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      } else {
+        HStack(spacing: 11) {
+          shoppingNeedSummary(need)
+          Spacer(minLength: 8)
+          shoppingQuantityControls(need: need, amount: amount)
         }
-        .font(.system(size: 10, weight: .bold)).foregroundStyle(session.themeTextColor)
-        .buttonStyle(.plain)
       }
       if !substitutions.isEmpty {
         Button {
@@ -1374,9 +1483,9 @@ struct CookLaterCommandCenterView: View {
               substitutions.contains(where: \.isAvailable)
                 ? "You already have a possible substitute" : "Find a substitute"
             )
-            .font(.system(size: 11.5, weight: .semibold))
+            .scaledFont(11.5, weight: .semibold)
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold))
+            Image(systemName: "chevron.right").scaledFont(9, weight: .bold)
           }
           .foregroundStyle(
             substitutions.contains(where: \.isAvailable) ? Color.stockedGreen : Color.stockedGold)
@@ -1388,13 +1497,67 @@ struct CookLaterCommandCenterView: View {
     .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
   }
 
+  private func shoppingNeedSummary(_ need: CookLaterShoppingNeed) -> some View {
+    HStack(spacing: 11) {
+      AsyncFoodImage(name: need.name, url: nil, size: 46)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+      VStack(alignment: .leading, spacing: 2) {
+        Text(need.name.displayNormalized)
+          .font(.stockedSans(14, weight: .semibold, relativeTo: .body))
+          .foregroundStyle(session.themeTextColor)
+          .stockedAdaptiveLabel(maxLines: 3)
+        Text(need.shortageReason)
+          .font(.stockedSans(10.5, relativeTo: .caption2))
+          .foregroundStyle(session.themeTextColor.opacity(0.45))
+          .stockedAdaptiveLabel(maxLines: 3)
+        if !need.sizeText.isEmpty {
+          Text("Short by about \(need.sizeText)")
+            .font(.stockedSans(10.5, weight: .medium, relativeTo: .caption2))
+            .foregroundStyle(Color.stockedError)
+            .stockedAdaptiveLabel(maxLines: 2)
+        }
+      }
+    }
+  }
+
+  private func shoppingQuantityControls(need: CookLaterShoppingNeed, amount: Double) -> some View {
+    HStack(spacing: 10) {
+      Button {
+        shoppingOverrides[need.id] = max(1, amount - 1)
+      } label: {
+        ZStack {
+          Circle().fill(session.themeTextColor.opacity(0.06)).frame(width: 26, height: 26)
+          Image(systemName: "minus")
+        }
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+      }
+      Text(amount.rounded(toPlaces: 1).clean)
+        .font(.stockedSans(12.5, weight: .semibold, relativeTo: .subheadline))
+        .frame(minWidth: 24)
+      Button {
+        shoppingOverrides[need.id] = amount + 1
+      } label: {
+        ZStack {
+          Circle().fill(session.themeTextColor.opacity(0.06)).frame(width: 26, height: 26)
+          Image(systemName: "plus")
+        }
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+      }
+    }
+    .scaledFont(10, weight: .bold)
+    .foregroundStyle(session.themeTextColor)
+    .buttonStyle(.plain)
+  }
+
   private var shopConflictCard: some View {
     VStack(alignment: .leading, spacing: 9) {
       HStack(spacing: 10) {
         Image(
           systemName: conflictCount == 0 ? "checkmark.shield.fill" : "exclamationmark.triangle.fill"
         )
-        .font(.system(size: 17, weight: .semibold)).foregroundStyle(
+        .scaledFont(17, weight: .semibold).foregroundStyle(
           conflictCount == 0 ? Color.stockedGreen : Color.orange)
         VStack(alignment: .leading, spacing: 2) {
           Text(
@@ -1402,19 +1565,19 @@ struct CookLaterCommandCenterView: View {
               ? "No quantity conflicts"
               : "\(conflictCount) planning conflict\(conflictCount == 1 ? "" : "s")"
           )
-          .font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
+          .scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
           Text(
             conflictCount == 0
               ? "Planned meals do not over-allocate what is currently on hand."
               : "One or more ingredients are promised to multiple meals beyond the amount available."
           )
-          .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.48))
+          .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48))
           .fixedSize(horizontal: false, vertical: true)
         }
       }
     }
     .padding(14).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
-    .padding(.horizontal, CookStyle.screenHPad)
+    .padding(.horizontal, commandHorizontalPadding)
   }
 
   // MARK: Prep
@@ -1422,15 +1585,15 @@ struct CookLaterCommandCenterView: View {
   private var prepWorkspace: some View {
     VStack(alignment: .leading, spacing: 18) {
       VStack(alignment: .leading, spacing: 4) {
-        Text("Upcoming Prep").font(.system(size: 18, weight: .bold, design: .serif))
+        Text("Upcoming Prep").scaledFont(18, weight: .bold, design: .serif)
           .foregroundStyle(session.themeTextColor)
         Text(
           "Auto-generated from meal dates, freezer items, and ingredients that can be prepared together."
         )
-        .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.48)).fixedSize(
+        .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48)).fixedSize(
           horizontal: false, vertical: true)
       }
-      .padding(.horizontal, CookStyle.screenHPad)
+      .padding(.horizontal, commandHorizontalPadding)
 
       if prepActions.isEmpty {
         CookEmptyState(
@@ -1452,7 +1615,7 @@ struct CookLaterCommandCenterView: View {
             VStack(spacing: 8) {
               ForEach(prepActions.filter { $0.dayIndex == day }) { action in prepActionRow(action) }
             }
-            .padding(.horizontal, CookStyle.screenHPad)
+            .padding(.horizontal, commandHorizontalPadding)
           }
         }
       }
@@ -1461,7 +1624,28 @@ struct CookLaterCommandCenterView: View {
 
   private func prepActionRow(_ action: CookLaterPrepAction) -> some View {
     let done = completedPrepKeys.contains(action.id)
-    return HStack(spacing: 11) {
+    return Group {
+      if layoutMetrics.prefersVerticalControls {
+        VStack(alignment: .leading, spacing: 10) {
+          prepActionSummary(action, done: done)
+          HStack {
+            Spacer()
+            prepToggleButton(action, done: done)
+          }
+        }
+      } else {
+        HStack(spacing: 11) {
+          prepActionSummary(action, done: done)
+          Spacer(minLength: 8)
+          prepToggleButton(action, done: done)
+        }
+      }
+    }
+    .padding(13).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+  }
+
+  private func prepActionSummary(_ action: CookLaterPrepAction, done: Bool) -> some View {
+    HStack(spacing: 11) {
       ZStack {
         Circle().fill(done ? Color.stockedGreen.opacity(0.14) : Color.stockedGold.opacity(0.14))
           .frame(width: 42, height: 42)
@@ -1470,51 +1654,73 @@ struct CookLaterCommandCenterView: View {
         ).foregroundStyle(done ? Color.stockedGreen : Color.stockedGold)
       }
       VStack(alignment: .leading, spacing: 2) {
-        Text(action.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
+        Text(action.title).scaledFont(14, weight: .semibold).foregroundStyle(
           session.themeTextColor
         ).strikethrough(done)
-        Text(action.detail).font(.system(size: 10.5)).foregroundStyle(
+        Text(action.detail).scaledFont(10.5).foregroundStyle(
           session.themeTextColor.opacity(0.46)
-        ).lineLimit(2)
+        ).stockedAdaptiveLabel(maxLines: 4)
       }
-      Spacer()
-      Button(done ? "Undo" : "Start") {
-        togglePrep(action)
-      }
-      .font(.system(size: 11, weight: .semibold)).foregroundStyle(
-        done ? session.themeTextColor.opacity(0.5) : Color.stockedCharcoal
-      )
-      .padding(.horizontal, 11).padding(.vertical, 7)
-      .background(
-        done ? session.themeTextColor.opacity(0.06) : Color.stockedGold.opacity(0.18), in: Capsule()
-      )
-      .buttonStyle(.plain)
     }
-    .padding(13).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+  }
+
+  private func prepToggleButton(_ action: CookLaterPrepAction, done: Bool) -> some View {
+    Button {
+        togglePrep(action)
+    } label: {
+      Text(done ? "Undo" : "Start")
+        .scaledFont(11, weight: .semibold)
+        .foregroundStyle(done ? session.themeTextColor.opacity(0.5) : Color.stockedCharcoal)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+        .background(
+          done ? session.themeTextColor.opacity(0.06) : Color.stockedGold.opacity(0.18),
+          in: Capsule()
+        )
+        .frame(minWidth: 44, minHeight: 44)
+      }
+    .buttonStyle(.plain)
   }
 
   // MARK: Shared rows
 
   private func sectionHeader(_ title: String, trailing: String) -> some View {
-    HStack(alignment: .firstTextBaseline) {
-      Text(title).font(.system(size: 16.5, weight: .bold, design: .serif)).foregroundStyle(
-        session.themeTextColor)
-      Spacer()
-      Text(trailing).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(
-        session.themeTextColor.opacity(0.4)
-      ).lineLimit(1)
+    ViewThatFits(in: .horizontal) {
+      HStack(alignment: .firstTextBaseline, spacing: 12) {
+        sectionTitleLabel(title).fixedSize(horizontal: true, vertical: false)
+        Spacer(minLength: 8)
+        sectionDetailLabel(trailing).fixedSize(horizontal: true, vertical: false)
+      }
+      VStack(alignment: .leading, spacing: 3) {
+        sectionTitleLabel(title)
+        sectionDetailLabel(trailing)
+      }
     }
-    .padding(.horizontal, CookStyle.screenHPad)
+    .padding(.horizontal, commandHorizontalPadding)
+  }
+
+  private func sectionTitleLabel(_ title: String) -> some View {
+    Text(title)
+      .font(.stockedSerif(16.5, weight: .bold, relativeTo: .headline))
+      .foregroundStyle(session.themeTextColor)
+      .stockedAdaptiveLabel(maxLines: 3)
+  }
+
+  private func sectionDetailLabel(_ detail: String) -> some View {
+    Text(detail)
+      .font(.stockedSans(10.5, weight: .semibold, relativeTo: .caption2))
+      .foregroundStyle(session.themeTextColor.opacity(0.4))
+      .stockedAdaptiveLabel(maxLines: 3)
   }
 
   private func insightRow(_ title: String, value: String, icon: String, tint: Color) -> some View {
     HStack(spacing: 11) {
-      Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(tint)
+      Image(systemName: icon).scaledFont(15, weight: .semibold).foregroundStyle(tint)
         .frame(width: 27)
       VStack(alignment: .leading, spacing: 2) {
-        Text(title).font(.system(size: 13.5, weight: .semibold)).foregroundStyle(
+        Text(title).scaledFont(13.5, weight: .semibold).foregroundStyle(
           session.themeTextColor)
-        Text(value).font(.system(size: 10.5)).foregroundStyle(session.themeTextColor.opacity(0.46))
+        Text(value).scaledFont(10.5).foregroundStyle(session.themeTextColor.opacity(0.46))
       }
       Spacer()
     }
@@ -1899,16 +2105,16 @@ private struct CookLaterAddMealSourceSheet: View {
         ScrollView(showsIndicators: false) {
           VStack(alignment: .leading, spacing: 14) {
             VStack(spacing: 3) {
-              Text("Plan \(mealType)").font(.system(size: 22, weight: .bold, design: .serif))
+              Text("Plan \(mealType)").scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
               Text(
                 "\(CookLaterPlanningEngine.dayLabel(dayIndex)), \(CookLaterPlanningEngine.dateLabel(dayIndex))"
               )
-              .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.48))
+              .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.48))
             }
             .frame(maxWidth: .infinity)
 
-            Text("Choose a meal").font(.system(size: 15, weight: .bold, design: .serif))
+            Text("Choose a meal").scaledFont(15, weight: .bold, design: .serif)
               .foregroundStyle(session.themeTextColor)
             sourceRow(
               "From My Recipes", detail: "Use your saved recipes", icon: "bookmark.fill",
@@ -1927,7 +2133,7 @@ private struct CookLaterAddMealSourceSheet: View {
               tint: Color.stockedGold, source: .custom)
 
             if !recentMeals.isEmpty {
-              Text("Recent Meals").font(.system(size: 15, weight: .bold, design: .serif))
+              Text("Recent Meals").scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor).padding(.top, 8)
               ForEach(recentMeals) { recipe in
                 Button {
@@ -1938,18 +2144,18 @@ private struct CookLaterAddMealSourceSheet: View {
                     AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: 48).clipShape(
                       RoundedRectangle(cornerRadius: 10))
                     VStack(alignment: .leading, spacing: 2) {
-                      Text(recipe.title).font(.system(size: 13.5, weight: .semibold))
+                      Text(recipe.title).scaledFont(13.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                       Text(
                         recipe.lastCooked.map {
                           "Cooked \($0.formatted(date: .abbreviated, time: .omitted))"
                         } ?? "Cook again"
                       )
-                      .font(.system(size: 10.5)).foregroundStyle(
+                      .scaledFont(10.5).foregroundStyle(
                         session.themeTextColor.opacity(0.46))
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold))
+                    Image(systemName: "chevron.right").scaledFont(10, weight: .bold)
                       .foregroundStyle(session.themeTextColor.opacity(0.28))
                   }
                   .padding(12).background(
@@ -1961,6 +2167,7 @@ private struct CookLaterAddMealSourceSheet: View {
           }
           .padding(20).padding(.bottom, 24)
         }
+        .stockedTrackedScrollScope()
       }
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
@@ -1981,16 +2188,16 @@ private struct CookLaterAddMealSourceSheet: View {
       HStack(spacing: 12) {
         ZStack {
           RoundedRectangle(cornerRadius: 10).fill(tint.opacity(0.13)).frame(width: 42, height: 42)
-          Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(tint)
+          Image(systemName: icon).scaledFont(15, weight: .semibold).foregroundStyle(tint)
         }
         VStack(alignment: .leading, spacing: 2) {
-          Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
+          Text(title).scaledFont(14, weight: .semibold).foregroundStyle(
             session.themeTextColor)
-          Text(detail).font(.system(size: 10.5)).foregroundStyle(
+          Text(detail).scaledFont(10.5).foregroundStyle(
             session.themeTextColor.opacity(0.46))
         }
         Spacer()
-        Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).foregroundStyle(
+        Image(systemName: "chevron.right").scaledFont(10, weight: .bold).foregroundStyle(
           session.themeTextColor.opacity(0.28))
       }
       .padding(12).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
@@ -2015,7 +2222,7 @@ private struct CookLaterCommandEditorSheet: View {
         ScrollView(showsIndicators: false) {
           VStack(alignment: .leading, spacing: 16) {
             TextField("Meal name", text: $draft.title)
-              .font(.system(size: 18, weight: .semibold, design: .serif)).padding(14)
+              .scaledFont(18, weight: .semibold, design: .serif).padding(14)
               .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 13))
             Picker("Day", selection: $draft.dayIndex) {
               ForEach(0..<7, id: \.self) { day in
@@ -2030,16 +2237,16 @@ private struct CookLaterCommandEditorSheet: View {
             }
             .pickerStyle(.segmented)
             Stepper("Servings: \(draft.servings)", value: $draft.servings, in: 1...24)
-              .font(.system(size: 13.5, weight: .semibold)).foregroundStyle(session.themeTextColor)
+              .scaledFont(13.5, weight: .semibold).foregroundStyle(session.themeTextColor)
               .padding(13).background(
                 session.themeCardColor, in: RoundedRectangle(cornerRadius: 13))
 
             VStack(alignment: .leading, spacing: 9) {
-              Text("Ingredients").font(.system(size: 15, weight: .bold, design: .serif))
+              Text("Ingredients").scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
               ForEach(Array(draft.ingredients.enumerated()), id: \.offset) { index, ingredient in
                 HStack {
-                  Text(ingredient).font(.system(size: 12.5)).foregroundStyle(session.themeTextColor)
+                  Text(ingredient).scaledFont(12.5).foregroundStyle(session.themeTextColor)
                   Spacer()
                   Button {
                     draft.ingredients.remove(at: index)
@@ -2059,13 +2266,13 @@ private struct CookLaterCommandEditorSheet: View {
                   draft.ingredients.append(value)
                   ingredientText = ""
                 }
-                .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                .scaledFont(12.5, weight: .semibold).foregroundStyle(Color.stockedGold)
               }
               .padding(12).background(
                 session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
             }
             Toggle("Add shortages to Grocery after saving", isOn: $draft.addMissingToGrocery)
-              .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(session.themeTextColor)
+              .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor)
               .tint(Color.stockedGold)
               .padding(13).background(
                 session.themeCardColor, in: RoundedRectangle(cornerRadius: 13))
@@ -2127,12 +2334,12 @@ private struct CookLaterCommandRecipePicker: View {
                 HStack(spacing: 11) {
                   UniformRecipeIcon(size: 52)
                   VStack(alignment: .leading, spacing: 3) {
-                    Text(recipe.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
+                    Text(recipe.title).scaledFont(14, weight: .semibold).foregroundStyle(
                       session.themeTextColor
-                    ).lineLimit(1)
+                    ).stockedAdaptiveLabel(maxLines: 3)
                     let match = session.guestStore.stockMatch(for: recipe)
                     Text("\(match.have) of \(match.total) ingredients stocked")
-                      .font(.system(size: 10.5)).foregroundStyle(
+                      .scaledFont(10.5).foregroundStyle(
                         match.total > 0 && match.have == match.total
                           ? Color.stockedGreen : session.themeTextColor.opacity(0.46))
                   }
@@ -2200,11 +2407,11 @@ private struct CookLaterWebRecipePicker: View {
                     AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: 52).clipShape(
                       RoundedRectangle(cornerRadius: 11))
                     VStack(alignment: .leading, spacing: 3) {
-                      Text(recipe.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
+                      Text(recipe.title).scaledFont(14, weight: .semibold).foregroundStyle(
                         session.themeTextColor
-                      ).lineLimit(1)
+                      ).stockedAdaptiveLabel(maxLines: 3)
                       Text("\(recipe.sourceName) · \(recipe.ingredients.count) ingredients")
-                        .font(.system(size: 10.5)).foregroundStyle(
+                        .scaledFont(10.5).foregroundStyle(
                           session.themeTextColor.opacity(0.46))
                     }
                     Spacer()
@@ -2218,6 +2425,7 @@ private struct CookLaterWebRecipePicker: View {
             }
             .padding(20).padding(.bottom, 24)
           }
+          .stockedTrackedScrollScope()
         }
       }
       .navigationTitle("Online Suggestions")
@@ -2276,16 +2484,16 @@ private struct CookLaterMealDetailSheet: View {
               .frame(maxWidth: .infinity).frame(height: 190).clipped().clipShape(
                 RoundedRectangle(cornerRadius: 18))
             VStack(alignment: .leading, spacing: 3) {
-              Text(meal.title).font(.system(size: 24, weight: .bold, design: .serif))
+              Text(meal.title).scaledFont(24, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
               Text(
                 "\(CookLaterPlanningEngine.dayLabel(meal.dayIndex)), \(CookLaterPlanningEngine.dateLabel(meal.dayIndex)) · \(meal.mealType)"
               )
-              .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.48))
+              .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48))
             }
 
             HStack {
-              Text("Servings").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(
+              Text("Servings").scaledFont(12.5, weight: .semibold).foregroundStyle(
                 session.themeTextColor)
               Spacer()
               Button {
@@ -2294,7 +2502,7 @@ private struct CookLaterMealDetailSheet: View {
                 Image(systemName: "minus").frame(width: 28, height: 28).background(
                   session.themeCardColor, in: Circle())
               }
-              Text("\(servings)").font(.system(size: 13.5, weight: .semibold)).frame(width: 28)
+              Text("\(servings)").scaledFont(13.5, weight: .semibold).frame(width: 28)
               Button {
                 servings = min(24, servings + 1)
               } label: {
@@ -2304,7 +2512,7 @@ private struct CookLaterMealDetailSheet: View {
             }
             .foregroundStyle(session.themeTextColor).buttonStyle(.plain)
 
-            Text("Ingredient Check").font(.system(size: 17, weight: .bold, design: .serif))
+            Text("Ingredient Check").scaledFont(17, weight: .bold, design: .serif)
               .foregroundStyle(session.themeTextColor)
             HStack(spacing: 8) {
               stateSummary(.onHand, count: checks.filter { $0.state == .onHand }.count)
@@ -2320,12 +2528,12 @@ private struct CookLaterMealDetailSheet: View {
             if !conflicts.isEmpty {
               VStack(alignment: .leading, spacing: 7) {
                 Label("Planning Impact", systemImage: "exclamationmark.triangle.fill")
-                  .font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.orange)
+                  .scaledFont(13, weight: .semibold).foregroundStyle(Color.orange)
                 ForEach(conflicts) { check in
                   Text(
                     "You also planned \(check.competingMeals.joined(separator: ", ")) with \(check.name.displayNormalized)."
                   )
-                  .font(.system(size: 11.5)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                  .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
               }
               .padding(13).background(
@@ -2336,7 +2544,7 @@ private struct CookLaterMealDetailSheet: View {
               editorDraft = CookLaterPlanDraft(meal: meal)
             } label: {
               Text("Adjust Quantity or Ingredients")
-                .font(.system(size: 13, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                .scaledFont(13, weight: .semibold).foregroundStyle(session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 12)
                 .overlay(
                   RoundedRectangle(cornerRadius: 12).stroke(session.themeTextColor.opacity(0.18)))
@@ -2347,7 +2555,7 @@ private struct CookLaterMealDetailSheet: View {
               dismiss()
             } label: {
               Text(missing.isEmpty ? "No Shortages to Add" : "Add Shortages to Grocery List")
-                .font(.system(size: 13, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                .scaledFont(13, weight: .semibold).foregroundStyle(session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 12)
                 .overlay(
                   RoundedRectangle(cornerRadius: 12).stroke(session.themeTextColor.opacity(0.18)))
@@ -2360,7 +2568,7 @@ private struct CookLaterMealDetailSheet: View {
               dismiss()
             } label: {
               Text("Save Meal Plan")
-                .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedWhite)
                 .frame(maxWidth: .infinity).padding(.vertical, 13)
                 .background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 12))
             }
@@ -2368,6 +2576,7 @@ private struct CookLaterMealDetailSheet: View {
           }
           .padding(20).padding(.bottom, 28)
         }
+        .stockedTrackedScrollScope()
       }
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
@@ -2390,8 +2599,8 @@ private struct CookLaterMealDetailSheet: View {
       state == .onHand
       ? Color.stockedGreen : state == .needed ? Color.stockedError : Color.stockedGold
     return VStack(spacing: 2) {
-      Text("\(count)").font(.system(size: 18, weight: .bold, design: .serif)).foregroundStyle(tint)
-      Text(state.title).font(.system(size: 9.5, weight: .semibold)).foregroundStyle(
+      Text("\(count)").scaledFont(18, weight: .bold, design: .serif).foregroundStyle(tint)
+      Text(state.title).scaledFont(9.5, weight: .semibold).foregroundStyle(
         session.themeTextColor.opacity(0.52))
     }
     .frame(maxWidth: .infinity).padding(.vertical, 10)
@@ -2410,19 +2619,19 @@ private struct CookLaterMealDetailSheet: View {
           systemName: check.state == .onHand
             ? "checkmark" : check.state == .needed ? "cart.badge.plus" : "exclamationmark"
         )
-        .font(.system(size: 13, weight: .bold)).foregroundStyle(tint)
+        .scaledFont(13, weight: .bold).foregroundStyle(tint)
       }
       VStack(alignment: .leading, spacing: 2) {
-        Text(check.name.displayNormalized).font(.system(size: 13.5, weight: .semibold))
+        Text(check.name.displayNormalized).scaledFont(13.5, weight: .semibold)
           .foregroundStyle(session.themeTextColor)
         Text(
           check.requestedDisplay.isEmpty
             ? check.state.title : "Need \(check.requestedDisplay) · have \(check.availableDisplay)"
         )
-        .font(.system(size: 10.5)).foregroundStyle(session.themeTextColor.opacity(0.46))
+        .scaledFont(10.5).foregroundStyle(session.themeTextColor.opacity(0.46))
       }
       Spacer()
-      Text(check.state.title).font(.system(size: 9.5, weight: .bold)).foregroundStyle(tint)
+      Text(check.state.title).scaledFont(9.5, weight: .bold).foregroundStyle(tint)
     }
     .padding(11).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
   }
@@ -2447,10 +2656,10 @@ private struct CookLaterSubstitutionSheet: View {
               Text(need.name.displayNormalized).font(
                 .system(size: 20, weight: .bold, design: .serif)
               ).foregroundStyle(session.themeTextColor)
-              Text("Missing · \(need.shortageReason)").font(.system(size: 11.5, weight: .semibold))
+              Text("Missing · \(need.shortageReason)").scaledFont(11.5, weight: .semibold)
                 .foregroundStyle(Color.stockedError)
             }
-            Text("Find a substitute").font(.system(size: 15.5, weight: .bold, design: .serif))
+            Text("Find a substitute").scaledFont(15.5, weight: .bold, design: .serif)
               .foregroundStyle(session.themeTextColor)
             if options.isEmpty {
               ContentUnavailableView(
@@ -2472,22 +2681,22 @@ private struct CookLaterSubstitutionSheet: View {
                       Image(
                         systemName: have ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
                       )
-                      .font(.system(size: 15, weight: .semibold)).foregroundStyle(
+                      .scaledFont(15, weight: .semibold).foregroundStyle(
                         have ? Color.stockedGreen : Color.stockedGold)
                     }
                     VStack(alignment: .leading, spacing: 2) {
-                      Text(option.title).font(.system(size: 14, weight: .semibold)).foregroundStyle(
+                      Text(option.title).scaledFont(14, weight: .semibold).foregroundStyle(
                         session.themeTextColor)
-                      Text(option.detail).font(.system(size: 10.5)).foregroundStyle(
+                      Text(option.detail).scaledFont(10.5).foregroundStyle(
                         session.themeTextColor.opacity(0.48)
                       ).fixedSize(horizontal: false, vertical: true)
                       if have {
-                        Text("You already have this!").font(.system(size: 10, weight: .bold))
+                        Text("You already have this!").scaledFont(10, weight: .bold)
                           .foregroundStyle(Color.stockedGreen)
                       }
                     }
                     Spacer()
-                    Text("Use").font(.system(size: 11, weight: .semibold)).foregroundStyle(
+                    Text("Use").scaledFont(11, weight: .semibold).foregroundStyle(
                       session.themeTextColor
                     )
                     .padding(.horizontal, 10).padding(.vertical, 6).background(
@@ -2543,7 +2752,7 @@ private struct CookLaterCommandSuggestionsSheet: View {
           ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 9) {
               Text("Review the proposed week. Nothing changes until you confirm.")
-                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                 .padding(.bottom, 4)
               ForEach(suggestions) { suggestion in
                 Button {
@@ -2558,16 +2767,16 @@ private struct CookLaterCommandSuggestionsSheet: View {
                       systemName: selectedIDs.contains(suggestion.id)
                         ? "checkmark.circle.fill" : "circle"
                     )
-                    .font(.system(size: 19)).foregroundStyle(
+                    .scaledFont(19).foregroundStyle(
                       selectedIDs.contains(suggestion.id)
                         ? Color.stockedGreen : session.themeTextColor.opacity(0.28))
                     VStack(alignment: .leading, spacing: 2) {
-                      Text(suggestion.title).font(.system(size: 14, weight: .semibold))
+                      Text(suggestion.title).scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                       Text(
                         "\(CookLaterPlanningEngine.dayLabel(suggestion.dayIndex)) · \(suggestion.mealType) · \(suggestion.servings) servings"
                       )
-                      .font(.system(size: 10.5)).foregroundStyle(
+                      .scaledFont(10.5).foregroundStyle(
                         session.themeTextColor.opacity(0.46))
                     }
                     Spacer()
@@ -2585,7 +2794,7 @@ private struct CookLaterCommandSuggestionsSheet: View {
             dismiss()
           } label: {
             Text("Apply \(selectedIDs.count) Meal\(selectedIDs.count == 1 ? "" : "s")")
-              .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+              .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedWhite)
               .frame(maxWidth: .infinity).padding(.vertical, 13)
               .background(
                 selectedIDs.isEmpty ? Color.stockedCharcoal.opacity(0.35) : Color.stockedCharcoal,
@@ -2650,7 +2859,7 @@ private struct CookLaterMonthCalendarSheet: View {
                 Image(systemName: "chevron.left")
               }
               Spacer()
-              Text(monthTitle).font(.system(size: 18, weight: .bold, design: .serif))
+              Text(monthTitle).scaledFont(18, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
               Spacer()
               Button {
@@ -2659,12 +2868,12 @@ private struct CookLaterMonthCalendarSheet: View {
                 Image(systemName: "chevron.right")
               }
             }
-            .font(.system(size: 13, weight: .bold)).foregroundStyle(session.themeTextColor)
+            .scaledFont(13, weight: .bold).foregroundStyle(session.themeTextColor)
 
             let symbols = calendar.shortWeekdaySymbols
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
               ForEach(symbols, id: \.self) { symbol in
-                Text(String(symbol.prefix(2))).font(.system(size: 9.5, weight: .bold))
+                Text(String(symbol.prefix(2))).scaledFont(9.5, weight: .bold)
                   .foregroundStyle(session.themeTextColor.opacity(0.42))
               }
               ForEach(Array(days.enumerated()), id: \.offset) { _, date in
@@ -2686,10 +2895,10 @@ private struct CookLaterMonthCalendarSheet: View {
               let mealsForDay = meals.filter { $0.dayIndex == selectedDay }
               VStack(alignment: .leading, spacing: 9) {
                 Text(selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
-                  .font(.system(size: 16, weight: .bold, design: .serif)).foregroundStyle(
+                  .scaledFont(16, weight: .bold, design: .serif).foregroundStyle(
                     session.themeTextColor)
                 if mealsForDay.isEmpty {
-                  Text("No meals planned.").font(.system(size: 12)).foregroundStyle(
+                  Text("No meals planned.").scaledFont(12).foregroundStyle(
                     session.themeTextColor.opacity(0.48))
                 } else {
                   ForEach(mealsForDay) { meal in
@@ -2697,11 +2906,11 @@ private struct CookLaterMonthCalendarSheet: View {
                       AsyncFoodImage(name: meal.title, url: nil, size: 46).clipShape(
                         RoundedRectangle(cornerRadius: 10))
                       VStack(alignment: .leading, spacing: 2) {
-                        Text(meal.mealType).font(.system(size: 9.5, weight: .bold)).foregroundStyle(
+                        Text(meal.mealType).scaledFont(9.5, weight: .bold).foregroundStyle(
                           Color.stockedGold)
-                        Text(meal.title).font(.system(size: 13.5, weight: .semibold))
+                        Text(meal.title).scaledFont(13.5, weight: .semibold)
                           .foregroundStyle(session.themeTextColor)
-                        Text("\(meal.ingredients.count) ingredients").font(.system(size: 10.5))
+                        Text("\(meal.ingredients.count) ingredients").scaledFont(10.5)
                           .foregroundStyle(session.themeTextColor.opacity(0.46))
                       }
                       Spacer()
@@ -2715,6 +2924,7 @@ private struct CookLaterMonthCalendarSheet: View {
           }
           .padding(20).padding(.bottom, 24)
         }
+        .stockedTrackedScrollScope()
       }
       .navigationTitle("Cook Later")
       .navigationBarTitleDisplayMode(.inline)
@@ -2739,7 +2949,7 @@ private struct CookLaterMonthCalendarSheet: View {
       } label: {
         VStack(spacing: 4) {
           Text("\(calendar.component(.day, from: date))")
-            .font(.system(size: 12, weight: horizonDay == selectedDay ? .bold : .medium))
+            .font(.stockedSystem(size: 12, weight: horizonDay == selectedDay ? .bold : .medium))
             .foregroundStyle(
               horizonDay == selectedDay
                 ? Color.stockedWhite
@@ -2774,7 +2984,7 @@ private struct CookLaterMonthCalendarSheet: View {
   private func legend(_ title: String, tint: Color) -> some View {
     HStack(spacing: 4) {
       Circle().fill(tint).frame(width: 5, height: 5)
-      Text(title).font(.system(size: 9.5)).foregroundStyle(session.themeTextColor.opacity(0.48))
+      Text(title).scaledFont(9.5).foregroundStyle(session.themeTextColor.opacity(0.48))
     }
   }
 }

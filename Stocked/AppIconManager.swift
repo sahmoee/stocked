@@ -73,13 +73,13 @@ struct AppIconPickerView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Choose an icon for Stocked. It updates on your Home Screen right away.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .padding(.horizontal, 20).padding(.top, 8)
 
                     if !AppIconManager.isSupported {
                         Text("Alternate icons aren't available on this device.")
-                            .font(.system(size: 13, weight: .semibold))
+                            .scaledFont(13, weight: .semibold)
                             .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .padding(.horizontal, 20)
                     }
@@ -132,14 +132,14 @@ struct AppIconPickerView: View {
                 .overlay(alignment: .bottomTrailing) {
                     if selected == key {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18))
+                            .scaledFont(18)
                             .foregroundStyle(Color.stockedGold)
                             .background(Circle().fill(Color.white).frame(width: 16, height: 16))
                             .offset(x: 4, y: 4)
                     }
                 }
                 Text(label)
-                    .font(.system(size: 10))
+                    .scaledFont(10)
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
             }
         }

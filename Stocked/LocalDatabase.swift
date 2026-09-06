@@ -89,6 +89,20 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
         return nil
     }
 
+    /// Reads a potentially large value on the database utility queue.
+    ///
+    /// Keep the synchronous `load` API for small launch-time preferences and legacy callers,
+    /// but use this variant from async feature work so JSON file I/O and decoding cannot occupy
+    /// the main actor. The `Sendable` constraint makes the decoded value safe to transfer back
+    /// across the queue boundary under Swift 6 concurrency checking.
+    func loadAsync<T: Decodable & Sendable>(_ type: T.Type, key: String) async -> T? {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                continuation.resume(returning: self?.load(type, key: key))
+            }
+        }
+    }
+
     /// Corruption-tolerant array read: one malformed row does not discard the collection.
     func loadArray<Element: Decodable>(_ type: Element.Type, key: String) -> [Element]? {
         let url = DBFile.url(for: key)
@@ -101,6 +115,18 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
             return arr
         }
         return nil
+    }
+
+    /// Corruption-tolerant array decoding on the database utility queue.
+    func loadArrayAsync<Element: Decodable & Sendable>(
+        _ type: Element.Type,
+        key: String
+    ) async -> [Element]? {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                continuation.resume(returning: self?.loadArray(type, key: key))
+            }
+        }
     }
 
     // MARK: Write — one coalescing, serialized file queue
@@ -116,6 +142,26 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
             pendingWrites[key] = PreEncoded(data: data)
             scheduleFlushLocked()
         }
+    }
+
+    /// Commit an already-encoded value before returning. Transaction coordinators use this for
+    /// recovery journals that must reach disk before the first in-memory mutation is applied.
+    /// Ordinary model writes should continue using the coalesced `save` / `saveData` APIs.
+    func saveDataDurably(_ data: Data, key: String) throws {
+        _ = withStateLock { pendingWrites.removeValue(forKey: key) }
+        var writeError: Error?
+        syncOnWriteQueue {
+            let url = DBFile.url(for: key)
+            do {
+                if let existing = try? Data(contentsOf: url), !existing.isEmpty {
+                    try existing.write(to: DBFile.backupURL(for: key), options: .atomic)
+                }
+                try data.write(to: url, options: .atomic)
+            } catch {
+                writeError = error
+            }
+        }
+        if let writeError { throw writeError }
     }
 
     /// Must be called while `stateLock` is held.
@@ -158,6 +204,30 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
         }
     }
 
+    /// Persists every write pending when this call reaches the serialized database queue.
+    /// This is intended for lifecycle boundaries, tests, and explicit durability points; normal
+    /// model writes should continue using the coalesced `save` path.
+    func flush() async {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                guard let self else {
+                    continuation.resume()
+                    return
+                }
+                let snapshot: [String: Any] = self.withStateLock {
+                    self.writeGeneration &+= 1
+                    self.writeWorkItem?.cancel()
+                    self.writeWorkItem = nil
+                    let snapshot = self.pendingWrites
+                    self.pendingWrites.removeAll()
+                    return snapshot
+                }
+                for (key, value) in snapshot { self.write(value, key: key) }
+                continuation.resume()
+            }
+        }
+    }
+
     // MARK: Delete
     func delete(key: String) {
         _ = withStateLock { pendingWrites.removeValue(forKey: key) }
@@ -190,6 +260,7 @@ nonisolated enum DBKey: String, CaseIterable, Sendable {
     case householdOpQueue      = "household_op_queue_v1"    // durable pending household operations
     case householdSyncStatus   = "household_sync_status_v1" // last push/pull, pending count, last error
     case householdTombstones   = "household_tombstones_v1"  // durable offline deletions
+    case kitchenRestoreRollback = "kitchen_restore_rollback_v1" // encrypted pre-restore recovery point
     case pastMeals             = "past_meals"
     case plannedMeals          = "planned_meals"
     case savedRecipes          = "saved_recipes"

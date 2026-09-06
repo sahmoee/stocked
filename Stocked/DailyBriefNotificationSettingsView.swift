@@ -32,11 +32,11 @@ struct DailyBriefNotificationSettingsView: View {
             session.themeBgColor.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 0) {
                 Text("Daily Brief Alerts")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 4)
                 Text("A morning notification summarising expiring items and what you can cook tonight.")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                     .padding(.horizontal, 24).padding(.bottom, 24)
 
                 permissionBanner
@@ -45,7 +45,7 @@ struct DailyBriefNotificationSettingsView: View {
                     // Enable toggle
                     HStack {
                         Text("Enable daily brief")
-                            .font(.system(size: 15, design: .serif))
+                            .scaledFont(15, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Spacer()
                         Toggle("", isOn: $isEnabled)
@@ -70,7 +70,7 @@ struct DailyBriefNotificationSettingsView: View {
                         // Time picker
                         HStack {
                             Text("Notify at")
-                                .font(.system(size: 15, design: .serif))
+                                .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Spacer()
                             Picker("Hour", selection: $hour) {
@@ -105,7 +105,7 @@ struct DailyBriefNotificationSettingsView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
                         Text("Daily brief scheduled for \(DailyBriefNotificationManager.shared.timeLabel)")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
                     .padding(.horizontal, 24).padding(.top, 16)
                     .transition(.opacity)
@@ -116,10 +116,10 @@ struct DailyBriefNotificationSettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Expiry reminders")
-                                .font(.system(size: 15, design: .serif))
+                                .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("Get a reminder the day before an item expires")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
                         Toggle("", isOn: $expiryOn)
@@ -155,10 +155,10 @@ struct DailyBriefNotificationSettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Cook suggestions")
-                                .font(.system(size: 15, design: .serif))
+                                .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("When items are expiring, suggest a recipe that uses them up")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
                         Toggle("", isOn: $cookSuggestOn)
@@ -192,10 +192,10 @@ struct DailyBriefNotificationSettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Low staples nudge")
-                                .font(.system(size: 15, design: .serif))
+                                .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("A heads-up when your kitchen drops below 50% stocked")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
                         Toggle("", isOn: $stapleOn)
@@ -228,10 +228,10 @@ struct DailyBriefNotificationSettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Meal prep day reminder")
-                                .font(.system(size: 15, design: .serif))
+                                .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("Every \(session.guestStore.cookingProfile.mealPrepDay) at \(DailyBriefNotificationManager.shared.timeLabel(hour: prepHour, minute: prepMinute))")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
                         Toggle("", isOn: $prepOn)
@@ -285,14 +285,14 @@ struct DailyBriefNotificationSettingsView: View {
                     .foregroundStyle(Color.red)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Notifications are turned off")
-                        .font(.system(size: 14, weight: .semibold, design: .serif))
+                        .scaledFont(14, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Reminders can't be delivered until you allow notifications in Settings.")
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                 }
                 Spacer()
                 Button("Open") { openSystemSettings() }
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
@@ -304,7 +304,7 @@ struct DailyBriefNotificationSettingsView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
                 Text("Notifications allowed — reminders will arrive even when the app is closed.")
-                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                 Spacer()
             }
             .padding(.horizontal, 24).padding(.bottom, 16)
@@ -324,7 +324,7 @@ struct DailyBriefNotificationSettingsView: View {
                          onChange: @escaping () -> Void) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 15, design: .serif))
+                .scaledFont(15, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Spacer()
             Picker("Hour", selection: hour) {

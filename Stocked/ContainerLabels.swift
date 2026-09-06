@@ -67,7 +67,7 @@ nonisolated enum ContainerCode {
     /// `nonisolated(unsafe)` is correct here rather than a workaround: CIContext is documented as
     /// thread-safe for concurrent rendering, it's immutable after creation, and we never mutate it.
     /// The compiler can't see that guarantee because CIContext predates Sendable.
-    nonisolated(unsafe) private static let context = CIContext()
+    private static let context = CIContext()
 
     static func qr(for text: String, scale: CGFloat = 10) -> UIImage? {
         let filter = CIFilter.qrCodeGenerator()
@@ -144,15 +144,15 @@ struct ContainerLabelsView: View {
         Group {
             if store.labels.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "qrcode").font(.system(size: 34))
+                    Image(systemName: "qrcode").scaledFont(34)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("No labels yet").font(.system(size: 16, weight: .semibold))
+                    Text("No labels yet").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Make a label for a container, stick it on, and scanning it later tells you exactly what's inside and when it went in — no more mystery tubs.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
                     Button { showAdd = true } label: {
-                        Text("Make a label").font(.system(size: 14, weight: .semibold))
+                        Text("Make a label").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
                             .background(session.accentColor).foregroundStyle(.white).clipShape(Capsule())
                     }.buttonStyle(.plain).padding(.top, 4)
@@ -171,13 +171,13 @@ struct ContainerLabelsView: View {
                                             .clipShape(RoundedRectangle(cornerRadius: 4))
                                     }
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(label.contents).font(.system(size: 14, weight: .semibold))
+                                        Text(label.contents).scaledFont(14, weight: .semibold)
                                         Text("\(label.storage) · \(label.filledOn.formatted(date: .abbreviated, time: .omitted))")
-                                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                                            .scaledFont(11).foregroundStyle(.secondary)
                                     }
                                     Spacer()
                                     Text(label.isPastDate ? "past date" : "\(label.daysLeft)d")
-                                        .font(.system(size: 11, weight: .bold))
+                                        .scaledFont(11, weight: .bold)
                                         .foregroundStyle(label.isPastDate ? .red : .secondary)
                                 }
                             }
@@ -217,15 +217,15 @@ struct ContainerLabelDetailView: View {
                             .frame(width: 180, height: 180)
                     }
                     Text(label.contents)
-                        .font(.system(size: 17, weight: .bold)).foregroundStyle(.black)
+                        .scaledFont(17, weight: .bold).foregroundStyle(.black)
                         .multilineTextAlignment(.center)
                     Text(label.humanSummary)
-                        .font(.system(size: 12)).foregroundStyle(.black.opacity(0.7))
+                        .scaledFont(12).foregroundStyle(.black.opacity(0.7))
                         .multilineTextAlignment(.center)
                     Text("Use by \(label.useByDate.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.black.opacity(0.8))
+                        .scaledFont(12, weight: .semibold).foregroundStyle(.black.opacity(0.8))
                     Text(label.shortCode)
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .scaledFont(11, weight: .bold, design: .monospaced)
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 .padding(18)
@@ -239,7 +239,7 @@ struct ContainerLabelDetailView: View {
                     ShareLink(item: Image(uiImage: img),
                               preview: SharePreview(label.contents, image: Image(uiImage: img))) {
                         Label("Share or print", systemImage: "printer")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(15, weight: .semibold)
                             .frame(maxWidth: .infinity).padding(.vertical, 13)
                             .background(session.accentColor).foregroundStyle(.white)
                             .clipShape(RoundedRectangle(cornerRadius: 13))
@@ -257,7 +257,7 @@ struct ContainerLabelDetailView: View {
                 .padding(.horizontal, 28).padding(.top, 4)
 
                 Text("Scanning this with any camera opens it in Stocked. The printed code and date stay readable even if the QR is damaged.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .scaledFont(11).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center).padding(.horizontal, 40).padding(.top, 6)
             }
             .padding(.vertical, 18)
@@ -269,9 +269,9 @@ struct ContainerLabelDetailView: View {
 
     private func detailRow(_ k: String, _ v: String) -> some View {
         HStack {
-            Text(k).font(.system(size: 13)).foregroundStyle(.secondary)
+            Text(k).scaledFont(13).foregroundStyle(.secondary)
             Spacer()
-            Text(v).font(.system(size: 13, weight: .medium)).foregroundStyle(session.themeTextColor)
+            Text(v).scaledFont(13, weight: .medium).foregroundStyle(session.themeTextColor)
         }
     }
 }
@@ -315,11 +315,12 @@ private struct AddContainerLabelSheet: View {
                         HapticManager.success()
                         dismiss()
                     }
-                    .font(.body.bold())
+                    .font(.stocked(.body).bold())
                     .disabled(contents.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }

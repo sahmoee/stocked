@@ -75,7 +75,7 @@ struct ReorderSoonView: View {
                 VStack(spacing: 10) {
                     ForEach(due) { p in row(p) }
                     Text("Predictions come from how long each staple has lasted you before. More history means a better guess.")
-                        .font(.system(size: 11)).foregroundStyle(session.themeSecondaryText)
+                        .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center).padding(.top, 6).padding(.horizontal, 12)
                 }
                 .padding(18)
@@ -90,12 +90,12 @@ struct ReorderSoonView: View {
         let isAdded = added.contains(p.id)
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(p.name.capitalized).font(.system(size: 15, weight: .semibold))
+                Text(p.name.capitalized).scaledFont(15, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                 Text(p.isOverdue
                      ? "Likely out already · usually lasts ~\(p.avgLifespan)d"
                      : "Out in ~\(p.daysUntilOut)d · usually lasts ~\(p.avgLifespan)d")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(p.isOverdue ? .red.opacity(0.8) : session.themeSecondaryText)
             }
             Spacer()
@@ -105,7 +105,7 @@ struct ReorderSoonView: View {
                 HapticManager.success()
             } label: {
                 Label(isAdded ? "Added" : "Add", systemImage: isAdded ? "checkmark" : "cart.badge.plus")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background((isAdded ? Color.green : session.accentColor).opacity(0.15))
                     .foregroundStyle(isAdded ? .green : session.accentColor)
@@ -121,9 +121,9 @@ struct ReorderSoonView: View {
     private func empty(_ title: String, _ msg: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "arrow.clockwise.circle")
-                .font(.system(size: 34)).foregroundStyle(session.themeTextColor.opacity(0.25))
-            Text(title).font(.system(size: 16, weight: .semibold)).foregroundStyle(session.themeTextColor)
-            Text(msg).font(.system(size: 13)).multilineTextAlignment(.center)
+                .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
+            Text(title).scaledFont(16, weight: .semibold).foregroundStyle(session.themeTextColor)
+            Text(msg).scaledFont(13).multilineTextAlignment(.center)
                 .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 34)
         }.frame(maxWidth: .infinity).padding(.top, 80)
     }

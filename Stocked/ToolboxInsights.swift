@@ -23,7 +23,7 @@ struct PantryValueView: View {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                             Text("\(ToolboxFormatters.dollars(snapshot.expiredValue)) of that is expired")
-                                .font(.system(size: 14, weight: .medium))
+                                .scaledFont(14, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
                         }
                     }
@@ -35,15 +35,15 @@ struct PantryValueView: View {
                     ToolboxCard {
                         HStack {
                             Text("\(zone.icon) \(zone.displayName)")
-                                .font(.system(size: 15, weight: .semibold))
+                                .scaledFont(15, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                             Spacer()
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(ToolboxFormatters.dollars(value))
-                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .scaledFont(15, weight: .bold, design: .rounded)
                                     .foregroundStyle(session.accentColor)
                                 Text("\(count) item\(count == 1 ? "" : "s")")
-                                    .font(.system(size: 11))
+                                    .scaledFont(11)
                                     .foregroundStyle(session.themeSecondaryText)
                             }
                         }
@@ -51,7 +51,7 @@ struct PantryValueView: View {
                 }
                 if snapshot.pricedItems < snapshot.totalItems {
                     Text("Tip: add prices to items (or scan receipts) to make this more accurate. \(snapshot.totalItems - snapshot.pricedItems) item\(snapshot.totalItems - snapshot.pricedItems == 1 ? " has" : "s have") no price yet.")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeSecondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -117,7 +117,7 @@ struct WasteInsightsView: View {
                         ToolboxCard {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("\(Int(pct * 100))% of tracked items were used, not wasted")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(14, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
                                 GeometryReader { geo in
                                     ZStack(alignment: .leading) {
@@ -137,17 +137,17 @@ struct WasteInsightsView: View {
                             ToolboxCard {
                                 HStack {
                                     Text(entry.name.capitalized)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .scaledFont(14, weight: .medium)
                                         .foregroundStyle(session.themeTextColor)
                                     Spacer()
                                     Text("\(entry.count)×")
-                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .scaledFont(13, weight: .bold, design: .rounded)
                                         .foregroundStyle(.orange)
                                 }
                             }
                         }
                         Text("Buying smaller amounts of your most-wasted items is the fastest way to cut food waste.")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeSecondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -221,7 +221,7 @@ struct WeeklyReviewView: View {
                         HStack {
                             Image(systemName: "flame.fill").foregroundStyle(.orange)
                             Text("You're on a \(session.cookStreak)-day cooking streak")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                         }
                     }
@@ -236,9 +236,9 @@ struct WeeklyReviewView: View {
                         ToolboxCard {
                             HStack {
                                 Text(item.name)
-                                    .font(.system(size: 14, weight: .medium))
+                                    .scaledFont(14, weight: .medium)
                                     .foregroundStyle(session.themeTextColor)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Spacer()
                                 ExpiryUrgencyChip(daysLeft: item.daysUntilExpiry ?? 0)
                             }
@@ -247,7 +247,7 @@ struct WeeklyReviewView: View {
                 }
                 ShareLink(item: payload.shareText) {
                     Label("Share weekly review", systemImage: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor.opacity(0.14)))
@@ -270,6 +270,16 @@ struct WeeklyReviewView: View {
 struct LowStockReportView: View {
     @Environment(AppSession.self) private var session
     @State private var lowItems: [LocalInventoryItem] = []
+    @State private var selectedItem: LocalInventoryItem?
+    private var missingFromGrocery: [LocalInventoryItem] {
+        let names = session.guestStore.groceryItems.map(\.name)
+        var seen = names
+        return lowItems.filter { item in
+            guard !GroceryDedup.isDuplicate(item.name, in: seen) else { return false }
+            seen.append(item.name)
+            return true
+        }
+    }
 
     private func compute() {
         lowItems = session.guestStore.inventoryItems
@@ -278,11 +288,16 @@ struct LowStockReportView: View {
     }
 
     private func addAllToGrocery() {
+        guard HouseholdSync.shared.myCanAdd else {
+            ToastCenter.shared.warning("Your household access does not allow adding items")
+            return
+        }
         let store = session.guestStore
         var added = 0
-        for item in lowItems where !GroceryDedup.isDuplicate(item.name, in: store.groceryItems.map { $0.name }) {
-            store.addToGroceryIfMissing(item.name, recommended: true)
-            added += 1
+        for item in missingFromGrocery {
+            let result = GroceryMutationService.apply(.init(name: item.name, quantity: 0,
+                recommended: true, reason: .lowStock, dependencyIDs: [item.id.uuidString]), to: store)
+            if case .added = result { added += 1 }
         }
         HapticManager.success()
         ToastCenter.shared.success(added == 0 ? "Everything is already on your list"
@@ -290,60 +305,65 @@ struct LowStockReportView: View {
     }
 
     var body: some View {
-        ScrollView {
+        StockedShell(showBack: true, canvasColor: session.inventoryCanvas) {
             LazyVStack(spacing: 12) {
+                InventoryEditorialHeading(title: "Running Low", subtitle: "A little restock keeps your kitchen ready.", artwork: 3)
                 if lowItems.isEmpty {
                     ToolboxEmptyState(icon: "checkmark.circle",
                                       title: "Nothing running low",
                                       message: "Items drop in here when their fill level gets low or they fall below the par quantity you set.")
                 } else {
-                    Button(action: addAllToGrocery) {
-                        Label("Add all \(lowItems.count) to grocery list", systemImage: "cart.badge.plus")
-                            .font(.system(size: 15, weight: .semibold))
+                    let missingCount = missingFromGrocery.count
+                    Button {
+                        if missingCount == 0 { InterHubCoordinator.shared.open(.tab(.grocery)) }
+                        else { addAllToGrocery() }
+                    } label: {
+                        Label(missingCount == 0 ? "Open grocery list" : "Add \(missingCount) to grocery list",
+                              systemImage: missingCount == 0 ? "cart" : "cart.badge.plus")
+                            .font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor))
+                            .padding(14)
+                            .background(RoundedRectangle(cornerRadius: 14).fill(session.themeButtonColor))
                             .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
                     ForEach(lowItems) { item in
-                        ToolboxCard {
+                        Button { selectedItem = item } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(item.name)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.stockedSerif(17, weight: .semibold, relativeTo: .headline))
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
-                                    Text("\(item.storageCategory.icon) \(item.displayText)")
-                                        .font(.system(size: 11))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Text("\(item.zone) · \(item.displayText)")
+                                        .scaledFont(12)
                                         .foregroundStyle(session.themeSecondaryText)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Text(item.parQuantity.map { item.quantity < $0 ? "Below minimum: \(item.quantity) of \($0)" : "Running low" } ?? "Running low")
+                                        .scaledFont(12, weight: .semibold)
+                                        .foregroundStyle(session.inventoryGold)
                                 }
-                                Spacer()
-                                if let par = item.parQuantity, item.quantity < par {
-                                    Text("Below par (\(item.quantity)/\(par))")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.orange)
-                                        .padding(.horizontal, 8).padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.orange.opacity(0.14)))
-                                } else {
-                                    Text("Running low")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.yellow)
-                                        .padding(.horizontal, 8).padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.yellow.opacity(0.16)))
-                                }
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right").foregroundStyle(session.inventoryGold)
+                                    .accessibilityHidden(true)
                             }
+                            .modifier(InventoryEditorialCard())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Review quantity and restock settings")
                     }
                 }
             }
             .padding(.horizontal, 18).padding(.vertical, 8)
         }
         .background(session.themeBgColor.ignoresSafeArea())
-        .navigationTitle("Low Stock Report")
-        .navigationBarTitleDisplayMode(.inline)
         .task { compute() }
+        .onChange(of: session.guestStore.inventoryRevision) { _, _ in compute() }
         .refreshable { compute() }
+        .sheet(item: $selectedItem) { item in
+            NavigationStack { EditItemSheet(item: item).environment(session) }
+        }
     }
 }
 
@@ -384,6 +404,18 @@ struct PriceLookupView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
+                NavigationLink {
+                    CommunityPricesView()
+                } label: {
+                    Label("Look up free community prices", systemImage: "barcode.viewfinder")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                NavigationLink {
+                    CommunityPriceWatchesView()
+                } label: {
+                    Label("Saved community price checks", systemImage: "tag.circle")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
                 let items = groups
                 if items.isEmpty {
                     ToolboxEmptyState(icon: "tag",
@@ -397,21 +429,21 @@ struct PriceLookupView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
                                     Text(group.name.capitalized)
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .scaledFont(14, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Spacer()
                                     Text("\(group.count) record\(group.count == 1 ? "" : "s")")
-                                        .font(.system(size: 11))
+                                        .scaledFont(11)
                                         .foregroundStyle(session.themeSecondaryText)
                                 }
                                 HStack(spacing: 12) {
                                     Label("\(group.best.formattedPrice) at \(group.best.store)", systemImage: "arrow.down.circle")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .scaledFont(12, weight: .medium)
                                         .foregroundStyle(.green)
                                     if group.latest.id != group.best.id {
                                         Text("Latest: \(group.latest.formattedPrice)")
-                                            .font(.system(size: 12))
+                                            .scaledFont(12)
                                             .foregroundStyle(session.themeSecondaryText)
                                     }
                                 }
@@ -478,7 +510,7 @@ struct MealCostView: View {
                     }
                     if cost.unknownCount > 0 {
                         Text("\(cost.unknownCount) ingredient\(cost.unknownCount == 1 ? " has" : "s have") no recorded price, so the real cost is a bit higher. Prices come from your receipts and item prices.")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeSecondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -487,12 +519,12 @@ struct MealCostView: View {
                         ToolboxCard {
                             HStack {
                                 Text(line.name.capitalized)
-                                    .font(.system(size: 14))
+                                    .scaledFont(14)
                                     .foregroundStyle(session.themeTextColor)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Spacer()
                                 Text(line.price.map { ToolboxFormatters.dollars($0) } ?? "—")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .scaledFont(13, weight: .semibold, design: .rounded)
                                     .foregroundStyle(line.price == nil ? session.themeSecondaryText : session.accentColor)
                             }
                         }
@@ -502,7 +534,7 @@ struct MealCostView: View {
                         selected = nil
                     } label: {
                         Text("Pick a different recipe")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(session.accentColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -518,15 +550,15 @@ struct MealCostView: View {
                             ToolboxCard {
                                 HStack {
                                     Text(recipe.title)
-                                        .font(.system(size: 14, weight: .medium))
+                                        .scaledFont(14, weight: .medium)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Spacer()
                                     Text("\(recipe.ingredients.count) ingredients")
-                                        .font(.system(size: 11))
+                                        .scaledFont(11)
                                         .foregroundStyle(session.themeSecondaryText)
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeSecondaryText.opacity(0.6))
                                 }
                             }

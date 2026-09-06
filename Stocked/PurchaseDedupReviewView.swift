@@ -59,10 +59,10 @@ struct PurchaseDedupReviewView: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Looks like some of this was already added")
-                        .font(.system(size: 21, weight: .bold, design: .serif))
+                        .scaledFont(21, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("These items match a recent import. Skip duplicates, merge details, or keep both if you really bought it twice.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -85,7 +85,7 @@ struct PurchaseDedupReviewView: View {
                         } label: {
                             Text(importCount == 0 ? "Skip All — Add Nothing"
                                                   : "Add \(importCount) Item\(importCount == 1 ? "" : "s")")
-                                .font(.system(size: 15, weight: .semibold, design: .serif))
+                                .scaledFont(15, weight: .semibold, design: .serif)
                                 .foregroundStyle(Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 13)
                                 .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -97,7 +97,7 @@ struct PurchaseDedupReviewView: View {
 
                         Button { onCancel() } label: {
                             Text("Cancel — don't import yet")
-                                .font(.system(size: 13.5, weight: .semibold))
+                                .scaledFont(13.5, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                         }
                         .buttonStyle(.plain)
@@ -128,15 +128,15 @@ struct PurchaseDedupReviewView: View {
             HStack(spacing: 8) {
                 Image(systemName: (flag?.isStrong ?? false) ? "exclamationmark.triangle.fill"
                                                             : "exclamationmark.circle")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(displayLine(candidate))
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     if let flag {
                         Text(flag.evidence)
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.55))
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -149,7 +149,7 @@ struct PurchaseDedupReviewView: View {
                 choiceChip("Keep Both", .keepBoth, current: choice, id: candidate.id)
             }
             Text(explainer(for: choice))
-                .font(.system(size: 10.5))
+                .scaledFont(10.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.45))
         }
         .padding(12)
@@ -165,7 +165,7 @@ struct PurchaseDedupReviewView: View {
             HapticManager.select()
         } label: {
             Text(label)
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(12, weight: .bold)
                 .foregroundStyle(active ? Color.stockedWhite
                                         : session.themeTextColor.opacity(0.65))
                 .padding(.horizontal, 12).padding(.vertical, 7)
@@ -191,14 +191,14 @@ struct PurchaseDedupReviewView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
                 Image(systemName: "checkmark.circle")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Color.stockedGreen)
                 Text("Also adding · \(clean.count)")
-                    .font(.system(size: 13, weight: .bold))
+                    .scaledFont(13, weight: .bold)
                     .foregroundStyle(session.themeTextColor)
             }
             Text(clean.map { displayLine($0) }.joined(separator: " · "))
-                .font(.system(size: 11.5))
+                .scaledFont(11.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -230,27 +230,44 @@ enum PurchaseImportMerge {
                                 brand: String? = nil,
                                 expiry: Date? = nil,
                                 sizeAmount: Double? = nil,
-                                sizeUnit: String? = nil) {
+                                sizeUnit: String? = nil,
+                                origin: InventoryProposalOrigin = .groceryTransfer) {
         let key = PurchaseDedupEngine.normalizedName(name)
         guard !key.isEmpty,
               let idx = store.inventoryItems.firstIndex(where: {
                   PurchaseDedupEngine.normalizedName($0.name) == key
               }) else { return }
-        var items = store.inventoryItems
-        if let price { items[idx].price = price }
-        if let storeName, !storeName.isEmpty { items[idx].storePurchasedAt = storeName }
-        if let brand, !brand.isEmpty { items[idx].brand = brand }
-        // Fill package details only when missing — the earlier import already recorded
-        // this purchase; we're adding detail, not overwriting the user's row.
-        if items[idx].sizeAmount == nil, let sizeAmount, let sizeUnit {
-            items[idx].sizeAmount = sizeAmount
-            items[idx].sizeUnit   = sizeUnit
-        }
-        if let expiry {
-            items[idx].expirationDate = items[idx].expirationDate.map { max($0, expiry) } ?? expiry
-        }
-        let id = items[idx].id
-        store.inventoryItems = items
-        store.confirmInventoryItem(id: id)   // seeing it on a receipt confirms it's here
+        let existing = store.inventoryItems[idx]
+        let provenance = FieldProvenance(sourceID: "\(origin.rawValue)-dedup-merge",
+                                         sourceName: "Purchase duplicate review",
+                                         badge: origin.defaultBadge)
+        var fields: [InventoryProposalField: FieldProvenance] = [:]
+        if price != nil { fields[.price] = provenance }
+        if storeName?.isEmpty == false { fields[.store] = provenance }
+        if brand?.isEmpty == false { fields[.brand] = provenance }
+        if sizeAmount != nil, sizeUnit != nil { fields[.size] = provenance }
+        if expiry != nil { fields[.expiry] = provenance }
+        let proposal = ProposedChange(
+            itemID: existing.id,
+            displayName: existing.name,
+            action: .refreshMetadata(InventoryMetadataRefresh(
+                price: price, storeName: storeName, brand: brand, expiry: expiry,
+                sizeAmount: sizeAmount, sizeUnit: sizeUnit
+            )),
+            reason: "Confirmed during duplicate purchase review",
+            sourceBadge: origin.defaultBadge,
+            fieldProvenance: fields
+        )
+        let batch = InventoryProposalBatch(
+            origin: origin,
+            title: "Refresh \(existing.name)",
+            changes: [proposal],
+            mergePolicy: .storeCompatible
+        )
+        store.applyProposalBatch(
+            batch,
+            brandPreferences: store.cookingProfile.brandPreferences,
+            retailerID: storeName.flatMap { GroceryKnowledgeBase.retailer(matching: $0)?.id }
+        )
     }
 }

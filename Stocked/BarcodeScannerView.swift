@@ -57,12 +57,12 @@ struct BarcodeScannerView: View {
                 // Header
                 HStack {
                     Button { close() } label: {
-                        Image(systemName: "xmark").font(.system(size: 18, weight: .semibold))
+                        Image(systemName: "xmark").scaledFont(18, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                     }
                     Spacer()
                     Text("Scan Barcode")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Color.clear.frame(width: 28)
@@ -83,12 +83,12 @@ struct BarcodeScannerView: View {
                 divRow
                 manualSection
                 if !scanError.isEmpty {
-                    Text(scanError).font(.system(size: 13)).foregroundStyle(.red).padding(.top, 8)
+                    Text(scanError).scaledFont(13).foregroundStyle(.red).padding(.top, 8)
                 }
                 if isLooking {
                     HStack(spacing: 8) {
                         ProgressView().tint(Color.stockedCharcoal)
-                        Text("Looking up product…").font(.system(size: 13)).foregroundStyle(session.themeTextColor)
+                        Text("Looking up product…").scaledFont(13).foregroundStyle(session.themeTextColor)
                     }.padding(.top, 12)
                 }
                 // No trailing Spacer: the live camera panel uses maxHeight: .infinity and
@@ -123,7 +123,23 @@ struct BarcodeScannerView: View {
                         item.sizeAmount = parsed.0
                         item.sizeUnit   = parsed.1
                     }
-                    session.guestStore.addInventoryItem(item)
+                    let proposal = InventoryProposalBatch.reviewableAdd(
+                        item: item,
+                        origin: .barcode,
+                        sourceID: resolvedProduct?.sourceName ?? "barcode",
+                        badge: .verified,
+                        reason: "Confirmed from barcode scan"
+                    )
+                    session.guestStore.applyProposalBatch(
+                        InventoryProposalBatch(
+                            origin: .barcode,
+                            title: "Add \(name)",
+                            changes: [proposal],
+                            mergePolicy: .storeCompatible
+                        ),
+                        brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                        retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
+                    )
                     // Crowd DB — opt-in anonymized report (fire and forget).
                     let ru = item.sizeUnit ?? "", rct = item.containerType, rq = Double(item.quantity)
                     Task { await CrowdDB.report(items: [(name: name, category: z, unit: ru, container: rct, quantity: rq)]) }
@@ -156,14 +172,14 @@ struct BarcodeScannerView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(bulkScanned.count) item\(bulkScanned.count == 1 ? "" : "s") scanned")
-                            .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                            .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedWhite)
                         Text(bulkScanned.last ?? "")
-                            .font(.system(size: 11)).foregroundStyle(Color.stockedWhite.opacity(0.7))
-                            .lineLimit(1)
+                            .scaledFont(11).foregroundStyle(Color.stockedWhite.opacity(0.7))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Button("Done") { activeSheet = .bulkSummary }
-                        .font(.system(size: 14, weight: .bold))
+                        .scaledFont(14, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .padding(.horizontal, 20).padding(.vertical, 14)
@@ -190,7 +206,7 @@ struct BarcodeScannerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18))
                 .overlay(alignment: .bottom) {
                     Text("Point camera at any barcode or QR code")
-                        .font(.system(size: 12, weight: .medium))
+                        .scaledFont(12, weight: .medium)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .background(.black.opacity(0.45), in: Capsule())
@@ -208,11 +224,11 @@ struct BarcodeScannerView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 18).fill(Color.stockedCharcoal).frame(height: 200)
                 VStack(spacing: 14) {
-                    Image(systemName: "camera.fill").font(.system(size: 44)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "camera.fill").scaledFont(44).foregroundStyle(Color.stockedGold)
                     Text("Camera Access Needed")
-                        .font(.system(size: 16, weight: .semibold, design: .serif)).foregroundStyle(Color.stockedWhite)
+                        .scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                     Text("To scan barcodes, allow camera access.")
-                        .font(.system(size: 13)).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.6))
                         .multilineTextAlignment(.center).padding(.horizontal, 24)
                 }
             }
@@ -225,7 +241,7 @@ struct BarcodeScannerView: View {
                 }
             } label: {
                 Text("Allow Camera Access")
-                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                    .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 14)
                     .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             }
@@ -239,11 +255,11 @@ struct BarcodeScannerView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 18).fill(Color.stockedCharcoal).frame(height: 160)
                 VStack(spacing: 10) {
-                    Image(systemName: "camera.fill").font(.system(size: 36)).foregroundStyle(.red.opacity(0.7))
+                    Image(systemName: "camera.fill").scaledFont(36).foregroundStyle(.red.opacity(0.7))
                     Text("Camera Access Denied")
-                        .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                        .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     Text("Enable in Settings → Privacy → Camera")
-                        .font(.system(size: 12)).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
                 }
             }
             .padding(.horizontal, 20)
@@ -253,7 +269,7 @@ struct BarcodeScannerView: View {
                 }
             } label: {
                 Text("Open Settings")
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                    .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
             }
         }
     }
@@ -263,8 +279,8 @@ struct BarcodeScannerView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 18).fill(Color.stockedCharcoal).frame(height: 200)
             VStack(spacing: 12) {
-                Image(systemName: "barcode.viewfinder").font(.system(size: 46)).foregroundStyle(Color.stockedGold)
-                Text("Camera unavailable").font(.system(size: 14, design: .serif)).foregroundStyle(Color.stockedWhite.opacity(0.7))
+                Image(systemName: "barcode.viewfinder").scaledFont(46).foregroundStyle(Color.stockedGold)
+                Text("Camera unavailable").scaledFont(14, design: .serif).foregroundStyle(Color.stockedWhite.opacity(0.7))
             }
         }
         .padding(.horizontal, 20)
@@ -273,7 +289,7 @@ struct BarcodeScannerView: View {
     private var divRow: some View {
         HStack {
             Rectangle().fill(Color.stockedCharcoal.opacity(0.12)).frame(height: 1)
-            Text("or enter manually").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4)).fixedSize()
+            Text("or enter manually").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4)).fixedSize()
             Rectangle().fill(Color.stockedCharcoal.opacity(0.12)).frame(height: 1)
         }
         .padding(.horizontal, 24).padding(.vertical, 18)
@@ -285,17 +301,17 @@ struct BarcodeScannerView: View {
                 Image(systemName: "barcode").foregroundStyle(session.themeTextColor.opacity(0.35))
                 TextField("Enter barcode number", text: $manualBarcode)
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                    .font(.system(size: 14, design: .monospaced))
+                    .scaledFont(14, design: .monospaced)
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).keyboardType(.numberPad)
             }
-            .padding(12).background(Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+            .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
 
             Button {
                 guard !manualBarcode.isEmpty else { return }
                 resolveBarcode(manualBarcode)
             } label: {
                 Text("Look Up")
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                    .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(manualBarcode.isEmpty ? Color.stockedCharcoal.opacity(0.4) : Color.stockedCharcoal)
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -370,17 +386,18 @@ struct BarcodeScannerView: View {
                 }
             }
             if let p = product, !p.name.isEmpty {
-                resolvedName    = formatProductTitle(p.name, brand: p.brand)
+                let enriched = await RetailEnrichmentClient.reconcile(product: p)
+                resolvedName    = formatProductTitle(enriched.name, brand: enriched.brand)
                 // If this household previously corrected this product's name, honor that.
                 resolvedName    = UserCorrections.shared.apply(.productName, to: resolvedName)
-                resolvedProduct = p
+                resolvedProduct = enriched
                 let learned = ReceiptDatabase.shared.learnedItems[FoodNameMatcher.normalized(resolvedName)]
                 let decision = ZoneDecisionEngine.decide(
                     name: resolvedName,
-                    current: StorageCategory(rawValue: p.suggestedZone),
+                    current: StorageCategory(rawValue: enriched.suggestedZone),
                     learnedZone: learned.flatMap { StorageCategory(rawValue: $0.zone) },
                     learnedCount: learned?.scanCount ?? 0,
-                    productCategories: p.categories?.split(separator: ",").map(String.init) ?? []
+                    productCategories: enriched.categories?.split(separator: ",").map(String.init) ?? []
                 )
                 zone = decision.zone.rawValue
                 BarcodeCache.shared.save(code, name: resolvedName)         // #9 cache
@@ -514,29 +531,29 @@ struct BarcodeConfirmSheet: View {
             session.themeBgColor.ignoresSafeArea()
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2)).frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 22)
-                Text("Found Item").font(.system(size: 22, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor).padding(.bottom, 4)
+                Text("Found Item").scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor).padding(.bottom, 4)
                 if !barcode.isEmpty {
-                    Text(barcode).font(.system(size: 10, design: .monospaced)).foregroundStyle(session.themeTextColor.opacity(0.35)).padding(.bottom, 8)
+                    Text(barcode).scaledFont(10, design: .monospaced).foregroundStyle(session.themeTextColor.opacity(0.35)).padding(.bottom, 8)
                 }
                 // Brand + enrichment data from Open Food Facts
                 if let p = product {
                     VStack(spacing: 6) {
                         if !p.brand.isEmpty {
                             HStack(spacing: 6) {
-                                Image(systemName: "building.2").font(.system(size: 11)).foregroundStyle(Color.stockedGold)
-                                Text(p.brand).font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.7))
+                                Image(systemName: "building.2").scaledFont(11).foregroundStyle(Color.stockedGold)
+                                Text(p.brand).scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.7))
                                 Spacer()
                                 if let qty = p.quantity {
-                                    Text(qty).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    Text(qty).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                                 }
                             }
                         }
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.seal")
-                                .font(.system(size: 10))
+                                .scaledFont(10)
                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                             Text(p.sourceName)
-                                .font(.system(size: 10.5, weight: .medium))
+                                .scaledFont(10.5, weight: .medium)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
                             Spacer()
                         }
@@ -546,15 +563,15 @@ struct BarcodeConfirmSheet: View {
                                 HStack(spacing: 6) {
                                     ForEach(Array(p.labels.prefix(8)), id: \.self) { label in
                                         Text(label)
-                                            .font(.system(size: 10, weight: .semibold))
+                                            .scaledFont(10, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor.opacity(0.7))
                                             .padding(.horizontal, 8).padding(.vertical, 4)
                                             .background(Capsule().fill(Color.stockedGold.opacity(0.12)))
                                     }
                                 }
-                                .scrollTargetLayout()
+                                .stockedScrollTargetLayout()
                             }
-                            .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
+                            .stockedHorizontalSnap()
                         }
 
                         if let facts = p.nutrition {
@@ -574,14 +591,14 @@ struct BarcodeConfirmSheet: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "exclamationmark.triangle.fill")
-                                        .font(.system(size: 14, weight: .bold))
+                                        .scaledFont(14, weight: .bold)
                                         .foregroundStyle(.white)
                                     Text("Allergen Warning")
-                                        .font(.system(size: 13, weight: .bold))
+                                        .scaledFont(13, weight: .bold)
                                         .foregroundStyle(.white)
                                 }
                                 Text(p.allergens.map { $0.replacingOccurrences(of: "en:", with: "").capitalized }.prefix(6).joined(separator: ", "))
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .scaledFont(13, weight: .semibold)
                                     .foregroundStyle(.white)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -592,9 +609,9 @@ struct BarcodeConfirmSheet: View {
                         }
                         if let grade = p.nutriScore {
                             HStack(spacing: 6) {
-                                Text("Nutri-Score").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text("Nutri-Score").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                                 Text(grade)
-                                    .font(.system(size: 11, weight: .bold))
+                                    .scaledFont(11, weight: .bold)
                                     .foregroundStyle(Color.stockedWhite)
                                     .padding(.horizontal, 8).padding(.vertical, 2)
                                     .background(nutriScoreColor(grade))
@@ -605,21 +622,21 @@ struct BarcodeConfirmSheet: View {
                     .padding(.horizontal, 24).padding(.bottom, 14)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Product Name").font(.system(size: 11, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    Text("Product Name").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
                     FoodPredictiveTextField(placeholder: "Name", text: $productName)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                        .font(.system(size: 15))
-                        .padding(12).background(Color.stockedWhite.opacity(0.45)).clipShape(RoundedRectangle(cornerRadius: 11))
+                        .scaledFont(15)
+                        .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 11))
                 }.padding(.horizontal, 24).padding(.bottom, 20)
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Storage Zone").font(.system(size: 11, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    Text("Storage Zone").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
                     Picker("Zone", selection: $zone) { ForEach(zones, id: \.self) { Text($0) } }.pickerStyle(.segmented)
                 }.padding(.horizontal, 24).padding(.bottom, 20)
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Starting Amount").font(.system(size: 11, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text("Starting Amount").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
                         Spacer()
-                        Text("\(Int(level*100))%").font(.system(size: 11, weight: .bold)).foregroundStyle(Color.stockedGold)
+                        Text("\(Int(level*100))%").scaledFont(11, weight: .bold).foregroundStyle(Color.stockedGold)
                     }
                     Slider(value: $level, in: 0.1...1.0, step: 0.1).tint(Color.stockedCharcoal)
                 }.padding(.horizontal, 24).padding(.bottom, 14)
@@ -628,11 +645,11 @@ struct BarcodeConfirmSheet: View {
                 // Quantity — type it naturally ("6 cans of 8 oz") or leave as 1.
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Quantity").font(.system(size: 11, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text("Quantity").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
                         Spacer()
                         Stepper("", value: $scanQuantity, in: 1...999).labelsHidden()
                         Text("\(scanQuantity)\(scanContainer.isEmpty ? "" : " \(scanContainer)")")
-                            .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
                     }
                     NaturalQuantityField(placeholder: "e.g. 6 cans of 8 oz") { parsed in
                         scanQuantity = max(1, Int(parsed.count.rounded()))
@@ -661,7 +678,7 @@ struct BarcodeConfirmSheet: View {
                             Image(systemName: "minus.circle.fill")
                             Text("Already have \(existing.quantity) — mark 1 used")
                         }
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(13, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.stockedGold.opacity(0.12))
@@ -679,7 +696,7 @@ struct BarcodeConfirmSheet: View {
                              ? "Scan expiry date (optional)"
                              : "Expires \(Self.shortDate.string(from: scannedExpiry!))")
                     }
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(scannedExpiry == nil ? session.themeTextColor.opacity(0.6) : Color.stockedGold)
                 }
                 .buttonStyle(.plain)
@@ -697,7 +714,7 @@ struct BarcodeConfirmSheet: View {
                     // #11 — carry the OFF pack size (e.g. "500 g") through as the size string.
                     onAdd(n, zone, level, product?.quantity, scannedExpiry, scanQuantity, scanContainer)
                 } label: {
-                    Text("Add to \(zone)").font(.system(size: 16, weight: .semibold, design: .serif)).foregroundStyle(Color.stockedWhite)
+                    Text("Add to \(zone)").scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15).background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                 }.padding(.horizontal, 24)
                 Spacer()
@@ -716,8 +733,8 @@ struct BarcodeConfirmSheet: View {
     }()
     private func nutritionMetric(_ label: String, _ value: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 11.5, weight: .bold)).foregroundStyle(session.themeTextColor)
-            Text(label).font(.system(size: 9.5)).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(value).scaledFont(11.5, weight: .bold).foregroundStyle(session.themeTextColor)
+            Text(label).scaledFont(9.5).foregroundStyle(session.themeTextColor.opacity(0.45))
         }
         .frame(maxWidth: .infinity)
     }
@@ -750,7 +767,7 @@ struct BulkScanSummaryView: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(spacing: 0) {
                     Text("\(items.count) items added to pantry")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                         .padding(.top, 8).padding(.bottom, 16)
 
@@ -758,11 +775,11 @@ struct BulkScanSummaryView: View {
                         ForEach(Array(items.enumerated()), id: \.offset) { i, name in
                             HStack(spacing: 12) {
                                 Text("\(i + 1)")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .scaledFont(12, weight: .bold)
                                     .foregroundStyle(Color.stockedGold)
                                     .frame(width: 24)
                                 Text(name)
-                                    .font(.system(size: 15, design: .serif))
+                                    .scaledFont(15, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Image(systemName: "checkmark.circle.fill")
@@ -779,7 +796,7 @@ struct BulkScanSummaryView: View {
                         dismiss()
                     } label: {
                         Text("Done")
-                            .font(.system(size: 16, weight: .semibold, design: .serif))
+                            .scaledFont(16, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 16)
                             .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -828,13 +845,13 @@ struct ExpiryDateScanner: View {
                 HStack {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28)).foregroundStyle(.white.opacity(0.8))
+                            .scaledFont(28).foregroundStyle(.white.opacity(0.8))
                     }
                     Spacer()
                 }.padding()
                 Spacer()
                 Text(status)
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(.black.opacity(0.55))
@@ -843,7 +860,7 @@ struct ExpiryDateScanner: View {
                     NotificationCenter.default.post(name: .captureReceiptShutter, object: nil)
                 } label: {
                     Text("Capture Date")
-                        .font(.system(size: 16, weight: .semibold))
+                        .scaledFont(16, weight: .semibold)
                         .foregroundStyle(.black)
                         .padding(.horizontal, 28).padding(.vertical, 14)
                         .background(.white).clipShape(Capsule())

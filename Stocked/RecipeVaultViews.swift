@@ -33,15 +33,29 @@ enum RecipeVaultSheet: Identifiable {
 
 struct RecipeVaultView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.stockedMotion) private var motion
+    @Environment(\.stockedScrollActivity) private var pageScrollActivity
     @State private var selectedTab       = 0
     @State private var showBrowseOnline  = false
     @State private var showCreate        = false
     @State private var createRoute: RecipeCreateRoute? = nil
     @State private var recipeSearch      = ""
     @State private var showRecipeSearch  = false   // header search → recipe-only search
+    @State var finder = RecipeFinderSession()
+    init(finder: RecipeFinderSession = RecipeFinderSession()) {
+        _finder = State(initialValue: finder)
+    }
     @State private var dbResults: [RecipeDatabaseEntry] = []
     @State private var selectedDBEntry: RecipeDatabaseEntry? = nil
     @State private var navigateToDBRecipe = false
+    // A stable, per-rail identity lets SwiftUI keep the same card centered while the
+    // backing loader publishes a refresh. It also means returning from a detail view
+    // lands on the card the user opened instead of resetting every rail to its start.
+    @State private var recipeRailPositions: [String: String] = [:]
+    @State private var recipeRailActivities: [String: StockedScrollActivity] = [:]
+    @State private var prefetchScope = UUID().uuidString
     // #248 — Discover (online recipes below the hub)
     @State private var onlineLoader = OnlineRecipesLoader.shared
 
@@ -95,6 +109,7 @@ struct RecipeVaultView: View {
         case savedCuisine(String)        // user's saved recipes filtered by cuisine
         case dbRecipe(RecipeDatabaseEntry)
         case browseAll
+        case finder
         case cuisineBrowse               // online recipes by cuisine (the Categories card)
         case online(OnlineRecipe)        // a tapped online/Discover recipe
         case sources                     // browse every recipe source
@@ -110,6 +125,7 @@ struct RecipeVaultView: View {
             case .savedCuisine(let c): return "savedCuisine-\(c)"
             case .dbRecipe(let e):     return "dbRecipe-\(e.id)"
             case .browseAll:           return "browseAll"
+            case .finder:              return "finder"
             case .cuisineBrowse:       return "cuisineBrowse"
             case .online(let r):       return "online-\(r.id)"
             case .sources:             return "sources"
@@ -146,17 +162,17 @@ struct RecipeVaultView: View {
         HStack(spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.15)).frame(width: 34, height: 34)
-                Image(systemName: icon).font(.system(size: 14)).foregroundStyle(tint)
+                Image(systemName: icon).scaledFont(14).foregroundStyle(tint)
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(label).font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
-                Text("\(count) \(unit)").font(.system(size: 11))
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(label).scaledFont(13.5, weight: .bold).foregroundStyle(session.themeTextColor)
+                Text("\(count) \(unit)").scaledFont(11)
+                    .foregroundStyle(session.themeSecondaryText)
             }
             Spacer(minLength: 0)
         }
         .padding(10)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         }
         .buttonStyle(.plain)
@@ -170,19 +186,19 @@ struct RecipeVaultView: View {
             HStack(spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.15)).frame(width: 34, height: 34)
-                    Image(systemName: icon).font(.system(size: 14)).foregroundStyle(tint)
+                    Image(systemName: icon).scaledFont(14).foregroundStyle(tint)
                 }
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(label).font(.system(size: 13.5, weight: .bold)).foregroundStyle(session.themeTextColor)
-                    Text(subtitle).font(.system(size: 11))
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(label).scaledFont(13.5, weight: .bold).foregroundStyle(session.themeTextColor)
+                    Text(subtitle).scaledFont(11)
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                Image(systemName: "chevron.right").scaledFont(12, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.35))
             }
             .padding(10)
-            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         }
         .buttonStyle(.plain)
@@ -200,13 +216,16 @@ struct RecipeVaultView: View {
                 ScrollView {
                     if recipeSearch.trimmingCharacters(in: .whitespaces).count < 2 {
                         Text("Search your recipes by name or cuisine.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .font(.stockedSans(13, relativeTo: .footnote))
+                            .foregroundStyle(session.themeSecondaryText)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity).padding(.top, 40)
                     } else if dbResults.isEmpty {
                         Text("No recipes found.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .font(.stockedSans(13, relativeTo: .footnote))
+                            .foregroundStyle(session.themeSecondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity).padding(.top, 40)
                     } else {
                         RecipeSearchDropdown(dbResults: $dbResults,
@@ -224,24 +243,406 @@ struct RecipeVaultView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { showRecipeSearch = false; recipeSearch = ""; dbResults = [] }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(session.accentColor)
                 }
             }
         }
         .environment(session)
     }
 
+    private var referenceRecipesPage: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            referenceRecipeHero
+            referenceRecipeDestinations
+            referenceAICard
+            findRecipeCard
+            Spacer(minLength: 24)
+        }
+        .stockedSnapTargetLayout()
+        .padding(.horizontal, 18)
+        .padding(.bottom, 12)
+    }
+
+    private var referenceRecipeHero: some View {
+        HStack(alignment: .bottom, spacing: max(8, 12 / min(layoutMetrics.textScale, 1.5))) {
+            referenceRecipeHeroContent
+        }
+    }
+
+    private func openFinder(search: Bool) {
+        if search {
+            finder.flow.start(search: true)
+            finder.flow.editingReview = false
+        } else {
+            finder.flow = FinderFlow()
+            AppAnalytics.shared.log(.finderStarted)
+        }
+        navTarget = .finder
+    }
+
+    private var findRecipeCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Find a Recipe").font(.stockedSerif(28, weight: .bold, relativeTo: .title))
+                    Text("Tell us what you’re craving and we’ll narrow it down.")
+                        .font(.stocked(.body)).foregroundStyle(session.themeSecondaryText)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Image("recipes_hero").resizable().scaledToFit().frame(width: 100).accessibilityHidden(true)
+                }
+            }
+            Button { openFinder(search: false) } label: {
+                Text("Start finding").font(.stocked(.headline)).frame(maxWidth: .infinity, minHeight: 52)
+                    .foregroundStyle(Color.selectedTabForeground(session.isDarkMode))
+                    .background(Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 16))
+            }.buttonStyle(.plain)
+            Button { openFinder(search: true) } label: {
+                Label("Search recipes or ingredients", systemImage: "magnifyingglass")
+                    .font(.stocked(.body)).frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .padding(.horizontal, 14).overlay(RoundedRectangle(cornerRadius: 18).stroke(session.themeSecondaryText.opacity(0.3)))
+            }.buttonStyle(.plain)
+        }.padding(20).foregroundStyle(session.themeTextColor)
+            .background(RecipeCardStyle.surface(isDark: session.isDarkMode), in: RoundedRectangle(cornerRadius: 24))
+    }
+
+    @ViewBuilder private var referenceRecipeHeroContent: some View {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("YOUR RECIPE BOOK")
+                    .font(.stockedSans(10, weight: .bold, relativeTo: .caption2))
+                    .tracking(2.2)
+                    .foregroundStyle(session.accentColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("What are you\nlooking for?")
+                    .font(.stockedSerif(31, weight: .bold, relativeTo: .title))
+                    .foregroundStyle(session.themeTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Your recipes, past meals,\nand ideas for what to make next.")
+                    .font(.stockedSerif(13, relativeTo: .footnote))
+                    .foregroundStyle(session.themeSecondaryText)
+                    .lineSpacing(5)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image("recipes_hero")
+                .resizable().scaledToFit()
+                .frame(width: min(180, max(86, layoutMetrics.contentWidth * 0.30 / min(layoutMetrics.textScale, 1.6))))
+                .layoutPriority(0)
+                .accessibilityHidden(true)
+    }
+
+    private var referenceRecipeDestinations: some View {
+        LazyVGrid(
+            columns: layoutMetrics.gridColumns(minimum: 105, maximum: 3, spacing: 7),
+            spacing: 10
+        ) {
+            referenceDestinationCards
+        }
+    }
+
+    @ViewBuilder private var referenceDestinationCards: some View {
+        referenceDestinationCard(image: "recipes_collection", title: "My Collection",
+                                 subtitle: "Recipes you’ve saved,\ncreated & loved.",
+                                 detail: "\(hubStats.saved) recipe\(hubStats.saved == 1 ? "" : "s")") {
+            navTarget = .saved
+        }
+        referenceDestinationCard(image: "recipes_ready", title: "Ready to Cook",
+                                 subtitle: "Recipes that match\nyour kitchen.", detail: nil) {
+            navTarget = .browseAll
+        }
+        referenceDestinationCard(image: "recipes_past", title: "Past Meals",
+                                 subtitle: "Find something\nworth making again.", detail: nil) {
+            navTarget = .cooked
+        }
+    }
+
+    private func referenceDestinationCard(image: String, title: String, subtitle: String,
+                                          detail: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
+                StockedKitchenArtwork(asset: image)
+                    .frame(height: dynamicTypeSize.isAccessibilitySize ? 56 : 72)
+                    .frame(maxWidth: .infinity)
+                Text(title).font(.stockedSans(13, weight: .bold, relativeTo: .footnote)).foregroundStyle(session.themeTextColor)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(subtitle).font(.stockedSans(10.5, relativeTo: .caption2)).foregroundStyle(session.themeSecondaryText).lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    if let detail { Text(detail).font(.stockedSans(10, weight: .semibold, relativeTo: .caption2)).foregroundStyle(session.accentColor).fixedSize(horizontal: false, vertical: true) }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.stockedSans(11, weight: .bold, relativeTo: .caption2))
+                        .foregroundStyle(session.themeTextColor)
+                        .frame(minWidth: 25, minHeight: 25).padding(4)
+                        .background(session.accentColor.opacity(0.12)).clipShape(Circle())
+                }
+            }
+            .frame(
+                maxWidth: .infinity,
+                minHeight: RecipeCardStyle.destinationHeight(
+                    isAccessibilitySize: dynamicTypeSize.isAccessibilitySize),
+                maxHeight: .infinity,
+                alignment: .topLeading
+            )
+            .padding(10)
+            .background(session.themeCardColor)
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 13).stroke(session.themeTextColor.opacity(0.1), lineWidth: 1))
+            .shadow(color: .black.opacity(0.07), radius: 6, y: 3)
+        }.buttonStyle(.plain)
+    }
+
+    private var referenceAICard: some View {
+        Button { createRoute = .ai } label: {
+            referenceAIHorizontalContent
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.stockedCharcoal)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(true)
+        .a11yButton("Create with Stocked AI, Coming Soon")
+        .coachmarkAnchor("recipes.createAI")
+    }
+
+    private var referenceAIHorizontalContent: some View {
+        HStack(spacing: 10) {
+            referenceAIIcon
+            referenceAICopy
+            Spacer(minLength: 8)
+            referenceAIAction
+        }
+    }
+
+    private var referenceAIIcon: some View {
+        ZStack {
+            Circle().stroke(session.accentColor, lineWidth: 1)
+            Image(systemName: "sparkles")
+                .font(.stockedSans(16, weight: .semibold, relativeTo: .body))
+                .foregroundStyle(session.accentColor)
+        }
+        .frame(width: 38, height: 38)
+        .accessibilityHidden(true)
+    }
+
+    private var referenceAICopy: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Create with Stocked AI")
+                .font(.stockedSerif(16, weight: .semibold, relativeTo: .headline))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Coming Soon")
+                .font(.stockedSans(11, relativeTo: .caption))
+                .foregroundStyle(.white.opacity(0.82))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var referenceAIAction: some View {
+        Text("Coming Soon")
+            .font(.stockedSans(11, weight: .bold, relativeTo: .caption))
+            .foregroundStyle(Color.stockedCharcoal)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(session.accentColor)
+            .clipShape(Capsule())
+            .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private var referenceMoodRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            referenceSectionHeader("Discover by mood", actionTitle: "See all") { navTarget = .browseAll }
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 9) {
+                    referenceMoodChip("Quick", icon: "bolt.fill")
+                    referenceMoodChip("Comfort", icon: "heart.fill")
+                    referenceMoodChip("One Pot", icon: "frying.pan.fill")
+                    referenceMoodChip("Feeling Lazy", icon: "moon.zzz.fill")
+                    referenceMoodChip("Surprise Me", icon: "sparkles")
+                }
+                .stockedScrollTargetLayout()
+            }
+            .stockedHorizontalSnap()
+            .contentMargins(.horizontal, 1, for: .scrollContent)
+        }
+    }
+
+    private func referenceMoodChip(_ title: String, icon: String) -> some View {
+        NavigationLink {
+            QuickPickListView(pick: title, pool: discoverSnapshot.pool, onOpenRecipe: { openOnlineRecipe($0) }).environment(session)
+        } label: {
+            HStack(spacing: 8) { Image(systemName: icon); Text(title) }
+                .font(.stockedSans(13, weight: .medium, relativeTo: .footnote)).foregroundStyle(session.themeTextColor)
+                .padding(.horizontal, 17).padding(.vertical, 10)
+                .background(session.themeCardColor)
+                .clipShape(Capsule()).overlay(Capsule().stroke(session.themeTextColor.opacity(0.12)))
+                .fixedSize(horizontal: true, vertical: true)
+        }
+        .buttonStyle(.plain)
+        .id(title)
+    }
+
+    @ViewBuilder private var referenceRecipeRails: some View {
+        let firstRail = Array(discoverSnapshot.popular.prefix(3))
+        let firstIDs = Set(firstRail.map(\.id))
+        let secondRail = Array(
+            Self.uniqueRecipes(discoverSnapshot.dinners + discoverSnapshot.sweets + discoverSnapshot.pool)
+                .filter { !firstIDs.contains($0.id) }
+                .prefix(3)
+        )
+        referenceRecipeRail(title: "For you", recipes: firstRail)
+        referenceRecipeRail(title: "More to explore", recipes: secondRail)
+    }
+
+    @ViewBuilder private func referenceRecipeRail(title: String, recipes: [OnlineRecipe]) -> some View {
+        if !recipes.isEmpty {
+            let railKey = "reference.\(title)"
+            let scrollPosition = recipeRailPosition(for: railKey)
+            let cardWidth = layoutMetrics.wideRailCardWidth(
+                itemCount: recipes.count,
+                preferred: dynamicTypeSize.isAccessibilitySize ? 240 : 168,
+                minimum: dynamicTypeSize.isAccessibilitySize ? 220 : 144,
+                maximum: dynamicTypeSize.isAccessibilitySize ? 300 : 220,
+                spacing: 10
+            )
+            let imageHeight = RecipeCardStyle.imageHeight
+            let railMargin = layoutMetrics.horizontalPadding
+            VStack(alignment: .leading, spacing: 9) {
+                referenceSectionHeader(title, actionTitle: "See all") { navTarget = .browseAll }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 10) {
+                        ForEach(recipes) { recipe in
+                            Button {
+                                centerRecipe(recipe.id, in: railKey)
+                                openOnlineRecipe(recipe)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: imageHeight, resolveName: recipe.title)
+                                        .frame(width: cardWidth, height: imageHeight).clipped()
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(recipe.title)
+                                            .font(.stockedSerif(RecipeCardStyle.titleSize, weight: .semibold, relativeTo: .headline))
+                                            .foregroundStyle(session.themeTextColor)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
+                                            .font(.stockedSans(RecipeCardStyle.metadataSize, relativeTo: .caption)).foregroundStyle(session.themeSecondaryText)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }.padding(RecipeCardStyle.padding)
+                                }.frame(width: cardWidth).background(session.themeCardColor)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(session.themeTextColor.opacity(0.16)))
+                            }
+                            .buttonStyle(.plain)
+                            .id(recipe.id)
+                        }
+                    }
+                    .stockedScrollTargetLayout()
+                }
+                .stockedCardRailSnap()
+                .scrollPosition(id: scrollPosition, anchor: .leading)
+                .contentMargins(.horizontal, railMargin, for: .scrollContent)
+                .onAppear {
+                    prefetchRecipeRail(
+                        recipes,
+                        around: scrollPosition.wrappedValue,
+                        scope: railKey,
+                        activity: recipeRailActivities[railKey] ?? .idle
+                    )
+                }
+                .onChange(of: scrollPosition.wrappedValue) { _, focusedID in
+                    prefetchRecipeRail(
+                        recipes,
+                        around: focusedID,
+                        scope: railKey,
+                        activity: recipeRailActivities[railKey] ?? .idle
+                    )
+                }
+                .onChange(of: recipes.map(\.id)) { _, ids in
+                    preserveRecipeRailPosition(railKey, validIDs: ids)
+                    prefetchRecipeRail(
+                        recipes,
+                        around: recipeRailPositions[railKey],
+                        scope: railKey,
+                        activity: recipeRailActivities[railKey] ?? .idle
+                    )
+                }
+                .stockedOnScrollActivityChange { activity in
+                    recipeRailActivities[railKey] = activity
+                    prefetchRecipeRail(
+                        recipes,
+                        around: scrollPosition.wrappedValue,
+                        scope: railKey,
+                        activity: activity
+                    )
+                }
+            }
+        }
+    }
+
+    private var referenceBrowseRow: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            referenceSectionHeader("Browse recipes", actionTitle: "Browse all") { navTarget = .browseAll }
+            Text("Explore by cuisine, meal type, dietary needs, ingredients, and more.")
+                .font(.stockedSans(12, relativeTo: .caption)).foregroundStyle(session.themeSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 8) {
+                    referenceBrowseButton("Cuisine", "globe") { navTarget = .cuisineBrowse }
+                    referenceBrowseButton("Meal Type", "frying.pan") { navTarget = .browseAll }
+                    referenceBrowseButton("Dietary", "leaf") { navTarget = .browseAll }
+                    referenceBrowseButton("Ingredient", "carrot") { navTarget = .browseAll }
+                    referenceBrowseButton("Occasion", "gift") { navTarget = .browseAll }
+                    referenceBrowseButton("Source", "book.closed") { navTarget = .sources }
+                    referenceBrowseButton("Drinks", "mug") { navTarget = .drinks }
+                }
+                .stockedScrollTargetLayout()
+            }
+            .stockedHorizontalSnap()
+        }
+    }
+
+    private func referenceBrowseButton(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) { Image(systemName: icon); Text(title) }
+                .font(.stockedSans(12, weight: .medium, relativeTo: .caption)).foregroundStyle(session.themeTextColor)
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .background(session.themeCardColor)
+                .clipShape(RoundedRectangle(cornerRadius: 10)).overlay(RoundedRectangle(cornerRadius: 10).stroke(session.themeTextColor.opacity(0.13)))
+                .fixedSize(horizontal: true, vertical: true)
+        }
+        .buttonStyle(.plain)
+        .id(title)
+    }
+
+    private func referenceSectionHeader(_ title: String, actionTitle: String, action: @escaping () -> Void) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            referenceSectionHeaderContent(title, actionTitle: actionTitle, action: action)
+        }
+    }
+
+    @ViewBuilder private func referenceSectionHeaderContent(_ title: String, actionTitle: String, action: @escaping () -> Void) -> some View {
+        Text(title).font(.stockedSerif(20, weight: .bold, relativeTo: .title3)).foregroundStyle(session.themeTextColor)
+            .fixedSize(horizontal: false, vertical: true)
+        Spacer(minLength: 8)
+        Button(action: action) {
+            HStack(spacing: 5) { Text(actionTitle); Image(systemName: "chevron.right") }
+                .font(.stockedSans(13, weight: .bold, relativeTo: .footnote)).foregroundStyle(Color.stockedGold)
+                .fixedSize(horizontal: true, vertical: true)
+        }.buttonStyle(.plain)
+    }
+
     var body: some View {
         StockedShell(showBack: false, scrollDisabled: false,
-                     titleText: "Recipes",
-                     leadingTitle: true,
+                     titleText: "Stocked.",
                      trailingIcon: "magnifyingglass", trailingLabel: "Search",
-                     onTrailing: { showRecipeSearch = true }) {
+                     onTrailing: { openFinder(search: true) }) {
+            referenceRecipesPage
+            if false {
             VStack(alignment: .leading, spacing: 0) {
 
                 // ── #245 — mockup title ──
                 Text("My Recipes")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .scaledFont(24, weight: .bold, design: .serif)
                     .foregroundStyle(session.isDarkMode ? session.accentColor : Color.stockedCharcoal)
                     .padding(.horizontal, 24).padding(.bottom, 14)
 
@@ -265,7 +666,8 @@ struct RecipeVaultView: View {
                         .coachmarkAnchor("recipes.categories")
                     hubActionCard(icon: "sparkles", tint: Color.stockedGold,
                                   label: "Create with AI",
-                                  subtitle: "Describe a recipe") { createRoute = .ai }
+                                  subtitle: "Coming Soon") { createRoute = .ai }
+                        .disabled(true)
                         .coachmarkAnchor("recipes.createAI")
                     hubActionCard(icon: "globe", tint: Color.stockedInfo,
                                   label: "Sources",
@@ -284,11 +686,11 @@ struct RecipeVaultView: View {
                 if !recents.isEmpty {
                     HStack {
                         Text("Recently Viewed")
-                            .font(.system(size: 15, weight: .bold, design: .serif))
+                            .scaledFont(15, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Spacer()
                         Button { navTarget = .saved } label: {
-                            Text("View All").font(.system(size: 12.5, weight: .semibold))
+                            Text("View All").scaledFont(12.5, weight: .semibold)
                                 .foregroundStyle(Color.stockedGold)
                         }.buttonStyle(.plain)
                     }
@@ -303,12 +705,12 @@ struct RecipeVaultView: View {
                                             .frame(width: 128, height: 80)
                                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                                         Text(recipe.title)
-                                            .font(.system(size: 12.5, weight: .semibold))
+                                            .scaledFont(12.5, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                         if !recipe.cookTime.isEmpty {
-                                            Text(recipe.cookTime).font(.system(size: 10.5))
-                                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                            Text(recipe.cookTime).scaledFont(10.5)
+                                                .foregroundStyle(session.themeSecondaryText)
                                         }
                                     }
                                     .frame(width: 128, alignment: .leading)
@@ -317,9 +719,13 @@ struct RecipeVaultView: View {
                             }
                         }
                         .stockedScrollTargetLayout()
-                        .padding(.horizontal, 24)
                     }
-                    .stockedHorizontalSnap()
+                    .stockedCardRailSnap()
+                    .contentMargins(
+                        .horizontal,
+                        layoutMetrics.horizontalPadding,
+                        for: .scrollContent
+                    )
                     .padding(.bottom, 14)
                 }
 
@@ -332,7 +738,7 @@ struct RecipeVaultView: View {
                 if !cuisineCounts.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Top Categories")
-                            .font(.system(size: 15, weight: .bold, design: .serif))
+                            .scaledFont(15, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         VStack(spacing: 8) {
                             ForEach(cuisineCounts, id: \.0) { name, count in
@@ -342,21 +748,21 @@ struct RecipeVaultView: View {
                                             Circle().fill(Color.stockedGold.opacity(0.14))
                                                 .frame(width: 34, height: 34)
                                             Text(ImageFallbackService.emoji(for: name))
-                                                .font(.system(size: 16))
+                                                .scaledFont(16)
                                         }
                                         Text(name)
-                                            .font(.system(size: 14.5, weight: .semibold))
+                                            .scaledFont(14.5, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                         Spacer()
                                         Text("\(count) recipe\(count == 1 ? "" : "s")")
-                                            .font(.system(size: 12))
-                                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                            .scaledFont(12)
+                                            .foregroundStyle(session.themeSecondaryText)
                                         Image(systemName: "chevron.right")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .scaledFont(12, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+                                    .background(session.themeCardColor)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                 }
                                 .buttonStyle(.plain)
@@ -370,6 +776,7 @@ struct RecipeVaultView: View {
                 discoverSections
 
                 Spacer(minLength: 24)
+            }
             }
         }
         // Both bools still exist (child views bind to them), but they feed ONE
@@ -429,6 +836,8 @@ struct RecipeVaultView: View {
                 ).environment(session)
             case .browseAll:
                 DiscoverBrowseAllView().environment(session)                  // #248
+            case .finder:
+                RecipeFinderView(model: finder).environment(session)
             case .cuisineBrowse:
                 CuisineBrowseView().environment(session)
             case .online(let recipe):
@@ -452,14 +861,12 @@ struct RecipeVaultView: View {
             // Clamped: a user who saved tab 3 (the removed For You tab) as their preferred
             // start must not land on an index that no longer exists.
             selectedTab = min(session.preferredRecipeTab, tabNames.count - 1)
-            onlineLoader.loadIfNeeded(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })  // #248
-            scheduleDiscoverSnapshotRebuild()
             consumePendingImportIfNeeded()
             recomputeHubStats()
         }
-        .onChange(of: onlineLoader.revision) { _, _ in
-            scheduleDiscoverSnapshotRebuild()
-        }
+        // The visible Recipes root is now the destination grid + Find a Recipe.
+        // Do not hydrate and classify the retired Discover rails behind `if false`
+        // when the tab appears; their actual destination owns loading on demand.
         // #3 — recompute prepared hub stats only when their real inputs change (cheap
         // Int signature avoids comparing recipe image blobs every render).
         .onChange(of: hubStatsSignature) { _, _ in recomputeHubStats() }
@@ -527,9 +934,41 @@ struct RecipeVaultView: View {
 
     @State private var discoverSnapshot = DiscoverSnapshot()
     @State private var discoverSnapshotTask: Task<Void, Never>?
+    @State private var discoverVisitSeed: UInt64 = 0
+    @State private var didBuildDiscoverSnapshotForVisit = false
+    @State private var lastDiscoverVisitRefresh = Date.distantPast
+
+    private nonisolated static func uniqueRecipes(_ recipes: [OnlineRecipe]) -> [OnlineRecipe] {
+        var seen = Set<String>()
+        return recipes.filter { seen.insert($0.id).inserted }
+    }
 
     private var discoverSavedTitles: Set<String> {
         session.guestStore.savedRecipeTitles
+    }
+
+    private func beginDiscoverVisit() {
+        // A tab selection can deliver both onAppear and the root-tab activation
+        // notification in the same transition. Treat that pair as one visit so the
+        // shared recipe database is read once, while later visits still reroll rails.
+        let now = Date()
+        guard now.timeIntervalSince(lastDiscoverVisitRefresh) > 0.5 else { return }
+        lastDiscoverVisitRefresh = now
+        discoverVisitSeed &+= 1
+        didBuildDiscoverSnapshotForVisit = false
+        // Fold all database work completed since the previous visit into one loader
+        // refresh. Observing every individual mutation made long-running sync/backfill
+        // jobs rebuild the rails indefinitely.
+        onlineLoader.refreshFromSharedDatabase(profile: session.guestStore.cookingProfile)
+    }
+
+    private func manuallyRefreshDiscover() {
+        discoverVisitSeed &+= 1
+        didBuildDiscoverSnapshotForVisit = false
+        onlineLoader.forceRefresh(
+            profile: session.guestStore.cookingProfile,
+            pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 }
+        )
     }
 
     private func scheduleDiscoverSnapshotRebuild() {
@@ -542,18 +981,23 @@ struct RecipeVaultView: View {
             return
         }
         let inStock = session.guestStore.inStockNameSet
-        let interestWeights = RecipeInterest.shared.weights
+        // The privacy control returns an empty map while personalization is disabled, preserving
+        // neutral catalogue order without deleting the user's prior opt-in learning.
+        let interestWeights = RecipeInterest.shared.personalizationWeights
+        let visitSeed = discoverVisitSeed
 
         discoverSnapshotTask = Task {
             let snapshot = await Task.detached(priority: .userInitiated) {
                 Self.makeDiscoverSnapshot(
                     recipes: recipes,
                     inStock: inStock,
-                    interestWeights: interestWeights
+                    interestWeights: interestWeights,
+                    visitSeed: visitSeed
                 )
             }.value
             guard !Task.isCancelled else { return }
             discoverSnapshot = snapshot
+            didBuildDiscoverSnapshotForVisit = true
             discoverSnapshotTask = nil
         }
     }
@@ -561,7 +1005,8 @@ struct RecipeVaultView: View {
     private nonisolated static func makeDiscoverSnapshot(
         recipes: [OnlineRecipe],
         inStock: Set<String>,
-        interestWeights: [String: Double]
+        interestWeights: [String: Double],
+        visitSeed: UInt64
     ) -> DiscoverSnapshot {
         let drinkWords = ["cocktail", "drink", "beverage", "shake", "smoothie",
                           "coffee", "tea", "punch", "shot", "mocktail", "juice"]
@@ -590,6 +1035,18 @@ struct RecipeVaultView: View {
                 food.append(recipe)
             }
         }
+
+        // Rotate the verified pool on every page visit. The seed is captured before
+        // detached work begins, so switching away and back yields fresh rails without
+        // introducing a timer, network loop, or unstable SwiftUI identity.
+        func rotated(_ values: [OnlineRecipe], multiplier: UInt64) -> [OnlineRecipe] {
+            guard values.count > 1 else { return values }
+            let offset = Int((visitSeed &* multiplier) % UInt64(values.count))
+            guard offset > 0 else { return values }
+            return Array(values[offset...]) + Array(values[..<offset])
+        }
+        food = rotated(food, multiplier: 7)
+        drinks = rotated(drinks, multiplier: 3)
 
         var remaining = food
         let hero = remaining.first
@@ -663,6 +1120,80 @@ struct RecipeVaultView: View {
         navTarget = .online(recipe)
     }
 
+    /// Each horizontal recipe rail owns a distinct scroll binding. `scrollPosition`
+    /// writes the currently centered card back to this dictionary while the user drags,
+    /// so replacing the recipe array does not implicitly jump the rail to its leading edge.
+    private func recipeRailPosition(for key: String) -> Binding<String?> {
+        Binding(
+            get: { recipeRailPositions[key] },
+            set: { newValue in
+                if let newValue {
+                    recipeRailPositions[key] = newValue
+                } else {
+                    recipeRailPositions.removeValue(forKey: key)
+                }
+            }
+        )
+    }
+
+    private func centerRecipe(_ id: String, in railKey: String) {
+        motion.animate(.selection, intent: .spatial) {
+            recipeRailPositions[railKey] = id
+        }
+    }
+
+    /// Keep an existing center when its recipe survives a refresh. If a source/filter
+    /// removes that item, settle on the new first complete card instead of retaining an
+    /// invalid identity that can leave the rail between targets.
+    private func preserveRecipeRailPosition(_ key: String, validIDs: [String]) {
+        guard let current = recipeRailPositions[key] else { return }
+        guard !validIDs.contains(current) else { return }
+        if let first = validIDs.first {
+            recipeRailPositions[key] = first
+        } else {
+            recipeRailPositions.removeValue(forKey: key)
+        }
+    }
+
+    /// Lazy stacks defer off-screen image views. Prefetch only the focused card and a
+    /// small neighbor window so a single swipe reveals decoded photos without starting
+    /// every image request in a long rail at once.
+    private func prefetchRecipeRail(
+        _ recipes: [OnlineRecipe],
+        around focusedID: String?,
+        scope railKey: String,
+        activity: StockedScrollActivity
+    ) {
+        guard !recipes.isEmpty else { return }
+        let effectiveActivity = activity.isScrolling
+            ? activity
+            : pageScrollActivity.isScrolling ? pageScrollActivity : activity
+        let policy = StockedImageWorkPolicy()
+        let directive = policy.directive(
+            for: .init(source: .remote, purpose: .prefetch),
+            activity: effectiveActivity,
+            remoteAccessAllowed: ConnectivityMonitor.isOnlineFlag
+        )
+        let scopedID = "\(prefetchScope).\(railKey)"
+        guard case let .loadNow(priority) = directive else {
+            ImageCache.shared.cancelScheduledPrefetch(scope: scopedID)
+            return
+        }
+        let focus = focusedID.flatMap { id in recipes.firstIndex { $0.id == id } } ?? 0
+        let visibleRange = focus..<min(recipes.endIndex, focus + 1)
+        let indexes = policy.candidateIndices(
+            itemCount: recipes.count,
+            visibleRange: visibleRange,
+            axis: .horizontal,
+            activity: effectiveActivity
+        )
+        ImageCache.shared.schedulePrefetch(
+            scope: scopedID,
+            urls: indexes.map { recipes[$0].imageURL }.filter { !$0.isEmpty },
+            priority: priority.taskPriority
+        )
+    }
+
     @ViewBuilder
     private var discoverSections: some View {
         let split = discoverSnapshot
@@ -670,7 +1201,7 @@ struct RecipeVaultView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Discover")
-                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .scaledFont(19, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
                 // #FB — manual refresh; Discover otherwise only changes on re-entry.
@@ -678,12 +1209,11 @@ struct RecipeVaultView: View {
                     ProgressView().scaleEffect(0.7).tint(Color.stockedGold)
                 } else {
                     Button {
-                        onlineLoader.forceRefresh(profile: session.guestStore.cookingProfile,
-                                                  pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })
+                        manuallyRefreshDiscover()
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .bold))
-                            Text("Refresh").font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "arrow.clockwise").scaledFont(10, weight: .bold)
+                            Text("Refresh").scaledFont(12, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 10).padding(.vertical, 6)
@@ -705,14 +1235,14 @@ struct RecipeVaultView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Couldn't reach online recipes right now. You're still able to browse anything saved to your kitchen.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .scaledFont(13)
+                            .foregroundStyle(session.themeSecondaryText)
                         Button {
-                            onlineLoader.forceRefresh(profile: session.guestStore.cookingProfile, pantry: Array(session.guestStore.inStockNameSet).prefix(8).map { $0 })
+                            manuallyRefreshDiscover()
                         } label: {
                             HStack(spacing: 7) {
-                                Image(systemName: "arrow.clockwise").font(.system(size: 12, weight: .bold))
-                                Text("Retry").font(.system(size: 13, weight: .semibold))
+                                Image(systemName: "arrow.clockwise").scaledFont(12, weight: .bold)
+                                Text("Retry").scaledFont(13, weight: .semibold)
                             }
                             .foregroundStyle(Color.stockedWhite)
                             .padding(.horizontal, 16).padding(.vertical, 9)
@@ -733,14 +1263,14 @@ struct RecipeVaultView: View {
                 if !split.drinks.isEmpty {
                     HStack {
                         HStack(spacing: 6) {
-                            Text("🍹").font(.system(size: 14))
+                            Text("🍹").scaledFont(14)
                             Text("Drinks")
-                                .font(.system(size: 17, weight: .bold, design: .serif))
+                                .scaledFont(17, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                         }
                         Spacer()
                         Button { navTarget = .drinks } label: {
-                            Text("View All").font(.system(size: 12.5, weight: .semibold))
+                            Text("View All").scaledFont(12.5, weight: .semibold)
                                 .foregroundStyle(Color.stockedGold)
                         }.buttonStyle(.plain)
                     }
@@ -775,12 +1305,12 @@ struct RecipeVaultView: View {
                 .environment(session)
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 10))
-                Text(title).font(.system(size: 12.5, weight: .semibold))
+                Image(systemName: icon).scaledFont(10)
+                Text(title).scaledFont(12.5, weight: .semibold)
             }
             .foregroundStyle(session.themeTextColor)
             .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+            .background(session.themeCardColor)
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -789,12 +1319,13 @@ struct RecipeVaultView: View {
     // Featured hero — big photo card with a gradient title plate.
     private func discoverHero(_ recipe: OnlineRecipe) -> some View {
         let saved = OnlineRecipeFacts.isSaved(recipe, savedTitles: discoverSavedTitles)
+        let heroMinimumHeight = layoutMetrics.recipeFeatureHeroMinimumHeight
         return Button { openOnlineRecipe(recipe) } label: {
             ZStack(alignment: .bottomLeading) {
                 CachedAsyncImage(url: recipe.imageURL, imageData: nil,
-                                 height: 190, resolveName: recipe.title)
+                                 height: heroMinimumHeight, resolveName: recipe.title)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 190)
+                    .frame(minHeight: heroMinimumHeight)
                     .clipped()
 
                 LinearGradient(colors: [.clear, .black.opacity(0.72)],
@@ -813,22 +1344,22 @@ struct RecipeVaultView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("FROM THE WEB")
-                        .font(.system(size: 10, weight: .bold))
+                        .scaledFont(10, weight: .bold)
                         .tracking(1.2)
                         .foregroundStyle(Color.stockedGold)
                     Text(recipe.title)
-                        .font(.system(size: 19, weight: .bold, design: .serif))
+                        .scaledFont(19, weight: .bold, design: .serif)
                         .foregroundStyle(.white)
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                     Text([recipe.area, recipe.category, recipe.source].filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(.white.opacity(0.75))
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(14)
             }
-            .frame(height: 190)                                   // fixed height — no implicit growth
+            .frame(minHeight: heroMinimumHeight)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
             .contentShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))  // hit area = visible card only
         }
@@ -837,19 +1368,24 @@ struct RecipeVaultView: View {
     }
 
     private func discoverRail(_ title: String?, _ recipes: [OnlineRecipe]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let railKey = "discover.\(title ?? "drinks")"
+        let scrollPosition = recipeRailPosition(for: railKey)
+        return VStack(alignment: .leading, spacing: 8) {
             // #FB — bigger section headers so they hold their own against the cards.
             if let title {
                 Text(title)
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, 24)
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                LazyHStack(spacing: 10) {
                     ForEach(recipes) { recipe in
                         let saved = OnlineRecipeFacts.isSaved(recipe, savedTitles: discoverSavedTitles)
-                        Button { openOnlineRecipe(recipe) } label: {
+                        Button {
+                            centerRecipe(recipe.id, in: railKey)
+                            openOnlineRecipe(recipe)
+                        } label: {
                             VStack(alignment: .leading, spacing: 0) {
                                 ZStack(alignment: .topLeading) {
                                     CachedAsyncImage(url: recipe.imageURL, imageData: nil,
@@ -864,30 +1400,70 @@ struct RecipeVaultView: View {
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(recipe.title)
-                                        .font(.system(size: 12.5, weight: .semibold))
+                                        .scaledFont(12.5, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
                                         .multilineTextAlignment(.leading)
-                                        .frame(height: 30, alignment: .top)
+                                        .frame(minHeight: 30, alignment: .top)
                                     Text([recipe.area.isEmpty ? recipe.category : recipe.area, recipe.source]
                                             .filter { !$0.isEmpty }.joined(separator: " · "))
-                                        .font(.system(size: 10.5))
-                                        .foregroundStyle(session.themeTextColor.opacity(0.5))
-                                        .lineLimit(1)
+                                        .scaledFont(10.5)
+                                        .foregroundStyle(session.themeSecondaryText)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 .padding(8)
                                 .frame(width: 134, alignment: .leading)
                             }
-                            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.45))
+                            .background(session.themeCardColor)
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         }
                         .buttonStyle(.plain)
+                        .id(recipe.id)
                     }
                 }
                 .stockedScrollTargetLayout()
-                .padding(.horizontal, 24)
             }
-            .stockedHorizontalSnap()
+            .stockedCardRailSnap()
+            .scrollPosition(id: scrollPosition, anchor: .leading)
+            .contentMargins(
+                .horizontal,
+                layoutMetrics.horizontalPadding,
+                for: .scrollContent
+            )
+            .onAppear {
+                prefetchRecipeRail(
+                    recipes,
+                    around: scrollPosition.wrappedValue,
+                    scope: railKey,
+                    activity: recipeRailActivities[railKey] ?? .idle
+                )
+            }
+            .onChange(of: scrollPosition.wrappedValue) { _, focusedID in
+                prefetchRecipeRail(
+                    recipes,
+                    around: focusedID,
+                    scope: railKey,
+                    activity: recipeRailActivities[railKey] ?? .idle
+                )
+            }
+            .onChange(of: recipes.map(\.id)) { _, ids in
+                preserveRecipeRailPosition(railKey, validIDs: ids)
+                prefetchRecipeRail(
+                    recipes,
+                    around: recipeRailPositions[railKey],
+                    scope: railKey,
+                    activity: recipeRailActivities[railKey] ?? .idle
+                )
+            }
+            .stockedOnScrollActivityChange { activity in
+                recipeRailActivities[railKey] = activity
+                prefetchRecipeRail(
+                    recipes,
+                    around: scrollPosition.wrappedValue,
+                    scope: railKey,
+                    activity: activity
+                )
+            }
         }
         .padding(.bottom, 14)
     }
@@ -916,8 +1492,8 @@ struct RecipeVaultView: View {
 
     private func badgePill(text: String, system: String?, fg: Color, bg: Color) -> some View {
         HStack(spacing: 3) {
-            if let system { Image(systemName: system).font(.system(size: 8, weight: .bold)) }
-            Text(text).font(.system(size: 9.5, weight: .bold))
+            if let system { Image(systemName: system).scaledFont(8, weight: .bold) }
+            Text(text).scaledFont(9.5, weight: .bold)
         }
         .foregroundStyle(fg)
         .padding(.horizontal, 6).padding(.vertical, 3)
@@ -930,7 +1506,7 @@ struct RecipeVaultView: View {
     private var discoverSkeleton: some View {
         VStack(alignment: .leading, spacing: 14) {
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                .fill(Color.stockedWhite.opacity(0.35))
+                .fill(session.themeCardColor)
                 .frame(height: 190)
                 .padding(.horizontal, 24)
             ForEach(0..<2, id: \.self) { _ in
@@ -938,14 +1514,14 @@ struct RecipeVaultView: View {
                     HStack(spacing: 10) {
                         ForEach(0..<4, id: \.self) { _ in
                             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
-                                .fill(Color.stockedWhite.opacity(0.35))
+                                .fill(session.themeCardColor)
                                 .frame(width: 134, height: 128)
                         }
                     }
                     .stockedScrollTargetLayout()
                     .padding(.horizontal, 24)
                 }
-                .stockedHorizontalSnap()
+                .stockedCardRailSnap()
                 .disabled(true)
             }
         }
@@ -967,6 +1543,8 @@ struct RecipeVaultView: View {
                 createRoute = nil
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { createRoute = .form(form, source) }
             }.environment(session)
+        case .browser:
+            RecipeBrowserView().environment(session)
         case .screenshot:
             RecipeScreenshotImportSheet { form, source in
                 createRoute = nil
@@ -996,11 +1574,11 @@ private struct RecipeSearchBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                .foregroundStyle(session.themeSecondaryText)
             TextField("Search recipes by name or cuisine…", text: $recipeSearch)
                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : .black)
                 .tint(Color.stockedGold)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .autocorrectionDisabled()
             if !recipeSearch.isEmpty {
                 Button { recipeSearch = ""; dbResults = [] } label: {
@@ -1010,7 +1588,7 @@ private struct RecipeSearchBar: View {
             }
         }
         .padding(12)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .padding(.horizontal, 20).padding(.bottom, 14)
         .onChange(of: recipeSearch) { (_: String, q: String) in
@@ -1069,18 +1647,18 @@ private struct RecipeSearchDropdown: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13).foregroundStyle(Color.stockedGold)
                             .frame(width: 22)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.title)
-                                .font(.system(size: 13, weight: .semibold, design: .serif))
+                                .scaledFont(13, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                             let sub = [entry.cuisine, entry.category]
                                 .filter { !$0.isEmpty }.prefix(2).joined(separator: " · ")
                             if !sub.isEmpty {
-                                Text(sub).font(.system(size: 11))
-                                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                Text(sub).scaledFont(11)
+                                    .foregroundStyle(session.themeSecondaryText)
                             }
                         }
                         Spacer()
@@ -1093,7 +1671,7 @@ private struct RecipeSearchDropdown: View {
                 }
             }
         }
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite)
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
     }
@@ -1229,7 +1807,8 @@ private nonisolated struct RecipeCollectionSnapshotBuilder {
                 let rhsRatio = rhs.stockTotal == 0 ? 0 : Double(rhs.stockHave) / Double(rhs.stockTotal)
                 if lhsRatio != rhsRatio { return lhsRatio > rhsRatio }
                 if lhs.profileBoost != rhs.profileBoost { return lhs.profileBoost > rhs.profileBoost }
-                return lhs.recipe.title.localizedCaseInsensitiveCompare(rhs.recipe.title) == .orderedAscending
+                return RecipeDisplayPolicy.titleSortKey(lhs.recipe.title)
+                    .localizedCaseInsensitiveCompare(RecipeDisplayPolicy.titleSortKey(rhs.recipe.title)) == .orderedAscending
             }
         }
 
@@ -1289,6 +1868,7 @@ private nonisolated struct RecipeCollectionSnapshotBuilder {
 private struct RecipeMyCollectionView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.stockedMotion) private var motion
     @Binding var showCreate: Bool
     @Binding var showBrowse: Bool
     // Identity-driven merge payload — .sheet(item:) presents reliably on the first tap.
@@ -1348,9 +1928,14 @@ private struct RecipeMyCollectionView: View {
     var body: some View {
         let entries = collectionSnapshot.entries
         VStack(alignment: .leading, spacing: 0) {
+            NavigationLink { SmartCookbooksView() } label: {
+                Label("Smart cookbooks", systemImage: "books.vertical")
+                    .font(.stocked(.headline)).frame(minHeight: 44)
+            }.buttonStyle(.plain).foregroundStyle(session.accentColor)
+                .padding(.horizontal, 20).padding(.bottom, 10)
             HStack {
                 Text("Recipes you've saved or created")
-                    .font(.system(size: 14, weight: .bold)).foregroundStyle(session.themeTextColor)
+                    .scaledFont(14, weight: .bold).foregroundStyle(session.themeTextColor)
                 Spacer()
                 // Duplicate merge badge
                 let dups = collectionSnapshot.duplicates
@@ -1361,25 +1946,25 @@ private struct RecipeMyCollectionView: View {
                         }
                     } label: {
                         Label("\(dups.count) duplicate\(dups.count == 1 ? "" : "s")", systemImage: "arrow.triangle.merge")
-                            .font(.system(size: 11, weight: .semibold))
+                            .scaledFont(11, weight: .semibold)
                             .foregroundStyle(.orange)
                     }.buttonStyle(.plain)
                 }
                 // #2 — sort by what you can cook right now
-                Button { withAnimation(.spring(response: 0.3)) { cookableSort.toggle() } } label: {
+                Button { motion.animate(.standard, intent: .spatial) { cookableSort.toggle() } } label: {
                     Label("Cookable", systemImage: cookableSort ? "flame.fill" : "flame")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(cookableSort ? Color.stockedGreen : session.themeTextColor.opacity(0.5))
                 }.buttonStyle(.plain)
                 // Browse online
                 Button { showBrowse = true } label: {
                     Label("Browse", systemImage: "safari")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(12, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain)
                 // Create
                 Button { showCreate = true } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(18).foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain).padding(.leading, 4)
             }.padding(.horizontal, 24).padding(.bottom, 12)
 
@@ -1387,8 +1972,8 @@ private struct RecipeMyCollectionView: View {
                 HStack(spacing: 10) {
                     ProgressView().tint(Color.stockedGold)
                     Text("Loading collection…")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .scaledFont(13, weight: .medium)
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 36)
@@ -1421,16 +2006,16 @@ private struct RecipeMyCollectionView: View {
                                 HStack(spacing: 4) {
                                     if entry.stockTotal > 0 {
                                         Text("\(entry.stockHave)/\(entry.stockTotal) in stock")
-                                            .font(.system(size: 9, weight: .bold))
+                                            .scaledFont(9, weight: .bold)
                                             .foregroundStyle(entry.stockHave == entry.stockTotal ? Color.stockedGreen : session.themeTextColor.opacity(0.6))
                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                             .background(.ultraThinMaterial, in: Capsule())
                                     }
                                     if !entry.allergenConflicts.isEmpty {
                                         Label(entry.allergenConflicts.joined(separator: ", "), systemImage: "exclamationmark.triangle.fill")
-                                            .font(.system(size: 9, weight: .bold))
+                                            .scaledFont(9, weight: .bold)
                                             .foregroundStyle(.orange)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                             .background(.ultraThinMaterial, in: Capsule())
                                     }
@@ -1438,13 +2023,13 @@ private struct RecipeMyCollectionView: View {
                                 .padding(6)
                             }
                             Button {
-                                withAnimation(.spring(response: 0.3)) {
+                                motion.animate(.standard, intent: .spatial) {
                                     session.guestStore.userRecipes.removeAll { $0.id == recipe.id }
                                 }
                             } label: {
                                 ZStack {
                                     Circle().fill(Color.red).frame(width: 24, height: 24)
-                                    Image(systemName: "minus").font(.system(size: 11, weight: .bold))
+                                    Image(systemName: "minus").scaledFont(11, weight: .bold)
                                         .foregroundStyle(.white)
                                 }
                                 .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
@@ -1459,23 +2044,23 @@ private struct RecipeMyCollectionView: View {
             Divider().padding(.horizontal, 24).padding(.top, 20)
 
             Button {
-                withAnimation(.spring(response: 0.3)) { showPastMeals.toggle() }
+                motion.animate(.standard, intent: .spatial) { showPastMeals.toggle() }
             } label: {
                 HStack {
                     Text("Past Meals")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .scaledFont(14, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     let count = session.guestStore.pastMeals.count
                     if count > 0 {
                         Text("\(count)")
-                            .font(.system(size: 11, weight: .bold))
+                            .scaledFont(11, weight: .bold)
                             .foregroundStyle(session.accentColor)
                             .padding(.horizontal, 8).padding(.vertical, 3)
                             .background(session.accentColor.opacity(0.12)).clipShape(Capsule())
                     }
                     Image(systemName: showPastMeals ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 24).padding(.vertical, 12)
             }
@@ -1484,8 +2069,8 @@ private struct RecipeMyCollectionView: View {
             if showPastMeals {
                 if session.guestStore.pastMeals.isEmpty {
                     Text("No meals logged yet. Cook a recipe and rate it to start your history.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .scaledFont(13)
+                        .foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 28).padding(.bottom, 16)
                         .transition(.opacity)
@@ -1527,10 +2112,10 @@ private struct RecipeMergeSheet: View {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2))
                     .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
                 Text("Possible Duplicate")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
                 Text("These two recipes look similar. Keep one, or keep both.")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center).padding(.horizontal, 28).padding(.bottom, 24)
 
                 VStack(spacing: 12) {
@@ -1543,7 +2128,7 @@ private struct RecipeMergeSheet: View {
                         dismiss()
                     }
                     Button("Keep Both") { dismiss() }
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                         .padding(.top, 8)
                 }
                 .padding(.horizontal, 24)
@@ -1557,20 +2142,20 @@ private struct RecipeMergeSheet: View {
     private func mergeOption(recipe: UserRecipe, keepLabel: String, action: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(recipe.title)
-                .font(.system(size: 15, weight: .semibold, design: .serif))
+                .scaledFont(15, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("\(recipe.ingredients.count) ingredients · Made \(recipe.cookCount)×")
-                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
             Button(action: action) {
                 Text(keepLabel)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 10)
                     .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
             }.buttonStyle(.plain)
         }
         .padding(14)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.35))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }
@@ -1591,22 +2176,22 @@ private struct RecipeBrowseTabView: View {
                         .fill(session.accentColor.opacity(0.12))
                         .frame(width: 90, height: 90)
                     Image(systemName: "safari.fill")
-                        .font(.system(size: 38))
+                        .scaledFont(38)
                         .foregroundStyle(session.accentColor)
                 }
                 Text("Browse Online Recipes")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text("Import recipes from 20+ trusted cooking sites.\nPaste a URL or search by cuisine.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(14)
+                    .foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
 
             Button { showBrowseOnline = true } label: {
                 Text("Open Recipe Browser")
-                    .font(.system(size: 17, weight: .semibold, design: .serif))
+                    .scaledFont(17, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 17)
@@ -1628,7 +2213,7 @@ private struct RecipePastMealsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Your meal history")
-                .font(.system(size: 14, weight: .bold)).foregroundStyle(session.themeTextColor)
+                .scaledFont(14, weight: .bold).foregroundStyle(session.themeTextColor)
                 .padding(.horizontal, 24).padding(.bottom, 12)
 
             if session.guestStore.pastMeals.isEmpty {
@@ -1650,36 +2235,37 @@ private struct RecipePastMealsView: View {
 
 private struct PastMealRow: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     let meal: LocalPastMeal
 
     var body: some View {
         HStack(spacing: 0) {
             ZStack {
-                Rectangle().fill(Color.stockedWhite.opacity(0.6)).frame(width: 80, height: 72)
-                Image(systemName: "fork.knife").font(.system(size: 20))
+                Rectangle().fill(session.themeCardColor).frame(width: 80, height: 72)
+                Image(systemName: "fork.knife").scaledFont(20)
                     .foregroundStyle(session.themeTextColor.opacity(0.25))
             }
             ZStack(alignment: .topTrailing) {
                 Rectangle().fill(Color.stockedGold)
                 VStack(alignment: .leading) {
                     Text(meal.title)
-                        .font(.system(size: 13, design: .serif)).foregroundStyle(Color.stockedWhite)
-                        .padding(.leading, 12).padding(.top, 10).lineLimit(2)
+                        .scaledFont(13, design: .serif).foregroundStyle(Color.stockedWhite)
+                        .padding(.leading, 12).padding(.top, 10).fixedSize(horizontal: false, vertical: true)
                     Spacer()
                 }
                 Text(meal.date)
-                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                    .scaledFont(9, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Color.stockedCharcoal).clipShape(Capsule()).padding(6)
             }.frame(maxWidth: .infinity).frame(height: 72)
             Button {
-                withAnimation(.spring(response: 0.3)) {
+                motion.animate(.standard, intent: .spatial) {
                     session.guestStore.pastMeals.removeAll { $0.id == meal.id }
                 }
             } label: {
                 ZStack {
                     Color.red.frame(width: 56, height: 72)
-                    Image(systemName: "trash.fill").font(.system(size: 16)).foregroundStyle(.white)
+                    Image(systemName: "trash.fill").scaledFont(16).foregroundStyle(.white)
                 }
             }.buttonStyle(.plain)
         }
@@ -1709,9 +2295,9 @@ struct RecipePreviewCard: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(recipe.title.displayNormalized)
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 // Flag a recipe that is missing important parts (few/no steps or ingredients, no
                 // image) so the user knows it may need a look. Only shown when low-quality.
@@ -1725,26 +2311,26 @@ struct RecipePreviewCard: View {
 
                 if !recipe.cookTime.isEmpty {
                     HStack(spacing: 5) {
-                        Image(systemName: "clock").font(.system(size: 12)).foregroundStyle(Color.stockedGold)
-                        Text(recipe.cookTime).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        Image(systemName: "clock").scaledFont(12).foregroundStyle(Color.stockedGold)
+                        Text(recipe.cookTime).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     }
                 }
 
                 if !recipe.ingredients.isEmpty {
                     Text("\(recipe.ingredients.count) ingredients")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(12, weight: .semibold)
+                        .foregroundStyle(session.themeSecondaryText)
                     VStack(alignment: .leading, spacing: 3) {
                         ForEach(recipe.ingredients.prefix(5)) { ing in
                             Text("• \(ing.name.displayNormalized)")
-                                .font(.system(size: 12))
-                                .foregroundStyle(session.themeTextColor.opacity(0.75))
-                                .lineLimit(1)
+                                .scaledFont(12)
+                                .foregroundStyle(session.themeSecondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         if recipe.ingredients.count > 5 {
                             Text("+ \(recipe.ingredients.count - 5) more")
-                                .font(.system(size: 11))
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .scaledFont(11)
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                     }
                 }
@@ -1752,7 +2338,7 @@ struct RecipePreviewCard: View {
             .padding(14)
         }
         .frame(width: 300)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite)
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd, style: .continuous)
@@ -1776,11 +2362,11 @@ struct RecipeListView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(title)
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("\(recipes.count) recipe\(recipes.count == 1 ? "" : "s")")
-                        .font(.system(size: 13))
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13)
+                        .foregroundStyle(session.themeSecondaryText)
                     Spacer()
                 }
                 .padding(.horizontal, 24).padding(.bottom, 12)
@@ -1800,21 +2386,21 @@ struct RecipeListView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(recipe.title)
-                                            .font(.system(size: 15, weight: .semibold))
+                                            .scaledFont(15, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                         if !recipe.cookTime.isEmpty {
-                                            Text(recipe.cookTime).font(.system(size: 12))
-                                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                            Text(recipe.cookTime).scaledFont(12)
+                                                .foregroundStyle(session.themeSecondaryText)
                                         }
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                                 }
                                 .padding(12)
-                                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+                                .background(session.themeCardColor)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             }
                             .buttonStyle(.plain)
@@ -1826,8 +2412,8 @@ struct RecipeListView: View {
                 if let onCreate {
                     Button(action: onCreate) {
                         HStack(spacing: 8) {
-                            Image(systemName: "plus").font(.system(size: 14, weight: .bold))
-                            Text("New Recipe").font(.system(size: 14, weight: .bold, design: .serif))
+                            Image(systemName: "plus").scaledFont(14, weight: .bold)
+                            Text("New Recipe").scaledFont(14, weight: .bold, design: .serif)
                         }
                         .foregroundStyle(Color.stockedWhite)
                         .padding(.horizontal, 22).padding(.vertical, 12)
@@ -1862,14 +2448,21 @@ struct CollectionsListView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("Collections")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("\(cuisines.count) collection\(cuisines.count == 1 ? "" : "s")")
-                        .font(.system(size: 13))
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13)
+                        .foregroundStyle(session.themeSecondaryText)
                     Spacer()
                 }
                 .padding(.horizontal, 24).padding(.bottom, 12)
+
+                NavigationLink { SmartCookbooksView() } label: {
+                    Label("Smart cookbooks · your saved recipe rules", systemImage: "books.vertical")
+                        .font(.stocked(.headline)).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(14).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+                }.buttonStyle(.plain).foregroundStyle(session.themeTextColor)
+                    .padding(.horizontal, 24).padding(.bottom, 16)
 
                 if cuisines.isEmpty {
                     StockedEmptyState(icon: "🗂️",
@@ -1884,21 +2477,21 @@ struct CollectionsListView: View {
                                         Circle().fill(Color.stockedGold.opacity(0.14))
                                             .frame(width: 36, height: 36)
                                         Text(ImageFallbackService.emoji(for: name))
-                                            .font(.system(size: 17))
+                                            .scaledFont(17)
                                     }
                                     Text(name)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .scaledFont(15, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
                                     Spacer()
                                     Text("\(count) recipe\(count == 1 ? "" : "s")")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        .scaledFont(12)
+                                        .foregroundStyle(session.themeSecondaryText)
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .scaledFont(12, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 12)
-                                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+                                .background(session.themeCardColor)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             }
                             .buttonStyle(.plain)

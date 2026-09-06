@@ -77,7 +77,7 @@ struct KitchenWrappedView: View {
         HStack {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
+                    .scaledFont(20, weight: .semibold)
                     .foregroundStyle(primaryText)
             }.buttonStyle(.plain)
             Spacer()
@@ -92,15 +92,15 @@ struct KitchenWrappedView: View {
     private var heroCard: some View {
         VStack(spacing: 8) {
             Text("Your Kitchen,")
-                .font(.system(size: 30, weight: .bold, design: .serif))
+                .scaledFont(30, weight: .bold, design: .serif)
                 .foregroundStyle(primaryText)
             Text("Wrapped")
-                .font(.system(size: 40, weight: .heavy, design: .serif))
+                .scaledFont(40, weight: .heavy, design: .serif)
                 .foregroundStyle(Color.stockedGold)
             Text(mealsCooked > 0
                  ? "Here's what your kitchen got up to."
                  : "Cook your first meal and your story starts here.")
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(primaryText.opacity(0.6))
                 .multilineTextAlignment(.center)
         }
@@ -120,13 +120,13 @@ struct KitchenWrappedView: View {
 
     private func wrapStat(_ value: String, _ label: String, _ icon: String, _ tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon).font(.system(size: 20)).foregroundStyle(tint)
+            Image(systemName: icon).scaledFont(20).foregroundStyle(tint)
             Text(value)
-                .font(.system(size: 34, weight: .heavy, design: .serif))
+                .scaledFont(34, weight: .heavy, design: .serif)
                 .foregroundStyle(primaryText)
                 .contentTransition(.numericText())
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .scaledFont(12, weight: .medium)
                 .foregroundStyle(primaryText.opacity(0.55))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -156,18 +156,18 @@ struct KitchenWrappedView: View {
         HStack(alignment: .top, spacing: 14) {
             ZStack {
                 Circle().fill(tint.opacity(0.18)).frame(width: 44, height: 44)
-                Image(systemName: icon).font(.system(size: 18)).foregroundStyle(tint)
+                Image(systemName: icon).scaledFont(18).foregroundStyle(tint)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(eyebrow)
-                    .font(.system(size: 10, weight: .bold)).tracking(1.5)
+                    .scaledFont(10, weight: .bold).tracking(1.5)
                     .foregroundStyle(tint)
                 Text(title)
-                    .font(.system(size: 18, weight: .bold, design: .serif))
+                    .scaledFont(18, weight: .bold, design: .serif)
                     .foregroundStyle(.white)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(detail)
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(.white.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -183,18 +183,18 @@ struct KitchenWrappedView: View {
     private var savingsCard: some View {
         VStack(spacing: 6) {
             Text("YOU SAVED ABOUT")
-                .font(.system(size: 11, weight: .bold)).tracking(1.5)
+                .scaledFont(11, weight: .bold).tracking(1.5)
                 .foregroundStyle(.white.opacity(0.6))
             Text("~\(money(Double(moneySaved)))")
-                .font(.system(size: 46, weight: .heavy, design: .serif))
+                .scaledFont(46, weight: .heavy, design: .serif)
                 .foregroundStyle(Color.stockedGold)
             Text("cooking at home instead of ordering out\(totalSpend > 0 ? " · \(money(totalSpend)) tracked in groceries" : "")")
-                .font(.system(size: 12))
+                .scaledFont(12)
                 .foregroundStyle(.white.opacity(0.65))
                 .multilineTextAlignment(.center)
             if wastedValue > 0 {
                 Text("Heads up: about \(money(wastedValue)) went to waste — room to save more next season.")
-                    .font(.system(size: 11))
+                    .scaledFont(11)
                     .foregroundStyle(.white.opacity(0.45))
                     .multilineTextAlignment(.center)
                     .padding(.top, 4)
@@ -213,12 +213,12 @@ struct KitchenWrappedView: View {
             Text(mealsCooked > 0
                  ? "Here's to many more good meals."
                  : "Your kitchen story is just getting started.")
-                .font(.system(size: 14, design: .serif))
+                .scaledFont(14, design: .serif)
                 .foregroundStyle(primaryText.opacity(0.6))
                 .multilineTextAlignment(.center)
             Button { dismiss() } label: {
                 Text("Done")
-                    .font(.system(size: 15, weight: .semibold))
+                    .scaledFont(15, weight: .semibold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 40).padding(.vertical, 13)
                     .background(Color.stockedGold)

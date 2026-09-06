@@ -12,7 +12,7 @@
 // because the push destination never applied the theme. Fixing that one screen didn't fix the bug
 // — it fixed one instance of it. `.stockedScreen()` fixes the class.
 //
-// #16 — Dynamic Type. Most of the app hardcodes `.font(.system(size: 11…16))`, which does not
+// #16 — Dynamic Type. Most of the app hardcodes `.font(.stockedSystem(size: 11…16))`, which does not
 // respond to the user's text-size setting at all. At the accessibility sizes, fixed 11pt stat rows
 // and tool tiles either clip or stay unreadably small. Food and kitchen apps skew older; this is a
 // real exclusion, not a nicety. `StockedType` gives relative sizes that scale, capped so layouts
@@ -33,20 +33,13 @@ struct StockedScreenModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .modifier(ConditionalScrollBackground(active: clearScrollBackground))
+            .stockedAdaptiveInterface()
+            .stockedSizeAwareScrollBounce([.vertical, .horizontal])
+            .stockedThemeEnvironment(clearScrollBackground: clearScrollBackground)
             .background {
                 if fillBackground { session.themeBgColor.ignoresSafeArea() }
             }
-            .foregroundStyle(session.themeTextColor)
-            .tint(session.accentColor)
-            .preferredColorScheme(session.isDarkMode ? .dark : .light)
-    }
-}
-
-private struct ConditionalScrollBackground: ViewModifier {
-    let active: Bool
-    func body(content: Content) -> some View {
-        if active { content.scrollContentBackground(.hidden) } else { content }
+            .presentationBackground(session.themeBgColor)
     }
 }
 
@@ -67,7 +60,7 @@ extension View {
 ///
 /// The app ALREADY has Dynamic Type scaling — `StockedType.scaled(_:)` in DesignTokens.swift, used
 /// by the `stockedSerif`/`stockedSans` font helpers. The problem was never a missing mechanism, it
-/// was that most screens (including all fifteen new features) call `.font(.system(size: 13))`
+/// was that most screens (including all fifteen new features) call `.scaledFont(13)`
 /// directly and bypass it entirely.
 ///
 /// So this deliberately does NOT introduce a second scaling implementation. It names the seven
@@ -110,12 +103,11 @@ nonisolated enum StockedTextRole: Sendable {
 }
 
 extension View {
-    /// Dynamic-Type-aware replacement for `.font(.system(size:weight:))`.
+    /// Dynamic-Type-aware replacement for `.font(.stockedSystem(size:weight:))`.
     /// Uses the app's existing `StockedType.scaled` so there is exactly one scaling rule.
     func stockedFont(_ role: StockedTextRole) -> some View {
         self
             .font(.stockedSans(role.size, weight: role.weight))
-            .dynamicTypeSize(...role.maxCategory)
     }
 }
 

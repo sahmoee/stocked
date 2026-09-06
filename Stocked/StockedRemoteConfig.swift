@@ -225,13 +225,13 @@ struct RemoteConfigBanner: View {
 
     private func banner(icon: String, text: String, dismissible: Bool) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 14, weight: .semibold))
-            Text(text).font(.system(size: 13, weight: .medium))
+            Image(systemName: icon).scaledFont(14, weight: .semibold)
+            Text(text).scaledFont(13, weight: .medium)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             if dismissible {
                 Button { dismissed = true } label: {
-                    Image(systemName: "xmark").font(.system(size: 12, weight: .bold))
+                    Image(systemName: "xmark").scaledFont(12, weight: .bold)
                         .frame(width: 28, height: 28).contentShape(Rectangle())
                 }.buttonStyle(.plain)
             }

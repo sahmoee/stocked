@@ -60,7 +60,7 @@ nonisolated struct QAHitch: Identifiable, Sendable {
 
     // See the note on QAEvent.formatter: a `nonisolated` struct's statics are
     // nonisolated too, and Swift 6 wants those Sendable. Write-once, read-only.
-    nonisolated(unsafe) private static let formatter: DateFormatter = {
+    private static let formatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
         return f
@@ -109,7 +109,9 @@ final class QARuntimeMonitor {
     private(set) var lowPower = false
     private(set) var freeDiskMB: Double = 0
     private(set) var online = true
-    private(set) var frameCount = 0
+    // Diagnostic-only counter. Publishing it at display refresh rate invalidated
+    // every QA view observing this monitor (up to 120 times/second on iPad Pro).
+    @ObservationIgnored private(set) var frameCount = 0
 
     /// Frame gaps thrown away because the clock jumped rather than the main
     /// thread blocking. Surfaced so a suspiciously high number is visible
@@ -144,6 +146,8 @@ final class QARuntimeMonitor {
     private var measureAfter: CFTimeInterval = 0
     private var sampler: Task<Void, Never>?
     private var lastAutoTicketAt: Date?
+    private var lastMemoryAlertAt: Date?
+    private var lastMemoryAlertBand = 0
 
     /// False from the moment the app resigns active until it is active again.
     /// Frames are still counted while false, but never measured.
@@ -174,6 +178,8 @@ final class QARuntimeMonitor {
 
         let target = DisplayLinkTarget()
         let l = CADisplayLink(target: target, selector: #selector(DisplayLinkTarget.tick(_:)))
+        // Instrumentation only needs enough cadence to identify a visible stall.
+        l.preferredFrameRateRange = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
         // Explicitly low priority for the runtime range: this is instrumentation
         // and it must never be the reason a frame is late.
         l.add(to: .main, forMode: .common)
@@ -260,6 +266,8 @@ final class QARuntimeMonitor {
         discardedGaps = 0
         peakFootprintMB = currentFootprintMB
         startFootprintMB = currentFootprintMB
+        lastMemoryAlertAt = nil
+        lastMemoryAlertBand = 0
     }
 
     // MARK: Frames
@@ -305,6 +313,9 @@ final class QARuntimeMonitor {
         let screen = QARecorder.shared.currentScreen
         let hitch = QAHitch(milliseconds: deltaMs, screen: screen)
         hitches.append(hitch)
+        worstHitchCache = max(worstHitchCache, hitch.milliseconds)
+        if hitch.isSevere { severeHitchCache += 1 }
+        hitchScreenCounts[screen, default: 0] += 1
         if hitches.count > hitchCap { hitches.removeFirst(hitches.count - hitchCap) }
 
         QARecorder.shared.record(hitch.isSevere ? .failure : .violation,
@@ -343,12 +354,14 @@ final class QARuntimeMonitor {
             origin: .automatic)
     }
 
-    var worstHitchMs: Double { hitches.map(\.milliseconds).max() ?? 0 }
-    var severeHitchCount: Int { hitches.filter(\.isSevere).count }
+    @ObservationIgnored private var worstHitchCache: Double = 0
+    @ObservationIgnored private var severeHitchCache: Int = 0
+    @ObservationIgnored private var hitchScreenCounts: [String: Int] = [:]
+
+    var worstHitchMs: Double { worstHitchCache }
+    var severeHitchCount: Int { severeHitchCache }
     var hitchesByScreen: [QAScreenCount] {
-        var byScreen: [String: Int] = [:]
-        for h in hitches { byScreen[h.screen, default: 0] += 1 }
-        return byScreen.map { QAScreenCount(screen: $0.key, count: $0.value) }
+        hitchScreenCounts.map { QAScreenCount(screen: $0.key, count: $0.value) }
             .sorted { $0.count > $1.count }
     }
 
@@ -365,13 +378,21 @@ final class QARuntimeMonitor {
         // Jetsam limits vary by device and iOS version; there is no API that
         // reports yours. These thresholds are where a phone-class app starts
         // being a candidate rather than a bystander.
-        if mb > 900 {
+        let band = mb > 900 ? 2 : (mb > 600 && mb > startFootprintMB * 2.5 ? 1 : 0)
+        // A threshold breach is one diagnostic event, not a new failure every five
+        // seconds. The old loop persisted and mirrored a complete QA report on every
+        // sample, amplifying memory pressure and making the QA sheet itself hitch.
+        let shouldAlert = band > 0 && (band > lastMemoryAlertBand ||
+            lastMemoryAlertAt.map { Date().timeIntervalSince($0) >= 300 } != false)
+        if shouldAlert && band == 2 {
             QARecorder.shared.record(.failure, label: "Memory very high",
                                      detail: String(format: "%.0f MB footprint — jetsam range", mb))
-        } else if mb > 600 && mb > startFootprintMB * 2.5 {
+        } else if shouldAlert && band == 1 {
             QARecorder.shared.record(.violation, label: "Memory climbing",
                                      detail: String(format: "%.0f MB, started at %.0f MB", mb, startFootprintMB))
         }
+        if shouldAlert { lastMemoryAlertAt = Date() }
+        lastMemoryAlertBand = band
     }
 
     /// `phys_footprint` is the figure jetsam judges you on. Reading it is a
@@ -526,8 +547,9 @@ enum QAContextCapture {
             .map { "\($0.name) — \($0.detail)" }
         c.appVersion = BuildConfig.version
         c.build = BuildConfig.buildNumber
-        c.device = UIDevice.current.model
-        c.os = "iOS " + UIDevice.current.systemVersion
+        c.identity = QAIdentityStore.shared.capture()
+        c.device = c.identity?.deviceModel ?? UIDevice.current.model
+        c.os = (c.identity?.deviceFamily == "iPad" ? "iPadOS " : "iOS ") + UIDevice.current.systemVersion
         c.memoryMB = runtime.isRunning ? runtime.currentFootprintMB : QARuntimeMonitor.footprintMB()
         c.thermal = QARuntimeMonitor.thermalName(ProcessInfo.processInfo.thermalState)
         c.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled

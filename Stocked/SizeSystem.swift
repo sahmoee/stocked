@@ -4,6 +4,7 @@
 // Infrastructure is injected once at RootView via DeviceAdaptiveRoot
 // and reads via @Environment(\.stockedDevice).
 import SwiftUI
+import WidgetKit
 
 // MARK: - Device class
 // iPhone 16 Pro = 393pt → .regular (canonical baseline)
@@ -41,25 +42,184 @@ struct StockedLayoutMetrics: Equatable {
     var height: CGFloat
     var isAccessibilityText: Bool
     var interfaceScale: CGFloat
+    /// Continuous approximation of the active Dynamic Type category. Layout uses
+    /// this before text reaches accessibility categories so controls widen/reflow
+    /// instead of waiting until labels have already wrapped or escaped their shape.
+    var textScale: CGFloat = 1
+    var safeAreaInsets: EdgeInsets = EdgeInsets()
+
+    var contentWidth: CGFloat {
+        max(1, width - safeAreaInsets.leading - safeAreaInsets.trailing)
+    }
+
+    var contentHeight: CGFloat {
+        max(1, height - safeAreaInsets.top - safeAreaInsets.bottom)
+    }
 
     /// Keep controls close enough to the edge to use the available canvas. The
     /// former five-percent rule made Pro Max phones and iPads feel needlessly narrow.
-    var horizontalPadding: CGFloat { width >= 600 ? 24 : 16 }
-    var sectionSpacing: CGFloat { min(max(width * 0.03, 10), 24) }
-    var readableContentWidth: CGFloat { min(width, 1_180) }
-    var formContentWidth: CGFloat { min(width, 760) }
-    var minimumControlHeight: CGFloat { max(44, 48 * interfaceScale) }
-    var prefersVerticalControls: Bool { width < 360 || isAccessibilityText }
+    var horizontalPadding: CGFloat { contentWidth >= 600 ? 24 : contentWidth < 350 ? 12 : 16 }
+    var sectionSpacing: CGFloat { min(max(contentWidth * 0.03, 10), 24) }
+    var readableContentWidth: CGFloat { min(contentWidth, 1_180) }
+    var formContentWidth: CGFloat { min(contentWidth, 760) }
+    var minimumControlHeight: CGFloat { max(44, 48 * interfaceScale * min(textScale, 1.7)) }
+    var controlHorizontalPadding: CGFloat { 12 * max(interfaceScale, min(textScale, 1.45)) }
+    var controlCornerRadius: CGFloat { min(24, 14 * max(interfaceScale, min(textScale, 1.35))) }
+    /// Shared presentation geometry. Width decides horizontal placement; Dynamic Type
+    /// only increases intrinsic vertical space so fields and cards never jump columns.
+    var presentationHorizontalPadding: CGFloat { horizontalPadding }
+    var listRowMinimumHeight: CGFloat { minimumControlHeight }
+    var surfaceContentPadding: CGFloat { contentWidth >= 700 ? 24 : (contentWidth < 350 ? 12 : 16) }
+    var surfaceCornerRadius: CGFloat { contentWidth >= 700 ? 20 : 16 }
+    var textEditorMinimumHeight: CGFloat { max(96, minimumControlHeight * 2) }
+    /// Placement responds to available width, never font size. Enlarged labels
+    /// grow controls vertically instead of moving them to another row.
+    var prefersVerticalControls: Bool { contentWidth < 360 }
+
+    /// The hero always reserves a right-hand column for its artwork and leaves the
+    /// remaining width to the pinned Stock Level card. Text size never changes columns.
+    var homeHeroArtworkWidth: CGFloat {
+        contentWidth >= 700 ? 230 : min(180, max(120, contentWidth * 0.42))
+    }
+
+    /// Shared geometry for every illustrated Home widget. Available width may grow
+    /// or shrink artwork, spacing, and padding; text size is intentionally excluded
+    /// so Dynamic Type only increases the widget's intrinsic vertical height.
+    var homeWidgetWidthScale: CGFloat {
+        min(max(contentWidth / 393, 0.72), 1.25)
+    }
+
+    var homeWidgetRowSpacing: CGFloat {
+        min(18, max(8, 14 * homeWidgetWidthScale))
+    }
+
+    var homeWidgetContentPadding: CGFloat {
+        contentWidth >= 700 ? 20 : (contentWidth < 340 ? 12 : 16)
+    }
+
+    var homeWidgetGridSpacing: CGFloat {
+        // Keep neighboring cards visually grouped. Wide canvases get only the
+        // extra room needed to preserve distinct hit regions; they should not
+        // turn the board into a set of disconnected sections.
+        contentWidth >= 700 ? 8 : 6
+    }
+
+    /// Four logical tracks are stable on every device. Compact widgets consume two
+    /// tracks, so phones still show a balanced two-up grid without narrow text columns.
+    var homeWidgetLogicalColumnCount: Int { 4 }
+
+    /// Height uses a fine independent lattice rather than square physical cells.
+    /// Intrinsic content still expands to as many rows as it needs, while the
+    /// smaller unit prevents a card from leaving nearly a full 70-point blank
+    /// band before the next widget after its height is rounded up.
+    var homeWidgetGridRowUnit: CGFloat {
+        contentWidth >= 700 ? 24 : 20
+    }
+
+    func homeWidgetMinimumHeight(rowSpan: Int) -> CGFloat {
+        let rows = max(1, rowSpan)
+        return homeWidgetGridRowUnit * CGFloat(rows)
+            + homeWidgetGridSpacing * CGFloat(rows - 1)
+    }
+
+    var homeStockLevelIllustrationSize: CGSize {
+        let side: CGFloat = contentWidth >= 700 ? 88 : 72
+        return homeWidgetIllustrationSize(preferredWidth: side, preferredHeight: side)
+    }
+
+    func homeWidgetIllustrationSize(
+        preferredWidth: CGFloat,
+        preferredHeight: CGFloat
+    ) -> CGSize {
+        let safeWidth = max(1, preferredWidth)
+        let proposedWidth = safeWidth * homeWidgetWidthScale
+        let width = min(proposedWidth, max(48, contentWidth * 0.28))
+        return CGSize(
+            width: width,
+            height: max(1, preferredHeight) * (width / safeWidth)
+        )
+    }
+
+    /// Shared bottom-navigation geometry. Labels may use two lines instead of
+    /// truncating, while the selected shape and touch target still match across tabs.
+    var tabBarHorizontalPadding: CGFloat { contentWidth < 350 ? 8 : min(16, horizontalPadding) }
+    var tabBarTopPadding: CGFloat { isAccessibilityText ? 6 : 8 }
+    var tabBarBottomPadding: CGFloat { 4 }
+    var tabBarItemSpacing: CGFloat { isAccessibilityText ? 2 : 3 }
+    var tabBarIconSize: CGFloat { min(max(18 * interfaceScale, 18), 24) }
+    var tabBarItemMinimumHeight: CGFloat {
+        max(minimumControlHeight, isAccessibilityText ? 68 : 50 * interfaceScale)
+    }
+    var tabBarCornerRadius: CGFloat { min(max(11 * interfaceScale, 11), 16) }
+
+    /// Width for cards in horizontally scrolling rails. The approved 393-point phone
+    /// composition remains the baseline while narrow windows shrink and iPad/landscape
+    /// windows use their additional room. Callers no longer need device-specific literals.
+    func horizontalCardWidth(
+        preferred: CGFloat,
+        minimum: CGFloat,
+        maximum: CGFloat
+    ) -> CGFloat {
+        let usable = max(1, contentWidth - horizontalPadding * 2)
+        let relativeScale = min(max(contentWidth / 393, 0.85), 1.30)
+        let lower = min(max(minimum, 1), usable)
+        let upper = min(max(maximum, lower), usable)
+        return min(max(preferred * relativeScale, lower), upper)
+    }
+
+    /// Makes a short horizontal rail use the complete readable canvas on wide windows.
+    /// Phone rails keep their compact card size and scroll normally; iPad, landscape,
+    /// and Stage Manager divide the live container into visible columns so a three-item
+    /// rail does not strand a phone-width block beside a large empty region.
+    func wideRailCardWidth(
+        itemCount: Int,
+        preferred: CGFloat,
+        minimum: CGFloat,
+        maximum: CGFloat,
+        spacing: CGFloat
+    ) -> CGFloat {
+        guard contentWidth >= 700, itemCount > 0 else {
+            return horizontalCardWidth(preferred: preferred, minimum: minimum, maximum: maximum)
+        }
+
+        let available = max(1, readableContentWidth - 36)
+        let visibleCount = min(itemCount, isAccessibilityText ? 2 : 3)
+        return max(1, (available - spacing * CGFloat(max(0, visibleCount - 1))) / CGFloat(visibleCount))
+    }
+
+    /// Insets a center-snapping rail far enough that its first and last cards can
+    /// actually reach the viewport center. The page gutter remains the floor for
+    /// oversized cards and compact containers.
+    func centeredRailContentMargin(
+        cardWidth: CGFloat,
+        minimum: CGFloat? = nil
+    ) -> CGFloat {
+        let minimumMargin = max(0, minimum ?? horizontalPadding)
+        let centeredMargin = (contentWidth - max(0, cardWidth)) / 2
+        return max(minimumMargin, centeredMargin)
+    }
+
+    /// The featured recipe keeps its approved 190-point baseline while gaining
+    /// vertical room as text controls grow. Width never changes this placement.
+    var recipeFeatureHeroMinimumHeight: CGFloat {
+        max(190, 142 + minimumControlHeight)
+    }
 
     func gridColumns(minimum: CGFloat, maximum: Int = 3, spacing: CGFloat = 12) -> [GridItem] {
-        let usable = max(1, width - horizontalPadding * 2)
-        let count = max(1, min(maximum, Int((usable + spacing) / (minimum + spacing))))
-        return Array(repeating: GridItem(.flexible(minimum: minimum), spacing: spacing), count: count)
+        let usable = max(1, contentWidth - horizontalPadding * 2)
+        let safeMaximum = max(1, maximum)
+        // Preserve the designed placement as text grows. Controls increase their
+        // vertical intrinsic size and wrap internally instead of changing column
+        // count merely because the app text preference changed.
+        let safeMinimum = max(1, minimum)
+        let count = max(1, min(safeMaximum, Int((usable + spacing) / (safeMinimum + spacing))))
+        return Array(repeating: GridItem(.flexible(minimum: safeMinimum), spacing: spacing), count: count)
     }
 
     static let fallback = StockedLayoutMetrics(width: 393, height: 852,
                                                isAccessibilityText: false,
-                                               interfaceScale: InterfaceSize.comfortable.scale)
+                                               interfaceScale: InterfaceSize.standard.scale,
+                                               textScale: 1)
 }
 
 private struct StockedLayoutMetricsKey: EnvironmentKey {
@@ -210,7 +370,7 @@ extension EnvironmentValues {
 struct DeviceAdaptiveRoot<Content: View>: View {
     @Environment(\.horizontalSizeClass) var hSize
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @AppStorage("stocked.interfaceSize") private var interfaceSizeRaw = InterfaceSize.comfortable.rawValue
+    @AppStorage("stocked.appTextSize") private var appTextSizeRaw = AppTextSize.standard.rawValue
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
 
@@ -224,13 +384,66 @@ struct DeviceAdaptiveRoot<Content: View>: View {
                 width: width,
                 height: proxy.size.height,
                 isAccessibilityText: dynamicTypeSize.isAccessibilitySize,
-                interfaceScale: InterfaceSize(rawValue: interfaceSizeRaw)?.scale
-                    ?? InterfaceSize.comfortable.scale
+                interfaceScale: InterfaceSize.standard.scale,
+                textScale: dynamicTypeSize.stockedLayoutScale *
+                    (AppTextSize(rawValue: appTextSizeRaw)?.multiplier ?? 1),
+                safeAreaInsets: proxy.safeAreaInsets
             )
             content
                 .environment(\.stockedDevice, device)
                 .environment(\.stockedLayout, metrics)
+                .environment(
+                    \.dynamicTypeSize,
+                    dynamicTypeSize.stockedLinked(
+                        to: AppTextSize(rawValue: appTextSizeRaw) ?? .standard
+                    )
+                )
                 .frame(width: proxy.size.width, height: proxy.size.height)
+                .onChange(of: appTextSizeRaw, initial: true) { _, newValue in
+                    UserDefaults(suiteName: "group.com.sowens.Stocked")?
+                        .set(newValue, forKey: StockedType.appTextSizePreferenceKey)
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+        }
+    }
+}
+
+private extension DynamicTypeSize {
+    /// System-owned labels inside controls cannot use StockedType directly, so
+    /// link their semantic category to the same in-app preference at the root.
+    func stockedLinked(to appSize: AppTextSize) -> DynamicTypeSize {
+        let ordered: [DynamicTypeSize] = [
+            .xSmall, .small, .medium, .large, .xLarge, .xxLarge, .xxxLarge,
+            .accessibility1, .accessibility2, .accessibility3, .accessibility4, .accessibility5,
+        ]
+        guard let current = ordered.firstIndex(of: self) else { return self }
+        let offset: Int = switch appSize {
+        case .extraSmall: -2
+        case .small: -1
+        case .standard: 0
+        case .medium: 1
+        case .large: 2
+        case .extraLarge: 3
+        case .extraExtraLarge: 4
+        }
+        return ordered[min(max(0, current + offset), ordered.count - 1)]
+    }
+
+    var stockedLayoutScale: CGFloat {
+        switch self {
+        case .xSmall: 0.82
+        case .small: 0.9
+        case .medium: 0.96
+        case .large: 1
+        case .xLarge: 1.12
+        case .xxLarge: 1.24
+        case .xxxLarge: 1.36
+        case .accessibility1: 1.5
+        case .accessibility2: 1.65
+        case .accessibility3: 1.82
+        case .accessibility4: 2
+        case .accessibility5: 2.2
+        @unknown default: 1
         }
     }
 }
@@ -241,11 +454,12 @@ extension View {
 }
 struct AdaptiveDeviceModifier: ViewModifier {
     @Environment(\.horizontalSizeClass) var hSize
+    @Environment(\.stockedLayout) private var layoutMetrics
     func body(content: Content) -> some View {
-        let width  = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.screen.bounds.width ?? 393
-        let device = StockedDevice.current(width: width, hSize: hSize)
+        let width = layoutMetrics.contentWidth
+        let adaptiveSizeClass: UserInterfaceSizeClass? =
+            UIDevice.current.userInterfaceIdiom == .pad && width >= 700 ? hSize : .compact
+        let device = StockedDevice.current(width: width, hSize: adaptiveSizeClass)
         content.environment(\.stockedDevice, device)
     }
 }
@@ -262,6 +476,6 @@ extension View {
         weight: Font.Weight = .regular,
         device: StockedDevice
     ) -> some View {
-        font(.system(size: size.value(for: device), weight: weight, design: .serif))
+        font(.stockedSerif(size.value(for: device), weight: weight))
     }
 }

@@ -123,16 +123,16 @@ struct PrepChecklistView: View {
         StockedShell(showBack: true, titleText: "Prep First") {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Knock these out before step 1 and the cook goes smoothly.")
-                    .font(.system(size: 13.5))
+                    .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
                 if tasks.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 38)).foregroundStyle(Color.stockedGreen)
+                            .scaledFont(38).foregroundStyle(Color.stockedGreen)
                         Text("No prep needed — jump straight in.")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -146,7 +146,7 @@ struct PrepChecklistView: View {
 
                     if tasks.contains(where: { $0.isProteinHandling }) {
                         Text("Raw meat and seafood prep is listed last.")
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                             .padding(.horizontal, CookStyle.screenHPad)
                     }
@@ -154,7 +154,7 @@ struct PrepChecklistView: View {
 
                 Button { dismiss() } label: {
                     Text(doneCount == tasks.count && !tasks.isEmpty ? "Prep Done — Back to Recipe" : "Back to Recipe")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
                         .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -191,23 +191,23 @@ struct PrepChecklistView: View {
         Button { toggle(t) } label: {
             HStack(spacing: 10) {
                 Image(systemName: isDone(t) ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18))
+                    .scaledFont(18)
                     .foregroundStyle(isDone(t) ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(t.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .strikethrough(isDone(t), color: session.themeTextColor.opacity(0.4))
                     if !t.detail.isEmpty {
                         Text(t.detail)
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                 }
                 Spacer()
                 if t.isGetAhead {
                     Text("Get ahead")
-                        .font(.system(size: 10, weight: .bold))
+                        .scaledFont(10, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Color.stockedGold.opacity(0.12))

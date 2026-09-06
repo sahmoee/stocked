@@ -54,16 +54,16 @@ struct CookAheadStatusView: View {
     private func header(_ meal: PlannedMeal) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(meal.title)
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             HStack(spacing: 6) {
-                Image(systemName: meal.cookAheadStatus.icon).font(.system(size: 12, weight: .semibold))
+                Image(systemName: meal.cookAheadStatus.icon).scaledFont(12, weight: .semibold)
                 Text(meal.cookAheadStatus.label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(13, weight: .semibold)
             }
             .foregroundStyle(Color.stockedGold)
             Text("Still planned for \(dayLabel(meal.dayIndex)) · \(meal.mealType). Cooking early only changes the cook time.")
-                .font(.system(size: 12.5))
+                .scaledFont(12.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -77,10 +77,10 @@ struct CookAheadStatusView: View {
                 HStack(spacing: 10) {
                     ZStack {
                         Circle().fill(reached ? Color.stockedGreen : session.themeTextColor.opacity(0.15)).frame(width: 22, height: 22)
-                        if reached { Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.stockedWhite) }
+                        if reached { Image(systemName: "checkmark").scaledFont(10, weight: .bold).foregroundStyle(Color.stockedWhite) }
                     }
                     Text(stage.label)
-                        .font(.system(size: 13.5, weight: reached ? .semibold : .regular))
+                        .font(.stockedSystem(size: 13.5, weight: reached ? .semibold : .regular))
                         .foregroundStyle(reached ? session.themeTextColor : session.themeTextColor.opacity(0.5))
                     Spacer()
                 }
@@ -101,12 +101,12 @@ struct CookAheadStatusView: View {
             if !tips.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("For best results")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .scaledFont(14, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     ForEach(tips, id: \.self) { tip in
                         HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "checkmark.circle").font(.system(size: 12)).foregroundStyle(Color.stockedGold).padding(.top, 1)
-                            Text(tip).font(.system(size: 12.5)).foregroundStyle(session.themeTextColor.opacity(0.7))
+                            Image(systemName: "checkmark.circle").scaledFont(12).foregroundStyle(Color.stockedGold).padding(.top, 1)
+                            Text(tip).scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
                         }
@@ -151,7 +151,7 @@ struct CookAheadStatusView: View {
                     HapticManager.light()
                 } label: {
                     Text(next == .served ? "Serve Now" : "Mark \(next.label)")
-                        .font(.system(size: 15.5, weight: .semibold, design: .serif))
+                        .scaledFont(15.5, weight: .semibold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -161,7 +161,7 @@ struct CookAheadStatusView: View {
                 .buttonStyle(.plain)
             } else {
                 Text("Served — enjoy!")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedGreen)
                     .frame(maxWidth: .infinity)
             }
@@ -197,18 +197,18 @@ struct FinishAndServeView: View {
         StockedShell(showBack: true, titleText: "Finish & Serve") {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Cooked ahead, ready to finish")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
                 if meals.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "refrigerator").font(.system(size: 36)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Image(systemName: "refrigerator").scaledFont(36).foregroundStyle(session.themeTextColor.opacity(0.3))
                         Text("Nothing waiting to finish")
-                            .font(.system(size: 16, weight: .semibold, design: .serif))
+                            .scaledFont(16, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("When you cook a planned meal early, it'll appear here with reheat and finishing steps.")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
@@ -235,18 +235,18 @@ struct FinishAndServeView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10).fill(Color.stockedGold.opacity(0.14)).frame(width: 42, height: 42)
-                    Image(systemName: meal.cookAheadStatus.icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: meal.cookAheadStatus.icon).scaledFont(17, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(meal.title)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("\(meal.cookAheadStatus.label) · for \(dayLabel(meal.dayIndex)) \(meal.mealType.lowercased())")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
             .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
@@ -269,7 +269,7 @@ struct CookEmptyStateInline: View {
     var body: some View {
         VStack {
             Text(text)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
         }
         .frame(maxWidth: .infinity).padding(.vertical, 40)

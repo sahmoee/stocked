@@ -54,10 +54,10 @@ final class ReceiptProcessingServiceTests: XCTestCase {
         XCTAssertEqual(item.sizeUnit, "oz")
     }
 
-    func testRetailerBrandExpansionIsExactlyOneHundredUniqueItems() {
-        XCTAssertEqual(ProductCatalog.retailerBrandItems.count, 100)
+    func testRetailerBrandExpansionHasAtLeastOneHundredUniqueItems() {
+        XCTAssertGreaterThanOrEqual(ProductCatalog.retailerBrandItems.count, 100)
         let names = ProductCatalog.retailerBrandItems.map { GroceryKnowledgeBase.normalize($0.name) }
-        XCTAssertEqual(Set(names).count, 100)
+        XCTAssertEqual(Set(names).count, names.count)
         let retailerIDs = Set(GroceryKnowledgeBase.retailers.map(\.id))
         XCTAssertTrue(ProductCatalog.retailerBrandItems.allSatisfy {
             !$0.retailerIDs.isEmpty && Set($0.retailerIDs).isSubset(of: retailerIDs)

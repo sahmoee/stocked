@@ -5,6 +5,43 @@ import Combine
 import os
 @preconcurrency import UserNotifications
 
+/// Immutable launch snapshot decoded on a utility executor. The model types are persisted value
+/// types; the snapshot never mutates after construction and crosses to MainActor exactly once.
+nonisolated private struct GuestDataDiskSnapshot: @unchecked Sendable {
+    let inventory: [LocalInventoryItem]
+    let grocery: [LocalGroceryItem]
+    let preferences: [String: ItemPreference]
+    let pastMeals: [LocalPastMeal]
+    let plannedMeals: [PlannedMeal]
+    let generatedRecipes: [GeneratedRecipe]
+    let userRecipes: [UserRecipe]
+    let substitutions: [UserSubstitutionEntry]
+    let prices: [PriceRecord]
+    let storeHistory: [String: String]
+    let consumption: [ConsumptionRecord]
+    let staples: [String]
+
+    static func read() -> Self {
+        let db = LocalDatabase.shared
+        return Self(
+            inventory: db.loadArray(LocalInventoryItem.self, key: DBKey.inventoryItems.rawValue) ?? [],
+            grocery: db.loadArray(LocalGroceryItem.self, key: DBKey.groceryItems.rawValue) ?? [],
+            preferences: db.load([String: ItemPreference].self, key: "itemPrefs_v1") ?? [:],
+            pastMeals: db.loadArray(LocalPastMeal.self, key: DBKey.pastMeals.rawValue) ?? [],
+            plannedMeals: db.loadArray(PlannedMeal.self, key: DBKey.plannedMeals.rawValue) ?? [],
+            generatedRecipes: db.loadArray(GeneratedRecipe.self, key: DBKey.savedGeneratedRecipes.rawValue) ?? [],
+            userRecipes: db.loadArray(UserRecipe.self, key: DBKey.userRecipes.rawValue) ?? [],
+            substitutions: db.loadArray(UserSubstitutionEntry.self, key: "userSubstitutions_v1") ?? [],
+            prices: GrowthDatabase.shared.load(PriceRecord.self, collection: .priceHistory)
+                ?? db.loadArray(PriceRecord.self, key: DBKey.priceHistory.rawValue) ?? [],
+            storeHistory: db.load([String: String].self, key: "itemStoreHistory_v1") ?? [:],
+            consumption: GrowthDatabase.shared.load(ConsumptionRecord.self, collection: .consumptionLog)
+                ?? db.loadArray(ConsumptionRecord.self, key: DBKey.consumptionLog.rawValue) ?? [],
+            staples: db.loadArray(String.self, key: "stockStaples_v1") ?? []
+        )
+    }
+}
+
 // MARK: - GuestDataStore
 @Observable
 @MainActor
@@ -21,6 +58,7 @@ class GuestDataStore {
     @ObservationIgnored private var isLoadingFromDisk = false
     @ObservationIgnored private let mutationScheduler = StoreMutationScheduler()
     @ObservationIgnored private let persistenceScheduler = StorePersistenceScheduler()
+    private(set) var hasCompletedInitialHydration = false
 
     /// Coalesce rapid mutations into one widget reload without escaping actor-isolated store
     /// state into a DispatchWorkItem closure.
@@ -45,6 +83,9 @@ class GuestDataStore {
         guard !isApplyingHouseholdRemote else { return }
         mutationScheduler.schedule(.householdPush, delay: .milliseconds(1_200)) { [weak self] in
             guard let self else { return }
+            // Never publish the deliberately empty launch placeholders while the real local
+            // snapshot is still decoding. A slow restore must not look like a household wipe.
+            guard self.hasCompletedInitialHydration else { return }
             let household = HouseholdSync.shared
             guard household.state == .owner || household.state == .member else { return }
             await household.syncNow(store: self)
@@ -59,20 +100,55 @@ class GuestDataStore {
     var pendingUserRecipeTombstones: Set<String> = []
     var pendingGenRecipeTombstones: Set<String> = []
     var pendingMealTombstones: Set<String> = []
+    private var householdTombstoneRevision: UInt64 = 0
+    private var householdTombstoneDeletedAt: [String: Date] = [:]
 
     // Scalar revisions are safe SwiftUI dependencies even though several model arrays contain Data.
     // They advance for local edits and remote household merges, preventing derived UI/cache staleness.
     private(set) var inventoryRevision: Int = 0
     private(set) var groceryRevision: Int = 0
     private(set) var recipeRevision: Int = 0
+    private(set) var pastMealsRevision: Int = 0
     private(set) var planRevision: Int = 0
+
+    /// Derived headline counts are requested by several screens during one render
+    /// transaction. Keep one immutable snapshot per revision tuple so those reads
+    /// do not repeatedly rescan a large restored household on the main actor.
+    @ObservationIgnored private var lightweightMetricsCache: MetricsCache?
+    @ObservationIgnored private var completeMetricsCache: MetricsCache?
+
+    private struct MetricsCache {
+        let inventoryRevision: Int
+        let groceryRevision: Int
+        let recipeRevision: Int
+        let planRevision: Int
+        let calendarDay: Date
+        let value: KitchenMetrics
+
+        func matches(inventory: Int, grocery: Int, recipes: Int, plans: Int, day: Date) -> Bool {
+            inventoryRevision == inventory &&
+                groceryRevision == grocery &&
+                recipeRevision == recipes &&
+                planRevision == plans &&
+                calendarDay == day
+        }
+    }
 
     func householdTombstoneSnapshot() -> HouseholdTombstoneState {
         HouseholdTombstoneState(inventory: pendingInvTombstones,
                                 grocery: pendingGroTombstones,
                                 userRecipes: pendingUserRecipeTombstones,
                                 generatedRecipes: pendingGenRecipeTombstones,
-                                plannedMeals: pendingMealTombstones)
+                                plannedMeals: pendingMealTombstones,
+                                revision: householdTombstoneRevision,
+                                deletedAt: householdTombstoneDeletedAt)
+    }
+
+    private func recordHouseholdTombstones(_ ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        householdTombstoneRevision &+= UInt64(ids.count)
+        let now = Date()
+        for id in ids { householdTombstoneDeletedAt[id.uuidString] = now }
     }
 
     func acknowledgeHouseholdTombstones(_ captured: HouseholdTombstoneState) {
@@ -81,11 +157,37 @@ class GuestDataStore {
         pendingUserRecipeTombstones.subtract(captured.userRecipes)
         pendingGenRecipeTombstones.subtract(captured.generatedRecipes)
         pendingMealTombstones.subtract(captured.plannedMeals)
+        let stillPending = pendingInvTombstones.union(pendingGroTombstones)
+            .union(pendingUserRecipeTombstones).union(pendingGenRecipeTombstones)
+            .union(pendingMealTombstones)
+        householdTombstoneDeletedAt = householdTombstoneDeletedAt.filter {
+            stillPending.contains($0.key)
+        }
         persistHouseholdTombstones()
     }
 
     private func persistHouseholdTombstones() {
         LocalDatabase.shared.save(householdTombstoneSnapshot(), key: DBKey.householdTombstones.rawValue)
+    }
+
+    /// Authorize the complete array delta before it is persisted or journaled. This is the lowest
+    /// shared boundary for legacy callers that still mutate observable arrays directly, while
+    /// loading, household pulls, and approved backup restores bypass it through their existing
+    /// local-first guards.
+    private func authorizeHouseholdMutation(
+        _ operations: [(id: UUID, type: HouseholdEntityType, op: HouseholdOperationType)]
+    ) -> Bool {
+        let permissions = Set(operations.compactMap {
+            HouseholdMutationAuthorization.requiredPermission(
+                entityType: $0.type, operationType: $0.op)
+        })
+        for permission in permissions.sorted(by: { $0.rawValue < $1.rawValue }) {
+            guard HouseholdSync.shared.authorize(permission) else {
+                ToastCenter.shared.warning("You don't have permission to make that household change")
+                return false
+            }
+        }
+        return true
     }
 
     var inventoryItems: [LocalInventoryItem] = [] {
@@ -103,11 +205,26 @@ class GuestDataStore {
                 let mutation = StoreMutationRecorder.delta(
                     oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(inventoryItems.map(\.id)),
                     changedIDs: changedIDs, entityType: .inventoryItem)
+                guard authorizeHouseholdMutation(mutation.operations) else {
+                    isStamping = true
+                    inventoryItems = oldValue
+                    isStamping = false
+                    return
+                }
                 let oldIDs = mutation.oldIDs
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingInvTombstones.insert(id.uuidString) }
+                recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)
+                let quantityBefore = Dictionary(keepingLastValues: oldValue.map { ($0.id, $0.quantity) })
+                let quantityAfter = Dictionary(keepingLastValues: inventoryItems.map { ($0.id, $0.quantity) })
+                for id in changedIDs {
+                    guard let before = quantityBefore[id], let after = quantityAfter[id], before != after else { continue }
+                    HouseholdSync.shared.enqueueQuantityDelta(
+                        entityID: id, entityType: .inventoryItem,
+                        delta: after - before, baseValue: before)
+                }
                 // #3 Household activity feed: announce item changes to the household.
                 let newByID = Dictionary(keepingLastValues: inventoryItems.map { ($0.id, $0) })
                 let oldByID = Dictionary(keepingLastValues: oldValue.map { ($0.id, $0) })
@@ -280,11 +397,26 @@ class GuestDataStore {
             let mutation = StoreMutationRecorder.delta(
                 oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(groceryItems.map(\.id)),
                 changedIDs: changedIDs, entityType: .groceryItem)
+            guard authorizeHouseholdMutation(mutation.operations) else {
+                isStamping = true
+                groceryItems = oldValue
+                isStamping = false
+                return
+            }
             let oldIDs = mutation.oldIDs
             let goneIDs = mutation.removedIDs
             for id in goneIDs { pendingGroTombstones.insert(id.uuidString) }
+            recordHouseholdTombstones(goneIDs)
             if !goneIDs.isEmpty { persistHouseholdTombstones() }
             HouseholdSync.shared.enqueueBatch(mutation.operations)
+            let quantityBefore = Dictionary(keepingLastValues: oldValue.map { ($0.id, $0.quantity) })
+            let quantityAfter = Dictionary(keepingLastValues: groceryItems.map { ($0.id, $0.quantity) })
+            for id in changedIDs {
+                guard let before = quantityBefore[id], let after = quantityAfter[id], before != after else { continue }
+                HouseholdSync.shared.enqueueQuantityDelta(
+                    entityID: id, entityType: .groceryItem,
+                    delta: after - before, baseValue: before)
+            }
             let gNew = Dictionary(keepingLastValues: groceryItems.map { ($0.id, $0) })
             let gOld = Dictionary(keepingLastValues: oldValue.map { ($0.id, $0) })
             for id in changedIDs { if let it = gNew[id] { HouseholdSync.shared.emitActivity(oldIDs.contains(id) ? .groceryChecked : .groceryAdded, itemName: it.name) } }
@@ -292,7 +424,7 @@ class GuestDataStore {
         }
         saveDebounced(DBKey.groceryItems.rawValue, groceryItems); SharedPantrySync.shared.push(store: self); pushHouseholdDebounced(); refreshWidgetsDebounced() } }
     var itemPreferences:       [String: ItemPreference] = [:] { didSet { saveDebounced("itemPrefs_v1", itemPreferences) } }
-    var pastMeals:             [LocalPastMeal]      = [] { didSet { saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
+    var pastMeals:             [LocalPastMeal]      = [] { didSet { pastMealsRevision &+= 1; saveDebounced(DBKey.pastMeals.rawValue, pastMeals) } }
     var plannedMeals: [PlannedMeal] = [] {
         didSet {
             invalidateReservedKeys()   // perf: reserved-ingredient cache follows the planner
@@ -306,8 +438,15 @@ class GuestDataStore {
                 let mutation = StoreMutationRecorder.delta(
                     oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(plannedMeals.map(\.id)),
                     changedIDs: changedIDs, entityType: .plannedMeal)
+                guard authorizeHouseholdMutation(mutation.operations) else {
+                    isStamping = true
+                    plannedMeals = oldValue
+                    isStamping = false
+                    return
+                }
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingMealTombstones.insert(id.uuidString) }
+                recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)
             }
@@ -327,9 +466,16 @@ class GuestDataStore {
                 let mutation = StoreMutationRecorder.delta(
                     oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(savedGeneratedRecipes.map(\.id)),
                     changedIDs: changedIDs, entityType: .generatedRecipe)
+                guard authorizeHouseholdMutation(mutation.operations) else {
+                    isStamping = true
+                    savedGeneratedRecipes = oldValue
+                    isStamping = false
+                    return
+                }
                 let oldIDs = mutation.oldIDs
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingGenRecipeTombstones.insert(id.uuidString) }
+                recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)
                 let rNew = Dictionary(keepingLastValues: savedGeneratedRecipes.map { ($0.id, $0) })
@@ -339,9 +485,21 @@ class GuestDataStore {
             pushHouseholdDebounced()
         }
     }
-    var priceHistory:          [PriceRecord]        = [] { didSet { saveDebounced(DBKey.priceHistory.rawValue, priceHistory) } }
+    var priceHistory:          [PriceRecord]        = [] {
+        didSet {
+            guard !isLoadingFromDisk else { return }
+            GrowthDatabase.shared.applyDelta(current: priceHistory, previous: oldValue,
+                                             collection: .priceHistory)
+        }
+    }
     var itemStoreHistory:      [String: String]     = [:] { didSet { saveDebounced("itemStoreHistory_v1", itemStoreHistory) } }
-    var consumptionLog:        [ConsumptionRecord]  = [] { didSet { saveDebounced(DBKey.consumptionLog.rawValue, consumptionLog) } }   // close-the-loop #1
+    var consumptionLog:        [ConsumptionRecord]  = [] {
+        didSet {
+            guard !isLoadingFromDisk else { return }
+            GrowthDatabase.shared.applyDelta(current: consumptionLog, previous: oldValue,
+                                             collection: .consumptionLog)
+        }
+    }   // close-the-loop #1
     var displayName: String = "" { didSet { ud.set(displayName, forKey: "guestName") } }
     var groceryDayOfWeek: Int = 6 { didSet { ud.set(groceryDayOfWeek, forKey: "groceryDay") } }
     var quizCompleted: Bool = false { didSet { ud.set(quizCompleted, forKey: "quizCompleted") } }
@@ -357,6 +515,8 @@ class GuestDataStore {
             pendingUserRecipeTombstones = tombstones.userRecipes
             pendingGenRecipeTombstones = tombstones.generatedRecipes
             pendingMealTombstones = tombstones.plannedMeals
+            householdTombstoneRevision = tombstones.revision
+            householdTombstoneDeletedAt = tombstones.deletedAt
         }
         load()
     }
@@ -374,16 +534,12 @@ class GuestDataStore {
     /// Force any pending debounced saves to disk immediately (called on background/terminate).
     func flushPendingSaves() { persistenceScheduler.flush() }
     private func save<T: Encodable>(_ key: String, value: T) {
-        guard let data = try? JSONEncoder().encode(value) else {
-            LocalDatabase.shared.save(value, key: key)   // still attempt disk write
-            return
-        }
-        LocalDatabase.shared.saveData(data, key: key)
-        if data.count <= Self.udMirrorMaxBytes {
-            ud.set(data, forKey: key)        // small → keep fast same-session mirror
-        } else {
-            ud.removeObject(forKey: key)     // large → drop stale mirror, read from disk
-        }
+        // Encoding is deliberately owned by LocalDatabase's utility queue. Encoding here
+        // ran on MainActor after the debounce and still froze large receipt/recipe batches.
+        LocalDatabase.shared.save(value, key: key)
+        // Collection files are authoritative. Removing a stale preferences mirror also keeps
+        // cfprefsd out of the large-value path and makes future launches use background hydration.
+        ud.removeObject(forKey: key)
     }
     /// Debounced variant of `save` for hot, frequently-mutated collections (#4).
     /// Takes the value directly (NOT an autoclosure): in a didSet the property is already in
@@ -415,38 +571,52 @@ class GuestDataStore {
         return LocalDatabase.shared.loadArray(Element.self, key: key) ?? []
     }
     private func load() {
-        isLoadingFromDisk = true
-        defer { isLoadingFromDisk = false }
+        // Small preference scalars are safe to make available immediately. Growth-heavy arrays
+        // are decoded from their files away from MainActor, allowing the first frame to render.
         displayName           = ud.string(forKey: "guestName") ?? ""
         quizCompleted         = ud.bool(forKey: "quizCompleted")
         cookingProfile        = (ud.data(forKey: DBKey.cookingProfile.rawValue).flatMap { try? JSONDecoder().decode(UserCookingProfile.self, from: $0) }) ?? UserCookingProfile()
         groceryDayOfWeek      = ud.integer(forKey: "groceryDay") == 0 ? 6 : ud.integer(forKey: "groceryDay")
-        // #6 — Run-once versioned migration instead of an every-launch inline transform.
-        let loadedInventory = loadDecodedArray(DBKey.inventoryItems.rawValue, of: LocalInventoryItem.self)
-            .filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
-        inventoryItems        = DBMigrations.migrateInventory(loadedInventory)
-        groceryItems          = DBMigrations.migrateGrocery(
-            loadDecodedArray(DBKey.groceryItems.rawValue, of: LocalGroceryItem.self)
-                .filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
-        )
-        itemPreferences       = loadDecoded("itemPrefs_v1", as: [String: ItemPreference].self) ?? [:]
-        pastMeals             = DBMigrations.migratePastMeals(
-            loadDecodedArray(DBKey.pastMeals.rawValue, of: LocalPastMeal.self)
-        )
-        plannedMeals          = loadDecodedArray(DBKey.plannedMeals.rawValue, of: PlannedMeal.self)
-        savedGeneratedRecipes = loadDecodedArray(DBKey.savedGeneratedRecipes.rawValue, of: GeneratedRecipe.self)
-        userRecipes           = DBMigrations.migrateRecipes(
-            loadDecodedArray(DBKey.userRecipes.rawValue, of: UserRecipe.self)
-        )
-        userSubstitutions     = loadDecodedArray("userSubstitutions_v1", of: UserSubstitutionEntry.self)
-        priceHistory          = loadDecodedArray(DBKey.priceHistory.rawValue, of: PriceRecord.self)
-        itemStoreHistory      = loadDecoded("itemStoreHistory_v1", as: [String: String].self) ?? [:]
-        consumptionLog        = loadDecodedArray(DBKey.consumptionLog.rawValue, of: ConsumptionRecord.self)
         stockGoalsConfigured  = ud.bool(forKey: "stockGoalsConfigured")
-        stockStaples          = loadDecodedArray("stockStaples_v1", of: String.self)
-        // #8 — Retention pruning so unbounded logs can't grow forever (each is fully
-        // rewritten on change, so size directly drives write cost).
+        Task { [weak self] in
+            let snapshot = await Task.detached(priority: .userInitiated) {
+                GuestDataDiskSnapshot.read()
+            }.value
+            self?.applyInitialSnapshot(snapshot)
+        }
+    }
+
+    private func applyInitialSnapshot(_ snapshot: GuestDataDiskSnapshot) {
+        isLoadingFromDisk = true
+        defer {
+            isLoadingFromDisk = false
+            hasCompletedInitialHydration = true
+            inventoryRevision &+= 1
+            groceryRevision &+= 1
+            recipeRevision &+= 1
+            planRevision &+= 1
+        }
+        inventoryItems = DBMigrations.migrateInventory(snapshot.inventory.filter {
+            !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
+        })
+        groceryItems = DBMigrations.migrateGrocery(snapshot.grocery.filter {
+            !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
+        })
+        itemPreferences = snapshot.preferences
+        pastMeals = DBMigrations.migratePastMeals(snapshot.pastMeals)
+        plannedMeals = snapshot.plannedMeals
+        savedGeneratedRecipes = snapshot.generatedRecipes
+        userRecipes = DBMigrations.migrateRecipes(snapshot.userRecipes)
+        userSubstitutions = snapshot.substitutions
+        priceHistory = snapshot.prices
+        itemStoreHistory = snapshot.storeHistory
+        consumptionLog = snapshot.consumption
+        stockStaples = snapshot.staples
         pruneRetainedData()
+        // One-time migration from the legacy whole-array JSON files. Future mutations update
+        // independent SQLite rows and no longer rewrite an ever-growing history document.
+        GrowthDatabase.shared.reconcile(priceHistory, collection: .priceHistory)
+        GrowthDatabase.shared.reconcile(consumptionLog, collection: .consumptionLog)
     }
 
     // MARK: - Retention (#8)
@@ -626,6 +796,13 @@ class GuestDataStore {
         // deleteAll() above, but the in-memory arrays weren't — and the next mutation/flush would
         // re-persist them. Reset the live singletons so a cleared kitchen can't come back.
         FeatureSync.shared.wipeAll()
+        CommunityPriceWatchStore.shared.clear()
+        do {
+            try FreeKitchenLocalReset.clearAllConnections()
+            UserDefaults.standard.removeObject(forKey: "stocked.freeConnections.resetWarning.v1")
+        } catch {
+            UserDefaults.standard.set("Some saved connection keys could not be removed. Unlock this device and retry removal in Free Kitchen Connections.", forKey: "stocked.freeConnections.resetWarning.v1")
+        }
         SyncConflictLog.shared.clear()
     }
 
@@ -635,7 +812,7 @@ class GuestDataStore {
         if GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name }) {
             let key = GroceryConsolidator.normalizeKey(name)
             if let idx = groceryItems.firstIndex(where: { GroceryConsolidator.normalizeKey($0.name) == key }) {
-                withAnimation { groceryItems[idx].quantity += 1 }
+                groceryItems[idx].quantity += 1
             }
             return
         }
@@ -651,7 +828,7 @@ class GuestDataStore {
                 : "Heads up — \(have.name.displayNormalized) is already in stock")
         }
         AppAnalytics.shared.log(.groceryItemAdded)
-        withAnimation { groceryItems.append(LocalGroceryItem(name: name, isChecked: false)) }
+        groceryItems.append(LocalGroceryItem(name: name, isChecked: false))
     }
     func renameInventoryItem(id: UUID, name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
@@ -675,12 +852,12 @@ class GuestDataStore {
     }
     func toggleGrocery(id: UUID) {
         if let i = groceryItems.firstIndex(where: { $0.id == id }) {
-            withAnimation { groceryItems[i].isChecked.toggle() }
+            groceryItems[i].isChecked.toggle()
             if groceryItems[i].isChecked { AppAnalytics.shared.log(.groceryItemChecked) }
         }
     }
     func removeGrocery(id: UUID) {
-        withAnimation { groceryItems.removeAll { $0.id == id } }
+        groceryItems.removeAll { $0.id == id }
     }
 
     /// #4 — canonical set of lowercased names currently in stock (level > 0). One place
@@ -713,8 +890,7 @@ class GuestDataStore {
         let rid = userRecipes.first(where: { $0.title == recipe })?.id.uuidString ?? ""   // #9
         let inStock = inStockNameSet
         var added = 0
-        withAnimation {
-            for ing in ingredients where !ing.isOptional {
+        for ing in ingredients where !ing.isOptional {
                 let n = ing.name.trimmingCharacters(in: .whitespaces)
                 guard !n.isEmpty else { continue }
                 let low = n.lowercased()
@@ -749,7 +925,6 @@ class GuestDataStore {
                     groceryItems.append(item)
                     added += 1
                 }
-            }
         }
         return added
     }
@@ -846,7 +1021,7 @@ class GuestDataStore {
         let existing = Set(inventoryItems.map(\.id))
         let toAdd = items.filter { !existing.contains($0.id) }
         guard !toAdd.isEmpty else { return }
-        withAnimation { inventoryItems.append(contentsOf: toAdd) }
+        inventoryItems.append(contentsOf: toAdd)
     }
 
     func addInventoryItem(_ item: LocalInventoryItem) {
@@ -863,8 +1038,7 @@ class GuestDataStore {
         // normalized name AND compatible unit), bump its quantity and refresh
         // metadata rather than creating a duplicate row.
         if let idx = inventoryItems.firstIndex(where: { Self.isSameItem($0, item) }) {
-            withAnimation {
-                inventoryItems[idx].quantity += max(1, item.quantity)
+            inventoryItems[idx].quantity += max(1, item.quantity)
                 inventoryItems[idx].level = 1.0            // restocked → full
                 inventoryItems[idx].lastConfirmedAt = Date()   // restock confirms it's here
                 // #B2 unit-aware math: when both rows carry a size and the units are
@@ -881,6 +1055,22 @@ class GuestDataStore {
                 if let s = item.storePurchasedAt { inventoryItems[idx].storePurchasedAt = s }
                 if let b = item.brand            { inventoryItems[idx].brand = b }
                 if let who = item.addedBy        { inventoryItems[idx].addedBy = who }
+                if let barcode = item.barcode    { inventoryItems[idx].barcode = barcode }
+                if let badge = item.sourceBadge,
+                   inventoryItems[idx].sourceBadge == nil
+                    || badge.confidence >= (inventoryItems[idx].sourceBadge?.confidence ?? 0) {
+                    inventoryItems[idx].sourceBadge = badge
+                }
+                if let incoming = item.fieldProvenance {
+                    var merged = inventoryItems[idx].fieldProvenance ?? [:]
+                    for (field, candidate) in incoming {
+                        if let current = merged[field],
+                           current.badge.confidence > candidate.badge.confidence,
+                           current.observedAt >= candidate.observedAt { continue }
+                        merged[field] = candidate
+                    }
+                    inventoryItems[idx].fieldProvenance = merged
+                }
                 // Extend expiry to the later of the two (fresher stock).
                 if let newExp = item.expirationDate {
                     if let cur = inventoryItems[idx].expirationDate {
@@ -889,12 +1079,13 @@ class GuestDataStore {
                         inventoryItems[idx].expirationDate = newExp
                     }
                 }
-            }
+            RetailEnrichmentMaintenance.enqueueInventoryItem(id: inventoryItems[idx].id, store: self)
             return
         }
         var stamped = item
         stamped.lastConfirmedAt = Date()   // freshly added = freshly confirmed
-        withAnimation { inventoryItems.append(stamped) }
+        inventoryItems.append(stamped)
+        RetailEnrichmentMaintenance.enqueueInventoryItem(id: stamped.id, store: self)
         // #B4 crowd shelf-life defaults — when the item arrives with no expiry, ask the
         // anonymized crowd DB how long this item typically lasts and fill a sensible
         // default. Applies only if the user still hasn't set a date by the time the
@@ -963,7 +1154,7 @@ class GuestDataStore {
     func updateInventoryLevel(id: UUID, level: Double) {
         if let i = inventoryIndex(of: id) {   // #5 — O(1) lookup instead of firstIndex scan
             let was = inventoryItems[i].level
-            withAnimation { inventoryItems[i].level = level }
+            inventoryItems[i].level = level
             inventoryItems[i].lastConfirmedAt = Date()   // #A3 — touching the level confirms it's real
             // Close-the-loop #1/#2 — if it just hit empty, log consumption + restock grocery.
             if was > 0 && level <= 0 { handleDepleted(inventoryItems[i]) }
@@ -976,11 +1167,9 @@ class GuestDataStore {
     /// not a UI-only dismissal.
     func freezeItem(id: UUID, extendDays: Int = 60) {
         guard let i = inventoryIndex(of: id) else { return }
-        withAnimation {
-            inventoryItems[i].storageCategory = .freezer
-            let base = inventoryItems[i].expirationDate ?? Date()
-            inventoryItems[i].expirationDate = base.addingTimeInterval(Double(extendDays) * 86400)
-        }
+        inventoryItems[i].storageCategory = .freezer
+        let base = inventoryItems[i].expirationDate ?? Date()
+        inventoryItems[i].expirationDate = base.addingTimeInterval(Double(extendDays) * 86400)
     }
 
     // MARK: - Daily Brief snooze
@@ -1061,11 +1250,10 @@ class GuestDataStore {
 
     // MARK: - Household role gating (#E3)
 
-    /// Kids can use up and add, but not delete inventory — deletion asks an adult.
-    /// Returns true when the current member may remove items.
+    /// Preserve the existing early delete nudge while consuming the same fine-grained policy as
+    /// the array mutation boundary. Solo kitchens remain unrestricted through `can`.
     private var canDeleteInventory: Bool {
-        let role = HouseholdSync.shared.myAccessRole
-        return role != .kid
+        HouseholdSync.shared.can(.inventoryRemove)
     }
 
     // MARK: - Siri "I used X" handoff (#drift)
@@ -1147,7 +1335,7 @@ class GuestDataStore {
     /// Pantry Check "Yes, still have it" — refreshes the confirmation stamp.
     func confirmInventoryItem(id: UUID) {
         if let i = inventoryIndex(of: id) {
-            withAnimation { inventoryItems[i].lastConfirmedAt = Date() }
+            inventoryItems[i].lastConfirmedAt = Date()
         }
     }
 
@@ -1185,7 +1373,7 @@ class GuestDataStore {
                 wasted: true, estimatedValue: item.price))
             if consumptionLog.count > 1000 { consumptionLog = Array(consumptionLog.suffix(1000)) }
         }
-        withAnimation { inventoryItems.removeAll { $0.id == id } }
+        inventoryItems.removeAll { $0.id == id }
     }
     /// #16 Remove several inventory items with an Undo toast. Captures the removed items and
     /// restores them (with their original ids) if the user taps Undo before the toast expires.
@@ -1197,11 +1385,11 @@ class GuestDataStore {
         }
         let removed = inventoryItems.filter { ids.contains($0.id) }
         guard !removed.isEmpty else { return }
-        withAnimation { inventoryItems.removeAll { ids.contains($0.id) } }
+        inventoryItems.removeAll { ids.contains($0.id) }
         let msg = label ?? "Removed \(removed.count) item\(removed.count == 1 ? "" : "s")"
         ToastCenter.shared.undo(msg) { [weak self] in
             guard let self else { return }
-            withAnimation { self.inventoryItems.append(contentsOf: removed) }
+            self.inventoryItems.append(contentsOf: removed)
         }
     }
     /// #12 Score a set of recipe ingredient names by how many are currently in inventory (0…1).
@@ -1297,7 +1485,7 @@ class GuestDataStore {
                 lower.contains($0.name.lowercased()) || $0.name.lowercased().contains(lower)
             }) {
                 let was = inventoryItems[i].level
-                withAnimation { inventoryItems[i].level = max(0, inventoryItems[i].level - 0.25) }
+                inventoryItems[i].level = max(0, inventoryItems[i].level - 0.25)
                 if was > 0 && inventoryItems[i].level <= 0 { handleDepleted(inventoryItems[i]) }
             }
         }
@@ -1484,13 +1672,16 @@ class GuestDataStore {
     }
 
     func classifiableCatalog(discover: [OnlineRecipe] = []) -> [UserRecipe] {
-        let mine = cookCatalog
+        // Apply the shared quality boundary to already-saved rows as well as newly
+        // discovered recipes. This removes old roundup/category pages from Cook Now
+        // immediately without waiting for them to be re-imported.
+        let mine = cookCatalog.filter { RecipeQuality.hasMeaningfulTitle($0.title) }
         var seen = Set(mine.map { OnlineRecipeFacts.normalizedTitle($0.title) })
 
         var generated: [UserRecipe] = []
         for g in savedGeneratedRecipes where !g.isHidden {
             let key = OnlineRecipeFacts.normalizedTitle(g.title)
-            guard !key.isEmpty, !seen.contains(key) else { continue }
+            guard RecipeQuality.hasMeaningfulTitle(g.title), !seen.contains(key) else { continue }
             seen.insert(key)
             generated.append(RecipeAdapter.userRecipe(from: g))
         }
@@ -1610,9 +1801,7 @@ class GuestDataStore {
         // #17 — accent/case-insensitive dedup.
         let exists = GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name })
         guard !exists else { return }
-        withAnimation {
-            groceryItems.append(LocalGroceryItem(name: name, isChecked: false, isRecommended: recommended))
-        }
+        groceryItems.append(LocalGroceryItem(name: name, isChecked: false, isRecommended: recommended))
     }
     /// Same as above but records which recipe the item came from. Used by the recipe and
     /// meal-plan screens so the "added from <recipe>" provenance is preserved while the dedup
@@ -1621,10 +1810,8 @@ class GuestDataStore {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         guard !GroceryDedup.isDuplicate(trimmed, in: groceryItems.map { $0.name }) else { return }
-        withAnimation {
-            groceryItems.append(LocalGroceryItem(name: trimmed, isChecked: false,
-                                                 isRecommended: recommended, recipeSource: recipeSource))
-        }
+        groceryItems.append(LocalGroceryItem(name: trimmed, isChecked: false,
+                                             isRecommended: recommended, recipeSource: recipeSource))
     }
 
     /// #3 — build the grocery list from the week's planned meals: gather every planned
@@ -1642,11 +1829,9 @@ class GuestDataStore {
                 let haveInStock = KitchenAvailability.isPresent(low, inNames: inStock)
                 let onList = groceryItems.contains { $0.name.lowercased() == low }
                 if !haveInStock && !onList {
-                    withAnimation {
-                        groceryItems.append(LocalGroceryItem(name: n, isChecked: false,
-                                                             isRecommended: true,
-                                                             recipeSource: meal.title))
-                    }
+                    groceryItems.append(LocalGroceryItem(name: n, isChecked: false,
+                                                         isRecommended: true,
+                                                         recipeSource: meal.title))
                     added += 1
                 }
             }
@@ -1668,7 +1853,7 @@ class GuestDataStore {
             inv.addedBy = who
             addInventoryItem(inv)             // merges if it already exists (#2/#18)
         }
-        withAnimation { groceryItems.removeAll { $0.isChecked } }
+        groceryItems.removeAll { $0.isChecked }
         return checked.count
     }
 
@@ -1686,7 +1871,7 @@ class GuestDataStore {
         if finish {
             updateInventoryLevel(id: id, level: 0)        // triggers depletion logging + auto-grocery
         } else if inventoryItems[idx].quantity > 1 {
-            withAnimation { inventoryItems[idx].quantity -= 1 }
+            inventoryItems[idx].quantity -= 1
         } else {
             updateInventoryLevel(id: id, level: 0)
         }
@@ -1696,7 +1881,7 @@ class GuestDataStore {
     /// #4 — toggle a saved generated recipe as a favorite.
     func toggleRecipeFavorite(id: UUID) {
         if let i = savedGeneratedRecipes.firstIndex(where: { $0.id == id }) {
-            withAnimation { savedGeneratedRecipes[i].isFavorited.toggle() }
+            savedGeneratedRecipes[i].isFavorited.toggle()
         }
     }
     var favoriteRecipes: [GeneratedRecipe] { savedGeneratedRecipes.filter { $0.isFavorited } }
@@ -1897,9 +2082,16 @@ class GuestDataStore {
                 let mutation = StoreMutationRecorder.delta(
                     oldIDs: Set(oldValue.map(\.id)), currentIDs: Set(userRecipes.map(\.id)),
                     changedIDs: changedIDs, entityType: .userRecipe)
+                guard authorizeHouseholdMutation(mutation.operations) else {
+                    isStamping = true
+                    userRecipes = oldValue
+                    isStamping = false
+                    return
+                }
                 let oldIDs = mutation.oldIDs
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingUserRecipeTombstones.insert(id.uuidString) }
+                recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)
                 let urNew = Dictionary(keepingLastValues: userRecipes.map { ($0.id, $0) })
@@ -1917,7 +2109,8 @@ class GuestDataStore {
         // passes through here, so blank/whitespace steps are dropped once, centrally —
         // no recipe can render an empty numbered instruction row.
         var r = recipeIn
-        guard r.imageData != nil
+        guard (r.portableSource != nil && r.instructions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                || r.imageData != nil
                 || r.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         r.instructions = r.instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -1928,7 +2121,7 @@ class GuestDataStore {
         // the user sees the raw version instantly and it quietly improves moments later.
         let looksBroken = (r.instructions.isEmpty && !r.description.isEmpty)
             || (r.instructions.count == 1 && (r.instructions.first?.count ?? 0) > 350)
-        if looksBroken, RecipeImportAI.isAvailable {
+        if looksBroken, r.portableSource == nil, RecipeImportAI.isAvailable {
             let recipeID = r.id
             let raw = RecipeImportAI.composeRawText(
                 title: r.title, description: r.description,
@@ -1987,7 +2180,8 @@ class GuestDataStore {
     }
     func updateUserRecipe(_ recipeIn: UserRecipe) {
         var r = recipeIn
-        guard r.imageData != nil
+        guard (r.portableSource != nil && r.instructions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                || r.imageData != nil
                 || r.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
         r.instructions = r.instructions
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -2108,21 +2302,65 @@ class GuestDataStore {
     /// Canonical expired list.
     var expiredItems: [LocalInventoryItem] { inventoryItems.filter(\.isExpired) }
 
-    /// The one metrics snapshot every screen reads. Building it is a few cheap passes.
-    var metrics: KitchenMetrics {
+    /// The one metrics snapshot every screen reads.
+    ///
+    /// Recipe readiness is intentionally optional: matching every recipe against a large
+    /// restored inventory is substantially more expensive than the inventory-only metrics.
+    /// Screens that do not display `mealsReady` must use `lightweightMetrics` so navigation
+    /// and the first frame never wait for the recipe classifier.
+    var lightweightMetrics: KitchenMetrics { cachedMetrics(includeMealsReady: false) }
+    var metrics: KitchenMetrics { cachedMetrics(includeMealsReady: true) }
+
+    private func cachedMetrics(includeMealsReady: Bool) -> KitchenMetrics {
+        let today = Calendar.current.startOfDay(for: Date())
+        let cached = includeMealsReady ? completeMetricsCache : lightweightMetricsCache
+        if let cached,
+           cached.matches(inventory: inventoryRevision,
+                          grocery: groceryRevision,
+                          recipes: recipeRevision,
+                          plans: planRevision,
+                          day: today) {
+            return cached.value
+        }
+
+        let value = makeMetrics(includeMealsReady: includeMealsReady)
+        let snapshot = MetricsCache(inventoryRevision: inventoryRevision,
+                                    groceryRevision: groceryRevision,
+                                    recipeRevision: recipeRevision,
+                                    planRevision: planRevision,
+                                    calendarDay: today,
+                                    value: value)
+        if includeMealsReady {
+            completeMetricsCache = snapshot
+        } else {
+            lightweightMetricsCache = snapshot
+        }
+        return value
+    }
+
+    private func makeMetrics(includeMealsReady: Bool) -> KitchenMetrics {
         var m = KitchenMetrics()
         m.totalItems        = inventoryItems.count
         m.stockPercent      = stockPercent
-        m.mealsReady        = availableMeals
-        m.expiringSoonCount = expiringSoonItems.count
-        m.expiredCount      = inventoryItems.reduce(0) { $0 + ($1.isExpired ? 1 : 0) }
-        m.lowStockCount     = lowStockItems.count
-        m.freshCount        = inventoryItems.reduce(0) { acc, it in
-            if let d = it.daysUntilExpiry { return acc + (d > KitchenThresholds.expiringSoonDays ? 1 : 0) }
-            return acc + (it.effectiveLevel > 0 ? 1 : 0)
+        if includeMealsReady { m.mealsReady = availableMeals }
+        // Home reads this snapshot often. Keep all inventory aggregates in one pass so a
+        // large household does not trigger four full collection scans per render.
+        for item in inventoryItems {
+            if item.isExpiringSoon() { m.expiringSoonCount += 1 }
+            if item.isExpired { m.expiredCount += 1 }
+            if item.isLow { m.lowStockCount += 1 }
+            if let days = item.daysUntilExpiry {
+                if days > KitchenThresholds.expiringSoonDays { m.freshCount += 1 }
+            } else if item.effectiveLevel > 0 {
+                m.freshCount += 1
+            }
         }
         m.groceryToBuy      = groceryItems.reduce(0) { $0 + ($1.isChecked ? 0 : 1) }
         m.groceryRunDays    = groceryRunDays
+        m.favoriteRecipeCount = userRecipes.reduce(favoriteRecipes.count) {
+            $0 + ($1.isFavorited ? 1 : 0)
+        }
+        m.plannedMealCount = plannedMeals.reduce(0) { $0 + ($1.isCooked ? 0 : 1) }
         return m
     }
     var groceryRunLabel: String {

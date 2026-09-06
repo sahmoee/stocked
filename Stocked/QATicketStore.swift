@@ -34,6 +34,7 @@
 import SwiftUI
 import UIKit
 import Observation
+import ImageIO
 
 // MARK: - Model
 
@@ -75,7 +76,7 @@ nonisolated enum QATicketStatus: String, Codable, Sendable, CaseIterable, Identi
         switch self {
         case .open:          return "Open"
         case .investigating: return "Investigating"
-        case .fixed:         return "Fixed"
+        case .fixed:         return "Completed"
         case .verified:      return "Verified"
         case .wontFix:       return "Won't fix"
         }
@@ -89,7 +90,7 @@ nonisolated enum QATicketStatus: String, Codable, Sendable, CaseIterable, Identi
         case .wontFix:       return "slash.circle"
         }
     }
-    var isClosed: Bool { self == .verified || self == .wontFix }
+    var isClosed: Bool { self == .fixed || self == .verified || self == .wontFix }
 }
 
 /// Everything the app knew at the moment the ticket was raised. Captured
@@ -133,10 +134,16 @@ nonisolated struct QATicketContext: Codable, Sendable {
     /// `Codable` throws on a missing key rather than defaulting, and the decode
     /// of the saved ticket list is inside a `try?`.
     var environment: [String]?
+    var identity: QAReportIdentity?
 
     var summaryLines: [String] {
         var out: [String] = []
         out.append("screen: \(screen)")
+        if let identity {
+            out.append("tester/device: \(identity.label)")
+            out.append("type: \(identity.deviceFamily) · hardware: \(identity.modelIdentifier.isEmpty ? "not recorded" : identity.modelIdentifier)")
+            if !identity.installationID.isEmpty { out.append("QA device: \(identity.installationID)") }
+        } else { out.append("tester: unassigned (legacy report)") }
         out.append("build: \(appVersion) (\(build)) · \(device) · \(os)")
         out.append(String(format: "memory: %.0f MB · thermal: %@%@ · %@",
                           memoryMB, thermal, lowPower ? " · low power" : "",
@@ -177,6 +184,8 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
     var title: String
     var body: String = ""
     var origin: QATicketOrigin?
+    var regressionDetectedAt: Date?
+    var automaticCheckID: String?
     var severity: QATicketSeverity = .major
     var status: QATicketStatus = .open
     var createdAt: Date = Date()
@@ -299,11 +308,15 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
 
     var summaryLine: String { summary() }
 
-    var originPhrase: String { (origin ?? .tester).phrase }
+    var needsAttention: Bool { QATicketLifecycle.needsAttention(status: status.rawValue, manualReview: requiresManualReview == true) }
+    var statusLabel: String { status == .fixed && requiresManualReview == true ? "Fixed · review needed" : status.title }
+    var originPhrase: String {
+        (origin == .automatic ? "raised automatically" : "reported") + " · " + (context.identity?.testerLabel ?? "Unassigned tester")
+    }
 
     var exportText: String {
         var out = ["── \(number) ──",
-                   "\(severity.title) · \(status.title) · \(originPhrase) · \(createdAt.formatted())",
+                   "\(severity.title) · \(statusLabel) · \(originPhrase) · \(createdAt.formatted())",
                    title]
         if requiresManualReview == true { out.append("⚠ REQUIRES MANUAL REVIEW — ask the tester for specifics before changing code") }
         if !body.isEmpty { out.append(""); out.append(body) }
@@ -361,6 +374,7 @@ final class QATicketStore {
     private let cap = 200
 
     private nonisolated static let ticketsKey = "qa.tickets.v1"
+    private nonisolated static let ticketsDiskKey = "qa.tickets.v2"
     private nonisolated static let seqKey     = "qa.ticket.sequence.v1"
 
     // Build 84 - see save(): the encode-and-write is coalesced and off-main.
@@ -383,7 +397,8 @@ final class QATicketStore {
         let d = UserDefaults.standard
         let next = d.integer(forKey: Self.seqKey) + 1
         d.set(next, forKey: Self.seqKey)
-        return String(format: "STK-%d-%04d", BuildConfig.buildNumber, next)
+        return QAReportIdentity.ticketNumber(build: BuildConfig.buildNumber, sequence: next,
+            installationID: QAIdentityStore.shared.installationID)
     }
 
     // MARK: Creating
@@ -398,6 +413,7 @@ final class QATicketStore {
               requiresManualReview: Bool = false,
               context: QATicketContext,
               origin: QATicketOrigin = .tester,
+              automaticCheckID: String? = nil,
               screenshot: UIImage? = nil) -> QATicket {
         // Build 73: attach the touch trail here rather than in `QAContextCapture`,
         // so it lands on tickets the runtime monitor raises by itself as well as
@@ -406,6 +422,7 @@ final class QATicketStore {
         // that captured its own trail at gesture time (before the sheet animated
         // in and started collecting taps of its own) keeps it.
         var context = context
+        if context.identity == nil { context.identity = QAIdentityStore.shared.capture() }
         if context.touchTrail == nil {
             let trail = QATouchTrail.shared.summaryLine()
             if !trail.isEmpty { context.touchTrail = trail }
@@ -426,17 +443,30 @@ final class QATicketStore {
                               severity: severity,
                               context: context)
         ticket.requiresManualReview = requiresManualReview
-        if let screenshot { ticket.screenshotFile = saveScreenshot(screenshot, for: ticket.id) }
+        ticket.automaticCheckID = automaticCheckID
 
         // Build 74: does this repeat something already open? The new ticket is
         // filed either way — a report a tester typed is never silently swallowed,
         // because they may have added the one detail that cracks it — but it is
         // stamped, and the original's counter goes up so the *original* is what
         // says "this keeps happening".
-        if let original = QADuplicateFinder.match(title: ticket.title,
+        let sameDevice = tickets.filter { QAReportIdentity.sameOrigin($0.context.identity, context.identity) }
+        // Only a NEW observation from this tester/device can reopen a completed
+        // automatic check. Never reopen from a historical failure stored in a report.
+        let regression = sameDevice.first {
+            QATicketLifecycle.shouldReopen(status: $0.status.rawValue, manualReview: $0.requiresManualReview == true,
+                automatic: origin == .automatic && $0.origin == .automatic, sameOrigin: true,
+                sameCheck: (automaticCheckID != nil && $0.automaticCheckID == automaticCheckID)
+                    || (automaticCheckID == nil && $0.title == ticket.title && $0.context.screen == context.screen))
+        }
+        let activeCheck = sameDevice.first {
+            origin == .automatic && $0.origin == .automatic && $0.needsAttention
+                && automaticCheckID != nil && $0.automaticCheckID == automaticCheckID
+        }
+        if let original = activeCheck ?? regression ?? QADuplicateFinder.match(title: ticket.title,
                                                   body: ticket.body,
                                                   screen: context.screen,
-                                                  among: tickets) {
+                                                  among: sameDevice) {
             ticket.duplicateOf = original.number
             if let i = tickets.firstIndex(where: { $0.id == original.id }) {
                 tickets[i].seenAgain = (tickets[i].seenAgain ?? 0) + 1
@@ -455,7 +485,19 @@ final class QATicketStore {
                 // for the same screen-level freeze every minute. Tester-authored
                 // reports are still always preserved separately.
                 if origin == .automatic && original.origin == .automatic {
+                    if !original.needsAttention {
+                        tickets[i].status = .open
+                        tickets[i].regressionDetectedAt = Date()
+                        tickets[i].verifiedAt = nil
+                    }
                     tickets[i].context = context
+                    // Keep the original report and its resolution; refresh the
+                    // captured evidence without leaving a discarded ticket image.
+                    if let screenshot {
+                        tickets[i].screenshotFile = saveScreenshot(screenshot, for: original.id)
+                        tickets[i].shotSyncedAt = nil
+                    }
+                    tickets[i].automaticCheckID = automaticCheckID ?? tickets[i].automaticCheckID
                     if severity.rank < tickets[i].severity.rank {
                         tickets[i].severity = severity
                     }
@@ -471,6 +513,7 @@ final class QATicketStore {
 
         // Build 74: whatever test run is open owns this ticket.
         ticket.runID = QARunLog.shared.currentID
+        if let screenshot { ticket.screenshotFile = saveScreenshot(screenshot, for: ticket.id) }
 
         tickets.insert(ticket, at: 0)
         if tickets.count > cap { trim() }
@@ -513,6 +556,12 @@ final class QATicketStore {
     }
 
     // MARK: Mutating
+
+    func assignTester(_ id: UUID, tester: QATester) {
+        update(id) { ticket in
+            ticket.context.identity = (ticket.context.identity ?? .legacy(device: ticket.context.device)).assigning(tester)
+        }
+    }
 
     func update(_ id: UUID, _ mutate: (inout QATicket) -> Void) {
         guard let i = tickets.firstIndex(where: { $0.id == id }) else { return }
@@ -589,13 +638,17 @@ final class QATicketStore {
     }
 
     func setStatus(_ id: UUID, _ status: QATicketStatus) {
+        // `update(_:_:)` already clears the sync stamps and, when auto-publish
+        // is on, schedules its own `Task { syncEverywhere(id) }` (see above).
+        // This used to schedule a second, independent sync task after `update`
+        // returned, so every status change fired two concurrent fan-outs to
+        // the Worker/cPanel/folder mirror for the same ticket — a double POST,
+        // a double multipart upload, and two overlapping mirror writes racing
+        // each other. Only record the note here; let `update` own the sync.
         update(id) { $0.status = status }
         if let t = tickets.first(where: { $0.id == id }) {
             QARecorder.shared.record(.note, screen: "QA",
                                      label: "\(t.number) → \(status.title)")
-            if QABackgroundRunner.shared.autoPublish {
-                Task { await QASyncCoordinator.shared.syncEverywhere(id) }
-            }
         }
     }
 
@@ -641,8 +694,8 @@ final class QATicketStore {
 
     // MARK: Derived
 
-    var open: [QATicket] { tickets.filter { !$0.status.isClosed } }
-    var blockers: [QATicket] { tickets.filter { $0.severity == .blocker && !$0.status.isClosed } }
+    var open: [QATicket] { tickets.filter(\.needsAttention) }
+    var blockers: [QATicket] { tickets.filter { $0.severity == .blocker && $0.needsAttention } }
     /// Missing any required/configured destination, not merely the Worker.
     var unsynced: [QATicket] { tickets.filter { !$0.isFullySynced } }
 
@@ -667,10 +720,12 @@ final class QATicketStore {
                     || t.title.lowercased().contains(q)
                     || t.body.lowercased().contains(q)
                     || t.number.lowercased().contains(q)
-                    || t.context.screen.lowercased().contains(q))
+                    || t.context.screen.lowercased().contains(q)
+                    || (t.context.identity?.label.lowercased().contains(q) ?? false)
+                    || (t.context.identity?.modelIdentifier.lowercased().contains(q) ?? false))
         }
         .sorted {
-            if $0.status.isClosed != $1.status.isClosed { return !$0.status.isClosed }
+            if $0.needsAttention != $1.needsAttention { return $0.needsAttention }
             if $0.severity.rank != $1.severity.rank { return $0.severity.rank < $1.severity.rank }
             return $0.createdAt > $1.createdAt
         }
@@ -692,9 +747,7 @@ final class QATicketStore {
         saveTask?.cancel()
         saveTask = Task.detached(priority: .utility) {
             guard !Task.isCancelled else { return }
-            guard let data = try? JSONEncoder().encode(snapshot) else { return }
-            guard !Task.isCancelled else { return }
-            UserDefaults.standard.set(data, forKey: Self.ticketsKey)
+            LocalDatabase.shared.save(snapshot, key: Self.ticketsDiskKey)
         }
     }
 
@@ -707,9 +760,67 @@ final class QATicketStore {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey),
-              let decoded = try? JSONDecoder().decode([QATicket].self, from: data) else { return }
-        tickets = decoded
+        if let decoded = LocalDatabase.shared.loadArray(QATicket.self, key: Self.ticketsDiskKey) {
+            tickets = decoded
+            return
+        }
+        guard let data = UserDefaults.standard.data(forKey: Self.ticketsKey) else { return }
+
+        // Fast path: the common case, every ticket decodes cleanly.
+        if let decoded = try? JSONDecoder().decode([QATicket].self, from: data) {
+            tickets = decoded
+            LocalDatabase.shared.save(decoded, key: Self.ticketsDiskKey)
+            UserDefaults.standard.removeObject(forKey: Self.ticketsKey)
+            return
+        }
+
+        // The array used to decode as one unit: a single malformed or
+        // truncated ticket (a bad write, a future non-Optional field added
+        // without remembering to make it Optional) threw, `try?` swallowed
+        // it, and every OTHER ticket — including anything filed by other
+        // tools writing into this same store, such as automated ticket
+        // fixers — was silently dropped along with it. Fall back to
+        // decoding element-by-element so one bad ticket only costs that one
+        // ticket, never the whole history. This only changes local recovery
+        // behavior; it doesn't touch sync, triage, or any network path, so
+        // it can't affect in-flight work from another tool against the same
+        // ticket store.
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            QARecorder.shared.record(.note, screen: "QA",
+                                     label: "ticket store unreadable",
+                                     detail: "top-level JSON was not an array of objects; kept in place, not overwritten")
+            return
+        }
+
+        var recovered: [QATicket] = []
+        var lostCount = 0
+        let decoder = JSONDecoder()
+        for element in raw {
+            guard let elementData = try? JSONSerialization.data(withJSONObject: element),
+                  let ticket = try? decoder.decode(QATicket.self, from: elementData) else {
+                lostCount += 1
+                continue
+            }
+            recovered.append(ticket)
+        }
+
+        tickets = recovered
+        if !recovered.isEmpty {
+            LocalDatabase.shared.save(recovered, key: Self.ticketsDiskKey)
+            // Retain the legacy blob only when nothing could be recovered; otherwise the
+            // corruption-tolerant disk store is now the authoritative copy.
+            UserDefaults.standard.removeObject(forKey: Self.ticketsKey)
+        }
+        if lostCount > 0 {
+            QARecorder.shared.record(.note, screen: "QA",
+                                     label: "ticket store partially recovered",
+                                     detail: "\(recovered.count) tickets recovered, \(lostCount) could not be decoded and were dropped")
+        }
+        // Do not `save()` here: writing the recovered subset back out before
+        // anything else touches the store would make the drop permanent on
+        // disk even if the "bad" tickets were actually fine and the failure
+        // was something transient. Leave the on-disk copy as-is; the next
+        // real mutation persists the recovered set naturally.
     }
 
     /// Resolution registry compiled into the build. This is how an agent's fix
@@ -719,6 +830,8 @@ final class QATicketStore {
     private func applyShippedResolutions() {
         var changed = false
         for index in tickets.indices where tickets[index].status != .verified {
+            guard tickets[index].regressionDetectedAt == nil, (tickets[index].refileCount ?? 0) == 0,
+                  tickets[index].requiresManualReview != true else { continue }
             guard let text = Self.shippedResolution(for: tickets[index]) else { continue }
             guard tickets[index].status != .fixed || tickets[index].resolution != text else { continue }
             tickets[index].status = .fixed
@@ -734,11 +847,65 @@ final class QATicketStore {
     }
 
     nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
+        let build195Resolutions: [String: String] = [
+            "STK-155-0187-D6DDC84301174919": "Deferred automatic QA classification until after Home settles and filtered incomplete catalogue rows before the expensive matching pass. This removes two identified launch-time contention paths; the report has no sampled stack proving a single cause. Generic iPhone/iPad device build and test-bundle compilation passed. Physical-device verification pending.",
+            "STK-149-0183-D6DDC84301174919": "Deferred automatic QA classification until after Home settles and filtered incomplete catalogue rows before the expensive matching pass. This removes two identified launch-time contention paths; the report has no sampled stack proving a single cause. Generic iPhone/iPad device build and test-bundle compilation passed. Physical-device verification pending.",
+            "STK-192-0210-D6DDC84301174919": "Source-attributed, image-complete recipes from Stocked Mac, Stocked server, and import caches now contribute automatically to the shared Recipe Database. Source-less personal creations remain in My Collection. Generic iPhone/iPad device build and import checks passed. Physical-device verification pending.",
+            "STK-192-0209-D6DDC84301174919": "Reduced the Recipe Results search field to the standard compact 44-point control with tighter padding and corner radius. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0208-D6DDC84301174919": "Centralized recipe title cleanup to remove list numbers, stray punctuation, and promotional leading adjectives, and rejected generic roundup pages before ingestion or display. Generic iPhone/iPad device build and finder checks passed. Physical-device verification pending.",
+            "STK-192-0207-D6DDC84301174919": "Removed automatic Recipe Results keyboard focus and removed recipe-count copy from buttons, headings, status rows, and announcements while loading continues in the background. Generic iPhone/iPad device build and finder checks passed. Physical-device verification pending.",
+            "STK-192-0206-D6DDC84301174919": "Connected the reusable Inventory collection scroll position to its upper content so the hero, plan strip, actions, tabs, and title collapse as the list moves up and return at the top. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0205-D6DDC84301174919": "Cook Now now classifies only complete displayable recipes and keeps food and drink results in explicit lists, preventing unusable catalogue stubs from consuming the result window. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0204-D6DDC84301174919": "Applied one image-complete recipe policy before Cook Now sections are displayed, so image-less recipes are excluded rather than rendered as broken cards. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0203-D6DDC84301174919": "A new Find a Recipe entry now resets the complete finder flow before applying direct-search state, preventing an earlier cuisine such as Indian from leaking into Bold and Spicy results. Generic iPhone/iPad device build and finder checks passed. Physical-device verification pending.",
+            "STK-192-0202-D6DDC84301174919": "Added a Food/Drinks segmented control to Cook Now whenever drink recipes are available and filter every readiness section consistently. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0201-D6DDC84301174919": "Cook Now now removes incomplete rows before classification so valid recipes occupy the bounded result tiers; each tier continues to expose up to twelve real matches. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0200-D6DDC84301174919": "Recipe discovery and Cook Now now share an image-complete display gate, excluding recipes without usable image data or a valid recipe image URL. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0199-D6DDC84301174919": "Build Around Food now searches both the writable database and the full local SQLite catalogue for every ingredient term, raises publisher coverage, deduplicates titles, and ranks complete matches. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0198-D6DDC84301174919": "Build Around Food now requires a meaningful title, at least three ingredients, instructions, and a usable image before ranking, excluding generic ingredient and roundup pages. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0197-D6DDC84301174919": "Rejected branded placeholder artwork, incomplete pages, generic roundup titles, and ingredient-only records at the common recipe display boundary; visible titles use the same cleanup policy. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-192-0196-D6DDC84301174919": "Reduced Cook Now work by filtering incomplete rows before substitution indexing, delayed foreground QA contention, and retained detached cancellable classification. Generic iPhone/iPad device build passed; the report has no sampled stack proving a single cause. Physical-device verification pending.",
+            "STK-155-0186-D6DDC84301174919": "Inventory artwork remains aspect-fitted inside bounded hero geometry, and scrolling now collapses the complete upper presentation before list rows move into its space. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-155-0185-D6DDC84301174919": "Reduced Inventory foreground contention by delaying automatic QA classification, filtering incomplete catalogue rows before matching, and preserving the reusable UICollectionView list. Generic iPhone/iPad device build passed; the report has no sampled stack proving a single cause. Physical-device verification pending."
+        ]
+        if let resolution = build195Resolutions[ticket.number] { return resolution }
+        let carriedOpenResolutions: [String: String] = [
+            "STK-89-0140": "Downloaded recipe search runs concurrently with publisher discovery and publishes usable cached matches before optional networking finishes. Generation guards reject obsolete updates. Generic iPhone/iPad device build and 144 native finder checks passed. Physical-device verification pending.",
+            "STK-89-0141": "One globally sorted Recipe Results list merges downloaded and website matches while deduplicating canonical sources; publisher credit remains on each card. Generic iPhone/iPad device build and 144 native finder checks passed. Physical-device verification pending.",
+            "STK-89-0142": "Recipe Results uses one shared search without source-picker controls or separate database headings; availability notices remain when a source cannot be reached. Generic iPhone/iPad device build and 144 native finder checks passed. Physical-device verification pending.",
+            "STK-89-0135": "The complete downloaded catalogue participates in unified search with website discovery, specific Jamaican/Caribbean matching, strict safety filters, and honest opt-in alternatives. Generic iPhone/iPad device build and 144 native finder checks passed. Physical-device verification pending.",
+            "STK-89-0130": "Home uses the enlarged shared Stock Level artwork geometry with width-adaptive phone, tablet, and accessibility sizing. Generic iPhone/iPad device build and test-bundle compilation passed. Physical-device verification pending.",
+            "STK-89-0120": "Recipe collections use bounded adaptive grids and the shared horizontal snapping behavior; Recipe Results itself uses a vertical adaptive grid rather than an incorrect horizontal rail. Generic iPhone/iPad device build passed. Physical-device verification pending.",
+            "STK-89-0098": "Stock Level uses the width-adaptive side-by-side artwork layout at standard text size and falls back vertically only when accessibility sizing requires it. Generic iPhone/iPad device build passed. Physical-device verification pending."
+        ]
+        if let resolution = carriedOpenResolutions[ticket.number] { return resolution }
+        let artworkResolutions: [String: String] = [
+            "STK-149-0182-D6DDC84301174919": "Replaced the stretched atlas cell with a complete centered watercolor refrigerator cutout, filling the category panel's illustration column with aspect-preserving fit and a 282-point scaled minimum height. Home and Inventory now reuse the same cutout family and renderer without multiply blending. Generic iOS build-for-testing passed. Physical-device verification pending.",
+            "STK-149-0181-D6DDC84301174919": "Removed QA capture's synchronous drawHierarchy GPU-readback path in favor of a 1x committed-layer composite, retaining ordinary UI and touch annotations; live blur/video capture is not guaranteed. Inventory artwork preparation and presentation-only reservation matching now run off-main with revision/cancellation guards. These fix identified blocking paths; the report contains no sampled stack to prove a unique cause. Generic iOS build-for-testing passed. Physical-device verification pending.",
+            "STK-149-0180-D6DDC84301174919": "Moved Home's bundled hero and widget illustration loading/display preparation out of SwiftUI layout into utility tasks, bounded thumbnails to 720 pixels, and reused the shared memory-pressure-aware cache with scroll gating. Inventory uses the same renderer, avoiding repeated full-atlas decode/compositing. This removes an identified first-render blocking path; reports contain no sampled stacks to prove a unique cause. Generic iOS build-for-testing passed. Physical-device verification pending.",
+            "STK-143-0178-67F35EE094B041D8": "Moved Home's bundled hero and widget illustration loading/display preparation out of SwiftUI layout into utility tasks, bounded thumbnails to 720 pixels, and reused the shared memory-pressure-aware cache with scroll gating. Inventory uses the same renderer, avoiding repeated full-atlas decode/compositing. This removes an identified first-render blocking path; reports contain no sampled stacks to prove a unique cause. Generic iOS build-for-testing passed. Physical-device verification pending.",
+        ]
+        if let resolution = artworkResolutions[ticket.number] { return resolution }
+        let septemberThemeAndPerformanceResolutions: [String: String] = [
+            "STK-134-0176-E54C79A8D3BF42BE": "Replaced Recipes' separate fixed off-white card fill with the shared semantic Stocked surface. The Recipes destination, finder, browser, saved-recipe, online-recipe, and preview cards now inherit the same coordinated light and dark surfaces as the rest of the app instead of changing to a mismatched palette. Theme token regression coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending.",
+            "STK-134-0175-E54C79A8D3BF42BE": "Applied one exact shared standard-text height to all three Recipes destination cards so My Collection's optional recipe count can no longer make that card larger than Ready to Cook or Past Meals. Accessibility text remains content-driven so enlarged copy is never clipped. Adaptive layout regression coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending.",
+            "STK-134-0174-E54C79A8D3BF42BE": "Removed invisible legacy Discover hydration, database refresh, and classification work from Recipes tab appearance. The redesigned destination-grid root now renders only its visible content; recipe catalog work starts on demand in the destination that uses it. Generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending.",
+            "STK-122-0162-E54C79A8D3BF42BE": "Moved Home's ready-to-cook recipe/expiry matching to one revision-keyed utility snapshot and reused its small result across widget sizing, recommendations, and content. SwiftUI no longer repeats the recipes-by-expiring-items scan during layout or root reconstruction. Deterministic ranking coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending.",
+            "STK-122-0161-E54C79A8D3BF42BE": "Separated blocking recipe loading from optional source enrichment. As soon as usable matches arrive, Recipe Results now shows a stable result count and normal controls while any remaining web/catalog check is identified as background work instead of leaving the screen continuously labeled as refreshing. Request-generation regression checks and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending.",
+            "STK-115-0144-E54C79A8D3BF42BE": "Throttled Recipe Results previews to the first usable result and meaningful paced growth instead of publishing and diffing a complete image-card grid up to five times per second during the detached corpus walk. Heavy query work remains off the main actor and obsolete generations stay cancellable. Native request-state checks and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending.",
+            "STK-115-0143-E54C79A8D3BF42BE": "Moved Home's ready-to-cook recipe/expiry matching to one revision-keyed utility snapshot and reused its small result across widget sizing, recommendations, and content. SwiftUI no longer repeats the recipes-by-expiring-items scan during layout or root reconstruction. Deterministic ranking coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+        ]
+        if let resolution = septemberThemeAndPerformanceResolutions[ticket.number] {
+            return resolution
+        }
+        if ticket.number == "STK-128-0170-E54C79A8D3BF42BE" {
+            return "Rebalanced the Inventory hero for phone geometry: the refrigerator now scales to fill the right side instead of sitting undersized inside a fixed-height slot, while the copy stays anchored on the left and accessibility text uses a vertical fallback. This removes the reported empty gap without clipping the artwork or controls. The QA accessibility sweep also ignores non-accessibility window, scroll-host, passthrough, and floating-bar containers so those implementation gestures are no longer filed as unlabeled VoiceOver controls. Generic iPhone and iPad device compilation and deterministic regression checks passed; no simulator was used. Physical-device verification pending."
+        }
         let historicalRuntimeFreezeTickets: Set<String> = [
             "STK-78-0001", "STK-80-0015", "STK-80-0024", "STK-93-0012",
             "STK-93-0013", "STK-93-0014", "STK-93-0015", "STK-93-0016",
             "STK-93-0017", "STK-96-0004", "STK-98-0013", "STK-98-0014",
-            "STK-98-0015", "STK-98-0016", "STK-107-0018"
+            "STK-98-0015", "STK-98-0016", "STK-98-0019", "STK-107-0018"
         ]
         if historicalRuntimeFreezeTickets.contains(ticket.number) {
             return "Moved persisted ticket/image work and heavy Home/Recipes classification off repeated render paths, added a stable-frame warm-up after launch/foreground restoration, and collapsed recurring automatic screen freezes into one cumulative ticket instead of refiling duplicates."
@@ -777,13 +944,100 @@ final class QATicketStore {
             return resolution
         }
         let currentTicketResolutions: [String: String] = [
+            "STK-89-0108": "Centered compact widget artwork and multiline text inside its measured grid footprint at every app and system text size; intrinsic text height adds rows before neighboring widgets are placed.",
+            "STK-89-0107": "Replaced interpolated live widget resizing with atomic magnetic snapping through one occupancy map, added a cell-intersection guard, and repaired unsupported saved sizes so widgets cannot overlap.",
+            "STK-89-0106": "Added per-widget minimum and maximum footprints: concise cards cannot become unnecessarily tall, fixed reference cards cannot be oversized, and only content-bearing list widgets can use their larger supported size.",
+            "STK-89-0105": "Made resizing commit once on release instead of rebuilding the complete Home grid for every drag event, eliminating adjustment stutter and transient frame crossings while preserving drag-to-reorder.",
+            "STK-89-0090": "Kept Home's stock percentage as one intrinsic-width value, so the number and percent sign never split; the surrounding Stock Level widget reflows vertically first when enlarged text needs more room.",
+            "STK-89-0089": "Redesigned Recipes' Create with Stocked AI action as a compact full-width row with concise copy and a small trailing action. It drops the decorative empty space and grows vertically only when accessibility text requires it.",
+            "STK-89-0088": "Made the Settings database tab pills preserve complete intrinsic-width labels and scroll horizontally, so Ingredients and other individual words never split at larger app or system text sizes.",
+            "STK-89-0001": "Retired Home's fixed 393-point compact branch, which forced 8–11 point labels and fixed card heights on ordinary Pro-sized iPhones. Home now keeps the same widget order while using adaptive semantic text, flexible heights, and ViewThatFits so image-and-copy rows remain aligned when they fit and reflow without compression when they do not.",
+            "STK-89-0034": "Made short Recipes rails divide the live readable width on iPad, landscape, and Stage Manager instead of keeping three phone-sized cards beside empty space. Accessibility text uses two wider visible cards and retains horizontal scrolling for the remainder.",
+            "STK-89-0080": "Raised Standard's app-wide typography baseline while retaining the single Standard interface geometry, giving Pro Max and iPad layouts more readable default text without reintroducing distortion-prone density modes.",
+            "STK-89-0079": "Coalesced Recipes tab appearance and activation into one visit refresh, then rebuilds every image-backed rail from the complete shared recipe collection once per visit or once per explicit Refresh without reacting to individual sync mutations.",
+            "STK-89-0070": "Removed automatic full-report generation from QA screen appearance; the expensive multi-section export is now prepared only on explicit request, so opening Settings > QA renders immediately.",
+            "STK-89-0069": "Made Home's primary Action Center module switch to a full-width vertical composition at larger text or interface sizes, eliminating the unused illustration column while keeping compact sizing horizontal.",
+            "STK-89-0068": "Removed alternate interface-density modes and retained one Standard geometry. Settings choices stay segmented except at true accessibility text sizes or genuinely narrow windows, while the independent app-wide text preference provides seven size steps.",
+            "STK-89-0067": "Preserved the approved Recipes hero composition with copy on the left and its recipe artwork on the right, scaling the artwork continuously as system text grows instead of dropping it below.",
+            "STK-89-0061": "Restored Recipes' compact three-card destination composition at normal phone widths while retaining multiline labels, flexible card heights, and a two-column fallback only for genuinely narrow windows.",
+            "STK-89-0059": "Reflowed Home's Scan, Add, and Log actions into adaptive phone columns and removed their fixed maximum height, so icons, titles, subtitles, and chevrons retain readable space at every app and Dynamic Type size.",
+            "STK-89-0056": "Replaced fixed phone geometry with live container metrics and reflowing stacks across the app, so enlarged images, controls, and text preserve their placement on iPhone and iPad.",
+            "STK-89-0055": "Made Settings choices responsive: controls use the live interface scale, cramped segmented pickers become readable menus, and recipe text-size choices wrap into adaptive columns.",
+            "STK-89-0054": "Removed app-wide one-line caps, shrink-to-fit text, and fixed control heights; Home buttons now expand and reflow with the selected interface and Dynamic Type sizes.",
+            "STK-89-0053": "Rebuilt Recipes cards, destinations, rails, and hero actions around adaptive columns and wrapping text, including accessibility-size vertical layouts without clipped labels.",
+            "STK-89-0042": "Home now renders its first frame before deriving a memoized kitchen snapshot and recomputes it only when the relevant inventory, grocery, recipe, or plan revision changes.",
+            "STK-89-0051": "Coalesced rapid repeated root-tab taps so Settings navigation cannot queue full NavigationStack rebuilds, while QA persistence, exports, frame telemetry, and memory reporting remain throttled off repeated render paths.",
+            "STK-89-0049": "Inventory now yields its first frame before revision-keyed reservation reconciliation, avoiding a synchronous restored-kitchen pass during tab construction.",
+            "STK-89-0046": "Long-press now enters Home wiggle mode for every widget and exposes an explicit X drop target, allowing a widget to be dragged there for removal.",
+            "STK-1-0014": "Every Home widget now exposes a working remove control in wiggle mode, persists removal immediately, and remains available from Add Widgets for restoration.",
+            "STK-1-0013": "Rendered all Home widgets from one persisted ordered layout and attached drag/drop to reference and supplemental cards alike, so every added widget can be rearranged.",
+            "STK-1-0012": "Raised the splash tagline to a medium-weight semantic foreground at 82% opacity for legible contrast in both light and dark themes.",
+            "STK-89-0041": "Made the largest in-app size apply to Settings' complete presentation and retained multiline wrapping so labels, descriptions, and controls remain readable instead of staying at compact fixed sizes.",
+            "STK-89-0040": "Recipes now rerolls its verified image-backed recommendations whenever the Recipes tab becomes active on iPhone or iPad, when shared recipes change, and when Refresh is tapped instead of retaining one launch-time ordering.",
+            "STK-89-0037": "Removed the half-viewport recipe-rail inset that left a large empty area beside recipe imagery; rails now begin on the shared content grid and use their available width for image-backed cards.",
+            "STK-89-0116": "Aligned every Recipes rail with its section heading by replacing the centered first-card margin with the shared responsive leading inset on iPhone and iPad.",
+            "STK-89-0117": "Made the Ingredients heading indivisible and moved its optional repair action below it when horizontal space is constrained, preventing a single word from breaking across lines.",
+            "STK-1-0032": "Recipes now presents two independently populated rails and rotates the verified, image-backed pool on every visit so the same cards do not remain stagnant.",
+            "STK-1-0030": "Removed broad roundup, meal-plan, recipe-ideas, ways-to-use, and protein-prep pages from Cook results, future imports, and the continuous launch-time cleanup while preserving concrete dishes.",
+            "STK-1-0029": "Long-pressing any Home widget now enters wiggle mode; every reference and supplemental widget has a working remove control, an always-reachable Done action, and an Add Widgets tile for restoration.",
+            "STK-100-0030": "Removed the QA instrumentation feedback loop behind the iPad Settings > QA stall: frame telemetry no longer invalidates SwiftUI every display frame, the monitor is capped at 30 Hz, the HUD no longer runs an extra timer, report exports are cached, and burst failure snapshots are coalesced.",
+            "STK-100-0029": "The saved one- or two-finger QA preference now directly reconfigures the installed window gesture recognizer, allowing normal one-finger widget editing while two-finger QA invocation remains available.",
+            "STK-100-0028": "Reduced Settings main-thread work by rate-limiting memory incidents, coalescing QA persistence snapshots, caching the full QA export, and preventing frame-count observation from rebuilding Settings and QA continuously.",
+            "STK-100-0026": "Restored the customizable Home widget board beneath the master reference sections and made gallery insertion atomic and persistent, so newly selected widgets appear immediately on iPhone and iPad and remain after relaunch.",
+            "STK-100-0023": "Restored an explicit Home Widgets entry in the drawer and an Edit widgets action on Home, opening the complete existing widget gallery while preserving every widget's designed artwork.",
+            "STK-100-0022": "Cook Now result cards now render each recipe's required real image instead of forcing the generic fork-and-knife thumbnail on iPad.",
+            "STK-100-0021": "The QA gate, checklist, list background, and iPad sheet host now inherit Stocked's active background and presentation theme instead of the system gray/white surface.",
+            "STK-100-0010": "Consolidated Home actions into Scan, Add, and Log. Each opens the requested focused choices for receipts/barcodes, grocery/recipe/inventory/quick updates, and past meals/cooked/used-recently logging.",
+            "STK-100-0008": "The Kitchen Report/Daily Brief remains an optional Home widget and is not part of the default board; the restored widget gallery lets the user add or remove it deliberately.",
+            "STK-100-0006": "Removed the generic shortcuts prompt from Home and replaced it with the useful Edit widgets control.",
+            "STK-100-0005": "Home now uses the requested subtitle: Everything you need is already inside of your kitchen.",
+            "STK-100-0003": "Home's time-aware greeting is larger, spans the intended hero width, and no longer appends the hand emoji.",
+            "STK-100-0002": "Home supporting copy keeps the active theme color at stronger contrast instead of a washed-out fixed secondary color.",
+            "STK-100-0001": "Reduced retained recipe bitmap memory by decoding thumbnails near display size with true pixel-cost cache limits, throttled repeated QA memory report persistence, and kept Home metrics deferred outside the first render.",
+            "STK-98-0017": "Empty states now distinguish SF Symbol names from emoji and render checkmark.seal as an actual icon instead of exposing its internal symbol name as text.",
+            "STK-98-0011": "Expanded the shared recipe-quality gate to reject generic category, archive, collection, menu, bare-ID, and numbered recipe labels before they can appear in Recipes or enter future imports.",
+            "STK-97-0001": "Recipe recommendation cards now reserve two title lines, scale long titles safely, and keep the image inside the card width so names remain readable without clipping.",
+            "STK-97-0002": "Home now defers and memoizes kitchen metrics outside repeated render passes, preventing the reported main-thread stall while keeping the first frame responsive.",
+            "STK-97-0006": "Home now uses the available phone and iPad width with compact reference spacing, larger useful controls, and no fixed empty gutters around the content or tab bar.",
             "STK-92-0001": "Home now renders its first frame before deriving the kitchen snapshot and computes that snapshot once per store revision, eliminating repeated inventory and recipe passes during a single body update.",
             "STK-92-0002": "Home cards and buttons now use the live container width with smaller edge insets, a comfortable default control scale, and an Interface Size preference for Standard, Comfortable, or Large controls.",
             "STK-92-0003": "All shell pages now use up to 1,180 points of live window width instead of the old narrow reading-column cap, while compact windows retain safe edge padding.",
-            "STK-93-0015": "Added an app-wide Interface Size preference and container-driven sizing so iPad controls default to Comfortable and can be enlarged without changing the device's system text size."
+            "STK-93-0015": "Added an app-wide Interface Size preference and container-driven sizing so iPad controls default to Comfortable and can be enlarged without changing the device's system text size.",
+            "STK-93-0018": "Inventory Scan now falls back from a failed cloud provider to Apple Foundation Models and then to Stocked's deterministic on-device zone and shelf-life audit, so exhausted provider credit no longer blocks inventory correction.",
+            "STK-92-0004": "Required image-backed recipes in every recipe collection and routed Drinks through the same original-image resolver and cache as the rest of the library.",
+            "STK-92-0009": "Cook Now now excludes recipes without usable images and renders publisher-original photography through the shared lossless image cache.",
+            "STK-107-0001": "Applied the active Stocked theme to the complete popover and sheet presentation surface instead of leaving a stock system background.",
+            "STK-107-0002": "Centralized themed presentation styling across pages, sheets, popovers, alerts, text fields, and controls in light and dark mode.",
+            "STK-107-0003": "Replaced narrow fixed sheet geometry with container-driven sizing, adaptive detents, and scrolling only when the available iPad window actually requires it.",
+            "STK-107-0005": "Filtered every Recipes collection through the shared image-completeness gate and continuously removes historical recipes whose image cannot be recovered.",
+            "STK-107-0007": "Made recipe controls and cards use the live window metrics, accessible minimum targets, and the app-wide Interface Size preference on iPhone and iPad.",
+            "STK-107-0008": "Cook Now now hydrates and classifies the full shared recipe library before rendering tiers, with persisted results available while remote refreshes run.",
+            "STK-107-0009": "Cook Now results now use adaptive columns and the available iPad width in portrait, landscape, Split View, and Stage Manager instead of retaining a narrow phone column.",
+            "STK-107-0010": "Applied the required-image gate and publisher-original image resolver to every Cook Now result tier, including historical imported recipes.",
+            "STK-90-0001": "Preserved and displayed each recipe's original publisher attribution across StockedMac import, Worker sync, historical repair, and Stocked iOS instead of labeling the source StockedMac.",
+            "STK-96-0006": "Repaired legacy StockedMac attribution from durable source URLs and made future sync payloads retain the publisher name and URL.",
+            "STK-92-0011": "Unified Create with AI across entry points: it can scan the complete inventory, recommend existing or generated recipes, and carries substitution choices into the result flow.",
+            "STK-92-0010": "Cook Now now prioritizes recipes whose primary protein is in inventory and keeps useful near-matches visible through the ten-missing-item tier.",
+            "STK-92-0008": "Reduced Grocery to the shared Stocked background, surface, text, urgency, and gold accent tokens instead of stacking unrelated shades for each section.",
+            "STK-92-0007": "Cook button shape and size now persist locally, participate in kitchen preference transfer and household sync, and restore across updates, reinstalls, and devices.",
+            "STK-92-0006": "Settings now uses the high-contrast primary text token in light mode and reserves muted colors for secondary descriptions.",
+            "STK-92-0005": "Settings text now follows the active semantic foreground color, including white primary copy on dark surfaces.",
+            "STK-107-0013": "Inventory recommendations now hydrate from the same complete persisted and online recipe catalog used by Recipes and Cook, then apply the shared matching algorithm.",
+            "STK-107-0012": "Inventory's iPad presentation now uses the live window width and a comfortable regular-width baseline instead of starting at a compressed phone-sized height.",
+            "STK-107-0011": "Household activity sync now publishes and merges recipe additions/removals and inventory/grocery changes in addition to member profile changes.",
+            "STK-107-0006": "Expanded Recipes with shared-catalog discovery, inventory matching, source browsing, substitutions, category filters, grocery actions, and retailer aisle/price enrichment where providers supply it.",
+            "STK-107-0004": "Replaced the dense option picker with adaptive themed selections, readable spacing, clear selected states, and regular-width presentation on iPad.",
+            "STK-96-0012": "Consolidated Settings into themed Appearance, Cooking, Kitchen, Interaction, Notifications, Household, Data, and QA groups; removed duplicate and inactive controls.",
+            "STK-96-0011": "Cook choices now render the selected circle, pill/row, or rounded-card shape at the saved live size and remain centered across orientation and width changes.",
+            "STK-96-0010": "Removed the duplicate allergen editor from general Settings; dietary safety remains available in the dedicated cooking profile where it affects recipes.",
+            "STK-96-0009": "Removed cuisine preferences from general Settings; cuisine discovery and filtering remain in Recipes where the choice has immediate context."
         ]
         if let resolution = currentTicketResolutions[ticket.number] {
             return resolution
+        }
+        let currentValue = (ticket.title + " " + ticket.body).lowercased()
+        if currentValue.contains("cannot remove") && currentValue.contains("wiggle") {
+            return "Home widget long presses now enter wiggle mode and suppress the overlapping one-finger QA report gesture. While editing, each widget's underlying navigation action is disabled so tapping its remove badge cannot also switch tabs; two-finger QA reporting remains available and the updated layout persists."
         }
         let previouslyAudited = ticket.number.hasPrefix("STK-68-")
             || ticket.number.hasPrefix("STK-69-")
@@ -966,6 +1220,14 @@ final class QATicketStore {
         tickets[i].cpanelSyncedAt = nil
         save()
         scheduleLocalMirror(id)
+        // The stamps above correctly mark the ticket unsynced, but nothing
+        // used to act on that: `update`/`setStatus` push to the Worker and
+        // cPanel when auto-publish is on, this path only mirrored locally.
+        // A mockup would sit "unsynced" to those two destinations until some
+        // unrelated edit happened to touch the ticket again.
+        if QABackgroundRunner.shared.autoPublish {
+            Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+        }
 
         QARecorder.shared.record(.note, screen: "QA",
                                  label: "\(tickets[i].number) mockup attached",
@@ -988,8 +1250,22 @@ final class QATicketStore {
         removeMockupFile(tickets[i])
         tickets[i].mockupFile = nil
         tickets[i].updatedAt = Date()
+        // Mirrors `attachMockup`: removing a mockup changes what every
+        // destination should be holding just as much as adding one does.
+        // This used to leave the sync stamps untouched, so the Worker and
+        // cPanel copies — which already received the old mockup — never got
+        // told to drop it. `isFullySynced` kept reporting the ticket as fully
+        // synced even though the remote copies now permanently disagreed
+        // with local state.
+        tickets[i].syncedAt = nil
+        tickets[i].shotSyncedAt = nil
+        tickets[i].mirroredAt = nil
+        tickets[i].cpanelSyncedAt = nil
         save()
         scheduleLocalMirror(id)
+        if QABackgroundRunner.shared.autoPublish {
+            Task { await QASyncCoordinator.shared.syncEverywhere(id) }
+        }
     }
 
     private func removeMockupFile(_ ticket: QATicket) {
@@ -1020,14 +1296,18 @@ final class QATicketStore {
     /// Snapshot everything one ticket needs to be written to any destination.
     /// Assembled here, once, on the main actor — the destinations themselves are
     /// off-actor and must not be reaching back into the store for pieces.
-    func bundle(for id: UUID) -> QASyncBundle? {
+    func bundle(for id: UUID) async -> QASyncBundle? {
         guard let t = tickets.first(where: { $0.id == id }) else { return nil }
-        return QASyncBundle(ticket: t,
-                            reportText: markdown(for: t),
-                            promptText: QAMockupHandoff.chatGPTPrompt(for: t, hasMockup: t.hasMockup),
-                            handbackText: QAMockupHandoff.claudeHandback(for: t),
-                            shot: screenshotData(for: t),
-                            mockup: mockupData(for: t))
+        let report = markdown(for: t)
+        let prompt = QAMockupHandoff.chatGPTPrompt(for: t, hasMockup: t.hasMockup)
+        let handback = QAMockupHandoff.claudeHandback(for: t)
+        let shotURL = t.screenshotFile.flatMap { screenshotDirectory?.appendingPathComponent($0) }
+        let mockupURL = t.mockupFile.flatMap { mockupDirectory?.appendingPathComponent($0) }
+        return await Task.detached(priority: .utility) {
+            QASyncBundle(ticket: t, reportText: report, promptText: prompt, handbackText: handback,
+                         shot: shotURL.flatMap { try? Data(contentsOf: $0) },
+                         mockup: mockupURL.flatMap { try? Data(contentsOf: $0) })
+        }.value
     }
 
     /// The ticket as Markdown, for the folder on the Mac.
@@ -1041,7 +1321,7 @@ final class QATicketStore {
         var out: [String] = []
         out.append("# \(t.number) — \(t.title)")
         out.append("")
-        out.append("**\(t.severity.title)** · \(t.status.title) · \(t.originPhrase) · \(t.createdAt.formatted())")
+        out.append("**\(t.severity.title)** · \(t.statusLabel) · \(t.originPhrase) · \(t.createdAt.formatted())")
         if t.requiresManualReview == true {
             out.append("")
             out.append("> **REQUIRES MANUAL REVIEW:** Ask the tester for specifics before changing code.")
@@ -1104,13 +1384,13 @@ final class QATicketStore {
         let lines = inBuild.map { t -> String in
             let folder = QASyncBundle(ticket: t, reportText: "", promptText: "",
                                       handbackText: "", shot: nil, mockup: nil).folderName
-            var marks: [String] = [t.severity.title, t.status.title]
+            var marks: [String] = [t.severity.title, t.statusLabel, t.context.identity?.label ?? "Unassigned tester"]
             if t.hasMockup { marks.append("mockup") }
             if t.wasEdited { marks.append("edited") }
             return "[\(t.number)](<\(folder)/\(QAMockupHandoff.reportFileName)>) — \(t.title) · \(marks.joined(separator: " · ")) · `\(t.context.screen)`"
         }
-        let open = inBuild.filter { !$0.status.isClosed }.count
-        let blockers = inBuild.filter { $0.severity == .blocker && !$0.status.isClosed }.count
+        let open = inBuild.filter(\.needsAttention).count
+        let blockers = inBuild.filter { $0.severity == .blocker && $0.needsAttention }.count
         let summary = "\(inBuild.count) ticket\(inBuild.count == 1 ? "" : "s") · \(open) open · \(blockers) blocker\(blockers == 1 ? "" : "s")"
         return (lines, summary)
     }
@@ -1190,9 +1470,26 @@ final class QATicketStore {
                     guard updated >= tickets[index].updatedAt else { continue }
                     let localShot = tickets[index].screenshotFile
                     let localMockup = tickets[index].mockupFile
+                    // `remoteTicket` builds a fresh `QATicket` with every sync
+                    // stamp nil. Only `syncedAt` used to get re-stamped below,
+                    // so `mirroredAt`/`cpanelSyncedAt`/`shotSyncedAt` were lost
+                    // on every merge — a ticket that was already fully synced
+                    // to the folder mirror and cPanel would look unsynced to
+                    // them again after pulling from another device, causing
+                    // needless re-uploads and a wrong `destinationLine`.
+                    let localMirroredAt = tickets[index].mirroredAt
+                    let localCPanelSyncedAt = tickets[index].cpanelSyncedAt
+                    let localShotSyncedAt = tickets[index].shotSyncedAt
+                    let localID = tickets[index].id
+                    let capturedIdentity = tickets[index].context.identity
                     tickets[index] = Self.remoteTicket(row, number: number, title: title)
+                    tickets[index].id = localID
+                    if tickets[index].context.identity == nil { tickets[index].context.identity = capturedIdentity }
                     tickets[index].screenshotFile = localShot
                     tickets[index].mockupFile = localMockup
+                    tickets[index].mirroredAt = localMirroredAt
+                    tickets[index].cpanelSyncedAt = localCPanelSyncedAt
+                    tickets[index].shotSyncedAt = localShotSyncedAt
                 } else {
                     tickets.append(Self.remoteTicket(row, number: number, title: title))
                     imported += 1
@@ -1213,7 +1510,7 @@ final class QATicketStore {
         return ISO8601DateFormatter().date(from: text)
     }
 
-    private nonisolated static func remoteTicket(_ row: [String: Any], number: String, title: String) -> QATicket {
+    nonisolated static func remoteTicket(_ row: [String: Any], number: String, title: String) -> QATicket {
         let env = row["environment"] as? [String: Any] ?? [:]
         var context = QATicketContext()
         context.screen = row["screen"] as? String ?? "—"
@@ -1235,7 +1532,13 @@ final class QATicketStore {
         context.tapsOnScreen = env["tapsOnScreen"] as? Int ?? 0
         context.worstHitchMs = Double(env["worstHitchMs"] as? Int ?? 0)
         context.touchTrail = row["touchTrail"] as? String
+        context.environment = row["renderingEnvironment"] as? [String]
+        context.identity = QAReportIdentity.decode(row["qaIdentity"])
         var ticket = QATicket(number: number, title: title)
+        if let id = row["id"] as? String, let uuid = UUID(uuidString: id) { ticket.id = uuid }
+        ticket.origin = QATicketOrigin(rawValue: row["origin"] as? String ?? "")
+        ticket.automaticCheckID = row["automaticCheckID"] as? String
+        ticket.regressionDetectedAt = remoteDate(row["regressionDetectedAt"])
         ticket.body = row["body"] as? String ?? ""
         ticket.severity = QATicketSeverity(rawValue: row["severity"] as? String ?? "") ?? .major
         ticket.status = QATicketStatus(rawValue: row["status"] as? String ?? "") ?? .open
@@ -1247,6 +1550,8 @@ final class QATicketStore {
         ticket.duplicateOf = row["duplicateOf"] as? String
         ticket.seenAgain = row["seenAgain"] as? Int
         ticket.refileCount = row["refileCount"] as? Int
+        ticket.checkTicket = row["checkTicket"] as? String
+        ticket.runID = row["runID"] as? String
         ticket.requiresManualReview = row["requiresManualReview"] as? Bool
         ticket.syncedAt = Date()
         return ticket
@@ -1288,7 +1593,7 @@ final class QATicketStore {
         // evidence — but it is the difference between reading a report and
         // *seeing* which screen it came from, and it arrives even when the
         // full-size upload fails or the route has not been deployed yet.
-        let thumbs = thumbnails(for: batch)
+        let thumbs = await thumbnails(for: batch)
 
         let payload: [String: Any] = [
             "schema": "stocked-qa-report/v1",
@@ -1343,41 +1648,45 @@ final class QATicketStore {
     /// batch — including the text — at around fifteen. Newest first, stop at the
     /// budget, and the tickets that miss out still sync with everything except
     /// the picture.
-    private func thumbnails(for batch: [QATicket]) -> [UUID: String] {
+    private func thumbnails(for batch: [QATicket]) async -> [UUID: String] {
+        guard let directory = screenshotDirectory else { return [:] }
+        for ticket in batch { await awaitScreenshotWrite(ticket.id) }
+        let files = batch.sorted { $0.createdAt > $1.createdAt }.compactMap { ticket -> (UUID, URL)? in
+            guard let file = ticket.screenshotFile else { return nil }
+            return (ticket.id, directory.appendingPathComponent(file))
+        }
+        return await Task.detached(priority: .utility) {
         // ~96 KB of base64 across the batch, leaving well over half the 256 KB
         // envelope for the text of even a very talkative batch.
         let budget = 96 * 1024
         var spent = 0
         var out: [UUID: String] = [:]
 
-        for t in batch.sorted(by: { $0.createdAt > $1.createdAt }) {
-            guard spent < budget,
-                  let image = screenshot(for: t),
-                  let encoded = Self.thumbnailBase64(image) else { continue }
+        for (id, url) in files {
+            guard !Task.isCancelled, spent < budget else { break }
+            let encoded: String? = autoreleasepool {
+                guard let source = CGImageSourceCreateWithURL(url as CFURL,
+                    [kCGImageSourceShouldCache: false] as CFDictionary),
+                      let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceThumbnailMaxPixelSize: 200
+                      ] as CFDictionary) else { return nil }
+                return UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.4)?.base64EncodedString()
+            }
+            guard let encoded else { continue }
             guard spent + encoded.count <= budget else { continue }
-            out[t.id] = encoded
+            out[id] = encoded
             spent += encoded.count
         }
         return out
+        }.value
     }
 
-    /// 200px longest edge at quality 0.4 — legible enough to recognise a screen,
-    /// small enough that a dozen of them fit in the envelope.
-    nonisolated private static func thumbnailBase64(_ image: UIImage) -> String? {
-        let maxEdge: CGFloat = 200
-        let scale = min(1, maxEdge / max(image.size.width, image.size.height))
-        let target = CGSize(width: max(1, image.size.width * scale),
-                            height: max(1, image.size.height * scale))
-        let small = UIGraphicsImageRenderer(size: target).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: target))
-        }
-        guard let data = small.jpegData(compressionQuality: 0.4) else { return nil }
-        return data.base64EncodedString()
-    }
-
-    nonisolated private static func dictionary(for t: QATicket,
+    nonisolated static func dictionary(for t: QATicket,
                                                thumbnail: String? = nil) -> [String: Any] {
         var out: [String: Any] = [
+            "id": t.id.uuidString,
             "number": t.number,
             "title": t.title,
             "body": t.body,
@@ -1416,6 +1725,11 @@ final class QATicketStore {
                 "worstHitchMs": Int(t.context.worstHitchMs),
             ],
         ]
+        if let identity = t.context.identity { out["qaIdentity"] = identity.dictionary }
+        if let origin = t.origin { out["origin"] = origin.rawValue }
+        if let checkID = t.automaticCheckID { out["automaticCheckID"] = checkID }
+        if let date = t.regressionDetectedAt { out["regressionDetectedAt"] = ISO8601DateFormatter().string(from: date) }
+        if let environment = t.context.environment { out["renderingEnvironment"] = environment }
         if let trail = t.context.touchTrail, !trail.isEmpty { out["touchTrail"] = trail }
         if let resolution = t.resolution, !resolution.isEmpty { out["resolution"] = resolution }
         if let verifiedAt = t.verifiedAt {
@@ -1424,6 +1738,8 @@ final class QATicketStore {
         if let duplicateOf = t.duplicateOf { out["duplicateOf"] = duplicateOf }
         if let seenAgain = t.seenAgain { out["seenAgain"] = seenAgain }
         if let refileCount = t.refileCount { out["refileCount"] = refileCount }
+        if let checkTicket = t.checkTicket { out["checkTicket"] = checkTicket }
+        if let runID = t.runID { out["runID"] = runID }
         if let requiresManualReview = t.requiresManualReview {
             out["requiresManualReview"] = requiresManualReview
         }

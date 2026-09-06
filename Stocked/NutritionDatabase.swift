@@ -210,6 +210,7 @@ actor RecipeNutritionSummaryCache {
 // MARK: - Recipe Nutrition Summary (used by CookingFlow)
 struct RecipeNutritionSummary: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedMotion) private var motion
     let ingredients: [String]
     let servings:    Int
     @State private var expanded = false
@@ -234,12 +235,12 @@ struct RecipeNutritionSummary: View {
         return AnyView(
             VStack(spacing: 0) {
                 // Header row — always visible
-                Button { withAnimation(.spring(response: 0.3)) { expanded.toggle() } } label: {
+                Button { motion.animate(.standard, intent: .spatial) { expanded.toggle() } } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13).foregroundStyle(Color.stockedGold)
                         Text("Estimated Nutrition")
-                            .font(.system(size: 13, weight: .semibold, design: .serif))
+                            .scaledFont(13, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Spacer()
                         // Macro pill previews
@@ -248,7 +249,7 @@ struct RecipeNutritionSummary: View {
                             macroPill("\(Int(t.protein))g P", Color.stockedGreen)
                         }
                         Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                     .padding(.horizontal, 14).padding(.vertical, 11)
                     .contentShape(Rectangle())
@@ -268,7 +269,7 @@ struct RecipeNutritionSummary: View {
                     .padding(.horizontal, 8).padding(.vertical, 6)
 
                     Text("Estimates based on ~100g per ingredient · \(max(1, servings)) servings")
-                        .font(.system(size: 9)).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.35))
                         .padding(.bottom, 8)
                 }
             }
@@ -283,7 +284,7 @@ struct RecipeNutritionSummary: View {
 
     private func macroPill(_ label: String, _ color: Color) -> some View {
         Text(label)
-            .font(.system(size: 10, weight: .bold))
+            .scaledFont(10, weight: .bold)
             .foregroundStyle(color)
             .padding(.horizontal, 6).padding(.vertical, 3)
             .background(color.opacity(0.12))
@@ -292,9 +293,9 @@ struct RecipeNutritionSummary: View {
     private func macroCell(_ label: String, _ value: String, _ unit: String, highlighted: Bool = false) -> some View {
         VStack(spacing: 2) {
             Text(value + unit)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .scaledFont(14, weight: .bold, design: .rounded)
                 .foregroundStyle(highlighted ? Color.stockedGold : session.themeTextColor)
-            Text(label).font(.system(size: 9, weight: .semibold))
+            Text(label).scaledFont(9, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.4))
         }.frame(maxWidth: .infinity).padding(.vertical, 4)
     }

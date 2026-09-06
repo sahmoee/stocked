@@ -26,7 +26,7 @@ struct CuisineBrowseView: View {
         StockedShell(showBack: true, scrollDisabled: false, titleText: "Cuisines") {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Browse recipes by cuisine")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
                     .padding(.horizontal, 24).padding(.bottom, 12)
 
@@ -50,19 +50,19 @@ struct CuisineBrowseView: View {
     private func cuisineRow(_ cuisine: String) -> some View {
         HStack(spacing: 14) {
             Text(CuisineBrowseView.flag(for: cuisine))
-                .font(.system(size: 26))
+                .scaledFont(26)
                 .frame(width: 38, height: 38)
                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
                 .clipShape(Circle())
             Text(cuisine)
-                .font(.system(size: 16, weight: .semibold))
+                .scaledFont(16, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)
             Spacer()
             Text("\(cuisineCount(cuisine))")
-                .font(.system(size: 12, weight: .semibold))
+                .scaledFont(12, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .scaledFont(13, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.35))
         }
         .padding(.vertical, 12).padding(.horizontal, 16)
@@ -157,15 +157,15 @@ struct CuisineRecipesView: View {
                     VStack(spacing: 14) {
                         ProgressView().tint(Color.stockedGold)
                         Text("Finding \(area) recipes…")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
                     .frame(maxWidth: .infinity).padding(.top, 60)
                 } else if recipes.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "wifi.exclamationmark")
-                            .font(.system(size: 26)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.4))
                         Text("Couldn't load \(area) recipes right now.")
-                            .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity).padding(.top, 60).padding(.horizontal, 32)

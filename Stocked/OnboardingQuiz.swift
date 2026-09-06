@@ -1,13 +1,16 @@
-// OnboardingQuiz.swift — Card-style quiz. Fixed-size swipeable card, same on all devices.
+// OnboardingQuiz.swift — adaptive, profile-backed onboarding questionnaire.
 import SwiftUI
 
 struct OnboardingQuiz: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var quizDismiss
+    @Environment(\.stockedMotion) private var motion
 
     // ── State ──────────────────────────────────────────────────────
     @State private var step:          Int    = 0
-    let totalSteps = 9
+    // Welcome + six decisions that immediately change recipe safety or ranking.
+    // Scheduling and equipment remain editable later; they no longer delay first value.
+    let totalSteps = 7
 
     @State private var householdSize  = 2
     @State private var cookingGoal    = ""
@@ -28,6 +31,7 @@ struct OnboardingQuiz: View {
     // Full width with 16pt margins each side, capped on iPad so the card doesn't stretch.
     private var cardWidth: CGFloat { min(screenWidth - 32, 600) }
     @State private var cardOpacity:   Double  = 1
+    @State private var didHydrateProfile = false
 
     private let avatarGrid: [[String]] = [
         ["👨‍🍳","👨🏻‍🍳","👨🏼‍🍳","👨🏽‍🍳","👨🏾‍🍳","👨🏿‍🍳"],
@@ -42,23 +46,27 @@ struct OnboardingQuiz: View {
         ZStack(alignment: .top) {
             Color.black.opacity(0.68)
                 .ignoresSafeArea()
-                .onTapGesture { withAnimation(.easeOut) { showChefPrompt = false } }
+                .onTapGesture {
+                    motion.animate(.selection, intent: .opacity) { showChefPrompt = false }
+                }
 
             VStack(spacing: 6) {
                 Image(systemName: "arrowtriangle.up.fill")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(Color.stockedGold)
 
                 VStack(spacing: 10) {
                     Text("Tap your chef icon")
-                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .scaledFont(17, weight: .bold, design: .serif)
                         .foregroundStyle(Color.white)
                     Text("Choose an avatar that represents\nyour cooking personality.")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(Color.white.opacity(0.8))
                         .multilineTextAlignment(.center)
-                    Button("Got it") { withAnimation(.easeOut) { showChefPrompt = false } }
-                        .font(.system(size: 14, weight: .semibold))
+                    Button("Got it") {
+                        motion.animate(.selection, intent: .opacity) { showChefPrompt = false }
+                    }
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .padding(.horizontal, 32).padding(.vertical, 11)
                         .background(Color.stockedGold)
@@ -101,7 +109,7 @@ struct OnboardingQuiz: View {
                                     Capsule()
                                         .fill(i == step ? Color.stockedGold : Color.stockedCharcoal.opacity(0.18))
                                         .frame(width: i == step ? 18 : 6, height: 6)
-                                        .animation(.spring(response: 0.3), value: step)
+                                        .stockedAnimation(.selection, intent: .spatial, value: step)
                                 }
                             }
                             Spacer()
@@ -111,7 +119,7 @@ struct OnboardingQuiz: View {
                                     completeOnboarding()
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 22))
+                                        .scaledFont(22)
                                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                                 }.buttonStyle(.plain)
                             }
@@ -120,13 +128,15 @@ struct OnboardingQuiz: View {
                         .padding(.top, 18)
                         .padding(.bottom, 4)
 
-                        // Step content — centered vertically so the card can use the
-                        // full height instead of leaving empty space above and below.
-                        Spacer(minLength: 12)
-                        stepContent
-                            .padding(.top, 8)
-                            .padding(.bottom, 24)
-                        Spacer(minLength: 12)
+                        // Every question remains reachable with large Dynamic Type and in
+                        // compact windows. The card itself stays put while its content scrolls.
+                        ScrollView {
+                            stepContent
+                                .padding(.top, 20)
+                                .padding(.bottom, 24)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .scrollIndicators(.hidden)
                     }
                 }
                 .frame(width: cardWidth)
@@ -136,18 +146,25 @@ struct OnboardingQuiz: View {
                 .gesture(
                     DragGesture()
                         .onChanged { v in
-                            withAnimation(.interactiveSpring()) {
-                                dragOffset = v.translation.width * 0.4
-                            }
+                            // Track the finger directly; animating every drag update adds
+                            // latency and a rubber-band lag on slower devices.
+                            dragOffset = v.translation.width * 0.4
                         }
                         .onEnded { v in
-                            let threshold: CGFloat = 60
-                            if v.translation.width < -threshold {
+                            let projected = v.predictedEndTranslation.width
+                            let target = StockedVelocitySnapPolicy().targetIndex(
+                                currentIndex: step,
+                                currentOffset: CGFloat(step) * 200 - projected,
+                                itemExtent: 200,
+                                velocity: 0,
+                                itemCount: totalSteps
+                            )
+                            if target > step {
                                 goForward()
-                            } else if v.translation.width > threshold && step > 0 {
+                            } else if target < step {
                                 goBack()
                             } else {
-                                withAnimation(.spring(response: 0.3)) { dragOffset = 0 }
+                                motion.animate(.settle, intent: .spatial) { dragOffset = 0 }
                             }
                         }
                 )
@@ -158,8 +175,8 @@ struct OnboardingQuiz: View {
                         goBack()
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
-                            Text("Back").font(.system(size: 14, weight: .semibold, design: .serif))
+                            Image(systemName: "chevron.left").scaledFont(12, weight: .semibold)
+                            Text("Back").scaledFont(14, weight: .semibold, design: .serif)
                         }
                         .foregroundStyle(Color.stockedWhite.opacity(0.7))
                     }.buttonStyle(.plain)
@@ -169,7 +186,13 @@ struct OnboardingQuiz: View {
         }
         .keyboardDoneToolbar()
         .dismissKeyboardOnTap()
-    
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { width in
+            screenWidth = max(320, width)
+        }
+        .onAppear { hydrateFromPersistedProfileIfNeeded() }
+
         .overlayPreferenceValue(ChefIconAnchorKey.self) { anchor in
             if step == 0 && showChefPrompt, let anchor = anchor {
                 // GeometryReader here is the canonical way to RESOLVE an anchor preference
@@ -189,15 +212,17 @@ struct OnboardingQuiz: View {
     // ── Navigation ─────────────────────────────────────────────────
     private func goForward() {
         guard step < totalSteps - 1 else { return }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+        motion.animate(.navigation, intent: .spatial) {
             dragOffset = -screenWidth
             cardOpacity = 0
         }
         Task {
-            try? await Task.sleep(nanoseconds: 180000000)
+            if motion.permitsSpatialMotion {
+                try? await Task.sleep(nanoseconds: 180000000)
+            }
             dragOffset = screenWidth
             step += 1
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            motion.animate(.navigation, intent: .spatial) {
                 dragOffset = 0; cardOpacity = 1
             }
         }
@@ -205,15 +230,17 @@ struct OnboardingQuiz: View {
 
     private func goBack() {
         guard step > 0 else { return }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+        motion.animate(.navigation, intent: .spatial) {
             dragOffset = screenWidth
             cardOpacity = 0
         }
         Task {
-            try? await Task.sleep(nanoseconds: 180000000)
+            if motion.permitsSpatialMotion {
+                try? await Task.sleep(nanoseconds: 180000000)
+            }
             dragOffset = -screenWidth
             step -= 1
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            motion.animate(.navigation, intent: .spatial) {
                 dragOffset = 0; cardOpacity = 1
             }
         }
@@ -232,8 +259,6 @@ struct OnboardingQuiz: View {
         case 4:  allergenCard
         case 5:  cuisineCard
         case 6:  skillCard
-        case 7:  scheduleCard
-        case 8:  equipmentCard
         default: finishCard   // budget/kids step removed
         }
     }
@@ -241,13 +266,13 @@ struct OnboardingQuiz: View {
     // ── Card shared components ──────────────────────────────────────
     private func cardHeader(emoji: String, title: String, subtitle: String) -> some View {
         VStack(spacing: 8) {
-            Text(emoji).font(.system(size: 44)).padding(.bottom, 2)
+            Text(emoji).scaledFont(44).padding(.bottom, 2)
             Text(title)
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
                 .multilineTextAlignment(.center)
             Text(subtitle)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .multilineTextAlignment(.center)
         }
@@ -258,7 +283,7 @@ struct OnboardingQuiz: View {
     private func continueButton(label: String = "Continue →", enabled: Bool = true, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 16, weight: .semibold, design: .serif))
+                .scaledFont(16, weight: .semibold, design: .serif)
                 .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.4))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
@@ -275,7 +300,7 @@ struct OnboardingQuiz: View {
     private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 13, weight: selected ? .bold : .medium, design: .serif))
+                .font(.stockedSystem(size: 13, weight: selected ? .bold : .medium, design: .serif))
                 .foregroundStyle(selected ? Color.stockedCharcoal : session.themeTextColor)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 14)
@@ -293,7 +318,7 @@ struct OnboardingQuiz: View {
         VStack(spacing: 20) {
             // Tappable avatar
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                motion.animate(.selection, intent: .spatial) {
                     showAvatarPicker.toggle()
                 }
             } label: {
@@ -302,7 +327,7 @@ struct OnboardingQuiz: View {
                         Circle().fill(Color.stockedGold.opacity(0.15)).frame(width: 90, height: 90)
                     }
                     Text(avatarEmoji)
-                        .font(.system(size: showAvatarPicker ? 70 : 60))
+                        .font(.stockedSystem(size: showAvatarPicker ? 70 : 60))
                         .scaleEffect(showAvatarPicker ? 1.1 : 1)
                 }
                 .anchorPreference(key: ChefIconAnchorKey.self, value: .bounds) { $0 }
@@ -314,11 +339,11 @@ struct OnboardingQuiz: View {
                         HStack(spacing: 6) {
                             ForEach(row, id: \.self) { e in
                                 Button {
-                                    withAnimation(.spring(response: 0.2)) {
+                                    motion.animate(.selection, intent: .spatial) {
                                         avatarEmoji = e; showAvatarPicker = false
                                     }
                                 } label: {
-                                    Text(e).font(.system(size: 26))
+                                    Text(e).scaledFont(26)
                                         .padding(5)
                                         .background(avatarEmoji == e ? Color.stockedGold.opacity(0.2) : Color.clear)
                                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -328,7 +353,7 @@ struct OnboardingQuiz: View {
                     }
                 }
                 .padding(10)
-                .background(Color.stockedWhite.opacity(0.6))
+                .background(session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .padding(.horizontal, 22)
                 .transition(.scale(scale: 0.9).combined(with: .opacity))
@@ -337,11 +362,11 @@ struct OnboardingQuiz: View {
             if !showAvatarPicker {
                 VStack(spacing: 8) {
                     Text("Let's Stock your kitchen")
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .multilineTextAlignment(.center)
                     Text("A few quick questions and we'll personalise everything — recipes, reminders, grocery lists — around *your* life.")
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .multilineTextAlignment(.center)
                 }
@@ -460,11 +485,11 @@ struct OnboardingQuiz: View {
                 ForEach(levels, id: \.1) { emoji, label, desc in
                     Button { skillLevel = label } label: {
                         HStack(spacing: 12) {
-                            Text(emoji).font(.system(size: 22))
+                            Text(emoji).scaledFont(22)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(label).font(.system(size: 14, weight: .semibold, design: .serif))
+                                Text(label).scaledFont(14, weight: .semibold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
-                                Text(desc).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text(desc).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
                             Spacer()
                             if skillLevel == label {
@@ -479,7 +504,7 @@ struct OnboardingQuiz: View {
                     }.buttonStyle(.plain)
                 }
             }.padding(.horizontal, 22)
-            continueButton(enabled: !skillLevel.isEmpty) { advance() }
+            continueButton(label: "See My Matches", enabled: !skillLevel.isEmpty) { finishQuiz() }
         }
     }
 
@@ -491,19 +516,19 @@ struct OnboardingQuiz: View {
                        subtitle: "We'll time your low-stock alerts around this.")
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Meals cooked per week").font(.system(size: 13, weight: .semibold))
+                    Text("Meals cooked per week").scaledFont(13, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
-                    Text("\(weeklyMeals)").font(.system(size: 14, weight: .bold)).foregroundStyle(Color.stockedGold)
+                    Text("\(weeklyMeals)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedGold)
                 }
                 Slider(value: Binding(get: { Double(weeklyMeals) }, set: { weeklyMeals = Int($0) }), in: 1...21, step: 1)
                     .tint(Color.stockedGold)
             }
-            .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .padding(.horizontal, 22)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Grocery day").font(.system(size: 13, weight: .semibold))
+                Text("Grocery day").scaledFont(13, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
                     .padding(.horizontal, 22)
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -511,9 +536,9 @@ struct OnboardingQuiz: View {
                         ForEach(days, id: \.self) { day in
                             Button { mealPrepDay = day } label: {
                                 Text(day)
-                                    .font(.system(size: 13, weight: mealPrepDay == day ? .bold : .medium, design: .serif))
+                                    .font(.stockedSystem(size: 13, weight: mealPrepDay == day ? .bold : .medium, design: .serif))
                                     .foregroundStyle(mealPrepDay == day ? Color.stockedCharcoal : session.themeTextColor)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 9)
                                     .background(
@@ -524,9 +549,9 @@ struct OnboardingQuiz: View {
                         }
                         Button { mealPrepDay = "Any" } label: {
                             Text("Any day")
-                                .font(.system(size: 13, weight: mealPrepDay == "Any" ? .bold : .medium, design: .serif))
+                                .font(.stockedSystem(size: 13, weight: mealPrepDay == "Any" ? .bold : .medium, design: .serif))
                                 .foregroundStyle(mealPrepDay == "Any" ? Color.stockedCharcoal : session.themeTextColor)
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 9)
                                 .background(
@@ -574,13 +599,13 @@ struct OnboardingQuiz: View {
     // ── Finish card ─────────────────────────────────────────────────
     private var finishCard: some View {
         VStack(spacing: 16) {
-            Text("🎉").font(.system(size: 64)).padding(.top, 8)
+            Text("🎉").scaledFont(64).padding(.top, 8)
             Text("Your kitchen is ready!")
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
                 .multilineTextAlignment(.center)
             Text("We've set everything up based on your preferences. Update them anytime in Settings.")
-                .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .multilineTextAlignment(.center).padding(.horizontal, 22)
             continueButton(label: "Start Cooking 🍳") {
                 completeOnboarding()
@@ -590,6 +615,14 @@ struct OnboardingQuiz: View {
 
     // ── Save profile ────────────────────────────────────────────────
     private func finishQuiz() {
+        persistCurrentProfile()
+        // NOTE: do NOT set quizCompleted here — that would make RootView swap to
+        // MainTabView mid-animation (blanks iPad). Only the finish card's "Start
+        // Cooking" button flips quizCompleted, via completeOnboarding().
+        motion.animate(.navigation, intent: .spatial) { step = totalSteps }
+    }
+
+    private func persistCurrentProfile() {
         var p = session.guestStore.cookingProfile
         p.householdSize  = householdSize
         p.cookingGoal    = cookingGoal
@@ -603,10 +636,25 @@ struct OnboardingQuiz: View {
         p.avatarEmoji    = avatarEmoji
         p.completedSetup = true
         session.guestStore.cookingProfile = p
-        // NOTE: do NOT set quizCompleted here — that would make RootView swap to
-        // MainTabView mid-animation (blanks iPad). Only the finish card's "Start
-        // Cooking" button flips quizCompleted, via completeOnboarding().
-        withAnimation(.spring(response: 0.4)) { step = totalSteps }
+    }
+
+    /// Re-running onboarding edits the existing profile instead of silently resetting
+    /// answers to view-local defaults. Fresh installs still receive the model defaults.
+    private func hydrateFromPersistedProfileIfNeeded() {
+        guard !didHydrateProfile else { return }
+        didHydrateProfile = true
+        let p = session.guestStore.cookingProfile
+        householdSize = p.householdSize
+        cookingGoal = p.cookingGoal
+        dietaryStyle = p.dietaryStyle
+        allergens = p.allergens
+        cuisinePrefs = p.cuisinePrefs
+        skillLevel = p.skillLevel
+        weeklyMeals = p.weeklyMealCount
+        mealPrepDay = p.mealPrepDay
+        budgetLevel = p.budgetLevel
+        cookingEquipment = p.cookingEquipment
+        avatarEmoji = p.avatarEmoji
     }
 
     /// Single, reliable path out of onboarding into the app (Home).
@@ -616,8 +664,9 @@ struct OnboardingQuiz: View {
     /// fenced on iPad; too-short a delay left it blank — so we defer ~one frame and
     /// flip without an animation block.
     private func completeOnboarding() {
-        session.guestStore.cookingProfile.avatarEmoji = avatarEmoji
-        session.guestStore.cookingProfile.completedSetup = true
+        // The close/skip affordance uses this path too, so persist every answer made so
+        // far. Previously skipping discarded the quiz while marking it complete.
+        persistCurrentProfile()
         let name = session.displayName.trimmingCharacters(in: .whitespaces)
         session.enterKitchen(name: name.isEmpty ? "Chef" : name)
         Task { @MainActor in

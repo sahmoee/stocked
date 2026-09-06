@@ -125,7 +125,7 @@ struct ReceiptScannerView: View {
                     HStack {
                         Button { phase = .instructions } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 18, weight: .semibold))
+                                .scaledFont(18, weight: .semibold)
                                 .foregroundStyle(.white)
                                 .frame(width: 36, height: 36)
                                 .background(Color.black.opacity(0.4))
@@ -135,12 +135,12 @@ struct ReceiptScannerView: View {
                         Spacer()
                         if scanCount > 0 {
                             Text("Receipt \(scanCount + 1) · \(sessionTotal) added so far")
-                                .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                .scaledFont(12, weight: .semibold).foregroundStyle(.white)
                                 .padding(.horizontal, 10).padding(.vertical, 5)
                                 .background(Color.black.opacity(0.5)).clipShape(Capsule())
                         } else {
                             Text("Scan Receipt")
-                                .font(.system(size: 16, weight: .semibold, design: .serif)).foregroundStyle(.white)
+                                .scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(.white)
                         }
                         Spacer()
                         Color.clear.frame(width: 36)
@@ -148,7 +148,7 @@ struct ReceiptScannerView: View {
                     .padding(.horizontal, 20).padding(.top, 56)
                     Spacer()
                     Text("Point at receipt · Tap anywhere to capture")
-                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.85))
+                        .scaledFont(13).foregroundStyle(.white.opacity(0.85))
                         .padding(.horizontal, 20).padding(.vertical, 8)
                         .background(Color.black.opacity(0.5)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)).padding(.bottom, 24)
                     Button { NotificationCenter.default.post(name: .captureReceiptShutter, object: nil) } label: {
@@ -166,25 +166,25 @@ struct ReceiptScannerView: View {
                     HStack {
                         Button { closeScanner() } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 18, weight: .semibold))
+                                .scaledFont(18, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                         }
                         .a11yButton("Close", hint: "Closes the receipt scanner")
                         Spacer()
                         VStack(spacing: 2) {
                             Text("Scan Receipt")
-                                .font(.system(size: 22, weight: .bold, design: .serif))
+                                .scaledFont(22, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             if !detectedStore.isEmpty {
                                 Text(detectedStore)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .scaledFont(11, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                             }
                         }
                         Spacer()
                         Button { showArchive = true } label: {
                             Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 18))
+                                .scaledFont(18)
                                 .foregroundStyle(archive.isEmpty
                                     ? session.themeTextColor.opacity(0.3) : session.themeTextColor)
                         }
@@ -241,10 +241,10 @@ struct ReceiptScannerView: View {
                     .frame(height: 200)
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.viewfinder")
-                        .font(.system(size: 54))
+                        .scaledFont(54)
                         .foregroundStyle(Color.stockedGold)
                     Text("Point your camera at\na grocery receipt")
-                        .font(.system(size: 16, design: .serif))
+                        .scaledFont(16, design: .serif)
                         .foregroundStyle(Color.stockedWhite.opacity(0.85))
                         .multilineTextAlignment(.center)
                 }
@@ -267,7 +267,7 @@ struct ReceiptScannerView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "camera.fill")
                             Text("Scan Receipt")
-                                .font(.system(size: 17, weight: .semibold, design: .serif))
+                                .scaledFont(17, weight: .semibold, design: .serif)
                         }
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 17)
@@ -279,7 +279,7 @@ struct ReceiptScannerView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "doc.text.fill")
                             Text("Load Demo Receipt (Simulator)")
-                                .font(.system(size: 17, weight: .semibold, design: .serif))
+                                .scaledFont(17, weight: .semibold, design: .serif)
                         }
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 17)
@@ -287,7 +287,7 @@ struct ReceiptScannerView: View {
                     }
                     .padding(.horizontal, 28)
                     Text("Camera scanning requires a physical iPhone with iOS 16+")
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
                         .multilineTextAlignment(.center).padding(.horizontal, 32)
                 }
 
@@ -296,7 +296,7 @@ struct ReceiptScannerView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "photo.on.rectangle")
                         Text("Import Screenshot")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .scaledFont(15, weight: .semibold, design: .serif)
                     }
                     .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -318,10 +318,10 @@ struct ReceiptScannerView: View {
                     Spacer()
                     ProgressView().tint(Color.stockedCharcoal).scaleEffect(1.5)
                     Text("Identifying food items…")
-                        .font(.system(size: 16, design: .serif))
+                        .scaledFont(16, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Claude is reading your receipt")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                     Spacer()
                 }
@@ -329,17 +329,17 @@ struct ReceiptScannerView: View {
                 VStack(spacing: 16) {
                     Spacer()
                     Image(systemName: "doc.text.magnifyingglass")
-                        .font(.system(size: 48))
+                        .scaledFont(48)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
                     Text("No food items found")
-                        .font(.system(size: 18, design: .serif))
+                        .scaledFont(18, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Try scanning again with better lighting")
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                     Button { phase = .instructions } label: {
                         Text("Try Again")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(15, weight: .semibold)
                             .foregroundStyle(Color.stockedWhite)
                             .padding(.horizontal, 32).padding(.vertical, 14)
                             .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -353,10 +353,10 @@ struct ReceiptScannerView: View {
                     if !errorMsg.isEmpty {
                         HStack(spacing: 10) {
                             Image(systemName: "wifi.exclamationmark")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(Color.stockedGold)
                             Text(errorMsg)
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 8)
@@ -365,7 +365,7 @@ struct ReceiptScannerView: View {
                                 if !capturedText.isEmpty { parseReceiptWithAI(capturedText) }
                             } label: {
                                 Text("Retry")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .scaledFont(12, weight: .bold)
                                     .foregroundStyle(Color.stockedWhite)
                                     .padding(.horizontal, 12).padding(.vertical, 7)
                                     .background(Color.stockedCharcoal).clipShape(Capsule())
@@ -382,11 +382,11 @@ struct ReceiptScannerView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(lineItems.filter { $0.isChecked }.count) items ready to add")
-                                .font(.system(size: 16, weight: .bold, design: .serif))
+                                .scaledFont(16, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             if !detectedStore.isEmpty {
                                 Text(detectedStore)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .scaledFont(11, weight: .semibold)
                                     .foregroundStyle(Color.stockedGold)
                             }
                         }
@@ -417,12 +417,12 @@ struct ReceiptScannerView: View {
                             } label: { Text("Remove unchecked items") }
                         } label: {
                             Label("Bulk Edit", systemImage: "arrow.up.arrow.down.circle")
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                         }
                         Button { phase = .instructions } label: {
                             Text("Scan Again")
-                                .font(.system(size: 13))
+                                .scaledFont(13)
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         .padding(.leading, 8)
@@ -456,7 +456,7 @@ struct ReceiptScannerView: View {
                     // Add to pantry button — pinned directly below the (now full-height) list.
                     Button { addItemsToPantry() } label: {
                         Text("Add \(lineItems.filter { $0.isChecked }.count) Items to Pantry")
-                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                            .scaledFont(17, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 17)
@@ -471,7 +471,7 @@ struct ReceiptScannerView: View {
                         phase = .instructions
                     } label: {
                         Label("Scan another page", systemImage: "plus.viewfinder")
-                            .font(.system(size: 13, weight: .semibold))
+                            .scaledFont(13, weight: .semibold)
                             .foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
                     .buttonStyle(.plain)
@@ -496,11 +496,11 @@ struct ReceiptScannerView: View {
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(checked.count) item\(checked.count == 1 ? "" : "s")")
-                    .font(.system(size: 13, weight: .bold))
+                    .scaledFont(13, weight: .bold)
                     .foregroundStyle(session.themeTextColor)
                 if !zoneText.isEmpty {
                     Text(zoneText)
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
             }
@@ -508,10 +508,10 @@ struct ReceiptScannerView: View {
             if total > 0 {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(String(format: "$%.2f", total))
-                        .font(.system(size: 15, weight: .bold))
+                        .scaledFont(15, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                     Text("est. total")
-                        .font(.system(size: 9))
+                        .scaledFont(9)
                         .foregroundStyle(session.themeTextColor.opacity(0.4))
                 }
             }
@@ -536,16 +536,16 @@ struct ReceiptScannerView: View {
     @ViewBuilder func reviewSectionHeader(_ group: ReviewGroup, count: Int) -> some View {
         HStack(spacing: 7) {
             Image(systemName: group.symbol)
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(12, weight: .bold)
                 .foregroundStyle(group == .needsReview ? Color.stockedGold
                                  : group == .confident ? Color.stockedGreen
                                  : session.themeTextColor.opacity(0.4))
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(group.title) · \(count)")
-                    .font(.system(size: 13, weight: .bold))
+                    .scaledFont(13, weight: .bold)
                     .foregroundStyle(session.themeTextColor)
                 Text(group.subtitle)
-                    .font(.system(size: 10))
+                    .scaledFont(10)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
             }
             Spacer()
@@ -611,7 +611,7 @@ private struct ReviewRowView: View {
             HStack(spacing: 14) {
                 Button { onToggle() } label: {
                     Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 22))
+                        .scaledFont(22)
                         .foregroundStyle(item.isChecked ? Color.stockedGreen : Color.stockedCharcoal.opacity(0.25))
                 }.buttonStyle(.plain)
 
@@ -629,13 +629,13 @@ private struct ReviewRowView: View {
                             }
                             editing = false
                         })
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         .textFieldStyle(.plain)
                     } else {
                         HStack(spacing: 6) {
                             Text(item.resolved)
-                                .font(.system(size: 15, weight: .semibold))
+                                .scaledFont(15, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                                 .strikethrough(!item.isChecked)
                             // Shared provenance badge (AI parsed / Needs review) — same
@@ -644,17 +644,17 @@ private struct ReviewRowView: View {
                         }
                         if item.rawText.uppercased() != item.resolved.uppercased() {
                             Text("Was: \(item.rawText)")
-                                .font(.system(size: 10))
+                                .scaledFont(10)
                                 .foregroundStyle(session.themeTextColor.opacity(0.3))
                         }
                     }
                     HStack(spacing: 6) {
                         Text(item.zone)
-                            .font(.system(size: 11))
+                            .scaledFont(11)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                         if let brand = item.brand, !brand.isEmpty {
                             Text(brand)
-                                .font(.system(size: 10, weight: .medium))
+                                .scaledFont(10, weight: .medium)
                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                                 .padding(.horizontal, 6).padding(.vertical, 1)
                                 .background(session.themeTextColor.opacity(0.08))
@@ -662,7 +662,7 @@ private struct ReviewRowView: View {
                         }
                         if let price = item.totalPrice ?? item.unitPrice {
                             Text(String(format: "$%.2f", price))
-                                .font(.system(size: 11, weight: .semibold))
+                                .scaledFont(11, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                         }
 
@@ -674,7 +674,7 @@ private struct ReviewRowView: View {
                                 HapticManager.select()
                             } label: {
                                 Image(systemName: "minus")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .scaledFont(10, weight: .bold)
                                     .foregroundStyle(item.quantity > 1 ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.25))
                                     .frame(width: 22, height: 20)
                             }
@@ -682,7 +682,7 @@ private struct ReviewRowView: View {
                             .disabled(item.quantity <= 1)
 
                             Text("×\(item.quantity)")
-                                .font(.system(size: 11, weight: .bold))
+                                .scaledFont(11, weight: .bold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .frame(minWidth: 22)
 
@@ -691,7 +691,7 @@ private struct ReviewRowView: View {
                                 HapticManager.select()
                             } label: {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .scaledFont(10, weight: .bold)
                                     .foregroundStyle(Color.stockedCharcoal)
                                     .frame(width: 22, height: 20)
                             }
@@ -702,7 +702,7 @@ private struct ReviewRowView: View {
 
                         if item.confidence < 60 {
                             Text("Uncertain — tap to correct")
-                                .font(.system(size: 10, weight: .semibold))
+                                .scaledFont(10, weight: .semibold)
                                 .foregroundStyle(.orange)
                         }
                     }
@@ -717,7 +717,7 @@ private struct ReviewRowView: View {
                         editing = true
                     } label: {
                         Image(systemName: "pencil.circle")
-                            .font(.system(size: 18))
+                            .scaledFont(18)
                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                     }.buttonStyle(.plain)
                 } else {
@@ -733,10 +733,10 @@ private struct ReviewRowView: View {
                             }
                             editing = false
                         }
-                        .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
                         .buttonStyle(.plain)
                         Button("Cancel") { editing = false }
-                            .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
                             .buttonStyle(.plain)
                     }
                 }
@@ -748,7 +748,7 @@ private struct ReviewRowView: View {
                     }
                 } label: {
                     Text(item.zone)
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(Color.stockedCharcoal.opacity(0.08))
@@ -762,16 +762,16 @@ private struct ReviewRowView: View {
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .contentShape(Rectangle())
             .onTapGesture { if !editing { onToggle() } }
-            .animation(.spring(response: 0.2), value: item.isChecked)
+            .stockedAnimation(.selection, intent: .spatial, value: item.isChecked)
 
             // ── Auto-learn abbreviation prompt ──────────────────────
             if showSaveAbbrev {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(12).foregroundStyle(Color.stockedGold)
                     Text("Save \"\(item.rawText)\" → \"\(lastCorrected)\" as abbreviation?")
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.7))
-                        .lineLimit(2)
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button("Save") {
                         ReceiptAbbreviationDatabase.shared.add(
@@ -781,10 +781,10 @@ private struct ReviewRowView: View {
                         )
                         withAnimation { showSaveAbbrev = false }
                     }
-                    .font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedGold)
+                    .scaledFont(12, weight: .bold).foregroundStyle(Color.stockedGold)
                     .buttonStyle(.plain)
                     Button("Skip") { withAnimation { showSaveAbbrev = false } }
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
                         .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -803,16 +803,16 @@ extension ReceiptScannerView {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 60)).foregroundStyle(Color.stockedGreen)
+                .scaledFont(60).foregroundStyle(Color.stockedGreen)
             Text("Added \(addedCount) items!")
-                .font(.system(size: 24, weight: .bold, design: .serif))
+                .scaledFont(24, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             if sessionTotal > addedCount {
                 Text("\(sessionTotal) total across \(scanCount) receipts this session")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
             } else {
                 Text("Check your Inventory tab to see them.")
-                    .font(.system(size: 15)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(15).foregroundStyle(session.themeTextColor.opacity(0.6))
             }
 
             // Scan another receipt in same session
@@ -825,7 +825,7 @@ extension ReceiptScannerView {
                 HStack(spacing: 8) {
                     Image(systemName: "doc.text.viewfinder")
                     Text("Scan Another Receipt")
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                 }
                 .foregroundStyle(session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 14)
@@ -836,7 +836,7 @@ extension ReceiptScannerView {
 
             Button { closeScanner() } label: {
                 Text("Done")
-                    .font(.system(size: 17, weight: .semibold, design: .serif))
+                    .scaledFont(17, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 17)
                     .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -849,8 +849,8 @@ extension ReceiptScannerView {
     // MARK: - Helpers
     private func tipRow(icon: String, text: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(Color.stockedGold).frame(width: 24)
-            Text(text).font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.7))
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
+            Text(text).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
         }
     }
 
@@ -900,7 +900,8 @@ extension ReceiptScannerView {
                 in: session.guestStore, name: item.resolved,
                 price: item.totalPrice ?? item.unitPrice,
                 storeName: detectedStore.isEmpty ? nil : detectedStore,
-                brand: item.brand, expiry: item.suggestedExpiry)
+                brand: item.brand, expiry: item.suggestedExpiry,
+                origin: .receipt)
         }
 
         for item in toAdd where resolutions[item.id] != .merge {
@@ -922,6 +923,40 @@ extension ReceiptScannerView {
             inv.storePurchasedAt = detectedStore.isEmpty ? nil : detectedStore // #5 store
             inv.addedBy          = who                              // #20
             inv.sourceBadge      = item.badge                       // provenance from OCR confidence
+
+            // Adopt the shared receipt identity/provenance contract at the real commit boundary.
+            // The reviewed name, quantity, and zone above remain authoritative; catalog metadata
+            // only fills fields the review row does not carry.
+            let normalized = ReceiptProcessingService.normalize(
+                raw: item.rawText,
+                aiResolved: item.resolved,
+                storeName: storeForImport,
+                // `item.resolved` is the value the user just reviewed. Older learned/OCR
+                // translations were useful while building the review row, but must not replace
+                // that final value when identity and provenance are committed.
+                learnedTranslation: nil,
+                abbreviationTranslation: nil
+            )
+            let proposal = normalized?.proposedChange()
+            inv.brand = item.brand ?? proposal?.product?.brand
+            inv.barcode = proposal?.product?.barcode
+            if StorageCategory(rawValue: item.zone) == nil,
+               let fallbackStorage = proposal?.product?.storageCategory {
+                inv.storageCategory = fallbackStorage
+            }
+            var provenance = proposal.map {
+                Dictionary(uniqueKeysWithValues: $0.fieldProvenance.map {
+                    ($0.key.rawValue, $0.value)
+                })
+            } ?? [:]
+            let reviewed = FieldProvenance(sourceID: "receipt-review",
+                                           sourceName: "Receipt review",
+                                           badge: item.badge)
+            provenance[InventoryProposalField.name.rawValue] = reviewed
+            provenance[InventoryProposalField.quantity.rawValue] = reviewed
+            provenance[InventoryProposalField.storageCategory.rawValue] = reviewed
+            if item.brand != nil { provenance[InventoryProposalField.brand.rawValue] = reviewed }
+            inv.fieldProvenance = provenance
             session.guestStore.addInventoryItem(inv)
             added += 1
 
@@ -1440,27 +1475,27 @@ struct ReceiptArchiveSheet: View {
                     .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
                 HStack {
                     Text("Scan History")
-                        .font(.system(size: 20, weight: .bold, design: .serif))
+                        .scaledFont(20, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button("Done") { dismiss() }
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 16)
 
                 if totalSpend > 0 {
                     HStack {
                         Text("Total tracked spend")
-                            .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         Spacer()
                         Text(String(format: "$%.2f", totalSpend))
-                            .font(.system(size: 15, weight: .bold)).foregroundStyle(Color.stockedGold)
+                            .scaledFont(15, weight: .bold).foregroundStyle(Color.stockedGold)
                     }
                     .padding(.horizontal, 24).padding(.bottom, 8)
                 }
                 if !reimportMsg.isEmpty {
                     Text(reimportMsg)
-                        .font(.system(size: 11)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(11).foregroundStyle(Color.stockedGold)
                         .padding(.bottom, 8)
                 }
 
@@ -1468,9 +1503,9 @@ struct ReceiptArchiveSheet: View {
                     VStack(spacing: 12) {
                         Spacer()
                         Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 40)).foregroundStyle(session.themeTextColor.opacity(0.2))
+                            .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.2))
                         Text("No scans yet")
-                            .font(.system(size: 15, design: .serif))
+                            .scaledFont(15, design: .serif)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                         Spacer()
                     }
@@ -1484,41 +1519,55 @@ struct ReceiptArchiveSheet: View {
                                             .fill(Color.stockedCharcoal.opacity(0.12))
                                             .frame(width: 44, height: 44)
                                         Image(systemName: "doc.text.fill")
-                                            .font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                                            .scaledFont(18).foregroundStyle(Color.stockedGold)
                                     }
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(entry.storeName.isEmpty ? "Receipt" : entry.storeName)
-                                            .font(.system(size: 14, weight: .semibold, design: .serif))
+                                            .scaledFont(14, weight: .semibold, design: .serif)
                                             .foregroundStyle(session.themeTextColor)
                                         Text(df.string(from: entry.date))
-                                            .font(.system(size: 11))
+                                            .scaledFont(11)
                                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 4) {
                                         Text("\(entry.itemCount) items")
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .scaledFont(12, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
                                         if entry.totalSpend > 0 {
                                             Text(String(format: "$%.2f", entry.totalSpend))
-                                                .font(.system(size: 11, weight: .bold))
+                                                .scaledFont(11, weight: .bold)
                                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                                         }
                                         // #14 — re-import this receipt's items to the pantry.
                                         if !entry.items.isEmpty {
                                             Button {
-                                                var n = 0
+                                                var proposals: [ProposedChange] = []
                                                 for name in entry.items {
                                                     var inv = LocalInventoryItem(name: name, level: 1.0, zone: "Pantry")
                                                     inv.purchaseDate = Date()
-                                                    session.guestStore.addInventoryItem(inv)
-                                                    n += 1
+                                                    proposals.append(InventoryProposalBatch.reviewableAdd(
+                                                        item: inv,
+                                                        origin: .receipt,
+                                                        sourceID: "receipt-history",
+                                                        reason: "Re-imported from receipt history"
+                                                    ))
                                                 }
+                                                let n = session.guestStore.applyProposalBatch(
+                                                    InventoryProposalBatch(
+                                                        origin: .receipt,
+                                                        title: "Re-import receipt",
+                                                        changes: proposals,
+                                                        mergePolicy: .storeCompatible
+                                                    ),
+                                                    brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                                                    retailerID: GroceryKnowledgeBase.retailer(matching: entry.storeName)?.id
+                                                ).appliedCount
                                                 reimportMsg = "Re-added \(n) items"
                                                 HapticManager.success()
                                             } label: {
                                                 Text("Re-import")
-                                                    .font(.system(size: 10, weight: .bold))
+                                                    .scaledFont(10, weight: .bold)
                                                     .foregroundStyle(Color.stockedWhite)
                                                     .padding(.horizontal, 8).padding(.vertical, 3)
                                                     .background(session.themeButtonColor).clipShape(Capsule())

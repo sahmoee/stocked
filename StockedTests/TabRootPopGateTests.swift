@@ -2,7 +2,7 @@ import XCTest
 @testable import Stocked
 
 final class TabRootPopGateTests: XCTestCase {
-    func testRapidReselectionCausesOnlyOneRootRebuild() {
+    @MainActor func testRapidReselectionCausesOnlyOneRootRebuild() {
         var gate = TabRootPopGate()
         let start = Date(timeIntervalSinceReferenceDate: 1_000)
 
@@ -11,7 +11,7 @@ final class TabRootPopGateTests: XCTestCase {
         XCTAssertFalse(gate.shouldAccept(at: start.addingTimeInterval(0.5)))
     }
 
-    func testReselectionIsAcceptedAfterTransitionWindow() {
+    @MainActor func testReselectionIsAcceptedAfterTransitionWindow() {
         var gate = TabRootPopGate()
         let start = Date(timeIntervalSinceReferenceDate: 1_000)
 
@@ -19,7 +19,7 @@ final class TabRootPopGateTests: XCTestCase {
         XCTAssertTrue(gate.shouldAccept(at: start.addingTimeInterval(TabRootPopGate.minimumInterval)))
     }
 
-    func testEveryRecordedRootTabTapStormCoalescesToOneRebuild() {
+    @MainActor func testEveryRecordedRootTabTapStormCoalescesToOneRebuild() {
         let recordedTapCounts = [
             "Home": 3,
             "Cook": 9,

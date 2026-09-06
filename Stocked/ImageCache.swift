@@ -43,7 +43,25 @@ private nonisolated struct CachedImageLoadID: Hashable, Sendable {
     let resolveCategory: String?
 }
 
+private nonisolated struct CachedImageTaskID: Hashable, Sendable {
+    let load: CachedImageLoadID
+    let mayLoadVisibleImages: Bool
+    let isOnline: Bool
+}
+
 // MARK: - ImageCache
+nonisolated enum ArtworkPreparationResult: @unchecked Sendable {
+    case ready(UIImage)
+    case unavailable
+    case cancelled
+
+    /// A still-visible view can retry evicted work once, but a missing asset is permanent.
+    func shouldRetry(completedRetries: Int) -> Bool {
+        guard case .cancelled = self else { return false }
+        return completedRetries == 0
+    }
+}
+
 final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private init() {
@@ -57,7 +75,12 @@ final class ImageCache: @unchecked Sendable {
         // large image caches from contributing to a jetsam termination during heavy scrolling.
         NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.evictMemory() }
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.evictMemory()
+                CookNowCompute.invalidate()
+            }
+        }
 
         // Directory enumeration and legacy-cache deletion can be slow after an image-heavy
         // session. Running either from the singleton initializer used to freeze the first
@@ -77,16 +100,35 @@ final class ImageCache: @unchecked Sendable {
         }
     }
 
+    private enum ImageRequestPurpose: Sendable {
+        case visible
+        case prefetch
+    }
+
     private struct InFlightImageRequest {
         let id: UUID
         let task: Task<UIImage?, Never>
+        var waiters: [UUID: ImageRequestPurpose]
+    }
+
+    private struct ScheduledPrefetch {
+        let id: UUID
+        let urls: [String]
+        let task: Task<Void, Never>
+    }
+
+    private struct PrefetchRequest {
+        let id: UUID
+        let task: Task<Void, Never>
     }
 
     private let memCache = NSCache<NSString, UIImage>()
     private let localDataCache = NSCache<NSString, UIImage>()
     private let stateLock = NSLock()
-    private var prefetchTasks: [String: Task<Void, Never>] = [:]
+    private var prefetchTasks: [String: PrefetchRequest] = [:]
+    private var scheduledPrefetchTasks: [String: ScheduledPrefetch] = [:]
     private var inFlightRequests: [String: InFlightImageRequest] = [:]
+    private var artworkPreparations: [String: (id: UUID, task: Task<ArtworkPreparationResult, Never>)] = [:]
 
     private func withStateLock<T>(_ body: () -> T) -> T {
         stateLock.lock()
@@ -138,8 +180,48 @@ final class ImageCache: @unchecked Sendable {
         localDataCache.object(forKey: localDataKey(for: signature, maxDimension: maxDimension))
     }
 
+    /// Bundled illustration variants share the existing bounded, memory-pressure-aware cache.
+    func artwork(named name: String) -> UIImage? {
+        localDataCache.object(forKey: "artwork-v1-\(name)" as NSString)
+    }
+
+    func prepareArtwork(named name: String) async -> UIImage? {
+        if case .ready(let image) = await prepareArtworkResult(named: name) { return image }
+        return nil
+    }
+
+    func prepareArtworkResult(named name: String) async -> ArtworkPreparationResult {
+        guard !Task.isCancelled else { return .cancelled }
+        if let hit = artwork(named: name) { return .ready(hit) }
+        if let pending = artworkPreparations[name] {
+            let result = await pending.task.value
+            return Task.isCancelled ? .cancelled : result
+        }
+        let id = UUID()
+        let worker = Task.detached(priority: .utility) { () -> ArtworkPreparationResult in
+            guard !Task.isCancelled else { return .cancelled }
+            guard let original = UIImage(named: name) else { return .unavailable }
+            // Never decode a full atlas or a multi-megapixel PNG in a SwiftUI body.
+            guard let image = original.preparingThumbnail(of: CGSize(width: 720, height: 720)) else {
+                return Task.isCancelled ? .cancelled : .unavailable
+            }
+            guard !Task.isCancelled else { return .cancelled }
+            return .ready(image)
+        }
+        artworkPreparations[name] = (id, worker)
+        let result = await worker.value
+        // Memory-pressure eviction invalidates the request; it does not mean the asset is missing.
+        guard artworkPreparations[name]?.id == id else { return .cancelled }
+        artworkPreparations[name] = nil
+        if case .ready(let image) = result {
+            localDataCache.setObject(image, forKey: "artwork-v1-\(name)" as NSString,
+                                     cost: Self.memoryCost(of: image))
+        }
+        return Task.isCancelled ? .cancelled : result
+    }
+
     func storeLocal(_ image: UIImage, for signature: ImageDataSignature, maxDimension: CGFloat) {
-        let cost = Int(image.size.width * image.size.height * 4)
+        let cost = Self.memoryCost(of: image)
         localDataCache.setObject(
             image,
             forKey: localDataKey(for: signature, maxDimension: maxDimension),
@@ -153,8 +235,8 @@ final class ImageCache: @unchecked Sendable {
         if let mem = memCache.object(forKey: k) { return mem }
         let path = cacheDir.appendingPathComponent(String(k))
         guard let data = try? Data(contentsOf: path),
-              let img  = UIImage(data: data) else { return nil }
-        let cost = Int(img.size.width * img.size.height * 4)
+              let img = Self.downsample(data, maxDimension: 320) ?? UIImage(data: data) else { return nil }
+        let cost = Self.memoryCost(of: img)
         memCache.setObject(img, forKey: k, cost: cost)
         return img
     }
@@ -164,21 +246,51 @@ final class ImageCache: @unchecked Sendable {
         memCache.object(forKey: key(for: url) as NSString)
     }
 
+    /// Cache-only lookup for offline rendering. It never starts URLSession work.
+    func cachedImage(
+        for url: String,
+        priority: TaskPriority = .utility
+    ) async -> UIImage? {
+        let canonicalURL = URLCanonicalizer.canonicalString(url)
+        if let memory = memoryImage(for: canonicalURL) { return memory }
+        return await diskImage(for: canonicalURL, priority: priority)
+    }
+
     /// #PERF — the disk half of `image(for:)`, run off the caller's thread. The old path
     /// did a synchronous Data(contentsOf:) inside fetchImage, which is awaited from
     /// SwiftUI's MainActor — so every cache-hit-on-disk read blocked the main thread and
     /// stuttered image-heavy scrolls. This hops the file read to a background task and
     /// only touches the memory cache back on return.
-    private func diskImage(for url: String) async -> UIImage? {
+    private func diskImage(for url: String, priority: TaskPriority) async -> UIImage? {
+        guard await ImageFetchLimiter.shared.acquire(priority: priority) else { return nil }
+        guard !Task.isCancelled else {
+            await ImageFetchLimiter.shared.release()
+            return nil
+        }
+        let image = await readDiskImage(for: url, priority: priority)
+        await ImageFetchLimiter.shared.release()
+        return image
+    }
+
+    /// Performs the disk read while the caller owns an image-work limiter slot.
+    private func readDiskImage(for url: String, priority: TaskPriority) async -> UIImage? {
         let k = key(for: url)
         let path = cacheDir.appendingPathComponent(k)
-        let img = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+        let task = Task.detached(priority: priority) { () -> UIImage? in
+            guard !Task.isCancelled else { return nil }
             guard let data = try? Data(contentsOf: path) else { return nil }
+            guard !Task.isCancelled else { return nil }
             try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: path.path)
-            return UIImage(data: data)
-        }.value
+            return Self.downsample(data, maxDimension: 320) ?? UIImage(data: data)
+        }
+        let img = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        guard !Task.isCancelled else { return nil }
         if let img {
-            let cost = Int(img.size.width * img.size.height * 4)
+            let cost = Self.memoryCost(of: img)
             memCache.setObject(img, forKey: k as NSString, cost: cost)
         }
         return img
@@ -187,7 +299,7 @@ final class ImageCache: @unchecked Sendable {
     // MARK: - Write
     func store(_ image: UIImage, for url: String) {
         let k    = key(for: url) as NSString
-        let cost = Int(image.size.width * image.size.height * 4)
+        let cost = Self.memoryCost(of: image)
         memCache.setObject(image, forKey: k, cost: cost)
         let path = cacheDir.appendingPathComponent(String(k))
         let directory = cacheDir
@@ -204,7 +316,7 @@ final class ImageCache: @unchecked Sendable {
     /// but the durable cache must not turn an original into a lower-quality JPEG.
     private func storeRemoteOriginal(_ data: Data, decoded image: UIImage, for url: String) {
         let k = key(for: url) as NSString
-        let cost = Int(image.size.width * image.size.height * 4)
+        let cost = Self.memoryCost(of: image)
         memCache.setObject(image, forKey: k, cost: cost)
         let path = cacheDir.appendingPathComponent(String(k))
         let directory = cacheDir
@@ -219,41 +331,141 @@ final class ImageCache: @unchecked Sendable {
 
     // MARK: - Fetch (cache-first)
     @discardableResult
-    func fetchImage(url urlString: String) async -> UIImage? {
+    func fetchImage(
+        url urlString: String,
+        priority: TaskPriority = .userInitiated
+    ) async -> UIImage? {
+        await fetchImage(url: urlString, priority: priority, purpose: .visible)
+    }
+
+    private func fetchImage(
+        url urlString: String,
+        priority: TaskPriority,
+        purpose: ImageRequestPurpose
+    ) async -> UIImage? {
         let canonicalURL = URLCanonicalizer.canonicalString(urlString)
         if let mem = memoryImage(for: canonicalURL) { return mem }
 
         // Coalesce the entire disk/network pipeline. A recipe grid often contains the same
         // image in multiple rails; previously each card started its own disk read and download.
+        let waiterID = UUID()
         let request: InFlightImageRequest = withStateLock {
-            if let existing = inFlightRequests[canonicalURL] { return existing }
-            let id = UUID()
-            let task = Task(priority: .userInitiated) { [weak self] () -> UIImage? in
-                guard let self else { return nil }
-                return await self.loadImageUncoalesced(urlString: canonicalURL)
+            if var existing = inFlightRequests[canonicalURL] {
+                existing.waiters[waiterID] = purpose
+                inFlightRequests[canonicalURL] = existing
+                return existing
             }
-            let created = InFlightImageRequest(id: id, task: task)
+            let id = UUID()
+            let task = Task(priority: priority) { [weak self] () -> UIImage? in
+                guard let self else { return nil }
+                return await self.loadImageUncoalesced(
+                    urlString: canonicalURL,
+                    priority: priority
+                )
+            }
+            let created = InFlightImageRequest(
+                id: id,
+                task: task,
+                waiters: [waiterID: purpose]
+            )
             inFlightRequests[canonicalURL] = created
             return created
         }
 
-        let image = await request.task.value
-        withStateLock {
-            if inFlightRequests[canonicalURL]?.id == request.id {
-                inFlightRequests.removeValue(forKey: canonicalURL)
+        return await withTaskCancellationHandler {
+            let image = await request.task.value
+            releaseWaiter(
+                waiterID,
+                requestID: request.id,
+                canonicalURL: canonicalURL,
+                canceled: Task.isCancelled
+            )
+            return Task.isCancelled ? nil : image
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.releaseWaiter(
+                    waiterID,
+                    requestID: request.id,
+                    canonicalURL: canonicalURL,
+                    canceled: true
+                )
             }
         }
-        return image
     }
 
-    private func loadImageUncoalesced(urlString: String) async -> UIImage? {
-        if let disk = await diskImage(for: urlString) { return disk }
-        guard !Task.isCancelled, let url = URL(string: urlString) else { return nil }
+    /// Removes one consumer from a coalesced request. If every consumer has gone away,
+    /// cancel the underlying disk/network/decode task too; canceling only the wrapper
+    /// would otherwise let speculative work continue through the user's next gesture.
+    private func releaseWaiter(
+        _ waiterID: UUID,
+        requestID: UUID,
+        canonicalURL: String,
+        canceled: Bool
+    ) {
+        let taskToCancel: Task<UIImage?, Never>? = withStateLock {
+            guard var current = inFlightRequests[canonicalURL],
+                  current.id == requestID,
+                  current.waiters.removeValue(forKey: waiterID) != nil else { return nil }
+            if current.waiters.isEmpty {
+                inFlightRequests.removeValue(forKey: canonicalURL)
+                return canceled ? current.task : nil
+            }
+            inFlightRequests[canonicalURL] = current
+            return nil
+        }
+        taskToCancel?.cancel()
+    }
 
-        await ImageFetchLimiter.shared.acquire()
-        if Task.isCancelled {
+    private func loadImageUncoalesced(
+        urlString: String,
+        priority: TaskPriority
+    ) async -> UIImage? {
+        guard await ImageFetchLimiter.shared.acquire(priority: priority) else { return nil }
+        guard !Task.isCancelled else {
             await ImageFetchLimiter.shared.release()
             return nil
+        }
+        let result = await loadImageWithinLimiter(urlString: urlString, priority: priority)
+        await ImageFetchLimiter.shared.release()
+        return result
+    }
+
+    private func loadImageWithinLimiter(
+        urlString: String,
+        priority: TaskPriority
+    ) async -> UIImage? {
+        if let disk = await readDiskImage(for: urlString, priority: priority) { return disk }
+        guard !Task.isCancelled, let url = URL(string: urlString) else { return nil }
+
+        // User-selected recipe photos are retained losslessly by RecipeMediaStore. They
+        // deliberately use a container-independent custom URL, so resolve and decode them
+        // locally instead of sending an unsupported scheme through URLSession.
+        if url.scheme?.lowercased() == RecipeMediaStore.scheme {
+            let readTask = Task.detached(priority: priority) {
+                guard !Task.isCancelled else { return nil as Data? }
+                return try? RecipeMediaStore.shared.retainedData(for: urlString)
+            }
+            let data = await withTaskCancellationHandler {
+                await readTask.value
+            } onCancel: {
+                readTask.cancel()
+            }
+            guard !Task.isCancelled, let data else { return nil }
+            let decodeTask = Task.detached(priority: priority) {
+                guard !Task.isCancelled else { return nil as UIImage? }
+                return Self.downsample(data, maxDimension: 320) ?? UIImage(data: data)
+            }
+            let image = await withTaskCancellationHandler {
+                await decodeTask.value
+            } onCancel: {
+                decodeTask.cancel()
+            }
+            guard !Task.isCancelled else { return nil }
+            if let image {
+                let cost = Self.memoryCost(of: image)
+                memCache.setObject(image, forKey: key(for: urlString) as NSString, cost: cost)
+            }
+            return image
         }
 
         let result: UIImage?
@@ -264,18 +476,29 @@ final class ImageCache: @unchecked Sendable {
                   (200...299).contains(http.statusCode),
                   response.mimeType?.lowercased().hasPrefix("image/") == true,
                   response.expectedContentLength <= 20 * 1_048_576 || response.expectedContentLength < 0,
-                  data.count <= 20 * 1_048_576,
-                  let image = ImageCache.downsample(data, maxDimension: 700) ?? UIImage(data: data)
+                  data.count <= 20 * 1_048_576
             else {
-                await ImageFetchLimiter.shared.release()
                 return nil
             }
+
+            // URLSession resumes on this MainActor-isolated cache. Keep image decoding
+            // inside the acquired limiter slot, but move the CPU-heavy ImageIO/UIKit work
+            // off the main actor and propagate cancellation to it.
+            let decodeTask = Task.detached(priority: priority) {
+                guard !Task.isCancelled else { return nil as UIImage? }
+                return Self.downsample(data, maxDimension: 320) ?? UIImage(data: data)
+            }
+            let image = await withTaskCancellationHandler {
+                await decodeTask.value
+            } onCancel: {
+                decodeTask.cancel()
+            }
+            guard !Task.isCancelled, let image else { return nil }
             storeRemoteOriginal(data, decoded: image, for: urlString)
             result = image
         } catch {
             result = nil
         }
-        await ImageFetchLimiter.shared.release()
         return result
     }
 
@@ -322,30 +545,83 @@ final class ImageCache: @unchecked Sendable {
         guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
         return UIImage(cgImage: cg)
     }
+
+    /// NSCache costs must use decoded pixels, not UIImage's point size. Point-based
+    /// accounting under-counted Retina recipe photos and allowed several gigabytes of
+    /// decoded bitmaps to remain alive during iPad recipe browsing.
+    nonisolated static func memoryCost(of image: UIImage) -> Int {
+        if let cg = image.cgImage { return cg.bytesPerRow * cg.height }
+        return Int(image.size.width * image.scale * image.size.height * image.scale * 4)
+    }
     // MARK: - Prefetch next N images (#8)
     /// Call from scroll view's onAppear with the upcoming URLs.
-    func prefetch(urls: [String]) {
+    func prefetch(
+        urls: [String],
+        priority: TaskPriority = .background
+    ) {
         for rawURL in urls.prefix(10) {
             let url = URLCanonicalizer.canonicalString(rawURL)
             guard memoryImage(for: url) == nil else { continue }
 
             withStateLock {
                 guard prefetchTasks[url] == nil else { return }
-                prefetchTasks[url] = Task(priority: .background) { [weak self] in
+                let id = UUID()
+                let task = Task(priority: priority) { [weak self] in
                     guard let self else { return }
-                    _ = await self.fetchImage(url: url)
+                    _ = await self.fetchImage(url: url, priority: priority, purpose: .prefetch)
                     self.withStateLock {
-                        self.prefetchTasks.removeValue(forKey: url)
+                        if self.prefetchTasks[url]?.id == id {
+                            self.prefetchTasks.removeValue(forKey: url)
+                        }
                     }
                 }
+                prefetchTasks[url] = PrefetchRequest(id: id, task: task)
             }
         }
+    }
+
+    /// Debounces one screen/rail's speculative batch. Calling this again replaces the
+    /// prior batch; calling `cancelScheduledPrefetch` at the next non-idle phase prevents
+    /// a one-frame idle transition from starting unnecessary work.
+    func schedulePrefetch(
+        scope: String,
+        urls: [String],
+        priority: TaskPriority = .utility,
+        debounce: TimeInterval = StockedImageWorkPolicy().idleDebounce
+    ) {
+        cancelScheduledPrefetch(scope: scope)
+        guard ConnectivityMonitor.isOnlineFlag, !urls.isEmpty else { return }
+        let id = UUID()
+        let boundedURLs = Array(urls.prefix(StockedImageWorkPolicy().maximumPrefetchBatchSize))
+        let task = Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(for: .seconds(max(0, debounce)))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, ConnectivityMonitor.isOnlineFlag else { return }
+            self.prefetch(urls: boundedURLs, priority: priority)
+        }
+        withStateLock {
+            scheduledPrefetchTasks[scope] = ScheduledPrefetch(
+                id: id,
+                urls: boundedURLs,
+                task: task
+            )
+        }
+    }
+
+    func cancelScheduledPrefetch(scope: String) {
+        let scheduled = withStateLock { scheduledPrefetchTasks.removeValue(forKey: scope) }
+        scheduled?.task.cancel()
+        scheduled?.urls.forEach(cancelPrefetch(for:))
     }
 
     func cancelPrefetch(for rawURL: String) {
         let url = URLCanonicalizer.canonicalString(rawURL)
         let task = withStateLock { prefetchTasks.removeValue(forKey: url) }
-        task?.cancel()
+        task?.task.cancel()
     }
 
     private func pruneDiskIfNeeded() {
@@ -380,15 +656,17 @@ final class ImageCache: @unchecked Sendable {
         let mb = Double(diskCacheSizeBytes) / 1_048_576
         return mb < 1 ? "\(diskCacheSizeBytes / 1024) KB" : String(format: "%.1f MB", mb)
     }
-    /// #8 — memory-pressure eviction: drop the in-memory image caches and cancel
-    /// prefetch/in-flight decodes, but KEEP the disk cache (cheap to reload, survives
-    /// pressure — that's the point of the disk layer). Called on a memory warning.
+    /// #8 — memory-pressure eviction: drop in-memory images and cancel speculative
+    /// wrappers. Visible waiters remain authoritative; cancellation of their shared
+    /// request here would turn an already-visible card back into a placeholder.
+    /// The disk cache remains cheap to reload and survives pressure.
     func evictMemory() {
+        artworkPreparations.values.forEach { $0.task.cancel() }
+        artworkPreparations.removeAll()
         let tasks = withStateLock { () -> [Task<Void, Never>] in
-            let t = Array(prefetchTasks.values)
+            let t = prefetchTasks.values.map(\.task) + scheduledPrefetchTasks.values.map(\.task)
             prefetchTasks.removeAll()
-            inFlightRequests.values.forEach { $0.task.cancel() }
-            inFlightRequests.removeAll()
+            scheduledPrefetchTasks.removeAll()
             return t
         }
         tasks.forEach { $0.cancel() }
@@ -397,9 +675,12 @@ final class ImageCache: @unchecked Sendable {
     }
 
     func clearAll() {
+        artworkPreparations.values.forEach { $0.task.cancel() }
+        artworkPreparations.removeAll()
         let tasks = withStateLock { () -> [Task<Void, Never>] in
-            let tasks = Array(prefetchTasks.values)
+            let tasks = prefetchTasks.values.map(\.task) + scheduledPrefetchTasks.values.map(\.task)
             prefetchTasks.removeAll()
+            scheduledPrefetchTasks.removeAll()
             inFlightRequests.values.forEach { $0.task.cancel() }
             inFlightRequests.removeAll()
             return tasks
@@ -435,21 +716,74 @@ private actor ImageDiskPruneGate {
 // network and main-thread decode. This actor caps simultaneous fetches to keep scrolling
 // smooth; queued requests run as slots free up.
 actor ImageFetchLimiter {
+    struct Snapshot: Equatable, Sendable {
+        let active: Int
+        let queued: Int
+        let maximum: Int
+    }
+
+    private struct Waiter {
+        let id: UUID
+        let priority: TaskPriority
+        let continuation: CheckedContinuation<Bool, Never>
+    }
+
     static let shared = ImageFetchLimiter(maxConcurrent: 5)
     private let maxConcurrent: Int
     private var active = 0
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waiters: [Waiter] = []
 
     init(maxConcurrent: Int) { self.maxConcurrent = maxConcurrent }
 
-    func acquire() async {
-        if active < maxConcurrent { active += 1; return }
-        await withCheckedContinuation { waiters.append($0) }
-        active += 1
+    func acquire(priority: TaskPriority = Task.currentPriority) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        if active < maxConcurrent {
+            active += 1
+            return true
+        }
+
+        let waiterID = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let waiter = Waiter(
+                    id: waiterID,
+                    priority: priority,
+                    continuation: continuation
+                )
+                // Higher-priority visible work may move ahead of speculative work;
+                // equal priorities remain FIFO.
+                if let index = waiters.firstIndex(where: {
+                    $0.priority.rawValue < priority.rawValue
+                }) {
+                    waiters.insert(waiter, at: index)
+                } else {
+                    waiters.append(waiter)
+                }
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(waiterID) }
+        }
     }
+
     func release() {
-        active -= 1
-        if !waiters.isEmpty { waiters.removeFirst().resume() }
+        if !waiters.isEmpty {
+            // Transfer this slot directly. Do not decrement/re-increment `active`,
+            // which would let a fresh acquire overtake the FIFO waiter.
+            waiters.removeFirst().continuation.resume(returning: true)
+        } else {
+            active = max(0, active - 1)
+        }
+    }
+
+    /// Internal observability for deterministic concurrency regression tests.
+    /// This deliberately exposes counts only—never waiter identities or continuations.
+    func snapshot() -> Snapshot {
+        Snapshot(active: active, queued: waiters.count, maximum: maxConcurrent)
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
+        waiters.remove(at: index).continuation.resume(returning: false)
     }
 }
 
@@ -466,7 +800,7 @@ struct UniformRecipeIcon: View {
             .frame(width: size, height: size)
             .overlay {
                 Image(systemName: "fork.knife")
-                    .font(.system(size: size * 0.36, weight: .semibold))
+                    .font(.stockedSystem(size: size * 0.36, weight: .semibold))
                     .foregroundStyle(Color.stockedGold)
             }
             .overlay {
@@ -478,7 +812,9 @@ struct UniformRecipeIcon: View {
 
 struct CachedAsyncImage: View {
     @Environment(AppSession.self) private var session
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.stockedMotion) private var motion
+    @Environment(\.stockedScrollActivity) private var scrollActivity
+    @State private var connectivity = ConnectivityMonitor.shared
     let url:       String?
     let imageData: Data?
     var height:    CGFloat = 180
@@ -492,6 +828,7 @@ struct CachedAsyncImage: View {
     @State private var isLoading   = false
     @State private var showPicker  = false
     @State private var appeared    = false   // #10 fade-in once the image is shown
+    @State private var loadedImageID: CachedImageLoadID?
 
     private var loadID: CachedImageLoadID {
         CachedImageLoadID(
@@ -502,13 +839,21 @@ struct CachedAsyncImage: View {
         )
     }
 
+    private var taskID: CachedImageTaskID {
+        CachedImageTaskID(
+            load: loadID,
+            mayLoadVisibleImages: scrollActivity.mayLoadVisibleImages,
+            isOnline: connectivity.isOnline
+        )
+    }
+
     var body: some View {
         ZStack {
             if let img = loadedImage {
                 Image(uiImage: img).resizable().scaledToFill()
                     .opacity(appeared ? 1 : 0)
                     .onAppear {
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) { appeared = true }
+                        motion.animate(.selection, intent: .opacity) { appeared = true }
                     }
             } else {
                 ZStack {
@@ -524,8 +869,13 @@ struct CachedAsyncImage: View {
                     } else {
                         VStack(spacing: 6) {
                             Image(systemName: "fork.knife")
-                                .font(.system(size: 28)).foregroundStyle(Color.stockedGold)
-                            Text(isLoading ? "Loading photo…" : "Repairing photo…").font(.stockedSans(12))
+                                .scaledFont(28).foregroundStyle(Color.stockedGold)
+                            Text(isLoading
+                                 ? "Loading photo…"
+                                 : scrollActivity.shouldDeferExpensiveWork
+                                    ? "Photo paused"
+                                    : "Repairing photo…")
+                                .font(.stockedSans(12))
                                 .foregroundStyle(Color.primary.opacity(0.5))
                         }
                     }
@@ -546,22 +896,77 @@ struct CachedAsyncImage: View {
         .accessibilityLabel(resolveName.map { "Photo for \($0)" } ?? "Recipe photo")
         .accessibilityValue(loadedImage == nil ? "Photo is being loaded or repaired" : "Loaded")
         .sheet(isPresented: $showPicker) { PhotoPickerSheet { onUpdate?($0) } }
-        .task(id: loadID) { await loadImage() }
+        .task(id: taskID) { await loadImage(activity: scrollActivity) }
     }
 
-    private func loadImage() async {
-        loadedImage = nil
-        appeared = false
+    private func loadImage(activity: StockedScrollActivity) async {
+        let requestedID = loadID
+        if loadedImageID == requestedID, loadedImage != nil { return }
+        if loadedImageID != requestedID {
+            loadedImage = nil
+            loadedImageID = nil
+            appeared = false
+        }
+
+        // Memory hits are always safe during direct manipulation. They avoid disk,
+        // network, and decode work, so show them without waiting for scroll settling.
+        if let u = url, !u.isEmpty {
+            let canonicalURL = URLCanonicalizer.canonicalString(u)
+            if let cached = ImageCache.shared.memoryImage(for: canonicalURL) {
+                loadedImage = cached
+                loadedImageID = requestedID
+                return
+            }
+        } else if let data = imageData,
+                  let signature = ImageDataSignature(data) {
+            let targetHeight = max(height, 96)
+            if let cached = ImageCache.shared.localImage(
+                for: signature,
+                maxDimension: targetHeight
+            ) {
+                loadedImage = cached
+                loadedImageID = requestedID
+                return
+            }
+        }
+
+        let hasRemoteSource = (url?.isEmpty == false) || (resolveName?.isEmpty == false)
+        let workSource: StockedImageWorkSource = hasRemoteSource ? .remote : .localEncoded
+        let directive = StockedImageWorkPolicy().directive(
+            for: .init(source: workSource, purpose: .visible),
+            activity: activity,
+            remoteAccessAllowed: ConnectivityMonitor.isOnlineFlag
+        )
+        let allowsRemoteAccess: Bool
+        switch directive {
+        case .displayNow, .loadNow:
+            allowsRemoteAccess = ConnectivityMonitor.isOnlineFlag
+        case .localOnly:
+            allowsRemoteAccess = false
+        case .deferUntilDeceleration, .deferUntilIdle:
+            isLoading = false
+            return
+        }
+
         isLoading = true
         defer { isLoading = false }
 
         // A harvested recipe's URL points to the publisher's original hero image. Prefer
         // it over the compact household-sync fallback so old and new recipes render at
         // source quality. The embedded bytes remain the offline/failure fallback.
-        if let u = url, !u.isEmpty,
-           let img = await ImageCache.shared.fetchImage(url: u) {
-            loadedImage = img
-            return
+        if let u = url, !u.isEmpty {
+            let img: UIImage?
+            if allowsRemoteAccess {
+                img = await ImageCache.shared.fetchImage(url: u, priority: .userInitiated)
+            } else {
+                img = await ImageCache.shared.cachedImage(for: u, priority: .utility)
+            }
+            if let img {
+                guard !Task.isCancelled, loadID == requestedID else { return }
+                loadedImage = img
+                loadedImageID = requestedID
+                return
+            }
         }
 
         // User-selected/local recipe photos have no remote original. Decode them once
@@ -570,23 +975,45 @@ struct CachedAsyncImage: View {
             let targetHeight = max(height, 96)
             if let cached = ImageCache.shared.localImage(for: signature, maxDimension: targetHeight) {
                 loadedImage = cached
+                loadedImageID = requestedID
                 return
             }
-            let decoded = await Task.detached(priority: .userInitiated) {
-                ImageCache.downsample(data, maxDimension: targetHeight) ?? UIImage(data: data)
-            }.value
+            guard await ImageFetchLimiter.shared.acquire(priority: .userInitiated) else { return }
+            guard !Task.isCancelled else {
+                await ImageFetchLimiter.shared.release()
+                return
+            }
+            let decodeTask = Task.detached(priority: .userInitiated) {
+                guard !Task.isCancelled else { return nil as UIImage? }
+                return ImageCache.downsample(data, maxDimension: targetHeight) ?? UIImage(data: data)
+            }
+            let decoded = await withTaskCancellationHandler {
+                await decodeTask.value
+            } onCancel: {
+                decodeTask.cancel()
+            }
+            await ImageFetchLimiter.shared.release()
             guard !Task.isCancelled else { return }
             if let decoded {
                 ImageCache.shared.storeLocal(decoded, for: signature, maxDimension: targetHeight)
+                guard loadID == requestedID else { return }
                 loadedImage = decoded
+                loadedImageID = requestedID
                 return
             }
         }
 
         // No URL, or it failed — resolve online by recipe name if we were given one.
-        if let name = resolveName, !name.isEmpty,
+        if allowsRemoteAccess,
+           let name = resolveName, !name.isEmpty,
            let resolved = await RecipeImageResolver.shared.imageURL(for: name, category: resolveCategory) {
-            loadedImage = await ImageCache.shared.fetchImage(url: resolved.absoluteString)
+            let resolvedImage = await ImageCache.shared.fetchImage(
+                url: resolved.absoluteString,
+                priority: .userInitiated
+            )
+            guard !Task.isCancelled, loadID == requestedID else { return }
+            loadedImage = resolvedImage
+            if resolvedImage != nil { loadedImageID = requestedID }
         }
     }
 }
@@ -597,7 +1024,7 @@ private struct PhotoUpdateButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: "camera.fill").font(.system(size: 11))
+                Image(systemName: "camera.fill").scaledFont(11)
                 Text("Change").font(.stockedSans(11, weight: .semibold))
             }
             .foregroundStyle(Color.stockedWhite).padding(.horizontal, 10).padding(.vertical, 6)

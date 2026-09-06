@@ -34,7 +34,7 @@ struct SyncDiagnosticsView: View {
                 Button {
                     Task { await household.syncNow(store: session.guestStore) }
                 } label: {
-                    Text("Force Sync Now").font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                    Text("Force Sync Now").scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
                 }.buttonStyle(.plain)
@@ -59,7 +59,7 @@ struct SyncDiagnosticsView: View {
                     HStack(spacing: 8) {
                         if isSendingReport { ProgressView().tint(Color.stockedWhite) }
                         Text(isSendingReport ? "Sending…" : "Send Diagnostics Report")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(15, weight: .semibold)
                     }
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -68,14 +68,14 @@ struct SyncDiagnosticsView: View {
 
                 if let reportResult {
                     Text(reportResult)
-                        .font(.system(size: 12, weight: .medium))
+                        .scaledFont(12, weight: .medium)
                         .foregroundStyle(session.themeTextColor.opacity(0.75))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                 }
 
                 Text("These details help diagnose household sync. Nothing here is shared.")
-                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                     .padding(.top, 4)
             }
             .padding(.horizontal, 20).padding(.top, 8)
@@ -89,9 +89,9 @@ struct SyncDiagnosticsView: View {
     }
     private func row(_ label: String, _ value: String) -> some View {
         HStack {
-            Text(label).font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.7))
+            Text(label).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
             Spacer()
-            Text(value).font(.system(size: 14, weight: .medium)).foregroundStyle(session.themeTextColor)
+            Text(value).scaledFont(14, weight: .medium).foregroundStyle(session.themeTextColor)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 8)

@@ -54,6 +54,10 @@ struct KitchenMetrics: Equatable {
     var freshCount: Int = 0
     var groceryToBuy: Int = 0
     var groceryRunDays: Int = 0
+    /// Materialized alongside the other Home figures so SwiftUI does not rescan
+    /// recipe and plan collections once per widget/body evaluation.
+    var favoriteRecipeCount: Int = 0
+    var plannedMealCount: Int = 0
 
     /// One short status phrase for the stock level, used by several cards.
     var stockStatusPhrase: String {

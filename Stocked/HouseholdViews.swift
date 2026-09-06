@@ -20,7 +20,7 @@ private enum HHStyle {
 private extension View {
     /// Charcoal pill primary button (mockup's "Create Your Household", "Join Household", etc.)
     func hhPrimaryButton() -> some View {
-        self.font(.system(size: 16, weight: .semibold))
+        self.scaledFont(16, weight: .semibold)
             .foregroundStyle(Color.stockedWhite)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
@@ -70,10 +70,10 @@ struct HouseholdHomeView: View {
         HHScreen("Household") {
             VStack(spacing: 8) {
                 Text("Household")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .scaledFont(24, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text("Share your pantry and grocery list with the people you trust.")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
@@ -95,7 +95,7 @@ struct HouseholdHomeView: View {
 
             NavigationLink { HouseholdJoinView() } label: {
                 Text("I have an invite code")
-                    .font(.system(size: 14, weight: .medium))
+                    .scaledFont(14, weight: .medium)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
             }
             .padding(.bottom, 24)
@@ -105,12 +105,12 @@ struct HouseholdHomeView: View {
     private func valueRow(_ icon: String, _ title: String, _ subtitle: String) -> some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .scaledFont(18)
                 .foregroundStyle(Color.stockedGold)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -134,13 +134,13 @@ struct HouseholdCreateView: View {
                 // Pre-create prompt.
                 VStack(spacing: 18) {
                     Image(systemName: "house.circle")
-                        .font(.system(size: 52)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(52).foregroundStyle(Color.stockedGold)
                         .padding(.top, 30)
                     Text("Create your household")
-                        .font(.system(size: 20, weight: .bold, design: .serif))
+                        .scaledFont(20, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("You'll get an invite code to share with family. They join, and your pantry and grocery list sync together.")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                         .multilineTextAlignment(.center).padding(.horizontal, 16)
                     Button {
                         Task { creating = true; _ = await household.createHousehold(); creating = false }
@@ -159,32 +159,32 @@ struct HouseholdCreateView: View {
     private var successContent: some View {
         VStack(spacing: 0) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56)).foregroundStyle(Color.stockedGreen)
+                .scaledFont(56).foregroundStyle(Color.stockedGreen)
                 .padding(.top, 24).padding(.bottom, 14)
             Text("Household created!")
-                .font(.system(size: 20, weight: .bold, design: .serif))
+                .scaledFont(20, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("Invite others to join by sharing this code.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .multilineTextAlignment(.center).padding(.top, 4).padding(.bottom, 22)
 
             // Invite code card
             VStack(spacing: 12) {
                 Text("Your Invite Code")
-                    .font(.system(size: 11, weight: .medium))
+                    .scaledFont(11, weight: .medium)
                     .foregroundStyle(session.themeTextColor.opacity(0.5))
                 Text(household.joinCode ?? "—")
-                    .font(.system(size: 30, weight: .bold, design: .monospaced))
+                    .scaledFont(30, weight: .bold, design: .monospaced)
                     .foregroundStyle(session.themeTextColor)
                     .tracking(2)
                 Text("Code expires in 7 days")
-                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                 Button {
                     shareItems = ["Join my Stocked. kitchen with code \(household.joinCode ?? "")" as Any?]
                     showShare = !shareItems.isEmpty
                 } label: {
                     Label("Share Code", systemImage: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
                         .background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 12))
@@ -196,7 +196,7 @@ struct HouseholdCreateView: View {
             .padding(.bottom, 20)
 
             Button("Done") { dismiss() }
-                .font(.system(size: 15, weight: .semibold))
+                .scaledFont(15, weight: .semibold)
                 .foregroundStyle(Color.stockedError)
                 .padding(.bottom, 24)
         }
@@ -217,14 +217,14 @@ struct HouseholdJoinView: View {
     var body: some View {
         HHScreen("Join Household") {
             Text("Enter the invite code shared by your household member.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .multilineTextAlignment(.center).padding(.top, 16).padding(.bottom, 24)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Enter 8-character code")
-                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
                 TextField("ABCD2345", text: $code)
-                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                    .scaledFont(22, weight: .semibold, design: .monospaced)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .keyboardType(.asciiCapable)
@@ -256,7 +256,7 @@ struct HouseholdJoinView: View {
             .disabled(joining || code.trimmingCharacters(in: .whitespaces).count < 4)
 
             if let message {
-                Text(message).font(.system(size: 12)).foregroundStyle(Color.stockedError).padding(.top, 12)
+                Text(message).scaledFont(12).foregroundStyle(Color.stockedError).padding(.top, 12)
             }
         }
     }
@@ -273,7 +273,7 @@ struct HouseholdMembersView: View {
     var body: some View {
         HHScreen("Household Members") {
             HStack { Text("People in your household")
-                .font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5))
                 Spacer() }
             .padding(.top, 8).padding(.bottom, 10)
 
@@ -291,11 +291,11 @@ struct HouseholdMembersView: View {
                 NavigationLink { HouseholdShareCodeView() } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "person.badge.plus")
-                            .font(.system(size: 17)).foregroundStyle(Color.stockedGold).frame(width: 40, height: 40)
+                            .scaledFont(17).foregroundStyle(Color.stockedGold).frame(width: 40, height: 40)
                             .background(Color.stockedGold.opacity(0.12), in: Circle())
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Add Member").font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                            Text("Invite with code or link").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text("Add Member").scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                            Text("Invite with code or link").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
                     }.padding(.vertical, 10)
@@ -306,7 +306,7 @@ struct HouseholdMembersView: View {
 
             // Household Settings links
             HStack { Text("Household Settings")
-                .font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5))
                 Spacer() }
             .padding(.top, 22).padding(.bottom, 10)
 
@@ -345,18 +345,18 @@ struct HouseholdMembersView: View {
         HStack(spacing: 12) {
             avatar(m.name)
             VStack(alignment: .leading, spacing: 1) {
-                Text(m.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                Text(m.displayLabel).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(m.name).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                Text(m.displayLabel).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                 if let p = presenceLabel(m.name) {
                     HStack(spacing: 4) {
                         Circle().fill(p.1).frame(width: 6, height: 6)
-                        Text(p.0).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text(p.0).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
                     }
                 }
             }
             Spacer()
             if m.isMe {
-                Text("You").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                Text("You").scaledFont(11, weight: .semibold).foregroundStyle(Color.stockedGold)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(Color.stockedGold.opacity(0.12), in: Capsule())
             } else {
@@ -367,16 +367,16 @@ struct HouseholdMembersView: View {
 
     private func avatar(_ name: String) -> some View {
         Text(String(name.prefix(1)).uppercased())
-            .font(.system(size: 16, weight: .bold)).foregroundStyle(Color.stockedWhite)
+            .scaledFont(16, weight: .bold).foregroundStyle(Color.stockedWhite)
             .frame(width: 40, height: 40).background(Color.stockedGold, in: Circle())
     }
 
     private func settingRow(_ icon: String, _ title: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(Color.stockedGold).frame(width: 26)
-            Text(title).font(.system(size: 15)).foregroundStyle(session.themeTextColor)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 26)
+            Text(title).scaledFont(15).foregroundStyle(session.themeTextColor)
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.3))
+            Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
         }.padding(.vertical, 12)
     }
 }
@@ -397,14 +397,14 @@ struct HouseholdActivityView: View {
     var body: some View {
         HHScreen("Household Activity") {
             Text("All recent activity in your household")
-                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                 .padding(.top, 6).padding(.bottom, 14)
 
             // Filter chips
             HStack(spacing: 8) {
                 ForEach(HouseholdActivity.Category.allCases, id: \.self) { cat in
                     Button { filter = cat } label: {
-                        Text(cat.label).font(.system(size: 13, weight: .medium))
+                        Text(cat.label).scaledFont(13, weight: .medium)
                             .foregroundStyle(filter == cat ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .background(filter == cat ? Color.stockedCharcoal : session.themeCardColor, in: Capsule())
@@ -416,7 +416,7 @@ struct HouseholdActivityView: View {
             if loading {
                 ProgressView().padding(.vertical, 30)
             } else if filtered.isEmpty {
-                Text("No activity yet.").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4)).padding(.vertical, 30)
+                Text("No activity yet.").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4)).padding(.vertical, 30)
             } else {
                 VStack(spacing: 0) {
                     ForEach(filtered) { e in
@@ -443,13 +443,13 @@ struct HouseholdActivityView: View {
     private func activityRow(_ e: HouseholdActivity) -> some View {
         HStack(spacing: 12) {
             Text(String(e.actorName.prefix(1)).uppercased())
-                .font(.system(size: 14, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                .scaledFont(14, weight: .bold).foregroundStyle(Color.stockedWhite)
                 .frame(width: 36, height: 36).background(Color.stockedGold, in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text("**\(e.actorName)** \(e.kind.verb) **\(e.phrase)**")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(session.themeTextColor)
-                Text(e.date, style: .relative).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                Text(e.date, style: .relative).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
             }
             Spacer()
         }.padding(.vertical, 11)
@@ -460,32 +460,33 @@ struct HouseholdActivityView: View {
 
 struct HouseholdMemberProfileView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
     let member: HouseholdMember
     @State private var household = HouseholdSync.shared
     @State private var selectedRole: HouseholdMember.Role = .adult
     @State private var customLabel: String = ""
-    @State private var ovrAdd = true
-    @State private var ovrEdit = true
-    @State private var ovrRemove = false
+    @State private var selectedPermissions: Set<HouseholdPermission> = []
     @State private var saving = false
+    @State private var removing = false
+    @State private var confirmRemoval = false
     @State private var saveMessage: String? = nil
 
-    private var iAmOwner: Bool { household.state == .owner }
+    private var canManageMembers: Bool { household.can(.manageMembers) }
 
     var body: some View {
         HHScreen("Member Profile") {
             VStack(spacing: 8) {
                 Text(String(member.name.prefix(1)).uppercased())
-                    .font(.system(size: 30, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                    .scaledFont(30, weight: .bold).foregroundStyle(Color.stockedWhite)
                     .frame(width: 84, height: 84).background(Color.stockedGold, in: Circle())
                     .padding(.top, 16)
-                Text(member.name).font(.system(size: 20, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-                Text(member.displayLabel).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(member.name).scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
+                Text(member.displayLabel).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
             }.padding(.bottom, 22)
 
-            // ── Owner-only: Access level + custom label ──────────────
-            if iAmOwner && !member.isMe {
-                HStack { Text("Access Level").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
+            // ── Member-management permission: access level + custom label ─────────
+            if canManageMembers && !member.isMe {
+                HStack { Text("Access Level").scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
                     .padding(.bottom, 10)
                 VStack(alignment: .leading, spacing: 14) {
                     // Role picker (kid/teen/adult/manager). Owner isn't assignable here.
@@ -498,23 +499,24 @@ struct HouseholdMemberProfileView: View {
 
                     // What this level can do — plain-language summary so the owner knows.
                     Text(permissionSummary(selectedRole))
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Custom label (optional)").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        Text("Custom label (optional)").scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5))
                         TextField("e.g. Mom, Big Sis", text: $customLabel)
-                            .font(.system(size: 15)).foregroundStyle(session.themeTextColor)
+                            .scaledFont(15).foregroundStyle(session.themeTextColor)
                             .padding(10)
                             .background(session.themeBgColor, in: RoundedRectangle(cornerRadius: 8))
                     }
 
-                    // #4 Per-permission fine-tuning. Each toggle overrides the role default for
-                    // this one member; leave them matching the role for standard behavior.
+                    // Fine-grained grants and denials cover every collaborative capability. The
+                    // Worker evaluates these after role defaults, with explicit denial winning.
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Fine-tune permissions").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                        Toggle("Can add items", isOn: $ovrAdd).font(.system(size: 14)).tint(Color.stockedGold)
-                        Toggle("Can edit items", isOn: $ovrEdit).font(.system(size: 14)).tint(Color.stockedGold)
-                        Toggle("Can remove items", isOn: $ovrRemove).font(.system(size: 14)).tint(Color.stockedGold)
+                        Text("Fine-tune permissions").scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        ForEach(HouseholdPermission.allCases.filter { $0 != .transferOwnership }, id: \.self) { permission in
+                            Toggle(permissionLabel(permission), isOn: permissionBinding(permission))
+                                .scaledFont(14).tint(Color.stockedGold)
+                        }
                     }
                     .padding(.top, 4)
 
@@ -524,7 +526,7 @@ struct HouseholdMemberProfileView: View {
                         HStack {
                             if saving { ProgressView().tint(Color.stockedWhite) }
                             Text(saving ? "Saving…" : "Save Access Level")
-                                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                                .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
@@ -532,7 +534,7 @@ struct HouseholdMemberProfileView: View {
                     .disabled(saving)
 
                     if let saveMessage {
-                        Text(saveMessage).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        Text(saveMessage).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
                 }
                 .padding(14)
@@ -540,7 +542,7 @@ struct HouseholdMemberProfileView: View {
                 .padding(.bottom, 22)
             }
 
-            HStack { Text("Preferences").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
+            HStack { Text("Preferences").scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
                 .padding(.bottom, 10)
             VStack(spacing: 0) {
                 prefRow("Dietary Preferences", member.dietaryPreference ?? "Not set")
@@ -551,22 +553,28 @@ struct HouseholdMemberProfileView: View {
             .padding(.horizontal, 14)
             .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
 
-            if !member.isMe {
-                Button(role: .destructive) { } label: {
-                    Text("Remove from Household").font(.system(size: 14, weight: .medium)).foregroundStyle(Color.stockedError)
-                }.padding(.top, 20)
+            if canManageMembers && !member.isMe {
+                Button(role: .destructive) { confirmRemoval = true } label: {
+                    Text(removing ? "Removing…" : "Remove from Household")
+                        .scaledFont(14, weight: .medium).foregroundStyle(Color.stockedError)
+                }
+                .disabled(removing)
+                .padding(.top, 20)
             }
         }
         .onAppear {
             selectedRole = (member.role == .owner || member.role == .member) ? .adult : member.role
             customLabel = member.customLabel ?? ""
-            ovrAdd = member.effectiveCanAdd
-            ovrEdit = member.effectiveCanEdit
-            ovrRemove = member.effectiveCanRemove
+            selectedPermissions = member.effectivePermissions
         }
         .onChange(of: selectedRole) { _, r in
-            // Default the toggles to the newly picked role's permissions (owner can then tweak).
-            ovrAdd = r.canAdd; ovrEdit = r.canEdit; ovrRemove = r.canRemove
+            selectedPermissions = r.defaultPermissions
+        }
+        .alert("Remove \(member.name)?", isPresented: $confirmRemoval) {
+            Button("Remove", role: .destructive) { Task { await removeMember() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They will lose access to this shared household and will need a new invite to rejoin.")
         }
     }
 
@@ -583,25 +591,60 @@ struct HouseholdMemberProfileView: View {
     private func saveRole() async {
         saving = true; saveMessage = nil
         let label = customLabel.trimmingCharacters(in: .whitespaces)
-        // Only send an override when it differs from the role's default; otherwise nil (use default).
-        let oAdd: Bool?    = ovrAdd    == selectedRole.canAdd    ? nil : ovrAdd
-        let oEdit: Bool?   = ovrEdit   == selectedRole.canEdit   ? nil : ovrEdit
-        let oRemove: Bool? = ovrRemove == selectedRole.canRemove ? nil : ovrRemove
+        let defaults = selectedRole.defaultPermissions
+        let grants = selectedPermissions.subtracting(defaults)
+        let denials = defaults.subtracting(selectedPermissions)
         let ok = await household.setMemberRole(memberId: member.id, role: selectedRole,
                                                label: label.isEmpty ? "" : label,
-                                               overrideCanAdd: oAdd, overrideCanEdit: oEdit,
-                                               overrideCanRemove: oRemove)
+                                               permissionGrants: grants,
+                                               permissionDenials: denials)
         saving = false
         saveMessage = ok ? "Saved. Changes apply on their next sync." : (household.lastError ?? "Couldn't save.")
+    }
+
+    private func permissionBinding(_ permission: HouseholdPermission) -> Binding<Bool> {
+        Binding(
+            get: { selectedPermissions.contains(permission) },
+            set: { enabled in
+                if enabled { selectedPermissions.insert(permission) }
+                else { selectedPermissions.remove(permission) }
+            })
+    }
+
+    private func permissionLabel(_ permission: HouseholdPermission) -> String {
+        switch permission {
+        case .view: return "View shared household"
+        case .inventoryAdd: return "Add inventory"
+        case .inventoryEdit: return "Edit inventory"
+        case .inventoryRemove: return "Remove inventory"
+        case .groceryAdd: return "Add grocery items"
+        case .groceryEdit: return "Edit grocery items"
+        case .groceryRemove: return "Remove grocery items"
+        case .recipeEdit: return "Edit household recipes"
+        case .mealPlanEdit: return "Edit meal plans"
+        case .manageMembers: return "Manage members"
+        case .manageHousehold: return "Manage household settings"
+        case .transferOwnership: return "Transfer ownership"
+        case .backupExport: return "Export backups"
+        case .backupRestore: return "Restore backups"
+        }
+    }
+
+    private func removeMember() async {
+        removing = true; saveMessage = nil
+        let ok = await household.removeMember(memberId: member.id)
+        removing = false
+        if ok { dismiss() }
+        else { saveMessage = household.lastError ?? "Couldn't remove that member." }
     }
     private func prefRow(_ title: String, _ value: String) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                Text(value).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(title).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
+                Text(value).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.3))
+            Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
         }.padding(.vertical, 12)
     }
 }
@@ -620,15 +663,15 @@ struct HouseholdShareCodeView: View {
     var body: some View {
         HHScreen("Share Code") {
             Text("Invite someone to your household")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .padding(.top, 14).padding(.bottom, 18)
 
             Text(code)
-                .font(.system(size: 30, weight: .bold, design: .monospaced)).tracking(2)
+                .scaledFont(30, weight: .bold, design: .monospaced).tracking(2)
                 .foregroundStyle(session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 20)
                 .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
-            Text("Code expires in 7 days").font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+            Text("Code expires in 7 days").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                 .padding(.top, 6).padding(.bottom, 18)
 
             VStack(spacing: 0) {
@@ -652,13 +695,13 @@ struct HouseholdShareCodeView: View {
                 }
             } label: {
                 Text(regenerating ? "Regenerating…" : "Regenerate Code")
-                    .font(.system(size: 14, weight: .medium)).foregroundStyle(Color.stockedError)
+                    .scaledFont(14, weight: .medium).foregroundStyle(Color.stockedError)
             }
             .disabled(regenerating || household.state != .owner)
             .padding(.bottom, 24)
             if household.state != .owner {
                 Text("Only the household owner can regenerate the code.")
-                    .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
                     .padding(.bottom, 12)
             }
         }
@@ -673,9 +716,9 @@ struct HouseholdShareCodeView: View {
             }
         } label: {
             HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 16)).foregroundStyle(color).frame(width: 38, height: 38)
+                Image(systemName: icon).scaledFont(16).foregroundStyle(color).frame(width: 38, height: 38)
                     .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
-                Text(title).font(.system(size: 15)).foregroundStyle(session.themeTextColor)
+                Text(title).scaledFont(15).foregroundStyle(session.themeTextColor)
                 Spacer()
             }.padding(.vertical, 8)
         }.buttonStyle(.plain)
@@ -692,11 +735,13 @@ struct HouseholdSettingsView: View {
 
     private var statusIsHealthy: Bool { household.syncStatus.lastError == nil }
     private var statusLine: String {
+        if household.isRepairingHouseholdStorage { return "Repairing household storage…" }
         if !statusIsHealthy { return "Offline. Changes will sync later." }
         return household.pendingOps.isEmpty ? "Up to date" : "\(household.pendingOps.count) change\(household.pendingOps.count == 1 ? "" : "s") waiting to sync"
     }
     private var statusIcon: String {
-        statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
+        if household.isRepairingHouseholdStorage { return "wrench.and.screwdriver.fill" }
+        return statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
     }
     private var lastSyncedText: String {
         let dates = [household.syncStatus.lastSuccessfulPush, household.syncStatus.lastSuccessfulPull].compactMap { $0 }
@@ -737,25 +782,25 @@ struct HouseholdSettingsView: View {
             .padding(.top, 10).padding(.bottom, 18)
 
             // ── Sync status + manual Sync Now (sync plan Drop 3, worker-adapted) ──
-            HStack { Text("Sync").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
+            HStack { Text("Sync").scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
                 .padding(.bottom, 8)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: statusIcon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(statusIsHealthy ? Color.stockedGold : Color.stockedError)
                     Text(statusLine)
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                     Spacer()
                 }
                 Text("Last synced: \(lastSyncedText)")
-                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                 if household.pendingOps.count > 0 {
                     Text("Pending changes: \(household.pendingOps.count)")
-                        .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                 }
                 if let err = household.syncStatus.lastError, !err.isEmpty {
-                    Text(err).font(.system(size: 12)).foregroundStyle(Color.stockedError.opacity(0.8))
+                    Text(err).scaledFont(12).foregroundStyle(Color.stockedError.opacity(0.8))
                 }
                 Button {
                     guard !isSyncing else { return }
@@ -772,8 +817,8 @@ struct HouseholdSettingsView: View {
                 } label: {
                     HStack {
                         if isSyncing { ProgressView().tint(Color.stockedWhite) }
-                        Text(isSyncing ? "Syncing…" : "Sync Now")
-                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                        Text(household.isRepairingHouseholdStorage ? "Repairing…" : (isSyncing ? "Syncing…" : "Sync Now"))
+                            .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
@@ -789,14 +834,14 @@ struct HouseholdSettingsView: View {
                 NavigationLink { HouseholdConflictReviewView() } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.stockedError)
+                            .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedError)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Review Household Changes").font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                            Text("Review Household Changes").scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                             Text("\(household.pendingConflicts.count) change\(household.pendingConflicts.count == 1 ? "" : "s") need your review")
-                                .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
                     }
                     .padding(14)
                     .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
@@ -820,18 +865,18 @@ struct HouseholdSettingsView: View {
     private func settingsRow(_ title: String, _ value: String, subtitle: String? = nil) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                Text(subtitle ?? value).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(title).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
+                Text(subtitle ?? value).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.3))
+            Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
         }.padding(.vertical, 12)
     }
     private func destructiveRow(_ title: String, _ subtitle: String) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedError)
-                Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(title).scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedError)
+                Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
             }
             Spacer()
         }.padding(.vertical, 12)
@@ -858,19 +903,19 @@ struct HouseholdConflictReviewView: View {
         HHScreen("Review Changes") {
             if household.pendingConflicts.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 34)).foregroundStyle(Color.stockedGold)
-                    Text("All caught up").font(.system(size: 18, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-                    Text("There are no changes to review.").font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Image(systemName: "checkmark.circle.fill").scaledFont(34).foregroundStyle(Color.stockedGold)
+                    Text("All caught up").scaledFont(18, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
+                    Text("There are no changes to review.").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
                 }.padding(.top, 60)
             } else {
                 Text("Two people changed the same thing while offline. Choose which version to keep for each one.")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                     .padding(.bottom, 14)
                 ForEach(household.pendingConflicts) { c in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 6) {
                             Text(typeLabel(c.entityType).uppercased())
-                                .font(.system(size: 11, weight: .bold)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .scaledFont(11, weight: .bold).foregroundStyle(session.themeTextColor.opacity(0.4))
                             Spacer()
                         }
                         versionRow(title: "Your version", name: c.mineTitle, detail: c.mineDetail) {
@@ -880,7 +925,7 @@ struct HouseholdConflictReviewView: View {
                             household.resolveConflict(c, keepMine: false, store: session.guestStore)
                         }
                         Button { household.dismissConflict(c) } label: {
-                            Text("Skip for now").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text("Skip for now").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                     }
                     .padding(14)
@@ -895,12 +940,12 @@ struct HouseholdConflictReviewView: View {
         Button(action: action) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5))
-                    Text(name).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                    Text(detail).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Text(title).scaledFont(11, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(name).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                    Text(detail).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
                 }
                 Spacer()
-                Text("Keep").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.stockedWhite)
+                Text("Keep").scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 16).padding(.vertical, 8)
                     .background(Color.stockedGold, in: Capsule())
             }
@@ -921,7 +966,7 @@ struct HouseholdNotificationsView: View {
     var body: some View {
         HHScreen("Customize Notifications") {
             Text("Choose what you want to be notified about in this household.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .padding(.top, 8).padding(.bottom, 16)
 
             group("List & Inventory") {
@@ -952,7 +997,7 @@ struct HouseholdNotificationsView: View {
         }
     }
     @ViewBuilder private func group<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-        HStack { Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
+        HStack { Text(title).scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
             .padding(.top, 14).padding(.bottom, 8)
         VStack(spacing: 0) { content() }
             .padding(.horizontal, 14)
@@ -960,7 +1005,7 @@ struct HouseholdNotificationsView: View {
     }
     private func toggle(_ label: String, _ binding: Binding<Bool>) -> some View {
         Toggle(isOn: binding) {
-            Text(label).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+            Text(label).scaledFont(14).foregroundStyle(session.themeTextColor)
         }
         .tint(Color.stockedGreen)
         .padding(.vertical, 9)
@@ -974,22 +1019,22 @@ struct HouseholdPendingInvitesView: View {
     @State private var invites: [HouseholdInvite] = []
     var body: some View {
         HHScreen("Pending Invites") {
-            HStack { Text("Invites you've sent").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
+            HStack { Text("Invites you've sent").scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
                 .padding(.top, 8).padding(.bottom, 10)
             if invites.isEmpty {
-                Text("No pending invites.").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.4)).padding(.vertical, 24)
+                Text("No pending invites.").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4)).padding(.vertical, 24)
             } else {
                 VStack(spacing: 0) {
                     ForEach(invites) { inv in
                         HStack(spacing: 12) {
-                            Text(String(inv.inviteeName.prefix(1))).font(.system(size: 14, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                            Text(String(inv.inviteeName.prefix(1))).scaledFont(14, weight: .bold).foregroundStyle(Color.stockedWhite)
                                 .frame(width: 36, height: 36).background(Color.stockedGold, in: Circle())
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(inv.inviteeName).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                                Text("Invited \(inv.sentAt, style: .date)").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text(inv.inviteeName).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                                Text("Invited \(inv.sentAt, style: .date)").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
                             Spacer()
-                            Text(inv.isExpired ? "Expired" : "Pending").font(.system(size: 12, weight: .medium))
+                            Text(inv.isExpired ? "Expired" : "Pending").scaledFont(12, weight: .medium)
                                 .foregroundStyle(inv.isExpired ? Color.stockedError : Color.stockedGold)
                         }.padding(.vertical, 10)
                         if inv.id != invites.last?.id { Divider() }
@@ -999,7 +1044,7 @@ struct HouseholdPendingInvitesView: View {
                 .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
             }
             Text("Invite links and codes expire in 7 days.")
-                .font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.4))
+                .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
                 .padding(.top, 14)
         }
     }
@@ -1023,10 +1068,10 @@ struct HouseholdWhatsNewView: View {
     }
     private func feature(_ icon: String, _ title: String, _ subtitle: String) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: icon).font(.system(size: 18)).foregroundStyle(Color.stockedGold).frame(width: 26)
+            Image(systemName: icon).scaledFont(18).foregroundStyle(Color.stockedGold).frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
             }
             Spacer()
         }
@@ -1045,14 +1090,14 @@ struct HouseholdHelpView: View {
     ]
     var body: some View {
         HHScreen("Need Help?") {
-            HStack { Text("Common Questions").font(.system(size: 12, weight: .medium)).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
+            HStack { Text("Common Questions").scaledFont(12, weight: .medium).foregroundStyle(session.themeTextColor.opacity(0.5)); Spacer() }
                 .padding(.top, 8).padding(.bottom, 10)
             VStack(spacing: 0) {
                 ForEach(faqs, id: \.self) { q in
                     HStack {
-                        Text(q).font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                        Text(q).scaledFont(14).foregroundStyle(session.themeTextColor)
                         Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
                     }.padding(.vertical, 13)
                     if q != faqs.last { Divider() }
                 }
@@ -1075,10 +1120,10 @@ struct HouseholdNameEditView: View {
     var body: some View {
         HHScreen("Household Name") {
             Text("This name is shown to everyone in your household.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .padding(.top, 12).padding(.bottom, 18)
             TextField("Household name", text: $name)
-                .font(.system(size: 17))
+                .scaledFont(17)
                 .foregroundStyle(session.themeTextColor)
                 .padding(.vertical, 14).padding(.horizontal, 16)
                 .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
@@ -1104,10 +1149,10 @@ struct HouseholdMyNameEditView: View {
     var body: some View {
         HHScreen("Your Name") {
             Text("How you appear to everyone in your household — in the member list, the activity feed, and the Daily Brief. Syncs to every device.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .padding(.top, 12).padding(.bottom, 18)
             TextField("Your name", text: $name)
-                .font(.system(size: 17))
+                .scaledFont(17)
                 .foregroundStyle(session.themeTextColor)
                 .padding(.vertical, 14).padding(.horizontal, 16)
                 .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
@@ -1134,7 +1179,7 @@ struct HouseholdSyncOptionsView: View {
     var body: some View {
         HHScreen("What Syncs") {
             Text("Choose what this device shares with your household. Turning something off keeps it private to you — others won't see your changes for it, and you won't receive theirs.")
-                .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
                 .padding(.top, 12).padding(.bottom, 16)
             VStack(spacing: 0) {
                 toggleRow("Inventory", "shippingbox.fill", $inv) { household.syncInventory = $0 }
@@ -1153,8 +1198,8 @@ struct HouseholdSyncOptionsView: View {
 
     private func toggleRow(_ title: String, _ icon: String, _ binding: Binding<Bool>, _ persist: @escaping (Bool) -> Void) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 15)).foregroundStyle(Color.stockedGold).frame(width: 26)
-            Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(session.themeTextColor)
+            Image(systemName: icon).scaledFont(15).foregroundStyle(Color.stockedGold).frame(width: 26)
+            Text(title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
             Spacer()
             Toggle("", isOn: binding).labelsHidden().tint(Color.stockedGold)
                 .onChange(of: binding.wrappedValue) { _, v in persist(v) }

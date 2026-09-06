@@ -118,7 +118,7 @@ struct SyncConflictBanner: View {
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -153,7 +153,7 @@ struct SyncConflictReviewView: View {
                                     Text(r.replacedValue)
                                         .strikethrough()
                                         .foregroundStyle(session.themeSecondaryText)
-                                    Image(systemName: "arrow.right").font(.system(size: 9))
+                                    Image(systemName: "arrow.right").scaledFont(9)
                                         .foregroundStyle(session.themeSecondaryText)
                                     Text(r.winningValue).foregroundStyle(session.themeTextColor)
                                 }
@@ -177,7 +177,7 @@ struct SyncConflictReviewView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { log.markAllReviewed(); dismiss() }.font(.body.bold())
+                    Button("Done") { log.markAllReviewed(); dismiss() }.font(.stocked(.body).bold())
                 }
             }
         }

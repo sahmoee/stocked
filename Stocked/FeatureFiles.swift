@@ -35,7 +35,7 @@ struct RecipeURLImportView: View {
                     Text("Import Recipe").stocked(.headline).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 26))
+                        Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
@@ -47,7 +47,7 @@ struct RecipeURLImportView: View {
                             .stocked(.body).foregroundStyle(session.themeTextColor)
                             .keyboardType(.URL).autocorrectionDisabled()
                     }
-                    .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
                     .padding(.horizontal, 24)
 
                     Text("Paste any recipe URL — we'll extract the title, ingredients and steps automatically.")
@@ -62,7 +62,7 @@ struct RecipeURLImportView: View {
                                 CachedAsyncImage(url: url.absoluteString, imageData: nil, height: 64)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(r.title).stocked(.callout).foregroundStyle(session.themeTextColor).lineLimit(2)
+                                Text(r.title).stocked(.callout).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                                 Text("\(r.ingredients.count) ingredients · \(r.source)")
                                     .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
@@ -75,11 +75,11 @@ struct RecipeURLImportView: View {
                                 }
                             } label: {
                                 Image(systemName: showSaved ? "checkmark.circle.fill" : "plus.circle.fill")
-                                    .font(.system(size: 28))
+                                    .scaledFont(28)
                                     .foregroundStyle(showSaved ? Color.stockedGreen : Color.stockedGold)
                             }.buttonStyle(.plain)
                         }
-                        .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 14))
+                        .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
                         .padding(.horizontal, 24)
                     }
                     if showError { Text(errorMsg).stocked(.caption).foregroundStyle(.red).padding(.horizontal, 24) }
@@ -180,7 +180,7 @@ struct OCRConfirmationView: View {
                     Text("Confirm Receipt Items").stocked(.headline).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 26))
+                        Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
@@ -202,11 +202,11 @@ struct OCRConfirmationView: View {
                                     set: { edited[line] = $0 }
                                 ))
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                                .stocked(.body).foregroundStyle(inc ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.3))
+                                .stocked(.body).foregroundStyle(inc ? session.themeTextColor : session.themeSecondaryText)
                                 .strikethrough(!inc)
                                 Spacer()
                             }
-                            .padding(12).background(Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         }
                     }.padding(.horizontal, 20)
                 }

@@ -60,10 +60,10 @@ struct StartWithSomethingView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("What are you starting with?")
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("Pick an ingredient, a protein, a leftover — anything. We'll figure out what to do with it next.")
-                .font(.system(size: 13.5))
+                .scaledFont(13.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
             searchField
@@ -74,16 +74,16 @@ struct StartWithSomethingView: View {
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(session.themeTextColor.opacity(0.4))
             TextField("Search your kitchen", text: $query)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeTextColor)
                 .autocorrectionDisabled()
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.3))
                 }.buttonStyle(.plain)
             }
         }
@@ -99,9 +99,9 @@ struct StartWithSomethingView: View {
             if showIdeaField {
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("e.g. marinated lamb chops, seared then pressure cooked", text: $ideaText, axis: .vertical)
-                        .font(.system(size: 14))
+                        .scaledFont(14)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(1...3)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(12)
                         .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -109,7 +109,7 @@ struct StartWithSomethingView: View {
                         startWithIdea()
                     } label: {
                         Text("Continue")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 11)
                             .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -123,18 +123,18 @@ struct StartWithSomethingView: View {
                 Button { withAnimation { showIdeaField = true } } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "hand.raised")
-                            .font(.system(size: 14, weight: .semibold))
+                            .scaledFont(14, weight: .semibold)
                             .foregroundStyle(Color.stockedGold)
                         VStack(alignment: .leading, spacing: 1) {
                             Text("I already know what I'm making")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)
                             Text("Skip discovery — go straight to prep and cooking.")
-                                .font(.system(size: 11.5))
+                                .scaledFont(11.5)
                                 .foregroundStyle(session.themeTextColor.opacity(0.5))
                         }
                         Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)
                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                     }
                     .padding(13)
@@ -185,7 +185,7 @@ struct StartWithSomethingView: View {
     private func section(_ title: String, _ items: [LocalInventoryItem], urgent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 15, weight: .bold, design: .serif))
+                .scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(urgent ? Color.stockedGold : session.themeTextColor)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(items) { item in
@@ -199,19 +199,19 @@ struct StartWithSomethingView: View {
     private func anchorTile(_ item: LocalInventoryItem, urgent: Bool) -> some View {
         Button { startWith(item) } label: {
             HStack(spacing: 8) {
-                Text(ImageFallbackService.emoji(for: item.name)).font(.system(size: 20))
+                Text(ImageFallbackService.emoji(for: item.name)).scaledFont(20)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(item.name.displayNormalized)
-                        .font(.system(size: 13.5, weight: .semibold))
+                        .scaledFont(13.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                     if urgent, let d = item.daysUntilExpiry {
                         Text(d <= 0 ? "Use today" : "\(d)d left")
-                            .font(.system(size: 10.5, weight: .semibold))
+                            .scaledFont(10.5, weight: .semibold)
                             .foregroundStyle(Color.stockedGold)
                     } else {
                         Text(item.zone)
-                            .font(.system(size: 10.5))
+                            .scaledFont(10.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.4))
                     }
                 }
