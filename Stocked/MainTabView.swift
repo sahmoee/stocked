@@ -512,9 +512,9 @@ struct MainTabView: View {
                         onTap:     { tab in navigate(to: tab) },
                         onSameTap: { navigate(to: selected) }
                     )
-                        // Sit closer to the home indicator while retaining a comfortable buffer.
+                        // Use the lowest practical position above the home indicator.
                         // The bar's internal geometry remains owned by StockedTabBar.
-                        .padding(.bottom, max(0, safeBottomInset - 10))
+                        .padding(.bottom, max(0, safeBottomInset - 22))
                         .background(session.themeBgColor.ignoresSafeArea(edges: .bottom))
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }

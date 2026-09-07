@@ -970,6 +970,8 @@ struct RecipeVaultView: View {
     }
 
     private func manuallyRefreshDiscover() {
+        discoverSnapshotTask?.cancel()
+        discoverSnapshotTask = nil
         discoverVisitSeed &+= 1
         didBuildDiscoverSnapshotForVisit = false
         onlineLoader.forceRefresh(

@@ -161,6 +161,9 @@ are permitted. Device UI, VoiceOver, and performance verification remains a sepa
 Performance: background QA classifies immutable snapshots off the main actor and discards stale/cancelled
 snapshots. Public harvest responses decode on a utility task; import publication coalesces into
 20-record batches and stops on failure. Stock Level artwork uses shared width-adaptive geometry.
+Routine Recipes visits and manual refreshes use a bounded writable-catalogue projection rather than
+copying every full recipe through the loader, and a manual refresh cancels old speculative image work
+before starting its replacement generation. Full snapshots remain reserved for explicit data tools.
 An acknowledged full household snapshot clears all ordinary preflight journal mutations it contains;
 deletions, quantity deltas, disabled sharing domains and mutations created in flight remain durable
 until individually acknowledged. This prevents a large queue from repeatedly encoding the same full

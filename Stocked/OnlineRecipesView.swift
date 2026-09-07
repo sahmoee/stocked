@@ -140,7 +140,7 @@ class OnlineRecipesLoader {
             guard let self else { return }
             defer { self.seedTask = nil }
 
-            let entries = await RecipeDatabaseManager.shared.loadSnapshot()
+            let entries = await RecipeDatabaseManager.shared.discoverySnapshot()
             guard !Task.isCancelled else { return }
             let corpus = await RecipeDatabaseManager.shared.corpusPresentable(limit: 60)
 
@@ -164,7 +164,7 @@ class OnlineRecipesLoader {
         databaseRefreshTask?.cancel()
         databaseRefreshTask = Task { [weak self] in
             guard let self else { return }
-            let entries = await RecipeDatabaseManager.shared.loadSnapshot()
+            let entries = await RecipeDatabaseManager.shared.discoverySnapshot()
             async let rotatingCorpus = RecipeDatabaseManager.shared.corpusPresentable(limit: 80)
             async let qualityCorpus = RecipeDatabaseManager.shared.corpusTopByQuality(limit: 24)
             let corpusParts = await (rotatingCorpus, qualityCorpus)
@@ -231,6 +231,10 @@ class OnlineRecipesLoader {
         seedTask = nil
         databaseRefreshTask?.cancel()
         databaseRefreshTask = nil
+        // A manual refresh replaces the visible recipe pool. Cancel speculative image work and
+        // release decoded thumbnails before starting the new network/source batch so both
+        // generations cannot occupy memory together.
+        ImageCache.shared.evictMemory()
         didBootstrapCache = true
         fetchGeneration &+= 1
         loadTask?.cancel()
@@ -343,7 +347,7 @@ class OnlineRecipesLoader {
             // Phase 0: begin with the shared database. It contains StockedMac harvests,
             // household sync, imports, and earlier providers; putting it first also gives an
             // offline launch useful cross-source content while live feeds refresh below.
-            let dbEntries = await RecipeDatabaseManager.shared.loadSnapshot()
+            let dbEntries = await RecipeDatabaseManager.shared.discoverySnapshot()
             async let rotatingCorpus = RecipeDatabaseManager.shared.corpusPresentable(limit: 80)
             async let qualityCorpus = RecipeDatabaseManager.shared.corpusTopByQuality(limit: 24)
             let corpusParts = await (rotatingCorpus, qualityCorpus)

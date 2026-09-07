@@ -470,6 +470,21 @@ actor RecipeDatabase {
     // MARK: Read
     func all() -> [RecipeDatabaseEntry] { entries }
 
+    /// A bounded view of the writable catalogue for recipe rails. The full snapshot remains
+    /// available to migrations and explicit database tools, but routine tab visits and refreshes
+    /// must not copy every recipe (and its ingredients/instructions) through several arrays.
+    func discoveryEntries(limit: Int) -> [RecipeDatabaseEntry] {
+        let boundedLimit = max(0, min(limit, 400))
+        guard boundedLimit > 0 else { return [] }
+        var result: [RecipeDatabaseEntry] = []
+        result.reserveCapacity(boundedLimit)
+        for entry in entries where Self.hasUsableImage(entry) && !entry.steps.isEmpty {
+            result.append(entry)
+            if result.count == boundedLimit { break }
+        }
+        return result
+    }
+
     func snapshot() -> RecipeDatabaseSnapshot {
         RecipeDatabaseSnapshot(revision: revision, entries: entries)
     }
@@ -1019,6 +1034,11 @@ final class RecipeDatabaseManager {
     // MARK: Snapshot for Views
     func loadSnapshot() async -> [RecipeDatabaseEntry] {
         await db.all()
+    }
+
+    /// Routine Discover/Recipes reads use a capped projection to keep refresh memory stable.
+    func discoverySnapshot(limit: Int = 240) async -> [RecipeDatabaseEntry] {
+        await db.discoveryEntries(limit: limit)
     }
 
     func loadVersionedSnapshot() async -> RecipeDatabaseSnapshot {
