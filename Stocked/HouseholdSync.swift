@@ -763,8 +763,15 @@ final class HouseholdSync {
 
         // The provider accepts 200 journal entries at a time. Remaining work stays durable;
         // the normal polling loop drains later batches without an unbounded retry loop.
-        let capturedOps = Array(pendingOps.filter { shares($0.entityType) }.prefix(200))
+        let sharedPendingOps = pendingOps.filter { shares($0.entityType) }
+        let capturedOps = Array(sharedPendingOps.prefix(200))
         let capturedOperationIDs = Set(capturedOps.map(\.id))
+        // The request carries the complete enabled household snapshot, so one accepted request
+        // also satisfies every ordinary snapshot mutation that existed before encoding. Keep
+        // deletion and quantity intents queued until the provider acknowledges them explicitly.
+        // IDs captured here exclude mutations added while the request is in flight.
+        let snapshotRepresentedIDs = HouseholdOperationJournal.snapshotRepresentedIDs(
+            in: sharedPendingOps)
         var capturedTombstones = store.householdTombstoneSnapshot()
         if !syncInventory { capturedTombstones.inventory = [] }
         if !syncGrocery { capturedTombstones.grocery = [] }
@@ -877,7 +884,11 @@ final class HouseholdSync {
                 }
             FeatureSync.shared.acknowledgeTombstones(acceptedFeatures, capturedDates: capturedFeatureDates)
         }
-        markQueueCompleted(operationIDs: acknowledgedIDs, route: .workerPush, receipt: receipt)
+        var completedIDs = acknowledgedIDs
+        if fullyAcknowledged {
+            completedIDs.formUnion(snapshotRepresentedIDs)
+        }
+        markQueueCompleted(operationIDs: completedIDs, route: .workerPush, receipt: receipt)
         let counts = await applyHousehold(hh, into: store)
         if let updated = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = updated }
         advanceCheckpoint(response: resp, household: hh)

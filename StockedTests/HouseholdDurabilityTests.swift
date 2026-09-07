@@ -111,6 +111,30 @@ final class HouseholdDurabilityTests: XCTestCase {
         XCTAssertNil(result[1].lastError)
     }
 
+    func testFullSnapshotCanCompleteOrdinaryOperationsButRetainsIntentOperations() {
+        let created = PendingHouseholdOperation(entityID: UUID(), entityType: .inventoryItem,
+                                                operationType: .create)
+        let updated = PendingHouseholdOperation(entityID: UUID(), entityType: .groceryItem,
+                                                operationType: .update)
+        let restored = PendingHouseholdOperation(entityID: UUID(), entityType: .userRecipe,
+                                                 operationType: .restore)
+        let deleted = PendingHouseholdOperation(entityID: UUID(), entityType: .plannedMeal,
+                                                operationType: .delete)
+        let quantity = HouseholdQuantityOperation(entityID: UUID(), entityType: .inventoryItem,
+                                                  delta: 1)
+        let delta = PendingHouseholdOperation(
+            id: quantity.id, entityID: quantity.entityID, entityType: quantity.entityType,
+            operationType: .update, idempotencyKey: quantity.idempotencyKey,
+            quantityOperation: quantity)
+
+        let represented = HouseholdOperationJournal.snapshotRepresentedIDs(
+            in: [created, updated, restored, deleted, delta])
+
+        XCTAssertEqual(represented, [created.id, updated.id, restored.id])
+        XCTAssertFalse(represented.contains(deleted.id))
+        XCTAssertFalse(represented.contains(delta.id))
+    }
+
     func testRecordRevisionMergesIndependentFieldClocks() {
         var local = HouseholdRecordRevision()
         local.advance(changedFields: ["name"], writerID: "a", at: Date(timeIntervalSince1970: 1))

@@ -494,6 +494,18 @@ nonisolated enum HouseholdOperationJournal {
         }
     }
 
+    /// A successful full-state push durably represents ordinary creates, updates and restores
+    /// that existed when the request was assembled. Deletions and quantity deltas retain their
+    /// individual acknowledgement requirements because their intent cannot be inferred from the
+    /// current snapshot alone.
+    static func snapshotRepresentedIDs(in operations: [PendingHouseholdOperation]) -> Set<UUID> {
+        Set(operations.compactMap { operation in
+            guard operation.quantityOperation == nil,
+                  operation.operationType != .delete else { return nil }
+            return operation.id
+        })
+    }
+
 
     static func markingFailure(_ existing: [PendingHouseholdOperation], operationIDs: Set<UUID>,
                                message: String) -> [PendingHouseholdOperation] {

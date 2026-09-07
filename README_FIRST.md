@@ -161,6 +161,10 @@ are permitted. Device UI, VoiceOver, and performance verification remains a sepa
 Performance: background QA classifies immutable snapshots off the main actor and discards stale/cancelled
 snapshots. Public harvest responses decode on a utility task; import publication coalesces into
 20-record batches and stops on failure. Stock Level artwork uses shared width-adaptive geometry.
+An acknowledged full household snapshot clears all ordinary preflight journal mutations it contains;
+deletions, quantity deltas, disabled sharing domains and mutations created in flight remain durable
+until individually acknowledged. This prevents a large queue from repeatedly encoding the same full
+household state while preserving conflict and deletion semantics.
 Cook Hub, results, preparation discovery, and Ready to Cook share this cancellable classification.
 Grocery equivalents are indexed once; recipe imports evict once per batch with incremental index removal.
 Memory warnings evict classification snapshots alongside decoded image caches. Historical import
