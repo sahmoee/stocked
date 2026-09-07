@@ -10,11 +10,9 @@ NOTES: <optional context>
 
 # --------------------------------------------------------------------------
 # This is the commit template for this project. Fill in the fields above.
-# Rules (so BuildBuddy / git can commit safely):
 #   * Plain ASCII only. No backticks, $(...), $NAME, double-quotes, backslashes,
 #     asterisks, question marks, or triple dots.
 #   * Keep SUMMARY to one line; put detail under CHANGES.
 #   * Bump BUILD/VERSION to match the app before committing.
 # Enable this template once per clone:  git config commit.template .gitmessage.txt
-# BuildBuddy: put the same content (without these comment lines) in COMMIT_MSG.txt.
 # --------------------------------------------------------------------------

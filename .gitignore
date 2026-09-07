@@ -28,7 +28,7 @@ node_modules/
 
 # (Secrets.example.xcconfig IS committed — it's just the template, no real values.)
 
-# BuildBuddy local undo points — never commit
+# Local undo points — never commit
 .buildbuddy-backups/
 
 # Deliverable snapshots — regenerate from git, never keep source copies in-tree
