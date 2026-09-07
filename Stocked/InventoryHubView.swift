@@ -704,7 +704,7 @@ struct InventoryHubView: View {
                     .foregroundStyle(session.themeTextColor)
                 Text("Add a few staples to get started — we'll instantly show meals you can cook and recipes worth a look.")
                     .scaledFont(14)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
 
@@ -712,7 +712,7 @@ struct InventoryHubView: View {
                 FlowLayout(items: Array(StarterStaples.all.prefix(8).map(\.name))) { name in
                     Text(name)
                         .scaledFont(11.5, weight: .medium)
-                        .foregroundStyle(session.themeTextColor.opacity(0.7))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(session.themeTextColor.opacity(0.07))
                         .clipShape(Capsule())
@@ -821,7 +821,7 @@ struct InventoryHubView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Inventory Status")
                     .scaledFont(13.5, weight: .medium)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
                 Text("\(session.guestStore.stockPercent)% Stocked")
                     .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
@@ -870,7 +870,7 @@ struct InventoryHubView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label)
                 .scaledFont(12.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
             Text(value)
                 .scaledFont(17, weight: .bold)
                 .foregroundStyle(session.themeTextColor)
@@ -925,7 +925,7 @@ struct InventoryHubView: View {
 
                     Text("\(count) item\(count == 1 ? "" : "s")")
                         .scaledFont(12.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer(minLength: 0)
             }
@@ -1316,7 +1316,7 @@ struct CategoryItemsView: View {
                     Spacer()
                     Text("\(items.count) item\(items.count == 1 ? "" : "s")")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                     // #FB — view options menu (detail / compact / icon grid).
                     Menu {
                         ForEach(CategoryViewMode.allCases, id: \.self) { mode in

@@ -151,11 +151,17 @@ struct HomeView: View {
                             Label("Layouts", systemImage: "rectangle.3.group")
                                 .font(.stockedSystem(size: 14, weight: .semibold))
                         }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.appAccent(dark))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .stockedGlassSurface(.control, cornerRadius: layoutMetrics.controlCornerRadius)
                         Spacer(minLength: 8)
                         Button("Done") { exitEditMode() }
                             .font(.stockedSystem(size: usesReferencePhoneGeometry ? 11 : 15, weight: .bold))
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.appAccent(dark))
+                            .padding(.horizontal, 18)
+                            .frame(minHeight: 44)
+                            .stockedGlassSurface(.control, cornerRadius: layoutMetrics.controlCornerRadius)
                     }
                     .padding(.bottom, usesReferencePhoneGeometry ? 6 : 10)
                     if let recommendation = layoutSizeRecommendation {
@@ -288,7 +294,7 @@ struct HomeView: View {
                  ? "Everything you need is already inside of your kitchen"
                  : "A few smart updates will unlock more meals and keep the week moving.")
                 .font(usesReferencePhoneGeometry ? .stockedSans(11.5) : .stocked(.body))
-                .foregroundStyle(session.themeTextColor.opacity(0.76))
+                .foregroundStyle(session.themeSecondaryText)
 
                 .lineSpacing(usesReferencePhoneGeometry ? 1 : 0)
                 .fixedSize(horizontal: false, vertical: true)
@@ -326,20 +332,19 @@ struct HomeView: View {
 
     private var referenceStockIcon: some View {
         let iconSize = layoutMetrics.homeStockLevelIllustrationSize
-        return ZStack {
-            RoundedRectangle(cornerRadius: isWideHomeCanvas ? 18 : 14, style: .continuous).fill(Color.stockedCharcoal)
-            Image(systemName: "gauge.with.dots.needle.67percent")
-                .font(.stockedSystem(size: iconSize.width * 0.58, weight: .medium))
-                .foregroundStyle(Color.stockedGold)
-        }
-        .frame(width: iconSize.width, height: iconSize.height)
+        return Image(systemName: "gauge.with.dots.needle.67percent")
+            .font(.stockedSystem(size: iconSize.width * 0.58, weight: .medium))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(Color.appAccent(dark))
+            .frame(width: iconSize.width, height: iconSize.height)
+            .accessibilityHidden(true)
     }
 
     private var referenceStockValue: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text("Stock Level")
                 .font(.stockedSystem(size: isWideHomeCanvas ? 14 : 11.5, weight: .semibold))
-                .foregroundStyle(session.themeTextColor.opacity(0.72))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             fittedWidgetValue(
                 "\(kitchenMetrics.stockPercent)%",
@@ -367,14 +372,14 @@ struct HomeView: View {
                     Text(lowStockCount == 0 ? "Nothing running low right now. Keep cooking."
                                             : "\(lowStockCount) item\(lowStockCount == 1 ? "" : "s") could use attention.")
                         .font(.stockedSystem(size: isWideHomeCanvas ? 14 : 11.5))
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.stockedSystem(size: isWideHomeCanvas ? 14 : 11, weight: .semibold))
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
             }
             ProgressView(value: Double(kitchenMetrics.stockPercent), total: 100)
                 .tint(Color.stockedGold)
@@ -413,12 +418,14 @@ struct HomeView: View {
 
             // Placement follows available width only. Dynamic Type changes the
             // shared row height, never the number of columns.
-            if layoutMetrics.contentWidth >= 360 {
-                StockedEqualHeightRow(spacing: 8) {
-                    referenceActionButtons
+            StockedGlassGroup(spacing: 8) {
+                if layoutMetrics.contentWidth >= 360 {
+                    StockedEqualHeightRow(spacing: 8) {
+                        referenceActionButtons
+                    }
+                } else {
+                    VStack(spacing: 8) { referenceActionButtons }
                 }
-            } else {
-                VStack(spacing: 8) { referenceActionButtons }
             }
         }
     }
@@ -491,7 +498,7 @@ struct HomeView: View {
             activeActionMenu = .scan
         } label: {
             HStack(spacing: usesReferencePhoneGeometry ? 10 : 16) {
-                referenceDarkIcon("doc.text.viewfinder")
+                referenceActionIcon("doc.text.viewfinder")
                 VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 2 : 4) {
                     Text("Scan")
                         .font(usesReferencePhoneGeometry
@@ -527,41 +534,42 @@ struct HomeView: View {
                                         action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: max(8, layoutMetrics.homeWidgetRowSpacing * 0.6)) {
-                referenceDarkIcon(icon, compact: true)
+                referenceActionIcon(icon, compact: true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8.8 : 12, weight: .bold))
+                        .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8.8 : 15, weight: .semibold))
                         .foregroundStyle(session.themeTextColor)
-                        .fixedSize(horizontal: true, vertical: false)
+                        .fixedSize(horizontal: false, vertical: true)
                         .allowsTightening(true)
                     Text(subtitle)
-                        .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8.5 : 10))
-                        .foregroundStyle(session.themeTextColor.opacity(0.58))
+                        .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8.5 : 12))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8 : 10, weight: .bold))
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
             }
             .padding(.horizontal, min(layoutMetrics.homeWidgetContentPadding, 14))
             .padding(.vertical, max(8, 6 * layoutMetrics.textScale))
             .frame(maxWidth: .infinity,
                    minHeight: max(70, layoutMetrics.minimumControlHeight),
                    alignment: .leading)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous))
+            .stockedGlassSurface(.control, cornerRadius: layoutMetrics.controlCornerRadius)
         }.buttonStyle(.plain)
     }
 
-    private func referenceDarkIcon(_ icon: String, compact: Bool = false) -> some View {
+    private func referenceActionIcon(_ icon: String, compact: Bool = false) -> some View {
         let base: CGFloat = usesReferencePhoneGeometry ? (compact ? 28 : 40) : (compact ? (layoutMetrics.width < 390 ? 34 : 40) : 58)
         let side = min(base * layoutMetrics.homeWidgetWidthScale, compact ? 50 : 72)
-        return Circle().fill(Color.stockedCharcoal).frame(width: side, height: side)
-            .overlay(Image(systemName: icon)
-                .font(.stockedSystem(size: usesReferencePhoneGeometry ? (compact ? 12 : 17) : (compact ? 16 : 22), weight: .medium))
-                .foregroundStyle(Color.stockedGold))
+        return Image(systemName: icon)
+            .font(.stockedSystem(size: usesReferencePhoneGeometry ? (compact ? 12 : 17) : (compact ? 18 : 24), weight: .medium))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(compact ? Color.appAccent(dark) : Color.stockedGoldDark)
+            .frame(width: side, height: side)
+            .accessibilityHidden(true)
     }
 
     private var referenceUseItSoon: some View {
@@ -607,7 +615,7 @@ struct HomeView: View {
                         Text(expiringCount == 0 ? "We’ll let you know when something is close to expiring."
                                                 : "Tap to see what needs attention.")
                             .font(.stockedSystem(size: usesReferencePhoneGeometry ? 10 : 15))
-                            .foregroundStyle(session.themeTextColor.opacity(0.58))
+                            .foregroundStyle(session.themeSecondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 } accessory: {
@@ -891,10 +899,7 @@ struct HomeView: View {
                 .scaledFont(13, weight: .bold)
                 .foregroundStyle(Color.widgetPrimaryText(dark))
                 .frame(width: 30, height: 30)
-                .background(Color.widgetSurface(dark, increasedContrast: colorSchemeContrast == .increased,
-                                                reduceTransparency: reduceTransparency))
-                .clipShape(Circle())
-                .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                .stockedGlassSurface(.control, cornerRadius: 15)
                 .frame(width: 44, height: 44)
         }
         .accessibilityLabel("Edit \(widget.title) widget")
@@ -1191,18 +1196,18 @@ struct HomeView: View {
         }
     }
 
-    // Red "−" delete badge shown on each widget in edit mode.
+    // High-contrast "−" badge shown on each widget in edit mode.
     private func removeBadge(_ widget: HomeWidget) -> some View {
         Button {
             removeWidget(widget)
         } label: {
-            ZStack {
-                Circle().fill(Color.stockedCharcoal).frame(width: 24, height: 24)
-                Image(systemName: "minus")
-                    .scaledFont(12, weight: .heavy)
-                    .foregroundStyle(.white)
-            }
-            .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+            Image(systemName: "minus")
+                .scaledFont(12, weight: .heavy)
+                .foregroundStyle(session.themeTextColor)
+                .frame(width: 30, height: 30)
+                .stockedGlassSurface(.control, cornerRadius: 15)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Remove \(widget.title) widget")
@@ -1264,7 +1269,7 @@ struct HomeView: View {
                     Text(removedWidgets.isEmpty ? "Remove one above to choose it again"
                                                 : "\(removedWidgets.count) available")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
             }
@@ -1296,7 +1301,7 @@ struct HomeView: View {
             }
             Text("Add a few items and Stocked instantly shows meals you can cook, what's expiring, and a smarter grocery list. Takes about a minute.")
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                .foregroundStyle(session.themeSecondaryText)
 
             // Primary: stock common staples in one tap.
             Button {
@@ -1373,7 +1378,7 @@ struct HomeView: View {
                 .foregroundStyle(session.themeTextColor)
             Text("Touch and hold to add widgets back.")
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
             Button {
                 HapticManager.medium()
                 motion.animate(.standard, intent: .spatial) { editMode = true }
@@ -1410,7 +1415,7 @@ struct HomeView: View {
                     if removedWidgets.isEmpty {
                         Text("Every widget is already on your Home screen.")
                             .scaledFont(14)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.top, 40)
                     } else {
                         ForEach(galleryWidgets, id: \.self) { widget in
@@ -1418,14 +1423,9 @@ struct HomeView: View {
                                 addWidget(widget)
                             } label: {
                                 HStack(spacing: 14) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.stockedGold.opacity(0.14))
-                                            .frame(width: 46, height: 46)
-                                        Image(systemName: widget.icon)
-                                            .scaledFont(19, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
-                                    }
+                                    StockedKitchenArtwork(asset: widget.illustrationAsset)
+                                        .frame(width: 52, height: 48)
+                                        .accessibilityHidden(true)
                                     VStack(alignment: .leading, spacing: 3) {
                                         HStack {
                                             Text(widget.title)
@@ -1860,13 +1860,13 @@ struct HomeView: View {
             VStack(spacing: 5) {
                 widgetIllustration(.wasteSaved, width: 68, height: 54)
                 Text("Waste Tracker").scaledFont(12.5, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .stockedAdaptiveLabel(maxLines: 3, alignment: .center)
                 Text("\(used) used · \(wasted) wasted")
                     .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .stockedAdaptiveLabel(maxLines: 3, alignment: .center)
-                Text("last 30 days").scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text("last 30 days").scaledFont(11.5).foregroundStyle(session.themeSecondaryText)
             }
             .padding(homeWidgetContentPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1880,7 +1880,7 @@ struct HomeView: View {
             VStack(spacing: 6) {
                 widgetIllustration(.preferredStore, width: 68, height: 54)
                 Text("Preferred Store").scaledFont(12.5, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .stockedAdaptiveLabel(maxLines: 3, alignment: .center)
                 Text(session.preferredStore.isEmpty ? "Not set" : session.preferredStore)
                     .scaledFont(17, weight: .bold, design: .serif)
@@ -1911,7 +1911,7 @@ struct HomeView: View {
             Text("Kitchen Tip").scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
                 .stockedAdaptiveLabel(maxLines: 3, alignment: .center)
-            Text(tips[idx]).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.76))
+            Text(tips[idx]).scaledFont(14).foregroundStyle(session.themeSecondaryText)
                 .stockedAdaptiveLabel(maxLines: 8, alignment: .center)
         }
         .padding(homeWidgetContentPadding)
@@ -2058,7 +2058,7 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Text(caption)
                     .scaledFont(10.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
@@ -2125,11 +2125,11 @@ struct HomeView: View {
                                 .fill(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.45))
                                 .frame(width: 30, height: 30)
                             Image(systemName: "clock.arrow.circlepath").scaledFont(13)
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                         Text("No recent activity — changes will show here")
                             .scaledFont(13.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeSecondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer()
                     }
@@ -2155,7 +2155,7 @@ struct HomeView: View {
                                 .foregroundStyle(session.themeTextColor.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
                             Spacer()
                             Text(relative(row.when)).scaledFont(12)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                     }
                 }
@@ -2210,7 +2210,7 @@ struct HomeView: View {
                         .foregroundStyle(Color.stockedGreen)
                     Text("Nothing expiring soon — you're in good shape")
                         .scaledFont(13.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(session.themeSecondaryText)
                     Spacer()
                 }
                 .padding(.horizontal, 14).padding(.vertical, 11)
@@ -2290,7 +2290,7 @@ struct ActivityFeedSheet: View {
                             Spacer()
                             Text(row.when, style: .relative)
                                 .scaledFont(11.5)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                         .listRowBackground(Color.clear)
                     }

@@ -58,7 +58,7 @@ struct DataStorageView: View {
                             Spacer()
                             // app count → migrated count
                             Text("\(row.live)")
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeSecondaryText)
                             Image(systemName: "arrow.right")
                                 .scaledFont(10)
                                 .foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -72,7 +72,7 @@ struct DataStorageView: View {
                 } footer: {
                     Text("Both numbers should match once the new store has copied your data. Your existing data is untouched either way.")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
 
                 Section {
@@ -115,7 +115,7 @@ struct DataStorageView: View {
                 } footer: {
                     Text("Downloaded recipes, nutrition responses, product metadata, and images are cached for faster loading and offline reuse. Your pantry, grocery list, saved recipes, and account data are never deleted here.")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
 
                 Section {
@@ -148,7 +148,7 @@ struct DataStorageView: View {
                 } footer: {
                     Text("A backup is a single JSON file with all your data. Keep one before any big update.")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
 
                 if let message {
@@ -196,7 +196,7 @@ struct DataStorageView: View {
         HStack {
             Text(label)
                 .scaledFont(13)
-                .foregroundStyle(session.themeTextColor.opacity(0.72))
+                .foregroundStyle(session.themeSecondaryText)
             Spacer()
             Text(value)
                 .scaledFont(12, weight: .medium)

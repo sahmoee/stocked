@@ -53,7 +53,7 @@ struct SettingsPageView: View {
                               title: "Preferences", subtitle: "Appearance, units, cook buttons, sources") {
                         preferencesContent
                     }
-                    accordion(.notifications, icon: "bell.fill", tint: Color.stockedGold,
+                    accordion(.notifications, icon: "bell.fill", tint: session.accentColor,
                               title: "Notifications", subtitle: "Reminders and the Daily Brief") {
                         notificationsContent
                     }
@@ -62,7 +62,7 @@ struct SettingsPageView: View {
                                        subtitle: session.householdCode.isEmpty ? "Share your pantry with family" : "Sharing · Code \(session.householdCode)") {
                         activeSheet = .household
                     }
-                    accordion(.dataStorage, icon: "internaldrive.fill", tint: Color.stockedCharcoal,
+                    accordion(.dataStorage, icon: "internaldrive.fill", tint: session.themeContrastAccent,
                               title: "Data & Storage", subtitle: "Backups, transfer, and erasing") {
                         dataStorageContent
                     }
@@ -70,7 +70,7 @@ struct SettingsPageView: View {
                               title: "Account", subtitle: accountSubtitle) {
                         accountContent
                     }
-                    accordion(.help, icon: "questionmark.circle.fill", tint: Color.stockedGold,
+                    accordion(.help, icon: "questionmark.circle.fill", tint: session.accentColor,
                               title: "Help & Support", subtitle: "Guides and getting unstuck") {
                         helpContent
                     }
@@ -82,16 +82,17 @@ struct SettingsPageView: View {
 
                     VStack(spacing: 8) {
                         Toggle("Enable Stocked QA", isOn: $qaEnabled)
-                            .tint(Color.stockedGold)
+                            .tint(session.accentColor)
                         if qaEnabled {
-                            settingsSectionRow(icon: "checklist", tint: Color.stockedCharcoal,
+                            settingsSectionRow(icon: "checklist", tint: session.themeContrastAccent,
                                                title: "Open Stocked QA",
                                                subtitle: "Recipe imports, pantry, grocery, sync, tickets & reports") {
                                 activeSheet = .qa
                             }
                         }
                         Text("Disabled by default. Enable only on builds being tested.")
-                            .scaledFont(11).foregroundStyle(.secondary)
+                            .scaledFont(11).foregroundStyle(session.themeSecondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
                     .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -103,6 +104,7 @@ struct SettingsPageView: View {
                 .padding(.horizontal, 18).padding(.top, 12)
             }
         }
+        .stockedPresentationSurface()
         .navigationTitle("Settings")
         .qaScreen("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -111,7 +113,8 @@ struct SettingsPageView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark.circle.fill")
                         .scaledFont(20)
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeSecondaryText)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .a11yButton("Close settings")
             }
@@ -121,10 +124,10 @@ struct SettingsPageView: View {
             case .storePopout:   PreferredStorePopout().environment(session)
             case .household:     HouseholdHomeView().environment(session)
             case .recipeSources: RecipeSourcesManagerView().environment(session)
-            case .appIcon:       NavigationStack { AppIconPickerView().environment(session) }
-            case .dietaryProfile: NavigationStack { DietaryProfileView().environment(session) }
+            case .appIcon:       NavigationStack { AppIconPickerView().environment(session) }.stockedPresentationSurface()
+            case .dietaryProfile: NavigationStack { DietaryProfileView().environment(session) }.stockedPresentationSurface()
             case .transfer:      KitchenTransferView().environment(session)
-            case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
+            case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }.stockedPresentationSurface()
             case .dataStorage:   DataStorageView().environment(session)
             case .helpCenter:    HelpCenterSheet().environment(session)
             case .editProfile:   EditProfileView().environment(session)
@@ -136,7 +139,7 @@ struct SettingsPageView: View {
                 EmptyView()
                 #endif
             case .appExperience:
-                NavigationStack { AppExperienceCenterView().environment(session) }
+                NavigationStack { AppExperienceCenterView().environment(session) }.stockedPresentationSurface()
             }
         }
         .alert("Erase All Data?", isPresented: $showClearAlert) {
@@ -178,19 +181,20 @@ struct SettingsPageView: View {
         AnyView(
             Button(action: action) {
                 HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 9).fill(tint).frame(width: 34, height: 34)
-                        Image(systemName: icon).scaledFont(15).foregroundStyle(.white)
-                    }
+                    Image(systemName: icon).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                        .padding(9).frame(minWidth: 36, minHeight: 36)
+                        .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 9))
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title).scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text(subtitle).scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(session.themeSecondaryText).fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeSecondaryText)
+                        .accessibilityHidden(true)
                 }
                 .padding(16)
                 .background(
@@ -223,10 +227,10 @@ struct SettingsPageView: View {
                 HapticManager.light()
             } label: {
                 HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 9).fill(tint).frame(width: 34, height: 34)
-                        Image(systemName: icon).scaledFont(15).foregroundStyle(.white)
-                    }
+                    Image(systemName: icon).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                        .padding(9).frame(minWidth: 36, minHeight: 36)
+                        .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 9))
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
                             .scaledFont(16, weight: .bold, design: .serif)
@@ -234,15 +238,16 @@ struct SettingsPageView: View {
                         if !isOpen {
                             Text(subtitle)
                                 .scaledFont(11.5)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     Spacer()
                     Image(systemName: "chevron.down")
                         .scaledFont(13, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeSecondaryText)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
+                        .accessibilityHidden(true)
                 }
                 .padding(16)
                 .contentShape(Rectangle())
@@ -346,12 +351,12 @@ struct SettingsPageView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title).scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
                     if !detail.isEmpty {
-                        Text(detail).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text(detail).scaledFont(11).foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 Spacer()
                 Image(systemName: "chevron.right").scaledFont(11)
-                    .foregroundStyle(session.themeTextColor.opacity(0.25))
+                    .foregroundStyle(session.themeSecondaryText)
             }
             .contentShape(Rectangle())
         }
@@ -363,9 +368,10 @@ struct SettingsPageView: View {
         Button(action: action) {
             Text(label)
                 .scaledFont(13, weight: .semibold)
-                .foregroundStyle(active ? Color.stockedBlack : session.themeTextColor.opacity(0.7))
-                .frame(maxWidth: .infinity).padding(.vertical, 9)
-                .background(active ? Color.stockedGold : session.themeTextColor.opacity(0.12))
+                .foregroundStyle(active ? Color.selectedTabForeground(session.isDarkMode) : session.themeTextColor)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 44).padding(.vertical, 9)
+                .background(active ? Color.selectedTabBackground : session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
         }.buttonStyle(.plain)
     }

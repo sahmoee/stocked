@@ -126,7 +126,7 @@ struct EditProfileView: View {
     private func fieldHeader(_ title: String, _ systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
             .scaledFont(13, weight: .bold)
-            .foregroundStyle(session.themeTextColor.opacity(0.5))
+            .foregroundStyle(session.themeSecondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 

@@ -47,7 +47,7 @@ struct SubstitutionReviewSheet: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("You don't have these exact ingredients, but you have swaps that work. Confirm the ones you want to use.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if reviewRows.isEmpty {
@@ -112,7 +112,7 @@ struct SubstitutionReviewSheet: View {
             if let note = guidance(for: row.name, substitute: row.suggestion) {
                 Text(note)
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 

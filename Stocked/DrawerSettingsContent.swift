@@ -77,7 +77,7 @@ struct SettingsContent: View {
                     }
                     .listRowBackground(Color.clear)
                 } label: {
-                    fieldLabel(icon: "bell.fill", color: Color.stockedGold, title: "Notifications")
+                    fieldLabel(icon: "bell.fill", color: session.accentColor, title: "Notifications")
                 }
                 .listRowBackground(Color.clear)
             }
@@ -100,7 +100,7 @@ struct SettingsContent: View {
                     )
                     .listRowBackground(Color.clear)
                 } label: {
-                    fieldLabel(icon: "internaldrive.fill", color: Color.stockedCharcoal, title: "Data & Storage")
+                    fieldLabel(icon: "internaldrive.fill", color: session.themeContrastAccent, title: "Data & Storage")
                 }
                 .listRowBackground(Color.clear)
             }
@@ -125,8 +125,8 @@ struct SettingsContent: View {
             case .household:     HouseholdHomeView().environment(session)
             case .recipeSources: RecipeSourcesManagerView().environment(session)
             case .transfer:      KitchenTransferView().environment(session)
-            case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }
-            case .appIcon:       NavigationStack { AppIconPickerView().environment(session) }
+            case .notifications: NavigationStack { DailyBriefNotificationSettingsView().environment(session) }.stockedPresentationSurface()
+            case .appIcon:       NavigationStack { AppIconPickerView().environment(session) }.stockedPresentationSurface()
             }
         }
         .alert("Erase All Data?", isPresented: $showClearAlert) {
@@ -149,10 +149,10 @@ struct SettingsContent: View {
     // settingsRow icon-tile styling so the four fields read consistently.
     private func fieldLabel(icon: String, color: Color, title: String) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 7).fill(color).frame(width: 28, height: 28)
-                Image(systemName: icon).scaledFont(13).foregroundStyle(.white)
-            }
+            Image(systemName: icon).scaledFont(13).foregroundStyle(session.themeTextColor)
+                .padding(8).frame(minWidth: 28, minHeight: 28)
+                .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 7))
+                .accessibilityHidden(true)
             Text(title)
                 .scaledFont(15, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
@@ -164,23 +164,26 @@ struct SettingsContent: View {
     private func settingsRow(icon: String, color: Color, title: String, detail: String,
                              trailingSystemImage: String? = nil) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 7).fill(color).frame(width: 28, height: 28)
-                Image(systemName: icon).scaledFont(13).foregroundStyle(.white)
-            }
+            Image(systemName: icon).scaledFont(13).foregroundStyle(session.themeTextColor)
+                .padding(8).frame(minWidth: 28, minHeight: 28)
+                .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 7))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
                 if !detail.isEmpty {
-                    Text(detail).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    Text(detail).scaledFont(11).foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer()
             if let trailingSystemImage {
                 Image(systemName: trailingSystemImage).scaledFont(11)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(session.accentColor)
+                    .accessibilityHidden(true)
             }
             Image(systemName: "chevron.right").scaledFont(11)
-                .foregroundStyle(session.themeTextColor.opacity(0.25))
+                .foregroundStyle(session.themeSecondaryText)
+                .accessibilityHidden(true)
         }
     }
 
@@ -188,11 +191,9 @@ struct SettingsContent: View {
         Button(action: action) {
             Text(label)
                 .scaledFont(13, weight: .semibold)
-                // Active: dark text on the gold fill (not gold-on-gold, which rendered as a
-                // solid block with invisible text). Inactive: themed text on a subtle fill.
-                .foregroundStyle(active ? Color.stockedBlack : session.themeTextColor.opacity(0.7))
+                .foregroundStyle(active ? Color.selectedTabForeground(session.isDarkMode) : session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 9)
-                .background(active ? Color.stockedGold : session.themeTextColor.opacity(0.12))
+                .background(active ? Color.selectedTabBackground : session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
         }.buttonStyle(.plain)
     }
@@ -593,29 +594,27 @@ struct BuildInfoFooter: View {
             HapticManager.select()
         } label: {
             HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(Color.stockedCharcoal.opacity(0.65))
-                        .frame(width: 28, height: 28)
-                    Image(systemName: "hammer.fill")
-                        .scaledFont(12)
-                        .foregroundStyle(Color.stockedGold)
-                }
+                Image(systemName: "hammer.fill")
+                    .scaledFont(12).foregroundStyle(session.themeTextColor)
+                    .padding(8).frame(minWidth: 28, minHeight: 28)
+                    .background(session.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 7))
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(BuildConfig.displayLabel)
                         .scaledFont(13, weight: .semibold, design: .monospaced)
-                        .foregroundStyle(session.themeTextColor.opacity(0.75))
+                        .foregroundStyle(session.themeTextColor)
                     Text("Tap to see what's new")
                         .scaledFont(10)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeSecondaryText)
                     Text("\(BuildConfig.company) · sowensstudios.com")
                         .scaledFont(10)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .scaledFont(12, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.25))
+                    .foregroundStyle(session.themeSecondaryText)
+                    .accessibilityHidden(true)
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
@@ -623,7 +622,7 @@ struct BuildInfoFooter: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showWhatsNew) {
-            AppVersionView().environment(session)
+            AppVersionView().environment(session).stockedPresentationSurface()
         }
     }
 }
@@ -654,14 +653,15 @@ struct HouseholdSyncSheet: View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
             VStack(spacing: 0) {
-                Capsule().fill(Color.stockedCharcoal.opacity(0.2))
+                Capsule().fill(session.themeSecondaryText)
                     .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
+                    .accessibilityHidden(true)
 
                 Text("Household Sync")
                     .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
                 Text("Share your pantry and grocery list with family — each person uses their own Apple ID.")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center).padding(.horizontal, 28).padding(.bottom, 24)
 
                 VStack(spacing: 16) {
@@ -669,9 +669,9 @@ struct HouseholdSyncSheet: View {
                     VStack(spacing: 10) {
                         Text("SHARE ACROSS ACCOUNTS")
                             .scaledFont(10, weight: .bold).tracking(1.2)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                         Text("Invite people with their own Apple ID. They tap your link to join — no shared account needed.")
-                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                             .multilineTextAlignment(.center)
                         Button {
                             Task {
@@ -699,7 +699,7 @@ struct HouseholdSyncSheet: View {
                         .buttonStyle(.plain)
                         .disabled(ckBusy)
                         if let err = HouseholdCloudKit.shared.lastError {
-                            Text(err).scaledFont(11).foregroundStyle(.red.opacity(0.7))
+                            Text(err).scaledFont(11).foregroundStyle(Color.stockedError)
                                 .multilineTextAlignment(.center)
                         }
 
@@ -709,17 +709,17 @@ struct HouseholdSyncSheet: View {
                             VStack(spacing: 4) {
                                 Text("OR SHARE THIS CODE")
                                     .scaledFont(9, weight: .bold).tracking(1.2)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .foregroundStyle(session.themeSecondaryText)
                                 HStack(spacing: 10) {
                                     Text(code)
                                         .scaledFont(22, weight: .bold, design: .monospaced)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(session.accentColor)
                                     Button {
                                         UIPasteboard.general.string = code
                                         HapticManager.light()
                                     } label: {
                                         Image(systemName: "doc.on.doc").scaledFont(16)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                            .foregroundStyle(session.themeSecondaryText)
                                     }.buttonStyle(.plain)
                                 }
                             }
@@ -730,16 +730,15 @@ struct HouseholdSyncSheet: View {
                         VStack(spacing: 6) {
                             Text("JOIN BY CODE")
                                 .scaledFont(9, weight: .bold).tracking(1.2)
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(session.themeSecondaryText)
                             HStack(spacing: 10) {
                                 TextField("8-character code", text: $ckJoinCode)
                                     .scaledFont(15, weight: .semibold, design: .monospaced)
                                     .foregroundStyle(session.themeTextColor)
                                     .autocorrectionDisabled()
                                     .textInputAutocapitalization(.characters)
-                                    .padding(10)
-                                    .background(session.isDarkMode ? Color.stockedCharcoal.opacity(0.3) : Color.stockedWhite.opacity(0.5))
-                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                                    .textFieldStyle(StockedThemedTextFieldStyle())
+                                    .accessibilityLabel("Household invitation code")
                                 Button {
                                     Task {
                                         ckJoining = true
@@ -763,7 +762,7 @@ struct HouseholdSyncSheet: View {
                         }
                     }
                     .padding(16)
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.35))
+                    .background(session.themeCardColor)
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
 
                     // Sync status + leave — only shown once you're actually in a CloudKit household.
@@ -776,15 +775,17 @@ struct HouseholdSyncSheet: View {
                                     ProgressView().scaleEffect(0.7)
                                     Text("Syncing…")
                                         .scaledFont(13, weight: .medium)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                        .foregroundStyle(session.themeSecondaryText)
                                 } else {
                                     Image(systemName: "checkmark.icloud")
-                                        .scaledFont(14).foregroundStyle(Color.stockedGreen)
+                                        .scaledFont(14)
+                                        .foregroundStyle(session.isDarkMode ? Color.stockedSuccess : Color.stockedGreen)
+                                        .accessibilityHidden(true)
                                     Text(sync.lastSyncedAt == nil
                                          ? "Not synced yet"
                                          : "Last synced \(StockedFormatters.shortDateTime.string(from: sync.lastSyncedAt!))")
                                         .scaledFont(12)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        .foregroundStyle(session.themeSecondaryText)
                                 }
                                 Spacer()
                                 Button {
@@ -804,10 +805,10 @@ struct HouseholdSyncSheet: View {
                                  ? "You own this household."
                                  : "You've joined a shared household.")
                                 .scaledFont(11)
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                         .padding(14)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.35))
+                        .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
 
                         Button {
@@ -816,7 +817,7 @@ struct HouseholdSyncSheet: View {
                             HouseholdCloudKit.shared.leaveHousehold()
                         } label: {
                             Text("Leave Household")
-                                .scaledFont(13).foregroundStyle(.red.opacity(0.7))
+                                .scaledFont(13).foregroundStyle(Color.stockedError)
                         }.buttonStyle(.plain)
                     }
                 }
@@ -825,6 +826,7 @@ struct HouseholdSyncSheet: View {
             }
         }
         .presentationDetents([.large])
+        .stockedPresentationSurface()
         .onAppear { codeInput = session.householdCode }
         .dismissKeyboardOnTap()
         .sheet(item: $sharePayload) { payload in
@@ -871,17 +873,17 @@ struct PreferredStorePopout: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("SHOPPING AT")
                             .scaledFont(10, weight: .bold).tracking(1)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                         Text(session.preferredStore)
                             .scaledFont(22, weight: .bold, design: .serif)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(session.accentColor)
                     }.padding(.horizontal, 20).padding(.top, 8)
 
                     // Picker grid
                     VStack(alignment: .leading, spacing: 8) {
                         Text("CHOOSE A STORE")
                             .scaledFont(10, weight: .bold).tracking(1)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 20)
                         LazyVGrid(columns: columns, spacing: 8) {
                             ForEach(stores, id: \.self) { store in
@@ -890,11 +892,12 @@ struct PreferredStorePopout: View {
                                 } label: {
                                     Text(store)
                                         .font(.stockedSystem(size: 12, weight: session.preferredStore == store ? .bold : .regular))
-                                        .foregroundStyle(session.preferredStore == store ? Color.stockedCharcoal : session.themeTextColor)
+                                        .foregroundStyle(session.preferredStore == store ? Color.selectedTabForeground(session.isDarkMode) : session.themeTextColor)
                                         .frame(maxWidth: .infinity).padding(.vertical, 9)
-                                        .background(session.preferredStore == store ? Color.stockedGold : Color.stockedWhite.opacity(0.3))
+                                        .background(session.preferredStore == store ? Color.selectedTabBackground : session.themeCardColor)
                                         .clipShape(Capsule())
                                 }.buttonStyle(.plain)
+                                    .accessibilityAddTraits(session.preferredStore == store ? .isSelected : [])
                             }
                         }.padding(.horizontal, 20)
                     }
@@ -903,7 +906,7 @@ struct PreferredStorePopout: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("NEARBY STORES")
                             .scaledFont(10, weight: .bold).tracking(1)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 20)
                         GroceryStoreFinderView()
                             .environment(session)
@@ -917,10 +920,11 @@ struct PreferredStorePopout: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(session.accentColor)
                 }
             }
         }
+        .stockedPresentationSurface()
     }
 }
 
@@ -992,7 +996,7 @@ struct HelpCenterSheet: View {
 
                     Text("Need more help? Reach out from your App Store review or the support link on the product page.")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.top, 6)
                 }
                 .padding(20)
@@ -1002,12 +1006,13 @@ struct HelpCenterSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
+        .stockedPresentationSurface(width: .readable)
     }
 
     private func helpSection(_ title: String) -> some View {
         Text(title.uppercased())
             .scaledFont(11, weight: .bold, design: .serif)
-            .foregroundStyle(session.themeTextColor.opacity(0.45))
+            .foregroundStyle(session.themeSecondaryText)
             .tracking(0.8)
             .padding(.top, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1015,22 +1020,21 @@ struct HelpCenterSheet: View {
 
     private func helpRow(icon: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.14))
-                    .frame(width: 34, height: 34)
-                Image(systemName: icon).scaledFont(14).foregroundStyle(Color.stockedGold)
-            }
+            Image(systemName: icon).scaledFont(14).foregroundStyle(session.themeTextColor)
+                .padding(10).frame(minWidth: 34, minHeight: 34)
+                .background(session.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).scaledFont(14.5, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text(detail).scaledFont(13)
-                    .foregroundStyle(session.themeTextColor.opacity(0.65))
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }
 }

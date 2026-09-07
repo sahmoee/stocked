@@ -89,7 +89,7 @@ struct QuizEditView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text(value)
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
@@ -189,7 +189,7 @@ struct QuizEditView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(label).scaledFont(13, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
-                            Text(desc).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text(desc).scaledFont(11).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
                         if skillLevel == label {
@@ -215,7 +215,7 @@ struct QuizEditView: View {
             }
             Slider(value: Binding(get: { Double(weeklyMeals) }, set: { weeklyMeals = Int($0) }), in: 1...21, step: 1)
                 .tint(Color.stockedGold)
-            Text("Grocery day").scaledFont(13, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text("Grocery day").scaledFont(13, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
                 ForEach(days, id: \.self) { day in

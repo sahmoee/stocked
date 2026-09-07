@@ -91,7 +91,7 @@ struct ReservationOverrideSheet: View {
                             }
                             Text("“\(recipe.title.displayNormalized)” uses ingredients reserved for planned meals. You can still cook it — here's what it touches.")
                                 .scaledFont(13)
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(.top, 18)
@@ -110,7 +110,7 @@ struct ReservationOverrideSheet: View {
                                                 .fixedSize(horizontal: false, vertical: true)
                                             Text("\(claim.mealTitle.displayNormalized) · \(dayLabel(claim.dayIndex, claim.date))")
                                                 .scaledFont(11.5)
-                                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                                .foregroundStyle(session.themeSecondaryText)
                                                 .fixedSize(horizontal: false, vertical: true)
                                         }
                                         Spacer(minLength: 6)
@@ -145,7 +145,7 @@ struct ReservationOverrideSheet: View {
                                         Spacer(minLength: 6)
                                         Text(dayLabel(meal.dayIndex, meal.date))
                                             .scaledFont(11.5, weight: .semibold)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                            .foregroundStyle(session.themeSecondaryText)
                                             .fixedSize()
                                     }
                                     .padding(.horizontal, 12).padding(.vertical, 9)
@@ -158,7 +158,7 @@ struct ReservationOverrideSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             Text("These meals will be re-checked automatically — anything left short shows up as a conflict in the planner.")
                                 .scaledFont(11.5)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 

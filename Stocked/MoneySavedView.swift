@@ -46,7 +46,7 @@ struct MoneySavedView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("As you cook, use things up, and log garden harvests, Stocked tracks the value you keep instead of throwing away — and shows it here.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 34)
+                        .foregroundStyle(session.themeSecondaryText).padding(.horizontal, 34)
                 }.frame(maxWidth: .infinity).padding(.top, 80)
             } else {
                 VStack(spacing: 16) {
@@ -75,7 +75,7 @@ struct MoneySavedView: View {
                     if wastedValue > 0 {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Most wasted").scaledFont(12, weight: .bold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeSecondaryText)
                             ForEach(topWasted, id: \.name) { row in
                                 HStack {
                                     Text(row.name.capitalized).scaledFont(14)

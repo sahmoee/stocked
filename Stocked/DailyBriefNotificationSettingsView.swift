@@ -36,7 +36,7 @@ struct DailyBriefNotificationSettingsView: View {
                     .foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 4)
                 Text("A morning notification summarising expiring items and what you can cook tonight.")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 24).padding(.bottom, 24)
 
                 permissionBanner
@@ -119,7 +119,7 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("Get a reminder the day before an item expires")
-                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
                         Toggle("", isOn: $expiryOn)
@@ -158,7 +158,7 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("When items are expiring, suggest a recipe that uses them up")
-                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
                         Toggle("", isOn: $cookSuggestOn)
@@ -195,7 +195,7 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("A heads-up when your kitchen drops below 50% stocked")
-                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
                         Toggle("", isOn: $stapleOn)
@@ -231,7 +231,7 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(15, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Text("Every \(session.guestStore.cookingProfile.mealPrepDay) at \(DailyBriefNotificationManager.shared.timeLabel(hour: prepHour, minute: prepMinute))")
-                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
                         Toggle("", isOn: $prepOn)

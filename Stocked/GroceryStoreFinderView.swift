@@ -333,7 +333,7 @@ struct GroceryStoreFinderView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "cart.fill").scaledFont(32).foregroundStyle(session.themeTextColor.opacity(0.2))
                     Text("Use your location or enter a zip code").scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45)).multilineTextAlignment(.center)
+                        .foregroundStyle(session.themeSecondaryText).multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity).padding(.top, 24)
             }
@@ -359,10 +359,10 @@ struct GroceryStoreFinderView: View {
                         Text(store.name).scaledFont(14, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text(store.address).scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5)).fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(session.themeSecondaryText).fixedSize(horizontal: false, vertical: true)
                         if let retailer = store.retailer {
                             Text("Known labels: " + retailer.privateLabels.prefix(3).joined(separator: " · "))
-                                .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.42))
+                                .scaledFont(10).foregroundStyle(session.themeSecondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         if store.hasLiveCatalog {

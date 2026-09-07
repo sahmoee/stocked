@@ -266,11 +266,11 @@ struct FoodsSubOptionView: View {
                         HStack(spacing: 16) {
                             HStack(spacing: 5) {
                                 Circle().fill(Color.stockedGold).frame(width: 8, height: 8)
-                                Text("In your pantry").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.6))
+                                Text("In your pantry").scaledFont(11).foregroundStyle(session.themeSecondaryText)
                             }
                             HStack(spacing: 5) {
                                 Circle().fill(session.themeTextColor.opacity(0.2)).frame(width: 8, height: 8)
-                                Text("Not in pantry").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.6))
+                                Text("Not in pantry").scaledFont(11).foregroundStyle(session.themeSecondaryText)
                             }
                         }
                         HStack(spacing: 6) {
@@ -279,7 +279,7 @@ struct FoodsSubOptionView: View {
                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                             Text("Dimmed items aren't in your pantry — you can still select them to plan ahead or shop for ingredients.")
                                 .scaledFont(11)
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -293,7 +293,7 @@ struct FoodsSubOptionView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(section.title)
                                 .scaledFont(13, weight: .bold, design: .serif)
-                                .foregroundStyle(session.themeTextColor.opacity(0.75))
+                                .foregroundStyle(session.themeSecondaryText)
 
                             ForEach(section.options) { opt in
                                 let inStock = pantryGraded
@@ -399,7 +399,7 @@ struct MoodsCategoryView: View {
                 }
                 .padding(.horizontal, 28).padding(.bottom, 8)
                 Text("Let your vibe decide the recipe.")
-                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 28).padding(.bottom, 32)
 
                 VStack(spacing: 24) {
@@ -417,7 +417,7 @@ struct MoodsCategoryView: View {
                                         .scaledFont(22, weight: .regular, design: .serif)
                                         .foregroundStyle(Color.stockedGold)
                                     Text(cat.description)
-                                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
@@ -552,7 +552,7 @@ struct MoodsSubOptionView: View {
                             .foregroundStyle(Color.stockedGold)
                         Text("Tap a vibe — we'll find the recipe.")
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 .padding(.horizontal, 28).padding(.bottom, 32)
@@ -732,7 +732,7 @@ struct MoodRecipeFinderView: View {
             // Top ingredients preview
             VStack(alignment: .leading, spacing: 6) {
                 Text("Key Ingredients")
-                    .scaledFont(13, weight: .bold).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(13, weight: .bold).foregroundStyle(session.themeSecondaryText)
                 FlowLayout(items: Array(r.ingredients.prefix(8))) { ing in
                     Text(ing)
                         .scaledFont(12, weight: .semibold)
@@ -990,7 +990,7 @@ struct UnstockedOptionSheet: View {
                     .multilineTextAlignment(.center)
                 Text("You can still find a recipe and shop for it,\nor add it to your grocery list now.")
                     .scaledFont(13)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 28)

@@ -52,18 +52,19 @@ struct RecipeCreateOptionsSheet: View {
             ScrollView {
                 VStack(spacing: 12) {
                     Text("How do you want to add this recipe?")
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(14).foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8).padding(.bottom, 4)
 
-                    optionCard(icon: "square.and.pencil", tint: Color.stockedGold,
+                    optionCard(icon: "square.and.pencil", tint: session.accentColor,
                                title: "Create Recipe",
                                subtitle: "Start from a blank form") { choose(.scratch) }
 
-                    optionCard(icon: "sparkles", tint: Color.stockedGold,
+                    optionCard(icon: "sparkles", tint: session.accentColor,
                                title: "Create with AI",
                                subtitle: "Coming Soon") { }.disabled(true)
 
-                    optionCard(icon: "safari", tint: Color.stockedCharcoal,
+                    optionCard(icon: "safari", tint: session.themeContrastAccent,
                                title: "Browse recipe websites",
                                subtitle: "View a recipe, then import it into STOCKED") { choose(.browser) }
 
@@ -75,7 +76,7 @@ struct RecipeCreateOptionsSheet: View {
                                title: "Import from Screenshot",
                                subtitle: "Read a recipe from a saved image") { choose(.screenshot) }
 
-                    optionCard(icon: "text.alignleft", tint: Color.stockedCharcoal,
+                    optionCard(icon: "text.alignleft", tint: session.themeContrastAccent,
                                title: "Text Manually",
                                subtitle: "Paste recipe text and we'll structure it") { choose(.manual) }
 
@@ -90,11 +91,12 @@ struct RecipeCreateOptionsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Button("Cancel") { dismiss() }.foregroundStyle(session.accentColor)
                 }
             }
-            .sheet(isPresented: $showRecipeFiles) { PortableRecipeFilesView().environment(session) }
+            .sheet(isPresented: $showRecipeFiles) { PortableRecipeFilesView().environment(session).stockedPresentationSurface() }
         }
+        .stockedPresentationSurface()
     }
 
     private func choose(_ r: RecipeCreateRoute) { dismiss(); onChoose(r) }
@@ -103,21 +105,22 @@ struct RecipeCreateOptionsSheet: View {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd).fill(tint).frame(width: 44, height: 44)
-                    Image(systemName: icon).scaledFont(19).foregroundStyle(Color.stockedWhite)
-                }
+                Image(systemName: icon).scaledFont(19, weight: .semibold).foregroundStyle(session.themeTextColor)
+                    .padding(12).frame(minWidth: 44, minHeight: 44)
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.3))
+                Image(systemName: "chevron.right").scaledFont(13).foregroundStyle(session.themeSecondaryText)
+                    .accessibilityHidden(true)
             }
             .padding(14)
-            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         }
         .buttonStyle(.plain)
@@ -145,30 +148,29 @@ struct RecipeURLImportSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Paste a link to a recipe page. We'll pull the title, ingredients, and steps for you to review.")
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                     TextField("https://…", text: $urlText)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .keyboardType(.URL).focused($focused)
                         .scaledFont(15)
-                        .padding(14)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                        .foregroundStyle(session.themeTextColor)
+                        .textFieldStyle(StockedThemedTextFieldStyle())
+                        .accessibilityLabel("Recipe URL")
 
                     RecipeBrowserLink(url: urlText, title: "View before importing")
 
                     PasteButton(payloadType: String.self) { values in
                         if let text = values.first, let url = RecipeImportCoordinator.normalizedURLString(from: text) { urlText = url }
                         else { error = "The clipboard doesn’t contain a supported recipe link." }
-                    }.tint(session.isDarkMode ? .stockedGoldDark : .stockedGold).disabled(loading)
+                    }.tint(session.accentColor).disabled(loading)
                         .accessibilityLabel("Paste recipe link")
 
                     if loading {
                         HStack(spacing: 8) {
-                            ProgressView().controlSize(.small).tint(Color.stockedGold)
-                            Text(stage).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            ProgressView().controlSize(.small).tint(session.accentColor)
+                            Text(stage).scaledFont(13).foregroundStyle(session.themeSecondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
 
@@ -183,7 +185,7 @@ struct RecipeURLImportSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Button("Cancel") { dismiss() }.foregroundStyle(session.accentColor)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -192,20 +194,21 @@ struct RecipeURLImportSheet: View {
                     else { importTask = Task { await fetch() } }
                 } label: {
                     HStack {
-                        if loading { ProgressView().tint(.white) }
+                        if loading { ProgressView().tint(Color.stockedWhite) }
                         Text(loading ? "Cancel Import" : "Import")
                             .scaledFont(16, weight: .semibold)
                     }
-                    .foregroundStyle(Color.stockedWhite)
-                    .frame(maxWidth: .infinity).padding(.vertical, 15)
-                    .background(loading ? Color.stockedError : (isValidURL ? session.themeButtonColor : Color.gray.opacity(0.5)))
-                    .clipShape(Capsule())
                 }
-                .buttonStyle(.plain).disabled(!loading && !isValidURL)
+                .stockedPrimary(
+                    accent: loading ? .stockedError : .selectedTabBackground,
+                    fg: loading ? .stockedWhite : .selectedTabForeground(session.isDarkMode)
+                )
+                .disabled(!loading && !isValidURL)
                 .padding(.horizontal, 20).padding(.bottom, 12)
             }
             .onDisappear { cancelImport() }
         }
+        .stockedPresentationSurface()
     }
 
     private var isValidURL: Bool {
@@ -270,23 +273,25 @@ struct RecipeScreenshotImportSheet: View {
     var body: some View {
         let pickerLabel = working ? "Reading…" : "Choose Screenshots"
         let pickerText = session.themeTextColor
-        let pickerSurface = session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5)
+        let pickerSurface = session.themeCardColor
         let pickerRadius = StockedUI.cornerRadiusLg
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
                     Text("Pick a screenshot of a recipe. We'll read the text on your device and structure it for you to review.")
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)
 
                     PhotosPicker(selection: $pickerItems, maxSelectionCount: 12, matching: .images) {
                         VStack(spacing: 10) {
-                            Image(systemName: "photo.badge.plus").scaledFont(40).foregroundStyle(Color.stockedGold)
+                            Image(systemName: "photo.badge.plus").scaledFont(40).foregroundStyle(session.accentColor)
+                                .accessibilityHidden(true)
                             Text(pickerLabel)
                                 .scaledFont(16, weight: .semibold, design: .serif)
                                 .foregroundStyle(pickerText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
                         .background(pickerSurface)
@@ -294,13 +299,14 @@ struct RecipeScreenshotImportSheet: View {
                     }
                     .disabled(working)
 
-                    if working { ProgressView().tint(Color.stockedGold) }
+                    if working { ProgressView().tint(session.accentColor) }
                     if let error {
                         Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
                             .multilineTextAlignment(.center)
                     }
                     Text("Tip: the clearer the screenshot, the better the result. You can fix anything on the next screen.")
-                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.center).padding(.top, 4)
                 }
                 .padding(20)
@@ -310,7 +316,7 @@ struct RecipeScreenshotImportSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Button("Cancel") { dismiss() }.foregroundStyle(session.accentColor)
                 }
             }
             .onChange(of: pickerItems) { _, items in
@@ -318,6 +324,7 @@ struct RecipeScreenshotImportSheet: View {
                 Task { await handle(items) }
             }
         }
+        .stockedPresentationSurface()
     }
 
     private func handle(_ items: [PhotosPickerItem]) async {
@@ -359,7 +366,7 @@ struct RecipeManualTextSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Paste the recipe text — title, ingredients, and steps. We'll structure it; you can fix anything before saving.")
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                     ZStack(alignment: .topLeading) {
@@ -370,6 +377,7 @@ struct RecipeManualTextSheet: View {
                         TextEditor(text: $text)
                             .stockedTextEditorContent(minimumHeight: 220)
                             .focused($focused)
+                            .accessibilityLabel("Recipe text")
                     }
                     .stockedInputSurface()
 
@@ -384,21 +392,19 @@ struct RecipeManualTextSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Button("Cancel") { dismiss() }.foregroundStyle(session.accentColor)
                 }
             }
             .safeAreaInset(edge: .bottom) {
                 Button { structure() } label: {
                     Text("Structure Recipe").scaledFont(16, weight: .semibold)
-                        .foregroundStyle(Color.stockedWhite)
-                        .frame(maxWidth: .infinity).padding(.vertical, 15)
-                        .background(text.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray.opacity(0.5) : session.themeButtonColor)
-                        .clipShape(Capsule())
                 }
-                .buttonStyle(.plain).disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                .stockedPrimary(accent: .selectedTabBackground, fg: .selectedTabForeground(session.isDarkMode))
+                .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
                 .padding(.horizontal, 20).padding(.bottom, 12)
             }
         }
+        .stockedPresentationSurface()
     }
 
     private func structure() {

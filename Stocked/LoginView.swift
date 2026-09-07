@@ -24,7 +24,7 @@ struct LoginView: View {
                     StockedWordmark(size: 52)
                     Text("Kitchen Peace of Mind")
                         .scaledFont(14, weight: .light, design: .serif)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeSecondaryText)
                         .tracking(1.4)
                 }
                 .opacity(animateIn ? 1 : 0).offset(y: animateIn ? 0 : 16)
@@ -55,7 +55,7 @@ struct LoginView: View {
                 // Divider
                 HStack {
                     Rectangle().fill(Color.stockedCharcoal.opacity(0.18)).frame(height: 1)
-                    Text("or").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.35)).padding(.horizontal, 12)
+                    Text("or").scaledFont(13).foregroundStyle(session.themeSecondaryText).padding(.horizontal, 12)
                     Rectangle().fill(Color.stockedCharcoal.opacity(0.18)).frame(height: 1)
                 }
                 .padding(.horizontal, 32).padding(.bottom, 16)
@@ -99,7 +99,7 @@ struct LoginView: View {
 
                 Text("Sign in with Apple, or continue as a guest with your name.")
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                     .opacity(animateIn ? 1 : 0)

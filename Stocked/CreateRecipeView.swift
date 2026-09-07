@@ -186,7 +186,7 @@ struct CreateRecipeView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Prep Time")
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                        .foregroundStyle(session.themeSecondaryText)
                                     TextField("15 min", text: $prepTime)
                                         .scaledFont(17)
                                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
@@ -196,7 +196,7 @@ struct CreateRecipeView: View {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Cook Time")
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                        .foregroundStyle(session.themeSecondaryText)
                                     TextField("30 min", text: $cookTime)
                                         .scaledFont(17)
                                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
@@ -222,7 +222,7 @@ struct CreateRecipeView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Difficulty")
                                     .scaledFont(12, weight: .semibold)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                    .foregroundStyle(session.themeSecondaryText)
                                 HStack(spacing: 8) {
                                     ForEach(difficulties, id: \.self) { d in
                                         Button { difficulty = d } label: {
@@ -246,7 +246,7 @@ struct CreateRecipeView: View {
                             if ingredients.isEmpty {
                                 Text("No ingredients yet — tap below to add some.")
                                     .scaledFont(14)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .foregroundStyle(session.themeSecondaryText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
                             } else {
@@ -697,7 +697,7 @@ struct CreateRecipeView: View {
     private func fieldLabel(_ text: String) -> some View {
         Text(text)
             .scaledFont(12, weight: .semibold)
-            .foregroundStyle(session.themeTextColor.opacity(0.45))
+            .foregroundStyle(session.themeSecondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 2)
     }
@@ -736,7 +736,7 @@ struct CreateRecipeView: View {
         Text(title)
             .scaledFont(12, weight: .bold)
             .tracking(0.3)
-            .foregroundStyle(session.themeTextColor.opacity(0.5))
+            .foregroundStyle(session.themeSecondaryText)
             .padding(.horizontal, 28)
             .padding(.top, 20)
             .padding(.bottom, 16)

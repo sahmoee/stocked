@@ -289,7 +289,7 @@ struct BarcodeScannerView: View {
     private var divRow: some View {
         HStack {
             Rectangle().fill(Color.stockedCharcoal.opacity(0.12)).frame(height: 1)
-            Text("or enter manually").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4)).fixedSize()
+            Text("or enter manually").scaledFont(11).foregroundStyle(session.themeSecondaryText).fixedSize()
             Rectangle().fill(Color.stockedCharcoal.opacity(0.12)).frame(height: 1)
         }
         .padding(.horizontal, 24).padding(.vertical, 18)
@@ -533,7 +533,7 @@ struct BarcodeConfirmSheet: View {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2)).frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 22)
                 Text("Found Item").scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor).padding(.bottom, 4)
                 if !barcode.isEmpty {
-                    Text(barcode).scaledFont(10, design: .monospaced).foregroundStyle(session.themeTextColor.opacity(0.35)).padding(.bottom, 8)
+                    Text(barcode).scaledFont(10, design: .monospaced).foregroundStyle(session.themeSecondaryText).padding(.bottom, 8)
                 }
                 // Brand + enrichment data from Open Food Facts
                 if let p = product {
@@ -541,10 +541,10 @@ struct BarcodeConfirmSheet: View {
                         if !p.brand.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "building.2").scaledFont(11).foregroundStyle(Color.stockedGold)
-                                Text(p.brand).scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.7))
+                                Text(p.brand).scaledFont(12, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                                 Spacer()
                                 if let qty = p.quantity {
-                                    Text(qty).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    Text(qty).scaledFont(11).foregroundStyle(session.themeSecondaryText)
                                 }
                             }
                         }
@@ -554,7 +554,7 @@ struct BarcodeConfirmSheet: View {
                                 .foregroundStyle(session.themeTextColor.opacity(0.4))
                             Text(p.sourceName)
                                 .scaledFont(10.5, weight: .medium)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeSecondaryText)
                             Spacer()
                         }
 
@@ -564,7 +564,7 @@ struct BarcodeConfirmSheet: View {
                                     ForEach(Array(p.labels.prefix(8)), id: \.self) { label in
                                         Text(label)
                                             .scaledFont(10, weight: .semibold)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                            .foregroundStyle(session.themeSecondaryText)
                                             .padding(.horizontal, 8).padding(.vertical, 4)
                                             .background(Capsule().fill(Color.stockedGold.opacity(0.12)))
                                     }
@@ -609,7 +609,7 @@ struct BarcodeConfirmSheet: View {
                         }
                         if let grade = p.nutriScore {
                             HStack(spacing: 6) {
-                                Text("Nutri-Score").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text("Nutri-Score").scaledFont(11).foregroundStyle(session.themeSecondaryText)
                                 Text(grade)
                                     .scaledFont(11, weight: .bold)
                                     .foregroundStyle(Color.stockedWhite)
@@ -622,19 +622,19 @@ struct BarcodeConfirmSheet: View {
                     .padding(.horizontal, 24).padding(.bottom, 14)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Product Name").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    Text("Product Name").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                     FoodPredictiveTextField(placeholder: "Name", text: $productName)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         .scaledFont(15)
                         .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 11))
                 }.padding(.horizontal, 24).padding(.bottom, 20)
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Storage Zone").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    Text("Storage Zone").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                     Picker("Zone", selection: $zone) { ForEach(zones, id: \.self) { Text($0) } }.pickerStyle(.segmented)
                 }.padding(.horizontal, 24).padding(.bottom, 20)
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Starting Amount").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text("Starting Amount").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                         Spacer()
                         Text("\(Int(level*100))%").scaledFont(11, weight: .bold).foregroundStyle(Color.stockedGold)
                     }
@@ -645,7 +645,7 @@ struct BarcodeConfirmSheet: View {
                 // Quantity — type it naturally ("6 cans of 8 oz") or leave as 1.
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Quantity").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text("Quantity").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                         Spacer()
                         Stepper("", value: $scanQuantity, in: 1...999).labelsHidden()
                         Text("\(scanQuantity)\(scanContainer.isEmpty ? "" : " \(scanContainer)")")
@@ -734,7 +734,7 @@ struct BarcodeConfirmSheet: View {
     private func nutritionMetric(_ label: String, _ value: String) -> some View {
         VStack(spacing: 2) {
             Text(value).scaledFont(11.5, weight: .bold).foregroundStyle(session.themeTextColor)
-            Text(label).scaledFont(9.5).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(label).scaledFont(9.5).foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity)
     }

@@ -152,7 +152,7 @@ struct PreparationDiscoveryView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(subheading)
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
@@ -233,7 +233,7 @@ struct PreparationDiscoveryView: View {
                 .foregroundStyle(session.themeTextColor)
             Text("Try a different intent, or start with another item.")
                 .scaledFont(13)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -296,7 +296,7 @@ struct PreparationDiscoveryView: View {
     private var affirmation: some View {
         Text("Every one of these is a complete cook on its own. Add more only if you want to.")
             .scaledFont(12)
-            .foregroundStyle(session.themeTextColor.opacity(0.5))
+            .foregroundStyle(session.themeSecondaryText)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, CookStyle.screenHPad + 8)

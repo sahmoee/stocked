@@ -248,6 +248,7 @@ struct RecipeVaultView: View {
             }
         }
         .environment(session)
+        .stockedPresentationSurface(width: .readable)
     }
 
     private var referenceRecipesPage: some View {
@@ -293,14 +294,19 @@ struct RecipeVaultView: View {
                 }
             }
             Button { openFinder(search: false) } label: {
-                Text("Start finding").font(.stocked(.headline)).frame(maxWidth: .infinity, minHeight: 52)
+                Text("Start finding").font(.stocked(.headline))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 52)
                     .foregroundStyle(Color.selectedTabForeground(session.isDarkMode))
                     .background(Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 16))
             }.buttonStyle(.plain)
             Button { openFinder(search: true) } label: {
                 Label("Search recipes or ingredients", systemImage: "magnifyingglass")
-                    .font(.stocked(.body)).frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-                    .padding(.horizontal, 14).overlay(RoundedRectangle(cornerRadius: 18).stroke(session.themeSecondaryText.opacity(0.3)))
+                    .font(.stocked(.body))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .stockedGlassSurface(.control, cornerRadius: 18)
             }.buttonStyle(.plain)
         }.padding(20).foregroundStyle(session.themeTextColor)
             .background(RecipeCardStyle.surface(isDark: session.isDarkMode), in: RoundedRectangle(cornerRadius: 24))
@@ -803,6 +809,7 @@ struct RecipeVaultView: View {
                 routeDestination(createRoute ?? .scratch)
             case .browse:
                 RecipeBrowseOnlineSheet(showBrowseOnline: $showBrowseOnline)
+                    .stockedPresentationSurface(width: .readable)
             }
         }
         .navigationDestination(item: $navTarget) { target in
@@ -2094,6 +2101,7 @@ private struct RecipeMyCollectionView: View {
         .sheet(item: $mergePayload) { payload in
             RecipeMergeSheet(recipeA: payload.a, recipeB: payload.b)
                 .environment(session)
+                .stockedPresentationSurface()
         }
     }
 }

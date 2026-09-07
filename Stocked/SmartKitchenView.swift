@@ -36,7 +36,7 @@ struct SubstitutionsToolView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Out of something? Find what to use instead, with the right ratio. Your own saved swaps come first.")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
 
                 TextField("Ingredient (e.g. butter, egg, buttermilk)", text: $name)
                     .textFieldStyle(StockedThemedTextFieldStyle())
@@ -121,7 +121,7 @@ struct NutritionToolView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Rough calories and macros for a list of ingredients. Estimates only — not medical advice.")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
 
                 TextField("Ingredients, one per line", text: $text, axis: .vertical)
                     .lineLimit(3...).textFieldStyle(StockedThemedTextFieldStyle())
@@ -151,7 +151,7 @@ struct NutritionToolView: View {
                         HStack {
                             Text(it.name.capitalized).scaledFont(13).foregroundStyle(session.themeTextColor)
                             Spacer()
-                            Text(it.kcal.map { "\($0) kcal" } ?? "—").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            Text(it.kcal.map { "\($0) kcal" } ?? "—").scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         }
                         .padding(.vertical, 4)
                         Divider().opacity(0.4)
@@ -167,7 +167,7 @@ struct NutritionToolView: View {
     private func macro(_ v: String, _ label: String) -> some View {
         VStack(spacing: 1) {
             Text(v).scaledFont(17, weight: .bold).foregroundStyle(session.accentColor)
-            Text(label).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text(label).scaledFont(10).foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 10)
         .background(session.themeTextColor.opacity(0.05)).clipShape(RoundedRectangle(cornerRadius: 12))

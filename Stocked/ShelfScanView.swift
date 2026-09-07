@@ -19,7 +19,7 @@ struct ShelfScanView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Take or pick a clear photo of a shelf or a group of items. Stocked reads the labels and lets you confirm what to add.")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
 
                 PhotosPicker(selection: $photo, matching: .images) {
                     Label(scanned ? "Choose another photo" : "Choose a photo", systemImage: "camera.viewfinder")

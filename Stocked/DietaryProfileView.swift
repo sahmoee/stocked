@@ -24,7 +24,7 @@ struct DietaryProfileView: View {
 
                     Text("Your saved diet and allergens filter recipe results automatically and steer AI recipe ideas.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
 
                     // ── Dietary style ─────────────────────────────────
                     VStack(alignment: .leading, spacing: 10) {
@@ -54,7 +54,7 @@ struct DietaryProfileView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                                 Text("Favorite or avoid brands across suggestions and substitutions")
                                     .scaledFont(11.5)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .foregroundStyle(session.themeSecondaryText)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             Spacer(minLength: 6)
@@ -123,7 +123,7 @@ struct DietaryProfileView: View {
 
                     Text("Recipes containing these are hidden by default in the recipe browser — the shield button there can show them again for one session.")
                         .scaledFont(11.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
 
                     Color.clear.frame(height: 30)
                 }
@@ -165,7 +165,7 @@ struct BrandPreferencesEditorView: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     Text("Favorites rise in product suggestions and substitutions. Avoided brands stay visible, but sort after neutral choices.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                     HStack(spacing: 8) {
@@ -192,7 +192,7 @@ struct BrandPreferencesEditorView: View {
 
                     Text("\(favoriteCount) favorite · \(avoidedCount) avoided · \(profiles.count) shown")
                         .scaledFont(11.5, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if profiles.isEmpty {
@@ -235,7 +235,7 @@ struct BrandPreferencesEditorView: View {
                 if !profile.knownItems.isEmpty {
                     Text(profile.knownItems.prefix(2).joined(separator: " · "))
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.48))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

@@ -30,7 +30,7 @@ struct CookRightNowView: View {
                          ? "Nothing's fully stocked yet — add a few items and these will fill in."
                          : "Meals you can make with what's on hand. Top picks use what's expiring first.")
                         .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 24).padding(.top, 4)
 
@@ -39,7 +39,7 @@ struct CookRightNowView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Use these soon")
                             .scaledFont(12.5, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {

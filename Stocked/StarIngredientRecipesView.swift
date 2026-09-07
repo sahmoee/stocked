@@ -63,7 +63,7 @@ struct StarIngredientRecipesView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text("Real recipes starring \(selection.lowercased()), sorted by what you already have.")
                             .scaledFont(12.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeSecondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 8)
@@ -154,7 +154,7 @@ struct StarIngredientRecipesView: View {
                           r.entry.totalTime.isEmpty ? r.entry.cookTime : r.entry.totalTime]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
                         .scaledFont(11.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 6)

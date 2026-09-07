@@ -2,7 +2,7 @@
 
 Stocked is a native SwiftUI kitchen operating system for iPhone and iPad. It connects pantry inventory, shopping, recipes, meal planning, guided cooking, household collaboration, and food intelligence so a household can decide what to buy and cook from one source of truth.
 
-Current app version: **4.13**. The project targets **iOS/iPadOS 26** and includes the main app, a share extension, widgets, and Live Activities.
+Current app version: **5**. The project targets **iOS/iPadOS 26** and includes the main app, a share extension, widgets, and Live Activities.
 
 ## Product capabilities
 
@@ -36,11 +36,14 @@ The main application uses an adaptive iPhone/iPad shell. Core areas expose the k
 
 The app is designed to remain useful when optional providers are unavailable. Network-backed results should fail gracefully, preserve local work, and clearly identify stale or pending data.
 
+Stocked's shared GlassUI components use native iOS 26 Liquid Glass for navigation and selected controls. Warm tan and charcoal reading surfaces, watercolor artwork, adaptive text, and consistent form controls preserve the kitchen's visual identity. Reduce Transparency and Increase Contrast replace custom glass with opaque themed surfaces; Reduce Motion suppresses shared control scaling. See [UI polish and release checks](docs/GLASS-UI-POLISH.md).
+
 ## Architecture
 
 | Area | Key implementation |
 | --- | --- |
 | App lifecycle and navigation | [`Stocked/StockedApp.swift`](Stocked/StockedApp.swift), [`Stocked/MainTabView.swift`](Stocked/MainTabView.swift) |
+| Theme and controls | [`Stocked/DesignTokens.swift`](Stocked/DesignTokens.swift), [`Stocked/DesignSystem.swift`](Stocked/DesignSystem.swift), [`Stocked/GlassUI.swift`](Stocked/GlassUI.swift) |
 | Domain state and persistence | [`Stocked/Models.swift`](Stocked/Models.swift), [`Stocked/AppSession.swift`](Stocked/AppSession.swift), store and CloudKit services under [`Stocked/`](Stocked/) |
 | Inventory and groceries | [`Stocked/InventoryHubView.swift`](Stocked/InventoryHubView.swift), [`Stocked/InventoryView.swift`](Stocked/InventoryView.swift), [`Stocked/GroceryListView.swift`](Stocked/GroceryListView.swift) |
 | Recipes and importing | [`Stocked/RecipeSupport.swift`](Stocked/RecipeSupport.swift), [`Stocked/RecipeCatalogImportView.swift`](Stocked/RecipeCatalogImportView.swift), [`StockedShareExtension/`](StockedShareExtension/) |
@@ -107,6 +110,8 @@ xcodebuild \
 ```
 
 Unit tests live in [`StockedTests/`](StockedTests/) and cover core logic including household merging, reservations, receipt processing, adaptive cooking, feature behavior, Codable compatibility, and sync conflicts. Run tests from Xcode on a suitable device/simulator or in hosted CI. [`swift6_concurrency_guard.sh`](swift6_concurrency_guard.sh) performs the repository’s concurrency guard.
+
+Run `python3 scripts/test-theme-contrast.py` to check semantic text colors against the actual light/dark surface tokens without launching the app. This does not replace on-device glass, layout, or accessibility testing.
 
 ## Backend and data flows
 

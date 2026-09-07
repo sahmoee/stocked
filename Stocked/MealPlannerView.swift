@@ -150,7 +150,7 @@ struct MealPlannerView: View {
                             .scaledFont(28, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Plan meals for the week.")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     // Calendar / List view toggle — icon shows where you'll GO, not where you are
@@ -364,7 +364,7 @@ struct MealPlannerView: View {
         return NavigationStack {
             VStack(spacing: 0) {
                 Text("Add Meal — Day \(day == 0 ? "Today" : "in \(day) day\(day == 1 ? "" : "s")")")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     .padding(.top, 8)
                 List {
                     ForEach(mealTypes, id: \.self) { mealType in

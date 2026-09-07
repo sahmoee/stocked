@@ -60,7 +60,7 @@ struct EditPreferencesView: View {
                                 Text(session.guestStore.stockGoalsConfigured
                                      ? "\(session.guestStore.stockStaples.count) staples anchor your Kitchen Health score"
                                      : "Define what stocked means to you")
-                                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                    .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                             }
                             Spacer()
                             Image(systemName: "chevron.right").scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.3))

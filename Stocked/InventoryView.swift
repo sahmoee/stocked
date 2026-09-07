@@ -260,7 +260,7 @@ struct InventoryView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text("\(items.count) item\(items.count == 1 ? "" : "s")")
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     Menu {
@@ -518,7 +518,7 @@ struct InventoryView: View {
                 HStack(spacing: 8) {
                     Text("Move to:")
                         .scaledFont(11, weight: .medium)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                     ForEach(["Fridge","Freezer","Pantry","Staples"], id: \.self) { z in
                         Button(z) {
                             for id in selectedIDs {
@@ -672,7 +672,7 @@ struct InventoryView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Or tap what you usually have:")
                                     .scaledFont(13, weight: .semibold)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                    .foregroundStyle(session.themeSecondaryText)
                                 let staples = ["Milk", "Eggs", "Butter", "Bread", "Rice", "Pasta",
                                                "Chicken", "Ground beef", "Cheese", "Onions",
                                                "Garlic", "Potatoes", "Tomatoes", "Olive oil",
@@ -802,7 +802,7 @@ struct InventoryView: View {
                         Image(systemName: "hand.tap")
                             .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.25))
                         Text("Select an item to view details")
-                            .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     }
                 }
             }
@@ -985,7 +985,7 @@ struct SubcategoryDisclosure: View {
                 HStack {
                     Text(title)
                         .scaledFont(13, weight: .bold, design: .serif)
-                        .foregroundStyle(session.themeTextColor.opacity(0.7))
+                        .foregroundStyle(session.themeSecondaryText)
                     Spacer()
                     Text("\(items.count)")
                         .scaledFont(11, weight: .semibold)
@@ -1104,7 +1104,7 @@ struct WeeklyPlanStrip: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Drag to plan  ·  dots = expiring")
                 .scaledFont(9, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                .foregroundStyle(session.themeSecondaryText)
                 .padding(.leading, 2)
             HStack(spacing: 5) {
                 ForEach(days) { day in
@@ -1224,7 +1224,7 @@ struct InventoryItemRow: View {
                     HStack(spacing: 6) {
                         Text(qtyLine)
                             .scaledFont(12.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeSecondaryText)
                         // #A3 staleness — the app hasn't seen this touched in a while; a
                         // subtle chip turns invisible drift into a visible, fixable state.
                         if GuestDataStore.isStale(item) {

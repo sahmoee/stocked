@@ -64,7 +64,7 @@ struct StartWithSomethingView: View {
                 .foregroundStyle(session.themeTextColor)
             Text("Pick an ingredient, a protein, a leftover — anything. We'll figure out what to do with it next.")
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             searchField
         }
@@ -131,7 +131,7 @@ struct StartWithSomethingView: View {
                                 .foregroundStyle(session.themeTextColor)
                             Text("Skip discovery — go straight to prep and cooking.")
                                 .scaledFont(11.5)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
                         Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)

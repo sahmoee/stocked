@@ -55,7 +55,7 @@ struct KitchenStatsView: View {
 
                 if log.isEmpty {
                     Text("As you use up and remove items, your stats will build here.")
-                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center).padding(.top, 8)
                 }
             }
@@ -65,9 +65,9 @@ struct KitchenStatsView: View {
 
     private func statTile(_ label: String, _ value: String, _ sub: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label.uppercased()).scaledFont(11, weight: .bold).foregroundStyle(session.themeTextColor.opacity(0.4))
+            Text(label.uppercased()).scaledFont(11, weight: .bold).foregroundStyle(session.themeSecondaryText)
             Text(value).scaledFont(26, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
-            Text(sub).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text(sub).scaledFont(11).foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

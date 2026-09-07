@@ -166,7 +166,7 @@ struct SubstitutionsDatabaseTab: View {
                         HStack {
                             Text("MY SUBSTITUTIONS")
                                 .scaledFont(10, weight: .bold).tracking(1.2)
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(session.themeSecondaryText)
                             Spacer()
                         }
                         .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 4)
@@ -220,10 +220,10 @@ private struct UserSubstitutionRow: View {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.right").scaledFont(10).foregroundStyle(Color.stockedGold)
                     Text(entry.substitute)
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     if !entry.notes.isEmpty {
                         Text("· \(entry.notes)").scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                 }
             }
@@ -301,7 +301,7 @@ private struct AddCustomSubstitutionSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased())
                 .scaledFont(10, weight: .bold).tracking(1)
-                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                .foregroundStyle(session.themeSecondaryText)
             TextField(placeholder, text: text)
                 .scaledFont(15)
                 .foregroundStyle(session.themeTextColor)
@@ -329,7 +329,7 @@ private struct SubstitutionDBRow: View {
                             .foregroundStyle(session.themeTextColor)
                         Text("\(entry.substitutions.count) substitute\(entry.substitutions.count == 1 ? "" : "s")")
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     Button(action: onTap) {
@@ -356,7 +356,7 @@ private struct SubstitutionDBRow: View {
                                 if !sub.notes.isEmpty {
                                     Text(sub.notes)
                                         .scaledFont(11)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        .foregroundStyle(session.themeSecondaryText)
                                 }
                             }
                             Spacer()
@@ -394,7 +394,7 @@ private struct SubstitutionDetailSheet: View {
                                 if !sub.notes.isEmpty {
                                     Text(sub.notes)
                                         .scaledFont(13)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                        .foregroundStyle(session.themeSecondaryText)
                                 }
                             }
                             .padding(14)
@@ -406,7 +406,7 @@ private struct SubstitutionDetailSheet: View {
 
                         Text("Source: Food Network Ingredient Substitution Guide + common cooking knowledge.")
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24).padding(.bottom, 40)
                     }
                 }
@@ -474,7 +474,7 @@ struct AbbreviationsDatabaseTab: View {
                 Spacer()
                 Text("\(filtered.count) entries")
                     .scaledFont(11)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
             }
             .padding(.horizontal, 20).padding(.vertical, 8)
 
@@ -514,7 +514,7 @@ struct AbbreviationsDatabaseTab: View {
     private func legendBadge(_ label: String, color: Color) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 6, height: 6)
-            Text(label).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text(label).scaledFont(10).foregroundStyle(session.themeSecondaryText)
         }
     }
 }
@@ -552,7 +552,7 @@ private struct AbbreviationRow: View {
                 if entry.timesUsed > 0 {
                     Text("Used \(entry.timesUsed)×")
                         .scaledFont(10)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
 
@@ -596,7 +596,7 @@ struct AddAbbreviationSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Abbreviation appears on receipt exactly as scanned. It will be auto-resolved next time it's seen.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 24).padding(.top, 20)
 
                     VStack(spacing: 0) {
@@ -632,7 +632,7 @@ struct AddAbbreviationSheet: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .scaledFont(11, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .foregroundStyle(session.themeSecondaryText)
             TextField(label, text: text)
                 .scaledFont(15)
                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
@@ -706,7 +706,7 @@ struct IngredientsDatabaseTab: View {
                     Text("🥫").scaledFont(36)
                     Text("No ingredients found")
                         .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -756,7 +756,7 @@ private struct IngredientDBRow: View {
                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                         Text("\(Int(item.effectiveLevel * 100))% stocked")
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                 }
             }
@@ -894,7 +894,7 @@ private struct TipDBRow: View {
                 if isExpanded {
                     Text(tip.body)
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.7))
+                        .foregroundStyle(session.themeSecondaryText)
                         .lineSpacing(3)
                         .padding(.horizontal, 58).padding(.bottom, 14)
                         .transition(.opacity.combined(with: .move(edge: .top)))

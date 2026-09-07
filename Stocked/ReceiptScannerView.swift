@@ -501,7 +501,7 @@ struct ReceiptScannerView: View {
                 if !zoneText.isEmpty {
                     Text(zoneText)
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
             Spacer()
@@ -512,7 +512,7 @@ struct ReceiptScannerView: View {
                         .foregroundStyle(Color.stockedGold)
                     Text("est. total")
                         .scaledFont(9)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
         }
@@ -546,7 +546,7 @@ struct ReceiptScannerView: View {
                     .foregroundStyle(session.themeTextColor)
                 Text(group.subtitle)
                     .scaledFont(10)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .foregroundStyle(session.themeSecondaryText)
             }
             Spacer()
         }
@@ -651,11 +651,11 @@ private struct ReviewRowView: View {
                     HStack(spacing: 6) {
                         Text(item.zone)
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                         if let brand = item.brand, !brand.isEmpty {
                             Text(brand)
                                 .scaledFont(10, weight: .medium)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .padding(.horizontal, 6).padding(.vertical, 1)
                                 .background(session.themeTextColor.opacity(0.08))
                                 .clipShape(Capsule())
@@ -663,7 +663,7 @@ private struct ReviewRowView: View {
                         if let price = item.totalPrice ?? item.unitPrice {
                             Text(String(format: "$%.2f", price))
                                 .scaledFont(11, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
 
                         // Inline quantity stepper — a misread count (e.g. "2LB" read as 1)
@@ -683,7 +683,7 @@ private struct ReviewRowView: View {
 
                             Text("×\(item.quantity)")
                                 .scaledFont(11, weight: .bold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .frame(minWidth: 22)
 
                             Button {
@@ -770,7 +770,7 @@ private struct ReviewRowView: View {
                     Image(systemName: "sparkles")
                         .scaledFont(12).foregroundStyle(Color.stockedGold)
                     Text("Save \"\(item.rawText)\" → \"\(lastCorrected)\" as abbreviation?")
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
+                        .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button("Save") {
@@ -809,10 +809,10 @@ extension ReceiptScannerView {
                 .foregroundStyle(session.themeTextColor)
             if sessionTotal > addedCount {
                 Text("\(sessionTotal) total across \(scanCount) receipts this session")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
             } else {
                 Text("Check your Inventory tab to see them.")
-                    .scaledFont(15).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(15).foregroundStyle(session.themeSecondaryText)
             }
 
             // Scan another receipt in same session
@@ -850,7 +850,7 @@ extension ReceiptScannerView {
     private func tipRow(icon: String, text: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
-            Text(text).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
+            Text(text).scaledFont(14).foregroundStyle(session.themeSecondaryText)
         }
     }
 
@@ -1486,7 +1486,7 @@ struct ReceiptArchiveSheet: View {
                 if totalSpend > 0 {
                     HStack {
                         Text("Total tracked spend")
-                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         Spacer()
                         Text(String(format: "$%.2f", totalSpend))
                             .scaledFont(15, weight: .bold).foregroundStyle(Color.stockedGold)
@@ -1506,7 +1506,7 @@ struct ReceiptArchiveSheet: View {
                             .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.2))
                         Text("No scans yet")
                             .scaledFont(15, design: .serif)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                         Spacer()
                     }
                 } else {
@@ -1527,7 +1527,7 @@ struct ReceiptArchiveSheet: View {
                                             .foregroundStyle(session.themeTextColor)
                                         Text(df.string(from: entry.date))
                                             .scaledFont(11)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                            .foregroundStyle(session.themeSecondaryText)
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 4) {
@@ -1537,7 +1537,7 @@ struct ReceiptArchiveSheet: View {
                                         if entry.totalSpend > 0 {
                                             Text(String(format: "$%.2f", entry.totalSpend))
                                                 .scaledFont(11, weight: .bold)
-                                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                                .foregroundStyle(session.themeSecondaryText)
                                         }
                                         // #14 — re-import this receipt's items to the pantry.
                                         if !entry.items.isEmpty {

@@ -1,5 +1,5 @@
-// TabBarView.swift — Flat bottom tab bar (5 tabs, icon over label).
-// Active tab: gold. Inactive: dimmed theme text. Sits flat on the app background.
+// TabBarView.swift — Shared glass navigation (5 tabs, icon over label).
+// Selected tabs retain the brand's high-contrast charcoal treatment.
 //
 // Four tabs use SF Symbols (Home, Inventory, Recipes, Grocery). The Cook tab has no
 // SF Symbol for a chef's hat, so it draws a custom toque — normalised to match the
@@ -102,14 +102,9 @@ struct StockedTabBar: View {
             .padding(.top, layoutMetrics.tabBarTopPadding)
             .padding(.bottom, layoutMetrics.tabBarBottomPadding)
         }
-        // Flat bar that sits directly on the app background (no dark pill), matching
-        // the mockup. A hairline top divider separates it from content.
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(session.themeTextColor.opacity(0.08))
-                .frame(height: 1)
-        }
-        .background(session.themeBgColor.ignoresSafeArea(edges: .bottom))
+        .stockedGlassSurface(.navigation, cornerRadius: StockedChrome.navigationCornerRadius, interactive: false)
+        .padding(.horizontal, StockedChrome.navigationInset)
+        .padding(.bottom, StockedChrome.navigationBottomInset)
     }
 
     @ViewBuilder
@@ -117,7 +112,7 @@ struct StockedTabBar: View {
         let isActive = selected == tab
         let foreground = isActive
             ? Color.selectedTabForeground(session.isDarkMode)
-            : session.themeTextColor.opacity(0.72)
+            : session.themeSecondaryText
 
         Button {
             if let handler = onTap {
@@ -160,7 +155,6 @@ struct StockedTabBar: View {
                                        relativeTo: .caption2))
                     .foregroundStyle(foreground)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
             }

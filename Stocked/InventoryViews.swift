@@ -22,7 +22,7 @@ struct LiveInventoryZoneView: View {
                         .foregroundStyle(session.themeTextColor.opacity(0.2))
                     Text("No items in \(zoneName)")
                         .font(.stockedSans(14))
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                     Text("Tap \"+ Manual\" below to get started")
                         .font(.stockedSans(12))
                         .foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -79,7 +79,7 @@ struct LiveInventoryItemCard: View {
                 if item.quantity > 1 || !item.containerType.isEmpty {
                     Text(item.displayText)
                         .font(.stockedSans(12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Text(levelLabel)
                     .font(.stockedSans(12))
@@ -282,7 +282,7 @@ struct StashView: View {
                     .padding(.top, 28)
                 Text("Your surplus inventory")
                     .font(.stockedSans(14, weight: .light))
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeSecondaryText)
 
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(stashItems) { item in
@@ -320,7 +320,7 @@ struct StashView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text(item.name)
                         .font(.stockedSans(15))
-                        .foregroundStyle(session.themeTextColor.opacity(0.7))
+                        .foregroundStyle(session.themeSecondaryText)
                     HStack(spacing: 16) {
                         Button { moveModal = nil } label: {
                             Text("Not Now")

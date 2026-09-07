@@ -1,3 +1,10 @@
+09:07:26 — Home icon cleanup and shared glass controls
+Removed black backplates from Home action glyphs and the stock gauge. Added shared native Liquid
+Glass navigation and controls, accessible opaque fallbacks, motion-aware press feedback, and
+consistent recipe/settings forms. Supporting copy and action colors now use stronger semantic
+contrast across light and dark themes. No persistence or household protocol changes.
+See docs/GLASS-UI-POLISH.md for validation scope and remaining release checks.
+
 09:05:26 — Reference action artwork, 40-point polish, and sync reliability
 Restored the calendar/tomato jar, wire milk basket and wooden grocery crate from the visual direction;
 corresponding Home widgets share the same images. Added matching protein/leftover illustrations,

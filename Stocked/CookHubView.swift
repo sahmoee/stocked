@@ -35,7 +35,7 @@ struct CookHubView: View {
 
                     Text("Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead.")
                         .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .lineSpacing(5)
                 }
                 .padding(.horizontal, CookStyle.screenHPad).padding(.top, 28)
@@ -340,7 +340,7 @@ struct CookNowHomeView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("Here's what your kitchen is telling us.")
                         .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer(minLength: 8)
             }
@@ -358,19 +358,18 @@ struct CookNowHomeView: View {
                 .scaledFont(11, weight: .semibold)
             Text("Cooking for \(cookSession.servings)")
                 .scaledFont(13, weight: .semibold)
+                .fixedSize(horizontal: false, vertical: true)
                 .contentTransition(.numericText())
             HStack(spacing: 2) {
                 stepButton("minus") { adjustServings(-1) }
                 stepButton("plus")  { adjustServings(+1) }
             }
         }
-        .foregroundStyle(dark ? Color.stockedWhite : Color.stockedCharcoal)
+        .foregroundStyle(session.themeTextColor)
         .padding(.horizontal, 12).padding(.vertical, 7)
-        .background((dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7)))
-        .overlay(Capsule().stroke(Color.stockedGold.opacity(0.35), lineWidth: 1))
-        .clipShape(Capsule())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cooking for \(cookSession.servings). Adjust servings for this session.")
+        .stockedGlassSurface(.control, cornerRadius: StockedRadius.md, interactive: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Servings for this cooking session")
     }
 
     private func stepButton(_ icon: String, action: @escaping () -> Void) -> some View {
@@ -380,11 +379,12 @@ struct CookNowHomeView: View {
         } label: {
             Image(systemName: icon)
                 .scaledFont(11, weight: .bold)
-                .frame(width: 26, height: 26)
-                .background(Color.stockedGold.opacity(0.14))
-                .clipShape(Circle())
+                .foregroundStyle(session.accentColor)
+                .frame(minWidth: 44, minHeight: 44)
+                .background(session.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: StockedRadius.sm))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(icon == "minus" ? "Decrease servings" : "Increase servings")
     }
 
     private func adjustServings(_ delta: Int) {
@@ -408,7 +408,7 @@ struct CookNowHomeView: View {
                 Text("WHAT YOU CAN MAKE")
                     .scaledFont(11, weight: .bold)
                     .kerning(1.1)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedGoldDark)
 
                 HStack(spacing: 12) {
                     if lead == .ready {
@@ -439,12 +439,12 @@ struct CookNowHomeView: View {
                 if snapshot.needsReview.count > 0 {
                     Text("\(snapshot.needsReview.count) more possible with swaps to review")
                         .scaledFont(12)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        .foregroundStyle(Color.appSecondary(true))
                 }
 
                 Text("Based on what's currently logged")
                     .scaledFont(11)
-                    .foregroundStyle(Color.stockedWhite.opacity(0.45))
+                    .foregroundStyle(Color.appSecondary(true))
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -459,7 +459,7 @@ struct CookNowHomeView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("\(count)")
                 .scaledFont(34, weight: .bold, design: .serif)
-                .foregroundStyle(enabled ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
+                .foregroundStyle(enabled ? Color.stockedGoldDark : Color.appSecondary(true))
                 .contentTransition(.numericText())
             Text(title)
                 .scaledFont(12.5, weight: .semibold)
@@ -468,7 +468,7 @@ struct CookNowHomeView: View {
             if !sub.isEmpty {
                 Text(sub)
                     .scaledFont(11)
-                    .foregroundStyle(Color.stockedGold.opacity(0.85))
+                    .foregroundStyle(Color.stockedGoldDark)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if enabled {
@@ -476,7 +476,9 @@ struct CookNowHomeView: View {
                     Text(cta)
                         .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedCharcoal)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 14).padding(.vertical, 6)
+                        .frame(minHeight: 44)
                         .background(Color.stockedWhite.opacity(0.9))
                         .clipShape(Capsule())
                 }
@@ -499,7 +501,7 @@ struct CookNowHomeView: View {
                 .multilineTextAlignment(.center)
             Text("Add items to get personalized meal ideas based on what you actually have.")
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             VStack(spacing: 8) {
@@ -524,7 +526,7 @@ struct CookNowHomeView: View {
                     .foregroundStyle(session.themeTextColor)
                 Text("Your closest matches need a few more ingredients, but you still have options.")
                     .scaledFont(13.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             primaryStateButton("See Closest Matches") { goMoreList = true }
@@ -541,7 +543,7 @@ struct CookNowHomeView: View {
                     .foregroundStyle(session.themeTextColor)
                 Text("Recommendations use your saved inventory. Add ingredients or browse recipes to get started.")
                     .scaledFont(13.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             primaryStateButton("Add Items") { quickMenu.onAddItems() }
@@ -557,10 +559,10 @@ struct CookNowHomeView: View {
         Button(action: action) {
             Text(title)
                 .scaledFont(15, weight: .semibold, design: .serif)
-                .foregroundStyle(Color.stockedWhite)
+                .foregroundStyle(Color.selectedTabForeground(dark))
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity).padding(.vertical, 13)
-                .background(dark ? Color.darkSurface : Color.stockedCharcoal)
-                .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(dark ? Color.stockedGold : Color.clear, lineWidth: 1.5))
+                .background(Color.selectedTabBackground)
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
         }
         .buttonStyle(.plain)
@@ -571,9 +573,9 @@ struct CookNowHomeView: View {
             Text(title)
                 .scaledFont(14, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)
-                .frame(maxWidth: .infinity).padding(.vertical, 11)
-                .background((dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6)))
-                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, minHeight: 44).padding(.vertical, 8)
+                .stockedGlassSurface(.control, cornerRadius: StockedUI.cornerRadiusXL)
         }
         .buttonStyle(.plain)
     }
@@ -615,12 +617,13 @@ struct CookNowHomeView: View {
                                 if item.isExpiringSoon {
                                     Image(systemName: "clock.fill")
                                         .scaledFont(9)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(session.accentColor)
                                 }
                             }
                             .foregroundStyle(session.themeTextColor)
                             .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
+                            .frame(minHeight: 44)
+                            .background(session.themeCardColor)
                             .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -630,9 +633,10 @@ struct CookNowHomeView: View {
                         Button { goBuildFood = true } label: {
                             Text("+ more")
                                 .scaledFont(13, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(session.accentColor)
                                 .padding(.horizontal, 12).padding(.vertical, 8)
-                                .background(Color.stockedGold.opacity(0.12))
+                                .frame(minHeight: 44)
+                                .background(session.accentColor.opacity(0.12))
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
@@ -652,27 +656,28 @@ struct CookNowHomeView: View {
     private var refreshKitchenCard: some View {
         Button { goRefresh = true } label: {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Color.stockedGold.opacity(0.14)).frame(width: 38, height: 38)
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .scaledFont(15, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
-                }
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .scaledFont(15, weight: .semibold)
+                    .foregroundStyle(session.accentColor)
+                    .padding(10).frame(minWidth: 38, minHeight: 38)
+                    .background(session.accentColor.opacity(0.12), in: Circle())
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Refresh Kitchen")
                         .scaledFont(14.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Confirm a few items to improve tonight's matches.")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .scaledFont(12, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeSecondaryText)
+                    .accessibilityHidden(true)
             }
             .padding(14)
-            .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
         }
         .buttonStyle(.plain)

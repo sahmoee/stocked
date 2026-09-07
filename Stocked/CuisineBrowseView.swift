@@ -27,7 +27,7 @@ struct CuisineBrowseView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Browse recipes by cuisine")
                     .scaledFont(14, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 24).padding(.bottom, 12)
 
                 LazyVStack(spacing: 10) {
@@ -60,7 +60,7 @@ struct CuisineBrowseView: View {
             Spacer()
             Text("\(cuisineCount(cuisine))")
                 .scaledFont(12, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
             Image(systemName: "chevron.right")
                 .scaledFont(13, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.35))

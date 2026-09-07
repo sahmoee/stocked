@@ -39,7 +39,7 @@ struct InventoryUpdateReviewView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("These changes come from what you told us while cooking. Apply the ones that should stick.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                     if changes.isEmpty {
@@ -114,7 +114,7 @@ struct InventoryUpdateReviewView: View {
                 if !change.note.isEmpty {
                     Text(change.note)
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
             Spacer()

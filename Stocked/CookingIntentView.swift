@@ -77,7 +77,7 @@ struct CookingIntentView: View {
             }
             Text("What do you want to do with it?")
                 .scaledFont(14)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
     }
@@ -88,7 +88,7 @@ struct CookingIntentView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("How much energy do you have?")
                 .scaledFont(12.5, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                .foregroundStyle(session.themeSecondaryText)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(CookEffortLevel.allCases) { level in
@@ -130,7 +130,7 @@ struct CookingIntentView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text(intent.blurb)
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
@@ -174,7 +174,7 @@ struct CookingIntentView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("The \(anchor.displayNormalized) is the star. We'll keep the extras light.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 8) {
                             ForEach(AddSomethingScope.allCases) { scope in
@@ -212,7 +212,7 @@ struct CookingIntentView: View {
     private var affirmation: some View {
         Text("The entrée is enough. You can stop after one thing, or keep going — your call.")
             .scaledFont(12)
-            .foregroundStyle(session.themeTextColor.opacity(0.5))
+            .foregroundStyle(session.themeSecondaryText)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, CookStyle.screenHPad + 8)

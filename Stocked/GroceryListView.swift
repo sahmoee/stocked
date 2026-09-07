@@ -20,7 +20,8 @@ struct StockedUndoToast: View {
             Text(message).stocked(.callout).foregroundStyle(Color.stockedWhite)
             Spacer()
             Button("Undo") { onUndo(); withAnimation { isShowing = false } }
-                .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
+                .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGoldDark)
+                .frame(minWidth: 44, minHeight: 44)
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -432,6 +433,7 @@ struct GroceryListView: View {
                 .environment(session)
             case .cookLater(let context):
                 NavigationStack { CookLaterWorkspaceView(context: context).environment(session) }
+                    .stockedPresentationSurface(width: .readable)
             case .purchaseReview(let context):
                 PurchaseDedupReviewView(
                     context: context,
@@ -644,9 +646,16 @@ struct GroceryListView: View {
             HStack(alignment: .firstTextBaseline) {
                 editorialSectionTitle(showBought ? "Bought" : "Your List")
                 Spacer()
-                Button("Organize") { showMoreDialog = true }
-                    .font(.stocked(.subheadline).weight(.semibold))
-                    .foregroundStyle(session.accentColor)
+                Button { showMoreDialog = true } label: {
+                    Label("Organize", systemImage: "line.3.horizontal.decrease")
+                        .font(.stocked(.subheadline).weight(.semibold))
+                        .foregroundStyle(session.accentColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .stockedGlassSurface(.control, cornerRadius: StockedRadius.md)
+                }
+                .buttonStyle(.plain)
             }
             if !loopMessage.isEmpty {
                 Text(loopMessage).font(.stocked(.caption)).foregroundStyle(session.accentColor)
@@ -661,6 +670,7 @@ struct GroceryListView: View {
                     Button("Add Item") { showQuickAdd = true }
                         .font(.stocked(.subheadline).weight(.semibold))
                         .foregroundStyle(session.accentColor)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(28)
@@ -712,6 +722,7 @@ struct GroceryListView: View {
             }
             .font(.stockedSerif(16, weight: .bold, relativeTo: .headline))
             .foregroundStyle(session.accentColor)
+            .frame(minWidth: 44, minHeight: 44)
         }
         .padding(16)
         .background(session.themeCardColor,
@@ -1312,7 +1323,7 @@ struct GroceryListView: View {
             if !isOpen && total > visibleItems.count {
                 Button("\(total - visibleItems.count) more") { expandedSection = section.title }
                     .font(.stocked(.caption).weight(.semibold))
-                    .foregroundStyle(Color.stockedGoldDark)
+                    .foregroundStyle(session.accentColor)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
             }
@@ -1334,7 +1345,7 @@ struct GroceryListView: View {
                     } label: {
                         Label("Clear \(done) checked", systemImage: "trash")
                             .scaledFont(12, weight: .semibold)
-                            .foregroundStyle(.red.opacity(0.7))
+                            .foregroundStyle(Color.stockedError)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .contentShape(Rectangle())
@@ -1386,8 +1397,9 @@ struct GroceryListView: View {
             HStack(spacing: 12) {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                     .font(.stocked(.title2))
-                    .foregroundStyle(item.isChecked ? Color.stockedGreen : sub.opacity(0.75))
-                    .frame(width: 32, height: 44)
+                    .foregroundStyle(item.isChecked ? (dark ? Color.stockedSuccess : Color.stockedGreen) : sub)
+                    .frame(minWidth: 32, minHeight: 44)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(parsed.name.displayNormalized)
                         .font(.stocked(.body).weight(.medium))
@@ -1397,7 +1409,7 @@ struct GroceryListView: View {
                         Text(item.recipeSource)
                             .font(.stocked(.caption))
                             .foregroundStyle(sub)
-                            .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 8)
@@ -1701,15 +1713,17 @@ struct GroceryListView: View {
                             HStack {
                                 Text(store)
                                     .font(.stockedSystem(size: 16, weight: session.preferredStore == store ? .bold : .regular, design: .serif))
-                                    .foregroundStyle(session.preferredStore == store ? Color.stockedGold : session.themeTextColor)
+                                    .foregroundStyle(session.preferredStore == store ? session.accentColor : session.themeTextColor)
                                 Spacer()
                                 if session.preferredStore == store {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(Color.stockedGold).scaledFont(20)
+                                        .foregroundStyle(session.accentColor).scaledFont(20)
+                                        .accessibilityHidden(true)
                                 }
                             }
                             .padding(.horizontal, 28).padding(.vertical, 14)
                         }.buttonStyle(.plain)
+                        .accessibilityAddTraits(session.preferredStore == store ? .isSelected : [])
                         Divider().padding(.leading, 28)
                     }
                 }
@@ -1721,10 +1735,11 @@ struct GroceryListView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { grocerySheet = nil }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(session.accentColor)
                 }
             }
         }
+        .stockedPresentationSurface()
     }
 
     private func addItem() {

@@ -21,7 +21,7 @@ struct IngredientFormRow: View {
                     HStack(spacing: 8) {
                         TappableEditText(text: $ingredient.name, mode: .food, font: .system(size: 14, weight: .semibold))
                         if !ingredient.amount.isEmpty {
-                            Text(ingredient.amount).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text(ingredient.amount).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                     }
                     if let brand = ingredient.brand {
@@ -43,7 +43,7 @@ struct IngredientFormRow: View {
                     let brands = BrandDatabase.allBrandNames(for: ingredient.name)
                     if !brands.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Brand").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            Text("Brand").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     Button { ingredient.brand = nil } label: {
@@ -73,7 +73,7 @@ struct IngredientFormRow: View {
                     }
                     if let n = ingredient.nutrition {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Nutrition (\(n.servingSize))").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            Text("Nutrition (\(n.servingSize))").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                             HStack(spacing: 16) {
                                 nutriLabel("Cal", "\(n.calories)")
                                 nutriLabel("Fat", "\(n.totalFat)g")
@@ -94,7 +94,7 @@ struct IngredientFormRow: View {
     private func nutriLabel(_ label: String, _ value: String) -> some View {
         VStack(spacing: 1) {
             Text(value).scaledFont(12, weight: .bold).foregroundStyle(session.themeTextColor)
-            Text(label).scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(label).scaledFont(9).foregroundStyle(session.themeSecondaryText)
         }
     }
 }
@@ -273,7 +273,7 @@ struct IngredientDetailForm: View {
 
                         if !availableBrands.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("Brand").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text("Brand").scaledFont(12, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 8) {
                                         Button { brand = nil } label: {
@@ -336,7 +336,7 @@ struct IngredientDetailForm: View {
     private func nutriPill(_ label: String, _ val: String) -> some View {
         VStack(spacing: 1) {
             Text(val).scaledFont(12, weight: .bold).foregroundStyle(session.themeTextColor)
-            Text(label).scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(label).scaledFont(9).foregroundStyle(session.themeSecondaryText)
         }
     }
 }

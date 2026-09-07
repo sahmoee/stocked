@@ -58,7 +58,7 @@ struct QuickPickListView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text(subtitle)
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 22).padding(.top, 4)
 
@@ -88,7 +88,7 @@ struct QuickPickListView: View {
                                         Text([recipe.area.isEmpty ? recipe.category : recipe.area, recipe.source]
                                                 .filter { !$0.isEmpty }.joined(separator: " · "))
                                             .scaledFont(10.5)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                            .foregroundStyle(session.themeSecondaryText)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .padding(9)

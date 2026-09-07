@@ -37,7 +37,7 @@ struct RecipePortionsEditSheet: View {
                         .padding(.horizontal, 22).padding(.bottom, 2)
                     Text("Edit amounts, remove items, or add what's missing to your grocery list. The recipe updates as you go.")
                         .scaledFont(12.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 22).padding(.bottom, 12)
 
@@ -109,7 +109,7 @@ struct RecipePortionsEditSheet: View {
                 HStack(spacing: 10) {
                     Text(item.name.displayNormalized)
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     Button {

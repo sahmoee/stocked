@@ -1153,7 +1153,7 @@ struct URLImportSheet: View {
 
                     Text("Imported recipes are saved locally. A website is added to the source browser only after it has 20 complete recipes.")
                         .scaledFont(RecipeCardStyle.metadataSize)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeSecondaryText)
 
                     Spacer()
                 }

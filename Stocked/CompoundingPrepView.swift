@@ -74,7 +74,7 @@ struct CompoundingPrepView: View {
                 .foregroundStyle(session.themeTextColor)
             Text("You're already prepping these. Upcoming meals need them too - prep extra now to save a step later.")
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
@@ -90,7 +90,7 @@ struct CompoundingPrepView: View {
                  ? "You picked bare minimum - no extra prep suggested."
                  : "Nothing you're prepping now shows up in your upcoming meals.")
                 .scaledFont(13)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center).padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -120,7 +120,7 @@ struct CompoundingPrepView: View {
                         Image(systemName: "calendar").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
                         Text("\(ref.title) - \(dayLabel(ref.dayIndex))")
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                 }
             }
@@ -128,7 +128,7 @@ struct CompoundingPrepView: View {
             // Storage guidance + cut-style caveat
             Label(opp.storageLife, systemImage: "refrigerator")
                 .scaledFont(11.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Heads up: different meals may want different cuts - check before prepping one way.")
                 .scaledFont(11)

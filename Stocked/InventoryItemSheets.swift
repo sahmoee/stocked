@@ -160,7 +160,7 @@ struct EditItemSheet: View {
                                         ForEach(labels.prefix(8), id: \.self) { label in
                                             Text(label)
                                                 .scaledFont(10, weight: .semibold)
-                                                .foregroundStyle(session.themeTextColor.opacity(0.72))
+                                                .foregroundStyle(session.themeSecondaryText)
                                                 .padding(.horizontal, 8).padding(.vertical, 4)
                                                 .background(Capsule().fill(Color.stockedGold.opacity(0.12)))
                                         }
@@ -189,7 +189,7 @@ struct EditItemSheet: View {
                         HStack {
                             Text("Fill Level")
                                 .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeSecondaryText)
                             Spacer()
                             Text("\(Int(level*100))%")
                                 .scaledFont(12, weight: .bold)
@@ -205,7 +205,7 @@ struct EditItemSheet: View {
                         HStack {
                             Text("Keep at least")
                                 .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeSecondaryText)
                             Spacer()
                             Text(par > 0 ? "\(par) in stock" : "Off")
                                 .scaledFont(12, weight: .bold)
@@ -227,7 +227,7 @@ struct EditItemSheet: View {
                             Spacer()
                             Text(par > 0 ? "Auto-added to your list when you drop below \(par)." : "Set a minimum to auto-reorder this item.")
                                 .scaledFont(11)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeSecondaryText)
                                 .multilineTextAlignment(.trailing)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -238,7 +238,7 @@ struct EditItemSheet: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Category")
                                 .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeSecondaryText)
                             TextField("e.g. Snacks, Baking, Drinks", text: $category)
                                 .scaledFont(15)
                                 .foregroundStyle(session.themeTextColor)
@@ -250,7 +250,7 @@ struct EditItemSheet: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Spot in \(zone)")
                                 .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeSecondaryText)
                             TextField(subZonePlaceholder, text: $subZone)
                                 .scaledFont(15)
                                 .foregroundStyle(session.themeTextColor)
@@ -339,7 +339,7 @@ struct EditItemSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("QUANTITY")
                 .scaledFont(10, weight: .bold).tracking(1)
-                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                .foregroundStyle(session.themeSecondaryText)
                 .padding(.horizontal, 28)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 142), spacing: 12)], alignment: .leading, spacing: 12) {
@@ -416,7 +416,7 @@ struct EditItemSheet: View {
                 : "\(qty) \(unit)"
             Text(preview + " of \(item.name)")
                 .scaledFont(12, design: .serif)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
                 .padding(.horizontal, 28)
         }
         .padding(.bottom, 20)
@@ -714,7 +714,7 @@ struct AddItemSheet: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("ITEM NAME")
                     .scaledFont(10, weight: .bold).tracking(1)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                 VStack(alignment: .leading, spacing: 0) {
                     FoodPredictiveTextField(
                         placeholder: "Item name",
@@ -768,7 +768,7 @@ struct AddItemSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("STORED IN")
                     .scaledFont(10, weight: .bold).tracking(1)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                 InventoryStoragePicker(selection: $zone) { zoneManuallySelected = true }
             }.padding(.horizontal, 24)
 
@@ -776,7 +776,7 @@ struct AddItemSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("QUANTITY")
                     .scaledFont(10, weight: .bold).tracking(1)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                 // Natural-language amount: "6 cans of 8 oz", "half a bag of chips" — fills
                 // the name (if empty), quantity, container, and per-container size below.
                 NaturalQuantityField { parsed in
@@ -834,7 +834,7 @@ struct AddItemSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("CONTAINER TYPE")
                     .scaledFont(10, weight: .bold).tracking(1)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                 Menu {
                     ForEach(ContainerType.all, id: \.self) { c in
                         Button(c) { containerType = c }
@@ -860,7 +860,7 @@ struct AddItemSheet: View {
                 HStack {
                     Text("CURRENT AMOUNT")
                         .scaledFont(10, weight: .bold).tracking(1)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                     Spacer()
                     Toggle("", isOn: Binding(
                         get: { hasAmount },
@@ -874,7 +874,7 @@ struct AddItemSheet: View {
                     // Total size (how many a full one holds)
                     HStack(spacing: 10) {
                         Text("Holds")
-                            .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
+                            .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                         Button { if totalUnits > 1 { totalUnits -= 1; currentUnits = min(currentUnits, totalUnits) } } label: {
                             Image(systemName: "minus.circle").scaledFont(18).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }.buttonStyle(.plain)
@@ -884,7 +884,7 @@ struct AddItemSheet: View {
                             Image(systemName: "plus.circle").scaledFont(18).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }.buttonStyle(.plain)
                         Text(containerType.isEmpty ? "total" : "per \(containerType)")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         Spacer()
                     }
                     // Current amount slider, shown as "X of Y"
@@ -941,7 +941,7 @@ struct AddItemSheet: View {
                             .scaledFont(15, weight: .medium, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("optional")
-                            .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     Toggle("", isOn: Binding(
@@ -962,7 +962,7 @@ struct AddItemSheet: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Amount per container")
                                 .scaledFont(12, weight: .medium)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeSecondaryText)
                             TextField("e.g. 16, 12, 1.5", text: $sizeAmount)
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 .scaledFont(15).foregroundStyle(session.themeTextColor)
@@ -975,7 +975,7 @@ struct AddItemSheet: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Measurement Unit")
                                 .scaledFont(12, weight: .medium)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeSecondaryText)
                             Menu {
                                 ForEach(MeasurementUnit.all, id: \.self) { u in
                                     Button(u) { sizeUnit = u }
@@ -1024,7 +1024,7 @@ struct AddItemSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("EXPIRES ON (optional)")
                     .scaledFont(10, weight: .bold).tracking(1)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                 ExpiryDateRow(hasExpiry: $hasExpiry, expiryDate: $expiryDate)
                     .padding(14)
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
@@ -1117,7 +1117,7 @@ struct AddItemSheet: View {
                     .scaledFont(14, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Text("\(quantity) \(containerType.isEmpty ? "item" : containerType) · \(zone)")
-                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(11).foregroundStyle(session.themeSecondaryText)
             }
             Spacer()
         }
@@ -1136,7 +1136,7 @@ struct AddItemSheet: View {
         }()
         return HStack(spacing: 8) {
             Text(preview).scaledFont(13, design: .serif)
-                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                .foregroundStyle(session.themeSecondaryText)
             Spacer()
         }
         .padding(.horizontal, 24)
@@ -1341,7 +1341,7 @@ struct IngredientBrowserSheet: View {
             Text(itemIcon(for: entry)).scaledFont(26).frame(width: 36)
             VStack(alignment: .leading, spacing: 10) {
                 Text(entry.name).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
-                Text(entry.category).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
+                Text(entry.category).scaledFont(11).foregroundStyle(session.themeSecondaryText)
             }
             Spacer()
             if recentlyAdded.contains(entry.name) {
@@ -1503,7 +1503,7 @@ struct ItemDetailPopup: View {
                             .foregroundStyle(session.themeTextColor)
                         Text(entry.category)
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     Button { dismiss() } label: {
@@ -1531,7 +1531,7 @@ struct ItemDetailPopup: View {
                                 .scaledFont(11).foregroundStyle(Color.stockedGold)
                             Text(previewText)
                                 .scaledFont(13, design: .serif)
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeSecondaryText)
                             Spacer()
                         }
                         .padding(.horizontal, 24)
@@ -1543,7 +1543,7 @@ struct ItemDetailPopup: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("EXPIRY DATE")
                                 .scaledFont(10, weight: .bold).tracking(1)
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(session.themeSecondaryText)
                             ExpiryDateRow(hasExpiry: $hasExpiry, expiryDate: $expiry)
                         }.padding(.horizontal, 24)
 
@@ -1578,7 +1578,7 @@ struct ItemDetailPopup: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("QUANTITY")
                 .scaledFont(10, weight: .bold).tracking(1)
-                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                .foregroundStyle(session.themeSecondaryText)
 
             HStack(spacing: 14) {
                 // Stepper
@@ -1638,7 +1638,7 @@ struct ItemDetailPopup: View {
                 HStack {
                     Text("SIZE DETAILS")
                         .scaledFont(10, weight: .bold).tracking(1)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                     Text("optional")
                         .scaledFont(10)
                         .foregroundStyle(Color.stockedGold)
@@ -1655,7 +1655,7 @@ struct ItemDetailPopup: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Amount per \(unit)")
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                         TextField("e.g. 24", text: $sizeAmountInput)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                             .scaledFont(15, weight: .semibold)
@@ -1670,7 +1670,7 @@ struct ItemDetailPopup: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Unit")
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                         Menu {
                             ForEach(MeasurementUnit.all, id: \.self) { u in
                                 Button(u) { sizeUnit = u }
@@ -1773,7 +1773,7 @@ struct IngredientPairingsSheet: View {
                 if pairList.isEmpty {
                     Text("No pairing data for this item yet.")
                         .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.top, 40)
                 } else {
                     ScrollView(showsIndicators: false) {

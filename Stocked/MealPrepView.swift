@@ -59,7 +59,7 @@ struct MealPrepView: View {
                             .foregroundStyle(session.themeTextColor)
                     }
                     Text("Select meals → review ingredients → get your prep order")
-                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 20)
 
@@ -127,7 +127,7 @@ struct MealPrepView: View {
             sectionLabel("MY RECIPES")
             if store.userRecipes.isEmpty {
                 Text("No saved recipes yet — use Quick Picks below")
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 24).padding(.vertical, 12)
             } else {
                 ForEach(store.userRecipes) { r in
@@ -237,7 +237,7 @@ struct MealPrepView: View {
                         Text(ing.name).scaledFont(14).foregroundStyle(session.themeTextColor)
                             .strikethrough(inStock)
                         Text("For: \(ing.meals.joined(separator: " · "))")
-                            .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4)).fixedSize(horizontal: false, vertical: true)
+                            .scaledFont(10).foregroundStyle(session.themeSecondaryText).fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     if inStock {
@@ -297,7 +297,7 @@ struct MealPrepView: View {
 
             sectionLabel("RECOMMENDED PREP ORDER")
             Text("Start with the longest-cooking items so everything finishes close together.")
-                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.45))
+                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 .padding(.horizontal, 24).padding(.bottom, 12)
 
             ForEach(Array(sorted.enumerated()), id: \.element.id) { i, meal in
@@ -326,7 +326,7 @@ struct MealPrepView: View {
                     Spacer()
                     // Key ingredients preview
                     Text(meal.ingredients.prefix(2).joined(separator: ", "))
-                        .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .scaledFont(10).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.trailing).frame(maxWidth: 80)
                 }
                 .padding(.horizontal, 24).padding(.vertical, 12)
@@ -407,7 +407,7 @@ struct MealPrepView: View {
     private func statPill(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
             Text(value).scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
-            Text(label).scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.45))
+            Text(label).scaledFont(10).foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 10)
         .background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

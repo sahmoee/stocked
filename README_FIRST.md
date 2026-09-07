@@ -345,6 +345,16 @@ Text entry uses the shared borderless `StockedThemedTextFieldStyle` at app and p
 boundaries. Fields grow with text and use the active theme surface; page-local plain styling is
 reserved for fields already hosted inside a custom themed input container.
 
+`GlassUI.swift` owns `StockedGlassKit`, `StockedGlassGroup`, and `stockedGlassSurface` using
+native iOS 26 Liquid Glass. Glass belongs to navigation and floating controls; content cards,
+forms, and reading canvases keep the semantic opaque theme. Reduce Transparency or Increase
+Contrast must select opaque surfaces and visible borders. Shared press scaling and interactive
+glass respect the existing motion policy. Home action glyphs and the stock gauge have no black
+icon backplates; retain their transparent rendering and existing watercolor assets. Supporting
+copy uses `themeSecondaryText`, while functional accents use `accentColor`; decorative gold stays
+separate. Run `python3 scripts/test-theme-contrast.py` after changing semantic colors. The check
+measures source palette pairs, not dynamic glass backgrounds or every page-local color override.
+
 Visual presentation styling is installed at the scene boundary by `stockedAppThemeSurface()` and inherited from `stockedThemeEnvironment()`: Lists, Forms, row
 heights, fields, tint, text, and scroll backgrounds use the same Stocked language on iPhone, iPad,
 Split View, sheets, and covers. Screen canvases use `stockedScreen()` and modal canvases use

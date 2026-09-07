@@ -608,13 +608,13 @@ struct ExpiringItemsView: View {
                             .foregroundStyle(session.themeTextColor)
                         Spacer()
                         Text("\(items.count) item\(items.count == 1 ? "" : "s")")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     }
                     .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 6)
 
                     if mode == .expiring {
                         Text("These items need to be used or added to your shopping list.")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24).padding(.bottom, 18)
 
                         // #6 — YOUR saved recipes first: cooking something you've already
@@ -626,7 +626,7 @@ struct ExpiringItemsView: View {
                                 Image(systemName: "book.fill").scaledFont(12).foregroundStyle(Color.stockedGold)
                                 Text("From your collection")
                                     .scaledFont(12, weight: .bold).tracking(0.5)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                    .foregroundStyle(session.themeSecondaryText)
                             }
                             .padding(.horizontal, 24).padding(.bottom, 8)
                             ScrollView(.horizontal, showsIndicators: false) {
@@ -671,7 +671,7 @@ struct ExpiringItemsView: View {
                                 Image(systemName: "leaf.fill").scaledFont(12).foregroundStyle(Color.stockedGreen)
                                 Text("Cook these to use them up")
                                     .scaledFont(12, weight: .bold).tracking(0.5)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                    .foregroundStyle(session.themeSecondaryText)
                             }
                             .padding(.horizontal, 24).padding(.bottom, 8)
                             ScrollView(.horizontal, showsIndicators: false) {
@@ -696,7 +696,7 @@ struct ExpiringItemsView: View {
                                                     .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
                                                 if !r.totalTime.isEmpty {
                                                     Text(r.totalTime)
-                                                        .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                                        .scaledFont(10).foregroundStyle(session.themeSecondaryText)
                                                 }
                                             }
                                             .frame(width: 130, alignment: .leading)
@@ -720,7 +720,7 @@ struct ExpiringItemsView: View {
                         }
                     } else {
                         Text("Items below 20% — restock or plan a meal around them.")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24).padding(.bottom, 18)
                     }
 
@@ -740,7 +740,7 @@ struct ExpiringItemsView: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(zone.uppercased())
                                     .scaledFont(10, weight: .bold).tracking(1.5)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .foregroundStyle(session.themeSecondaryText)
                                     .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 8)
 
                                 ForEach(zoneItems) { item in

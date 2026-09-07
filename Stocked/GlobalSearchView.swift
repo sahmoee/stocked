@@ -311,7 +311,7 @@ struct GlobalSearchView: View {
                     HStack {
                         Text("\(allResults.count) result\(allResults.count == 1 ? "" : "s")\(parsedQuery.hasStructure ? " · filtered" : "")")
                             .scaledFont(11, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeSecondaryText)
                         Spacer()
                     }.padding(.horizontal, 20).padding(.bottom, 4)
                 }
@@ -327,16 +327,16 @@ struct GlobalSearchView: View {
                             Button { query = suggestion } label: {
                                 HStack(spacing: 4) {
                                     Text("Did you mean").scaledFont(13)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        .foregroundStyle(session.themeSecondaryText)
                                     Text(suggestion).scaledFont(13, weight: .bold)
                                         .foregroundStyle(Color.stockedGold)
                                     Text("?").scaledFont(13)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        .foregroundStyle(session.themeSecondaryText)
                                 }
                             }.buttonStyle(.plain)
                         } else {
                             Text("Try: \"quick chicken\", \"no dairy pasta\", \"Indian breakfast\"")
-                                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                                 .multilineTextAlignment(.center)
                         }
                     }.padding(.top, 48)
@@ -457,7 +457,7 @@ struct GlobalSearchView: View {
                     Text(r.title).scaledFont(14, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(r.subtitle).scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(session.themeSecondaryText).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 Text(r.sourceLabel).scaledFont(9, weight: .bold)
@@ -585,7 +585,7 @@ struct IngredientInfoSheet: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
+                Text(title).scaledFont(12, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                 Text(value).scaledFont(14).foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }

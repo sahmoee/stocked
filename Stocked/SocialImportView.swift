@@ -488,7 +488,7 @@ struct SocialImportSheet: View {
                 .foregroundStyle(Color.stockedGold)
             Text(text)
                 .scaledFont(12.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.7))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)

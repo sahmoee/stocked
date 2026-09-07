@@ -27,7 +27,7 @@ struct BrandPriceView: View {
                     if let brand = p.brand, !brand.isEmpty {
                         Text(brand)
                             .font(.stockedSystem(size: compact ? 11 : 12.5, weight: .semibold))
-                            .foregroundStyle(session.themeTextColor.opacity(0.7))
+                            .foregroundStyle(session.themeSecondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let price = p.price, !price.isEmpty {
@@ -41,7 +41,7 @@ struct BrandPriceView: View {
                     }
                     Text(p.store)
                         .font(.stockedSystem(size: compact ? 9 : 10))
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .transition(.opacity)

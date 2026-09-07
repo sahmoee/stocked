@@ -601,7 +601,7 @@ struct UserRecipeDetailView: View {
                                 Spacer()
                                 Text("% Daily Value per serving · 2000 cal diet")
                                     .scaledFont(9)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                    .foregroundStyle(session.themeSecondaryText)
                                     .padding(.horizontal, 12).padding(.bottom, 6)
                             }
                         }

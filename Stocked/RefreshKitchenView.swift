@@ -35,7 +35,7 @@ struct RefreshKitchenView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Confirm a few high-impact items to improve tonight's matches.")
                     .scaledFont(13.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
                     .fixedSize(horizontal: false, vertical: true)
 

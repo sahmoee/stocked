@@ -191,6 +191,7 @@ struct StockedShell<Content: View>: View {
                             .foregroundStyle(session.themeTextColor)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
+                            .stockedGlassSurface(.control, cornerRadius: StockedRadius.pill)
                     }
                     .buttonStyle(.plain)
                     .a11yButton("Back", hint: "Returns to the previous screen")
@@ -203,32 +204,36 @@ struct StockedShell<Content: View>: View {
 
             // Trailing action pinned right (e.g. search) (#7).
             if trailingIcon != nil || trailingIcon2 != nil {
-                HStack(spacing: 0) {
-                    Spacer().allowsHitTesting(false)
-                    if let trailingIcon, let onTrailing {
-                        Button { onTrailing() } label: {
-                            Image(systemName: trailingIcon)
-                                .scaledFont(19, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
+                StockedGlassGroup(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Spacer().allowsHitTesting(false)
+                        if let trailingIcon, let onTrailing {
+                            Button { onTrailing() } label: {
+                                Image(systemName: trailingIcon)
+                                    .scaledFont(19, weight: .semibold)
+                                    .foregroundStyle(session.themeTextColor)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                                    .stockedGlassSurface(.control, cornerRadius: StockedRadius.pill)
+                            }
+                            .buttonStyle(.plain)
+                            .a11yButton(trailingLabel.isEmpty ? "Action" : trailingLabel)
                         }
-                        .buttonStyle(.plain)
-                        .a11yButton(trailingLabel.isEmpty ? "Action" : trailingLabel)
-                    }
-                    if let trailingIcon2, let onTrailing2 {
-                        Button { onTrailing2() } label: {
-                            Image(systemName: trailingIcon2)
-                                .scaledFont(19, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
+                        if let trailingIcon2, let onTrailing2 {
+                            Button { onTrailing2() } label: {
+                                Image(systemName: trailingIcon2)
+                                    .scaledFont(19, weight: .semibold)
+                                    .foregroundStyle(session.themeTextColor)
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                                    .stockedGlassSurface(.control, cornerRadius: StockedRadius.pill)
+                            }
+                            .buttonStyle(.plain)
+                            .a11yButton(trailingLabel2.isEmpty ? "Action" : trailingLabel2)
                         }
-                        .buttonStyle(.plain)
-                        .a11yButton(trailingLabel2.isEmpty ? "Action" : trailingLabel2)
                     }
+                    .padding(.trailing, 12)
                 }
-                .padding(.trailing, 12)
             }
         }
         // The VStack already respects the top safe area (only the background ignores
@@ -243,6 +248,9 @@ struct StockedShell<Content: View>: View {
 
 /// Stable app chrome geometry. Page content may adapt, but the brand header must not.
 enum StockedChrome {
+    static let navigationCornerRadius: CGFloat = 24
+    static let navigationInset: CGFloat = 8
+    static let navigationBottomInset: CGFloat = 4
     static let wordmarkSize: CGFloat = 20
     static let wordmarkChevronSize: CGFloat = 10
     static let headerHeight: CGFloat = 32

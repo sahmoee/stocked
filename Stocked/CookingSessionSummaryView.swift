@@ -68,7 +68,7 @@ struct CookingSessionSummaryView: View {
             }
             Text(anchorTitle.displayNormalized)
                 .scaledFont(16, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.75))
+                .foregroundStyle(session.themeSecondaryText)
             Text(completion.summaryLabel)
                 .scaledFont(12.5, weight: .semibold)
                 .foregroundStyle(Color.stockedGold)
@@ -82,7 +82,7 @@ struct CookingSessionSummaryView: View {
     private var affirmation: some View {
         Text(affirmationText)
             .scaledFont(14)
-            .foregroundStyle(session.themeTextColor.opacity(0.6))
+            .foregroundStyle(session.themeSecondaryText)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -103,7 +103,7 @@ struct CookingSessionSummaryView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Also made")
                 .scaledFont(13, weight: .bold)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
             ForEach(sides, id: \.self) { s in
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").scaledFont(14).foregroundStyle(Color.stockedGreen)
@@ -120,7 +120,7 @@ struct CookingSessionSummaryView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("What now?")
                 .scaledFont(13, weight: .bold)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
             actionRow("fork.knife", "Serve it now")
             actionRow("refrigerator", "Save for later")
             actionRow("takeoutbag.and.cup.and.straw", "Portion for meal prep")

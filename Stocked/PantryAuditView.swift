@@ -43,7 +43,7 @@ struct PantryAuditView: View {
                     } else {
                         Text("Stocked hasn't seen these touched in a while. One tap each keeps your kitchen honest.")
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 6)
 
                         ForEach(auditItems) { item in
@@ -70,7 +70,7 @@ struct PantryAuditView: View {
                     if let days = GuestDataStore.staleness(of: item) {
                         Text("Last seen \(days) day\(days == 1 ? "" : "s") ago · \(item.zone)")
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 Spacer()

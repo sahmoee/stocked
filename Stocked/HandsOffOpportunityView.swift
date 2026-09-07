@@ -54,12 +54,12 @@ struct HandsOffOpportunityView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("About \(remainingMinutes) minutes hands-off remaining.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
             Text("What would you like to do?")
                 .scaledFont(14, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.7))
+                .foregroundStyle(session.themeSecondaryText)
                 .padding(.top, 2)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
@@ -122,7 +122,7 @@ struct HandsOffOpportunityView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     Text(subtitle)
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
@@ -168,7 +168,7 @@ struct HandsOffOpportunityView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("Fits your remaining window and uses what you have.")
                         .scaledFont(12.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 8) {
                             ForEach(sideCandidates(maxMinutes: maxMinutes), id: \.self) { side in

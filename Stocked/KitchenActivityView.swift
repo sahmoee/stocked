@@ -23,7 +23,7 @@ struct KitchenActivityView: View {
                 if !events.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Recent activity").scaledFont(12, weight: .bold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.bottom, 8)
                         ForEach(events) { e in
                             HStack(spacing: 12) {

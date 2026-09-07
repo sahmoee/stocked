@@ -826,7 +826,7 @@ struct CookLaterCommandCenterView: View {
         .foregroundStyle(session.themeTextColor)
       Text("Plan it. Shop for it. Prep it. Cook it.")
         .font(.stockedSans(11.5, weight: .medium, relativeTo: .caption))
-        .foregroundStyle(session.themeTextColor.opacity(0.48))
+        .foregroundStyle(session.themeSecondaryText)
         .fixedSize(horizontal: false, vertical: true)
     }
   }
@@ -952,7 +952,7 @@ struct CookLaterCommandCenterView: View {
           Text(item.name.displayNormalized).scaledFont(17, weight: .bold, design: .serif)
             .foregroundStyle(session.themeTextColor)
           Text("\(allocation.available) available")
-            .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48))
+            .scaledFont(11.5).foregroundStyle(session.themeSecondaryText)
           Text("\(allocation.planned) planned · \(allocation.unallocated) unallocated")
             .scaledFont(11.5, weight: .semibold).foregroundStyle(Color.stockedGreen)
         }
@@ -960,7 +960,7 @@ struct CookLaterCommandCenterView: View {
       }
       if !allocation.mealTitles.isEmpty {
         Text("Already reserved for \(allocation.mealTitles.joined(separator: ", ")).")
-          .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.5))
+          .scaledFont(11.5).foregroundStyle(session.themeSecondaryText)
       }
       Button {
         openRecipesUsing(item.name)
@@ -1413,7 +1413,7 @@ struct CookLaterCommandCenterView: View {
         Text(
           "Stocked combines shortages, avoids duplicate grocery rows, and keeps every meal that needs the item attached."
         )
-        .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.5)).fixedSize(
+        .scaledFont(11.5).foregroundStyle(session.themeSecondaryText).fixedSize(
           horizontal: false, vertical: true)
       }
     }
@@ -1432,7 +1432,7 @@ struct CookLaterCommandCenterView: View {
         "\(shoppingNeeds.count) items needed across \(Set(shoppingNeeds.flatMap(\.mealTitles)).count) planned meals"
       )
       .font(.stockedSans(11.5, relativeTo: .caption))
-      .foregroundStyle(session.themeTextColor.opacity(0.48))
+      .foregroundStyle(session.themeSecondaryText)
       .stockedAdaptiveLabel(maxLines: 3)
     }
   }
@@ -1508,7 +1508,7 @@ struct CookLaterCommandCenterView: View {
           .stockedAdaptiveLabel(maxLines: 3)
         Text(need.shortageReason)
           .font(.stockedSans(10.5, relativeTo: .caption2))
-          .foregroundStyle(session.themeTextColor.opacity(0.45))
+          .foregroundStyle(session.themeSecondaryText)
           .stockedAdaptiveLabel(maxLines: 3)
         if !need.sizeText.isEmpty {
           Text("Short by about \(need.sizeText)")
@@ -1590,7 +1590,7 @@ struct CookLaterCommandCenterView: View {
         Text(
           "Auto-generated from meal dates, freezer items, and ingredients that can be prepared together."
         )
-        .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48)).fixedSize(
+        .scaledFont(11.5).foregroundStyle(session.themeSecondaryText).fixedSize(
           horizontal: false, vertical: true)
       }
       .padding(.horizontal, commandHorizontalPadding)
@@ -1709,7 +1709,7 @@ struct CookLaterCommandCenterView: View {
   private func sectionDetailLabel(_ detail: String) -> some View {
     Text(detail)
       .font(.stockedSans(10.5, weight: .semibold, relativeTo: .caption2))
-      .foregroundStyle(session.themeTextColor.opacity(0.4))
+      .foregroundStyle(session.themeSecondaryText)
       .stockedAdaptiveLabel(maxLines: 3)
   }
 
@@ -1720,7 +1720,7 @@ struct CookLaterCommandCenterView: View {
       VStack(alignment: .leading, spacing: 2) {
         Text(title).scaledFont(13.5, weight: .semibold).foregroundStyle(
           session.themeTextColor)
-        Text(value).scaledFont(10.5).foregroundStyle(session.themeTextColor.opacity(0.46))
+        Text(value).scaledFont(10.5).foregroundStyle(session.themeSecondaryText)
       }
       Spacer()
     }
@@ -2110,7 +2110,7 @@ private struct CookLaterAddMealSourceSheet: View {
               Text(
                 "\(CookLaterPlanningEngine.dayLabel(dayIndex)), \(CookLaterPlanningEngine.dateLabel(dayIndex))"
               )
-              .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.48))
+              .scaledFont(12).foregroundStyle(session.themeSecondaryText)
             }
             .frame(maxWidth: .infinity)
 
@@ -2489,7 +2489,7 @@ private struct CookLaterMealDetailSheet: View {
               Text(
                 "\(CookLaterPlanningEngine.dayLabel(meal.dayIndex)), \(CookLaterPlanningEngine.dateLabel(meal.dayIndex)) · \(meal.mealType)"
               )
-              .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48))
+              .scaledFont(11.5).foregroundStyle(session.themeSecondaryText)
             }
 
             HStack {
@@ -2533,7 +2533,7 @@ private struct CookLaterMealDetailSheet: View {
                   Text(
                     "You also planned \(check.competingMeals.joined(separator: ", ")) with \(check.name.displayNormalized)."
                   )
-                  .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.55))
+                  .scaledFont(11.5).foregroundStyle(session.themeSecondaryText)
                 }
               }
               .padding(13).background(
@@ -2752,7 +2752,7 @@ private struct CookLaterCommandSuggestionsSheet: View {
           ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 9) {
               Text("Review the proposed week. Nothing changes until you confirm.")
-                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 .padding(.bottom, 4)
               ForEach(suggestions) { suggestion in
                 Button {
@@ -2874,7 +2874,7 @@ private struct CookLaterMonthCalendarSheet: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
               ForEach(symbols, id: \.self) { symbol in
                 Text(String(symbol.prefix(2))).scaledFont(9.5, weight: .bold)
-                  .foregroundStyle(session.themeTextColor.opacity(0.42))
+                  .foregroundStyle(session.themeSecondaryText)
               }
               ForEach(Array(days.enumerated()), id: \.offset) { _, date in
                 calendarDay(date)
@@ -2911,7 +2911,7 @@ private struct CookLaterMonthCalendarSheet: View {
                         Text(meal.title).scaledFont(13.5, weight: .semibold)
                           .foregroundStyle(session.themeTextColor)
                         Text("\(meal.ingredients.count) ingredients").scaledFont(10.5)
-                          .foregroundStyle(session.themeTextColor.opacity(0.46))
+                          .foregroundStyle(session.themeSecondaryText)
                       }
                       Spacer()
                     }
@@ -2984,7 +2984,7 @@ private struct CookLaterMonthCalendarSheet: View {
   private func legend(_ title: String, tint: Color) -> some View {
     HStack(spacing: 4) {
       Circle().fill(tint).frame(width: 5, height: 5)
-      Text(title).scaledFont(9.5).foregroundStyle(session.themeTextColor.opacity(0.48))
+      Text(title).scaledFont(9.5).foregroundStyle(session.themeSecondaryText)
     }
   }
 }

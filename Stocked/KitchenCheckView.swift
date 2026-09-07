@@ -39,7 +39,7 @@ struct KitchenCheckView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("The app thinks you have these. Anything changed?")
                     .scaledFont(13.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
                 if let c = classification {
@@ -99,7 +99,7 @@ struct KitchenCheckView: View {
                 if !r.amount.isEmpty {
                     Text(r.amount)
                         .scaledFont(11.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
 

@@ -65,7 +65,7 @@ struct PreferencesSectionView: View {
 
                 Text("Cuisines stay in Recipes where changes are immediately useful.")
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.62))
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -264,13 +264,13 @@ private func settingsGroup<Content: View>(dark: Bool, title: String, detail: Str
     VStack(alignment: .leading, spacing: StockedSpacing.xs) {
         Text(title.uppercased())
             .font(.stockedSans(10, weight: .bold))
-            .foregroundStyle(Color.appSubtext(dark))
+            .foregroundStyle(Color.appSecondary(dark))
             .textCase(.uppercase)
 
         VStack(alignment: .leading, spacing: StockedSpacing.sm) {
             Text(detail)
                 .font(.stockedSans(12))
-                .foregroundStyle(Color.appSubtext(dark))
+                .foregroundStyle(Color.appSecondary(dark))
                 .fixedSize(horizontal: false, vertical: true)
             content()
         }
@@ -286,19 +286,20 @@ private func toggleRow(dark: Bool, icon: String, title: String, detail: String? 
         icon: icon,
         title: title,
         subtitle: detail,
-        tint: isOn.wrappedValue ? Color.stockedGold : Color.appSubtext(dark),
+        tint: isOn.wrappedValue ? Color.appAccent(dark) : Color.appSecondary(dark),
         titleColor: Color.appText(dark)
     ) {
         Toggle("", isOn: isOn)
             .labelsHidden()
-            .tint(Color.stockedGold)
+            .tint(Color.appAccent(dark))
+            .accessibilityLabel(title)
     }
     .frame(minHeight: 44)
 }
 
 private func actionRow(dark: Bool, icon: String, title: String, detail: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
-        navigationRow(dark: dark, icon: icon, title: title, detail: detail, color: Color.stockedGold)
+        navigationRow(dark: dark, icon: icon, title: title, detail: detail, color: Color.appAccent(dark))
     }
     .buttonStyle(.plain)
     .a11yButton(title, hint: detail)
@@ -322,7 +323,7 @@ private func navigationRow(dark: Bool, icon: String, title: String, detail: Stri
     ) {
         Image(systemName: "chevron.right")
             .font(.stockedSans(11, weight: .bold))
-            .foregroundStyle(Color.appSubtext(dark))
+            .foregroundStyle(Color.appSecondary(dark))
     }
     .contentShape(Rectangle())
     .frame(minHeight: 44)
@@ -344,19 +345,20 @@ private func appTextSizeControl(dark: Bool, selection: Binding<String>) -> some 
                 } label: {
                     Text(option.rawValue)
                         .font(.stockedSans(12, weight: .bold))
-                        .foregroundStyle(selected ? Color.stockedWhite : Color.appText(dark))
+                        .foregroundStyle(selected ? Color.selectedTabForeground(dark) : Color.appText(dark))
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .padding(.horizontal, 8)
-                        .background(selected ? Color.stockedGold : Color.appText(dark).opacity(0.07))
+                        .background(selected ? Color.selectedTabBackground : Color.appSurface(dark))
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
         Text("Adjusts text throughout pages, sheets, buttons, widgets, and cooking flows. Your system text size still applies.")
             .font(.stockedSans(11, relativeTo: .caption))
-            .foregroundStyle(Color.appSubtext(dark))
+            .foregroundStyle(Color.appSecondary(dark))
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -410,7 +412,8 @@ private func sliderRow(dark: Bool, icon: String, title: String, value: Binding<D
     VStack(alignment: .leading, spacing: StockedSpacing.xs) {
         rowTitle(dark: dark, icon: icon, title: title, active: true)
         Slider(value: value, in: range, step: 10)
-            .tint(Color.stockedGold)
+            .tint(Color.appAccent(dark))
+            .accessibilityLabel(title)
     }
     .frame(minHeight: 44)
 }
@@ -424,15 +427,16 @@ private func chipPicker(dark: Bool, title: String, icon: String, options: [Strin
                 Button { onToggle(option) } label: {
                     Text(option)
                         .font(.stockedSans(12, weight: .semibold))
-                        .foregroundStyle(isSelected ? Color.stockedWhite : Color.appText(dark))
+                        .foregroundStyle(isSelected ? Color.selectedTabForeground(dark) : Color.appText(dark))
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                         .padding(.horizontal, StockedSpacing.xs)
-                        .background(isSelected ? Color.stockedGold : Color.appText(dark).opacity(0.08))
+                        .background(isSelected ? Color.selectedTabBackground : Color.appSurface(dark))
                         .clipShape(RoundedRectangle(cornerRadius: StockedRadius.pill, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
     }
@@ -448,12 +452,12 @@ private func rowTitle(dark: Bool, icon: String, title: String, active: Bool) -> 
 }
 
 private func rowIcon(dark: Bool, _ icon: String, active: Bool, color: Color? = nil) -> some View {
-    ZStack {
-        RoundedRectangle(cornerRadius: StockedRadius.sm, style: .continuous)
-            .fill(color ?? (active ? Color.stockedGold : Color.appSubtext(dark)))
-            .frame(width: 30, height: 30)
-        Image(systemName: icon)
-            .font(.stockedSans(13, weight: .semibold))
-            .foregroundStyle(Color.stockedWhite)
-    }
+    Image(systemName: icon)
+        .font(.stockedSans(13, weight: .semibold))
+        .foregroundStyle(color ?? (active ? Color.appAccent(dark) : Color.appSecondary(dark)))
+        .padding(8)
+        .frame(minWidth: 32, minHeight: 32)
+        .background((color ?? Color.appAccent(dark)).opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: StockedRadius.sm, style: .continuous))
+        .accessibilityHidden(true)
 }

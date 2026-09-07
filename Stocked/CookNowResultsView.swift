@@ -41,7 +41,7 @@ struct CookNowResultsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Based on what's currently logged")
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
                 if hasDrinks {
@@ -273,7 +273,7 @@ struct CookNowResultsView: View {
                         if !subtitle.isEmpty {
                             Text(subtitle)
                                 .scaledFont(12)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                     }
                     // PERF: LazyVStack. The eager VStack built all 12 CookRecipeCards

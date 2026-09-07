@@ -76,7 +76,7 @@ struct WeekMealPlannerView: View {
 
             let dayMeals = meals(on: day)
             if dayMeals.isEmpty && addingDay != day {
-                Text("No meals planned").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
+                Text("No meals planned").scaledFont(13).foregroundStyle(session.themeSecondaryText)
             }
             ForEach(dayMeals) { meal in
                 HStack(spacing: 10) {
@@ -89,7 +89,7 @@ struct WeekMealPlannerView: View {
                         Text(meal.title).scaledFont(14, weight: .medium)
                             .foregroundStyle(session.themeTextColor)
                             .strikethrough(meal.isCooked)
-                        Text(meal.mealType).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        Text(meal.mealType).scaledFont(11).foregroundStyle(session.themeSecondaryText)
                     }
                     Spacer()
                     Button { remove(meal) } label: {

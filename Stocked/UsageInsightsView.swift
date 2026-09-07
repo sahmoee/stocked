@@ -21,7 +21,7 @@ struct UsageInsightsView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("A private, on-device count of which features you use. Nothing is uploaded or shared.")
                         .scaledFont(13.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 24).padding(.top, 4)
 
@@ -39,7 +39,7 @@ struct UsageInsightsView: View {
                             .scaledFont(15, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Local only — used to improve the app")
-                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 .tint(Color.stockedGold)
@@ -52,7 +52,7 @@ struct UsageInsightsView: View {
                 // Per-feature counts
                 Text("Most used")
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 24)
 
                 VStack(spacing: 0) {
@@ -80,7 +80,7 @@ struct UsageInsightsView: View {
                 if !widgetBreakdown.isEmpty {
                     Text("Widgets added (by type)")
                         .scaledFont(13, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 24)
                     VStack(spacing: 0) {
                         ForEach(Array(widgetBreakdown.enumerated()), id: \.offset) { idx, pair in
@@ -122,7 +122,7 @@ struct UsageInsightsView: View {
     private func summaryStat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value).scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
-            Text(label).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
+            Text(label).scaledFont(12).foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

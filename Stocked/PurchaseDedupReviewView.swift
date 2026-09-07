@@ -63,7 +63,7 @@ struct PurchaseDedupReviewView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("These items match a recent import. Skip duplicates, merge details, or keep both if you really bought it twice.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
                     ScrollView(showsIndicators: false) {
@@ -137,7 +137,7 @@ struct PurchaseDedupReviewView: View {
                     if let flag {
                         Text(flag.evidence)
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeSecondaryText)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -150,7 +150,7 @@ struct PurchaseDedupReviewView: View {
             }
             Text(explainer(for: choice))
                 .scaledFont(10.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .foregroundStyle(session.themeSecondaryText)
         }
         .padding(12)
         .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
@@ -199,7 +199,7 @@ struct PurchaseDedupReviewView: View {
             }
             Text(clean.map { displayLine($0) }.joined(separator: " · "))
                 .scaledFont(11.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

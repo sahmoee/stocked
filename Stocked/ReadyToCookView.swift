@@ -176,10 +176,10 @@ private struct ReadyToCoookContent: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(readyNow) ready now · \(cachedReadyRecipes.count) total")
                         .scaledFont(13, weight: .bold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                     Text("Sorted by most ingredients available")
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
                 if isComputingReady {

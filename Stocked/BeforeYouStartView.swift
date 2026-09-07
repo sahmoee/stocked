@@ -71,7 +71,7 @@ struct BeforeYouStartView: View {
             }
             Text("Get everything ready before any heat. Check items off as you go.")
                 .scaledFont(13)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
@@ -172,7 +172,7 @@ struct BeforeYouStartView: View {
                 if let match {
                     Text(match.zone)
                         .scaledFont(10.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeSecondaryText)
                     if match.isExpiringSoonOrExpired {
                         Image(systemName: "clock.fill").scaledFont(9).foregroundStyle(Color.stockedGold)
                     }
@@ -266,7 +266,7 @@ struct BeforeYouStartView: View {
                 ForEach(optionalDecisions, id: \.self) { d in
                     HStack(spacing: 8) {
                         Image(systemName: "circle.dotted").scaledFont(13).foregroundStyle(Color.stockedGold)
-                        Text(d).scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.7))
+                        Text(d).scaledFont(12.5).foregroundStyle(session.themeSecondaryText)
                         Spacer(minLength: 0)
                     }
                 }
@@ -294,7 +294,7 @@ struct BeforeYouStartView: View {
             .buttonStyle(.plain)
             Text("You can start even with items unchecked — this is your call.")
                 .scaledFont(11)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .foregroundStyle(session.themeSecondaryText)
         }
         .padding(.horizontal, CookStyle.screenHPad)
     }
@@ -341,7 +341,7 @@ struct BeforeYouStartView: View {
     private func bodyText(_ t: String) -> some View {
         Text(t)
             .scaledFont(12.5)
-            .foregroundStyle(session.themeTextColor.opacity(0.6))
+            .foregroundStyle(session.themeSecondaryText)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

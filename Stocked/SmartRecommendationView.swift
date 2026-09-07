@@ -216,7 +216,7 @@ struct SmartRecommendationView: View {
                 if !c.recipe.description.isEmpty {
                     Text(c.recipe.description)
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -316,7 +316,7 @@ struct SmartRecommendationView: View {
                                 .foregroundStyle(Color.stockedGold)
                             Text(r)
                                 .scaledFont(12.5)
-                                .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                     }
                 }
@@ -399,7 +399,7 @@ struct SmartRecommendationView: View {
                 .foregroundStyle(session.themeTextColor)
             Text("No other recipes fit your current ingredients and preferences.")
                 .scaledFont(12)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12).padding(.horizontal, 14)
@@ -426,7 +426,7 @@ struct SmartRecommendationView: View {
                 .foregroundStyle(session.themeTextColor)
             Text(noMatchDetail)
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Button { goAll = true } label: {
                 Text("View More Possibilities")

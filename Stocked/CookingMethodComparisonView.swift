@@ -67,7 +67,7 @@ struct CookingMethodComparisonView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text("Each method gives you a different result. Pick the tradeoffs you want.")
                 .scaledFont(13.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
     }
@@ -78,7 +78,7 @@ struct CookingMethodComparisonView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Your equipment right now")
                 .scaledFont(12.5, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                .foregroundStyle(session.themeSecondaryText)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(equipmentService.owned(from: profile)) { eq in
@@ -107,7 +107,7 @@ struct CookingMethodComparisonView: View {
                     if equipmentService.owned(from: profile).isEmpty {
                         Text("Set your equipment in your cooking profile to get tailored methods.")
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 .stockedScrollTargetLayout()
@@ -131,7 +131,7 @@ struct CookingMethodComparisonView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text(method.resultSummary)
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
@@ -165,7 +165,7 @@ struct CookingMethodComparisonView: View {
                 detailGrid(method)
                 Text(method.bestUseCase)
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
                     .italic()
             }
 
@@ -228,11 +228,11 @@ struct CookingMethodComparisonView: View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
                 .scaledFont(11.5, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeSecondaryText)
                 .frame(width: 100, alignment: .leading)
             Text(value)
                 .scaledFont(11.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.75))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }

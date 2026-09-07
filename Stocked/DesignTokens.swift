@@ -34,6 +34,9 @@ nonisolated extension Color {
     // Gold — accent, active states, Find in Store, bolt
     static let stockedGold      = Color(red: 0.635, green: 0.447, blue: 0.102) // #A27219
     static let stockedGoldDark  = Color(red: 0.870, green: 0.680, blue: 0.290) // #DEAD4A brighter gold on dark (WCAG ~8:1 on dark surface, up from #CC9730 ~6.4:1)
+    // Decorative gold is too faint for small labels on tan. Text/actions use a
+    // deeper warm-gold shade; artwork, borders and brand illustrations keep their gold.
+    static let textAccentLight  = Color(red: 0.263, green: 0.165, blue: 0.031) // ~#432A08
 
     // Success
     static let stockedGreen     = Color(red: 0.118, green: 0.502, blue: 0.196) // #1E8032
@@ -59,13 +62,13 @@ nonisolated extension Color {
     static func appBg(_ dark: Bool)      -> Color { dark ? stockedDarkBg  : stockedBg      }
     static func appText(_ dark: Bool)    -> Color { dark ? darkLabel      : stockedBlack   }
     // Secondary/supporting text. Solid (not opacity-based) so contrast is predictable.
-    // Light mode #4D483F on tan ~4.2:1 (up from ~2.6:1 dimmed charcoal); dark #BDB8B0 on
-    // dark surface ~8.4:1. Use via session.themeSecondaryText instead of charcoal/white + opacity.
-    static let secondaryLight = Color(red: 0.302, green: 0.282, blue: 0.247) // #4D483F
+    // Light mode ~#332F28 meets 4.5:1 on both tan canvas and its deeper card surface.
+    // Use session.themeSecondaryText instead of opacity-based body copy.
+    static let secondaryLight = Color(red: 0.200, green: 0.184, blue: 0.157) // ~#332F28
     static let secondaryDark  = Color(red: 0.741, green: 0.722, blue: 0.690) // #BDB8B0
     static func appSecondary(_ dark: Bool) -> Color { dark ? secondaryDark : secondaryLight }
-    static func appAccent(_ dark: Bool) -> Color { dark ? stockedGoldDark : stockedGold }
-    static func appSubtext(_ dark: Bool) -> Color { dark ? darkLabel.opacity(0.55) : stockedBlack.opacity(0.55) }
+    static func appAccent(_ dark: Bool) -> Color { dark ? stockedGoldDark : textAccentLight }
+    static func appSubtext(_ dark: Bool) -> Color { appSecondary(dark) }
     static func appButton(_ dark: Bool)  -> Color { dark ? Color(white: 0.22) : stockedCharcoal }
     // Elevated surfaces deliberately move in the opposite direction from their page:
     // a deeper warm-tan accent in light mode and a lighter warm-charcoal accent in dark.
@@ -99,7 +102,7 @@ nonisolated extension Color {
     static func widgetPressedSurface(_ dark: Bool) -> Color {
         dark ? darkLabel.opacity(0.12) : stockedCharcoal.opacity(0.10)
     }
-    static func widgetFocus(_ dark: Bool) -> Color { dark ? stockedGoldDark : stockedGold }
+    static func widgetFocus(_ dark: Bool) -> Color { appAccent(dark) }
     static func widgetSuccess(_ dark: Bool) -> Color { dark ? stockedSuccess : stockedGreen }
     static func widgetWarning(_ dark: Bool) -> Color { dark ? stockedWarning : stockedGold }
     static func widgetFailure(_ dark: Bool) -> Color { stockedError }

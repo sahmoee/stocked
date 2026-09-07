@@ -124,7 +124,7 @@ struct ReorderSoonView: View {
                 .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
             Text(title).scaledFont(16, weight: .semibold).foregroundStyle(session.themeTextColor)
             Text(msg).scaledFont(13).multilineTextAlignment(.center)
-                .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 34)
+                .foregroundStyle(session.themeSecondaryText).padding(.horizontal, 34)
         }.frame(maxWidth: .infinity).padding(.top, 80)
     }
 }

@@ -61,7 +61,7 @@ struct KitchenTransferView: View {
                 .padding(.horizontal, 20)
                 Text("Kitchen Transfer")
                     .scaledFont(18, weight: .regular, design: .serif)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.top, 4).padding(.bottom, 16)
 
                 VStack(spacing: 20) {
@@ -484,7 +484,7 @@ struct KitchenTransferView: View {
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                 Text(title.uppercased())
                     .scaledFont(11, weight: .bold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .foregroundStyle(session.themeSecondaryText)
                     .tracking(1)
             }
             .padding(.bottom, 8)
@@ -520,7 +520,7 @@ struct KitchenTransferView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text(subtitle)
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
@@ -568,7 +568,7 @@ struct QRTransferSheet: View {
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
 
                 Text("Have another device running Stocked\nscan this code to import your kitchen.")
-                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center).padding(.bottom, 28)
 
                 if let qrImage = manager.qrCodeImage {
@@ -661,7 +661,7 @@ struct TransferOptionsSheet: View {
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
 
                 Text("Your kitchen data is stored privately\nin your personal iCloud.")
-                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center).padding(.bottom, 28)
 
                 VStack(spacing: 14) {
@@ -729,7 +729,7 @@ struct TransferOptionsSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
             }
@@ -763,7 +763,7 @@ struct ImportModeSheet: View {
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
 
                 Text("How would you like to import?")
-                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     .padding(.bottom, 28)
 
                 VStack(spacing: 12) {
@@ -814,7 +814,7 @@ struct ImportModeSheet: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
-                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()

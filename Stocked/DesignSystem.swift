@@ -231,6 +231,8 @@ extension View {
 struct StockedPrimaryButtonStyle: ButtonStyle {
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.stockedMotion) private var motion
+    @Environment(\.isEnabled) private var isEnabled
     var accent: Color = Color.stockedCharcoal
     var fg: Color = Color.stockedWhite
     func makeBody(configuration: Configuration) -> some View {
@@ -244,27 +246,29 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
             .overlay(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius)
                 .stroke(fg.opacity(accessibilityContrast == .increased ? 0.85 : 0.48),
                         lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.5)
+            .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.97 : 1)
+            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
     }
 }
 struct StockedSecondaryButtonStyle: ButtonStyle {
-    @Environment(\.colorSchemeContrast) private var accessibilityContrast
+    @Environment(AppSession.self) private var session
     @Environment(\.stockedLayout) private var layoutMetrics
-    var accent: Color = Color.stockedGold
+    @Environment(\.stockedMotion) private var motion
+    @Environment(\.isEnabled) private var isEnabled
+    var accent: Color? = nil
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
+        let accent = accent ?? session.accentColor
+        return configuration.label.font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(accent).frame(maxWidth: .infinity)
             .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
             .padding(.vertical, max(12, 9 * layoutMetrics.textScale))
             .frame(minHeight: layoutMetrics.minimumControlHeight)
-            .background(accent.opacity(0.10)).clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius)
-                .stroke(accent.opacity(accessibilityContrast == .increased ? 1 : 0.65),
-                        lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
+            .stockedGlassSurface(.control, cornerRadius: layoutMetrics.controlCornerRadius)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.5)
+            .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.97 : 1)
+            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
     }
 }
 
@@ -272,6 +276,7 @@ struct StockedSecondaryButtonStyle: ButtonStyle {
 /// this style adds touch/keyboard/pointer feedback without changing layout.
 struct StockedWidgetButtonStyle: ButtonStyle {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedMotion) private var motion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -281,8 +286,8 @@ struct StockedWidgetButtonStyle: ButtonStyle {
                     .opacity(configuration.isPressed ? 1 : 0)
                     .allowsHitTesting(false)
             }
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
+            .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.985 : 1)
+            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
     }
 }
 
@@ -301,7 +306,7 @@ struct StockedThemedTextFieldStyle: TextFieldStyle {
             .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
             .padding(.vertical, max(10, 8 * layoutMetrics.textScale))
             .frame(minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
-            .background(session.themeCardColor.opacity(session.isDarkMode ? 0.76 : 0.64))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(
                 cornerRadius: layoutMetrics.controlCornerRadius,
                 style: .continuous
@@ -339,7 +344,7 @@ private struct StockedTextEditorPlaceholderModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.stockedBody)
-            .foregroundStyle(session.themeTextColor.opacity(0.42))
+            .foregroundStyle(session.themeSecondaryText)
             .padding(.horizontal, layoutMetrics.controlHorizontalPadding + 4)
             .padding(.vertical, max(14, 12 * layoutMetrics.textScale))
             .fixedSize(horizontal: false, vertical: true)
@@ -353,7 +358,7 @@ private struct StockedInputSurfaceModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(session.themeCardColor.opacity(session.isDarkMode ? 0.76 : 0.64))
+            .background(session.themeCardColor)
             .clipShape(RoundedRectangle(
                 cornerRadius: layoutMetrics.surfaceCornerRadius,
                 style: .continuous
@@ -381,7 +386,7 @@ extension View {
     func stockedPrimary(accent: Color = Color.stockedCharcoal, fg: Color = Color.stockedWhite) -> some View {
         buttonStyle(StockedPrimaryButtonStyle(accent: accent, fg: fg))
     }
-    func stockedSecondary(accent: Color = Color.stockedGold) -> some View {
+    func stockedSecondary(accent: Color? = nil) -> some View {
         buttonStyle(StockedSecondaryButtonStyle(accent: accent))
     }
 }
@@ -603,11 +608,13 @@ extension Color {
 
 // MARK: - Pressable scale button style (micro-animation on every button)
 struct PressableStyle: ButtonStyle {
+    @Environment(\.stockedMotion) private var motion
     var scale: CGFloat = 0.96
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1)
-            .stockedAnimation(.press, intent: .spatial, value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.88 : 1)
+            .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? scale : 1)
+            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
     }
 }
 extension View {
@@ -840,11 +847,12 @@ struct StockedSheet<Content: View>: View {
                 Spacer()
                 if showClose {
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .scaledFont(24)
-                            .foregroundStyle(session.themeTextColor.opacity(0.22))
+                        Image(systemName: "xmark")
+                            .scaledFont(17, weight: .semibold)
+                            .foregroundStyle(session.themeTextColor)
                             .frame(minWidth: 44, minHeight: layoutMetrics.minimumControlHeight)
                             .contentShape(Rectangle())
+                            .stockedGlassSurface(.control, cornerRadius: StockedRadius.pill)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Close")
