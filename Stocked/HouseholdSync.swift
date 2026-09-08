@@ -1617,7 +1617,17 @@ final class HouseholdSync {
                     byID[id] = nil
                 }
             }
-            let merged = Array(byID.values)
+            // Keep the user's existing order stable. Dictionary value order is not a UI
+            // contract and previously caused this grid to reshuffle after routine pulls.
+            let localOrder = store.inventoryItems.map(\.id)
+            let localIDs = Set(localOrder)
+            let remoteNewOrder = remote.map(\.id).filter { !localIDs.contains($0) }
+            let preferredIDs = localOrder + remoteNewOrder
+            let preferredSet = Set(preferredIDs)
+            let remainingIDs = byID.keys.filter { !preferredSet.contains($0) }
+                .sorted { $0.uuidString < $1.uuidString }
+            let orderedRows = (preferredIDs + remainingIDs).compactMap { byID[$0] }
+            let merged = GuestDataStore.consolidatedInventory(orderedRows)
             if merged != store.inventoryItems {
                 let previous = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0.updatedAt) })
                 store.inventoryItems = merged

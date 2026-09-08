@@ -250,20 +250,27 @@ enum RetailEnrichmentMaintenance {
         } else {
             reconciled = nil
         }
-        guard let enriched = reconciled, let index = store.inventoryItems.firstIndex(where: { $0.id == id }) else { return }
-        if store.inventoryItems[index].brand?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
-           !enriched.brand.isEmpty { store.inventoryItems[index].brand = enriched.brand }
+        guard let enriched = reconciled,
+              let index = store.inventoryItems.firstIndex(where: { $0.id == id }) else { return }
+        // Build one replacement value and publish it once. Assigning each field directly used
+        // to emit several inventory revisions in quick succession, visibly refreshing grids.
+        let current = store.inventoryItems[index]
+        var updated = current
+        if updated.brand?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+           !enriched.brand.isEmpty { updated.brand = enriched.brand }
         if let nutrition = enriched.nutrition, nutrition.calories > 0 {
-            store.inventoryItems[index].nutrition = nutrition
-            store.inventoryItems[index].nutritionSource = enriched.sourceName
+            updated.nutrition = nutrition
+            updated.nutritionSource = enriched.sourceName
         }
-        if store.inventoryItems[index].productLabels?.isEmpty != false, !enriched.labels.isEmpty {
-            store.inventoryItems[index].productLabels = enriched.labels
+        if updated.productLabels?.isEmpty != false, !enriched.labels.isEmpty {
+            updated.productLabels = enriched.labels
         }
-        if store.inventoryItems[index].productIngredients?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+        if updated.productIngredients?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
            let ingredients = enriched.ingredientsText?.trimmingCharacters(in: .whitespacesAndNewlines), !ingredients.isEmpty {
-            store.inventoryItems[index].productIngredients = ingredients
+            updated.productIngredients = ingredients
         }
+        guard updated != current else { return }
+        store.inventoryItems[index] = updated
     }
 
     private static func rotatingBatch<T>(_ values: [T], cursorKey: String, limit: Int) -> [T] {

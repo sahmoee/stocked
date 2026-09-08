@@ -21,7 +21,7 @@ struct StartWithSomethingView: View {
     @Environment(AppSession.self) var session
     @Environment(CookNowSession.self) private var envSession: CookNowSession?
     private var store: GuestDataStore { session.guestStore }
-    private var dark: Bool { session.isDarkMode }
+    @Environment(\.stockedLayout) private var layoutMetrics
 
     @State private var localSession: CookNowSession? = nil
     private var cookSession: CookNowSession? { envSession ?? localSession }
@@ -33,14 +33,14 @@ struct StartWithSomethingView: View {
 
     var body: some View {
         StockedShell(showBack: true, titleText: "Start With Something") {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: layoutMetrics.sectionSpacing) {
                 header
                 ideaEntry
                 if !expiringItems.isEmpty { section("Use these soon", expiringItems, urgent: true) }
                 proteinSection
                 otherSection
 
-                Spacer(minLength: 20)
+                Spacer(minLength: layoutMetrics.sectionSpacing)
             }
             .navigationDestination(isPresented: $goIntent) {
                 if let cs = cookSession { CookingIntentView().environment(cs) }
@@ -58,38 +58,22 @@ struct StartWithSomethingView: View {
     // MARK: Header + search
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("What are you starting with?")
-                .scaledFont(22, weight: .bold, design: .serif)
+                .font(.stockedTitle)
                 .foregroundStyle(session.themeTextColor)
             Text("Pick an ingredient, a protein, a leftover — anything. We'll figure out what to do with it next.")
-                .scaledFont(13.5)
+                .font(.stockedBody)
                 .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             searchField
         }
-        .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
+        .padding(.horizontal, layoutMetrics.horizontalPadding)
+        .padding(.top, 8)
     }
 
     private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .scaledFont(13)
-                .foregroundStyle(session.themeTextColor.opacity(0.4))
-            TextField("Search your kitchen", text: $query)
-                .scaledFont(14)
-                .foregroundStyle(session.themeTextColor)
-                .autocorrectionDisabled()
-            if !query.isEmpty {
-                Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.3))
-                }.buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        StockedSearchField(text: $query, prompt: "Search your kitchen")
     }
 
     // MARK: Idea entry ("I already know what I'm making")
@@ -98,53 +82,27 @@ struct StartWithSomethingView: View {
         VStack(alignment: .leading, spacing: 8) {
             if showIdeaField {
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("e.g. marinated lamb chops, seared then pressure cooked", text: $ideaText, axis: .vertical)
-                        .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(12)
-                        .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.7))
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    TextField("What are you making?", text: $ideaText, axis: .vertical)
+                        .font(.stockedBody)
+                        .lineLimit(2...4)
                     Button {
                         startWithIdea()
                     } label: {
-                        Text("Continue")
-                            .scaledFont(14, weight: .semibold)
-                            .foregroundStyle(Color.stockedWhite)
-                            .frame(maxWidth: .infinity).padding(.vertical, 11)
-                            .background(dark ? Color.darkSurface : Color.stockedCharcoal)
-                            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(dark ? Color.stockedGold : Color.clear, lineWidth: 1.5))
-                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                        Label("Continue", systemImage: "arrow.right")
                     }
-                    .buttonStyle(.plain)
+                    .stockedPrimary(accent: session.themeButtonColor)
                     .disabled(ideaText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             } else {
-                Button { withAnimation { showIdeaField = true } } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "hand.raised")
-                            .scaledFont(14, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("I already know what I'm making")
-                                .scaledFont(14, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor)
-                            Text("Skip discovery — go straight to prep and cooking.")
-                                .scaledFont(11.5)
-                                .foregroundStyle(session.themeSecondaryText)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.3))
-                    }
-                    .padding(13)
-                    .background(Color.stockedGold.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                }
-                .buttonStyle(.plain)
+                StockedActionRow(
+                    title: "I already know what I'm making",
+                    detail: "Skip discovery and go straight to prep.",
+                    symbol: "hand.raised.fill",
+                    action: { withAnimation { showIdeaField = true } }
+                )
             }
         }
-        .padding(.horizontal, CookStyle.screenHPad)
+        .padding(.horizontal, layoutMetrics.horizontalPadding)
     }
 
     // MARK: Inventory sections
@@ -158,21 +116,53 @@ struct StartWithSomethingView: View {
 
     private var expiringItems: [LocalInventoryItem] {
         filteredInStock.filter { $0.isExpiringSoonOrExpired }
-            .sorted { ($0.daysUntilExpiry ?? 99) < ($1.daysUntilExpiry ?? 99) }
+            .sorted {
+                let lhs = $0.daysUntilExpiry ?? 99
+                let rhs = $1.daysUntilExpiry ?? 99
+                return lhs == rhs ? itemComesBefore($0, $1) : lhs < rhs
+            }
     }
 
     /// Likely proteins, surfaced as a first-class starting point.
     private var proteinItems: [LocalInventoryItem] {
-        let words = ["chicken","beef","pork","turkey","lamb","steak","shrimp","fish","salmon","tuna","bacon","sausage","tofu","egg","thigh","breast","ground"]
         return filteredInStock
-            .filter { item in words.contains { item.name.lowercased().contains($0) } && !item.isExpiringSoonOrExpired }
+            .filter { isLikelyProtein($0) && !$0.isExpiringSoonOrExpired }
+            .sorted(by: itemComesBefore)
+    }
+
+    /// Product names often contain a meat word without being a protein anchor
+    /// (beef broth, chicken bouillon) or contain “ground” as a preparation
+    /// (coffee and pepper). Keep those pantry items out of the protein section.
+    private func isLikelyProtein(_ item: LocalInventoryItem) -> Bool {
+        if item.customCategory?.localizedCaseInsensitiveContains("protein") == true { return true }
+        let name = item.name.lowercased()
+        let pantryQualifiers = ["broth", "stock", "bouillon", "soup", "gravy", "sauce",
+                                "seasoning", "pepper", "coffee", "flavor", "flavour"]
+        guard !pantryQualifiers.contains(where: name.contains) else { return false }
+        let proteinWords = ["chicken", "beef", "pork", "turkey", "lamb", "steak", "shrimp",
+                            "fish", "salmon", "tuna", "bacon", "sausage", "tofu", "egg",
+                            "thigh", "breast", "wings", "meatball"]
+        return proteinWords.contains(where: name.contains)
     }
 
     private var otherItems: [LocalInventoryItem] {
         let expiringIDs = Set(expiringItems.map { $0.id })
         let proteinIDs = Set(proteinItems.map { $0.id })
         return filteredInStock.filter { !expiringIDs.contains($0.id) && !proteinIDs.contains($0.id) }
-            .sorted { $0.name < $1.name }
+            .sorted(by: itemComesBefore)
+    }
+
+    /// A strict, deterministic display order keeps tiles anchored while sync and product
+    /// enrichment update metadata in the background.
+    private func itemComesBefore(_ lhs: LocalInventoryItem, _ rhs: LocalInventoryItem) -> Bool {
+        let nameOrder = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+        if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
+        let lhsBrand = lhs.brand ?? ""
+        let rhsBrand = rhs.brand ?? ""
+        let brandOrder = lhsBrand.localizedCaseInsensitiveCompare(rhsBrand)
+        if brandOrder != .orderedSame { return brandOrder == .orderedAscending }
+        if lhs.sizeAmount != rhs.sizeAmount { return (lhs.sizeAmount ?? 0) < (rhs.sizeAmount ?? 0) }
+        return lhs.id.uuidString < rhs.id.uuidString
     }
 
     private var proteinSection: some View {
@@ -185,46 +175,47 @@ struct StartWithSomethingView: View {
     private func section(_ title: String, _ items: [LocalInventoryItem], urgent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .scaledFont(15, weight: .bold, design: .serif)
-                .foregroundStyle(urgent ? Color.stockedGold : session.themeTextColor)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                .font(.stockedHeadline)
+                .foregroundStyle(urgent ? session.accentColor : session.themeTextColor)
+            LazyVGrid(columns: layoutMetrics.gridColumns(minimum: 150, maximum: 2, spacing: 10), spacing: 10) {
                 ForEach(items) { item in
                     anchorTile(item, urgent: urgent)
                 }
             }
         }
-        .padding(.horizontal, CookStyle.screenHPad)
+        .padding(.horizontal, layoutMetrics.horizontalPadding)
     }
 
     private func anchorTile(_ item: LocalInventoryItem, urgent: Bool) -> some View {
         Button { startWith(item) } label: {
-            HStack(spacing: 8) {
-                Text(ImageFallbackService.emoji(for: item.name)).scaledFont(20)
-                VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 10) {
+                Text(ImageFallbackService.emoji(for: item.name)).font(.title3)
+                VStack(alignment: .leading, spacing: 3) {
                     Text(item.name.displayNormalized)
-                        .scaledFont(13.5, weight: .semibold)
+                        .font(.stockedBodyBold)
                         .foregroundStyle(session.themeTextColor)
                         .fixedSize(horizontal: false, vertical: true)
                     if urgent, let d = item.daysUntilExpiry {
                         Text(d <= 0 ? "Use today" : "\(d)d left")
-                            .scaledFont(10.5, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
+                            .font(.stockedCaption.weight(.semibold))
+                            .foregroundStyle(session.accentColor)
                     } else {
                         Text(item.zone)
-                            .scaledFont(10.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .font(.stockedCaption)
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12).padding(.vertical, 11)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
-            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
-                .stroke(urgent ? Color.stockedGold.opacity(0.35) : Color.clear, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .padding(layoutMetrics.surfaceContentPadding)
+            .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+            .background(session.themeCardColor)
+            .overlay(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius)
+                .stroke(urgent ? session.accentColor.opacity(0.55) : session.themeTextColor.opacity(0.08), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StockedWidgetButtonStyle())
         .a11yButton("Start with \(item.name)")
     }
 

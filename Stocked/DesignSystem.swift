@@ -39,6 +39,8 @@ struct StockedThemeEnvironmentModifier: ViewModifier {
             .fontDesign(session.appFont.design)
             .environment(\.defaultMinListRowHeight, layoutMetrics.listRowMinimumHeight)
             .textFieldStyle(StockedThemedTextFieldStyle())
+            .controlSize(.large)
+            .buttonBorderShape(.roundedRectangle(radius: layoutMetrics.controlCornerRadius))
             .tint(session.accentColor)
             .foregroundStyle(session.themeTextColor)
             .preferredColorScheme(session.isDarkMode ? .dark : .light)
@@ -388,6 +390,92 @@ extension View {
     }
     func stockedSecondary(accent: Color? = nil) -> some View {
         buttonStyle(StockedSecondaryButtonStyle(accent: accent))
+    }
+}
+
+// MARK: - Shared field and action surfaces
+// These are the canonical building blocks for pages and sheets. They keep icon
+// slots, touch targets, type, padding, and corner geometry aligned everywhere.
+struct StockedSearchField: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    @Binding var text: String
+    var prompt: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.stockedBodyBold)
+                .foregroundStyle(session.themeSecondaryText)
+                .accessibilityHidden(true)
+            TextField(prompt, text: $text)
+                .font(.stockedBody)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+            if !text.isEmpty {
+                Button { text = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.stockedBodyBold)
+                        .foregroundStyle(session.themeSecondaryText)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
+        .frame(minHeight: layoutMetrics.minimumControlHeight)
+        .background(session.themeCardColor)
+        .clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous)
+                .strokeBorder(session.themeTextColor.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
+struct StockedActionRow: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    let title: String
+    var detail: String? = nil
+    var symbol: String
+    var tint: Color? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.stockedHeadline)
+                    .foregroundStyle(tint ?? session.accentColor)
+                    .frame(width: 30)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.stockedBodyBold)
+                    if let detail {
+                        Text(detail)
+                            .font(.stockedCaption)
+                            .foregroundStyle(session.themeSecondaryText)
+                    }
+                }
+                .stockedAdaptiveLabel()
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.stockedCaption.weight(.bold))
+                    .foregroundStyle(session.themeSecondaryText)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(session.themeTextColor)
+            .padding(layoutMetrics.surfaceContentPadding)
+            .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+            .background(session.themeCardColor)
+            .clipShape(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius, style: .continuous))
+        }
+        .buttonStyle(StockedWidgetButtonStyle())
     }
 }
 

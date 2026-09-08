@@ -596,9 +596,24 @@ class GuestDataStore {
             recipeRevision &+= 1
             planRevision &+= 1
         }
-        inventoryItems = DBMigrations.migrateInventory(snapshot.inventory.filter {
+        let migratedInventory = DBMigrations.migrateInventory(snapshot.inventory.filter {
             !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
         })
+        let consolidatedInventory = Self.consolidatedInventory(migratedInventory)
+        inventoryItems = consolidatedInventory
+        // Repair historical duplicate rows once and propagate the removed identities as
+        // tombstones. The retained row already contains their combined quantity, so a stale
+        // household snapshot cannot restore the duplicate and count it twice.
+        let retainedInventoryIDs = Set(consolidatedInventory.map(\.id))
+        let consolidatedAwayIDs = Set(migratedInventory.lazy.map(\.id).filter {
+            !retainedInventoryIDs.contains($0)
+        })
+        if !consolidatedAwayIDs.isEmpty {
+            pendingInvTombstones.formUnion(consolidatedAwayIDs.map(\.uuidString))
+            recordHouseholdTombstones(consolidatedAwayIDs)
+            persistHouseholdTombstones()
+            LocalDatabase.shared.save(consolidatedInventory, key: DBKey.inventoryItems.rawValue)
+        }
         groceryItems = DBMigrations.migrateGrocery(snapshot.grocery.filter {
             !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
         })
@@ -1038,47 +1053,8 @@ class GuestDataStore {
         // normalized name AND compatible unit), bump its quantity and refresh
         // metadata rather than creating a duplicate row.
         if let idx = inventoryItems.firstIndex(where: { Self.isSameItem($0, item) }) {
-            inventoryItems[idx].quantity += max(1, item.quantity)
-                inventoryItems[idx].level = 1.0            // restocked → full
-                inventoryItems[idx].lastConfirmedAt = Date()   // restock confirms it's here
-                // #B2 unit-aware math: when both rows carry a size and the units are
-                // convertible ("500 g" + "1 lb"), keep the existing row's unit and sum.
-                if let curAmt = inventoryItems[idx].sizeAmount,
-                   let curUnit = inventoryItems[idx].sizeUnit,
-                   let newAmt = item.sizeAmount, let newUnit = item.sizeUnit,
-                   let converted = UnitMath.convert(newAmt, from: newUnit, to: curUnit) {
-                    inventoryItems[idx].sizeAmount = curAmt + converted
-                }
-                // Prefer newly-scanned details when present.
-                if let p = item.price            { inventoryItems[idx].price = p }
-                if let d = item.purchaseDate     { inventoryItems[idx].purchaseDate = d }
-                if let s = item.storePurchasedAt { inventoryItems[idx].storePurchasedAt = s }
-                if let b = item.brand            { inventoryItems[idx].brand = b }
-                if let who = item.addedBy        { inventoryItems[idx].addedBy = who }
-                if let barcode = item.barcode    { inventoryItems[idx].barcode = barcode }
-                if let badge = item.sourceBadge,
-                   inventoryItems[idx].sourceBadge == nil
-                    || badge.confidence >= (inventoryItems[idx].sourceBadge?.confidence ?? 0) {
-                    inventoryItems[idx].sourceBadge = badge
-                }
-                if let incoming = item.fieldProvenance {
-                    var merged = inventoryItems[idx].fieldProvenance ?? [:]
-                    for (field, candidate) in incoming {
-                        if let current = merged[field],
-                           current.badge.confidence > candidate.badge.confidence,
-                           current.observedAt >= candidate.observedAt { continue }
-                        merged[field] = candidate
-                    }
-                    inventoryItems[idx].fieldProvenance = merged
-                }
-                // Extend expiry to the later of the two (fresher stock).
-                if let newExp = item.expirationDate {
-                    if let cur = inventoryItems[idx].expirationDate {
-                        inventoryItems[idx].expirationDate = max(cur, newExp)
-                    } else {
-                        inventoryItems[idx].expirationDate = newExp
-                    }
-                }
+            inventoryItems[idx] = Self.mergingInventoryRows(inventoryItems[idx], item)
+            inventoryItems[idx].lastConfirmedAt = Date()
             RetailEnrichmentMaintenance.enqueueInventoryItem(id: inventoryItems[idx].id, store: self)
             return
         }
@@ -1139,17 +1115,89 @@ class GuestDataStore {
         return s
     }
 
-    /// Two items are "the same" for merging if their names share a merge key and their
-    /// units are compatible: identical, both absent, or convertible within the same
-    /// measurement family (mass/volume via UnitMath). #18 still keeps "2 cans" from
-    /// merging into "3 lbs".
-    static func isSameItem(_ a: LocalInventoryItem, _ b: LocalInventoryItem) -> Bool {
+    /// Inventory identity is conservative but tolerant of incomplete imports. Matching
+    /// names merge when their brand, storage, container and known package sizes agree.
+    /// A missing fact is enriched by the known row instead of creating a duplicate.
+    nonisolated static func isSameItem(_ a: LocalInventoryItem, _ b: LocalInventoryItem) -> Bool {
         guard mergeKey(a.name) == mergeKey(b.name), !mergeKey(a.name).isEmpty else { return false }
+        guard a.storageCategory == b.storageCategory, a.isLeftover == b.isLeftover else { return false }
+        if a.isLeftover,
+           let lhs = a.leftoverMeal?.trimmingCharacters(in: .whitespacesAndNewlines), !lhs.isEmpty,
+           let rhs = b.leftoverMeal?.trimmingCharacters(in: .whitespacesAndNewlines), !rhs.isEmpty,
+           lhs.caseInsensitiveCompare(rhs) != .orderedSame { return false }
+        if let lhs = normalizedInventoryFact(a.brand), let rhs = normalizedInventoryFact(b.brand), lhs != rhs { return false }
+        let genericContainers: Set<String> = ["", "item", "items", "unit", "units", "package"]
+        let ca = a.containerType.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let cb = b.containerType.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if !genericContainers.contains(ca), !genericContainers.contains(cb), ca != cb { return false }
         let ua = a.sizeUnit?.lowercased() ?? ""
         let ub = b.sizeUnit?.lowercased() ?? ""
-        if ua == ub { return true }
-        if ua.isEmpty || ub.isEmpty { return false }   // one measured, one not → keep separate
-        return UnitMath.convertible(ua, ub)
+        guard !ua.isEmpty, !ub.isEmpty else { return true }
+        guard UnitMath.convertible(ua, ub) else { return false }
+        guard let aa = a.sizeAmount, let ab = b.sizeAmount,
+              let converted = UnitMath.convert(ab, from: ub, to: ua) else { return true }
+        return abs(aa - converted) <= max(0.01, aa * 0.01)
+    }
+
+    private nonisolated static func normalizedInventoryFact(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let normalized = mergeKey(value)
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    /// Combines equivalent rows while keeping the older stable identity. Package size
+    /// describes each container, so it must never be summed alongside container quantity.
+    nonisolated static func mergingInventoryRows(_ existing: LocalInventoryItem,
+                                                  _ incoming: LocalInventoryItem) -> LocalInventoryItem {
+        var merged = existing
+        merged.quantity = max(1, existing.quantity) + max(1, incoming.quantity)
+        merged.level = max(existing.level, incoming.level)
+        merged.lastConfirmedAt = max(existing.lastConfirmedAt ?? .distantPast,
+                                     incoming.lastConfirmedAt ?? .distantPast)
+        if merged.lastConfirmedAt == .distantPast { merged.lastConfirmedAt = nil }
+        if merged.sizeAmount == nil { merged.sizeAmount = incoming.sizeAmount }
+        if merged.sizeUnit == nil { merged.sizeUnit = incoming.sizeUnit }
+        if ["", "item", "items", "unit", "units", "package"].contains(merged.containerType.lowercased()),
+           !incoming.containerType.isEmpty { merged.containerType = incoming.containerType }
+        if merged.brand == nil { merged.brand = incoming.brand }
+        if let value = incoming.price { merged.price = value }
+        if let value = incoming.purchaseDate { merged.purchaseDate = max(merged.purchaseDate ?? .distantPast, value) }
+        if let value = incoming.storePurchasedAt { merged.storePurchasedAt = value }
+        if let value = incoming.addedBy { merged.addedBy = value }
+        if merged.barcode == nil { merged.barcode = incoming.barcode }
+        if merged.imageData == nil { merged.imageData = incoming.imageData }
+        if let value = incoming.expirationDate { merged.expirationDate = max(merged.expirationDate ?? .distantPast, value) }
+        if let badge = incoming.sourceBadge,
+           merged.sourceBadge == nil || badge.confidence >= (merged.sourceBadge?.confidence ?? 0) {
+            merged.sourceBadge = badge
+        }
+        if let incomingProvenance = incoming.fieldProvenance {
+            var provenance = merged.fieldProvenance ?? [:]
+            for (field, candidate) in incomingProvenance {
+                if let current = provenance[field],
+                   current.badge.confidence > candidate.badge.confidence,
+                   current.observedAt >= candidate.observedAt { continue }
+                provenance[field] = candidate
+            }
+            merged.fieldProvenance = provenance
+        }
+        merged.updatedAt = max(existing.updatedAt, incoming.updatedAt)
+        return merged
+    }
+
+    /// Bounded, stable-order repair used at disk and household boundaries. This fixes
+    /// historical duplicates without changing the identity of the first retained row.
+    nonisolated static func consolidatedInventory(_ items: [LocalInventoryItem]) -> [LocalInventoryItem] {
+        var result: [LocalInventoryItem] = []
+        result.reserveCapacity(items.count)
+        for item in items {
+            if let index = result.firstIndex(where: { isSameItem($0, item) }) {
+                result[index] = mergingInventoryRows(result[index], item)
+            } else {
+                result.append(item)
+            }
+        }
+        return result
     }
     func updateInventoryLevel(id: UUID, level: Double) {
         if let i = inventoryIndex(of: id) {   // #5 — O(1) lookup instead of firstIndex scan

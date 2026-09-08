@@ -175,6 +175,16 @@ backfill waits for initial disk hydration rather than reading empty launch place
 
 Stocked is a local-first iOS/iPadOS 26 kitchen app with widgets and a share extension. Local inventory and user work are authoritative. Recipes entering or leaving the app require usable images, durable provenance, categories, and backward-compatible repair.
 
+Stocked's page and sheet styling is inherited from one app boundary: warm theme canvas, semantic
+serif/sans typography, large controls, shared rounded button geometry, themed fields, and adaptive
+presentation widths. Feature screens must reuse these primitives instead of nesting one-off white
+panels or defining local button/search styles. The Cook “Start With Something” screen uses the
+canonical search field, action row, adaptive two-column choice grid, and Home-style pressed feedback.
+
+Inventory imports consolidate equivalent products into one stable row with a container quantity.
+Package size is per container and must not be added when quantity increases. Known differences in
+brand, storage area, container type, package size, or leftover meal keep products separate.
+
 Read `PERFORMANCE_ARCHITECTURE.md` before changing persistence, imports, sync, images, QA, Home metrics, or any potentially unbounded collection. Its protections are required invariants, not optional cleanup.
 
 `Secrets.xcconfig` is local and ignored. Production services use `https://api.sowensstudios.com`; never ship provider keys. Start in the feature named by the task, include extensions when affected, and run the narrowest tests plus the `Stocked` build.
