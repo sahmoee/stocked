@@ -494,32 +494,31 @@ actor RecipeDatabase {
     func search(_ query: String, limit: Int = 8) -> [RecipeDatabaseEntry] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
             .folding(options: .diacriticInsensitive, locale: nil)
-        guard q.count >= 1 else { return [] }
+        guard q.count >= 1, limit > 0, !Task.isCancelled else { return [] }
 
         // #9: candidate set from the token index (prefix-match query against tokens),
         // avoiding a full-array scan. Fall back to all entries only if nothing indexed.
         var candidateIDs = Set<UUID>()
         for (token, ids) in tokenIndex where token.hasPrefix(q) || token.contains(q) {
+            guard !Task.isCancelled else { return [] }
             candidateIDs.formUnion(ids)
         }
-        let candidates: [RecipeDatabaseEntry]
-        if candidateIDs.isEmpty {
-            candidates = entries.filter { $0.title.lowercased().contains(q) }
-        } else {
-            // Preserve database order while selecting candidates. Building a full UUID
-            // dictionary on every keystroke allocated heavily and could trap on duplicate
-            // IDs from a damaged/partially synced cache.
-            candidates = entries.filter { candidateIDs.contains($0.id) }
-        }
 
-        // #14 + #10: rank by title relevance first, then quality/completeness.
-        let ranked = candidates.sorted { a, b in
-            let ra = FuzzyMatch.score(q, a.title.lowercased())
-            let rb = FuzzyMatch.score(q, b.title.lowercased())
-            if abs(ra - rb) > 0.0001 { return ra > rb }
-            return qualityScore(a) > qualityScore(b)
+        // Fuzzy matching used to execute twice per sort comparison, even for an
+        // eight-chip request. Score each candidate once and retain only the best k.
+        let fallbackToTitle = candidateIDs.isEmpty
+        return BoundedSearchRanking.select(from: entries, limit: limit) { entry in
+            // Multiword input cannot hit an individual token. Preserve autocomplete's
+            // ingredient/cuisine/tag matches when falling back from the token index.
+            let matches = fallbackToTitle
+                ? ([entry.title, entry.description, entry.category, entry.cuisine, entry.sourceName]
+                    + entry.tags + entry.ingredients).contains { $0.localizedCaseInsensitiveContains(q) }
+                : candidateIDs.contains(entry.id)
+            guard matches else {
+                return nil
+            }
+            return (FuzzyMatch.score(q, entry.title.lowercased()), qualityScore(entry))
         }
-        return Array(ranked.prefix(limit))
     }
 
     /// Cached/derived quality score for ranking (#10).
@@ -975,11 +974,19 @@ final class RecipeDatabaseManager {
     /// any remaining slots from the large read-only corpus (RecipeStore, FTS5).
     /// Corpus rows are fetched on demand — the 98k recipes are never all in memory.
     func suggestions(for query: String, limit: Int = 8) async -> [RecipeDatabaseEntry] {
+        guard limit > 0, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !Task.isCancelled else { return [] }
         let primary = await db.search(query, limit: limit)
+        guard !Task.isCancelled else { return [] }
         if primary.count >= limit { return primary }
 
-        let archive = await GrowthDatabase.shared.searchRecipePages(query, limit: limit).filter { !RecipeSourceBlocklist.isBlocked($0) }
+        let archive = await GrowthDatabase.shared.searchRecipePages(query, limit: limit).filter {
+            !RecipeSourceBlocklist.isBlocked($0)
+                && !RecipeDisplayPolicy.isKnownPublisherPlaceholder($0.imageURL)
+        }
+        guard !Task.isCancelled else { return [] }
         let corpus = archive + (await RecipeStore.shared.search(query, limit: limit))
+        guard !Task.isCancelled else { return [] }
         guard !corpus.isEmpty else { return primary }
 
         // Merge, de-duplicating by normalized title so a dish present in both the
@@ -1101,7 +1108,8 @@ final class RecipeDatabaseManager {
     func ingestCataloguePage(_ entries: [RecipeDatabaseEntry]) async throws {
         let qualified = entries.filter {
             !RecipeSourceBlocklist.isBlocked($0) && RecipeQuality.hasMeaningfulTitle($0.title)
-                && URL(string: $0.imageURL)?.scheme == "https" && !$0.ingredients.isEmpty && !$0.steps.isEmpty
+                && RecipeDisplayPolicy.isLikelyRecipeImageURL($0.imageURL, sourceURL: $0.sourceURL)
+                && !$0.ingredients.isEmpty && !$0.steps.isEmpty
         }
         try await GrowthDatabase.shared.storeRecipePage(qualified)
         catalogueRevision &+= 1
@@ -1109,7 +1117,10 @@ final class RecipeDatabaseManager {
 
     nonisolated static func cataloguePage(after cursor: Int64) async throws -> (entries: [RecipeDatabaseEntry], cursor: Int64, done: Bool) {
         let page = try await GrowthDatabase.shared.recipePage(after: cursor)
-        return (page.entries.filter { !RecipeSourceBlocklist.isBlocked($0) }, page.cursor, page.done)
+        return (page.entries.filter {
+            !RecipeSourceBlocklist.isBlocked($0)
+                && !RecipeDisplayPolicy.isKnownPublisherPlaceholder($0.imageURL)
+        }, page.cursor, page.done)
     }
 
     /// Convert and save a UserRecipe into the database immediately.

@@ -99,6 +99,32 @@ nonisolated struct CookLaterPrepAction: Identifiable, Sendable, Equatable {
   let systemImage: String
 }
 
+nonisolated private struct CookLaterReadinessSnapshot: Sendable {
+  var shoppingNeeds: [CookLaterShoppingNeed] = []
+  var prepActions: [CookLaterPrepAction] = []
+  var checksByMeal: [UUID: [CookLaterIngredientCheck]] = [:]
+  var stockedMealCount = 0
+  var conflictCount = 0
+
+  static func compute(meals: [PlannedMeal], inventory: [LocalInventoryItem], grocery: [LocalGroceryItem]) -> Self? {
+    let upcoming = meals.filter { !$0.isCooked }
+    var result = Self()
+    for meal in meals {
+      guard !Task.isCancelled else { return nil }
+      let checks = CookLaterCrossCheckEngine.checks(for: meal, allMeals: upcoming, inventory: inventory)
+      result.checksByMeal[meal.id] = checks
+      if !meal.isCooked {
+        if checks.allSatisfy({ $0.state == .onHand }) { result.stockedMealCount += 1 }
+        result.conflictCount += checks.filter { !$0.competingMeals.isEmpty && $0.state != .onHand }.count
+      }
+    }
+    guard !Task.isCancelled else { return nil }
+    result.shoppingNeeds = CookLaterCrossCheckEngine.shoppingNeeds(meals: upcoming, inventory: inventory, existingGrocery: grocery)
+    result.prepActions = CookLaterCrossCheckEngine.prepActions(meals: upcoming, inventory: inventory)
+    return Task.isCancelled ? nil : result
+  }
+}
+
 nonisolated enum CookLaterCrossCheckEngine {
   private nonisolated struct UnitDescriptor: Sendable {
     let family: String
@@ -567,6 +593,7 @@ private enum CookLaterCommandSheet: Identifiable {
   case addMeal(day: Int, mealType: String)
   case editor(CookLaterPlanDraft)
   case recipePicker(day: Int, title: String, recipes: [UserRecipe])
+  case inventoryPicker(day: Int)
   case onlinePicker(day: Int)
   case mealDetail(UUID)
   case calendar
@@ -578,6 +605,7 @@ private enum CookLaterCommandSheet: Identifiable {
     case .addMeal(let day, let type): return "add-\(day)-\(type)"
     case .editor(let draft): return "editor-\(draft.id.uuidString)"
     case .recipePicker(let day, let title, _): return "recipes-\(day)-\(title)"
+    case .inventoryPicker(let day): return "inventory-recipes-\(day)"
     case .onlinePicker(let day): return "online-\(day)"
     case .mealDetail(let id): return "meal-\(id.uuidString)"
     case .calendar: return "calendar"
@@ -604,6 +632,10 @@ struct CookLaterCommandCenterView: View {
   @State private var shoppingOverrides: [String: Double] = [:]
   @State private var toast: String?
   @State private var webManager = WebRecipeManager.shared
+  @State private var readinessSnapshot = CookLaterReadinessSnapshot()
+  @State private var loadedReadinessRevision = ""
+  private var readinessRevision: String { "\(store.planRevision)|\(store.inventoryRevision)|\(store.groceryRevision)" }
+  private var isRefreshingReadiness: Bool { loadedReadinessRevision != readinessRevision }
 
   init(context: CookLaterContext?, onPlanCompleted: (() -> Void)?) {
     self.context = context
@@ -659,29 +691,10 @@ struct CookLaterCommandCenterView: View {
     store.plannedMeals.filter { !$0.isBuilding && (0..<7).contains($0.dayIndex) }
   }
   private var upcomingMeals: [PlannedMeal] { activeMeals.filter { !$0.isCooked } }
-  private var shoppingNeeds: [CookLaterShoppingNeed] {
-    CookLaterCrossCheckEngine.shoppingNeeds(
-      meals: upcomingMeals, inventory: store.inventoryItems, existingGrocery: store.groceryItems)
-  }
-  private var prepActions: [CookLaterPrepAction] {
-    CookLaterCrossCheckEngine.prepActions(meals: upcomingMeals, inventory: store.inventoryItems)
-  }
-  private var stockedMealCount: Int {
-    upcomingMeals.filter { meal in
-      CookLaterCrossCheckEngine.checks(
-        for: meal, allMeals: upcomingMeals, inventory: store.inventoryItems
-      ).allSatisfy { $0.state == .onHand }
-    }.count
-  }
-  private var conflictCount: Int {
-    upcomingMeals.reduce(0) { partial, meal in
-      partial
-        + CookLaterCrossCheckEngine.checks(
-          for: meal, allMeals: upcomingMeals, inventory: store.inventoryItems
-        )
-        .filter { !$0.competingMeals.isEmpty && $0.state != .onHand }.count
-    }
-  }
+  private var shoppingNeeds: [CookLaterShoppingNeed] { readinessSnapshot.shoppingNeeds }
+  private var prepActions: [CookLaterPrepAction] { readinessSnapshot.prepActions }
+  private var stockedMealCount: Int { readinessSnapshot.stockedMealCount }
+  private var conflictCount: Int { readinessSnapshot.conflictCount }
   private var readinessPercent: Int {
     guard !upcomingMeals.isEmpty else { return 0 }
     let stockedWeight = Double(stockedMealCount) / Double(upcomingMeals.count)
@@ -704,11 +717,15 @@ struct CookLaterCommandCenterView: View {
         if let context { contextualEntry(context) }
         modePicker
         Group {
-          switch selectedMode {
+          if isRefreshingReadiness {
+            ProgressView("Checking your meal plan…")
+              .tint(session.accentColor).padding(.vertical, 12)
+          }
+          if !loadedReadinessRevision.isEmpty { switch selectedMode {
           case .plan: planWorkspace
           case .shop: shopWorkspace
           case .prep: prepWorkspace
-          }
+          } }
         }
         Spacer(minLength: 24)
       }
@@ -731,6 +748,12 @@ struct CookLaterCommandCenterView: View {
       case .editor(let draft):
         CookLaterCommandEditorSheet(draft: draft) { save($0) }
           .environment(session)
+      case .inventoryPicker(let day):
+        CookLaterCommandRecipePicker(title: "Based on Inventory", dayIndex: day,
+                                     recipes: [], rankFromInventory: true) { recipe in
+          activeSheet = .editor(draft(for: recipe, day: day))
+        }
+        .environment(session)
       case .recipePicker(let day, let title, let recipes):
         CookLaterCommandRecipePicker(title: title, dayIndex: day, recipes: recipes) { recipe in
           activeSheet = .editor(draft(for: recipe, day: day))
@@ -799,6 +822,17 @@ struct CookLaterCommandCenterView: View {
         .padding(.bottom, 24)
         .transition(.move(edge: .bottom).combined(with: .opacity))
       }
+    }
+    .task(id: readinessRevision) {
+      let revision = readinessRevision
+      let meals = activeMeals, inventory = store.inventoryItems, grocery = store.groceryItems
+      let worker = Task.detached(priority: .utility) {
+        CookLaterReadinessSnapshot.compute(meals: meals, inventory: inventory, grocery: grocery)
+      }
+      let result = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+      guard !Task.isCancelled, revision == readinessRevision, let result else { return }
+      readinessSnapshot = result
+      loadedReadinessRevision = revision
     }
     .onAppear {
       completedPrepKeys = CookLaterPrepCompletionStore.load()
@@ -1229,8 +1263,7 @@ struct CookLaterCommandCenterView: View {
   }
 
   private func mealPlanRow(_ meal: PlannedMeal) -> some View {
-    let checks = CookLaterCrossCheckEngine.checks(
-      for: meal, allMeals: upcomingMeals, inventory: store.inventoryItems)
+    let checks = readinessSnapshot.checksByMeal[meal.id, default: []]
     let onHand = checks.filter { $0.state == .onHand }.count
     let missing = checks.filter { $0.state == .needed }.count
     let low = checks.filter { $0.state == .runningLow }.count
@@ -1840,8 +1873,12 @@ struct CookLaterCommandCenterView: View {
   }
 
   private func addAllShoppingNeeds() {
+    // Mutation rechecks current authoritative data; a displayed snapshot is
+    // never permission to overwrite a newer household edit.
+    let currentNeeds = CookLaterCrossCheckEngine.shoppingNeeds(
+      meals: upcomingMeals, inventory: store.inventoryItems, existingGrocery: store.groceryItems)
     var list = store.groceryItems
-    for need in shoppingNeeds {
+    for need in currentNeeds {
       let amount = shoppingOverrides[need.id] ?? need.amount
       let key = FoodNameMatcher.normalized(need.name)
       if let index = list.firstIndex(where: { FoodNameMatcher.normalized($0.name) == key }) {
@@ -1944,15 +1981,9 @@ struct CookLaterCommandCenterView: View {
 
   private func openInventoryBasedRecipes(day: Int? = nil) {
     let targetDay = day ?? selectedDay
-    let recipes = store.cookCatalog.filter(isCompleteRecipe).sorted { lhs, rhs in
-      let lm = store.stockMatch(for: lhs)
-      let rm = store.stockMatch(for: rhs)
-      let l = lm.total == 0 ? 0 : Double(lm.have) / Double(lm.total)
-      let r = rm.total == 0 ? 0 : Double(rm.have) / Double(rm.total)
-      return l == r ? lhs.title < rhs.title : l > r
-    }
-    activeSheet = .recipePicker(
-      day: targetDay, title: "Based on Inventory", recipes: Array(recipes.prefix(30)))
+    // Open immediately. The picker owns its cancellable background ranking;
+    // sorting the complete library here blocked the tap and sheet presentation.
+    activeSheet = .inventoryPicker(day: targetDay)
   }
 
   private func isCompleteRecipe(_ recipe: UserRecipe) -> Bool {
@@ -2308,13 +2339,23 @@ private struct CookLaterCommandRecipePicker: View {
   let title: String
   let dayIndex: Int
   let recipes: [UserRecipe]
+  var rankFromInventory = false
   let onSelect: (UserRecipe) -> Void
   @State private var searchText = ""
+  @State private var rankedRecipes: [UserRecipe] = []
+  @State private var coverage: [UUID: KitchenAvailability.Coverage] = [:]
+  @State private var isRanking = true
+
+  private var rankingRevision: String {
+    rankFromInventory ? "\(session.guestStore.inventoryRevision)|\(session.guestStore.recipeRevision)" : "fixed"
+  }
+
 
   private var filtered: [UserRecipe] {
     let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !q.isEmpty else { return recipes }
-    return recipes.filter { recipe in
+    let candidates = rankFromInventory ? rankedRecipes : recipes
+    guard !q.isEmpty else { return candidates }
+    return candidates.filter { recipe in
       recipe.title.localizedCaseInsensitiveContains(q)
         || recipe.ingredients.contains { $0.name.localizedCaseInsensitiveContains(q) }
     }
@@ -2326,6 +2367,14 @@ private struct CookLaterCommandRecipePicker: View {
         session.themeBgColor.ignoresSafeArea()
         ScrollView(showsIndicators: false) {
           LazyVStack(spacing: 9) {
+            if rankFromInventory && isRanking {
+              ProgressView("Finding recipes from your kitchen…")
+                .tint(session.accentColor).padding(.vertical, 16)
+            } else if filtered.isEmpty {
+              Text(searchText.isEmpty ? "No complete recipes yet. Save a recipe to find matches here." : "No matching recipes")
+                .scaledFont(14).foregroundStyle(session.themeSecondaryText)
+                .padding(.vertical, 16)
+            }
             ForEach(filtered) { recipe in
               Button {
                 dismiss()
@@ -2337,7 +2386,8 @@ private struct CookLaterCommandRecipePicker: View {
                     Text(recipe.title).scaledFont(14, weight: .semibold).foregroundStyle(
                       session.themeTextColor
                     ).stockedAdaptiveLabel(maxLines: 3)
-                    let match = session.guestStore.stockMatch(for: recipe)
+                    let match = coverage[recipe.id].map { (have: $0.have, total: $0.total) }
+                      ?? session.guestStore.stockMatch(for: recipe)
                     Text("\(match.have) of \(match.total) ingredients stocked")
                       .scaledFont(10.5).foregroundStyle(
                         match.total > 0 && match.have == match.total
@@ -2365,6 +2415,45 @@ private struct CookLaterCommandRecipePicker: View {
       }
     }
     .presentationDetents([.large])
+    .task(id: rankingRevision) {
+      guard rankFromInventory else { return }
+      isRanking = true
+      let revision = rankingRevision
+      let catalogue = session.guestStore.cookCatalog
+      let names = session.guestStore.inStockNameSet
+      let worker = Task.detached(priority: .userInitiated) {
+        var best: [(recipe: UserRecipe, coverage: KitchenAvailability.Coverage)] = []
+        best.reserveCapacity(31)
+        for recipe in catalogue {
+          guard !Task.isCancelled else { return best }
+          guard recipe.ingredients.count >= 3,
+                RecipeDisplayPolicy.isPresentable(
+                  title: recipe.title, imageURL: recipe.imageURL, imageData: recipe.imageData,
+                  ingredients: recipe.ingredients.count, steps: recipe.instructions.count,
+                  sourceURL: recipe.sourceURL),
+                OnlineRecipeFacts.hasRealInstructions(recipe.instructions.joined(separator: "\n")) else { continue }
+          // Match each recipe once, never inside the sort comparator. Retain
+          // only the thirty choices the sheet can show, with deterministic ties.
+          let match = KitchenAvailability.coverage(lines: recipe.ingredients.map(\.name),
+              optionalFlags: recipe.ingredients.map(\.isOptional), availableNames: names)
+          let position = best.firstIndex {
+            match.fraction == $0.coverage.fraction
+              ? recipe.title == $0.recipe.title ? recipe.id.uuidString < $0.recipe.id.uuidString : recipe.title < $0.recipe.title
+              : match.fraction > $0.coverage.fraction
+          } ?? best.endIndex
+          if position < 30 {
+            best.insert((recipe, match), at: position)
+            if best.count > 30 { best.removeLast() }
+          }
+        }
+        return best
+      }
+      let results = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+      guard !Task.isCancelled, revision == rankingRevision else { return }
+      rankedRecipes = results.map(\.recipe)
+      coverage = Dictionary(results.map { ($0.recipe.id, $0.coverage) }, uniquingKeysWith: { first, _ in first })
+      isRanking = false
+    }
   }
 }
 

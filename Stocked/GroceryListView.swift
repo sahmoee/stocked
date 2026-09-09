@@ -461,6 +461,7 @@ struct GroceryListView: View {
         .onChange(of: groupByStore) { _, _ in rebuildSections() }
         .onChange(of: selectedStore) { _, _ in rebuildSections() }
         .onChange(of: selectedAisle) { _, _ in rebuildSections() }
+        .onChange(of: session.preferredStore) { _, _ in preferredStoreDidChange() }
         .confirmationDialog("Organize Grocery", isPresented: $showMoreDialog, titleVisibility: .visible) {
             Button("Add Item") { showQuickAdd = true }
             Button(showBought ? "Show To Buy" : "Show Bought") { showBought.toggle() }
@@ -552,14 +553,8 @@ struct GroceryListView: View {
                 loopMessage = "Your list is arranged in shopping order"
             } label: {
                 Text("Start Shopping")
-                    .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
-                    .foregroundStyle(Color.selectedTabForeground(dark))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.stockedCharcoal,
-                                in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
-            .buttonStyle(.plain)
+            .stockedPrimary(fg: Color.selectedTabForeground(dark))
         }
         .padding(20)
         .background(session.themeCardColor,
@@ -571,9 +566,33 @@ struct GroceryListView: View {
     }
 
     private var shoppingTripIdentity: some View {
-        Text(session.preferredStore)
-            .font(.stockedSerif(24, weight: .bold, relativeTo: .title2))
-            .foregroundStyle(Color.stockedGreen)
+        Button {
+            grocerySheet = .storePicker
+        } label: {
+            HStack(spacing: 8) {
+                Text(session.preferredStore)
+                    .font(.stocked(.title2).weight(.bold))
+                    .fixedSize(horizontal: false, vertical: true)
+                Image(systemName: "chevron.down")
+                    .font(.stocked(.caption).weight(.semibold))
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(session.accentColor)
+            .frame(minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(StockedWidgetButtonStyle())
+        .accessibilityLabel("Shopping store")
+        .accessibilityValue(session.preferredStore)
+        .accessibilityHint("Choose a different store for your grocery list")
+    }
+
+    private func preferredStoreDidChange() {
+        // Item-specific store choices remain owned by MultiStoreAssignments. Only default-store
+        // rows resolve differently, so discard stale screen filters and the previous aisle order.
+        if !storeFilters.contains(selectedStore) { selectedStore = "All Stores" }
+        isSortedForShopping = false
+        rebuildSections()
     }
 
     private var shoppingTripFacts: some View {
@@ -1194,6 +1213,7 @@ struct GroceryListView: View {
         .onChange(of: groupByStore) { _, _ in rebuildSections() }  // RL-010 — store grouping
         .onChange(of: selectedStore) { _, _ in rebuildSections() }
         .onChange(of: selectedAisle) { _, _ in rebuildSections() }
+        .onChange(of: session.preferredStore) { _, _ in preferredStoreDidChange() }
         // #245 — header ··· hosts the relocated chrome (store / share / scan / move).
         .confirmationDialog("Grocery List", isPresented: $showMoreDialog, titleVisibility: .visible) {
             Button("Shopping at \(session.preferredStore) — change store") { grocerySheet = .storePicker }
@@ -1698,11 +1718,12 @@ struct GroceryListView: View {
     private var quickStorePickerSheet: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 0) {
-                    Text("Tap to change your shopping store. Your preference is saved per-item when you use Find in Store.")
-                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 20)
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    Text("Choose your default shopping store. Items assigned to a specific store keep that choice.")
+                        .font(.stocked(.subheadline))
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 8)
 
                     ForEach(allStores, id: \.self) { store in
                         Button {
@@ -1712,21 +1733,30 @@ struct GroceryListView: View {
                         } label: {
                             HStack {
                                 Text(store)
-                                    .font(.stockedSystem(size: 16, weight: session.preferredStore == store ? .bold : .regular, design: .serif))
+                                    .font(.stockedBody.weight(session.preferredStore == store ? .semibold : .regular))
                                     .foregroundStyle(session.preferredStore == store ? session.accentColor : session.themeTextColor)
-                                Spacer()
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 12)
                                 if session.preferredStore == store {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(session.accentColor).scaledFont(20)
+                                        .foregroundStyle(session.accentColor)
+                                        .font(.stockedHeadline)
                                         .accessibilityHidden(true)
                                 }
                             }
-                            .padding(.horizontal, 28).padding(.vertical, 14)
-                        }.buttonStyle(.plain)
+                            .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+                            .background(session.themeCardColor,
+                                        in: RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous))
+                        }
+                        .buttonStyle(StockedWidgetButtonStyle())
                         .accessibilityAddTraits(session.preferredStore == store ? .isSelected : [])
-                        Divider().padding(.leading, 28)
                     }
                 }
+                .padding(.horizontal, layoutMetrics.horizontalPadding)
+                .padding(.vertical, 16)
             }
             .navigationTitle("Choose Store")
             .navigationBarTitleDisplayMode(.inline)

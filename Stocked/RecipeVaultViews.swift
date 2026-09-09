@@ -1581,24 +1581,8 @@ private struct RecipeSearchBar: View {
     @State private var searchTask: Task<Void, Never>? = nil
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(session.themeSecondaryText)
-            TextField("Search recipes by name or cuisine…", text: $recipeSearch)
-                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : .black)
-                .tint(Color.stockedGold)
-                .scaledFont(14)
-                .autocorrectionDisabled()
-            if !recipeSearch.isEmpty {
-                Button { recipeSearch = ""; dbResults = [] } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
-                }.buttonStyle(.plain)
-            }
-        }
-        .padding(12)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        StockedSearchField(text: $recipeSearch, prompt: "Search recipes by name or cuisine…",
+                           onClear: { dbResults = [] })
         .padding(.horizontal, 20).padding(.bottom, 14)
         .onChange(of: recipeSearch) { (_: String, q: String) in
             searchTask?.cancel()
@@ -1613,27 +1597,27 @@ private struct RecipeSearchBar: View {
 
                 // Fuzzy matching and sorting the full writable snapshot used to resume on
                 // MainActor and block typing/navigation. Keep only the small UI result set.
-                let results = await Task.detached(priority: .userInitiated) {
-                    Array(
-                        snap.lazy.filter {
-                            FuzzyMatch.matches(trimmed, $0.title) ||
-                            FuzzyMatch.matches(trimmed, $0.cuisine) ||
-                            FuzzyMatch.matches(trimmed, $0.category) ||
-                            $0.ingredients.contains {
+                let worker = Task.detached(priority: .userInitiated) {
+                    BoundedSearchRanking.select(from: snap, limit: 40) { entry in
+                        guard FuzzyMatch.matches(trimmed, entry.title) ||
+                            FuzzyMatch.matches(trimmed, entry.cuisine) ||
+                            FuzzyMatch.matches(trimmed, entry.category) ||
+                            entry.ingredients.contains(where: {
                                 $0.localizedCaseInsensitiveContains(trimmed)
-                            }
-                        }
-                        .sorted {
-                            FuzzyMatch.score(trimmed, $0.title) >
-                            FuzzyMatch.score(trimmed, $1.title)
-                        }
-                        .prefix(40)
-                    )
-                }.value
-                guard !Task.isCancelled else { return }
+                            }) else { return nil }
+                        return (FuzzyMatch.score(trimmed, entry.title), 0)
+                    }
+                }
+                let results = await withTaskCancellationHandler {
+                    await worker.value
+                } onCancel: {
+                    worker.cancel()
+                }
+                guard !Task.isCancelled, recipeSearch == q else { return }
                 dbResults = results
             }
         }
+        .onDisappear { searchTask?.cancel() }
     }
 }
 
@@ -1778,7 +1762,10 @@ private nonisolated struct RecipeCollectionSnapshotBuilder {
         let normalizedAllergens = allergens.filter { !$0.isEmpty }
         let normalizedPrefs = cuisinePrefs.map { $0.lowercased() }
 
-        var entries = recipes.map { recipe -> RecipeCollectionEntry in
+        // Keep personal source records recoverable, but omit publisher stock artwork from cards.
+        var entries = recipes.filter {
+            !RecipeDisplayPolicy.isKnownPublisherPlaceholder($0.imageURL ?? "")
+        }.map { recipe -> RecipeCollectionEntry in
             let needed = recipe.ingredients.filter { !$0.isOptional }
             let have = needed.filter { ingredient in
                 inStockNames.contains { looseMatch(ingredient.name, $0) }

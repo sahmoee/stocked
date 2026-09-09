@@ -147,21 +147,7 @@ struct WebRecipesView: View {
             .padding(.horizontal, 24).padding(.bottom, 10)
 
             // Search
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(session.themeSecondaryText)
-                TextField("Search recipes, cuisines, ingredients…", text: $searchText)
-                    .scaledFont(14).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                if !searchText.isEmpty {
-                    Button { searchText = "" } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(session.themeTextColor.opacity(0.35))
-                    }
-                }
-            }
-            .padding(10)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            StockedSearchField(text: $searchText, prompt: "Search recipes, cuisines, ingredients…")
             .padding(.horizontal, 24).padding(.bottom, 10)
 
             Text("Website categories")

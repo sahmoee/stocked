@@ -46,6 +46,29 @@ The following protections are the implementation checklist for every future feat
     brief reads page by 100 with concurrency four, and queue acknowledgement follows persistence.
 24. Inventory editors assemble one change from a draft baseline and the current item, preserving
     untouched concurrent fields and skipping no-op writes rather than syncing each edited property.
+25. Cook presentation opens before inventory-based ranking. Rank each recipe once off-main and
+    retain only the visible choices/coverage; never call stock matching from a sort comparator.
+    CookComputationPool coalesces revision-identical classification requests and cancels shared work
+    only when its last reader leaves. Catalogue adaptation and reservation inputs run off-main.
+    Cook Right Now, preparation discovery and Cook Later readiness retain revision-keyed presentation
+    snapshots across redraws/refreshes; grocery mutations still recheck authoritative current inputs.
+26. GlobalSearchController owns debounced, generation-gated local and online searches. SwiftUI reads
+    prepared bounded results; immutable snapshots observe domain revisions. Dismissal cancels both
+    workers. Online responses are limited to 2 MB/18 seconds and the exact-query disk cache to
+    12 queries, six results each, 512 KB and 14 days. Offline failure retains local results.
+27. Recipe autocomplete requests bounded database suggestions only in recipe mode, after typing
+    settles. Never load a full snapshot from every ingredient field. BoundedSearchRanking scores
+    each candidate once, retains stable top-k results and checks cancellation; multiword searches
+    must still match ingredients, cuisine, tags and descriptions. Suggestion identities stay stable.
+
+September 2026 audit: native BoundedSearchRankingChecks validates 100,000 candidates, stable ties,
+filtering, zero/empty budgets and cancellation; CookComputationChecks validates shared readers and
+cancellation; GlobalSearchRankingChecks validates bounded windows, duplicate upgrades and stable
+identity ordering. These are logic checks, not measurements of device frame rate or tap latency.
+The September 9 integration passed the generic iPhone/iPad build (app, widget and share extension
+all stamped build 232), the StockedMac universal build, native ranking/cancellation/image-policy
+checks, the Finder refresh contract, theme contrast checks and 12 Worker harvest fixtures.
+Simulator and physical-device UI/performance runs were not performed in this audit.
 
 Find a Recipe scans keyset pages on a cancellable utility task, never eagerly materializes the full
 corpus in view state, and reuses completed results by recipe/inventory/history/database revision.

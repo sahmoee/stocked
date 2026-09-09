@@ -41,6 +41,22 @@ final class RecipeDatabaseChangeTests: XCTestCase {
         XCTAssertEqual(try store.retainedData(for: reference.storedValue), original)
     }
 
+    func testKnownPublisherStockImageCannotBypassGateWithCachedBytes() throws {
+        let stock = "https://food.fnr.sndimg.com/content/dam/images/food/editorial/homepage/fn-feature.jpg.rend.hgtvcom.1280.1280.suffix/1474463768097.webp"
+        let original = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).pngData { context in
+            UIColor.systemOrange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 2, height: 2))
+        }
+        let store = RecipeMediaStore()
+        XCTAssertEqual(store.validateReference(stock), .failure(.invalidRemoteURL))
+        XCTAssertThrowsError(try store.resolvedReference(remoteURL: stock, imageData: original)) {
+            XCTAssertEqual($0 as? RecipeMediaFailure, .invalidRemoteURL)
+        }
+        XCTAssertFalse(RecipeDisplayPolicy.isPresentable(title: "Roasted Vegetables", imageURL: stock,
+            imageData: original, ingredients: 3, steps: 1))
+        XCTAssertFalse(RecipeStore.isValidRemoteImageURL(stock))
+    }
+
     func testRecipeMediaStoreRejectsMissingOrInvalidMedia() {
         let store = RecipeMediaStore(
             rootDirectory: FileManager.default.temporaryDirectory

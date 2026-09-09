@@ -28,13 +28,7 @@ struct ReadyToCoookNowView: View {
     // enough — readiness is computed from the pantry NAMES (pantrySet) and the recipe
     // collections, so editing/restocking an item or adding a recipe must also refresh.
     private var inventoryFingerprint: String {
-        let pantry = session.guestStore.pantrySet.sorted().joined(separator: ",")
-        let recipeCounts = "\(session.guestStore.userRecipes.count)-\(session.guestStore.savedGeneratedRecipes.count)"
-        let browseCount = OnlineRecipesLoader.shared.recipes.count
-        let substitutions = session.guestStore.userSubstitutions
-            .map { "\($0.ingredient.lowercased())::\($0.substitute.lowercased())" }
-            .sorted().joined(separator: ",")
-        return "\(pantry)|\(recipeCounts)|\(browseCount)|\(substitutions)"
+        CookNowCompute.revisionKey(store: session.guestStore, session: nil)
     }
 
     // #12: lastComputedFingerprint guards against recompute when nothing changed
@@ -42,9 +36,9 @@ struct ReadyToCoookNowView: View {
 
     func computeReadyRecipes() async {
         let fp = inventoryFingerprint
-        guard !isComputingReady, fp != lastComputedFingerprint else { return }
+        guard fp != lastComputedFingerprint else { return }
         isComputingReady = true
-        defer { isComputingReady = false }
+        defer { if !Task.isCancelled { isComputingReady = false } }
         guard !session.guestStore.pantrySet.isEmpty else { cachedReadyRecipes = []; return }
 
         // Use the same full catalog and classifier as Cook Now. This automatically includes

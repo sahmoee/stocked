@@ -763,27 +763,7 @@ struct InventoryHubView: View {
     // ── Inline search ────────────────────────────────────────────────
 
     private var inlineSearchField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .scaledFont(14, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
-            TextField("Search inventory", text: $searchText)
-                .scaledFont(15)
-                .foregroundStyle(session.themeTextColor)
-                .autocorrectionDisabled()
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .scaledFont(15)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
-                }
-            }
-        }
-        .padding(.horizontal, 14).padding(.vertical, 11)
-        .background(
-            RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
-                .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
-        )
+        StockedSearchField(text: $searchText, prompt: "Search inventory")
     }
 
     private var searchResults: some View {

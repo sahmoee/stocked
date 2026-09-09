@@ -4,12 +4,8 @@ import SwiftUI
 struct GlobalSearchView: View {
     @Environment(AppSession.self) var session
     @State private var query = ""
-    @State private var onlineResults:    [OnlineRecipe] = []
-    @State private var isSearchingOnline = false
-    @State private var searchTask: Task<Void, Never>?   // #2 — cancel stale searches
-    @State private var isOffline         = false
-    @State private var offlineResultsCache: [String: [OnlineRecipe]] = [:]
-    private let offlineCacheKey = "globalSearchOfflineCache_v1"
+    @State private var search = GlobalSearchController()
+    @Environment(\.stockedLayout) private var layoutMetrics
     @FocusState private var focused: Bool
     @Environment(\.dismiss) var dismiss
     // This view is shown via overlaySheet, where the native dismiss is a no-op; overlaySheet
@@ -21,7 +17,8 @@ struct GlobalSearchView: View {
     @State private var selectedFood: IngredientEntry?
 
     private var store: GuestDataStore { session.guestStore }
-    private let cache = OfflineRecipeCache.shared
+    private var localResults: [SearchResult] { search.localResults }
+    private var onlineResults: [OnlineRecipe] { search.onlineResults }
 
     enum SearchResult: Identifiable {
         case inventoryItem(LocalInventoryItem)
@@ -43,8 +40,8 @@ struct GlobalSearchView: View {
             case .groceryItem(let i):    return "groc_\(i.id)"
             case .userRecipe(let r):     return "urec_\(r.id)"
             case .pastMeal(let m):       return "past_\(m.id)"
-            case .cachedRecipe(let r):   return "cache_\(r.id)"
-            case .foodItem(let f):       return "food_\(f.id)"
+            case .cachedRecipe(let r):   return "cache_\(r.mealID)"
+            case .foodItem(let f):       return "food_\(f.name.lowercased())"
             case .onlineRecipe(let r):   return "online_\(r.id)"
             case .tool(let t):           return "tool_\(t.rawValue)"
             case .leftover(let l):       return "left_\(l.id)"
@@ -129,105 +126,10 @@ struct GlobalSearchView: View {
         }
     }
 
-    // ── NL-parsed query ────────────────────────────────────────────────
-    private var parsedQuery: ParsedQuery { NLQueryParser.parse(query) }
-
-    // ── Did You Mean — fuzzy match against KB ──────────────────────────
     private var didYouMean: String? {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard q.count >= 3, localResults.isEmpty && onlineResults.isEmpty else { return nil }
-        // Find closest ingredient/recipe name by character overlap
-        let kb = StockedKnowledgeBase.shared.ingredients.map { $0.name.lowercased() }
-        return kb.first { name in
-            let overlap = Set(q).intersection(Set(name))
-            return overlap.count >= min(q.count, name.count) - 1 && abs(q.count - name.count) <= 2
-        }?.capitalized
-    }
-
-    private var localResults: [SearchResult] {
-        let q  = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return [] }
-        let pq = parsedQuery
-        var scored: [(result: SearchResult, score: Int)] = []
-
-        func s(_ item: SearchResult, _ boost: Int) { scored.append((item, boost)) }
-
-        // Exact title matches → score 100
-        store.inventoryItems.filter { $0.name.lowercased() == q }.forEach { s(.inventoryItem($0), 100) }
-        store.userRecipes.filter { $0.title.lowercased() == q }.forEach { s(.userRecipe($0), 100) }
-
-        // Contains match on pantry
-        store.inventoryItems.filter { $0.name.lowercased().contains(q) && $0.name.lowercased() != q }
-            .forEach { s(.inventoryItem($0), 80) }
-        // Grocery
-        store.groceryItems.filter { $0.name.lowercased().contains(q) }.forEach { s(.groceryItem($0), 70) }
-        // User recipes (title)
-        store.userRecipes.filter { $0.title.lowercased().contains(q) && $0.title.lowercased() != q }
-            .forEach { s(.userRecipe($0), 75) }
-        // User recipes (ingredient)
-        store.userRecipes.filter { $0.ingredients.contains { $0.name.lowercased().contains(q) } }
-            .forEach { s(.userRecipe($0), 60) }
-        // Past meals
-        store.pastMeals.filter { $0.title.lowercased().contains(q) }.forEach { s(.pastMeal($0), 65) }
-        // Cached online — apply NL filters
-        let cachedHits = cache.search(q)
-        let filtered = cachedHits.filter { r in
-            guard pq.hasStructure else { return true }
-            // Convert CachedRecipe → temp RecipeDatabaseEntry for NL filter
-            let classification = RecipeClassifier.classify(
-                title: r.title,
-                rawCuisine: r.area,
-                rawCategory: r.category,
-                keywords: [],
-                ingredients: r.ingredients.map { RecipeIngredient(name: $0, amount: "") },
-                instructions: r.steps
-            )
-            let tmp = RecipeDatabaseEntry(
-                title: r.title, description: "", sourceURL: "", sourceName: r.source,
-                prepTime: r.prepTime ?? "", cookTime: r.cookTime ?? "", totalTime: r.totalTime ?? "",
-                servings: "", category: classification.category, cuisine: classification.cuisine, tags: classification.tags,
-                ingredients: r.ingredients, steps: r.steps, imageURL: r.imageURL, cachedAt: r.cachedAt
-            )
-            return NLQueryParser.matches(tmp, query: pq)
-        }
-        filtered.prefix(8).forEach { s(.cachedRecipe($0), 50) }
-        // KB food items
-        StockedKnowledgeBase.shared.suggestIngredients(prefix: q, limit: 6)
-            .forEach { s(.foodItem($0.asIngredientEntry), 30) }
-
-        // ── Improvement #10 ─────────────────────────────────────────────────
-        // Four domains search couldn't previously see at all. Scored against the existing ladder:
-        // a leftover about to go off outranks a pantry substring match, because it's the more
-        // urgent answer; tools sit just under recipes since "where is that thing" is the query
-        // they answer.
-        LeftoversStore.shared.queue
-            .filter { $0.title.lowercased().contains(q) }
-            .forEach { s(.leftover($0), $0.daysLeft <= 1 ? 90 : 68) }
-
-        // Tools are matched fuzzily — the toolbox already uses FuzzyMatch, and a user searching
-        // "convert" should find "Unit Converter".
-        ToolboxTool.allCases
-            .filter { FuzzyMatch.matches(q, $0.title) || $0.subtitle.lowercased().contains(q) }
-            .prefix(5)
-            .forEach { s(.tool($0), $0.title.lowercased() == q ? 95 : 55) }
-
-        store.plannedMeals
-            .filter { !$0.isBuilding && $0.title.lowercased().contains(q) }
-            .forEach { s(.plannedMeal($0), 72) }
-
-        ContainerLabelStore.shared.byAge
-            .filter { $0.contents.lowercased().contains(q) }
-            .forEach { s(.containerLabel($0), 66) }
-
-        // Deduplicate by id, sort by score descending
-        var seen = Set<String>()
-        return scored
-            .sorted { $0.score > $1.score }
-            .compactMap { item -> SearchResult? in
-                let key = item.result.id
-                guard seen.insert(key).inserted else { return nil }
-                return item.result
-            }
+        guard !search.isSearchingLocal, !search.isSearchingOnline,
+              localResults.isEmpty, onlineResults.isEmpty else { return nil }
+        return search.suggestion
     }
 
     // Grouped results by type (#19)
@@ -275,41 +177,36 @@ struct GlobalSearchView: View {
             VStack(spacing: 0) {
                 // Search bar
                 HStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
-                        TextField("Recipes, ingredients, pantry items…", text: $query)
-                            .scaledFont(15)
-                            .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                            .focused($focused)
-                            .onChange(of: query) { _, new in searchOnline(new) }
-                        if !query.isEmpty {
-                            Button { query = ""; onlineResults = [] } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(session.themeTextColor.opacity(0.3))
-                            }
-                        }
-                        if isSearchingOnline {
-                            ProgressView().scaleEffect(0.6).tint(Color.stockedGold)
-                        }
-                        if isOffline {
-                            Image(systemName: "wifi.slash").scaledFont(12)
-                                .foregroundStyle(.orange)
-                        }
+                    StockedSearchField(text: $query, prompt: "Search your kitchen…", focus: $focused)
+                    if search.isSearchingLocal || search.isSearchingOnline {
+                        ProgressView().tint(session.accentColor)
+                            .accessibilityLabel("Searching")
                     }
-                    .padding(12).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.45)).clipShape(RoundedRectangle(cornerRadius: 14))
                     Button("Cancel") {
                         focused = false                       // dismiss the keyboard first
                         query = ""
-                        onlineResults = []
+                        search.stop()
                         close()
                     }
-                        .scaledFont(15).foregroundStyle(Color.stockedGold)
+                        .font(.stockedBody).foregroundStyle(session.accentColor)
+                        .frame(minWidth: 44, minHeight: layoutMetrics.minimumControlHeight)
                 }.padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 14)
                     .padding(.top, StockedScreen.safeTopInset)
+
+                if let notice = search.onlineNotice {
+                    Text(notice)
+                        .font(.stockedCaption)
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, layoutMetrics.horizontalPadding)
+                        .padding(.bottom, 8)
+                }
 
                 // Section label
                 if !query.isEmpty {
                     HStack {
-                        Text("\(allResults.count) result\(allResults.count == 1 ? "" : "s")\(parsedQuery.hasStructure ? " · filtered" : "")")
+                        Text("\(allResults.count) shown\(search.hasStructuredQuery ? " · filtered" : "")")
                             .scaledFont(11, weight: .semibold)
                             .foregroundStyle(session.themeSecondaryText)
                         Spacer()
@@ -320,7 +217,7 @@ struct GlobalSearchView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "magnifyingglass").scaledFont(32)
                             .foregroundStyle(session.themeTextColor.opacity(0.2))
-                        Text("No results for \"\(query)\"")
+                        Text(search.isSearchingLocal || search.isSearchingOnline ? "Searching your kitchen…" : "No results for \"\(query)\"")
                             .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         if let suggestion = didYouMean {
@@ -329,7 +226,7 @@ struct GlobalSearchView: View {
                                     Text("Did you mean").scaledFont(13)
                                         .foregroundStyle(session.themeSecondaryText)
                                     Text(suggestion).scaledFont(13, weight: .bold)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(session.accentColor)
                                     Text("?").scaledFont(13)
                                         .foregroundStyle(session.themeSecondaryText)
                                 }
@@ -346,9 +243,16 @@ struct GlobalSearchView: View {
                             ForEach(groupedResults, id: \.0) { section, results in
                                 Text(section)
                                     .scaledFont(10, weight: .bold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(session.accentColor)
                                     .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
                                 ForEach(results) { r in rowView(r) }
+                            }
+                            if search.hasMore {
+                                Text("Showing the best matches in each category. Add more detail to narrow your search.")
+                                    .font(.stockedCaption)
+                                    .foregroundStyle(session.themeSecondaryText)
+                                    .padding(.horizontal, layoutMetrics.horizontalPadding)
+                                    .padding(.top, 12)
                             }
                             Color.clear.frame(height: 40)
                         }
@@ -357,9 +261,10 @@ struct GlobalSearchView: View {
                 }
             }
         }
-        .onAppear {
-            loadOfflineCache()
-        }
+        .onAppear { search.activate(store: store, query: query) }
+        .onDisappear { search.stop() }
+        .onChange(of: query) { _, value in search.updateQuery(value) }
+        .onChange(of: NetworkMonitor.shared.isOnline) { _, _ in search.connectivityChanged() }
         .presentationDetents([.large])
         .sheet(item: $selectedOnline) { recipe in
             OnlineRecipeDetailView(recipe: recipe).environment(session)
@@ -372,70 +277,11 @@ struct GlobalSearchView: View {
         }
     }
 
-    private func loadOfflineCache() {
-        guard let data    = UserDefaults.standard.data(forKey: offlineCacheKey),
-              let decoded = try? JSONDecoder().decode([String: [OnlineRecipe]].self, from: data)
-        else { return }
-        offlineResultsCache = decoded
-    }
-
-    private func saveOfflineCache(_ results: [OnlineRecipe], for query: String) {
-        offlineResultsCache[query.lowercased()] = results
-        if let data = try? JSONEncoder().encode(offlineResultsCache) {
-            UserDefaults.standard.set(data, forKey: offlineCacheKey)
-        }
-    }
-
     /// Dismiss the search sheet and switch to the given tab (used when a tapped result lives
     /// in one of the main tabs, e.g. a pantry or grocery item).
     private func navigate(to tab: StockedTab) {
         focused = false
         NotificationCenter.default.post(name: .stockedSwitchTab, object: tab)
-    }
-
-    private var cachedOfflineResults: [OnlineRecipe] {
-        let lower = query.lowercased()
-        return (offlineResultsCache[lower] ??
-                offlineResultsCache.first { $0.key.contains(lower) }?.value ?? [])
-            .prefix(8).map { $0 }
-    }
-
-    private func searchOnline(_ q: String) {
-        let trimmed = q.trimmingCharacters(in: .whitespaces)
-        // #2 — cancel any in-flight/obsolete search so a slow older keystroke can't
-        // overwrite newer results or waste the network.
-        searchTask?.cancel()
-        guard trimmed.count >= 3 else { onlineResults = []; isSearchingOnline = false; return }
-        isSearchingOnline = true
-        searchTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000) // debounce 0.5s
-            if Task.isCancelled { return }
-            guard query.trimmingCharacters(in: .whitespaces) == trimmed else { return }
-            let enc = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
-            guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(enc)"),
-                  let (data, _) = try? await URLSession.shared.data(from: url),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let meals = json["meals"] as? [[String: Any]] else {
-                if Task.isCancelled { return }
-                // Network failed — serve offline cache
-                await MainActor.run {
-                    isSearchingOnline = false
-                    isOffline = true
-                    if onlineResults.isEmpty { onlineResults = cachedOfflineResults }
-                }
-                return
-            }
-            if Task.isCancelled { return }
-            let loader = OnlineRecipesLoader()
-            let parsed = meals.compactMap { loader.parseMealPublic($0) }
-            if Task.isCancelled { return }
-            await MainActor.run {
-                onlineResults = parsed
-                isSearchingOnline = false
-                isOffline = false
-                saveOfflineCache(parsed, for: trimmed)
-            }
-        }
     }
 
     private func handleSelect(_ r: SearchResult) {
@@ -537,7 +383,7 @@ struct IngredientInfoSheet: View {
                                 .foregroundStyle(session.themeTextColor)
                             Text(entry.category)
                                 .scaledFont(13, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(session.accentColor)
                         }
                     }
 
@@ -574,7 +420,7 @@ struct IngredientInfoSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(session.accentColor)
                 }
             }
         }
@@ -583,7 +429,7 @@ struct IngredientInfoSheet: View {
 
     private func infoRow(icon: String, title: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(session.accentColor).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).scaledFont(12, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                 Text(value).scaledFont(14).foregroundStyle(session.themeTextColor)

@@ -52,6 +52,7 @@ struct SmartRecommendationView: View {
     @State private var goRefreshKitchen = false
     @State private var goMood = false
     @State private var loading = true
+    @State private var recommendationTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -83,6 +84,9 @@ struct SmartRecommendationView: View {
         }
         .task { recommend(excludingCurrent: false) }
         .onChange(of: store.inventoryRevision) { _, _ in recommend(excludingCurrent: false) }
+        .onChange(of: store.recipeRevision) { _, _ in recommend(excludingCurrent: false) }
+        .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recommend(excludingCurrent: false) }
+        .onDisappear { recommendationTask?.cancel() }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             goRecipe = false; goAll = false; goRefreshKitchen = false; goMood = false
         }
@@ -91,11 +95,17 @@ struct SmartRecommendationView: View {
     // MARK: Recommendation
 
     private func recommend(excludingCurrent: Bool) {
+        recommendationTask?.cancel()
+        recommendationTask = Task { await computeRecommendation(excludingCurrent: excludingCurrent) }
+    }
+
+    private func computeRecommendation(excludingCurrent: Bool) async {
         loading = candidates.isEmpty
         if case .ingredient(let ing) = mode { cookSession?.selectedIngredient = ing }
 
-        var pool = CookNowCompute.run(store: store, session: cookSession).classified
-            .filter(\.isActionableCookNowOption)
+        guard let snapshot = await CookNowCompute.runYielding(store: store, session: cookSession),
+              !Task.isCancelled else { return }
+        var pool = snapshot.classified.filter(\.isActionableCookNowOption)
 
         // Scope by the chosen ingredient: the recipe must actually use it.
         if case .ingredient(let ing) = mode {
@@ -130,8 +140,13 @@ struct SmartRecommendationView: View {
             return s
         }
 
+        // Score once per candidate instead of repeating ingredient matching and
+        // profile scans for both sides of every sort comparison.
+        let scores = Dictionary(pool.map { ($0.id, score($0)) }, uniquingKeysWith: { first, _ in first })
         var ranked = pool.sorted {
-            $0.readiness == $1.readiness ? score($0) > score($1) : $0.readiness < $1.readiness
+            if $0.readiness != $1.readiness { return $0.readiness < $1.readiness }
+            let lhs = scores[$0.id, default: 0], rhs = scores[$1.id, default: 0]
+            return lhs == rhs ? $0.id.uuidString < $1.id.uuidString : lhs > rhs
         }
 
         // Surprise keeps the same intelligence but shuffles within the best

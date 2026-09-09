@@ -46,6 +46,10 @@ nonisolated struct RecipeMediaStore: Sendable {
     /// Returns an HTTPS reference when one is valid, otherwise durably retains supplied
     /// image bytes. This lets image-data-only UserRecipe records enter the canonical store.
     func resolvedReference(remoteURL: String?, imageData: Data?) throws -> RecipeMediaReference {
+        // Cached bytes of a known logo must not turn a rejected URL into a local photo.
+        guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(remoteURL ?? "") else {
+            throw RecipeMediaFailure.invalidRemoteURL
+        }
         if let remoteURL,
            !remoteURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            case .success(let reference) = validateReference(remoteURL) {
@@ -92,6 +96,9 @@ nonisolated struct RecipeMediaStore: Sendable {
             return .failure(.missingReference)
         }
 
+        guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(trimmed) else {
+            return .failure(.invalidRemoteURL)
+        }
         if url.scheme?.lowercased() == "https", url.host?.isEmpty == false,
            url.user == nil, url.password == nil {
             return .success(.remote(url))

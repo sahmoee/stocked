@@ -5,6 +5,25 @@ matching `AppIcon-08` artwork. This repository owns the master. The iOS/iPadOS a
 StockedMac copy, and public website image are byte-derived consumers; regenerate every required
 size from this master and verify asset-catalog dimensions before publishing any icon change.
 
+The shared root tab bar uses a warm translucent gold selection with a gold outline and accent
+content. Selected tabs never receive an opaque charcoal or black backplate; all five tabs retain
+the same geometry, hit target, typography and glass navigation surface.
+
+Search and input surfaces reuse StockedSearchField/StockedThemedTextFieldStyle and one control
+padding/type scale; compound fields must use plain embedded fields to avoid double padding.
+The Grocery heading opens the store picker and persists through AppSession.preferredStore;
+store grouping refreshes without overwriting explicit per-item store assignments.
+Cook's inventory recipe picker opens before cancellable background ranking. Shared Cook requests
+coalesce, and Global Search/autocomplete publish bounded results rather than scanning from view
+bodies. See PERFORMANCE_ARCHITECTURE.md and the native ranking/cancellation checks.
+
+RecipeDisplayPolicy excludes Food Network's observed `food/editorial/homepage/fn-feature` stock
+artwork across renditions, including cached-byte fallbacks. Actual Food Network dish photos remain.
+Existing private originals/notes are retained for repair while browse/search omit the stock rows;
+canonical catalogue reads and ingestion also reject them. StockedMac and UnifiedWorker have the
+same rule, with no schema change. Deploy the tested Worker before producer/client releases;
+native image-policy checks, Worker harvest fixtures and affected app builds validate this boundary.
+
 Settings → Data & Storage → Free Kitchen Connections now joins the optional tools: reviewed Grocy
 inventory/shopping reads, conditional CalDAV meal-copy publication, actual Cooklang Federation
 discovery, device-only saved community price checks, and household delivery status. No paid service

@@ -81,7 +81,7 @@ nonisolated extension Color {
     /// High-contrast reciprocal accent for selected navigation and small focus treatments.
     static func contrastAccent(_ dark: Bool) -> Color { dark ? stockedWhite : stockedCharcoal }
 
-    // Selected root tabs retain their charcoal fill in both appearances.
+    // Filled feature-choice tokens. Root navigation uses its warm translucent selection.
     static func selectedTabForeground(_ dark: Bool) -> Color { dark ? stockedGoldDark : stockedBg }
     static let selectedTabBackground = stockedCharcoal
 

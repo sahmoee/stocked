@@ -147,6 +147,24 @@ nonisolated enum RecipeAdapter {
 
     // MARK: - Pools
 
+    /// Shared pure catalogue transform. Async callers capture store arrays and run
+    /// this parsing/classification work off-main; synchronous callers use the same rules.
+    static func classifiableCatalog(saved: [UserRecipe], generated: [GeneratedRecipe],
+                                    discover: [OnlineRecipe], availableTokens: Set<String>) -> [UserRecipe] {
+        let mine = saved.filter { RecipeQuality.hasMeaningfulTitle($0.title) }
+        var seen = Set(mine.map { OnlineRecipeFacts.normalizedTitle($0.title) })
+        var adapted: [UserRecipe] = []
+        for recipe in generated where !recipe.isHidden {
+            guard !Task.isCancelled else { return [] }
+            let key = OnlineRecipeFacts.normalizedTitle(recipe.title)
+            guard RecipeQuality.hasMeaningfulTitle(recipe.title), seen.insert(key).inserted else { continue }
+            adapted.append(userRecipe(from: recipe))
+        }
+        let discovered = classificationPool(online: discover, excludingTitles: seen,
+                                             availableTokens: availableTokens)
+        return mine + adapted + discovered
+    }
+
     // MARK: - Cheap pre-screen
 
     /// Words that carry no food identity, so they never count as overlap.
@@ -209,6 +227,7 @@ nonisolated enum RecipeAdapter {
         scored.reserveCapacity(online.count)
 
         for r in online {
+            guard !Task.isCancelled else { return [] }
             let key = OnlineRecipeFacts.normalizedTitle(r.title)
             guard !key.isEmpty, !seen.contains(key) else { continue }
             let lines = r.ingredientLines

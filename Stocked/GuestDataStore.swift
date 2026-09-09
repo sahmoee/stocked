@@ -1720,26 +1720,9 @@ class GuestDataStore {
     }
 
     func classifiableCatalog(discover: [OnlineRecipe] = []) -> [UserRecipe] {
-        // Apply the shared quality boundary to already-saved rows as well as newly
-        // discovered recipes. This removes old roundup/category pages from Cook Now
-        // immediately without waiting for them to be re-imported.
-        let mine = cookCatalog.filter { RecipeQuality.hasMeaningfulTitle($0.title) }
-        var seen = Set(mine.map { OnlineRecipeFacts.normalizedTitle($0.title) })
-
-        var generated: [UserRecipe] = []
-        for g in savedGeneratedRecipes where !g.isHidden {
-            let key = OnlineRecipeFacts.normalizedTitle(g.title)
-            guard RecipeQuality.hasMeaningfulTitle(g.title), !seen.contains(key) else { continue }
-            seen.insert(key)
-            generated.append(RecipeAdapter.userRecipe(from: g))
-        }
-
-        let discovered = RecipeAdapter.classificationPool(
-            online: discover,
-            excludingTitles: seen,
-            availableTokens: RecipeAdapter.availableTokens(in: inventoryItems)
-        )
-        return mine + generated + discovered
+        RecipeAdapter.classifiableCatalog(
+            saved: cookCatalog, generated: savedGeneratedRecipes, discover: discover,
+            availableTokens: RecipeAdapter.availableTokens(in: inventoryItems))
     }
 
     /// Saved recipes that use at least one item expiring within `days` — "use it up" picks.
@@ -1765,24 +1748,35 @@ class GuestDataStore {
     /// names of expiring items it would use up, so the UI can show "uses: spinach, cream".
     func cookableRankedByExpiry(within days: Int = KitchenThresholds.expiringSoonDays)
         -> [(recipe: UserRecipe, expiringUsed: [String])] {
+        Self.cookableRankedByExpiry(recipes: cookCatalog, inventory: inventoryItems, within: days)
+    }
+
+    /// The presentation path captures arrays once and performs matching off-main.
+    nonisolated static func cookableRankedByExpiry(recipes: [UserRecipe], inventory: [LocalInventoryItem],
+                                                  within days: Int = KitchenThresholds.expiringSoonDays)
+        -> [(recipe: UserRecipe, expiringUsed: [String])] {
         let cutoff = Date().addingTimeInterval(Double(days) * 86_400)
-        let expiring = inventoryItems.filter {
+        let expiring = inventory.filter {
             guard $0.effectiveLevel > 0, let exp = $0.expirationDate else { return false }
             return exp <= cutoff
         }
-        let makeable = cookCatalog.filter { r in
-            let m = stockMatch(for: r)
-            return m.total > 0 && m.have == m.total
-        }
-        let scored = makeable.map { recipe -> (UserRecipe, [String]) in
+        let names = KitchenAvailability.availableNames(in: inventory)
+        var scored: [(UserRecipe, [String])] = []
+        for recipe in recipes {
+            guard !Task.isCancelled else { return [] }
+            let match = KitchenAvailability.coverage(lines: recipe.ingredients.map(\.name),
+                optionalFlags: recipe.ingredients.map(\.isOptional), availableNames: names)
+            guard match.isComplete else { continue }
             let used = expiring
                 .filter { item in recipe.ingredients.contains { Self.looseMatch($0.name, item.name) } }
                 .map { $0.name.displayNormalized }
-            return (recipe, used)
+            scored.append((recipe, used))
         }
         // Most expiring-items-used first; ties broken by most-cooked (familiar wins).
         return scored.sorted {
-            $0.1.count == $1.1.count ? $0.0.cookCount > $1.0.cookCount : $0.1.count > $1.1.count
+            if $0.1.count != $1.1.count { return $0.1.count > $1.1.count }
+            if $0.0.cookCount != $1.0.cookCount { return $0.0.cookCount > $1.0.cookCount }
+            return $0.0.id.uuidString < $1.0.id.uuidString
         }
     }
 

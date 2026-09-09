@@ -1233,6 +1233,7 @@ struct IngredientBrowserSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
                     FoodPredictiveTextField(placeholder: "Search ingredients…", text: $searchText, onCommit: {})
+                    .textFieldStyle(.plain)
                         .scaledFont(15).foregroundStyle(session.themeTextColor)
                     if !searchText.isEmpty {
                         Button { searchText = "" } label: {

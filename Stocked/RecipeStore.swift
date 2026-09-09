@@ -874,6 +874,7 @@ actor RecipeStore {
     /// Only network-backed artwork counts as a genuine recipe image for corpus discovery.
     /// Relative paths, file/data URLs, and malformed values must not pass as presentable cards.
     nonisolated static func isValidRemoteImageURL(_ rawValue: String) -> Bool {
+        guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(rawValue) else { return false }
         guard let components = URLComponents(string: rawValue.trimmingCharacters(in: .whitespacesAndNewlines)),
               let scheme = components.scheme?.lowercased(),
               scheme == "https" || scheme == "http",

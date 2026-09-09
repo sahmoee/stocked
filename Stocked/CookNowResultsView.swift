@@ -26,7 +26,10 @@ struct CookNowResultsView: View {
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
     private var store: GuestDataStore { session.guestStore }
 
-    @State private var snapshot = CookNowCompute.Output.empty
+    @State private var foodSnapshot = CookNowCompute.Output.empty
+    @State private var drinkSnapshot = CookNowCompute.Output.empty
+    @State private var isClassifying = true
+    private var snapshot: CookNowCompute.Output { contentKind == .drinks ? drinkSnapshot : foodSnapshot }
     @State private var openRecipe: UserRecipe? = nil
     @State private var goRecipe = false
     @State private var showMore = false
@@ -56,7 +59,12 @@ struct CookNowResultsView: View {
                     inventoryRecipeButton
                 }
 
-                if isEmptyEverywhere {
+                if isClassifying {
+                    ProgressView("Finding what you can make…")
+                        .tint(session.accentColor)
+                        .padding(.horizontal, CookStyle.screenHPad)
+                }
+                if isEmptyEverywhere && !isClassifying {
                     CookEmptyState(
                         icon: "fork.knife",
                         title: "No matches yet",
@@ -89,6 +97,7 @@ struct CookNowResultsView: View {
             .navigationDestination(isPresented: $goRefresh) { RefreshKitchenView() }
         }
         .task {
+            recompute()
             // Hydrate the Discover pool from its own persisted cache before
             // classifying, so opening this screen on a cold launch scores the
             // real recipe library instead of only the starter meals.
@@ -127,9 +136,18 @@ struct CookNowResultsView: View {
 
     private func recompute() {
         classificationTask?.cancel()
+        isClassifying = true
         classificationTask = Task {
-            if let result = await CookNowCompute.runYielding(store: store, session: cookSession),
-               !Task.isCancelled { snapshot = result }
+            guard let result = await CookNowCompute.runYielding(store: store, session: cookSession),
+                  !Task.isCancelled else { return }
+            let worker = Task.detached(priority: .userInitiated) {
+                Self.contentSnapshots(result)
+            }
+            let partition = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+            guard !Task.isCancelled else { return }
+            foodSnapshot = partition.food
+            drinkSnapshot = partition.drinks
+            isClassifying = false
         }
     }
 
@@ -139,25 +157,31 @@ struct CookNowResultsView: View {
     // computed property that re-filtered and re-sorted the whole catalog. Between
     // this check and the sections below, one body pass ran ~10 full passes over
     // ~150 recipes. The tiers are stored on Output now and this is a Bool read.
-    private var isEmptyEverywhere: Bool {
-        filtered(snapshot.readyNow).isEmpty && filtered(snapshot.needsReview).isEmpty
-            && filtered(snapshot.almostReady).isEmpty && filtered(snapshot.morePossibilities).isEmpty
-    }
+    private var isEmptyEverywhere: Bool { snapshot.isEmptyEverywhere }
 
     private enum ContentKind: CaseIterable { case food, drinks; var label: String { self == .food ? "Food" : "Drinks" } }
-    private var hasDrinks: Bool { snapshot.classified.contains { isDrink($0.recipe) } }
-    private func isDrink(_ recipe: UserRecipe) -> Bool {
-        RecipeDisplayPolicy.isDrink(title: recipe.title,
-                                    categories: recipe.categories ?? [], tags: recipe.tags)
-    }
-    private func filtered(_ items: [ClassifiedRecipe]) -> [ClassifiedRecipe] {
-        items.filter { item in
-            let presentable = RecipeDisplayPolicy.isPresentable(
-                title: item.recipe.title, imageURL: item.recipe.imageURL,
-                imageData: item.recipe.imageData, ingredients: item.recipe.ingredients.count,
-                steps: item.recipe.instructions.count, sourceURL: item.recipe.sourceURL)
-            return presentable && (contentKind == .drinks ? isDrink(item.recipe) : !isDrink(item.recipe))
+    private var hasDrinks: Bool { !drinkSnapshot.classified.isEmpty }
+
+    /// Materialize content sections once. Repeated body reads must not parse
+    /// every recipe's metadata or re-run image/quality validation on each frame.
+    nonisolated private static func contentSnapshots(_ full: CookNowCompute.Output)
+        -> (food: CookNowCompute.Output, drinks: CookNowCompute.Output) {
+        let drinkIDs = Set(full.classified.filter {
+            RecipeDisplayPolicy.isDrink(title: $0.recipe.title,
+                categories: $0.recipe.categories ?? [], tags: $0.recipe.tags)
+        }.map(\.id))
+        func project(drinks: Bool) -> CookNowCompute.Output {
+            func matches(_ recipe: ClassifiedRecipe) -> Bool { drinkIDs.contains(recipe.id) == drinks }
+            var output = full
+            output.classified = full.classified.filter(matches)
+            output.readyNow = full.readyNow.filter(matches)
+            output.needsReview = full.needsReview.filter(matches)
+            output.almostReady = full.almostReady.filter(matches)
+            output.morePossibilities = full.morePossibilities.filter(matches)
+            output.metrics = CookNowEngine.metrics(from: output.classified)
+            return output
         }
+        return (project(drinks: false), project(drinks: true))
     }
 
     private var inventoryRecipeButton: some View {
@@ -219,28 +243,28 @@ struct CookNowResultsView: View {
     private var readySection: some View {
         tierSection(title: "Ready now",
                     subtitle: snapshot.metrics.readyBreakdown,
-                    items: filtered(snapshot.readyNow))
+                    items: snapshot.readyNow)
     }
 
     private var reviewSection: some View {
         tierSection(title: "Swaps to review",
                     subtitle: "One confirmation away",
-                    items: filtered(snapshot.needsReview))
+                    items: snapshot.needsReview)
     }
 
     private var almostSection: some View {
         tierSection(title: "Almost ready",
                     subtitle: "Missing 6 or more items after substitutions",
-                    items: filtered(snapshot.almostReady))
+                    items: snapshot.almostReady)
     }
 
     private func moreSection(expanded: Bool) -> some View {
         Group {
-            if !filtered(snapshot.morePossibilities).isEmpty {
+            if !snapshot.morePossibilities.isEmpty {
                 if expanded {
                     tierSection(title: "More possibilities",
                                 subtitle: "Meals to build toward — closest first",
-                                items: filtered(snapshot.morePossibilities))
+                                items: snapshot.morePossibilities)
                 } else {
                     Button { withAnimation { showMore = true } } label: {
                         HStack {

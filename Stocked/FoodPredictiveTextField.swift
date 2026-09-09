@@ -22,7 +22,7 @@ struct FoodPredictiveTextField: View {
     // Always derive from session directly — environment color chain is unreliable
     // in nested views like grocery list and recipe tab search bars
     private var resolvedColor: Color {
-        textColor ?? (session.isDarkMode ? Color.stockedWhite : .black)
+        textColor ?? session.themeTextColor
     }
     private let kb = StockedKnowledgeBase.shared
 
@@ -61,13 +61,14 @@ struct FoodPredictiveTextField: View {
     }
 
     var body: some View {
+        let visibleSuggestions = suggestions
         VStack(alignment: .leading, spacing: 0) {
             textField
 
-            if !suggestions.isEmpty {
+            if !visibleSuggestions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(suggestions) { entry in
+                        ForEach(visibleSuggestions, id: \.searchKey) { entry in
                             Button {
                                 text = entry.name
                                 if let ext = externalFocus { ext.wrappedValue = false }
@@ -83,6 +84,7 @@ struct FoodPredictiveTextField: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 .padding(.horizontal, 11).padding(.vertical, 7)
+                                .frame(minHeight: 44)
                                 .background(Color.stockedGold.opacity(0.18))
                                 .overlay(Capsule().stroke(Color.stockedGold.opacity(0.5), lineWidth: 1))
                                 .clipShape(Capsule())
@@ -98,12 +100,13 @@ struct FoodPredictiveTextField: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(.easeInOut(duration: 0.15), value: suggestions.map(\.id))
+        .stockedAnimation(.selection, intent: .spatial, value: visibleSuggestions.map(\.searchKey))
         .onChange(of: text) { _, newValue in
             // Debounced online autocomplete — only when LOCAL results are thin, min 3 chars, and
             // after a 0.4s pause in typing. This protects the Spoonacular 150/day quota: it won't
             // fire on every keystroke, only when the on-device sources can't help. No-ops without a key.
             autocompleteTask?.cancel()
+            learnedOnline = []
             let query = newValue.trimmingCharacters(in: .whitespaces)
             guard query.count >= 3,
                   SpoonacularClient.shared.isConfigured,
@@ -115,12 +118,13 @@ struct FoodPredictiveTextField: View {
                 try? await Task.sleep(nanoseconds: 400_000_000)  // debounce
                 guard !Task.isCancelled, query == text.trimmingCharacters(in: .whitespaces) else { return }
                 let names = await SpoonacularClient.shared.autocomplete(query, number: 6)
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, query == text.trimmingCharacters(in: .whitespaces) else { return }
                 learnedOnline = names.map { KnowledgeIngredient(name: $0, category: "Pantry", emoji: "🍽️") }
                 // Also teach the local KB so next time it's instant + free.
                 for name in names { kb.learnFromInventoryItem(name: name, category: "Pantry") }
             }
         }
+        .onDisappear { autocompleteTask?.cancel() }
     }
 }
 

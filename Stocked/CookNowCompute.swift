@@ -135,6 +135,7 @@ enum CookNowCompute {
     private static var memo: [MemoEntry] = []
     private static var memoGeneration: UInt64 = 0
     private static let memoCap = 4
+    private static let workPool = CookComputationPool<Output>()
 
     /// The part of the cache key that describes the session.
     ///
@@ -151,6 +152,10 @@ enum CookNowCompute {
         } ?? []
         return "\(subs.count):\(subs.joined(separator: ","))"
             + "|\(overrideKeys.count):\(overrideKeys.joined(separator: ","))"
+    }
+
+    static func revisionKey(store: GuestDataStore, session: CookNowSession?) -> String {
+        key(store: store, session: session)
     }
 
     private static func key(store: GuestDataStore, session: CookNowSession?) -> String {
@@ -174,6 +179,7 @@ enum CookNowCompute {
     static func invalidate() {
         memoGeneration &+= 1
         memo.removeAll()
+        workPool.cancelAll()
     }
 
     /// The memoized snapshot for exactly these inputs, WITHOUT computing one.
@@ -223,14 +229,23 @@ enum CookNowCompute {
         if let hit = cached(store: store, session: session) { return hit }
         let revision = key(store: store, session: session)
         let generation = memoGeneration
-        let input = snapshot(store: store, session: session)
-        let work = Task.detached(priority: .utility) {
-            compute(input, cancellable: true)
-        }
-        let result = await withTaskCancellationHandler {
-            await work.value
-        } onCancel: {
-            work.cancel()
+        let result = await workPool.value(for: revision) {
+            Task { @MainActor in
+                // Reservation matching belongs off-main too, before the immutable
+                // classification snapshot is taken. Concurrent callers share this work.
+                await ReservationLedger.shared.refreshForPresentation(store: store)
+                guard !Task.isCancelled, generation == memoGeneration,
+                      revision == key(store: store, session: session) else { return nil }
+                let input = snapshot(store: store, session: session, refreshReservations: false)
+                let work = Task.detached(priority: .userInitiated) {
+                    compute(input, cancellable: true)
+                }
+                return await withTaskCancellationHandler {
+                    await work.value
+                } onCancel: {
+                    work.cancel()
+                }
+            }
         }
         guard let out = result else { return nil }
         guard generation == memoGeneration,
@@ -243,6 +258,10 @@ enum CookNowCompute {
 
     nonisolated private struct Input: Sendable {
         let recipes: [UserRecipe]
+        let generated: [GeneratedRecipe]
+        let discover: [OnlineRecipe]
+        let includeDerived: Bool
+        let inventoryTokens: Set<String>
         let inStock: [String]
         let substituteStock: [String]
         let availableNames: Set<String>
@@ -260,13 +279,14 @@ enum CookNowCompute {
         compute(snapshot(store: store, session: session, recipes: suppliedRecipes), cancellable: false)!
     }
 
-    private static func snapshot(store: GuestDataStore, session: CookNowSession?, recipes suppliedRecipes: [UserRecipe]? = nil) -> Input {
+    private static func snapshot(store: GuestDataStore, session: CookNowSession?, recipes suppliedRecipes: [UserRecipe]? = nil,
+                                 refreshReservations: Bool = true) -> Input {
         // WAS: `store.cookCatalog` — saved recipes plus starter meals only, so
         // Discover recipes and saved AI-generated recipes could never receive a
         // readiness tier. Now the full classifiable catalog, with the Discover
         // pool read straight from the loader that the Recipes tab uses, so both
         // tabs are scoring the same recipes from one source of truth.
-        let recipes = suppliedRecipes ?? store.classifiableCatalog(discover: OnlineRecipesLoader.shared.recipes)
+        let recipes = suppliedRecipes ?? store.cookCatalog
 
         // In-stock names: same availability rule the rest of the app uses.
         let inStock = KitchenAvailability.availableItems(in: store.inventoryItems).map { $0.name }
@@ -291,8 +311,13 @@ enum CookNowCompute {
         )).filter { !$0.isEmpty }
 
         let ledger = ReservationLedger.shared
-        ledger.refreshIfNeeded(store: store)
-        return Input(recipes: recipes, inStock: inStock,
+        if refreshReservations { ledger.refreshIfNeeded(store: store) }
+        return Input(recipes: recipes,
+                     generated: suppliedRecipes == nil ? store.savedGeneratedRecipes : [],
+                     discover: suppliedRecipes == nil ? OnlineRecipesLoader.shared.recipes : [],
+                     includeDerived: suppliedRecipes == nil,
+                     inventoryTokens: RecipeAdapter.screenTokens(inStock.joined(separator: " ")),
+                     inStock: inStock,
                      substituteStock: store.inventoryItems.filter { $0.level > 0 }.map { $0.name.lowercased() },
                      availableNames: availableNames, allergens: allergens, dislikes: dislikes,
                      userEntries: store.userSubstitutions,
@@ -307,7 +332,12 @@ enum CookNowCompute {
         // Reject incomplete catalogue rows before building substitution indexes. Imported
         // title-only pages and image-less stubs cannot produce a useful recipe card and
         // previously made this pass scan thousands of unusable ingredients.
-        let recipes = input.recipes.filter { recipe in
+        let catalogue = input.includeDerived
+            ? RecipeAdapter.classifiableCatalog(saved: input.recipes, generated: input.generated,
+                                                discover: input.discover, availableTokens: input.inventoryTokens)
+            : input.recipes
+        guard !cancellable || !Task.isCancelled else { return nil }
+        let recipes = catalogue.filter { recipe in
             RecipeDisplayPolicy.isPresentable(
                 title: recipe.title, imageURL: recipe.imageURL, imageData: recipe.imageData,
                 ingredients: recipe.ingredients.count, steps: recipe.instructions.count,
@@ -323,6 +353,7 @@ enum CookNowCompute {
         // — a full fuzzy scan of the inventory — for every ingredient of every
         // recipe, including the thousands of duplicates ("salt" appears in half
         // the catalog). Now each distinct ingredient name is resolved once.
+        let stockIndex = KitchenAvailability.index(for: input.availableNames)
         var subMap: [String: [String]] = [:]
         var seen = Set<String>()
         for r in recipes {
@@ -330,7 +361,7 @@ enum CookNowCompute {
             for ing in r.ingredients where !ing.isOptional {
                 let key = ing.name.lowercased().trimmingCharacters(in: .whitespaces)
                 guard !key.isEmpty, seen.insert(key).inserted else { continue }
-                if !KitchenAvailability.isPresent(ing.name, inNames: input.availableNames) {
+                if !KitchenAvailability.isPresent(ing.name, in: stockIndex) {
                     subMap[key] = SubstitutionEngine.local(for: ing.name,
                         userEntries: input.userEntries, builtInEntries: input.builtInEntries)
                         .map(\.substitute).filter { substitute in

@@ -72,7 +72,7 @@ struct CommunityPricesView: View {
                 Text("See prices other people reported for a barcode. These may be from another store, date, package size or currency.")
                     .foregroundStyle(session.themeSecondaryText)
                 TextField("Barcode", text: $barcode).keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder).accessibilityLabel("Product barcode")
+                    .textFieldStyle(StockedThemedTextFieldStyle()).accessibilityLabel("Product barcode")
                 Button(loading ? "Cancel lookup" : "Look up community prices") {
                     if loading { cancel() } else { lookup() }
                 }.frame(minHeight: 44)

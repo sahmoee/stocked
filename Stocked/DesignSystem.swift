@@ -238,11 +238,11 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
     var accent: Color = Color.stockedCharcoal
     var fg: Color = Color.stockedWhite
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.stockedSerif(17, weight: .semibold, relativeTo: .headline))
+        configuration.label.font(.stockedBodyBold)
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(fg).frame(maxWidth: .infinity)
             .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
-            .padding(.vertical, max(14, 10 * layoutMetrics.textScale))
+            .padding(.vertical, layoutMetrics.controlVerticalPadding)
             .frame(minHeight: layoutMetrics.minimumControlHeight)
             .background(accent).clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius))
             .overlay(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius)
@@ -261,11 +261,11 @@ struct StockedSecondaryButtonStyle: ButtonStyle {
     var accent: Color? = nil
     func makeBody(configuration: Configuration) -> some View {
         let accent = accent ?? session.accentColor
-        return configuration.label.font(.stockedSerif(15, weight: .semibold, relativeTo: .body))
+        return configuration.label.font(.stockedBodyBold)
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(accent).frame(maxWidth: .infinity)
             .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
-            .padding(.vertical, max(12, 9 * layoutMetrics.textScale))
+            .padding(.vertical, layoutMetrics.controlVerticalPadding)
             .frame(minHeight: layoutMetrics.minimumControlHeight)
             .stockedGlassSurface(.control, cornerRadius: layoutMetrics.controlCornerRadius)
             .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.5)
@@ -302,11 +302,12 @@ struct StockedThemedTextFieldStyle: TextFieldStyle {
 
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
+            .font(.stockedBody)
             .foregroundStyle(session.themeTextColor)
             .tint(session.accentColor)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
-            .padding(.vertical, max(10, 8 * layoutMetrics.textScale))
+            .padding(.vertical, layoutMetrics.controlVerticalPadding)
             .frame(minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
             .background(session.themeCardColor)
             .clipShape(RoundedRectangle(
@@ -401,6 +402,17 @@ struct StockedSearchField: View {
     @Environment(\.stockedLayout) private var layoutMetrics
     @Binding var text: String
     var prompt: String
+    var focus: FocusState<Bool>.Binding? = nil
+    var onSubmit: () -> Void = {}
+    var onClear: () -> Void = {}
+
+    @ViewBuilder private var input: some View {
+        if let focus {
+            TextField(prompt, text: $text).focused(focus)
+        } else {
+            TextField(prompt, text: $text)
+        }
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -408,17 +420,20 @@ struct StockedSearchField: View {
                 .font(.stockedBodyBold)
                 .foregroundStyle(session.themeSecondaryText)
                 .accessibilityHidden(true)
-            TextField(prompt, text: $text)
+            input
                 .font(.stockedBody)
+                .foregroundStyle(session.themeTextColor)
+                .tint(session.accentColor)
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                .onSubmit(onSubmit)
             if !text.isEmpty {
-                Button { text = "" } label: {
+                Button { text = ""; onClear() } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.stockedBodyBold)
                         .foregroundStyle(session.themeSecondaryText)
-                        .frame(width: 32, height: 32)
+                        .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -426,6 +441,7 @@ struct StockedSearchField: View {
             }
         }
         .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
+        .padding(.vertical, 2)
         .frame(minHeight: layoutMetrics.minimumControlHeight)
         .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous))

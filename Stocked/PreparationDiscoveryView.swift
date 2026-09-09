@@ -27,7 +27,8 @@ struct PreparationDiscoveryView: View {
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
-    @State private var snapshot = CookNowCompute.Output.empty
+    @State private var results: [ClassifiedRecipe] = []
+    @State private var isLoading = true
     @State private var goMethod = false
     @State private var goRecipe = false
     @State private var chosen: UserRecipe? = nil
@@ -39,10 +40,14 @@ struct PreparationDiscoveryView: View {
         StockedShell(showBack: true, titleText: title) {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                if results.isEmpty {
+                if isLoading {
+                    ProgressView("Finding preparations…")
+                        .tint(session.accentColor).padding(.horizontal, CookStyle.screenHPad)
+                }
+                if results.isEmpty && !isLoading {
                     emptyState
                 } else {
-                    VStack(spacing: 12) {
+                    LazyVStack(spacing: 12) {
                         ForEach(results) { c in
                             prepCard(c)
                         }
@@ -65,13 +70,25 @@ struct PreparationDiscoveryView: View {
         .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recompute() }
         .onDisappear { classificationTask?.cancel() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
+        .onChange(of: anchor) { _, _ in recompute() }
+        .onChange(of: intent) { _, _ in recompute() }
     }
 
     private func recompute() {
         classificationTask?.cancel()
+        isLoading = true
         classificationTask = Task {
-            if let result = await CookNowCompute.runYielding(store: store, session: cookSession),
-               !Task.isCancelled { snapshot = result }
+            guard let snapshot = await CookNowCompute.runYielding(store: store, session: cookSession),
+                  !Task.isCancelled else { return }
+            let currentAnchor = anchor, currentIntent = intent
+            let expiring = Set(store.inventoryItems.filter { $0.effectiveLevel > 0 && $0.isExpiringSoonOrExpired }.map { $0.name.lowercased() })
+            let worker = Task.detached(priority: .userInitiated) {
+                Self.selectResults(snapshot: snapshot, anchor: currentAnchor, intent: currentIntent, expiring: expiring)
+            }
+            let selected = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+            guard !Task.isCancelled else { return }
+            results = selected
+            isLoading = false
         }
     }
 
@@ -79,7 +96,8 @@ struct PreparationDiscoveryView: View {
 
     // MARK: Filtering by intent + dish role
 
-    private var results: [ClassifiedRecipe] {
+    nonisolated private static func selectResults(snapshot: CookNowCompute.Output, anchor: String,
+                                                  intent: CookIntent, expiring: Set<String>) -> [ClassifiedRecipe] {
         var pool = snapshot.classified.filter { $0.readiness != .excluded }
 
         // Anchor scoping: prep must use the anchor when we have one.
@@ -103,13 +121,13 @@ struct PreparationDiscoveryView: View {
         case .useWhatIHave:
             pool.sort { $0.readiness < $1.readiness }
         case .useItUp:
-            let expiring = Set(store.inventoryItems.filter { $0.effectiveLevel > 0 && $0.isExpiringSoonOrExpired }.map { $0.name.lowercased() })
+            let uses = Set(pool.filter { usesExpiring($0, expiring) }.map(\.id))
             pool.sort { a, b in
-                usesExpiring(a, expiring) == usesExpiring(b, expiring) ? a.readiness < b.readiness : usesExpiring(a, expiring)
+                uses.contains(a.id) == uses.contains(b.id) ? a.readiness < b.readiness : uses.contains(a.id)
             }
         case .trySomethingNew:
             // Prefer recipes the user cooks less often.
-            pool.sort { ($0.recipe.cookCount, $1.readiness.rawValue) < ($1.recipe.cookCount, $0.readiness.rawValue) }
+            pool.sort { ($0.recipe.cookCount, $0.readiness.rawValue) < ($1.recipe.cookCount, $1.readiness.rawValue) }
         default:
             // Standalone roles first, then readiness.
             pool.sort { a, b in
@@ -123,7 +141,7 @@ struct PreparationDiscoveryView: View {
     }
 
     /// Dish role, with a heuristic fallback for legacy recipes (unspecified).
-    private func role(_ r: UserRecipe) -> DishRole {
+    nonisolated private static func role(_ r: UserRecipe) -> DishRole {
         if r.dishRole != .unspecified { return r.dishRole }
         let t = r.title.lowercased()
         let sideWords = ["salad", "rice", "potato", "vegetable", "slaw", "bread", "roll", "side"]
@@ -135,7 +153,7 @@ struct PreparationDiscoveryView: View {
         return .entree
     }
 
-    private func usesExpiring(_ c: ClassifiedRecipe, _ expiring: Set<String>) -> Bool {
+    nonisolated private static func usesExpiring(_ c: ClassifiedRecipe, _ expiring: Set<String>) -> Bool {
         c.resolutions.contains { r in
             if case .inStock = r.status { return expiring.contains { looseContains(r.name, $0) } }
             return false
@@ -183,7 +201,7 @@ struct PreparationDiscoveryView: View {
                     HStack(spacing: 12) {
                         if !c.recipe.cookTime.isEmpty { metaLabel("clock", c.recipe.cookTime) }
                         if !c.recipe.difficulty.isEmpty { metaLabel("flame", c.recipe.difficulty) }
-                        if role(c.recipe).isStandalone { metaLabel("checkmark.circle", "no sides needed") }
+                        if Self.role(c.recipe).isStandalone { metaLabel("checkmark.circle", "no sides needed") }
                     }
                     .scaledFont(11.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
@@ -198,7 +216,7 @@ struct PreparationDiscoveryView: View {
         .a11yButton("\(c.recipe.title). \(roleBadge(c.recipe)). \(c.readiness.statusLabel)")
     }
 
-    private func roleBadge(_ r: UserRecipe) -> String { role(r).label.uppercased() }
+    private func roleBadge(_ r: UserRecipe) -> String { Self.role(r).label.uppercased() }
 
     private func readinessBadge(_ c: ClassifiedRecipe) -> some View {
         let (color, text): (Color, String) = {
@@ -303,7 +321,7 @@ struct PreparationDiscoveryView: View {
     }
 
     // Shared matcher — was a sixth copy of the substring rule.
-    private func looseContains(_ a: String, _ b: String) -> Bool {
+    nonisolated private static func looseContains(_ a: String, _ b: String) -> Bool {
         KitchenAvailability.nameMatches(a, b)
     }
 }

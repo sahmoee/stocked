@@ -222,8 +222,13 @@ enum FinderService {
         category: page.category, cuisine: page.cuisine, tags: page.tags,
         ingredients: page.ingredients, steps: page.steps.map(\.text), imageURL: page.imageURL,
         rating: page.rating)
-      let existing = saved.first { FinderWebPolicy.identity($0.sourceURL ?? "") == key }
+      guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(page.imageURL) else { continue }
+      let existing = saved.first {
+        FinderWebPolicy.identity($0.sourceURL ?? "") == key
+          && !RecipeDisplayPolicy.isKnownPublisherPlaceholder($0.imageURL ?? "")
+      }
       let recipe = existing ?? FinderData.recipe(entry, parseAmounts: true)
+      guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(recipe.imageURL ?? "") else { continue }
       // Web cards always show inventory facts; this does not change eligibility
       // or rank unless the actual selected kitchen/sort rule asks for it.
       var coverageFilters = filters
@@ -288,6 +293,7 @@ enum FinderService {
     let cuisineCounts = Dictionary(grouping: saved, by: { FinderQuery.normalize($0.cuisine) })
       .mapValues { $0.reduce(0) { $0 + $1.cookCount } }
     func consume(_ recipe: UserRecipe, entry: RecipeDatabaseEntry?) {
+      guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(recipe.imageURL ?? "") else { return }
       let key = FinderWebPolicy.recipeIdentity(sourceURL: recipe.sourceURL, id: recipe.id)
       guard seen.insert(key).inserted else { return }
       var record = FinderData.record(

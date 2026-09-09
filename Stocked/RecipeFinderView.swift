@@ -330,10 +330,7 @@ struct RecipeFinderView: View {
   }
   @ViewBuilder private func options(_ category: FinderCategory) -> some View {
     if category == .cuisine {
-      TextField("Search cuisines", text: $cuisineQuery).font(.stocked(.body))
-        .padding(12).frame(minHeight: 48).background(
-          surface, in: RoundedRectangle(cornerRadius: 14)
-        )
+      StockedSearchField(text: $cuisineQuery, prompt: "Search cuisines")
         .accessibilityLabel("Search cuisine options")
     }
     LazyVGrid(columns: [GridItem(.adaptive(minimum: 145))], spacing: 12) {
@@ -448,26 +445,14 @@ struct RecipeFinderView: View {
     }.padding(16).background(surface, in: RoundedRectangle(cornerRadius: 18))
   }
   private var search: some View {
-    HStack {
-      Image(systemName: "magnifyingglass").accessibilityHidden(true)
-      TextField("Search these results", text: $model.flow.filters.query)
-        .font(.stocked(.body)).focused($searchFocused).submitLabel(.search)
-        .onSubmit {
-          searchFocused = false
-          AppAnalytics.shared.log(.finderSearchSubmitted)
-        }
-        .accessibilityLabel("Search recipes or ingredients")
-      if !model.flow.filters.query.isEmpty {
-        Button {
-          model.flow.filters.query = ""
-        } label: {
-          Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44)
-        }
-        .accessibilityLabel("Clear search")
-      }
-    }.padding(.horizontal, 12).frame(minHeight: 44).background(
-      surface, in: RoundedRectangle(cornerRadius: 14))
+    StockedSearchField(text: $model.flow.filters.query, prompt: "Search these results", focus: $searchFocused,
+                       onSubmit: {
+                         searchFocused = false
+                         AppAnalytics.shared.log(.finderSearchSubmitted)
+                       })
+      .accessibilityLabel("Search recipes or ingredients")
   }
+
   private var results: some View {
     VStack(alignment: .leading, spacing: 16) {
       heading(model.loading && model.hits.isEmpty ? "Finding recipes for you" : "Recipes for you")

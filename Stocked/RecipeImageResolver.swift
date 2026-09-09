@@ -98,6 +98,7 @@ actor RecipeImageResolver {
         guard !key.isEmpty else { return nil }
 
         if let storedURL, !storedURL.isEmpty,
+           !RecipeDisplayPolicy.isKnownPublisherPlaceholder(storedURL),
            let stored = URL(string: storedURL),
            await isReachableImage(storedURL) == .reachable {
             cache[key] = stored.absoluteString
@@ -106,14 +107,15 @@ actor RecipeImageResolver {
         }
 
         // Curated feed first: images.json from the stocked-recipes repo (zero API quota).
-        if let curated = await RemoteImageFeed.shared.lookup(title: title), let u = URL(string: curated) {
+        if let curated = await RemoteImageFeed.shared.lookup(title: title),
+           !RecipeDisplayPolicy.isKnownPublisherPlaceholder(curated), let u = URL(string: curated) {
             cache[key] = curated
             return await persistResolvedArtwork(u, recipeID: recipeID, title: title)
         }
 
         // Cache hit (including a remembered genuine "nothing found" → "").
         if let hit = cache[key] {
-            guard !hit.isEmpty else { return nil }
+            guard !hit.isEmpty, !RecipeDisplayPolicy.isKnownPublisherPlaceholder(hit) else { return nil }
             return await persistResolvedArtwork(URL(string: hit), recipeID: recipeID, title: title)
         }
 
@@ -139,7 +141,9 @@ actor RecipeImageResolver {
         recipeID: UUID?,
         title: String
     ) async -> URL? {
-        guard let url, RecipeStore.isValidRemoteImageURL(url.absoluteString) else { return url }
+        guard let url else { return nil }
+        guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(url.absoluteString) else { return nil }
+        guard RecipeStore.isValidRemoteImageURL(url.absoluteString) else { return url }
         _ = await RecipeStore.shared.recordArtwork(
             imageURL: url.absoluteString,
             recipeID: recipeID,

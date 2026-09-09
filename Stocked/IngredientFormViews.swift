@@ -129,18 +129,7 @@ struct IngredientPickerSheet: View {
                 session.themeBgColor.ignoresSafeArea()
                 VStack(spacing: 0) {
                     // Search
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
-                        TextField("Search ingredients…", text: $searchText)
-                        .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                            .scaledFont(15).foregroundStyle(session.themeTextColor)
-                        if !searchText.isEmpty {
-                            Button { searchText = "" } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(session.themeTextColor.opacity(0.3))
-                            }.buttonStyle(.plain)
-                        }
-                    }
-                    .padding(11).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    StockedSearchField(text: $searchText, prompt: "Search ingredients…")
                     .padding(.horizontal, 20).padding(.vertical, 12)
 
                     if searchText.isEmpty && selectedCat == nil {

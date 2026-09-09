@@ -12,9 +12,9 @@ struct CookRightNowView: View {
     @State private var openRecipe: UserRecipe? = nil
     @State private var goRecipe = false
 
-    private var ranked: [(recipe: UserRecipe, expiringUsed: [String])] {
-        store.cookableRankedByExpiry()
-    }
+    @State private var ranked: [(recipe: UserRecipe, expiringUsed: [String])] = []
+    @State private var isLoading = true
+    private var rankingRevision: String { "\(store.inventoryRevision)|\(store.recipeRevision)" }
     private var expiring: [LocalInventoryItem] { store.expiringSoonItems }
 
     var body: some View {
@@ -26,7 +26,7 @@ struct CookRightNowView: View {
                     Text("Cook Right Now")
                         .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(ranked.isEmpty
+                    Text(isLoading ? "Finding fully stocked meals…" : ranked.isEmpty
                          ? "Nothing's fully stocked yet — add a few items and these will fill in."
                          : "Meals you can make with what's on hand. Top picks use what's expiring first.")
                         .scaledFont(14)
@@ -69,13 +69,17 @@ struct CookRightNowView: View {
                 }
 
                 // Ranked makeable meals
-                if ranked.isEmpty {
+                if isLoading {
+                    ProgressView("Checking available ingredients…")
+                        .tint(session.accentColor).padding(.vertical, 12)
+                }
+                if ranked.isEmpty && !isLoading {
                     StockedEmptyState(icon: "frying.pan",
                                       title: "No ready meals yet",
                                       subtitle: "When your recipes are fully stocked, they'll appear here — ready to cook with zero shopping.")
                         .padding(.horizontal, 24).padding(.top, 12)
                 } else {
-                    VStack(spacing: 12) {
+                    LazyVStack(spacing: 12) {
                         ForEach(ranked, id: \.recipe.id) { entry in
                             cookNowCell(entry.recipe, expiringUsed: entry.expiringUsed)
                         }
@@ -90,6 +94,19 @@ struct CookRightNowView: View {
                 if let r = openRecipe { UserRecipeDetailView(recipe: r) }
             }
             .onAppear { UsageMetrics.shared.record(.cookRightNowOpened) }
+            .task(id: rankingRevision) {
+                isLoading = true
+                let revision = rankingRevision
+                let recipes = store.cookCatalog
+                let inventory = store.inventoryItems
+                let worker = Task.detached(priority: .utility) {
+                    GuestDataStore.cookableRankedByExpiry(recipes: recipes, inventory: inventory)
+                }
+                let result = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+                guard !Task.isCancelled, revision == rankingRevision else { return }
+                ranked = result
+                isLoading = false
+            }
         }
     }
 

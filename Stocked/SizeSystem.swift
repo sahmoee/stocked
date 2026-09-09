@@ -64,6 +64,7 @@ struct StockedLayoutMetrics: Equatable {
     var formContentWidth: CGFloat { min(contentWidth, 760) }
     var minimumControlHeight: CGFloat { max(44, 48 * interfaceScale * min(textScale, 1.7)) }
     var controlHorizontalPadding: CGFloat { 12 * max(interfaceScale, min(textScale, 1.45)) }
+    var controlVerticalPadding: CGFloat { 10 * max(1, min(textScale, 1.35)) }
     var controlCornerRadius: CGFloat { min(24, 14 * max(interfaceScale, min(textScale, 1.35))) }
     /// Shared presentation geometry. Width decides horizontal placement; Dynamic Type
     /// only increases intrinsic vertical space so fields and cards never jump columns.

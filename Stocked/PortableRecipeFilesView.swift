@@ -74,7 +74,7 @@ struct PortableRecipeFilesView: View {
                     Text("Export your current recipe as Cooklang or Schema.org JSON. Export original keeps the exact imported text, comments, and extra metadata. Attached photos are included in full Kitchen Transfer backups; these text exports keep web image links.")
                         .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                     TextField("Find a saved recipe", text: $search)
-                        .textFieldStyle(.roundedBorder).accessibilityLabel("Find a recipe to export")
+                        .textFieldStyle(StockedThemedTextFieldStyle()).accessibilityLabel("Find a recipe to export")
                     if session.guestStore.userRecipes.isEmpty {
                         Text("Save a recipe first, then export it here.").foregroundStyle(session.themeSecondaryText)
                     }

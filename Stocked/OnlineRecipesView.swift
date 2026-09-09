@@ -923,6 +923,7 @@ struct OnlineRecipesView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(session.themeSecondaryText)
                     TextField("Try \"quick chicken no dairy\" or \"Italian breakfast\"…", text: $searchText)
+                    .textFieldStyle(.plain)
                                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
 .scaledFont(14).foregroundStyle(session.themeTextColor)
                         .autocorrectionDisabled()

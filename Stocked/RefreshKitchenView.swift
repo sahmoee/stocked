@@ -39,7 +39,10 @@ struct RefreshKitchenView: View {
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if remaining.isEmpty {
+                if !built {
+                    ProgressView("Checking your kitchen…")
+                        .tint(session.accentColor).padding(.vertical, 20)
+                } else if remaining.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.seal.fill")
                             .scaledFont(44).foregroundStyle(Color.stockedGreen)
@@ -65,17 +68,16 @@ struct RefreshKitchenView: View {
                 Spacer(minLength: 20)
             }
         }
-        .task { buildQueueIfNeeded() }
+        .task { await buildQueueIfNeeded() }
     }
 
     // MARK: Queue construction
 
-    private func buildQueueIfNeeded() {
+    private func buildQueueIfNeeded() async {
         guard !built else { return }
-        built = true
-
-        // Classify once to find pivot ingredients.
-        let snapshot = CookNowCompute.run(store: store, session: nil)
+        // Let the screen appear while the shared classifier runs off-main.
+        guard let snapshot = await CookNowCompute.runYielding(store: store, session: nil),
+              !Task.isCancelled else { return }
 
         // Names that gate Almost Ready recipes (their missing items) — items
         // matching these unlock meals when confirmed present.
@@ -110,6 +112,7 @@ struct RefreshKitchenView: View {
             out.append(item)
         }
         queue = Array(out.prefix(8))   // focused, never a full audit
+        built = true
     }
 
     // MARK: Row (same verbs and store calls as PantryAuditView)

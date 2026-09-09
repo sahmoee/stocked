@@ -1,5 +1,5 @@
 // TabBarView.swift — Shared glass navigation (5 tabs, icon over label).
-// Selected tabs retain the brand's high-contrast charcoal treatment.
+// Selected tabs use a warm outlined treatment without an opaque backplate.
 //
 // Four tabs use SF Symbols (Home, Inventory, Recipes, Grocery). The Cook tab has no
 // SF Symbol for a chef's hat, so it draws a custom toque — normalised to match the
@@ -111,7 +111,7 @@ struct StockedTabBar: View {
     private func tabCell(_ tab: StockedTab) -> some View {
         let isActive = selected == tab
         let foreground = isActive
-            ? Color.selectedTabForeground(session.isDarkMode)
+            ? Color.appAccent(session.isDarkMode)
             : session.themeSecondaryText
 
         Button {
@@ -165,7 +165,7 @@ struct StockedTabBar: View {
                 if isActive {
                     RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
                                      style: .continuous)
-                        .fill(Color.selectedTabBackground)
+                        .fill((session.isDarkMode ? Color.stockedGoldDark : Color.stockedGold).opacity(0.10))
                         .overlay {
                             RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
                                              style: .continuous)

@@ -94,21 +94,18 @@ final class StockedKnowledgeBase {
         guard !q.isEmpty else { return [] }
         ensureNormIndex()
 
-        // Single pass over the precomputed normalized names/aliases (#2). Partition into
-        // prefix matches (ranked first) and substring matches, then rank each by score.
-        var starts: [KnowledgeIngredient] = []
-        var contains: [KnowledgeIngredient] = []
-        for i in ingredients.indices {
+        // Score matching ingredients once rather than recalculating recency
+        // twice per comparator while sorting two entire result arrays.
+        let indices = BoundedSearchRanking.select(from: Array(ingredients.indices), limit: limit) { i in
             let name = _normNames[i]
             if name.hasPrefix(q) {
-                starts.append(ingredients[i])
+                return (1, ingredients[i].rankScore)
             } else if name.contains(q) || _normAliases[i].contains(where: { $0.contains(q) }) {
-                contains.append(ingredients[i])
+                return (0, ingredients[i].rankScore)
             }
+            return nil
         }
-        starts.sort { $0.rankScore > $1.rankScore }
-        contains.sort { $0.rankScore > $1.rankScore }
-        return Array((starts + contains).prefix(limit))
+        return indices.map { ingredients[$0] }
     }
 
     // MARK: - Recipe Suggestions

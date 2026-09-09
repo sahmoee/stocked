@@ -561,26 +561,8 @@ struct InventoryView: View {
 
     // Search is visible whenever it filters the list; closing it clears the query.
     @ViewBuilder private var inlineSearchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .scaledFont(15).foregroundStyle(session.inventoryGold)
-            TextField("Search items", text: $invSearch)
-                .scaledFont(15).foregroundStyle(session.themeTextColor)
-                .autocorrectionDisabled()
-                .focused($inventorySearchFocused)
-                .submitLabel(.search)
-                .onSubmit { inventorySearchFocused = false }
-            if !invSearch.isEmpty {
-                Button { invSearch = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .scaledFont(16).foregroundStyle(session.themeSecondaryText)
-                        .frame(width: 44, height: 44)
-                }.buttonStyle(.plain).accessibilityLabel("Clear inventory search")
-            }
-        }
-        .padding(.horizontal, 14).frame(minHeight: 48)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(session.inventoryGold.opacity(0.3), lineWidth: 0.7))
+        StockedSearchField(text: $invSearch, prompt: "Search items", focus: $inventorySearchFocused,
+                           onSubmit: { inventorySearchFocused = false })
         .padding(.horizontal, 24).padding(.bottom, 12)
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
@@ -591,6 +573,7 @@ struct InventoryView: View {
                 Image(systemName: "magnifyingglass")
                     .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.5))
                 TextField("", text: $invSearch, prompt: Text("Search items").foregroundColor(Color.stockedWhite.opacity(0.4)))
+                .textFieldStyle(.plain)
                     .scaledFont(13).foregroundStyle(Color.stockedWhite)
                     .autocorrectionDisabled()
                 if !invSearch.isEmpty {

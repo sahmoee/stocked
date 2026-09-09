@@ -27,7 +27,7 @@ struct RecipePredictiveTextField: View {
 
     @FocusState private var isFocused: Bool
     @State private var recipeSuggestions: [RecipeDatabaseEntry] = []
-    @State private var snapshot: [RecipeDatabaseEntry] = []
+    @State private var selectedSuggestionTitle: String?
     @State private var recipeSuggestionPosition: UUID? = nil
     @State private var ingredientSuggestionPosition: UUID? = nil
 
@@ -44,23 +44,24 @@ struct RecipePredictiveTextField: View {
         VStack(alignment: .leading, spacing: 0) {
             // ── Text field ────────────────────────────────────────────
             TextField(placeholder, text: $text)
-                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+                .foregroundStyle(session.themeTextColor)
                 .focused($isFocused)
                 .onSubmit { onCommit() }
                 .autocorrectionDisabled()
-                .onChange(of: text) { _, newValue in updateRecipeSuggestions(for: newValue) }
-                .task { snapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
+                .task(id: "\(showRecipes):\(text)") {
+                    await updateRecipeSuggestions(for: text)
+                }
 
             // ── Recipe suggestion chips ───────────────────────────────
             if !recipeSuggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "book.closed.fill")
-                            .scaledFont(10)
-                            .foregroundStyle(Color.stockedGold.opacity(0.7))
+                            .font(.stockedCaption)
+                            .foregroundStyle(session.themeSecondaryText)
                         Text("Recipes")
-                            .scaledFont(10, weight: .semibold, design: .serif)
-                            .foregroundStyle(Color.stockedGold.opacity(0.7))
+                            .font(.stockedCaption.weight(.semibold))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                     .padding(.top, 8)
 
@@ -76,7 +77,7 @@ struct RecipePredictiveTextField: View {
                                     HStack(spacing: 5) {
                                         Image(systemName: "fork.knife")
                                             .scaledFont(11)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(session.accentColor)
                                         VStack(alignment: .leading, spacing: 1) {
                                             Text(entry.title)
                                                 .scaledFont(13, weight: .semibold, design: .serif)
@@ -86,13 +87,13 @@ struct RecipePredictiveTextField: View {
                                                 HStack(spacing: 4) {
                                                     if !entry.totalTime.isEmpty {
                                                         Text(entry.totalTime)
-                                                            .scaledFont(10)
-                                                            .foregroundStyle(.secondary)
+                                                            .font(.stockedCaption)
+                                                            .foregroundStyle(session.themeSecondaryText)
                                                     }
                                                     if !entry.sourceName.isEmpty && entry.sourceName != "My Recipes" {
                                                         Text("· \(entry.sourceName)")
-                                                            .scaledFont(10)
-                                                            .foregroundStyle(.secondary)
+                                                            .font(.stockedCaption)
+                                                            .foregroundStyle(session.themeSecondaryText)
                                                             .fixedSize(horizontal: false, vertical: true)
                                                     }
                                                 }
@@ -101,6 +102,7 @@ struct RecipePredictiveTextField: View {
                                     }
                                     .padding(.horizontal, 11)
                                     .padding(.vertical, 7)
+                                    .frame(minHeight: 44)
                                     .background(Color.stockedGold.opacity(0.12))
                                     .overlay(Capsule().stroke(Color.stockedGold.opacity(0.45), lineWidth: 1))
                                     .clipShape(Capsule())
@@ -146,6 +148,7 @@ struct RecipePredictiveTextField: View {
                                 }
                                 .padding(.horizontal, 11)
                                 .padding(.vertical, 7)
+                                    .frame(minHeight: 44)
                                 .background(Color.stockedGold.opacity(0.18))
                                 .overlay(Capsule().stroke(Color.stockedGold.opacity(0.5), lineWidth: 1))
                                 .clipShape(Capsule())
@@ -174,10 +177,17 @@ struct RecipePredictiveTextField: View {
     }
 
     // MARK: - Private helpers
-    private func updateRecipeSuggestions(for query: String) {
-        guard showRecipes else { recipeSuggestions = []; return }
-        let mgr = RecipeDatabaseManager.shared
-        let results = mgr.suggestions(for: query, in: snapshot, limit: 12)
+    private func updateRecipeSuggestions(for query: String) async {
+        recipeSuggestions = []
+        if selectedSuggestionTitle != query { selectedSuggestionTitle = nil }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard showRecipes, !trimmed.isEmpty, query != selectedSuggestionTitle else { return }
+        // Ingredient-only fields used to load the entire writable recipe database too.
+        // Request just the visible suggestions, after typing settles; SwiftUI cancels
+        // this task on edits/dismissal and obsolete database results cannot replace chips.
+        do { try await Task.sleep(for: .milliseconds(180)) } catch { return }
+        let results = await RecipeDatabaseManager.shared.suggestions(for: trimmed, limit: 12)
+        guard !Task.isCancelled, query == text else { return }
         // #17: collapse near-duplicate titles so suggestions are clean, then cap at 6.
         let deduped = RecipeDedup.dedupe(results,
                                          title: { $0.title },
@@ -186,6 +196,7 @@ struct RecipePredictiveTextField: View {
     }
 
     private func selectRecipe(_ entry: RecipeDatabaseEntry) {
+        selectedSuggestionTitle = entry.title
         text = entry.title
         isFocused = false
         if let formBinding = form {
@@ -238,7 +249,7 @@ struct RecipeFormAutofillBanner: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles")
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(session.accentColor)
                 .scaledFont(13)
             Text("Autofilled from \(sourceName.isEmpty ? "recipe database" : sourceName)")
                 .scaledFont(12, weight: .medium, design: .serif)
@@ -247,7 +258,7 @@ struct RecipeFormAutofillBanner: View {
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
                     .scaledFont(11, weight: .semibold)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(session.themeSecondaryText)
             }
             .buttonStyle(.plain)
         }

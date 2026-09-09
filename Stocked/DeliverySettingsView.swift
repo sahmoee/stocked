@@ -50,7 +50,7 @@ struct DeliverySettingsView: View {
                                 .font(.caption).foregroundStyle(session.themeSecondaryText)
                             if service.status?.ownerVerified == true {
                                 TextField("https://receiver.account.workers.dev", text: $endpoint)
-                                    .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL).textFieldStyle(.roundedBorder)
+                                    .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL).textFieldStyle(StockedThemedTextFieldStyle())
                                 Button(service.status?.webhookEnabled == true ? "Change receiver and signing key…" : "Enable this receiver…") {
                                     reviewedEndpoint = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
                                     confirmEnable = true

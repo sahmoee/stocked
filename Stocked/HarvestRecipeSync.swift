@@ -201,6 +201,7 @@ final class HarvestRecipeSync {
         // automatically. Source-less personal recipes remain private because they fail
         // the provenance checks below and stay in My Collection only.
         return isHTTPS(recipe.sourceURL) && isHTTPS(recipe.imageURL)
+            && !RecipeDisplayPolicy.isKnownPublisherPlaceholder(recipe.imageURL ?? "")
             && recipe.ingredients.count >= 3 && !recipe.instructions.isEmpty
     }
 
@@ -399,6 +400,10 @@ nonisolated private struct HarvestWireRecipe: Decodable, Sendable {
             guard !name.isEmpty else { return nil }
             return amount.isEmpty ? name : "\(amount) \(name)"
         }
+
+        // A cached Worker copy of known publisher branding is the same invalid artwork.
+        guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(imageURL ?? ""),
+              !RecipeDisplayPolicy.isKnownPublisherPlaceholder(image ?? "") else { return nil }
 
         // Prefer the absolute original image; otherwise resolve the Worker's cached-image path
         // against the Worker base so <id>.jpg becomes a full https URL the resolver can load.

@@ -25,8 +25,19 @@ nonisolated enum RecipeDisplayPolicy {
         return String(title[start...])
     }
 
+    /// Food Network's homepage fallback is a publisher branding card, not a dish photo.
+    /// Match the observed asset path across its size/format renditions, never the source name.
+    static func isKnownPublisherPlaceholder(_ raw: String) -> Bool {
+        guard let url = URL(string: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let host = url.host?.lowercased(),
+              host == "food.fnr.sndimg.com" || host == "foodnetwork.com" || host.hasSuffix(".foodnetwork.com") else { return false }
+        let path = (url.path.removingPercentEncoding ?? url.path).lowercased()
+        return path.hasPrefix("/content/dam/images/food/editorial/homepage/fn-feature.")
+    }
+
     static func isLikelyRecipeImageURL(_ raw: String, sourceURL: String? = nil) -> Bool {
-        guard let url = URL(string: raw), url.scheme?.lowercased() == "https", url.host != nil else { return false }
+        guard !isKnownPublisherPlaceholder(raw),
+              let url = URL(string: raw), url.scheme?.lowercased() == "https", url.host != nil else { return false }
         if let sourceURL, URL(string: sourceURL)?.standardized == url.standardized { return false }
         let token = (url.lastPathComponent + " " + url.path).lowercased()
         let branding = ["logo", "favicon", "app-icon", "appicon", "site-icon", "default-og", "og-default", "placeholder", "stocked-social", "stocked-logo"]
@@ -36,6 +47,7 @@ nonisolated enum RecipeDisplayPolicy {
     static func isPresentable(title: String, imageURL: String?, imageData: Data? = nil,
                               ingredients: Int, steps: Int, sourceURL: String? = nil) -> Bool {
         guard RecipeQuality.hasMeaningfulTitle(cleanedTitle(title)), ingredients >= 3, steps > 0 else { return false }
+        guard !isKnownPublisherPlaceholder(imageURL ?? "") else { return false }
         if let imageData, !imageData.isEmpty { return true }
         guard let imageURL else { return false }
         return isLikelyRecipeImageURL(imageURL, sourceURL: sourceURL)
