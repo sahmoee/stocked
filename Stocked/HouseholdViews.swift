@@ -40,7 +40,9 @@ private struct HHScreen<Content: View>: View {
                 VStack(spacing: 0) { content }
                     .padding(.horizontal, 22)
                     .padding(.top, 8)
+                    .padding(.bottom, 20)
             }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
@@ -906,7 +908,7 @@ struct HouseholdConflictReviewView: View {
                     Image(systemName: "checkmark.circle.fill").scaledFont(34).foregroundStyle(Color.stockedGold)
                     Text("All caught up").scaledFont(18, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Text("There are no changes to review.").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
-                }.padding(.top, 60)
+                }.padding(.vertical, 24)
             } else {
                 Text("Two people changed the same thing while offline. Choose which version to keep for each one.")
                     .scaledFont(13).foregroundStyle(session.themeSecondaryText)

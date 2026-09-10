@@ -79,7 +79,7 @@ struct CategoryRow: View {
                 .foregroundStyle(accentColor)
             Spacer()
         }
-        .padding(.horizontal, 28)
+        .padding(.horizontal, 20)
     }
 }
 
@@ -91,37 +91,30 @@ struct FoodsCategoryView: View {
         StockedShell(showBack: true) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Foods")
-                    .scaledFont(40, weight: .bold, design: .serif)
+                    .scaledFont(28, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                    .padding(.horizontal, 28).padding(.bottom, 4)
+                    .padding(.horizontal, 20).padding(.bottom, 4)
                 Text("Build your meal around")
                     .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeSecondaryText)
-                    .padding(.horizontal, 28).padding(.bottom, 20)
+                    .padding(.horizontal, 20).padding(.bottom, 20)
 
-                // Rows spread evenly to fill the screen
-                VStack(spacing: 0) {
-                    Spacer()
+                // Keep category actions together with the shared card spacing.
+                VStack(spacing: 12) {
                     NavigationLink(destination: FoodsSubOptionView(category: "Protein", icon: "🍗", servings: servings)) {
                         CategoryRow(icon: "fork.knife", emoji: "🍗", label: "Protein", assetName: "protein")
                     }.buttonStyle(.plain)
-                    Spacer()
                     NavigationLink(destination: FoodsSubOptionView(category: "Vegetables", icon: "🥕", servings: servings)) {
                         CategoryRow(icon: "leaf", emoji: "🥕", label: "Vegetables", assetName: "vegetables")
                     }.buttonStyle(.plain)
-                    Spacer()
                     NavigationLink(destination: FoodsSubOptionView(category: "Expiring Soon", icon: "📅", servings: servings)) {
                         CategoryRow(icon: "calendar", emoji: "📅", label: "Expiring Soon", assetName: "expiring_soon")
                     }.buttonStyle(.plain)
-                    Spacer()
                     NavigationLink(destination: FoodsSubOptionView(category: "Leftovers", icon: "🥡", servings: servings)) {
                         CategoryRow(icon: "takeoutbag.and.cup.and.straw.fill", emoji: "🥡", label: "Leftovers", assetName: "leftovers")
                     }.buttonStyle(.plain)
-                    Spacer()
                 }
-                .frame(maxHeight: .infinity)
             }
-            .frame(maxHeight: .infinity)
         }
     }
 }
@@ -258,7 +251,7 @@ struct FoodsSubOptionView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.horizontal, 28).padding(.bottom, 24)
+                .padding(.horizontal, 20).padding(.bottom, 24)
 
                 // Inventory legend (protein + veg categories only)
                 if pantryGraded {
@@ -283,7 +276,7 @@ struct FoodsSubOptionView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .padding(.horizontal, 28).padding(.bottom, 16)
+                    .padding(.horizontal, 20).padding(.bottom, 16)
                 }
 
                 VStack(alignment: .leading, spacing: 20) {
@@ -397,10 +390,10 @@ struct MoodsCategoryView: View {
                         .scaledFont(22, weight: .regular, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                 }
-                .padding(.horizontal, 28).padding(.bottom, 8)
+                .padding(.horizontal, 20).padding(.bottom, 8)
                 Text("Let your vibe decide the recipe.")
                     .scaledFont(14).foregroundStyle(session.themeSecondaryText)
-                    .padding(.horizontal, 28).padding(.bottom, 32)
+                    .padding(.horizontal, 20).padding(.bottom, 32)
 
                 VStack(spacing: 24) {
                     ForEach(categories, id: \.label) { cat in
@@ -423,7 +416,7 @@ struct MoodsCategoryView: View {
                                 Image(systemName: "chevron.right")
                                     .scaledFont(14).foregroundStyle(Color.stockedGold.opacity(0.4))
                             }
-                            .padding(.horizontal, 28)
+                            .padding(.horizontal, 20)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -555,7 +548,7 @@ struct MoodsSubOptionView: View {
                             .foregroundStyle(session.themeSecondaryText)
                     }
                 }
-                .padding(.horizontal, 28).padding(.bottom, 32)
+                .padding(.horizontal, 20).padding(.bottom, 32)
 
                 // Option buttons — each shows emoji + label + description
                 VStack(spacing: 14) {
@@ -780,7 +773,7 @@ struct MoodRecipeFinderView: View {
             Button { fetchRecipe() } label: {
                 Label("Try Again", systemImage: "arrow.clockwise")
                     .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
-                    .padding(.horizontal, 28).padding(.vertical, 14)
+                    .padding(.horizontal, 20).padding(.vertical, 14)
                     .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             }.buttonStyle(.plain)
             Spacer()
@@ -975,6 +968,7 @@ struct UnstockedOptionSheet: View {
     let onAddToList: () -> Void
 
     var body: some View {
+        ScrollView {
         VStack(spacing: 0) {
             // Handle
             RoundedRectangle(cornerRadius: 3)
@@ -993,7 +987,7 @@ struct UnstockedOptionSheet: View {
                     .foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center)
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
             .padding(.bottom, 24)
 
             VStack(spacing: 10) {
@@ -1025,7 +1019,8 @@ struct UnstockedOptionSheet: View {
             }
             .padding(.horizontal, 24)
 
-            Spacer()
+        }
+        .padding(.bottom, 20)
         }
         .background(session.themeBgColor)
     }

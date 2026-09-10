@@ -23,6 +23,7 @@ struct SubstitutionReviewSheet: View {
     @Environment(AppSession.self) var session
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.stockedLayout) private var layoutMetrics
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
@@ -41,50 +42,44 @@ struct SubstitutionReviewSheet: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Review substitutions")
-                        .scaledFont(21, weight: .bold, design: .serif)
-                        .foregroundStyle(session.themeTextColor)
-                    Text("You don't have these exact ingredients, but you have swaps that work. Confirm the ones you want to use.")
-                        .scaledFont(13)
-                        .foregroundStyle(session.themeSecondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Review substitutions")
+                            .scaledFont(21, weight: .bold, design: .serif)
+                            .foregroundStyle(session.themeTextColor)
+                        Text("You don't have these exact ingredients, but you have swaps that work. Confirm the ones you want to use.")
+                            .scaledFont(13)
+                            .foregroundStyle(session.themeSecondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                    if reviewRows.isEmpty {
-                        VStack(spacing: 10) {
-                            Image(systemName: "checkmark.seal.fill")
-                                .scaledFont(38).foregroundStyle(Color.stockedGreen)
-                            Text("All substitutions confirmed.")
-                                .scaledFont(15, weight: .semibold, design: .serif)
-                                .foregroundStyle(session.themeTextColor)
-                        }
-                        .frame(maxWidth: .infinity).padding(.vertical, 30)
-                    } else {
-                        ScrollView(showsIndicators: false) {
+                        if reviewRows.isEmpty {
+                            VStack(spacing: 10) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .scaledFont(38).foregroundStyle(Color.stockedGreen)
+                                Text("All substitutions confirmed.")
+                                    .scaledFont(15, weight: .semibold, design: .serif)
+                                    .foregroundStyle(session.themeTextColor)
+                            }
+                            .frame(maxWidth: .infinity).padding(.vertical, 30)
+                        } else {
                             VStack(spacing: 10) {
                                 ForEach(reviewRows, id: \.name) { row in
                                     swapCard(row)
                                 }
                             }
                         }
-                    }
 
-                    Button { dismiss() } label: {
-                        Text("Done")
-                            .scaledFont(15, weight: .semibold, design: .serif)
-                            .foregroundStyle(Color.stockedWhite)
-                            .frame(maxWidth: .infinity).padding(.vertical, 13)
-                            .background(dark ? Color.darkSurface : Color.stockedCharcoal)
-                            .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
-                                .stroke(dark ? Color.stockedGold : Color.clear, lineWidth: 1.5))
-                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+                        Button { dismiss() } label: {
+                            Text("Done")
+                        }
+                        .stockedPrimary(accent: session.themeButtonColor)
                     }
-                    .buttonStyle(.plain)
+                    .padding(20)
                 }
-                .padding(20)
             }
         }
         .presentationDetents([.medium, .large])
+        .stockedPresentationSurface(width: .form)
         .task { recompute() }
     }
 
@@ -96,7 +91,9 @@ struct SubstitutionReviewSheet: View {
 
     private func swapCard(_ row: (name: String, amount: String, suggestion: String)) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            ((layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls)
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))) {
                 Text(row.name.displayNormalized)
                     .scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
@@ -106,7 +103,7 @@ struct SubstitutionReviewSheet: View {
                 Text("you have: \(row.suggestion.displayNormalized)")
                     .scaledFont(13.5, weight: .semibold)
                     .foregroundStyle(Color.stockedGreen)
-                Spacer()
+                if !layoutMetrics.isAccessibilityText && !layoutMetrics.prefersVerticalControls { Spacer() }
             }
 
             if let note = guidance(for: row.name, substitute: row.suggestion) {
@@ -116,7 +113,9 @@ struct SubstitutionReviewSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: 8) {
+            ((layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls)
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))) {
                 Button {
                     confirm(row)
                 } label: {
@@ -124,6 +123,7 @@ struct SubstitutionReviewSheet: View {
                         .scaledFont(12.5, weight: .semibold)
                         .foregroundStyle(Color.stockedGreen)
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
+                        .frame(minHeight: 44)
                         .background(Color.stockedGreen.opacity(0.12))
                         .clipShape(Capsule())
                 }
@@ -138,6 +138,7 @@ struct SubstitutionReviewSheet: View {
                         .scaledFont(12.5, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
+                        .frame(minHeight: 44)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Capsule())
                 }

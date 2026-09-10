@@ -562,8 +562,8 @@ struct InventoryHubView: View {
                 }
                 .buttonStyle(.plain)
             }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(cards, id: \.0) { card in
+            StockedEqualHeightGrid(items: cards, id: \.0,
+                columns: layoutMetrics.gridColumns(minimum: 150, maximum: 2).count) { card in
                     Button {
                         if let category = card.3 { selectedCategory = category }
                         else { goAllInventory = true }
@@ -601,7 +601,7 @@ struct InventoryHubView: View {
                                 }
                             }
                         }
-                        .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+                        .frame(maxWidth: .infinity, minHeight: 104, maxHeight: .infinity, alignment: .leading)
                         .foregroundStyle(session.themeTextColor)
                         .padding(12)
                         .background(session.themeCardColor,
@@ -613,7 +613,6 @@ struct InventoryHubView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(card.0), \(card.1) items")
-                }
             }
         }
     }
@@ -870,10 +869,9 @@ struct InventoryHubView: View {
             // number. Previously every card re-filtered allItems through the heavy
             // classifier, i.e. O(items × categories) per render.
             let counts = categoryCountMap()
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(MockCategory.allCases) { cat in
-                    categoryCard(cat, count: counts[cat] ?? 0)
-                }
+            StockedEqualHeightGrid(items: MockCategory.allCases,
+                columns: layoutMetrics.gridColumns(minimum: 150, maximum: 3).count) { cat in
+                categoryCard(cat, count: counts[cat] ?? 0)
             }
         }
     }
@@ -909,7 +907,8 @@ struct InventoryHubView: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14).padding(.vertical, 16)
+            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
                     .fill(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
@@ -1195,6 +1194,7 @@ enum MockCategory: String, CaseIterable, Identifiable, Hashable {
 
 struct CategoryItemsView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     let category: MockCategory
 
     // #FB — view options like the Calendar app: Detail list / Compact list / Icon grid.
@@ -1280,8 +1280,6 @@ struct CategoryItemsView: View {
         return buckets.sorted { $0.value.count > $1.value.count }
     }
 
-    let iconCols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
-                    GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
         StockedShell(showBack: true, scrollDisabled: false, canvasColor: session.inventoryCanvas) {
@@ -1354,8 +1352,9 @@ struct CategoryItemsView: View {
                                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             case .icons:
-                                LazyVGrid(columns: iconCols, spacing: 12) {
-                                    ForEach(groupItems) { item in iconTile(item) }
+                                StockedEqualHeightGrid(items: groupItems,
+                                    columns: layoutMetrics.gridColumns(minimum: 100, maximum: 3).count) { item in
+                                    iconTile(item)
                                 }
                             }
                         }
@@ -1363,7 +1362,7 @@ struct CategoryItemsView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 110)
+            .padding(.bottom, 12)
         }
         .sheet(item: Binding(get: { editItemID.map { EditTarget(id: $0) } },
                              set: { editItemID = $0?.id })) { target in
@@ -1462,7 +1461,7 @@ struct ExpiringSoonListView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 110)
+            .padding(.bottom, 12)
         }
         // Diagnostic instrumentation (T2): confirms the view mounted and how many items it
         // computed, so the log shows whether a crash happens before mount (navigation) or during

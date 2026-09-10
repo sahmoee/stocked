@@ -4305,7 +4305,7 @@ struct AppVersionView: View {
                         ForEach(StockedChangelog.versions) { ver in
                             versionSection(ver)
                         }
-                        Color.clear.frame(height: 40)
+                        Color.clear.frame(height: 16)
                     }
                     .padding(.top, 8)
                 }

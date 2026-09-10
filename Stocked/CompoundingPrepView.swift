@@ -17,6 +17,7 @@ struct CompoundingPrepView: View {
     @Environment(AppSession.self) var session
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.stockedLayout) private var layoutMetrics
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
@@ -62,7 +63,6 @@ struct CompoundingPrepView: View {
                     }
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
-                Spacer(minLength: 20)
             }
         }
     }
@@ -100,12 +100,14 @@ struct CompoundingPrepView: View {
     private func opportunityCard(_ opp: CompoundingOpportunity) -> some View {
         let isAccepted = accepted.contains(opp.id)
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            (layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))) {
                 Text(ImageFallbackService.emoji(for: opp.ingredient)).scaledFont(20)
                 Text(opp.ingredient.displayNormalized)
                     .scaledFont(16, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                Spacer()
+                if !layoutMetrics.isAccessibilityText && !layoutMetrics.prefersVerticalControls { Spacer() }
                 Text("\(opp.mealCount) more meal\(opp.mealCount == 1 ? "" : "s")")
                     .scaledFont(11, weight: .bold)
                     .foregroundStyle(Color.stockedGold)
@@ -141,8 +143,9 @@ struct CompoundingPrepView: View {
                 Label(isAccepted ? "Prepping extra" : "Prep extra now",
                       systemImage: isAccepted ? "checkmark.circle.fill" : "plus.circle")
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(isAccepted ? Color.stockedGreen : Color.stockedCharcoal)
+                    .foregroundStyle(isAccepted ? Color.stockedGreen : session.themeTextColor)
                     .frame(maxWidth: .infinity).padding(.vertical, 9)
+                    .frame(minHeight: 44)
                     .background(isAccepted ? Color.stockedGreen.opacity(0.14) : Color.stockedGold.opacity(0.18))
                     .clipShape(Capsule())
             }

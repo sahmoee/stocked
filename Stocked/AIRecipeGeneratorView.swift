@@ -86,13 +86,13 @@ struct AIRecipeGeneratorView: View {
                 Image(systemName: "xmark")
                     .scaledFont(13, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
-                    .frame(width: 30, height: 30)
+                    .frame(width: 44, height: 44)
                     .background((session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.08))
                     .clipShape(Circle())
             }.buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
-        .padding(.top, StockedScreen.safeTopInset + 6)
+        .padding(.top, 12)
         .padding(.bottom, 12)
     }
 
@@ -104,6 +104,7 @@ struct AIRecipeGeneratorView: View {
             field(label: "What do you want to make?") {
                 TextField("e.g. peanut butter cookies, a cozy soup for a rainy day…",
                           text: $idea, axis: .vertical)
+                    .textFieldStyle(.plain)
                     .lineLimit(2...)
                     .scaledFont(15)
                     .foregroundStyle(ink)
@@ -113,6 +114,7 @@ struct AIRecipeGeneratorView: View {
             // On-hand ingredients
             field(label: "Ingredients you have (optional)") {
                 TextField("comma separated — chicken, rice, garlic…", text: $haveText)
+                    .textFieldStyle(.plain)
                     .scaledFont(15)
                     .foregroundStyle(ink)
             }

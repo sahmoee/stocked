@@ -1,5 +1,12 @@
 # Read me first
 
+Stocked's September 9 layout pass aligns peer cards through shared lazy equal-height rows,
+uses actual sheet width for adaptive columns, reflows larger text and removes duplicate footer
+clearance. Ingredient grids keep compact summaries and full accessible names; long forms scroll.
+See `Docs/LayoutAudit/README.md` for scope and per-area source notes. The user stopped build and
+simulator checks and will review on device; this batch has no completed integrated/visual sign-off.
+
+
 Stocked's approved default icon is `Brand/Stocked-AppIcon-Master.png`, promoted from the
 matching `AppIcon-08` artwork. This repository owns the master. The iOS/iPadOS app icon set,
 StockedMac copy, and public website image are byte-derived consumers; regenerate every required

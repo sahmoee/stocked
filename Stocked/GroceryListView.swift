@@ -410,7 +410,7 @@ struct GroceryListView: View {
             .frame(maxWidth: layoutMetrics.readableContentWidth)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal, layoutMetrics.horizontalPadding)
-            .padding(.bottom, 110)
+            .padding(.bottom, 12)
         }
         .sheet(item: $grocerySheet) { sheet in
             switch sheet {
@@ -1157,7 +1157,7 @@ struct GroceryListView: View {
                         GroceryStoreFinderView(embedded: true)
                             .padding(.top, 20)
                     }
-                    .padding(.bottom, 110)
+                    .padding(.bottom, 12)
                 }
             }
         }

@@ -39,7 +39,6 @@ struct MakeableNowView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, CookStyle.screenHPad)
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goResults) {
                 if let cs = cookSession { CookNowResultsView(focus: .readyFirst).environment(cs) }
@@ -107,7 +106,6 @@ struct UseSomethingUpView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
 
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goStart) {
                 if let cs = cookSession { CookingIntentView().environment(cs) }

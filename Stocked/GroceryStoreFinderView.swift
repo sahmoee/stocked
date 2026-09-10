@@ -271,6 +271,7 @@ struct GroceryStoreFinderView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
                 TextField("Enter zip code", text: $zipInput)
+                    .textFieldStyle(.plain)
                     .scaledFont(14).foregroundStyle(session.themeTextColor)
                     .keyboardType(.numberPad)
                     .onSubmit { if !zipInput.isEmpty { finder.searchByZip(zipInput) } }

@@ -70,7 +70,8 @@ struct QAUnlockGate<Content: View>: View {
     private var lockedPane: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
-            VStack(spacing: 18) {
+            ScrollView {
+            VStack(spacing: 16) {
                 Image(systemName: "checklist")
                     .scaledFont(40)
                     .foregroundStyle(Color.stockedGold)
@@ -84,6 +85,7 @@ struct QAUnlockGate<Content: View>: View {
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .multilineTextAlignment(.center)
                 SecureField("QA code", text: $code)
+                    .textFieldStyle(.plain)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
@@ -108,7 +110,10 @@ struct QAUnlockGate<Content: View>: View {
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                     .multilineTextAlignment(.center)
             }
-            .padding(24)
+            .padding(20)
+            .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .navigationTitle("QA")
         .navigationBarTitleDisplayMode(.inline)

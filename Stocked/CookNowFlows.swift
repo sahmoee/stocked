@@ -66,7 +66,6 @@ struct BuildAroundFoodView: View {
                 )
                 .padding(.horizontal, CookStyle.screenHPad)
 
-                Spacer(minLength: 20)
             }
         }
     }
@@ -197,7 +196,6 @@ struct RecipeResultsView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
 
-                Spacer(minLength: 20)
             }
         }
         .navigationDestination(isPresented: $goRecipe) {

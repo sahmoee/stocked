@@ -79,7 +79,7 @@ struct EditItemSheet: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     InventoryEditorialHeading(title: "Keep it stocked", subtitle: "Update the details, amount, and storage.", artwork: 1)
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 20)
                     Capsule().fill(Color.stockedCharcoal.opacity(0.2))
                         .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
 
@@ -100,7 +100,7 @@ struct EditItemSheet: View {
                             }.buttonStyle(.plain)
                             .a11yButton("Save name")
                         }
-                        .padding(.horizontal, 28).padding(.bottom, 16)
+                        .padding(.horizontal, 20).padding(.bottom, 16)
                     } else {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(editedName)
@@ -115,12 +115,12 @@ struct EditItemSheet: View {
                             }.buttonStyle(.plain)
                             .a11yButton("Edit name", hint: "Rename this item")
                         }
-                        .padding(.horizontal, 28).padding(.bottom, 16)
+                        .padding(.horizontal, 20).padding(.bottom, 16)
                     }
 
                     // Brand & price from the grocery catalog — hidden until data loads.
                     BrandPriceView(itemName: editedName, compact: false)
-                        .padding(.horizontal, 28).padding(.bottom, 14)
+                        .padding(.horizontal, 20).padding(.bottom, 14)
 
                     if item.brand != nil || item.nutrition != nil || !(item.productLabels ?? []).isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
@@ -173,13 +173,13 @@ struct EditItemSheet: View {
                         .padding(12)
                         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.34))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                        .padding(.horizontal, 28).padding(.bottom, 16)
+                        .padding(.horizontal, 20).padding(.bottom, 16)
                     }
 
                     // ── Photo row ────────────────────────────────────────
                     photoRow
                     InventoryStoragePicker(selection: $zone)
-                        .padding(.horizontal, 28).padding(.bottom, 20)
+                        .padding(.horizontal, 20).padding(.bottom, 20)
 
                     // ── Quantity row: (N) (unit) of (N optional) ────
                     quantityRow
@@ -198,7 +198,7 @@ struct EditItemSheet: View {
                         Slider(value: $level, in: 0...1.0, step: 0.05).tint(session.inventoryGold)
                             .accessibilityLabel("Fill level")
                             .accessibilityValue("\(Int(level * 100)) percent")
-                    }.padding(.horizontal, 28).padding(.bottom, 20)
+                    }.padding(.horizontal, 20).padding(.bottom, 20)
 
                     // ── Par level (auto-reorder) ─────────────────────
                     VStack(alignment: .leading, spacing: 10) {
@@ -231,7 +231,7 @@ struct EditItemSheet: View {
                                 .multilineTextAlignment(.trailing)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                    }.padding(.horizontal, 28).padding(.bottom, 20)
+                    }.padding(.horizontal, 20).padding(.bottom, 20)
 
                     // ── Organize: category + spot (surfaces customCategory / subZone) ──
                     VStack(alignment: .leading, spacing: 12) {
@@ -260,11 +260,11 @@ struct EditItemSheet: View {
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         }
                     }
-                    .padding(.horizontal, 28).padding(.bottom, 20)
+                    .padding(.horizontal, 20).padding(.bottom, 20)
 
                     // ── Expiry ───────────────────────────────────────
                     ExpiryDateRow(hasExpiry: $hasExpiry, expiryDate: $expiryDate)
-                        .padding(.horizontal, 28).padding(.bottom, 24)
+                        .padding(.horizontal, 20).padding(.bottom, 24)
 
                     // ── Actions ──────────────────────────────────────
                     actionButtons
@@ -314,7 +314,7 @@ struct EditItemSheet: View {
                 .padding(4)
             }
         }
-        .padding(.horizontal, 28).padding(.bottom, 20)
+        .padding(.horizontal, 20).padding(.bottom, 20)
         .sheet(isPresented: $showPhotoPicker) {
             ItemPhotoPicker(imageData: $imageData)
         }
@@ -340,86 +340,83 @@ struct EditItemSheet: View {
             Text("QUANTITY")
                 .scaledFont(10, weight: .bold).tracking(1)
                 .foregroundStyle(session.themeSecondaryText)
-                .padding(.horizontal, 28)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 142), spacing: 12)], alignment: .leading, spacing: 12) {
-                // First number — stepper
-                HStack(spacing: 0) {
-                    Button { qty = max(0, qty - 1) } label: {
-                        Image(systemName: "minus").scaledFont(14, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor).frame(width: 44, height: 44).contentShape(Rectangle())
-                    }.buttonStyle(.plain).disabled(qty == 0).accessibilityLabel("Decrease container quantity")
-                    Text("\(qty)")
-                        .scaledFont(18, weight: .bold, design: .serif)
-                        .foregroundStyle(Color.stockedGold).frame(minWidth: 32)
-                    Button { qty += 1 } label: {
-                        Image(systemName: "plus").scaledFont(14, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor).frame(width: 44, height: 44).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityLabel("Increase container quantity")
-                }
-                .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { containerQuantityControl; containerUnitControl }
+                VStack(alignment: .leading, spacing: 10) { containerQuantityControl; containerUnitControl }
+            }
 
-                // Unit picker
-                Menu {
-                    ForEach(commonUnits, id: \.self) { u in Button(u) { unit = u } }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(unit).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
-                        Image(systemName: "chevron.up.chevron.down").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
-                }
-
-                // "of" connector
-                Text("Units per container").scaledFont(12).foregroundStyle(session.themeSecondaryText)
-
-                // Second number (optional)
+            Text("Units per container")
+                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
+            HStack(spacing: 12) {
                 if hasCount {
                     HStack(spacing: 0) {
                         Button { countValue = max(1, countValue - 1) } label: {
-                            Image(systemName: "minus").scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor).frame(width: 30, height: 36).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                            Image(systemName: "minus").frame(width: 44, height: 44)
+                        }.buttonStyle(.plain).accessibilityLabel("Decrease units per container")
                         Text("\(countValue)")
                             .scaledFont(18, weight: .bold, design: .serif)
-                            .foregroundStyle(Color.stockedGold).frame(minWidth: 28)
+                            .foregroundStyle(session.inventoryGold).frame(minWidth: 32)
                         Button { countValue += 1 } label: {
-                            Image(systemName: "plus").scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor).frame(width: 30, height: 36).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                            Image(systemName: "plus").frame(width: 44, height: 44)
+                        }.buttonStyle(.plain).accessibilityLabel("Increase units per container")
                     }
-                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                     Button {
                         motion.animate(.selection, intent: .spatial) { hasCount = false }
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    }.buttonStyle(.plain)
+                        Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44)
+                    }.buttonStyle(.plain).accessibilityLabel("Remove units per container")
                 } else {
                     Button {
                         motion.animate(.selection, intent: .spatial) { hasCount = true; countValue = 1 }
                     } label: {
-                        Text("None")
+                        Label("None", systemImage: "plus")
                             .scaledFont(13, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
-                            .padding(.horizontal, 12).padding(.vertical, 9)
-                            .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
-                    }.buttonStyle(.plain)
+                            .padding(.horizontal, 12).frame(minHeight: 44)
+                            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                    }.buttonStyle(.plain).accessibilityLabel("Set units per container")
                 }
             }
-            .padding(.horizontal, 28)
+            .foregroundStyle(session.themeTextColor)
 
-            // Preview label
-            let preview = hasCount
-                ? "\(qty) \(unit) of \(countValue)"
-                : "\(qty) \(unit)"
+            let preview = hasCount ? "\(qty) \(unit) of \(countValue)" : "\(qty) \(unit)"
             Text(preview + " of \(item.name)")
                 .scaledFont(12, design: .serif)
                 .foregroundStyle(session.themeSecondaryText)
-                .padding(.horizontal, 28)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.bottom, 20)
+        .padding(.horizontal, 20).padding(.bottom, 20)
+    }
+
+    private var containerQuantityControl: some View {
+        HStack(spacing: 0) {
+            Button { qty = max(0, qty - 1) } label: {
+                Image(systemName: "minus").frame(width: 44, height: 44)
+            }.buttonStyle(.plain).disabled(qty == 0).accessibilityLabel("Decrease container quantity")
+            Text("\(qty)")
+                .scaledFont(18, weight: .bold, design: .serif)
+                .foregroundStyle(session.inventoryGold).frame(minWidth: 32)
+            Button { qty += 1 } label: {
+                Image(systemName: "plus").frame(width: 44, height: 44)
+            }.buttonStyle(.plain).accessibilityLabel("Increase container quantity")
+        }
+        .foregroundStyle(session.themeTextColor)
+        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+    }
+
+    private var containerUnitControl: some View {
+        Menu {
+            ForEach(commonUnits, id: \.self) { value in Button(value) { unit = value } }
+        } label: {
+            HStack(spacing: 6) {
+                Text(unit).scaledFont(14, weight: .semibold)
+                Image(systemName: "chevron.up.chevron.down").scaledFont(10)
+            }
+            .foregroundStyle(session.themeTextColor)
+            .padding(.horizontal, 12).frame(minHeight: 44)
+            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+        }.accessibilityLabel("Container unit, \(unit)")
     }
 
     @ViewBuilder private var actionButtons: some View {
@@ -473,7 +470,7 @@ struct EditItemSheet: View {
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 16)
                     .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-            }.buttonStyle(.plain).padding(.horizontal, 28)
+            }.buttonStyle(.plain).padding(.horizontal, 20)
             .disabled(!HouseholdSync.shared.myCanEdit)
 
             Button(role: .destructive) {
@@ -587,7 +584,7 @@ struct AddItemSheet: View {
 
                 // ── Header ──────────────────────────────────────────────
                 InventoryEditorialHeading(title: "Add to your kitchen", subtitle: "A few details now. An organized kitchen later.", artwork: 4)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 20)
                 VStack(spacing: 10) {
                 HStack {
                     Text("Add Item")
@@ -627,7 +624,7 @@ struct AddItemSheet: View {
                     }.buttonStyle(.plain)
                 }
                 }
-                .padding(.horizontal, 24).padding(.vertical, 12)
+                .padding(.horizontal, 20).padding(.vertical, 12)
 
                 // ── Step indicator ──────────────────────────────────────
                 HStack(spacing: 8) {
@@ -652,7 +649,7 @@ struct AddItemSheet: View {
                     Text(stepLabel).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, 24).padding(.bottom, 16)
+                .padding(.horizontal, 20).padding(.bottom, 16)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Step \(step) of 3. \(stepLabel)")
 
@@ -761,7 +758,7 @@ struct AddItemSheet: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                     .accessibilityElement(children: .combine)
                 }
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
             .animation(.easeInOut(duration: 0.2), value: showNameError)
 
             // Zone tabs
@@ -770,7 +767,7 @@ struct AddItemSheet: View {
                     .scaledFont(10, weight: .bold).tracking(1)
                     .foregroundStyle(session.themeSecondaryText)
                 InventoryStoragePicker(selection: $zone) { zoneManuallySelected = true }
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
 
             // Quantity
             VStack(alignment: .leading, spacing: 8) {
@@ -810,7 +807,7 @@ struct AddItemSheet: View {
                 }
                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
             .task(id: itemName) {
                 // Smart quantity/container defaults — only when the user hasn't set them.
                 // Own history first (typical purchase of this exact item), crowd second.
@@ -853,7 +850,7 @@ struct AddItemSheet: View {
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                 }
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
 
             // Current amount — combined size + how-much-you-have slider ("6 of 12 eggs").
             VStack(alignment: .leading, spacing: 10) {
@@ -894,7 +891,7 @@ struct AddItemSheet: View {
                         Slider(value: $currentUnits, in: 0...totalUnits, step: 1).tint(Color.stockedGold)
                     }
                 }
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
 
             continueButton(enabled: !itemName.trimmingCharacters(in: .whitespaces).isEmpty) {
                 let name = itemName.trimmingCharacters(in: .whitespaces).lowercased()
@@ -999,7 +996,7 @@ struct AddItemSheet: View {
                     .padding(.horizontal, 2)
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
 
             // Live preview
             if !itemName.isEmpty {
@@ -1011,7 +1008,7 @@ struct AddItemSheet: View {
                 continueButton(enabled: true) {
                     withAnimation { step = 3 }
                 }
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
         }
     }
 
@@ -1042,7 +1039,7 @@ struct AddItemSheet: View {
                         }
                         expiryDate = Date().addingTimeInterval(days * 86400)
                     }
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
 
             if !itemName.isEmpty {
                 previewBadge
@@ -1104,7 +1101,7 @@ struct AddItemSheet: View {
                 }
                 .disabled(itemName.trimmingCharacters(in: .whitespaces).isEmpty)
                 .buttonStyle(.plain)
-            }.padding(.horizontal, 24)
+            }.padding(.horizontal, 20)
         }
     }
 
@@ -1121,7 +1118,7 @@ struct AddItemSheet: View {
             }
             Spacer()
         }
-        .padding(.horizontal, 24).padding(.vertical, 10)
+        .padding(.horizontal, 20).padding(.vertical, 10)
         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3))
     }
 
@@ -1139,7 +1136,7 @@ struct AddItemSheet: View {
                 .foregroundStyle(session.themeSecondaryText)
             Spacer()
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
     }
 
     private var backButton: some View {
@@ -1170,7 +1167,7 @@ struct AddItemSheet: View {
         }
         .disabled(!enabled)
         .buttonStyle(.plain)
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
     }
 
     // Computed property to avoid closure capture issue
@@ -1218,7 +1215,7 @@ struct IngredientBrowserSheet: View {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2)).frame(width: 40, height: 4).padding(.top, 12)
                 InventoryEditorialHeading(title: "Find an ingredient", subtitle: "Everyday essentials for your shelves.", artwork: 3)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 20)
                 HStack {
                     Text("Browse Ingredients")
                         .scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
@@ -1228,7 +1225,7 @@ struct IngredientBrowserSheet: View {
                             .foregroundStyle(session.themeSecondaryText)
                             .frame(width: 44, height: 44)
                     }.buttonStyle(.plain).accessibilityLabel("Close ingredient browser")
-                }.padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 16)
+                }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 16)
 
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundStyle(session.themeTextColor.opacity(0.4))
@@ -1242,7 +1239,7 @@ struct IngredientBrowserSheet: View {
                         }.buttonStyle(.plain).accessibilityLabel("Clear ingredient search")
                     }
                 }.padding(12).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                 .padding(.horizontal, 24).padding(.bottom, 12)
+                 .padding(.horizontal, 20).padding(.bottom, 12)
 
                 if searchText.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -1262,7 +1259,7 @@ struct IngredientBrowserSheet: View {
                                 .accessibilityAddTraits(selectedCategory == cat ? [.isSelected] : [])
                             }
                         }
-                        .stockedScrollTargetLayout().padding(.horizontal, 24).padding(.bottom, 12)
+                        .stockedScrollTargetLayout().padding(.horizontal, 20).padding(.bottom, 12)
                     }
                     .stockedHorizontalSnap()
                 }
@@ -1271,7 +1268,7 @@ struct IngredientBrowserSheet: View {
                 Text("\(matches.count) ingredient\(matches.count == 1 ? "" : "s")")
                     .font(.stocked(.caption)).foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 24).padding(.bottom, 8)
+                    .padding(.horizontal, 20).padding(.bottom, 8)
                 if matches.isEmpty {
                     VStack(spacing: 12) {
                         Text("No ingredients found")
@@ -1513,7 +1510,7 @@ struct ItemDetailPopup: View {
                             .foregroundStyle(session.themeTextColor.opacity(0.2))
                     }.buttonStyle(.plain)
                 }
-                .padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 20)
+                .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 20)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
@@ -1521,7 +1518,7 @@ struct ItemDetailPopup: View {
                         // ── QUANTITY ──────────────────────────────────────────
                         quantitySection
 
-                        Divider().padding(.horizontal, 24)
+                        Divider().padding(.horizontal, 20)
 
                         // ── SIZE DETAILS (optional) ───────────────────────────
                         sizeDetailsSection
@@ -1535,10 +1532,10 @@ struct ItemDetailPopup: View {
                                 .foregroundStyle(session.themeSecondaryText)
                             Spacer()
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 20)
                         .animation(.easeInOut(duration: 0.15), value: previewText)
 
-                        Divider().padding(.horizontal, 24)
+                        Divider().padding(.horizontal, 20)
 
                         // ── EXPIRY ────────────────────────────────────────────
                         VStack(alignment: .leading, spacing: 8) {
@@ -1546,7 +1543,7 @@ struct ItemDetailPopup: View {
                                 .scaledFont(10, weight: .bold).tracking(1)
                                 .foregroundStyle(session.themeSecondaryText)
                             ExpiryDateRow(hasExpiry: $hasExpiry, expiryDate: $expiry)
-                        }.padding(.horizontal, 24)
+                        }.padding(.horizontal, 20)
 
                         // ── ADD BUTTON ────────────────────────────────────────
                         Button {
@@ -1562,7 +1559,7 @@ struct ItemDetailPopup: View {
                             .frame(maxWidth: .infinity).padding(.vertical, 16)
                             .background(session.themeButtonColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                         }
-                        .padding(.horizontal, 24).padding(.bottom, 32)
+                        .padding(.horizontal, 20).padding(.bottom, 32)
                         .buttonStyle(.plain)
                     }
                 }
@@ -1628,7 +1625,7 @@ struct ItemDetailPopup: View {
                 Spacer()
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
     }
 
     @ViewBuilder private var sizeDetailsSection: some View {
@@ -1694,7 +1691,7 @@ struct ItemDetailPopup: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
     }
 }
 
@@ -1799,7 +1796,7 @@ struct IngredientPairingsSheet: View {
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             }
                         }
-                        .padding(.horizontal, 24).padding(.bottom, 40)
+                        .padding(.horizontal, 20).padding(.bottom, 40)
                     }
                 }
             }

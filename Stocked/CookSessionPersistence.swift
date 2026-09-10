@@ -329,13 +329,18 @@ final class ActiveCookSessionStore {
 /// saved step (never the recipe detail page); the trailing option discards via
 /// the RL-002 cancel confirmation owned by the presenting screen.
 struct CookSessionResumeCard: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+
+    private var stacksControls: Bool { layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls }
     let snapshot: ActiveCookSessionSnapshot
     let onResume: () -> Void
     let onDiscard: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                            : AnyLayout(HStackLayout(spacing: 8))) {
                 Image(systemName: snapshot.status == .paused ? "pause.circle.fill" : "flame.fill")
                     .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
@@ -343,19 +348,20 @@ struct CookSessionResumeCard: View {
                     .scaledFont(12, weight: .bold)
                     .kerning(0.6)
                     .foregroundStyle(Color.stockedGold)
-                Spacer()
+                if !stacksControls { Spacer() }
                 Text(snapshot.pausedAgoLabel)
                     .scaledFont(11)
-                    .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
             }
             Text(snapshot.recipeTitle)
                 .scaledFont(17, weight: .bold, design: .serif)
-                .foregroundStyle(Color.stockedWhite)
+                .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Text("\(snapshot.stepProgressLabel) · serves \(snapshot.servings)")
                 .scaledFont(12)
-                .foregroundStyle(Color.stockedWhite.opacity(0.65))
-            HStack(spacing: 10) {
+                .foregroundStyle(session.themeSecondaryText)
+            (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                            : AnyLayout(HStackLayout(spacing: 10))) {
                 Button(action: onResume) {
                     HStack(spacing: 6) {
                         Image(systemName: "play.fill").scaledFont(11, weight: .bold)
@@ -364,6 +370,7 @@ struct CookSessionResumeCard: View {
                     }
                     .foregroundStyle(Color.stockedCharcoal)
                     .padding(.horizontal, 16).padding(.vertical, 9)
+                    .frame(minHeight: 44)
                     .background(Color.stockedGold)
                     .clipShape(Capsule())
                 }
@@ -373,19 +380,20 @@ struct CookSessionResumeCard: View {
                 Button(action: onDiscard) {
                     Text("Cancel Meal")
                         .scaledFont(12.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 12).padding(.vertical, 9)
-                        .background(Color.white.opacity(0.10))
+                        .frame(minHeight: 44)
+                        .background(session.themeTextColor.opacity(0.08))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .a11yButton("Cancel this meal", hint: "Discards progress without recording the meal")
-                Spacer()
+                if !stacksControls { Spacer() }
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.stockedCharcoal)
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
         .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
             .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))

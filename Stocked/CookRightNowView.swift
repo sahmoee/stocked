@@ -87,7 +87,6 @@ struct CookRightNowView: View {
                     .padding(.horizontal, 24)
                 }
 
-                Spacer(minLength: 24)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .navigationDestination(isPresented: $goRecipe) {

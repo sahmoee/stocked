@@ -727,7 +727,6 @@ struct CookLaterCommandCenterView: View {
           case .prep: prepWorkspace
           } }
         }
-        Spacer(minLength: 24)
       }
       .padding(.top, 2)
     }
@@ -2196,7 +2195,7 @@ private struct CookLaterAddMealSourceSheet: View {
               }
             }
           }
-          .padding(20).padding(.bottom, 24)
+          .padding(20)
         }
         .stockedTrackedScrollScope()
       }
@@ -2207,6 +2206,7 @@ private struct CookLaterAddMealSourceSheet: View {
       }
     }
     .presentationDetents([.large])
+    .stockedPresentationSurface()
   }
 
   private func sourceRow(
@@ -2252,9 +2252,9 @@ private struct CookLaterCommandEditorSheet: View {
         session.themeBgColor.ignoresSafeArea()
         ScrollView(showsIndicators: false) {
           VStack(alignment: .leading, spacing: 16) {
-            TextField("Meal name", text: $draft.title)
-              .scaledFont(18, weight: .semibold, design: .serif).padding(14)
-              .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 13))
+            TextField("Meal name", text: $draft.title, axis: .vertical)
+              .font(.stockedBody)
+              .lineLimit(1...3)
             Picker("Day", selection: $draft.dayIndex) {
               ForEach(0..<7, id: \.self) { day in
                 Text(
@@ -2291,6 +2291,7 @@ private struct CookLaterCommandEditorSheet: View {
               }
               HStack {
                 TextField("e.g. 2 cups rice", text: $ingredientText)
+                  .textFieldStyle(.plain)
                 Button("Add") {
                   let value = ingredientText.trimmingCharacters(in: .whitespacesAndNewlines)
                   guard !value.isEmpty else { return }
@@ -2308,7 +2309,7 @@ private struct CookLaterCommandEditorSheet: View {
               .padding(13).background(
                 session.themeCardColor, in: RoundedRectangle(cornerRadius: 13))
           }
-          .padding(20).padding(.bottom, 28)
+          .padding(20)
         }
       }
       .navigationTitle(draft.replacingMealID == nil ? "Plan Meal" : "Edit Meal")
@@ -2328,6 +2329,7 @@ private struct CookLaterCommandEditorSheet: View {
       }
     }
     .presentationDetents([.large])
+    .stockedPresentationSurface()
   }
 }
 
@@ -2402,7 +2404,7 @@ private struct CookLaterCommandRecipePicker: View {
               .buttonStyle(.plain)
             }
           }
-          .padding(20).padding(.bottom, 24)
+          .padding(20)
         }
       }
       .navigationTitle(title)
@@ -2415,6 +2417,7 @@ private struct CookLaterCommandRecipePicker: View {
       }
     }
     .presentationDetents([.large])
+    .stockedPresentationSurface()
     .task(id: rankingRevision) {
       guard rankFromInventory else { return }
       isRanking = true
@@ -2512,7 +2515,7 @@ private struct CookLaterWebRecipePicker: View {
                 .buttonStyle(.plain)
               }
             }
-            .padding(20).padding(.bottom, 24)
+            .padding(20)
           }
           .stockedTrackedScrollScope()
         }
@@ -2527,6 +2530,7 @@ private struct CookLaterWebRecipePicker: View {
       }
     }
     .presentationDetents([.large])
+    .stockedPresentationSurface()
   }
 }
 
@@ -2588,14 +2592,14 @@ private struct CookLaterMealDetailSheet: View {
               Button {
                 servings = max(1, servings - 1)
               } label: {
-                Image(systemName: "minus").frame(width: 28, height: 28).background(
+                Image(systemName: "minus").frame(minWidth: 44, minHeight: 44).background(
                   session.themeCardColor, in: Circle())
               }
               Text("\(servings)").scaledFont(13.5, weight: .semibold).frame(width: 28)
               Button {
                 servings = min(24, servings + 1)
               } label: {
-                Image(systemName: "plus").frame(width: 28, height: 28).background(
+                Image(systemName: "plus").frame(minWidth: 44, minHeight: 44).background(
                   session.themeCardColor, in: Circle())
               }
             }
@@ -2663,7 +2667,7 @@ private struct CookLaterMealDetailSheet: View {
             }
             .buttonStyle(.plain)
           }
-          .padding(20).padding(.bottom, 28)
+          .padding(20)
         }
         .stockedTrackedScrollScope()
       }
@@ -2681,6 +2685,7 @@ private struct CookLaterMealDetailSheet: View {
       .environment(session)
     }
     .presentationDetents([.large])
+    .stockedPresentationSurface()
   }
 
   private func stateSummary(_ state: CookLaterIngredientState, count: Int) -> some View {
@@ -2798,7 +2803,7 @@ private struct CookLaterSubstitutionSheet: View {
               }
             }
           }
-          .padding(20).padding(.bottom, 24)
+          .padding(20)
         }
       }
       .navigationTitle("Substitutions")
@@ -2810,6 +2815,7 @@ private struct CookLaterSubstitutionSheet: View {
       }
     }
     .presentationDetents([.medium, .large])
+    .stockedPresentationSurface()
   }
 }
 
@@ -2901,6 +2907,7 @@ private struct CookLaterCommandSuggestionsSheet: View {
       }
     }
     .presentationDetents([.large])
+    .stockedPresentationSurface()
   }
 }
 
@@ -3011,7 +3018,7 @@ private struct CookLaterMonthCalendarSheet: View {
               }
             }
           }
-          .padding(20).padding(.bottom, 24)
+          .padding(20)
         }
         .stockedTrackedScrollScope()
       }
@@ -3024,6 +3031,7 @@ private struct CookLaterMonthCalendarSheet: View {
       }
     }
     .presentationDetents([.large])
+    .stockedPresentationSurface()
   }
 
   @ViewBuilder private func calendarDay(_ date: Date?) -> some View {

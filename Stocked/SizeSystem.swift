@@ -67,7 +67,7 @@ struct StockedLayoutMetrics: Equatable {
     var controlVerticalPadding: CGFloat { 10 * max(1, min(textScale, 1.35)) }
     var controlCornerRadius: CGFloat { min(24, 14 * max(interfaceScale, min(textScale, 1.35))) }
     /// Shared presentation geometry. Width decides horizontal placement; Dynamic Type
-    /// only increases intrinsic vertical space so fields and cards never jump columns.
+    /// grows controls naturally and reduces columns when labels need more room.
     var presentationHorizontalPadding: CGFloat { horizontalPadding }
     var listRowMinimumHeight: CGFloat { minimumControlHeight }
     var surfaceContentPadding: CGFloat { contentWidth >= 700 ? 24 : (contentWidth < 350 ? 12 : 16) }
@@ -209,18 +209,44 @@ struct StockedLayoutMetrics: Equatable {
     func gridColumns(minimum: CGFloat, maximum: Int = 3, spacing: CGFloat = 12) -> [GridItem] {
         let usable = max(1, contentWidth - horizontalPadding * 2)
         let safeMaximum = max(1, maximum)
-        // Preserve the designed placement as text grows. Controls increase their
-        // vertical intrinsic size and wrap internally instead of changing column
-        // count merely because the app text preference changed.
-        let safeMinimum = max(1, minimum)
-        let count = max(1, min(safeMaximum, Int((usable + spacing) / (safeMinimum + spacing))))
-        return Array(repeating: GridItem(.flexible(minimum: safeMinimum), spacing: spacing), count: count)
+        // Larger text gets wider cards before the layout wraps into fewer columns.
+        // Even a single column must fit a narrow sheet or Split View container.
+        let safeSpacing = max(0, spacing)
+        let safeMinimum = min(usable, max(1, minimum) * max(1, min(textScale, 1.7)))
+        let count = isAccessibilityText ? 1 : max(1, min(safeMaximum, Int((usable + safeSpacing) / (safeMinimum + safeSpacing))))
+        return Array(repeating: GridItem(.flexible(minimum: min(safeMinimum, usable)), spacing: safeSpacing), count: count)
     }
 
     static let fallback = StockedLayoutMetrics(width: 393, height: 852,
                                                isAccessibilityText: false,
                                                interfaceScale: InterfaceSize.standard.scale,
                                                textScale: 1)
+}
+
+/// Measures the space a sheet or embedded page actually receives, without
+/// reapplying the user's font preference or starting another root lifecycle.
+struct StockedContainerLayout<Content: View>: View {
+    @Environment(\.stockedLayout) private var inherited
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let metrics = StockedLayoutMetrics(
+                width: proxy.size.width, height: proxy.size.height,
+                isAccessibilityText: inherited.isAccessibilityText,
+                interfaceScale: inherited.interfaceScale, textScale: inherited.textScale,
+                safeAreaInsets: proxy.safeAreaInsets)
+            content
+                .environment(\.stockedLayout, metrics)
+                .environment(\.stockedDevice, StockedDevice.current(
+                    width: proxy.size.width,
+                    hSize: proxy.size.width >= 700 ? sizeClass : .compact))
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+        }
+    }
 }
 
 private struct StockedLayoutMetricsKey: EnvironmentKey {

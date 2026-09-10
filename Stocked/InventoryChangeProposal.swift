@@ -1162,7 +1162,7 @@ struct ReconcileSheet: View {
                         }
                     }
                 }
-                .padding(.bottom, 120)
+                .padding(.bottom, 16)
             }
             .background(session.themeBgColor.ignoresSafeArea())
             .navigationTitle(title)

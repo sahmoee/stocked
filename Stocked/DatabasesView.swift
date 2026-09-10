@@ -84,22 +84,8 @@ private struct DBSearchBar: View {
     let placeholder: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .scaledFont(14).foregroundStyle(.secondary)
-            TextField(placeholder, text: $text)
-                .scaledFont(14)
-                .autocorrectionDisabled()
-            if !text.isEmpty {
-                Button { text = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }.buttonStyle(.plain)
-            }
-        }
-        .padding(11)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-        .padding(.horizontal, 20).padding(.bottom, 2)
+        StockedSearchField(text: $text, prompt: placeholder)
+            .padding(.horizontal, 20).padding(.bottom, 2)
     }
 }
 
@@ -255,6 +241,7 @@ private struct AddCustomSubstitutionSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2))
                     .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
@@ -269,7 +256,7 @@ private struct AddCustomSubstitutionSheet: View {
                     inputField("Notes (optional)", text: $notes, placeholder: "e.g. 1 cup milk + 1 tbsp lemon juice")
                 }.padding(.horizontal, 24)
 
-                Spacer()
+                Color.clear.frame(height: 16)
 
                 Button {
                     let ing = ingredient.trimmingCharacters(in: .whitespaces)
@@ -292,6 +279,7 @@ private struct AddCustomSubstitutionSheet: View {
                 .disabled(ingredient.isEmpty || substitute.isEmpty)
                 .padding(.horizontal, 24).padding(.bottom, 32)
             }
+            }
         }
         .presentationDetents([.medium, .large])
         .dismissKeyboardOnTap()
@@ -303,6 +291,7 @@ private struct AddCustomSubstitutionSheet: View {
                 .scaledFont(10, weight: .bold).tracking(1)
                 .foregroundStyle(session.themeSecondaryText)
             TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
                 .scaledFont(15)
                 .foregroundStyle(session.themeTextColor)
                 .padding(12)
@@ -593,7 +582,8 @@ struct AddAbbreviationSheet: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
-                VStack(alignment: .leading, spacing: 20) {
+                ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
                     Text("Abbreviation appears on receipt exactly as scanned. It will be auto-resolved next time it's seen.")
                         .scaledFont(13)
                         .foregroundStyle(session.themeSecondaryText)
@@ -609,7 +599,8 @@ struct AddAbbreviationSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     .padding(.horizontal, 20)
 
-                    Spacer()
+                }
+                .padding(.bottom, 20)
                 }
             }
             .navigationTitle(isEditing ? "Edit Abbreviation" : "New Abbreviation")
@@ -634,6 +625,7 @@ struct AddAbbreviationSheet: View {
                 .scaledFont(11, weight: .semibold)
                 .foregroundStyle(session.themeSecondaryText)
             TextField(label, text: text)
+                .textFieldStyle(.plain)
                 .scaledFont(15)
                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
         }

@@ -156,6 +156,7 @@ struct SourcesBrowserView: View {
 
 struct SourceRecipesView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     let sourceName: String
     let pool: [OnlineRecipe]
     let onOpenRecipe: (OnlineRecipe) -> Void
@@ -194,8 +195,8 @@ struct SourceRecipesView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 80)
             } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 12) {
-                    ForEach(recipes) { r in
+                StockedEqualHeightGrid(items: recipes,
+                    columns: layoutMetrics.gridColumns(minimum: 160, maximum: 3).count) { r in
                         Button {
                             HapticManager.light()
                             onOpenRecipe(r)
@@ -218,9 +219,12 @@ struct SourceRecipesView: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
+                            .padding(RecipeCardStyle.padding)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .background(RecipeCardStyle.surface(isDark: session.isDarkMode),
+                                in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         }
                         .buttonStyle(.plain)
-                    }
                 }
                 .padding(.horizontal, 20).padding(.vertical, 8)
             }

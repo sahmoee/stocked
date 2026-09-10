@@ -103,6 +103,7 @@ struct WeekMealPlannerView: View {
             if addingDay == day {
                 VStack(spacing: 8) {
                     TextField("Meal name", text: $newTitle)
+                        .textFieldStyle(.plain)
                         .scaledFont(14).foregroundStyle(session.themeTextColor)
                         .padding(10).background(session.themeBgColor, in: RoundedRectangle(cornerRadius: 8))
                     Picker("Type", selection: $newMealType) {

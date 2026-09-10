@@ -117,11 +117,10 @@ struct QuizEditView: View {
 
     // MARK: - Section content views
     private var householdGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach([1,2,3,4,5,6], id: \.self) { n in
+        StockedEqualHeightGrid(items: [1,2,3,4,5,6], id: \.self, columns: 2, spacing: 8) { n in
                 chip(n == 1 ? "Just me 🙋" : n == 6 ? "6+ 👨‍👩‍👧‍👦" : "\(n) people",
                      selected: householdSize == n) { householdSize = n }
-            }
+
         }
     }
 
@@ -129,10 +128,9 @@ struct QuizEditView: View {
         let goals = [("🥦","Eat Healthier"),("⏱","Cook Faster"),
                      ("🌍","Explore Cuisines"),("♻️","Reduce Waste"),
                      ("😌","Stress Less"),("🤯","Decision Fatigue")]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(goals, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: goals, id: \.1, columns: 2, spacing: 8) { emoji, label in
                 chip("\(emoji)  \(label)", selected: cookingGoal == label) { cookingGoal = label }
-            }
+
         }
     }
 
@@ -140,37 +138,34 @@ struct QuizEditView: View {
         let styles = [("🍗","Omnivore"),("🐟","Pescatarian"),
                       ("🌱","Vegetarian"),("🌿","Vegan"),
                       ("🫙","Keto / Low-Carb"),("🤷","No Preference")]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(styles, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: styles, id: \.1, columns: 2, spacing: 8) { emoji, label in
                 chip("\(emoji)  \(label)", selected: dietaryStyle == label) { dietaryStyle = label }
-            }
+
         }
     }
 
     private var allergenGrid: some View {
         let all = ["🥜 Peanuts","🌰 Tree Nuts","🥛 Dairy","🥚 Eggs","🐟 Fish",
                    "🦐 Shellfish","🌾 Gluten","🫘 Soy","🌽 Corn","None"]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(all, id: \.self) { item in
+        return StockedEqualHeightGrid(items: all, id: \.self, columns: 2, spacing: 8) { item in
                 let clean = item.components(separatedBy: " ").dropFirst().joined(separator: " ")
                 chip(item, selected: clean == "None" ? allergens.isEmpty : allergens.contains(clean)) {
                     if clean == "None" { allergens = [] }
                     else if allergens.contains(clean) { allergens.removeAll { $0 == clean } }
                     else { allergens.append(clean) }
                 }
-            }
+
         }
     }
 
     private var cuisineGrid: some View {
         let cuisines = RecipeTaxonomy.cuisines.map { (CuisineBrowseView.flag(for: $0), $0) }
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(cuisines, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: cuisines, id: \.1, columns: 3, spacing: 8) { emoji, label in
                 chip("\(emoji)\n\(label)", selected: cuisinePrefs.contains(label)) {
                     if cuisinePrefs.contains(label) { cuisinePrefs.removeAll { $0 == label } }
                     else { cuisinePrefs.append(label) }
                 }
-            }
+
         }
     }
 
@@ -231,13 +226,12 @@ struct QuizEditView: View {
         let items = [("🍳","Stovetop"),("🔥","Oven"),("🔌","Microwave"),("💨","Air Fryer"),
                      ("🫕","Slow Cooker"),("🫙","Instant Pot"),("♨️","Grill / BBQ"),
                      ("🥗","Blender"),("🍹","Food Processor"),("🎛️","Toaster Oven")]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(items, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: items, id: \.1, columns: 2, spacing: 8) { emoji, label in
                 chip("\(emoji)  \(label)", selected: cookingEquipment.contains(label)) {
                     if cookingEquipment.contains(label) { cookingEquipment.removeAll { $0 == label } }
                     else { cookingEquipment.append(label) }
                 }
-            }
+
         }
     }
 
@@ -250,7 +244,7 @@ struct QuizEditView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                 .background(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd).fill(selected ? Color.stockedGold : Color.stockedWhite.opacity(0.5)))
         }.buttonStyle(.plain)
     }

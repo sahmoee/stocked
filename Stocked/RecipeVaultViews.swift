@@ -338,27 +338,26 @@ struct RecipeVaultView: View {
     }
 
     private var referenceRecipeDestinations: some View {
-        LazyVGrid(
-            columns: layoutMetrics.gridColumns(minimum: 105, maximum: 3, spacing: 7),
-            spacing: 10
-        ) {
-            referenceDestinationCards
-        }
-    }
-
-    @ViewBuilder private var referenceDestinationCards: some View {
-        referenceDestinationCard(image: "recipes_collection", title: "My Collection",
-                                 subtitle: "Recipes you’ve saved,\ncreated & loved.",
-                                 detail: "\(hubStats.saved) recipe\(hubStats.saved == 1 ? "" : "s")") {
-            navTarget = .saved
-        }
-        referenceDestinationCard(image: "recipes_ready", title: "Ready to Cook",
-                                 subtitle: "Recipes that match\nyour kitchen.", detail: nil) {
-            navTarget = .browseAll
-        }
-        referenceDestinationCard(image: "recipes_past", title: "Past Meals",
-                                 subtitle: "Find something\nworth making again.", detail: nil) {
-            navTarget = .cooked
+        StockedEqualHeightGrid(items: [0, 1, 2], id: \.self,
+            columns: layoutMetrics.gridColumns(minimum: 105, maximum: 3, spacing: 12).count) { destination in
+            switch destination {
+            case 0:
+                referenceDestinationCard(image: "recipes_collection", title: "My Collection",
+                    subtitle: "Recipes you’ve saved, created & loved.",
+                    detail: "\(hubStats.saved) recipe\(hubStats.saved == 1 ? "" : "s")") {
+                    navTarget = .saved
+                }
+            case 1:
+                referenceDestinationCard(image: "recipes_ready", title: "Ready to Cook",
+                    subtitle: "Recipes that match your kitchen.", detail: nil) {
+                    navTarget = .browseAll
+                }
+            default:
+                referenceDestinationCard(image: "recipes_past", title: "Past Meals",
+                    subtitle: "Find something worth making again.", detail: nil) {
+                    navTarget = .cooked
+                }
+            }
         }
     }
 
@@ -1982,9 +1981,9 @@ private struct RecipeMyCollectionView: View {
             } else {
                 // Container-driven columns adapt through rotation, Split View, Stage Manager,
                 // and accessibility text without relying on a physical-device check.
-                let cols = layoutMetrics.gridColumns(minimum: 160, maximum: 3, spacing: 12)
-                LazyVGrid(columns: cols, spacing: 12) {
-                    ForEach(entries) { entry in
+                StockedEqualHeightGrid(items: entries,
+                    columns: layoutMetrics.gridColumns(minimum: 160, maximum: 3, spacing: 12).count,
+                    spacing: 12) { entry in
                         let recipe = entry.recipe
                         ZStack(alignment: .topTrailing) {
                             NavigationLink(destination: UserRecipeDetailView(recipe: recipe).environment(session)) {
@@ -2032,7 +2031,6 @@ private struct RecipeMyCollectionView: View {
                             }
                             .buttonStyle(.plain).padding(6)
                         }
-                    }
                 }.padding(.horizontal, 20)
             }
 
@@ -2105,6 +2103,7 @@ private struct RecipeMergeSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2))
                     .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
@@ -2113,7 +2112,7 @@ private struct RecipeMergeSheet: View {
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
                 Text("These two recipes look similar. Keep one, or keep both.")
                     .scaledFont(13).foregroundStyle(session.themeSecondaryText)
-                    .multilineTextAlignment(.center).padding(.horizontal, 28).padding(.bottom, 24)
+                    .multilineTextAlignment(.center).padding(.horizontal, 20).padding(.bottom, 24)
 
                 VStack(spacing: 12) {
                     mergeOption(recipe: recipeA, keepLabel: "Keep this, delete other") {
@@ -2128,8 +2127,9 @@ private struct RecipeMergeSheet: View {
                         .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                         .padding(.top, 8)
                 }
-                .padding(.horizontal, 24)
-                Spacer()
+                .padding(.horizontal, 20)
+            }
+            .padding(.bottom, 20)
             }
         }
         .presentationDetents([.medium, .large])

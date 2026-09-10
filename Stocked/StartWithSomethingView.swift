@@ -40,7 +40,6 @@ struct StartWithSomethingView: View {
                 proteinSection
                 otherSection
 
-                Spacer(minLength: layoutMetrics.sectionSpacing)
             }
             .navigationDestination(isPresented: $goIntent) {
                 if let cs = cookSession { CookingIntentView().environment(cs) }
@@ -172,15 +171,18 @@ struct StartWithSomethingView: View {
         Group { if !otherItems.isEmpty { section("Everything else", otherItems, urgent: false) } }
     }
 
+    private var inventoryColumnCount: Int {
+        guard !layoutMetrics.isAccessibilityText, !layoutMetrics.prefersVerticalControls else { return 1 }
+        return layoutMetrics.gridColumns(minimum: 150, maximum: 2, spacing: 10).count
+    }
+
     private func section(_ title: String, _ items: [LocalInventoryItem], urgent: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
                 .font(.stockedHeadline)
                 .foregroundStyle(urgent ? session.accentColor : session.themeTextColor)
-            LazyVGrid(columns: layoutMetrics.gridColumns(minimum: 150, maximum: 2, spacing: 10), spacing: 10) {
-                ForEach(items) { item in
-                    anchorTile(item, urgent: urgent)
-                }
+            StockedEqualHeightGrid(items: items, columns: inventoryColumnCount, spacing: 10) { item in
+                anchorTile(item, urgent: urgent)
             }
         }
         .padding(.horizontal, layoutMetrics.horizontalPadding)
@@ -191,10 +193,7 @@ struct StartWithSomethingView: View {
             HStack(spacing: 10) {
                 Text(ImageFallbackService.emoji(for: item.name)).font(.title3)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item.name.displayNormalized)
-                        .font(.stockedBodyBold)
-                        .foregroundStyle(session.themeTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
+                    anchorTitle(item.name.displayNormalized)
                     if urgent, let d = item.daysUntilExpiry {
                         Text(d <= 0 ? "Use today" : "\(d)d left")
                             .font(.stockedCaption.weight(.semibold))
@@ -209,6 +208,7 @@ struct StartWithSomethingView: View {
             }
             .padding(layoutMetrics.surfaceContentPadding)
             .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+            .frame(maxHeight: .infinity, alignment: .leading)
             .background(session.themeCardColor)
             .overlay(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius)
                 .stroke(urgent ? session.accentColor.opacity(0.55) : session.themeTextColor.opacity(0.08), lineWidth: 1))
@@ -217,6 +217,18 @@ struct StartWithSomethingView: View {
         }
         .buttonStyle(StockedWidgetButtonStyle())
         .a11yButton("Start with \(item.name)")
+    }
+
+    @ViewBuilder private func anchorTitle(_ title: String) -> some View {
+        let label = Text(title)
+            .font(.stockedBodyBold)
+            .foregroundStyle(session.themeTextColor)
+            .multilineTextAlignment(.leading)
+        if inventoryColumnCount > 1 {
+            label.lineLimit(3, reservesSpace: true)
+        } else {
+            label.fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     // MARK: Selection actions

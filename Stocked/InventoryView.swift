@@ -705,7 +705,7 @@ struct InventoryView: View {
                         )
                     }
             }
-            .padding(.bottom, 110)
+            .padding(.bottom, 12)
           }
         } else {
             // #UIKit — the populated pantry is a UICollectionView (real cell reuse, the
@@ -715,7 +715,7 @@ struct InventoryView: View {
                            columns: 1,
                            interItemSpacing: 8,
                            lineSpacing: 8,
-                           contentInsets: .init(top: 4, leading: 24, bottom: 110, trailing: 24),
+                           contentInsets: .init(top: 4, leading: 24, bottom: 12, trailing: 24),
                            onVerticalCollapseChange: { collapsed in
                                guard listHasScrolled != collapsed else { return }
                                withAnimation(.easeInOut(duration: 0.22)) {

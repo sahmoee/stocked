@@ -47,6 +47,7 @@ struct UserRecipeCard: View {
                 }
             }
             .padding(RecipeCardStyle.padding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(RecipeCardStyle.surface(isDark: session.isDarkMode))
         }
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

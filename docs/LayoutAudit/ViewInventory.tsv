@@ -1,0 +1,210 @@
+File	Owner	Coverage
+Stocked/QAAIOverrideView.swift	sheets	Source reviewed; see owner ledger
+Stocked/ReceiptScannerView.swift	library	Source reviewed; see owner ledger
+Stocked/QAEntry.swift	sheets	Source reviewed; see owner ledger
+Stocked/IngredientFormViews.swift	library	Source reviewed; see owner ledger
+Stocked/CrowdShareToggle.swift	sheets	Source reviewed; see owner ledger
+Stocked/QAHUD.swift	sheets	Source reviewed; see owner ledger
+Stocked/StockedHealthView.swift	sheets	Source reviewed; see owner ledger
+Stocked/InventoryView.swift	library	Source reviewed; see owner ledger
+Stocked/CookingIntentView.swift	cook	Source reviewed; see owner ledger
+Stocked/OpenKitchenCreditsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/DatabasesView.swift	library	Source reviewed; see owner ledger
+Stocked/RecipeFinderView.swift	cook	Source reviewed; see owner ledger
+Stocked/CooklangConnectionPanel.swift	library	Source reviewed; see owner ledger
+Stocked/ImageFallbackService.swift	root-shared	Shared infrastructure; root verification
+Stocked/CookNowPrep.swift	cook	Source reviewed; see owner ledger
+Stocked/DietaryProfileView.swift	sheets	Source reviewed; see owner ledger
+Stocked/InventoryUpdateReviewView.swift	library	Source reviewed; see owner ledger
+Stocked/CookingMethodComparisonView.swift	cook	Source reviewed; see owner ledger
+Stocked/MealPlannerView.swift	library	Source reviewed; see owner ledger
+Stocked/CookNowFlows.swift	cook	Source reviewed; see owner ledger
+Stocked/SizeSystem.swift	root-shared	Shared infrastructure; root verification
+Stocked/CookLaterFlows.swift	cook	Source reviewed; see owner ledger
+Stocked/GroceryCartHandoff.swift	library	Source reviewed; see owner ledger
+Stocked/GroceryListView.swift	library	Source reviewed; see owner ledger
+Stocked/CookAheadAndFinish.swift	cook	Source reviewed; see owner ledger
+Stocked/CookingSessionSummaryView.swift	cook	Source reviewed; see owner ledger
+Stocked/QATouchTrail.swift	sheets	Source reviewed; see owner ledger
+Stocked/CookConsumption.swift	cook	Source reviewed; see owner ledger
+Stocked/HouseholdCookCoordination.swift	cook	Source reviewed; see owner ledger
+Stocked/SubstitutionEngine.swift	cook	Source reviewed; see owner ledger
+Stocked/GardenHarvest.swift	sheets	Source reviewed; see owner ledger
+Stocked/MealPlanToolsView.swift	library	Source reviewed; see owner ledger
+Stocked/CompoundingPrepView.swift	cook	Source reviewed; see owner ledger
+Stocked/RecipeBrowserView.swift	library	Source reviewed; see owner ledger
+Stocked/ItemIcon.swift	root-shared	Shared infrastructure; root verification
+Stocked/RecipeVaultViews.swift	library	Source reviewed; see owner ledger
+Stocked/ShelfScanView.swift	library	Source reviewed; see owner ledger
+Stocked/ProfileAvatar.swift	sheets	Source reviewed; see owner ledger
+Stocked/AppMotionSystem.swift	root-shared	Shared infrastructure; root verification
+Stocked/MainTabView.swift	root-shared	Shared infrastructure; root verification
+Stocked/CookComponents.swift	cook	Source reviewed; see owner ledger
+Stocked/InventoryDetailsSheet.swift	library	Source reviewed; see owner ledger
+Stocked/TakeoutLog.swift	sheets	Source reviewed; see owner ledger
+Stocked/InventoryViews.swift	library	Source reviewed; see owner ledger
+Stocked/QAMode.swift	sheets	Source reviewed; see owner ledger
+Stocked/CookRightNowView.swift	cook	Source reviewed; see owner ledger
+Stocked/InventoryExporter.swift	library	Source reviewed; see owner ledger
+Stocked/EditPreferencesView.swift	sheets	Source reviewed; see owner ledger
+Stocked/SmartRecommendationView.swift	cook	Source reviewed; see owner ledger
+Stocked/CookLaterCommandCenterView.swift	cook	Source reviewed; see owner ledger
+Stocked/OnboardingQuiz.swift	sheets	Source reviewed; see owner ledger
+Stocked/QuantityInputView.swift	library	Source reviewed; see owner ledger
+Stocked/CachedLocalDataImage.swift	root-shared	Shared infrastructure; root verification
+Stocked/MealPrepView.swift	library	Source reviewed; see owner ledger
+Stocked/EmergencyPantry.swift	sheets	Source reviewed; see owner ledger
+Stocked/SourceConfidence.swift	root-shared	Shared infrastructure; root verification
+Stocked/PlanAheadEditors.swift	library	Source reviewed; see owner ledger
+Stocked/StockGoalsSetupView.swift	sheets	Source reviewed; see owner ledger
+Stocked/RegionalFoodData.swift	sheets	Source reviewed; see owner ledger
+Stocked/EditProfileView.swift	sheets	Source reviewed; see owner ledger
+Stocked/InventoryItemSheets.swift	library	Source reviewed; see owner ledger
+Stocked/CuisineBrowseView.swift	library	Source reviewed; see owner ledger
+Stocked/StoreLayoutLearning.swift	library	Source reviewed; see owner ledger
+Stocked/LoginView.swift	sheets	Source reviewed; see owner ledger
+Stocked/ToolboxInsights.swift	sheets	Source reviewed; see owner ledger
+Stocked/InventoryHubView.swift	library	Source reviewed; see owner ledger
+Stocked/SettingsSections.swift	sheets	Source reviewed; see owner ledger
+Stocked/CookingFlow.swift	cook	Source reviewed; see owner ledger
+Stocked/UserRecipeViews.swift	library	Source reviewed; see owner ledger
+Stocked/RecipeBudgetStatus.swift	library	Source reviewed; see owner ledger
+Stocked/ImageCache.swift	root-shared	Shared infrastructure; root verification
+Stocked/HouseholdViews.swift	sheets	Source reviewed; see owner ledger
+Stocked/StockedShell.swift	root-shared	Shared infrastructure; root verification
+Stocked/WeekMealPlannerView.swift	library	Source reviewed; see owner ledger
+Stocked/CommunityPriceWatchesView.swift	sheets	Source reviewed; see owner ledger
+Stocked/ToolboxReference.swift	sheets	Source reviewed; see owner ledger
+Stocked/PurchaseDedupReviewView.swift	library	Source reviewed; see owner ledger
+Stocked/FoodsAndMoodsViews.swift	library	Source reviewed; see owner ledger
+Stocked/StockedScreen.swift	root-shared	Shared infrastructure; root verification
+Stocked/UXKit.swift	root-shared	Shared infrastructure; root verification
+Stocked/KitchenWrappedView.swift	sheets	Source reviewed; see owner ledger
+Stocked/SubstitutionReviewSheet.swift	cook	Source reviewed; see owner ledger
+Stocked/DrawerSettingsContent.swift	sheets	Source reviewed; see owner ledger
+Stocked/StartWithSomethingView.swift	cook	Source reviewed; see owner ledger
+Stocked/SettingsPageView.swift	sheets	Source reviewed; see owner ledger
+Stocked/WebRecipesView.swift	library	Source reviewed; see owner ledger
+Stocked/PremiumManager.swift	sheets	Source reviewed; see owner ledger
+Stocked/CreateRecipeView.swift	library	Source reviewed; see owner ledger
+Stocked/UsageInsightsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/SocialImportView.swift	library	Source reviewed; see owner ledger
+Stocked/SyncDiagnosticsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/StockedRemoteConfig.swift	sheets	Source reviewed; see owner ledger
+Stocked/RecipeCreditsView.swift	library	Source reviewed; see owner ledger
+Stocked/RecipePortionsEditSheet.swift	library	Source reviewed; see owner ledger
+Stocked/HouseholdSyncProgress.swift	sheets	Source reviewed; see owner ledger
+Stocked/HomeView.swift	library	Source reviewed; see owner ledger
+Stocked/RecipeCreateOptions.swift	library	Source reviewed; see owner ledger
+Stocked/CookNowResultsView.swift	cook	Source reviewed; see owner ledger
+Stocked/FreeKitchenConnectionsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/LeftoversLifecycle.swift	sheets	Source reviewed; see owner ledger
+Stocked/ContainerLabels.swift	sheets	Source reviewed; see owner ledger
+Stocked/ToolboxMaintenance.swift	sheets	Source reviewed; see owner ledger
+Stocked/QADuplicateFinder.swift	sheets	Source reviewed; see owner ledger
+Stocked/OfflineQueueBadge.swift	sheets	Source reviewed; see owner ledger
+Stocked/PreviewStates.swift	sheets	Source reviewed; see owner ledger
+Stocked/CookWorkspaceDestinations.swift	cook	Source reviewed; see owner ledger
+Stocked/CommunityPricesView.swift	sheets	Source reviewed; see owner ledger
+Stocked/QuizEditView.swift	sheets	Source reviewed; see owner ledger
+Stocked/BarcodeScannerView.swift	library	Source reviewed; see owner ledger
+Stocked/GroceryStoreFinderView.swift	library	Source reviewed; see owner ledger
+Stocked/RefreshKitchenView.swift	cook	Source reviewed; see owner ledger
+Stocked/RecipeCSV.swift	library	Source reviewed; see owner ledger
+Stocked/QASearchIndex.swift	sheets	Source reviewed; see owner ledger
+Stocked/CookSessionPersistence.swift	cook	Source reviewed; see owner ledger
+Stocked/PlannedMealCookTransition.swift	cook	Source reviewed; see owner ledger
+Stocked/MultiRecipeTimeline.swift	cook	Source reviewed; see owner ledger
+Stocked/BeforeYouStartView.swift	cook	Source reviewed; see owner ledger
+Stocked/AppChangelog.swift	sheets	Source reviewed; see owner ledger
+Stocked/NetworkMonitor.swift	sheets	Source reviewed; see owner ledger
+Stocked/ToolboxKit.swift	sheets	Source reviewed; see owner ledger
+Stocked/DesignSystem.swift	root-shared	Shared infrastructure; root verification
+Stocked/AIInventoryScanView.swift	library	Source reviewed; see owner ledger
+Stocked/TabBarView.swift	root-shared	Shared infrastructure; root verification
+Stocked/SyncConflictLog.swift	sheets	Source reviewed; see owner ledger
+Stocked/AIInventoryAssistantView.swift	library	Source reviewed; see owner ledger
+Stocked/PreservationPlanner.swift	sheets	Source reviewed; see owner ledger
+Stocked/CookLaterWorkspaceView.swift	cook	Source reviewed; see owner ledger
+Stocked/QAShakeToReport.swift	sheets	Source reviewed; see owner ledger
+Stocked/ToolboxPlanning.swift	sheets	Source reviewed; see owner ledger
+Stocked/KitchenStatsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/CostSplitting.swift	sheets	Source reviewed; see owner ledger
+Stocked/KitchenTransferView.swift	sheets	Source reviewed; see owner ledger
+Stocked/ThawPlanner.swift	sheets	Source reviewed; see owner ledger
+Stocked/FreeKitchenHubView.swift	sheets	Source reviewed; see owner ledger
+Stocked/CookHubView.swift	cook	Source reviewed; see owner ledger
+Stocked/SmartKitchenView.swift	library	Source reviewed; see owner ledger
+Stocked/AppIconManager.swift	sheets	Source reviewed; see owner ledger
+Stocked/IngredientIntel.swift	library	Source reviewed; see owner ledger
+Stocked/QAModeView.swift	sheets	Source reviewed; see owner ledger
+Stocked/StatsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/MoneySavedView.swift	sheets	Source reviewed; see owner ledger
+Stocked/PlanAheadView.swift	library	Source reviewed; see owner ledger
+Stocked/CooklangRecipeConnectionView.swift	library	Source reviewed; see owner ledger
+Stocked/KitchenAssistant.swift	sheets	Source reviewed; see owner ledger
+Stocked/RecipeMigrationView.swift	library	Source reviewed; see owner ledger
+Stocked/PreparationDiscoveryView.swift	cook	Source reviewed; see owner ledger
+Stocked/MatchRing.swift	root-shared	Shared infrastructure; root verification
+Stocked/ScalableFont.swift	root-shared	Shared infrastructure; root verification
+Stocked/InventorySpatialView.swift	library	Source reviewed; see owner ledger
+Stocked/AIRecipeGeneratorView.swift	library	Source reviewed; see owner ledger
+Stocked/QASyncQueue.swift	sheets	Source reviewed; see owner ledger
+Stocked/MealPlannerSubViews.swift	library	Source reviewed; see owner ledger
+Stocked/DeliverySettingsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/FamilyProfiles.swift	sheets	Source reviewed; see owner ledger
+Stocked/ReorderSoonView.swift	library	Source reviewed; see owner ledger
+Stocked/StockedApp.swift	root-shared	Shared infrastructure; root verification
+Stocked/QASyncDestinations.swift	sheets	Source reviewed; see owner ledger
+Stocked/AppWideExperience.swift	sheets	Source reviewed; see owner ledger
+Stocked/QAIssueReporter.swift	sheets	Source reviewed; see owner ledger
+Stocked/MultiStoreViews.swift	library	Source reviewed; see owner ledger
+Stocked/EventPlanner.swift	sheets	Source reviewed; see owner ledger
+Stocked/QAIdentityStore.swift	sheets	Source reviewed; see owner ledger
+Stocked/OnlineRecipesView.swift	library	Source reviewed; see owner ledger
+Stocked/RecipeCatalogImportView.swift	library	Source reviewed; see owner ledger
+Stocked/ToolboxCooking.swift	sheets	Source reviewed; see owner ledger
+Stocked/GlassUI.swift	root-shared	Shared infrastructure; root verification
+Stocked/EqualHeightGrid.swift	root-shared	Shared infrastructure; root verification
+Stocked/UIKitBridge/CollectionGrid.swift	root-shared	Shared infrastructure; root verification
+Stocked/FoodPredictiveTextField.swift	root-shared	Shared infrastructure; root verification
+Stocked/FullScreenCookView.swift	cook	Source reviewed; see owner ledger
+Stocked/Coachmark.swift	sheets	Source reviewed; see owner ledger
+Stocked/SuccessView.swift	sheets	Source reviewed; see owner ledger
+Stocked/DataStorageView.swift	sheets	Source reviewed; see owner ledger
+Stocked/StockedQAView.swift	sheets	Source reviewed; see owner ledger
+Stocked/RecipeFinderPreview.swift	cook	Source reviewed; see owner ledger
+Stocked/PortableRecipeFilesView.swift	library	Source reviewed; see owner ledger
+Stocked/RecipeTextSize.swift	sheets	Source reviewed; see owner ledger
+Stocked/QAAccessibilitySweep.swift	sheets	Source reviewed; see owner ledger
+Stocked/KitchenCheckView.swift	sheets	Source reviewed; see owner ledger
+Stocked/SmartCookbookViews.swift	library	Source reviewed; see owner ledger
+Stocked/QARunLog.swift	sheets	Source reviewed; see owner ledger
+Stocked/RecipeSubstitutionPickerSheet.swift	library	Source reviewed; see owner ledger
+Stocked/QAFloatingBubble.swift	sheets	Source reviewed; see owner ledger
+Stocked/HandsOffOpportunityView.swift	cook	Source reviewed; see owner ledger
+Stocked/PantryAuditView.swift	library	Source reviewed; see owner ledger
+Stocked/SwipeToDelete.swift	sheets	Source reviewed; see owner ledger
+Stocked/NutritionDatabase.swift	sheets	Source reviewed; see owner ledger
+Stocked/TappableEditText.swift	root-shared	Shared infrastructure; root verification
+Stocked/QuickPickListView.swift	library	Source reviewed; see owner ledger
+Stocked/QAMemoryWatch.swift	sheets	Source reviewed; see owner ledger
+Stocked/ReadyToCookView.swift	cook	Source reviewed; see owner ledger
+Stocked/KitchenActivityView.swift	sheets	Source reviewed; see owner ledger
+Stocked/RecipePredictiveTextField.swift	library	Source reviewed; see owner ledger
+Stocked/SplashView.swift	sheets	Source reviewed; see owner ledger
+Stocked/QuickAccessMenu.swift	sheets	Source reviewed; see owner ledger
+Stocked/QATapTracker.swift	sheets	Source reviewed; see owner ledger
+Stocked/FeatureFiles.swift	sheets	Source reviewed; see owner ledger
+Stocked/StarIngredientRecipesView.swift	library	Source reviewed; see owner ledger
+Stocked/DailyBriefView.swift	sheets	Source reviewed; see owner ledger
+Stocked/SourcesBrowserView.swift	library	Source reviewed; see owner ledger
+Stocked/DailyBriefNotificationSettingsView.swift	sheets	Source reviewed; see owner ledger
+Stocked/BrandPriceView.swift	library	Source reviewed; see owner ledger
+Stocked/GlobalSearchView.swift	root-shared	Shared infrastructure; root verification
+Stocked/KitchenToolboxView.swift	sheets	Source reviewed; see owner ledger
+Stocked/InventoryChangeProposal.swift	library	Source reviewed; see owner ledger
+Stocked/MarqueeText.swift	root-shared	Shared infrastructure; root verification
+Stocked/ReservationOverrideSheet.swift	cook	Source reviewed; see owner ledger
+Stocked/QACheckTickets.swift	sheets	Source reviewed; see owner ledger
+Stocked/CustomRecipeSources.swift	library	Source reviewed; see owner ledger

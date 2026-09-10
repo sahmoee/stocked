@@ -10,6 +10,7 @@
 import SwiftUI
 
 struct QuantityInputView: View {
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Binding var quantity: ParsedAmount
     @State private var raw: String = ""
     @FocusState private var focused: Bool
@@ -19,6 +20,9 @@ struct QuantityInputView: View {
     private let unitOptions = ["", "oz", "fl oz", "lb", "g", "kg", "ml", "l", "cup", "gallon", "quart", "pint"]
 
     var body: some View {
+        let controlLayout = layoutMetrics.prefersVerticalControls || layoutMetrics.textScale > 1.3
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 12))
         VStack(alignment: .leading, spacing: 10) {
             // Natural-language field
             HStack {
@@ -34,7 +38,7 @@ struct QuantityInputView: View {
             }
 
             // Structured, editable controls
-            HStack(spacing: 12) {
+            controlLayout {
                 Stepper(value: $quantity.count, in: 0...9999, step: stepSize) {
                     HStack(spacing: 4) {
                         Text("Qty").foregroundStyle(.secondary).font(.stocked(.subheadline))
@@ -55,7 +59,7 @@ struct QuantityInputView: View {
             }
 
             // "each amount" (e.g. 6 cans of 8 oz)
-            HStack(spacing: 8) {
+            controlLayout {
                 Text("Each").foregroundStyle(.secondary).font(.stocked(.subheadline))
                 TextField("amt", value: Binding(
                     get: { quantity.amountEach ?? 0 },
@@ -69,7 +73,7 @@ struct QuantityInputView: View {
                 )) {
                     ForEach(unitOptions, id: \.self) { u in Text(u.isEmpty ? "—" : u).tag(u) }
                 }
-                .labelsHidden().frame(width: 90)
+                .labelsHidden().frame(minWidth: 90, alignment: .leading)
                 Spacer()
             }
 
@@ -110,6 +114,7 @@ struct NaturalQuantityField: View {
             Image(systemName: "wand.and.stars")
                 .scaledFont(13).foregroundStyle(Color.stockedGold)
             TextField(placeholder, text: $raw)
+                .textFieldStyle(.plain)
                 .scaledFont(14)
                 .focused($focused)
                 .submitLabel(.done)

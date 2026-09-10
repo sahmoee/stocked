@@ -73,14 +73,13 @@ final class AdaptiveUIFoundationTests: XCTestCase {
         }
     }
 
-    func testSelectedTabsUseWarmContentAndKeepCharcoalFill() {
-        XCTAssertEqual(Color.appAccent(false), .stockedGold)
+    func testRootTabContentUsesReadableSemanticAccent() {
+        // TabBarView uses appAccent for selected content; legacy filled-action
+        // tokens are not the root navigation selection style.
+        XCTAssertEqual(Color.appAccent(false), .textAccentLight)
         XCTAssertEqual(Color.appAccent(true), .stockedGoldDark)
-        XCTAssertEqual(Color.selectedTabForeground(false), .stockedBg)
-        XCTAssertEqual(Color.selectedTabForeground(true), .stockedGoldDark)
-        XCTAssertEqual(Color.selectedTabBackground, .stockedCharcoal)
-        XCTAssertNotEqual(Color.selectedTabForeground(false), .stockedWhite)
-        XCTAssertNotEqual(Color.selectedTabForeground(true), Color.selectedTabBackground)
+        XCTAssertNotEqual(Color.appAccent(false), .stockedWhite)
+        XCTAssertNotEqual(Color.appAccent(true), .stockedCharcoal)
     }
 
     func testStockLevelArtworkScalesAcrossPhoneAndTabletWithoutTextSizeShrinkingIt() {
@@ -188,7 +187,7 @@ final class AdaptiveUIFoundationTests: XCTestCase {
         )
     }
 
-    func testAppTextScaleGrowsControlsWithoutChangingGridPlacement() {
+    func testAppTextScaleGrowsControlsAndWidensGridCards() {
         let standard = StockedLayoutMetrics(
             width: 393, height: 852, isAccessibilityText: false,
             interfaceScale: InterfaceSize.standard.scale,
@@ -200,7 +199,7 @@ final class AdaptiveUIFoundationTests: XCTestCase {
             textScale: AppTextSize.extraExtraLarge.multiplier
         )
 
-        XCTAssertEqual(
+        XCTAssertLessThan(
             enlarged.gridColumns(minimum: 150, maximum: 3).count,
             standard.gridColumns(minimum: 150, maximum: 3).count
         )

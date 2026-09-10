@@ -285,6 +285,7 @@ private struct PlanEditorTextField: View {
         VStack(alignment: .leading, spacing: 7) {
             Text(label).font(.stocked(.headline))
             TextField(placeholder, text: $text, axis: .vertical)
+                .textFieldStyle(.plain)
                 .padding(12).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
                 .accessibilityLabel(label)
         }
@@ -350,6 +351,7 @@ private struct PlanMealFields: View {
         VStack(alignment: .leading, spacing: 7) {
             Text("Ingredients").font(.stocked(.headline))
             TextField("One ingredient per line, including any amount", text: $ingredientsText, axis: .vertical)
+                .textFieldStyle(.plain)
                 .lineLimit(5...12).padding(12)
                 .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
                 .accessibilityLabel("Ingredients, one per line")

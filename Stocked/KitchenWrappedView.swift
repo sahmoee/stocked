@@ -63,10 +63,10 @@ struct KitchenWrappedView: View {
                 if let fav = favoriteMeal, fav.rating > 0 { favoriteCard(fav) }
                 savingsCard
                 closingCard
-                Color.clear.frame(height: 30)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
+            .padding(.bottom, 20)
             .frame(maxWidth: .infinity)
         }
         .background(bg.ignoresSafeArea())
@@ -110,11 +110,15 @@ struct KitchenWrappedView: View {
 
     // MARK: Stats grid
     private var statsGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
-            wrapStat("\(mealsCooked)", "meals cooked", "fork.knife", Color.stockedGold)
-            wrapStat("\(longestStreak)", longestStreak == 1 ? "day streak" : "day best streak", "flame.fill", Color.stockedGreen)
-            wrapStat("\(itemsTracked)", "items tracked", "refrigerator.fill", Color.stockedInfo)
-            wrapStat("\(wasteFreeRate)%", "used, not wasted", "leaf.fill", Color.stockedGreen)
+        VStack(spacing: 12) {
+            StockedEqualHeightRow(columns: 2, spacing: 12) {
+                wrapStat("\(mealsCooked)", "meals cooked", "fork.knife", Color.stockedGold)
+                wrapStat("\(longestStreak)", longestStreak == 1 ? "day streak" : "day best streak", "flame.fill", Color.stockedGreen)
+            }
+            StockedEqualHeightRow(columns: 2, spacing: 12) {
+                wrapStat("\(itemsTracked)", "items tracked", "refrigerator.fill", Color.stockedInfo)
+                wrapStat("\(wasteFreeRate)%", "used, not wasted", "leaf.fill", Color.stockedGreen)
+            }
         }
     }
 
@@ -129,8 +133,8 @@ struct KitchenWrappedView: View {
                 .scaledFont(12, weight: .medium)
                 .foregroundStyle(primaryText.opacity(0.55))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(tint.opacity(dark ? 0.12 : 0.10))
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
     }

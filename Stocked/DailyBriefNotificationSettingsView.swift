@@ -30,14 +30,15 @@ struct DailyBriefNotificationSettingsView: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Daily Brief Alerts")
                     .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                    .padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 4)
+                    .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 4)
                 Text("A morning notification summarising expiring items and what you can cook tonight.")
                     .scaledFont(13).foregroundStyle(session.themeSecondaryText)
-                    .padding(.horizontal, 24).padding(.bottom, 24)
+                    .padding(.horizontal, 20).padding(.bottom, 16)
 
                 permissionBanner
 
@@ -262,8 +263,10 @@ struct DailyBriefNotificationSettingsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 20).padding(.top, 20)
 
-                Spacer()
             }
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { refreshAuthStatus() }

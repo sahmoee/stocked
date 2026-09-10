@@ -203,8 +203,7 @@ struct AchievementsView: View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 ToolboxStatTile(value: "\(earnedCount)/\(badges.count)", label: "Badges earned", tint: session.accentColor)
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    ForEach(badges) { badge in
+                StockedEqualHeightGrid(items: badges, columns: 2, spacing: 12) { badge in
                         VStack(spacing: 8) {
                             Image(systemName: badge.icon)
                                 .scaledFont(24, weight: .medium)
@@ -225,12 +224,11 @@ struct AchievementsView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(12)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(session.themeCardColor))
                         .opacity(badge.earned ? 1 : 0.75)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("\(badge.title), \(badge.earned ? "earned" : "not yet earned"). \(badge.detail)")
-                    }
                 }
             }
             .padding(.horizontal, 18).padding(.vertical, 8)

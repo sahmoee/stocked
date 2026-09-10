@@ -46,7 +46,6 @@ struct BeforeYouStartView: View {
                 prepSection
                 optionalSection
                 startButton
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goCook) {
                 cookingDestination
@@ -120,6 +119,7 @@ struct BeforeYouStartView: View {
             } label: {
                 Image(systemName: avail.isUsable && owned ? "checkmark.circle.fill" : "exclamationmark.circle")
                     .scaledFont(18)
+                    .frame(minWidth: 44, minHeight: 44)
                     .foregroundStyle(avail.isUsable && owned ? Color.stockedGreen : Color.stockedGold)
             }
         }
@@ -284,14 +284,8 @@ struct BeforeYouStartView: View {
                 goCook = true
             } label: {
                 Text("Start Cooking")
-                    .scaledFont(16, weight: .semibold, design: .serif)
-                    .foregroundStyle(Color.stockedWhite)
-                    .frame(maxWidth: .infinity).padding(.vertical, 15)
-                    .background(dark ? Color.darkSurface : Color.stockedCharcoal)
-                    .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL).stroke(dark ? Color.stockedGold : Color.clear, lineWidth: 1.5))
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
             }
-            .buttonStyle(.plain)
+            .stockedPrimary(accent: session.themeButtonColor)
             Text("You can start even with items unchecked — this is your call.")
                 .scaledFont(11)
                 .foregroundStyle(session.themeSecondaryText)

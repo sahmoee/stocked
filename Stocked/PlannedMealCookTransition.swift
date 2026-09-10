@@ -37,50 +37,52 @@ struct PlannedMealCookTransitionView: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    VStack(spacing: 10) {
-                        // Cook ahead leads when the meal is planned for a future day.
-                        if isFuture {
-                            choice(icon: "clock.arrow.circlepath", title: "Cook Ahead Now",
-                                   subtitle: "Cook it early — it stays on \(dayLabel(meal.dayIndex))'s plan and moves to Finish & Serve.",
-                                   primary: true) {
-                                store.setCookAheadStatus(.cookingEarly, for: meal.id)
-                                dismiss(); onCookAhead(meal)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        VStack(spacing: 10) {
+                            // Cook ahead leads when the meal is planned for a future day.
+                            if isFuture {
+                                choice(icon: "clock.arrow.circlepath", title: "Cook Ahead Now",
+                                       subtitle: "Cook it early — it stays on \(dayLabel(meal.dayIndex))'s plan and moves to Finish & Serve.",
+                                       primary: true) {
+                                    store.setCookAheadStatus(.cookingEarly, for: meal.id)
+                                    dismiss(); onCookAhead(meal)
+                                }
+                                choice(icon: "flame", title: "Start Cooking (serve now)",
+                                       subtitle: "Cook and eat now instead of \(dayLabel(meal.dayIndex)).", primary: false) {
+                                    dismiss(); onStartCooking(meal)
+                                }
+                            } else {
+                                choice(icon: "flame", title: "Start Cooking",
+                                       subtitle: "Cook it now for \(meal.mealType.lowercased()).", primary: true) {
+                                    dismiss(); onStartCooking(meal)
+                                }
+                                choice(icon: "clock.arrow.circlepath", title: "Cook Ahead",
+                                       subtitle: "Cook now, cool and store, finish at meal time.", primary: false) {
+                                    store.setCookAheadStatus(.cookingEarly, for: meal.id)
+                                    dismiss(); onCookAhead(meal)
+                                }
                             }
-                            choice(icon: "flame", title: "Start Cooking (serve now)",
-                                   subtitle: "Cook and eat now instead of \(dayLabel(meal.dayIndex)).", primary: false) {
-                                dismiss(); onStartCooking(meal)
-                            }
-                        } else {
-                            choice(icon: "flame", title: "Start Cooking",
-                                   subtitle: "Cook it now for \(meal.mealType.lowercased()).", primary: true) {
-                                dismiss(); onStartCooking(meal)
-                            }
-                            choice(icon: "clock.arrow.circlepath", title: "Cook Ahead",
-                                   subtitle: "Cook now, cool and store, finish at meal time.", primary: false) {
-                                store.setCookAheadStatus(.cookingEarly, for: meal.id)
-                                dismiss(); onCookAhead(meal)
+                            choice(icon: "list.bullet.clipboard", title: "Prep Only",
+                                   subtitle: "Just get the ingredients ready for later.", primary: false) {
+                                store.setCookAheadStatus(.prepped, for: meal.id)
+                                dismiss(); onPrepOnly(meal)
                             }
                         }
-                        choice(icon: "list.bullet.clipboard", title: "Prep Only",
-                               subtitle: "Just get the ingredients ready for later.", primary: false) {
-                            store.setCookAheadStatus(.prepped, for: meal.id)
-                            dismiss(); onPrepOnly(meal)
-                        }
+                        Text("However you cook it, the meal keeps its place on your plan until you serve it.")
+                            .scaledFont(11.5)
+                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 4)
                     }
-                    Text("However you cook it, the meal keeps its place on your plan until you serve it.")
-                        .scaledFont(11.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 4)
-                    Spacer()
+                    .padding(20)
                 }
-                .padding(20)
             }
         }
         .presentationDetents([.medium, .large])
+        .stockedPresentationSurface(width: .form)
     }
 
     private var header: some View {

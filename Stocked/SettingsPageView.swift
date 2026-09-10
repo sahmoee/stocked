@@ -99,9 +99,8 @@ struct SettingsPageView: View {
 
                     BuildInfoFooter()
                         .padding(.top, 10)
-                    Color.clear.frame(height: 30)
                 }
-                .padding(.horizontal, 18).padding(.top, 12)
+                .padding(.horizontal, 18).padding(.vertical, 12)
             }
         }
         .stockedPresentationSurface()

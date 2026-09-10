@@ -107,9 +107,11 @@ struct StockedPresentationSurface: ViewModifier {
     func body(content: Content) -> some View {
         ZStack {
             (canvasColor ?? session.themeBgColor).ignoresSafeArea()
-            content
-                .stockedAdaptiveInterface()
-                .stockedSizeAwareScrollBounce([.vertical, .horizontal])
+            StockedContainerLayout {
+                content
+                    .stockedAdaptiveInterface()
+                    .stockedSizeAwareScrollBounce([.vertical, .horizontal])
+            }
                 .frame(maxWidth: width.resolved(in: layoutMetrics),
                        maxHeight: .infinity,
                        alignment: .top)
@@ -751,24 +753,26 @@ struct SpringInModifier: ViewModifier {
 /// controls in the row the tallest measurement. Labels may wrap, but paired
 /// actions never look misaligned or move to a second row because one is longer.
 struct StockedEqualHeightRow: Layout {
+    /// Omit for a full control row; grids reserve missing cells in their final row.
+    var columns: Int? = nil
     var spacing: CGFloat = 10
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews,
                       cache: inout ()) -> CGSize {
         guard !subviews.isEmpty else { return .zero }
-        let available = proposal.width ?? 0
-        let childWidth = available > 0
-            ? max(0, (available - spacing * CGFloat(subviews.count - 1)) / CGFloat(subviews.count))
-            : nil
+        let count = max(subviews.count, columns ?? subviews.count)
+        let available = proposal.width.flatMap { $0.isFinite ? max(0, $0) : nil }
+        let childWidth = available.map { max(0, ($0 - spacing * CGFloat(count - 1)) / CGFloat(count)) }
         let sizes = subviews.map { $0.sizeThatFits(.init(width: childWidth, height: nil)) }
-        let width = available > 0 ? available : sizes.map(\.width).reduce(0, +) + spacing * CGFloat(subviews.count - 1)
+        let width = available ?? ((sizes.map(\.width).max() ?? 0) * CGFloat(count) + spacing * CGFloat(count - 1))
         return CGSize(width: width, height: sizes.map(\.height).max() ?? 0)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize,
                        subviews: Subviews, cache: inout ()) {
         guard !subviews.isEmpty else { return }
-        let childWidth = max(0, (bounds.width - spacing * CGFloat(subviews.count - 1)) / CGFloat(subviews.count))
+        let count = max(subviews.count, columns ?? subviews.count)
+        let childWidth = max(0, (bounds.width - spacing * CGFloat(count - 1)) / CGFloat(count))
         let childProposal = ProposedViewSize(width: childWidth, height: bounds.height)
         for (index, subview) in subviews.enumerated() {
             let x = bounds.minX + CGFloat(index) * (childWidth + spacing)
@@ -1040,7 +1044,7 @@ struct StockedFlowLayout: Layout {
         var totalWidth: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(ProposedViewSize(width: maxWidth.isFinite ? max(0, maxWidth) : nil, height: nil))
             if rowWidth > 0 && rowWidth + spacing + size.width > maxWidth {
                 totalHeight += rowHeight + lineSpacing
                 totalWidth = max(totalWidth, rowWidth)
@@ -1063,7 +1067,7 @@ struct StockedFlowLayout: Layout {
         var rowHeight: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(ProposedViewSize(width: maxWidth.isFinite ? max(0, maxWidth) : nil, height: nil))
             if x > bounds.minX && (x - bounds.minX) + size.width > maxWidth {
                 x = bounds.minX
                 y += rowHeight + lineSpacing

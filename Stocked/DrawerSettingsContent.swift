@@ -192,7 +192,10 @@ struct SettingsContent: View {
             Text(label)
                 .scaledFont(13, weight: .semibold)
                 .foregroundStyle(active ? Color.selectedTabForeground(session.isDarkMode) : session.themeTextColor)
-                .frame(maxWidth: .infinity).padding(.vertical, 9)
+                .fixedSize(horizontal: false, vertical: true)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 8).padding(.vertical, 8)
+                                        .frame(maxWidth: .infinity, minHeight: 44)
                 .background(active ? Color.selectedTabBackground : session.themeCardColor)
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
         }.buttonStyle(.plain)
@@ -652,6 +655,7 @@ struct HouseholdSyncSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(session.themeSecondaryText)
                     .frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 16)
@@ -822,8 +826,10 @@ struct HouseholdSyncSheet: View {
                     }
                 }
                 .padding(.horizontal, 24)
-                Spacer()
             }
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .presentationDetents([.large])
         .stockedPresentationSurface()
@@ -893,7 +899,10 @@ struct PreferredStorePopout: View {
                                     Text(store)
                                         .font(.stockedSystem(size: 12, weight: session.preferredStore == store ? .bold : .regular))
                                         .foregroundStyle(session.preferredStore == store ? Color.selectedTabForeground(session.isDarkMode) : session.themeTextColor)
-                                        .frame(maxWidth: .infinity).padding(.vertical, 9)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 8).padding(.vertical, 8)
+                                        .frame(maxWidth: .infinity, minHeight: 44)
                                         .background(session.preferredStore == store ? Color.selectedTabBackground : session.themeCardColor)
                                         .clipShape(Capsule())
                                 }.buttonStyle(.plain)
@@ -902,17 +911,19 @@ struct PreferredStorePopout: View {
                         }.padding(.horizontal, 20)
                     }
 
-                    // Nearby stores (moved here from the Grocery tab)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("NEARBY STORES")
-                            .scaledFont(10, weight: .bold).tracking(1)
-                            .foregroundStyle(session.themeSecondaryText)
-                            .padding(.horizontal, 20)
-                        GroceryStoreFinderView()
-                            .environment(session)
-                            .frame(minHeight: 320)
+                    NavigationLink {
+                        GroceryStoreFinderView().environment(session)
+                    } label: {
+                        StockedAlignedControlLabel(icon: "mappin.and.ellipse", title: "Find a nearby store",
+                                                   subtitle: "Choose a location near you") {
+                            Image(systemName: "chevron.right")
+                        }
+                        .padding(14)
+                        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 16))
                     }
-                    .padding(.bottom, 24)
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
             }
             .background(session.themeBgColor.ignoresSafeArea())

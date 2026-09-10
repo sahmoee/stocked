@@ -761,10 +761,14 @@ struct RecipeOverviewView: View {
 struct CookingFlashcardView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) private var device
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Environment(\.stockedMotion) private var motion
     let recipeTitle:  String
     let ingredients:  [String]
     let steps:        [String]
+    private var showsIngredientSidebar: Bool {
+        layoutMetrics.contentWidth >= 820 && !layoutMetrics.isAccessibilityText
+    }
     /// Servings the recipe/session was scaled to; carried in so the flashcard
     /// flow deducts inventory at the same portion the cook actually made.
     var baseServings: Int = 4
@@ -1118,12 +1122,12 @@ struct CookingFlashcardView: View {
             HStack(alignment: .top, spacing: 0) {
                 // iPad: persistent ingredients pane on the left so you don't scroll back
                 // to check ingredients while following steps. (#7 side-by-side cook mode)
-                if device == .tablet && !ingredients.isEmpty {
+                if showsIngredientSidebar && !ingredients.isEmpty {
                     ScrollView(showsIndicators: false) {
                         ingredientsChecklist(forcedExpanded: true)
                             .padding(16)
                     }
-                    .frame(width: 320)
+                    .frame(width: min(300, layoutMetrics.contentWidth * 0.30))
                     Divider()
                 }
 
@@ -1218,7 +1222,7 @@ struct CookingFlashcardView: View {
 
                     // ── Ingredients Checklist — inline on iPhone; on iPad it moves to a
                     //    persistent left pane (see body split below). ──────────────
-                    if !ingredients.isEmpty && device != .tablet {
+                    if !ingredients.isEmpty && !showsIngredientSidebar {
                         ingredientsChecklist(forcedExpanded: false)
                             .padding(.horizontal, 20).padding(.bottom, 12)
                     }
@@ -1226,9 +1230,6 @@ struct CookingFlashcardView: View {
                     if isSwipeMode {
                         // ── Swipe Card Mode ──────────────────────────────────
                         ZStack {
-                            RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
-                                .fill(session.themeButtonColor)
-                                .frame(maxWidth: .infinity).frame(height: 260)
                             VStack(spacing: 16) {
                                 HStack {
                                     Text("Step \(currentCard + 1) of \(steps.count)")
@@ -1264,7 +1265,11 @@ struct CookingFlashcardView: View {
                                     }
                                 }
                             }
+                            .padding(.vertical, 20)
+                            .frame(maxWidth: .infinity, minHeight: 260)
                         }
+                        .background(session.themeButtonColor,
+                                    in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                         .offset(x: cardDragOffset.width)
                         .gesture(DragGesture()
                             .onChanged { cardDragOffset = $0.translation }
@@ -1871,8 +1876,8 @@ struct CookingFlashcardView: View {
                                             Text(portionLabel(portions[i]))
                                                 .scaledFont(11.5, weight: .bold)
                                                 .foregroundStyle(portions[i] > 0 ? Color.stockedGold : session.themeTextColor.opacity(0.4))
-                                                .frame(width: 46)
-                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 10)
+                                                .frame(minWidth: 44, minHeight: 44)
                                                 .background((portions[i] > 0 ? Color.stockedGold : session.themeTextColor).opacity(0.10))
                                                 .clipShape(Capsule())
                                         }
@@ -1914,6 +1919,7 @@ struct CookingFlashcardView: View {
                 .toolbar(.hidden, for: .navigationBar)
             }
             .presentationDetents([.medium, .large])
+            .stockedPresentationSurface()
         }
     }
 
@@ -1926,6 +1932,7 @@ struct CookingFlashcardView: View {
         @Environment(\.stockedGoHome) private var goHome
         @Environment(\.dismiss) private var dismiss
         @Environment(\.stockedMotion) private var motion
+        @Environment(\.stockedLayout) private var layoutMetrics
         @State private var rating      = 0            // #FB — starts empty until the user chooses
         @State private var thumbUp: Bool? = nil       // #FB — no pre-filled thumb
         @State private var hasLeftover: Bool? = nil
@@ -1980,7 +1987,9 @@ struct CookingFlashcardView: View {
                         Text("Any food left over?")
                             .scaledFont(20, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor).padding(.bottom, 14)
-                        HStack(spacing: 12) {
+                        let leftoverLayout = layoutMetrics.prefersVerticalControls || layoutMetrics.isAccessibilityText
+                            ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+                        leftoverLayout {
                             leftoverButton(label: "Yes — Fridge", icon: "refrigerator.fill",
                                            selected: hasLeftover == true && leftoverZone == "Fridge", color: Color.stockedGreen) {
                                 motion.animate(.selection, intent: .spatial) {
@@ -2023,8 +2032,7 @@ struct CookingFlashcardView: View {
                             .padding(.bottom, 10)
 
                             TextField("Leftover name (e.g. \(recipeTitle) Leftovers)", text: $leftoverName)
-                                .scaledFont(14).foregroundStyle(session.themeTextColor)
-                                .padding(14).background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                .font(.stockedBody).foregroundStyle(session.themeTextColor)
                                 .padding(.bottom, 16)
                         }
                     }
@@ -2032,8 +2040,7 @@ struct CookingFlashcardView: View {
                     .padding(.horizontal, 20).padding(.bottom, 16)
 
                     TextField("Notes (optional)", text: $notes, axis: .vertical)
-                        .scaledFont(14).foregroundStyle(session.themeTextColor).lineLimit(2...)
-                        .padding(14).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .font(.stockedBody).foregroundStyle(session.themeTextColor).lineLimit(2...4)
                         .padding(.horizontal, 20).padding(.bottom, 20)
 
                     Button { finishMeal() } label: {

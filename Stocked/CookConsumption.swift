@@ -130,17 +130,14 @@ struct CookCompletionSheet: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
 
                 Button {
                     apply()
                 } label: {
                     Text(proposals.isEmpty ? "Done" : "Update pantry")
-                        .scaledFont(16, weight: .semibold)
-                        .frame(maxWidth: .infinity).padding(.vertical, 14)
-                        .background(session.accentColor).foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
-                .buttonStyle(.plain)
+                .stockedPrimary(accent: session.themeButtonColor)
                 .padding(.horizontal, 18).padding(.bottom, 14)
             }
             .stockedScreen()
@@ -152,6 +149,7 @@ struct CookCompletionSheet: View {
                 }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 
     private func apply() {

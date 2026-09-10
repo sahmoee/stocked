@@ -117,7 +117,7 @@ struct ReservationOverrideSheet: View {
                                         Text(claim.amountDisplay)
                                             .scaledFont(11.5, weight: .semibold)
                                             .foregroundStyle(Color.stockedGold)
-                                            .fixedSize()
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .padding(.horizontal, 12).padding(.vertical, 9)
                                     if idx < touches.count - 1 {
@@ -146,7 +146,7 @@ struct ReservationOverrideSheet: View {
                                         Text(dayLabel(meal.dayIndex, meal.date))
                                             .scaledFont(11.5, weight: .semibold)
                                             .foregroundStyle(session.themeSecondaryText)
-                                            .fixedSize()
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .padding(.horizontal, 12).padding(.vertical, 9)
                                     if idx < affectedMeals.count - 1 {
@@ -176,7 +176,7 @@ struct ReservationOverrideSheet: View {
                             } label: {
                                 Label("Cook Anyway", systemImage: "flame.fill")
                                     .scaledFont(16, weight: .semibold, design: .serif)
-                                    .foregroundStyle(Color.stockedWhite)
+                                    .foregroundStyle(Color.stockedCharcoal)
                                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                                     .background(Color.stockedGold)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -214,9 +214,9 @@ struct ReservationOverrideSheet: View {
                         }
                         .padding(.top, 4)
 
-                        Spacer(minLength: 24)
                     }
-                    .padding(.horizontal, 22)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
             }
             .toolbar {
@@ -228,5 +228,6 @@ struct ReservationOverrideSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .stockedPresentationSurface(width: .form)
     }
 }

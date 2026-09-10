@@ -47,7 +47,7 @@ struct MoneySavedView: View {
                     Text("As you cook, use things up, and log garden harvests, Stocked tracks the value you keep instead of throwing away — and shows it here.")
                         .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeSecondaryText).padding(.horizontal, 34)
-                }.frame(maxWidth: .infinity).padding(.top, 80)
+                }.frame(maxWidth: .infinity).padding(.vertical, 24)
             } else {
                 VStack(spacing: 16) {
                     // Hero
@@ -66,7 +66,7 @@ struct MoneySavedView: View {
                     .background(session.accentColor.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: 18))
 
-                    HStack(spacing: 12) {
+                    StockedEqualHeightRow(columns: 3, spacing: 12) {
                         stat("Used up", usedValue, "checkmark.circle", .green)
                         stat("Grown", grownValue, "leaf.circle", session.accentColor)
                         stat("Wasted", wastedValue, "trash", .red)
@@ -124,7 +124,8 @@ struct MoneySavedView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(label).scaledFont(11).foregroundStyle(session.themeSecondaryText)
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 14)
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(session.themeTextColor.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }

@@ -184,8 +184,8 @@ struct StockGoalsSetupView: View {
 
     // MARK: Chips
     private func chipGrid(_ items: [String]) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], alignment: .leading, spacing: 8) {
-            ForEach(items, id: \.self) { chip($0) }
+        StockedEqualHeightGrid(items: items, id: \.self, columns: 2, spacing: 8) { item in
+            chip(item)
         }
     }
 
@@ -196,8 +196,9 @@ struct StockGoalsSetupView: View {
                 .scaledFont(14, weight: .medium)
                 .fixedSize(horizontal: false, vertical: true)
 
-                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
                 .padding(.horizontal, 12).padding(.vertical, 9)
+                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                 .background(isSel ? Color.stockedGreen : chipSurface)
                 .foregroundStyle(isSel ? Color.white : primaryText)
                 .clipShape(Capsule())

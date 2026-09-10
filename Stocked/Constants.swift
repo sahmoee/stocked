@@ -69,7 +69,7 @@ enum StockedUI {
     static let offlineCacheLimit        = 100
     static let undoToastDuration        = 4.0
     static let skeletonRows             = 4
-    static let scrollBottomPad: CGFloat  = 120  // safe clearance below scroll content
+    static let scrollBottomPad: CGFloat  = 20   // navigation reserves its own space outside page content
     static let navHeight:        CGFloat  = 68   // global bottom navigation height
 }
 

@@ -717,7 +717,6 @@ struct OnlineRecipesView: View {
     @State private var liveResults: [OnlineRecipe] = []
     @State private var searchTask:  Task<Void, Never>? = nil
 
-    let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     private struct RecipeFilterKey: Hashable {
         let loaderRevision: Int
@@ -1197,8 +1196,9 @@ struct OnlineRecipesView: View {
                         .buttonStyle(.borderedProminent).tint(Color.stockedGold)
                         .frame(maxWidth: .infinity).padding(.bottom, 12)
                 }
-                LazyVGrid(columns: cols, spacing: 12) {
-                    ForEach(displayRecipes) { recipe in
+                StockedEqualHeightGrid(items: displayRecipes,
+                    columns: layoutMetrics.gridColumns(minimum: 160, maximum: 3, spacing: 12).count,
+                    spacing: 12) { recipe in
                         ZStack(alignment: .topTrailing) {
                             Button { selected = recipe } label: { OnlineRecipeCard(recipe: recipe) }
                                 .buttonStyle(.plain).contentShape(Rectangle())
@@ -1216,7 +1216,6 @@ struct OnlineRecipesView: View {
                                     .padding(9).background(.black.opacity(0.58)).clipShape(Circle())
                             }.padding(7).buttonStyle(.plain)
                         }
-                    }
                 }
                 .padding(.horizontal, 20)
                 .stockedAnimation(.selection, intent: .spatial, value: displayRecipes.count)
@@ -1642,6 +1641,7 @@ struct OnlineRecipeCard: View {
                 }
             }
             .padding(RecipeCardStyle.padding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(RecipeCardStyle.surface(isDark: session.isDarkMode))
         }
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

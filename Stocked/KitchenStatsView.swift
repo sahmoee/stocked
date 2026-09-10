@@ -27,11 +27,11 @@ struct KitchenStatsView: View {
     var body: some View {
         StockedShell(showBack: true, titleText: "Kitchen Stats") {
             VStack(spacing: 14) {
-                HStack(spacing: 12) {
+                StockedEqualHeightRow(columns: 2, spacing: 12) {
                     statTile("Used", "\(totalUsed)", "items finished")
                     statTile("Wasted", "\(totalWasted)", "let expire")
                 }
-                HStack(spacing: 12) {
+                StockedEqualHeightRow(columns: 2, spacing: 12) {
                     statTile("Waste rate", wasteRate == 0 ? "—" : String(format: "%.0f%%", wasteRate * 100), "of tracked items")
                     statTile("Value wasted", moneyWasted == 0 ? "—" : String(format: "$%.0f", moneyWasted), "expired unused")
                 }
@@ -69,8 +69,8 @@ struct KitchenStatsView: View {
             Text(value).scaledFont(26, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
             Text(sub).scaledFont(11).foregroundStyle(session.themeSecondaryText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 20))
     }
 }

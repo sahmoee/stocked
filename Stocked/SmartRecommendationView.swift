@@ -70,7 +70,6 @@ struct SmartRecommendationView: View {
                     noMatchState
                 }
 
-                Spacer(minLength: 20)
             }
                 .navigationDestination(isPresented: $goRecipe) {
                     if let pick { UserRecipeDetailView(recipe: pick.recipe) }

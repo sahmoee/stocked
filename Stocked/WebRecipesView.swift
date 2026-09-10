@@ -48,7 +48,6 @@ struct WebRecipesView: View {
     @State private var lastApproachingRecipeID: UUID? = nil
     @State private var prefetchScope = UUID().uuidString
 
-    let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     private var qualifiedSources: [RecipeSource] {
         var seen = Set<String>()
@@ -263,8 +262,9 @@ struct WebRecipesView: View {
             } else if displayRecipes.isEmpty && !manager.isLoading {
                 emptyState
             } else {
-                LazyVGrid(columns: cols, spacing: 12) {
-                    ForEach(displayRecipes) { recipe in
+                StockedEqualHeightGrid(items: displayRecipes,
+                    columns: layoutMetrics.gridColumns(minimum: 160, maximum: 3, spacing: 12).count,
+                    spacing: 12) { recipe in
                         Button { activeSheet = .detail(recipe: recipe) } label: {
                             WebRecipeCard(recipe: recipe)
                         }
@@ -278,7 +278,6 @@ struct WebRecipesView: View {
                                 activity: pageScrollActivity
                             )
                         }
-                    }
                 }
                 .padding(.horizontal, 20)
                 .stockedAnimation(.selection, intent: .spatial, value: displayRecipes.count)
@@ -565,6 +564,7 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
                 .foregroundStyle(session.themeSecondaryText)
             }
             .padding(RecipeCardStyle.padding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(RecipeCardStyle.surface(isDark: session.isDarkMode))
         }
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

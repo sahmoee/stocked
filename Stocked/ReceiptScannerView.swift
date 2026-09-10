@@ -191,7 +191,7 @@ struct ReceiptScannerView: View {
                         .disabled(archive.isEmpty)
                         .a11yButton("Receipt history", hint: "View previously scanned receipts")
                     }
-                    .padding(.horizontal, 24).padding(.top, 52).padding(.bottom, 20)
+                    .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12)
 
                     switch phase {
                     case .instructions: instructionsView
@@ -232,8 +232,8 @@ struct ReceiptScannerView: View {
 
     // MARK: - Instructions
     var instructionsView: some View {
-        VStack(spacing: 24) {
-            Spacer(minLength: 20)
+        ScrollView {
+        VStack(spacing: 16) {
 
             ZStack {
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
@@ -249,7 +249,7 @@ struct ReceiptScannerView: View {
                         .multilineTextAlignment(.center)
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 20)
 
             VStack(alignment: .leading, spacing: 14) {
                 tipRow(icon: "lightbulb.fill",        text: "Hold phone flat above the receipt")
@@ -257,9 +257,8 @@ struct ReceiptScannerView: View {
                 tipRow(icon: "checkmark.circle.fill",  text: "AI identifies food items automatically")
                 tipRow(icon: "photo.on.rectangle",     text: "Or import a screenshot of an e-receipt")
             }
-            .padding(.horizontal, 32)
+            .padding(.horizontal, 20)
 
-            Spacer()
 
             VStack(spacing: 12) {
                 if scannerAvailable {
@@ -273,7 +272,7 @@ struct ReceiptScannerView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 17)
                         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }
-                    .padding(.horizontal, 28)
+                    .padding(.horizontal, 20)
                 } else {
                     Button { loadDemoReceipt() } label: {
                         HStack(spacing: 10) {
@@ -285,10 +284,10 @@ struct ReceiptScannerView: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 17)
                         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }
-                    .padding(.horizontal, 28)
+                    .padding(.horizontal, 20)
                     Text("Camera scanning requires a physical iPhone with iOS 16+")
                         .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
-                        .multilineTextAlignment(.center).padding(.horizontal, 32)
+                        .multilineTextAlignment(.center).padding(.horizontal, 20)
                 }
 
                 // Screenshot / e-receipt import
@@ -303,10 +302,11 @@ struct ReceiptScannerView: View {
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.35))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                 }
-                .padding(.horizontal, 28)
+                .padding(.horizontal, 20)
             }
 
-            Spacer().frame(height: 32)
+        }
+        .padding(.top, 8).padding(.bottom, 20)
         }
     }
 
@@ -463,7 +463,7 @@ struct ReceiptScannerView: View {
                             .background(Color.stockedCharcoal)
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }
-                    .padding(.horizontal, 28).padding(.top, 8).padding(.bottom, 6)
+                    .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 6)
 
                     // #4 — add another page of a long receipt; next scan appends to this list.
                     Button {

@@ -152,12 +152,12 @@ struct AIInventoryAssistantView: View {
                 Image(systemName: "xmark")
                     .scaledFont(13, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
-                    .frame(width: 30, height: 30)
+                    .frame(width: 44, height: 44)
                     .background((session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.08))
                     .clipShape(Circle())
             }.buttonStyle(.plain)
         }
-        .padding(.horizontal, 20).padding(.top, StockedScreen.safeTopInset + 6).padding(.bottom, 12)
+        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12)
     }
 
     private var field: some View {
@@ -165,6 +165,7 @@ struct AIInventoryAssistantView: View {
             Text("What changed?")
                 .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
             TextField("e.g. I finished the eggs and used half the butter", text: $request, axis: .vertical)
+                    .textFieldStyle(.plain)
                 .lineLimit(2...)
                 .scaledFont(15).foregroundStyle(ink)
                 .focused($focused)

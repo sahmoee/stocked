@@ -43,7 +43,6 @@ struct CookAheadStatusView: View {
                     timeline(meal)
                     guidance(meal)
                     advanceButton(meal)
-                    Spacer(minLength: 20)
                 }
             } else {
                 CookEmptyStateInline(text: "This meal is no longer available.")
@@ -222,7 +221,6 @@ struct FinishAndServeView: View {
                     }
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goStatus) {
                 if let openMealID { CookAheadStatusView(mealID: openMealID) }

@@ -180,6 +180,7 @@ private struct CoachmarkHost: ViewModifier {
 // MARK: - Overlay (dim + glowing spotlight or centered card)
 
 private struct CoachmarkOverlay: View {
+    @Environment(\.stockedLayout) private var layoutMetrics
     let step: CoachmarkStep
     let anchors: [String: Anchor<CGRect>]
     let proxy: GeometryProxy
@@ -201,7 +202,7 @@ private struct CoachmarkOverlay: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             dimWithHole
-            if let rect = spotlightRect {
+            if let rect = spotlightRect, !layoutMetrics.isAccessibilityText, proxy.size.height >= 600 {
                 glowRing(around: rect)
                 calloutCard(near: rect)
             } else {
@@ -264,9 +265,15 @@ private struct CoachmarkOverlay: View {
     }
 
     private var centeredCard: some View {
-        cardBody
-            .frame(maxWidth: 340)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        ScrollView {
+            cardBody
+                .frame(maxWidth: 340)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .defaultScrollAnchor(.center, for: .alignment)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var cardBody: some View {

@@ -79,7 +79,7 @@ struct KitchenTransferView: View {
                         statusBanner(manager.errorMessage, isError: true)
                     }
 
-                    Spacer(minLength: 40)
+                    Color.clear.frame(height: 16)
                 }
                 .padding(.horizontal, 24)
             }
@@ -558,10 +558,11 @@ struct QRTransferSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 // Handle
                 Capsule().fill(Color.stockedCharcoal.opacity(0.18)).frame(width: 40, height: 4)
-                    .padding(.top, 12).padding(.bottom, 24)
+                    .padding(.top, 12).padding(.bottom, 16)
 
                 Text("QR Code Transfer")
                     .scaledFont(22, weight: .bold, design: .serif)
@@ -569,13 +570,13 @@ struct QRTransferSheet: View {
 
                 Text("Have another device running Stocked\nscan this code to import your kitchen.")
                     .scaledFont(14).foregroundStyle(session.themeSecondaryText)
-                    .multilineTextAlignment(.center).padding(.bottom, 28)
+                    .multilineTextAlignment(.center).padding(.bottom, 16)
 
                 if let qrImage = manager.qrCodeImage {
                     Image(uiImage: qrImage)
                         .interpolation(.none)
                         .resizable().scaledToFit()
-                        .frame(width: 260, height: 260)
+                        .frame(maxWidth: 260)
                         .padding(20)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
@@ -604,7 +605,6 @@ struct QRTransferSheet: View {
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }
-                    .padding(.horizontal, 40)
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
@@ -633,9 +633,11 @@ struct QRTransferSheet: View {
                         .padding(.top, 8)
                 }
 
-                Spacer()
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .presentationDetents([.large])
     }
@@ -652,9 +654,10 @@ struct TransferOptionsSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.18)).frame(width: 40, height: 4)
-                    .padding(.top, 12).padding(.bottom, 24)
+                    .padding(.top, 12).padding(.bottom, 16)
 
                 Text("iCloud Kitchen Sync")
                     .scaledFont(22, weight: .bold, design: .serif)
@@ -662,7 +665,7 @@ struct TransferOptionsSheet: View {
 
                 Text("Your kitchen data is stored privately\nin your personal iCloud.")
                     .scaledFont(14).foregroundStyle(session.themeSecondaryText)
-                    .multilineTextAlignment(.center).padding(.bottom, 28)
+                    .multilineTextAlignment(.center).padding(.bottom, 16)
 
                 VStack(spacing: 14) {
                     iCloudActionButton(
@@ -707,9 +710,11 @@ struct TransferOptionsSheet: View {
                         .scaledFont(13).foregroundStyle(.red).padding(.top, 8)
                 }
 
-                Spacer()
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .presentationDetents([.medium, .large])
     }
@@ -754,9 +759,10 @@ struct ImportModeSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.18)).frame(width: 40, height: 4)
-                    .padding(.top, 12).padding(.bottom, 24)
+                    .padding(.top, 12).padding(.bottom, 16)
 
                 Text("Import Kitchen")
                     .scaledFont(22, weight: .bold, design: .serif)
@@ -764,7 +770,7 @@ struct ImportModeSheet: View {
 
                 Text("How would you like to import?")
                     .scaledFont(14).foregroundStyle(session.themeSecondaryText)
-                    .padding(.bottom, 28)
+                    .padding(.bottom, 16)
 
                 VStack(spacing: 12) {
                     importModeButton(icon: "doc.fill", title: "Import File (Replace)",
@@ -797,9 +803,11 @@ struct ImportModeSheet: View {
                     }
                 }
 
-                Spacer()
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .presentationDetents([.large])
     }

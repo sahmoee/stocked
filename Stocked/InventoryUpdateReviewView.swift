@@ -33,6 +33,7 @@ struct InventoryUpdateReviewView: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Update your inventory?")
                         .scaledFont(21, weight: .bold, design: .serif)
@@ -48,13 +49,11 @@ struct InventoryUpdateReviewView: View {
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                             .frame(maxWidth: .infinity).padding(.vertical, 30)
                     } else {
-                        ScrollView(showsIndicators: false) {
-                            VStack(spacing: 8) {
+                            LazyVStack(spacing: 8) {
                                 ForEach(changes) { change in
                                     row(change)
                                 }
                             }
-                        }
                     }
 
                     VStack(spacing: 8) {
@@ -81,6 +80,7 @@ struct InventoryUpdateReviewView: View {
                     }
                 }
                 .padding(20)
+                }
             }
         }
         .presentationDetents([.medium, .large])

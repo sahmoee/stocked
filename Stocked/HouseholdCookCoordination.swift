@@ -135,16 +135,19 @@ final class HouseholdCookStore {
 
 struct HouseholdCookingCard: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    private var stacksControls: Bool { layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls }
     let presence: HouseholdCookPresence
     private let store = HouseholdCookStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                            : AnyLayout(HStackLayout())) {
                 Label("Cooking together", systemImage: "person.2.fill")
                     .scaledFont(12, weight: .bold)
                     .foregroundStyle(Color.stockedGold)
-                Spacer()
+                if !stacksControls { Spacer() }
                 Text(presence.status == .paused ? "Paused" : presence.progressLabel)
                     .scaledFont(11)
                     .foregroundStyle(session.themeSecondaryText)
@@ -164,10 +167,11 @@ struct HouseholdCookingCard: View {
                         store.release(task: task, in: presence.id)
                     }
                 } label: {
-                    HStack(spacing: 8) {
+                    (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                                    : AnyLayout(HStackLayout(spacing: 8))) {
                         Image(systemName: claimant == nil ? "circle" : "checkmark.circle.fill")
                         Text(task).scaledFont(13, weight: .semibold)
-                        Spacer()
+                        if !stacksControls { Spacer() }
                         if let claimant { Text(claimant).scaledFont(11) }
                     }
                     .foregroundStyle(claimant == nil ? session.themeTextColor : Color.stockedGold)

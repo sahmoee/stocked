@@ -34,12 +34,12 @@ struct RecipePortionsEditSheet: View {
                     Text("Recipe Ingredients")
                         .scaledFont(18, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                        .padding(.horizontal, 22).padding(.bottom, 2)
+                        .padding(.horizontal, 20).padding(.bottom, 2)
                     Text("Edit amounts, remove items, or add what's missing to your grocery list. The recipe updates as you go.")
                         .scaledFont(12.5)
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 22).padding(.bottom, 12)
+                        .padding(.horizontal, 20).padding(.bottom, 12)
 
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 10) {
@@ -47,7 +47,7 @@ struct RecipePortionsEditSheet: View {
                                 ingredientRow(ing)
                             }
                         }
-                        .padding(.horizontal, 18).padding(.bottom, 24)
+                        .padding(.horizontal, 20).padding(.bottom, 24)
                     }
 
                     Button { showAddItem = true } label: {
@@ -63,7 +63,7 @@ struct RecipePortionsEditSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 18).padding(.bottom, 8)
+                    .padding(.horizontal, 20).padding(.bottom, 8)
 
                     Button { dismiss() } label: {
                         Text("Done")
@@ -74,7 +74,7 @@ struct RecipePortionsEditSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 18).padding(.bottom, 14)
+                    .padding(.horizontal, 20).padding(.bottom, 14)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)

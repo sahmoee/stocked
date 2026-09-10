@@ -739,18 +739,25 @@ struct HomeView: View {
             Text("Action Center")
                 .scaledFont(16, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
-            LazyVGrid(columns: layoutMetrics.gridColumns(minimum: 150, maximum: 2, spacing: 10), spacing: 10) {
-                quickAction(icon: "viewfinder", title: "Scan Receipt", caption: "Add items fast") {
-                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
-                }
-                quickAction(icon: "barcode.viewfinder", title: "Scan Barcode", caption: "Look up a product") {
-                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
-                }
-                quickAction(icon: "plus", title: "Add Item", caption: "Add by hand") {
-                    NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
-                }
-                quickAction(icon: "scribble.variable", title: "Quick Update", caption: "Tell me what changed") {
-                    activeHomeSheet = .quickUpdate
+            StockedEqualHeightGrid(items: [0, 1, 2, 3], id: \.self,
+                columns: layoutMetrics.gridColumns(minimum: 150, maximum: 2).count) { action in
+                switch action {
+                case 0:
+                    quickAction(icon: "viewfinder", title: "Scan Receipt", caption: "Add items fast") {
+                        NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanReceipt)
+                    }
+                case 1:
+                    quickAction(icon: "barcode.viewfinder", title: "Scan Barcode", caption: "Look up a product") {
+                        NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.scanBarcode)
+                    }
+                case 2:
+                    quickAction(icon: "plus", title: "Add Item", caption: "Add by hand") {
+                        NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
+                    }
+                default:
+                    quickAction(icon: "scribble.variable", title: "Quick Update", caption: "Tell me what changed") {
+                        activeHomeSheet = .quickUpdate
+                    }
                 }
             }
         }
@@ -2062,7 +2069,7 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 84, maxHeight: .infinity, alignment: .topLeading)
             .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.40))
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         }

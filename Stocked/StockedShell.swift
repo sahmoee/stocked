@@ -80,7 +80,7 @@ struct StockedShell<Content: View>: View {
                     .environment(session)
                 if scrollDisabled {
                     content
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .padding(.bottom, 8)   // small buffer for tab bar safeAreaInset
                 } else {
                     // ScrollViewReader lets the coachmark engine scroll a spotlight target into
@@ -253,9 +253,9 @@ enum StockedChrome {
     static let navigationBottomInset: CGFloat = 4
     static let wordmarkSize: CGFloat = 20
     static let wordmarkChevronSize: CGFloat = 10
-    static let headerHeight: CGFloat = 32
+    static let headerHeight: CGFloat = 44
     static let headerTopPadding: CGFloat = 8
-    static let headerBottomPadding: CGFloat = 14
+    static let headerBottomPadding: CGFloat = 8
 }
 
 

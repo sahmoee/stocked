@@ -29,6 +29,7 @@ struct RecipeURLImportView: View {
 
     var body: some View {
         ZStack { session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.15)).frame(width: 40, height: 4).padding(.top, 12)
                 HStack {
@@ -37,6 +38,7 @@ struct RecipeURLImportView: View {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .frame(minWidth: 44, minHeight: 44)
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
@@ -44,6 +46,7 @@ struct RecipeURLImportView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "link").foregroundStyle(session.themeTextColor.opacity(0.4))
                         TextField("Paste a recipe URL…", text: $urlText)
+                            .textFieldStyle(.plain)
                             .stocked(.body).foregroundStyle(session.themeTextColor)
                             .keyboardType(.URL).autocorrectionDisabled()
                     }
@@ -84,11 +87,13 @@ struct RecipeURLImportView: View {
                     }
                     if showError { Text(errorMsg).stocked(.caption).foregroundStyle(.red).padding(.horizontal, 24) }
                 }
-                Spacer()
                 Button("Import Recipe") { Task { await doImport() } }
                     .disabled(urlText.isEmpty || loading)
-                    .padding(.horizontal, 24).padding(.bottom, 32).stockedPrimary()
+                    .stockedPrimary()
+                    .padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 20)
             }
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }.presentationDetents([.medium, .large])
     }
 
@@ -182,6 +187,7 @@ struct OCRConfirmationView: View {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .frame(minWidth: 44, minHeight: 44)
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
@@ -201,6 +207,7 @@ struct OCRConfirmationView: View {
                                     get: { edited[line] ?? translated },
                                     set: { edited[line] = $0 }
                                 ))
+                                .textFieldStyle(.plain)
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 .stocked(.body).foregroundStyle(inc ? session.themeTextColor : session.themeSecondaryText)
                                 .strikethrough(!inc)

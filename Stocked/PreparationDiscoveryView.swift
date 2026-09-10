@@ -55,7 +55,6 @@ struct PreparationDiscoveryView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
                 affirmation
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goMethod) {
                 if let cs = cookSession { CookingMethodComparisonView().environment(cs) }

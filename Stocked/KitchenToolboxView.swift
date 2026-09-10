@@ -205,6 +205,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
 struct KitchenToolboxView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var search = ""
     /// Improvement #4 — usage-based ranking, pinning, and a Recent row.
     private let usage = ToolboxUsageStore.shared
@@ -277,9 +278,7 @@ struct KitchenToolboxView: View {
     /// One grid, used by both the quick-access rows and the category sections.
     @ViewBuilder
     private func toolGrid(_ tools: [ToolboxTool]) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                  spacing: 10) {
-            ForEach(tools) { tool in
+        StockedEqualHeightGrid(items: tools, columns: layoutMetrics.contentWidth < 360 ? 1 : (layoutMetrics.contentWidth >= 700 ? 3 : 2), spacing: 12) { tool in
                 NavigationLink(value: tool) {
                     ToolboxTile(tool: tool, isFavorite: usage.isFavorite(tool))
                 }
@@ -296,7 +295,6 @@ struct KitchenToolboxView: View {
                               systemImage: usage.isFavorite(tool) ? "pin.slash" : "pin")
                     }
                 }
-            }
         }
     }
 
@@ -385,7 +383,7 @@ private struct ToolboxTile: View {
                 .multilineTextAlignment(.leading)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(session.themeCardColor)

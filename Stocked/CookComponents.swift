@@ -56,7 +56,10 @@ struct CookHubIllustratedButton: View {
     }
 
     private var horizontalContent: some View {
-        HStack(spacing: 8) {
+        let arrangement = layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return arrangement {
             illustration
                 .frame(width: imageWidth, height: 148)
             copy
@@ -158,7 +161,7 @@ struct CookHeroCard: View {
             }
             .padding(CookStyle.cardPadding)
         }
-        .frame(height: height)
+        .frame(minHeight: height)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
@@ -234,8 +237,8 @@ struct CookActionCard: View {
 
     // Photo present: tall card, full-bleed image, tint gradient keeps the left readable.
     private func photoCard(_ photo: Image) -> some View {
-        // Text content lives in a fixed-height container; the photo + scrim are a clipped
-        // background so the image can never push the text outside the card.
+        // The photo stays in the background; text can grow beyond the media baseline
+        // for larger reading sizes without leaving the card or its hit target.
         VStack(alignment: .leading, spacing: 0) {
             Spacer(minLength: 0)
             HStack(alignment: .bottom, spacing: 14) {
@@ -264,7 +267,7 @@ struct CookActionCard: View {
             }
             .padding(CookStyle.cardPadding)
         }
-        .frame(height: cardHeight)
+        .frame(minHeight: cardHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
@@ -504,7 +507,8 @@ struct CookCategoryCard: View {
                 .shadow(color: Color.black.opacity(0.5), radius: 2, y: 1)
         }
         .padding(.horizontal, 16)
-        .frame(height: cardHeight)
+        .padding(.vertical, 12)
+        .frame(minHeight: cardHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {

@@ -26,7 +26,7 @@ struct UsageInsightsView: View {
                 .padding(.horizontal, 24).padding(.top, 4)
 
                 // Summary line
-                HStack(spacing: 14) {
+                StockedEqualHeightRow(columns: 2, spacing: 12) {
                     summaryStat("\(UsageMetrics.shared.totalEvents)", "actions logged")
                     summaryStat(daysSinceFirst, "days using Stocked")
                 }
@@ -124,8 +124,8 @@ struct UsageInsightsView: View {
             Text(value).scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
             Text(label).scaledFont(12).foregroundStyle(session.themeSecondaryText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }

@@ -14,7 +14,7 @@ struct PantryValueView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                HStack(spacing: 10) {
+                StockedEqualHeightRow(columns: 2, spacing: 10) {
                     ToolboxStatTile(value: ToolboxFormatters.dollars(snapshot.totalValue), label: "Estimated value")
                     ToolboxStatTile(value: "\(snapshot.pricedItems)/\(snapshot.totalItems)", label: "Items with a price")
                 }
@@ -107,7 +107,7 @@ struct WasteInsightsView: View {
                                       title: "No history yet",
                                       message: "As items get used up or thrown out, Stocked keeps a private log here so you can see what goes to waste.")
                 } else {
-                    HStack(spacing: 10) {
+                    StockedEqualHeightRow(columns: 3, spacing: 10) {
                         ToolboxStatTile(value: "\(payload.wastedCount)", label: "Thrown out", tint: .orange)
                         ToolboxStatTile(value: "\(payload.usedCount)", label: "Used up", tint: .green)
                         ToolboxStatTile(value: ToolboxFormatters.dollars(payload.wastedValue), label: "Value wasted")
@@ -211,7 +211,7 @@ struct WeeklyReviewView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                HStack(spacing: 10) {
+                StockedEqualHeightRow(columns: 3, spacing: 10) {
                     ToolboxStatTile(value: "\(payload.added)", label: "Items added")
                     ToolboxStatTile(value: "\(payload.cooked)", label: "Recipes cooked", tint: .green)
                     ToolboxStatTile(value: "\(payload.wasted)", label: "Items wasted", tint: payload.wasted > 0 ? .orange : nil)

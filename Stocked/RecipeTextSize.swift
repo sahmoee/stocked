@@ -81,8 +81,7 @@ struct RecipeTextSizeControl: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Recipe Text Size", systemImage: "textformat.size")
                 .scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 6)], spacing: 6) {
-                ForEach(RecipeTextSize.allCases) { option in
+            StockedEqualHeightGrid(items: RecipeTextSize.allCases, columns: 4, spacing: 6) { option in
                     Button {
                         motion.animate(.selection, intent: .spatial) { prefs.size = option }
                         HapticManager.select()
@@ -91,7 +90,7 @@ struct RecipeTextSizeControl: View {
                             .scaledFont(12, weight: .bold)
                             .foregroundStyle(prefs.size == option ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
                             .padding(.horizontal, 11).padding(.vertical, 7)
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                             .background(prefs.size == option ? Color.stockedGold : Color.clear)
                             .clipShape(Capsule())
                             .overlay(Capsule().stroke(
@@ -99,7 +98,6 @@ struct RecipeTextSizeControl: View {
                                 lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-                }
             }
             // Live preview so the effect is obvious before leaving Settings.
             Text("Simmer for 10 minutes, stirring occasionally.")
@@ -232,7 +230,7 @@ struct TimedStepRow: View {
                     .scaledFont(13)
                     .foregroundStyle(SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)"
                                      ? Color.stockedGold : session.themeTextColor.opacity(0.35))
-                    .frame(width: 26, height: 26)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

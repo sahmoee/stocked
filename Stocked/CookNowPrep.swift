@@ -165,7 +165,6 @@ struct PrepChecklistView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, CookStyle.screenHPad)
 
-                Spacer(minLength: 20)
             }
         }
         .task { tasks = CookNowPrepDeriver.tasks(for: recipe) }

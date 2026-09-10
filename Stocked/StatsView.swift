@@ -130,41 +130,46 @@ struct StatsView: View {
                         .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
 
-                    // Health ring
-                    HStack {
-                        Spacer()
-                        ZStack {
-                            Circle().stroke(Color.stockedWhite.opacity(0.10), lineWidth: 12)
-                            Circle()
-                                .trim(from: 0, to: CGFloat(store.stockPercent) / 100)
-                                .stroke(Color.stockedGreen, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
-                            VStack(spacing: 3) {
-                                Text("Kitchen Health")
-                                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
-                                Text("\(store.stockPercent)%")
-                                    .scaledFont(42, weight: .heavy, design: .serif)
-                                    .foregroundStyle(Color.stockedGreen)
-                                Text(healthLabel)
-                                    .scaledFont(12, weight: .semibold)
-                                    .foregroundStyle(Color.stockedWhite.opacity(0.8))
-                                // #260/#261 — say what the number measures, invite setup.
-                                Text(store.stockGoalsConfigured && !store.stockStaples.isEmpty
-                                     ? "Anchored to your \(store.stockStaples.count) staples · tap to edit"
-                                     : "Average fill · tap to set goals")
-                                    .scaledFont(10, weight: .medium)
-                                    .foregroundStyle(Color.stockedWhite.opacity(0.45))
-                            }
+                    // Keep explanatory copy outside the ring. The value determines
+                    // its natural size, so larger text never collides with a fixed circle.
+                    Button { showKitchenGoals = true } label: {
+                        VStack(spacing: 12) {
+                            Text("Kitchen Health")
+                                .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                            Text("\(store.stockPercent)%")
+                                .scaledFont(42, weight: .heavy, design: .serif)
+                                .foregroundStyle(Color.stockedGreen)
+                                .padding(32)
+                                .frame(minWidth: 180, minHeight: 180)
+                                .background {
+                                    ZStack {
+                                        Circle().stroke(Color.stockedWhite.opacity(0.10), lineWidth: 12)
+                                        Circle()
+                                            .trim(from: 0, to: CGFloat(store.stockPercent) / 100)
+                                            .stroke(Color.stockedGreen, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                                            .rotationEffect(.degrees(-90))
+                                    }
+                                }
+                            Text(healthLabel)
+                                .scaledFont(12, weight: .semibold)
+                                .foregroundStyle(Color.stockedWhite.opacity(0.8))
+                            Text(store.stockGoalsConfigured && !store.stockStaples.isEmpty
+                                 ? "Anchored to your \(store.stockStaples.count) staples · tap to edit"
+                                 : "Average fill · tap to set goals")
+                                .scaledFont(10, weight: .medium)
+                                .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        .frame(width: 180, height: 180)
-                        .contentShape(Circle())
-                        .onTapGesture { showKitchenGoals = true }
-                        .sheet(isPresented: $showKitchenGoals) {
-                            StockGoalsSetupView(existing: store.stockStaples,
-                                                configured: store.stockGoalsConfigured)
-                                .environment(session)
-                        }
-                        Spacer()
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .a11yButton("Kitchen Health, \(store.stockPercent) percent", hint: "Edit your kitchen goals")
+                    .sheet(isPresented: $showKitchenGoals) {
+                        StockGoalsSetupView(existing: store.stockStaples,
+                                            configured: store.stockGoalsConfigured)
+                            .environment(session)
                     }
 
                     // #261 — composite breakdown: shows the signals behind the health % and

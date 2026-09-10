@@ -49,7 +49,7 @@ struct AIInventoryScanView: View {
                                 updateCard($update)
                             }
                         }
-                        .padding(.horizontal, 18).padding(.bottom, 24)
+                        .padding(.horizontal, 20).padding(.bottom, 24)
                     }
 
                     Button {
@@ -69,7 +69,7 @@ struct AIInventoryScanView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(confirmedCount == 0)
-                    .padding(.horizontal, 18).padding(.bottom, 6)
+                    .padding(.horizontal, 20).padding(.bottom, 6)
 
                     Button { dismiss() } label: {
                         Text("Cancel")

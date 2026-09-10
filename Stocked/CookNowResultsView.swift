@@ -89,7 +89,6 @@ struct CookNowResultsView: View {
                     // duplicate that same population below the normal results list.
                 }
 
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goRecipe) {
                 if let openRecipe { UserRecipeDetailView(recipe: openRecipe) }

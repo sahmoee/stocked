@@ -154,6 +154,7 @@ struct ReadyToCoookNowView: View {
 // MARK: - Ready to Cook content (extracted to fix type-check timeout)
 private struct ReadyToCoookContent: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     let cachedReadyRecipes: [ReadyRecipe]
     let isComputingReady: Bool
     let isGeneratingRecipe: Bool
@@ -166,7 +167,10 @@ private struct ReadyToCoookContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack(spacing: 12) {
+            let headerLayout = layoutMetrics.prefersVerticalControls || layoutMetrics.isAccessibilityText
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                : AnyLayout(HStackLayout(spacing: 12))
+            headerLayout {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(readyNow) ready now · \(cachedReadyRecipes.count) total")
                         .scaledFont(13, weight: .bold)
@@ -184,8 +188,7 @@ private struct ReadyToCoookContent: View {
                           systemImage: "sparkles")
                         .scaledFont(12, weight: .bold)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.stockedGold)
+                .stockedSecondary(accent: session.themeButtonColor)
                 .disabled(isGeneratingRecipe)
             }
             .padding(.horizontal, 24).padding(.bottom, 10)

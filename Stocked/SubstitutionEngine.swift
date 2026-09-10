@@ -195,12 +195,15 @@ enum SubstitutionEngine {
 /// One consistent way to draw a substitution, so the four screens that show them stop diverging.
 struct SubstitutionRow: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+    private var stacksControls: Bool { layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls }
     let substitution: Substitution
     var showSource = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
+            (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                            : AnyLayout(HStackLayout(spacing: 6))) {
                 Text(substitution.substitute)
                     .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
@@ -212,7 +215,7 @@ struct SubstitutionRow: View {
                         .foregroundStyle(tint)
                         .clipShape(Capsule())
                 }
-                Spacer()
+                if !stacksControls { Spacer() }
                 if substitution.vegan == true {
                     Image(systemName: "leaf.fill").scaledFont(10).foregroundStyle(.green)
                 }

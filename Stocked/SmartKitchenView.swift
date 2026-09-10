@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SubstitutionsToolView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var name = ""
     @State private var vegan = false
     @State private var glutenFree = false
@@ -51,7 +52,7 @@ struct SubstitutionsToolView: View {
                         )
                         if !local.isEmpty { subs = local; searched = true }
                     }
-                HStack(spacing: 16) {
+                adaptiveToggleLayout {
                     Toggle("Vegan", isOn: $vegan).toggleStyle(.switch)
                     Toggle("Gluten-free", isOn: $glutenFree).toggleStyle(.switch)
                 }.scaledFont(13)
@@ -75,12 +76,20 @@ struct SubstitutionsToolView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
-            .padding(18)
+            .padding(20)
         }
         .stockedScreen()
         .navigationTitle("Substitutions")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: seedFromProfileIfNeeded)   // DEP-09
+    }
+
+    private var adaptiveToggleLayout: AnyLayout {
+        if layoutMetrics.prefersVerticalControls || layoutMetrics.textScale > 1.3 {
+            AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+        } else {
+            AnyLayout(HStackLayout(spacing: 16))
+        }
     }
 
     /// Renders local results immediately, then folds in the Worker's diet-aware suggestions.
@@ -113,6 +122,7 @@ struct SubstitutionsToolView: View {
 
 struct NutritionToolView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var text = "100 g chicken\n1 cup rice\n1 tbsp olive oil"
     @State private var result: SmartNutrition?
     @State private var loading = false
@@ -140,12 +150,15 @@ struct NutritionToolView: View {
                     Text(r.note ?? "Estimates can be incomplete. Missing nutrition or quantities aren't zero.")
                         .font(.caption).foregroundStyle(session.themeSecondaryText)
                     if r.items.contains(where: { $0.kcal != nil }) {
-                    HStack(spacing: 10) {
-                        macro("\(r.total.kcal)", "kcal")
-                        macro("\(r.total.protein)g", "protein")
-                        macro("\(r.total.carbs)g", "carbs")
-                        macro("\(r.total.fat)g", "fat")
-                    }
+                        StockedEqualHeightGrid(
+                            items: [("\(r.total.kcal)", "kcal"), ("\(r.total.protein)g", "protein"),
+                                    ("\(r.total.carbs)g", "carbs"), ("\(r.total.fat)g", "fat")],
+                            id: \.1,
+                            columns: layoutMetrics.gridColumns(minimum: 72, maximum: 4, spacing: 10).count,
+                            spacing: 10
+                        ) { value, label in
+                            macro(value, label)
+                        }
                     }
                     ForEach(Array(r.items.enumerated()), id: \.offset) { _, it in
                         HStack {
@@ -158,7 +171,7 @@ struct NutritionToolView: View {
                     }
                 }
             }
-            .padding(18)
+            .padding(20)
         }
         .stockedScreen()
         .navigationTitle("Nutrition")
@@ -169,7 +182,7 @@ struct NutritionToolView: View {
             Text(v).scaledFont(17, weight: .bold).foregroundStyle(session.accentColor)
             Text(label).scaledFont(10).foregroundStyle(session.themeSecondaryText)
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.vertical, 10)
         .background(session.themeTextColor.opacity(0.05)).clipShape(RoundedRectangle(cornerRadius: 12))
     }
     private func run() {

@@ -646,7 +646,7 @@ struct MainTabView: View {
             // compositingGroup() flattens the content (including any inner
             // .ignoresSafeArea() backgrounds) BEFORE the clip, so nothing bleeds past
             // the rounded top corners (was showing a gray wedge in the corners).
-            content()
+            StockedContainerLayout { content() }
                 .environment(session)
                 .environment(\.stockedDismiss, {
                     motion.animate(.navigation, intent: .spatial) {

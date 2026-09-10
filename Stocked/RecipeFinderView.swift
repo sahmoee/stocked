@@ -170,6 +170,7 @@ struct RecipeFinderView: View {
   @Environment(AppSession.self) private var session
   @Environment(\.dismiss) private var dismiss
   @Environment(\.dynamicTypeSize) private var typeSize
+  @Environment(\.stockedLayout) private var layoutMetrics
   @Bindable var model: RecipeFinderSession
   @State private var showFilters = false
   @State private var showSort = false
@@ -182,6 +183,10 @@ struct RecipeFinderView: View {
   private var surface: Color { RecipeCardStyle.surface(isDark: session.isDarkMode) }
   private var categories: [FinderCategory] { FinderCategory.allCases }
   private var showCount: String { model.loading ? "Finding matches…" : "See recipes" }
+  private var cardColumnCount: Int {
+    layoutMetrics.isAccessibilityText ? 1
+      : layoutMetrics.gridColumns(minimum: 155, maximum: 4, spacing: 14).count
+  }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -292,10 +297,7 @@ struct RecipeFinderView: View {
   private func primary(_ text: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Text(text).font(.stocked(.headline)).multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, minHeight: 48).padding(8)
-        .foregroundStyle(Color.selectedTabForeground(session.isDarkMode)).background(
-          Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 18))
-    }.buttonStyle(.plain)
+    }.stockedPrimary(accent: session.themeButtonColor)
   }
   private func quiz(_ index: Int) -> some View {
     let category = categories[index]
@@ -333,13 +335,12 @@ struct RecipeFinderView: View {
       StockedSearchField(text: $cuisineQuery, prompt: "Search cuisines")
         .accessibilityLabel("Search cuisine options")
     }
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 145))], spacing: 12) {
-      ForEach(
-        category.options.filter {
+    StockedEqualHeightGrid(
+      items: category.options.filter {
           category != .cuisine || cuisineQuery.isEmpty || $0.isNeutral || $0.isDiscovery
             || FinderQuery.normalize($0.label).contains(FinderQuery.normalize(cuisineQuery))
-        }
-      ) { choice in
+        }, columns: cardColumnCount, spacing: 12
+    ) { choice in
         let selected = model.flow.filters[category].contains(choice)
         Button {
           model.flow.filters.toggle(choice, in: category)
@@ -358,7 +359,9 @@ struct RecipeFinderView: View {
               }
             }
           }
-          .frame(maxWidth: .infinity, minHeight: category == .meal ? 100 : 48).padding(12)
+          .padding(12)
+          .frame(maxWidth: .infinity, minHeight: category == .meal ? 100 : layoutMetrics.minimumControlHeight)
+          .frame(maxHeight: .infinity)
           .foregroundStyle(selected ? Color.selectedTabForeground(session.isDarkMode) : session.themeTextColor)
           .background(
             selected ? Color.stockedCharcoal : surface, in: RoundedRectangle(cornerRadius: 18)
@@ -372,7 +375,6 @@ struct RecipeFinderView: View {
             selected ? "Selected" : "Not selected"
           )
           .accessibilityAddTraits(selected ? .isSelected : [])
-      }
     }
   }
 
@@ -512,15 +514,13 @@ struct RecipeFinderView: View {
       } else if model.hits.isEmpty {
         emptyState
       } else {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 155), spacing: 14)], spacing: 14) {
-          ForEach(model.hits) { hit in
+        StockedEqualHeightGrid(items: model.hits, columns: cardColumnCount, spacing: 14) { hit in
             Button {
               if hit.databaseEntry != nil { preview = hit } else { selected = hit }
               AppAnalytics.shared.log(.finderRecipeOpened)
             } label: {
               card(hit)
             }.buttonStyle(.plain)
-          }
         }
         if model.canReportCount && model.hits.count < model.count {
           primary("Load more recipes") {
@@ -567,7 +567,8 @@ struct RecipeFinderView: View {
         }
       }.font(.stocked(.caption)).padding(RecipeCardStyle.padding).frame(
         maxWidth: .infinity, alignment: .leading)
-    }.background(surface, in: RoundedRectangle(cornerRadius: 18)).clipShape(
+    }.frame(maxHeight: .infinity, alignment: .top)
+    .background(surface, in: RoundedRectangle(cornerRadius: 18)).clipShape(
       RoundedRectangle(cornerRadius: 18)
     )
     .overlay(
@@ -612,7 +613,7 @@ struct RecipeFinderView: View {
     }.font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
   }
   private var skeletons: some View {
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 155))]) {
+    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: cardColumnCount), spacing: 14) {
       ForEach(0..<6) { _ in
         VStack(alignment: .leading, spacing: 12) {
           Rectangle().fill(surface).frame(height: RecipeCardStyle.imageHeight)

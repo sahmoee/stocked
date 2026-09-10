@@ -176,7 +176,7 @@ struct ToolboxEmptyState: View {
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 32)
-        .padding(.vertical, 40)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
@@ -230,8 +230,8 @@ struct ToolboxStatTile: View {
                 .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
         }
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity)
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(session.themeCardColor)

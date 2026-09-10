@@ -38,7 +38,7 @@ struct CookHubView: View {
                         .foregroundStyle(session.themeSecondaryText)
                         .lineSpacing(5)
                 }
-                .padding(.horizontal, CookStyle.screenHPad).padding(.top, 28)
+                .padding(.horizontal, layoutMetrics.horizontalPadding).padding(.top, 8)
                 .coachmarkAnchor("cook.header")
 
                 // RL-001 — a paused (or force-closed) cooking session surfaces
@@ -60,7 +60,6 @@ struct CookHubView: View {
                         .padding(.horizontal, CookStyle.screenHPad)
                 }
 
-                Spacer(minLength: 24)
                 VStack(spacing: 14) {
                     CookHubIllustratedButton(
                         title: "Cook Now",
@@ -80,17 +79,10 @@ struct CookHubView: View {
                 }
                 .padding(.horizontal, CookStyle.screenHPad)
                 .frame(maxWidth: .infinity)
-                Spacer(minLength: 24)
             }
             .stockedSnapTargetLayout()
             .frame(maxWidth: 620)
             .frame(maxWidth: .infinity)
-            // When the two choices are shorter than the iPad/landscape viewport,
-            // center the complete decision group instead of pinning it beneath the
-            // wordmark. This is a minimum, not a fixed height: Dynamic Type can
-            // still grow the content and the shell remains fully scrollable.
-            .frame(minHeight: cookHubMinimumHeight, alignment: .top)
-            .padding(.bottom, 20)
         }
         .navigationDestination(isPresented: $goCookNow) { CookNowHomeView() }
         .navigationDestination(isPresented: $goCookLater) { CookLaterHomeView() }
@@ -132,13 +124,6 @@ struct CookHubView: View {
         .coachmarks(page: .cook, steps: CookCoachmarks.steps)
     }
 
-    private var cookHubMinimumHeight: CGFloat {
-        let chromeHeight = StockedChrome.headerHeight
-            + StockedChrome.headerTopPadding
-            + StockedChrome.headerBottomPadding
-        let tabAndScrollClearance: CGFloat = 190
-        return max(0, layoutMetrics.contentHeight - chromeHeight - tabAndScrollClearance)
-    }
 }
 
 // MARK: - Cook Now Home
@@ -155,6 +140,7 @@ struct CookHubView: View {
 
 struct CookNowHomeView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Environment(\.quickMenuCallbacks) private var quickMenu
     @Environment(\.stockedMotion) private var motion
     private var store: GuestDataStore { session.guestStore }
@@ -230,7 +216,6 @@ struct CookNowHomeView: View {
 
                 workspaceHubSection
 
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goStartWith)   { StartWithSomethingView().environment(cookSession) }
             .navigationDestination(isPresented: $goMakeableNow) { MakeableNowView().environment(cookSession) }
@@ -410,7 +395,10 @@ struct CookNowHomeView: View {
                     .kerning(1.1)
                     .foregroundStyle(Color.stockedGoldDark)
 
-                HStack(spacing: 12) {
+                let metricsLayout = layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+                    : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+                metricsLayout {
                     if lead == .ready {
                         metricColumn(count: snapshot.metrics.readyNowTotal,
                                      title: "meals ready now",
@@ -511,7 +499,6 @@ struct CookNowHomeView: View {
                     NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
                 }
             }
-            .padding(.horizontal, 40)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
@@ -557,27 +544,16 @@ struct CookNowHomeView: View {
 
     private func primaryStateButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
-                .scaledFont(15, weight: .semibold, design: .serif)
-                .foregroundStyle(Color.selectedTabForeground(dark))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity).padding(.vertical, 13)
-                .background(Color.selectedTabBackground)
-                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+            Text(title).fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.plain)
+        .stockedPrimary(accent: session.themeButtonColor)
     }
 
     private func secondaryStateButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
-                .scaledFont(14, weight: .semibold)
-                .foregroundStyle(session.themeTextColor)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, minHeight: 44).padding(.vertical, 8)
-                .stockedGlassSurface(.control, cornerRadius: StockedUI.cornerRadiusXL)
+            Text(title).fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.plain)
+        .stockedSecondary(accent: session.themeButtonColor)
     }
 
     // MARK: Ingredient chips

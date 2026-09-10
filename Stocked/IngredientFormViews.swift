@@ -102,6 +102,7 @@ struct IngredientFormRow: View {
 // MARK: - Ingredient Picker Sheet (from database, brand-aware)
 struct IngredientPickerSheet: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Environment(\.dismiss) var dismiss
     let onAdd: (RecipeIngredient) -> Void
 
@@ -135,27 +136,23 @@ struct IngredientPickerSheet: View {
                     if searchText.isEmpty && selectedCat == nil {
                         // Category grid
                         ScrollView {
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                ForEach(Array(Set(kb.ingredients.map(\.category))).sorted(), id: \.self) { cat in
-                                    Button { selectedCat = cat } label: {
-                                        VStack(spacing: 5) {
-                                            Text(catEmoji(cat)).scaledFont(26)
-                                            Text(cat).scaledFont(11, weight: .semibold)
-                                                .foregroundStyle(session.themeTextColor).multilineTextAlignment(.center)
-                                        }
-                                        .frame(maxWidth: .infinity).padding(.vertical, 12)
-                                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                                    }.buttonStyle(.plain)
-                                }
-                                // Custom
-                                Button { showForm = true } label: {
-                                    VStack(spacing: 5) {
-                                        Text("✏️").scaledFont(26)
-                                        Text("Custom").scaledFont(11, weight: .semibold)
+                            let categories = Array(Set(kb.ingredients.map(\.category))).sorted() + ["Custom"]
+                            StockedEqualHeightGrid(items: categories, id: \.self,
+                                columns: layoutMetrics.gridColumns(minimum: 100, maximum: 3, spacing: 12).count) { cat in
+                                Button {
+                                    if cat == "Custom" { showForm = true }
+                                    else { selectedCat = cat }
+                                } label: {
+                                    VStack(spacing: 6) {
+                                        Text(cat == "Custom" ? "✏️" : catEmoji(cat)).scaledFont(26)
+                                        Text(cat).scaledFont(12, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
+                                            .multilineTextAlignment(.center)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
-                                    .frame(maxWidth: .infinity).padding(.vertical, 12)
-                                    .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                                 }.buttonStyle(.plain)
                             }.padding(.horizontal, 20).padding(.bottom, 20)
                         }
@@ -291,13 +288,13 @@ struct IngredientDetailForm: View {
                                         nutriPill("Protein","\(entry.nutrition.protein)g")
                                     }
                                 }
-                            }.padding(.horizontal, 28)
+                            }.padding(.horizontal, 20)
                         }
 
                         formInput("Notes (optional, e.g. finely chopped)", text: $notes)
                         Toggle("Optional ingredient", isOn: $isOptional)
                             .scaledFont(14).foregroundStyle(session.themeTextColor)
-                            .tint(Color.stockedGold).padding(.horizontal, 28)
+                            .tint(Color.stockedGold).padding(.horizontal, 20)
 
                         Button {
                             guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -307,7 +304,7 @@ struct IngredientDetailForm: View {
                                 .scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 15)
                                 .background(name.isEmpty ? Color.stockedCharcoal.opacity(0.4) : Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-                        }.disabled(name.isEmpty).buttonStyle(.plain).padding(.horizontal, 28)
+                        }.disabled(name.isEmpty).buttonStyle(.plain).padding(.horizontal, 20)
                     }.padding(.bottom, 40)
                 }
             }
@@ -320,7 +317,7 @@ struct IngredientDetailForm: View {
     private func formInput(_ ph: String, text: Binding<String>) -> some View {
         FoodPredictiveTextField(placeholder: ph, text: text)
             .scaledFont(14).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-            .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 28)
+            .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 20)
     }
     private func nutriPill(_ label: String, _ val: String) -> some View {
         VStack(spacing: 1) {

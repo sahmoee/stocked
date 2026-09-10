@@ -737,9 +737,9 @@ struct CreateRecipeView: View {
             .scaledFont(12, weight: .bold)
             .tracking(0.3)
             .foregroundStyle(session.themeSecondaryText)
-            .padding(.horizontal, 28)
-            .padding(.top, 20)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
         VStack(spacing: 0) { content() }
             .background(session.themeCardColor)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -797,7 +797,6 @@ struct CreateRecipeView: View {
                 }
                 Spacer()
             }
-            .padding(.horizontal, 20)
         }
         .padding(.horizontal, 20)
         .onChange(of: selectedPhoto) { _, item in

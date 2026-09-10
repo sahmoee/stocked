@@ -165,12 +165,13 @@ struct MealPlannerView: View {
                                 .scaledFont(9, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
                         }
-                        .frame(width: 52, height: 44)
+                        .padding(.horizontal, 8)
+                        .frame(minWidth: 52, minHeight: 44)
                         .background(session.themeCardColor)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     }.buttonStyle(.plain)
                 }
-                .padding(.horizontal, 24).padding(.bottom, 20)
+                .padding(.horizontal, 20).padding(.bottom, 16)
 
                 Button { showPlanTools = true } label: {
                     Label("Repeat meals & export calendar", systemImage: "calendar.badge.plus")

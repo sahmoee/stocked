@@ -33,7 +33,7 @@ struct EditProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 16) {
                     // Centered editable avatar.
                     EditableProfileAvatar(size: 96)
                         .padding(.top, 12)
@@ -72,7 +72,7 @@ struct EditProfileView: View {
                                      options: equipmentOptions, selection: profile.cookingEquipment)
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 60)
+                .padding(.bottom, 20)
             }
             .scrollContentBackground(.hidden)
             .background(session.themeBgColor.ignoresSafeArea())
@@ -181,78 +181,18 @@ private struct FlowChips: View {
     @Environment(AppSession.self) private var session
 
     var body: some View {
-        FlexibleWrap(options) { opt in
+        StockedFlowLayout(spacing: 8, lineSpacing: 8) {
+            ForEach(options, id: \.self) { opt in
             Button { onTap(opt) } label: {
                 Text(opt)
                     .scaledFont(13, weight: .medium)
                     .foregroundStyle(isSelected(opt) ? Color.stockedCharcoal : session.themeTextColor.opacity(0.7))
                     .padding(.horizontal, 14).padding(.vertical, 8)
+                    .frame(minHeight: 44)
                     .background(isSelected(opt) ? Color.stockedGold : (session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5)))
                     .clipShape(Capsule())
             }.buttonStyle(.plain)
-        }
-    }
-}
-
-// MARK: - Simple wrapping layout (no external dependency)
-
-private struct FlexibleWrap<Item: Hashable>: View {
-    let items: [Item]
-    let content: (Item) -> AnyView
-
-    init(_ items: [Item], @ViewBuilder content: @escaping (Item) -> some View) {
-        self.items = items
-        self.content = { AnyView(content($0)) }
-    }
-
-    var body: some View {
-        Wrap(items: items, content: content)
-    }
-}
-
-private struct Wrap<Item: Hashable>: View {
-    let items: [Item]
-    let content: (Item) -> AnyView
-    @State private var totalHeight: CGFloat = .zero
-
-    var body: some View {
-        GeometryReader { geo in
-            self.generate(in: geo)
-        }
-        .frame(height: totalHeight)
-    }
-
-    private func generate(in g: GeometryProxy) -> some View {
-        var width = CGFloat.zero
-        var height = CGFloat.zero
-        return ZStack(alignment: .topLeading) {
-            ForEach(items, id: \.self) { item in
-                content(item)
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 8)
-                    .alignmentGuide(.leading) { d in
-                        if abs(width - d.width) > g.size.width {
-                            width = 0
-                            height -= d.height
-                        }
-                        let result = width
-                        if item == items.last { width = 0 } else { width -= d.width }
-                        return result
-                    }
-                    .alignmentGuide(.top) { _ in
-                        let result = height
-                        if item == items.last { height = 0 }
-                        return result
-                    }
             }
-        }
-        .background(heightReader)
-    }
-
-    private var heightReader: some View {
-        GeometryReader { geo -> Color in
-            DispatchQueue.main.async { self.totalHeight = geo.size.height }
-            return Color.clear
         }
     }
 }

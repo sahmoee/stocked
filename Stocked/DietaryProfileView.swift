@@ -125,9 +125,8 @@ struct DietaryProfileView: View {
                         .scaledFont(11.5)
                         .foregroundStyle(session.themeSecondaryText)
 
-                    Color.clear.frame(height: 30)
                 }
-                .padding(.horizontal, 22).padding(.top, 12)
+                .padding(.horizontal, 20).padding(.vertical, 12)
             }
         }
         .navigationTitle("Dietary Profile")
@@ -168,27 +167,7 @@ struct BrandPreferencesEditorView: View {
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
-                        TextField("Search brands or products", text: $query)
-                            .textFieldStyle(.plain)
-                            .scaledFont(14)
-                            .foregroundStyle(session.themeTextColor)
-                        if !query.isEmpty {
-                            Button { query = "" } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
-                            }
-                            .buttonStyle(.plain)
-                            .a11yButton("Clear brand search")
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(session.themeCardColor,
-                                in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd,
-                                                     style: .continuous))
+                    StockedSearchField(text: $query, prompt: "Search brands or products")
 
                     Text("\(favoriteCount) favorite · \(avoidedCount) avoided · \(profiles.count) shown")
                         .scaledFont(11.5, weight: .semibold)
@@ -207,7 +186,6 @@ struct BrandPreferencesEditorView: View {
                             brandRow(profile)
                         }
                     }
-                    Color.clear.frame(height: 28)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -240,7 +218,7 @@ struct BrandPreferencesEditorView: View {
                 }
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 8)], spacing: 8) {
+            StockedEqualHeightRow(columns: 3, spacing: 8) {
                 preferenceButton("Favorite", value: .favorite, symbol: "star.fill", profile: profile)
                 preferenceButton("Neutral", value: .neutral, symbol: "circle", profile: profile)
                 preferenceButton("Avoid", value: .avoid, symbol: "hand.raised.fill", profile: profile)
@@ -271,9 +249,8 @@ struct BrandPreferencesEditorView: View {
                 .scaledFont(11.5, weight: .semibold)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, minHeight: 28)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 8).padding(.vertical, 8)
+                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                 .foregroundStyle(selected ? Color.stockedWhite : tint)
                 .background(selected ? tint : tint.opacity(0.10),
                             in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm,
@@ -286,17 +263,16 @@ struct BrandPreferencesEditorView: View {
 
 /// Simple wrapping chip grid used by the profile editor.
 private struct FlowChips: View {
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Environment(AppSession.self) private var session
     @Environment(\.stockedMotion) private var motion
     let items: [String]
     let isSelected: (String) -> Bool
     let onTap: (String) -> Void
 
-    private let columns = [GridItem(.adaptive(minimum: 104), spacing: 8)]
-
     var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-            ForEach(items, id: \.self) { item in
+        StockedEqualHeightGrid(items: items, id: \.self,
+                               columns: max(1, Int((layoutMetrics.formContentWidth - 32) / 112)), spacing: 8) { item in
                 Button {
                     motion.animate(.selection, intent: .spatial) { onTap(item) }
                     HapticManager.light()
@@ -304,14 +280,15 @@ private struct FlowChips: View {
                     Text(item)
                         .scaledFont(13, weight: .semibold)
                         .foregroundStyle(isSelected(item) ? Color.stockedWhite : session.themeTextColor.opacity(0.75))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 8).padding(.vertical, 9)
+                        .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                         .background(isSelected(item) ? Color.stockedGold : session.themeTextColor.opacity(0.07))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .a11yButton(item, hint: isSelected(item) ? "Selected" : "Not selected")
-            }
         }
     }
 }

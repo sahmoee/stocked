@@ -95,7 +95,7 @@ struct AppIconPickerView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    Color.clear.frame(height: 30)
+                    Color.clear.frame(height: 16)
                 }
             }
         }

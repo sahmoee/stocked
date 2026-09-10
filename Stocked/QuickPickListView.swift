@@ -7,6 +7,7 @@ import SwiftUI
 
 struct QuickPickListView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     let pick: String
     let pool: [OnlineRecipe]
     let onOpenRecipe: (OnlineRecipe) -> Void
@@ -47,7 +48,6 @@ struct QuickPickListView: View {
         }
     }
 
-    let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
         StockedShell(showBack: true, titleText: pick) {
@@ -60,17 +60,17 @@ struct QuickPickListView: View {
                         .scaledFont(13)
                         .foregroundStyle(session.themeSecondaryText)
                 }
-                .padding(.horizontal, 22).padding(.top, 4)
+                .padding(.horizontal, 20).padding(.top, 4)
 
                 if filtered.isEmpty {
                     StockedEmptyState(icon: "fork.knife",
                                       title: "Nothing here yet",
                                       subtitle: "Pull fresh recipes on the Recipes tab and check back.")
                         .padding(.top, 40)
-                        .padding(.horizontal, 22)
+                        .padding(.horizontal, 20)
                 } else {
-                    LazyVGrid(columns: cols, spacing: 12) {
-                        ForEach(filtered) { recipe in
+                    StockedEqualHeightGrid(items: filtered,
+                        columns: layoutMetrics.gridColumns(minimum: 160, maximum: 3).count) { recipe in
                             Button { onOpenRecipe(recipe) } label: {
                                 VStack(alignment: .leading, spacing: 0) {
                                     CachedAsyncImage(url: recipe.imageURL, imageData: nil,
@@ -84,7 +84,6 @@ struct QuickPickListView: View {
                                             .foregroundStyle(session.themeTextColor)
                                             .fixedSize(horizontal: false, vertical: true)
                                             .multilineTextAlignment(.leading)
-                                            .frame(height: 32, alignment: .top)
                                         Text([recipe.area.isEmpty ? recipe.category : recipe.area, recipe.source]
                                                 .filter { !$0.isEmpty }.joined(separator: " · "))
                                             .scaledFont(10.5)
@@ -92,15 +91,14 @@ struct QuickPickListView: View {
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .padding(9)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                                 }
                                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.45))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                             }
                             .buttonStyle(.plain)
-                        }
                     }
-                    .padding(.horizontal, 22).padding(.bottom, 24)
+                    .padding(.horizontal, 20).padding(.bottom, 24)
                 }
             }
         }

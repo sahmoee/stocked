@@ -45,15 +45,11 @@ struct RecipeFinderPreview: View {
                     if let importError { Text(importError).font(.stocked(.body)).foregroundStyle(session.themeSecondaryText) }
                     Button { showBrowser = true } label: {
                         Label("View Original Recipe", systemImage: "safari")
-                            .frame(maxWidth: .infinity, minHeight: 48).padding(8)
-                            .overlay(RoundedRectangle(cornerRadius: 18).stroke(session.themeTextColor))
-                    }.buttonStyle(.plain).disabled(RecipeBrowserPolicy.url(hit.recipe.sourceURL ?? "") == nil)
+                    }.stockedSecondary(accent: session.themeButtonColor)
+                        .disabled(RecipeBrowserPolicy.url(hit.recipe.sourceURL ?? "") == nil)
                     Button(action: prepareImport) {
                         Label("Import to STOCKED", systemImage: "square.and.arrow.down")
-                            .frame(maxWidth: .infinity, minHeight: 48).padding(8)
-                            .foregroundStyle(Color.selectedTabForeground(session.isDarkMode))
-                            .background(Color.selectedTabBackground, in: RoundedRectangle(cornerRadius: 18))
-                    }.buttonStyle(.plain)
+                    }.stockedPrimary(accent: session.themeButtonColor)
                     Text("Review the recipe before saving. Then use it with Inventory, Grocery List, Cook, and My Collection. The original publisher stays credited and linked.")
                         .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                 }.font(.stocked(.body)).padding(20).frame(maxWidth: 760).frame(maxWidth: .infinity)

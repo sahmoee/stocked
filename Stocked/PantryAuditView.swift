@@ -49,7 +49,7 @@ struct PantryAuditView: View {
                         ForEach(auditItems) { item in
                             auditRow(item)
                         }
-                        Color.clear.frame(height: 40)
+                        Color.clear.frame(height: 16)
                     }
                 }
             }

@@ -65,7 +65,6 @@ struct RefreshKitchenView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
 
-                Spacer(minLength: 20)
             }
         }
         .task { await buildQueueIfNeeded() }

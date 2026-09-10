@@ -67,7 +67,7 @@ struct BarcodeScannerView: View {
                     Spacer()
                     Color.clear.frame(width: 28)
                 }
-                .padding(.horizontal, 24).padding(.top, 52).padding(.bottom, 20)
+                .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12)
 
                 switch cameraPermission {
                 case .authorized:
@@ -300,6 +300,7 @@ struct BarcodeScannerView: View {
             HStack {
                 Image(systemName: "barcode").foregroundStyle(session.themeTextColor.opacity(0.35))
                 TextField("Enter barcode number", text: $manualBarcode)
+                    .textFieldStyle(.plain)
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                     .scaledFont(14, design: .monospaced)
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).keyboardType(.numberPad)
@@ -529,6 +530,7 @@ struct BarcodeConfirmSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2)).frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 22)
                 Text("Found Item").scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor).padding(.bottom, 4)
@@ -717,7 +719,8 @@ struct BarcodeConfirmSheet: View {
                     Text("Add to \(zone)").scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15).background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                 }.padding(.horizontal, 24)
-                Spacer()
+            }
+            .padding(.bottom, 20)
             }
         }
         .presentationDetents([.medium, .large]).presentationDragIndicator(.hidden)

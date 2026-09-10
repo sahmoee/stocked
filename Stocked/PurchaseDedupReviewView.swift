@@ -57,6 +57,7 @@ struct PurchaseDedupReviewView: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Looks like some of this was already added")
                         .scaledFont(21, weight: .bold, design: .serif)
@@ -66,8 +67,7 @@ struct PurchaseDedupReviewView: View {
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 10) {
+                        LazyVStack(spacing: 10) {
                             ForEach(flagged) { candidate in
                                 flaggedRow(candidate)
                             }
@@ -76,7 +76,6 @@ struct PurchaseDedupReviewView: View {
                             }
                         }
                         .padding(.bottom, 8)
-                    }
 
                     VStack(spacing: 8) {
                         Button {
@@ -105,6 +104,7 @@ struct PurchaseDedupReviewView: View {
                     }
                 }
                 .padding(20)
+                }
             }
             .navigationTitle(context.title)
             .navigationBarTitleDisplayMode(.inline)

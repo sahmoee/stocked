@@ -50,7 +50,6 @@ struct CookingIntentView: View {
 
                 affirmation
 
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goDiscovery) {
                 if let cs = cookSession { PreparationDiscoveryView().environment(cs) }
@@ -168,6 +167,7 @@ struct CookingIntentView: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("How much more are you trying to do?")
                         .scaledFont(18, weight: .bold, design: .serif)
@@ -175,7 +175,6 @@ struct CookingIntentView: View {
                     Text("The \(anchor.displayNormalized) is the star. We'll keep the extras light.")
                         .scaledFont(13)
                         .foregroundStyle(session.themeSecondaryText)
-                    ScrollView(showsIndicators: false) {
                         VStack(spacing: 8) {
                             ForEach(AddSomethingScope.allCases) { scope in
                                 Button {
@@ -199,12 +198,14 @@ struct CookingIntentView: View {
                                 .buttonStyle(.plain)
                             }
                         }
-                    }
                 }
                 .padding(20)
+                }
             }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Close") { showAddScope = false } } }
         }
         .presentationDetents([.medium, .large])
+        .stockedPresentationSurface()
     }
 
     // MARK: Affirmation

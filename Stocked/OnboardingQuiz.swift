@@ -305,7 +305,7 @@ struct OnboardingQuiz: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
                         .fill(selected ? Color.stockedGold : Color.stockedWhite.opacity(0.4))
@@ -385,11 +385,10 @@ struct OnboardingQuiz: View {
         VStack(spacing: 16) {
             cardHeader(emoji: "🏠", title: "How many people\nare you feeding?",
                        subtitle: "Including yourself. We'll scale portions automatically.")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach([1,2,3,4,5,6], id: \.self) { n in
+            StockedEqualHeightGrid(items: [1,2,3,4,5,6], id: \.self, columns: 2, spacing: 10) { n in
                     chip(n == 1 ? "Just me 🙋" : n == 6 ? "6+ 👨‍👩‍👧‍👦" : "\(n) people",
                          selected: householdSize == n) { householdSize = n }
-                }
+
             }.padding(.horizontal, 22)
             continueButton { advance() }
         }
@@ -403,10 +402,9 @@ struct OnboardingQuiz: View {
         return VStack(spacing: 16) {
             cardHeader(emoji: "🎯", title: "What's your main\ncooking goal?",
                        subtitle: "Pick the one that matters most right now.")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(goals, id: \.1) { emoji, label in
+            StockedEqualHeightGrid(items: goals, id: \.1, columns: 2, spacing: 10) { emoji, label in
                     chip("\(emoji)  \(label)", selected: cookingGoal == label) { cookingGoal = label }
-                }
+
             }.padding(.horizontal, 22)
             continueButton(enabled: !cookingGoal.isEmpty) { advance() }
         }
@@ -421,10 +419,9 @@ struct OnboardingQuiz: View {
         return VStack(spacing: 16) {
             cardHeader(emoji: "🍽️", title: "How do you\nlike to eat?",
                        subtitle: "We'll filter recipes to match your lifestyle.")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(styles, id: \.1) { emoji, label in
+            StockedEqualHeightGrid(items: styles, id: \.1, columns: 2, spacing: 10) { emoji, label in
                     chip("\(emoji)  \(label)", selected: dietaryStyle == label) { dietaryStyle = label }
-                }
+
             }.padding(.horizontal, 22)
             continueButton(enabled: !dietaryStyle.isEmpty) { advance() }
         }
@@ -437,15 +434,14 @@ struct OnboardingQuiz: View {
         return VStack(spacing: 16) {
             cardHeader(emoji: "⚠️", title: "Any allergies or\nfoods to avoid?",
                        subtitle: "Select all that apply.")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(all, id: \.self) { item in
+            StockedEqualHeightGrid(items: all, id: \.self, columns: 2, spacing: 10) { item in
                     let clean = item.components(separatedBy: " ").dropFirst().joined(separator: " ")
                     chip(item, selected: allergens.contains(clean)) {
                         if clean == "None" { allergens = [] }
                         else if allergens.contains(clean) { allergens.removeAll { $0 == clean } }
                         else { allergens.append(clean) }
                     }
-                }
+
             }.padding(.horizontal, 22)
             continueButton { advance() }
         }
@@ -458,13 +454,12 @@ struct OnboardingQuiz: View {
         return VStack(spacing: 16) {
             cardHeader(emoji: "🌍", title: "Which cuisines\nexcite you?",
                        subtitle: "Pick your favourites. You can always explore more inside the app.")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(cuisines, id: \.1) { emoji, label in
+            StockedEqualHeightGrid(items: cuisines, id: \.1, columns: 3, spacing: 10) { emoji, label in
                     chip("\(emoji)\n\(label)", selected: cuisinePrefs.contains(label)) {
                         if cuisinePrefs.contains(label) { cuisinePrefs.removeAll { $0 == label } }
                         else { cuisinePrefs.append(label) }
                     }
-                }
+
             }.padding(.horizontal, 22)
             continueButton { advance() }
         }
@@ -581,13 +576,12 @@ struct OnboardingQuiz: View {
         return VStack(spacing: 16) {
             cardHeader(emoji: "🍳", title: "What do you\ncook with?",
                        subtitle: "We'll only suggest recipes you can actually make.")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(items, id: \.1) { emoji, label in
+            StockedEqualHeightGrid(items: items, id: \.1, columns: 2, spacing: 10) { emoji, label in
                     chip("\(emoji)  \(label)", selected: cookingEquipment.contains(label)) {
                         if cookingEquipment.contains(label) { cookingEquipment.removeAll { $0 == label } }
                         else { cookingEquipment.append(label) }
                     }
-                }
+
             }.padding(.horizontal, 22)
             continueButton(label: "Continue →", enabled: !cookingEquipment.isEmpty) { finishQuiz() }
         }

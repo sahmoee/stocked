@@ -18,6 +18,7 @@ import SwiftUI
 
 struct CookingMethodComparisonView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
@@ -51,7 +52,6 @@ struct CookingMethodComparisonView: View {
                     }
                 }
                 .padding(.horizontal, CookStyle.screenHPad)
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goReady) {
                 if let cs = cookSession { BeforeYouStartView().environment(cs) }
@@ -145,7 +145,10 @@ struct CookingMethodComparisonView: View {
             }
 
             // Quick stats
-            HStack(spacing: 14) {
+            let statisticsLayout = layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 14))
+            statisticsLayout {
                 stat("clock", "\(method.activeMinutes)m active")
                 stat("timer", "\(method.totalMinutes)m total")
                 if method.goodForCookAhead { stat("calendar", "cook ahead") }
@@ -169,29 +172,20 @@ struct CookingMethodComparisonView: View {
                     .italic()
             }
 
-            HStack(spacing: 8) {
+            let actionLayout = layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls
+                ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+            actionLayout {
                 Button {
                     withAnimation { if isOpen { expanded.remove(method.id) } else { expanded.insert(method.id) } }
                 } label: {
                     Text(isOpen ? "Less" : "Details")
-                        .scaledFont(12.5, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.7))
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(dark ? Color.darkSurface.opacity(0.6) : Color.stockedWhite.opacity(0.5))
-                        .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .stockedSecondary(accent: session.themeButtonColor)
 
                 Button { choose(method) } label: {
                     Text(available ? "Use This Method" : "Use Anyway")
-                        .scaledFont(12.5, weight: .semibold)
-                        .foregroundStyle(available ? Color.stockedWhite : session.themeTextColor)
-                        .frame(maxWidth: .infinity).padding(.vertical, 9)
-                        .background(available ? (dark ? Color.darkSurface : Color.stockedCharcoal) : Color.stockedGold.opacity(0.14))
-                        .overlay(RoundedRectangle(cornerRadius: 100).stroke(available && dark ? Color.stockedGold : Color.clear, lineWidth: 1.5))
-                        .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .stockedPrimary(accent: session.themeButtonColor)
                 .a11yButton("Use \(method.name)")
             }
         }
@@ -225,11 +219,14 @@ struct CookingMethodComparisonView: View {
     }
 
     private func detailRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        let detailLayout = layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+        return detailLayout {
             Text(label)
                 .scaledFont(11.5, weight: .semibold)
                 .foregroundStyle(session.themeSecondaryText)
-                .frame(width: 100, alignment: .leading)
+                .frame(minWidth: layoutMetrics.isAccessibilityText ? nil : 100, alignment: .leading)
             Text(value)
                 .scaledFont(11.5)
                 .foregroundStyle(session.themeSecondaryText)

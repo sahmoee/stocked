@@ -641,7 +641,7 @@ struct RecipePickerSheet: View {
                         ForEach(Array(quickOptions.enumerated()), id: \.offset) { _, opt in
                             pickerRow(opt.0, ings: opt.1)
                         }
-                        Color.clear.frame(height: 40)
+                        Color.clear.frame(height: 16)
                     }
                 }
             }

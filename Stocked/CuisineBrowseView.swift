@@ -142,13 +142,13 @@ struct CuisineBrowseView: View {
 // MARK: - Recipes for one cuisine
 struct CuisineRecipesView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     let area: String
 
     @State private var recipes: [OnlineRecipe] = []
     @State private var loading = true
     @State private var selected: OnlineRecipe? = nil
 
-    private let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
         StockedShell(showBack: true, scrollDisabled: false, titleText: area) {
@@ -170,14 +170,13 @@ struct CuisineRecipesView: View {
                     }
                     .frame(maxWidth: .infinity).padding(.top, 60).padding(.horizontal, 32)
                 } else {
-                    LazyVGrid(columns: cols, spacing: 12) {
-                        ForEach(recipes) { recipe in
+                    StockedEqualHeightGrid(items: recipes,
+                        columns: layoutMetrics.gridColumns(minimum: 160, maximum: 3).count) { recipe in
                             Button { selected = recipe } label: {
                                 OnlineRecipeCard(recipe: recipe)
                             }
                             .buttonStyle(.plain)
                             .contentShape(Rectangle())
-                        }
                     }
                     .padding(.horizontal, 20).padding(.bottom, 24)
                 }

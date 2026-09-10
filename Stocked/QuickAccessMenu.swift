@@ -23,6 +23,7 @@ struct QuickGrocerySheet: View {
                 }.padding(.horizontal, 24).padding(.vertical, 12)
                 HStack(spacing: 10) {
                     TextField("Add item…", text: $newItem)
+                        .textFieldStyle(.plain)
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).scaledFont(15).foregroundStyle(session.themeTextColor).onSubmit { addItem() }
                     Button { addItem() } label: {
                         Image(systemName: "plus.circle.fill").scaledFont(24)
@@ -37,7 +38,7 @@ struct QuickGrocerySheet: View {
                             VStack(spacing: 10) {
                                 Image(systemName: "checkmark.circle.fill").scaledFont(36).foregroundStyle(Color.stockedGold)
                                 Text("All items in stock!").scaledFont(15, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.55))
-                            }.frame(maxWidth: .infinity).padding(.top, 40)
+                            }.frame(maxWidth: .infinity).padding(.vertical, 24)
                         } else { ForEach(needed) { groceryRow($0) } }
                         if !done.isEmpty {
                             Text("Done (\(done.count))").scaledFont(11, weight: .bold)
@@ -93,16 +94,17 @@ struct FontPickerSheet: View {
                     Spacer()
                     Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
-                HStack(spacing: 8) {
-                    ForEach(AppFont.allCases, id: \.self) { f in
+                StockedEqualHeightGrid(items: AppFont.allCases, id: \.self, columns: 4, spacing: 8) { f in
                         Button { motion.animate(.selection, intent: .spatial) { selectedFont = f } } label: {
                             Text(f.rawValue).font(.stockedSystem(size: 13, weight: .semibold, design: f.design))
                                 .foregroundStyle(selectedFont == f ? Color.stockedCharcoal : session.themeTextColor)
-                                .frame(maxWidth: .infinity).padding(.vertical, 10)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 8).padding(.vertical, 10)
+                                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                                 .background(selectedFont == f ? Color.stockedGold : Color.stockedWhite.opacity(0.3))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         }.buttonStyle(.plain)
-                    }
                 }.padding(.horizontal, 20).padding(.bottom, 16)
                 Divider().padding(.horizontal, 20)
                 ScrollView(showsIndicators: false) {
@@ -133,7 +135,7 @@ struct FontPickerSheet: View {
                                 Divider().padding(.horizontal, 24)
                             }
                         }
-                        Color.clear.frame(height: 40)
+                        Color.clear.frame(height: 16)
                     }
                 }
             }

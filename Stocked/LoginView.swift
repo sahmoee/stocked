@@ -6,6 +6,7 @@ import Combine
 struct LoginView: View {
     @Environment(AppSession.self) var session
     @Environment(\.openURL) private var openURL
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var name      = ""
     @State private var animateIn = false
     @State private var appleError: String? = nil
@@ -15,9 +16,9 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
-            // Constrain content width on iPad — login form looks better centred and narrower
+            // A readable form scrolls when the keyboard or larger text needs room.
+            ScrollView {
             VStack(spacing: 0) {
-                Spacer()
 
                 // Logo
                 VStack(spacing: 10) {
@@ -28,7 +29,7 @@ struct LoginView: View {
                         .tracking(1.4)
                 }
                 .opacity(animateIn ? 1 : 0).offset(y: animateIn ? 0 : 16)
-                .padding(.bottom, 52)
+                .padding(.bottom, 24)
 
                 // Sign in with Apple — overlay approach avoids NSAutoresizingMaskLayoutConstraint conflict
                 Color.clear
@@ -86,9 +87,10 @@ struct LoginView: View {
                     session.enterKitchen(name: name)
                 } label: {
                     Text("Continue as Guest")
-                        .scaledFont(20, weight: .regular, design: .serif)
+                        .scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(trimmedName.isEmpty ? 0.45 : 1))
-                        .frame(maxWidth: .infinity).padding(.vertical, 20)
+                        .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight)
+                        .padding(.vertical, 10)
                         .background(Color.stockedGold.opacity(trimmedName.isEmpty ? 0.45 : 1))
                         .clipShape(Capsule())
                 }
@@ -121,9 +123,12 @@ struct LoginView: View {
                 .padding(.top, 10)
                 .opacity(animateIn ? 1 : 0)
 
-                Spacer()
             }
-            .frame(maxWidth: 480)   // centre and constrain on iPad
+            .padding(.vertical, 24)
+            .frame(maxWidth: 480)
+            .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.6).delay(0.1)) { animateIn = true }

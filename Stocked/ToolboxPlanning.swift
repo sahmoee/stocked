@@ -81,7 +81,7 @@ struct ExpiryCalendarView: View {
                         if let day {
                             dayCell(day)
                         } else {
-                            Color.clear.frame(height: 40)
+                            Color.clear.frame(minHeight: 44)
                         }
                     }
                 }
@@ -146,7 +146,7 @@ struct ExpiryCalendarView: View {
                     .frame(width: 5, height: 5)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 40)
+            .frame(minHeight: 44)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(isSelected ? session.accentColor : session.themeCardColor.opacity(count > 0 ? 1 : 0.45))
