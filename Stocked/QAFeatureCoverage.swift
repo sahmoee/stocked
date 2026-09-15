@@ -3,7 +3,7 @@ import Foundation
 /// Stable appended IDs. These are DEVICE checks, not passes inferred from a build
 /// or from the small deterministic contracts below. Never renumber existing rows.
 nonisolated enum QAFeatureCoverage {
-  static let version = "2026-09-05 · free connections and delivery"
+  static let version = "2026-09-14 · Apple Watch companion"
   struct Section: Sendable {
     var number: Int
     var title: String
@@ -500,6 +500,23 @@ nonisolated enum QAFeatureCoverage {
       ("Opt into local alerts, allow or deny iOS permission, repeat an unchanged match and disable alerts; only new matches alert and lock-screen text contains no product or target details", true),
       ("Inspect source links, report dates, location, discount conditions and ODbL/OpenStreetMap credits; results never claim current stock, live prices or currency conversion", true),
       ("Use saved targets and editors on both devices/themes, large text and VoiceOver; clearly disclose device-only storage and exclusion from Kitchen Transfer backups", true),
+    ]),
+    .init(number: 58, title: "Apple Watch kitchen companion", rows: [
+      ("Pair the embedded dependent watchOS app with the correct iPhone; open Stocked on both devices and verify real saved records, preferred store and last-sync date", true),
+      ("Check/uncheck groceries, add an item, change quantity and confirm removal; iPhone and Watch converge only after durable confirmation", true),
+      ("Add inventory, adjust its quantity, move storage and set/clear expiry; household permissions and package-date guidance remain visible", true),
+      ("Search and page beyond initial grocery, inventory, recipe and meal limits including long multibyte names; the next page starts after the actual delivered rows", true),
+      ("Download saved/generated recipe steps, favorite/unfavorite, check ingredients and resume a saved step; oversized and unavailable instructions explicitly hand off to iPhone", true),
+      ("Add a meal and reschedule it within the next seven days; date boundaries match iPhone and cooked-meal stock review remains on iPhone", true),
+      ("Edit offline, relaunch and reconnect; UUID retries never add duplicate rows, accepted changes await an authoritative snapshot and the 64-entry queue refuses overflow visibly", true),
+      ("Change an item on iPhone while its Watch edit waits; show the conflict on the active editor, retain the newer phone record and use the refreshed baseline for the next edit", true),
+      ("Expire queued changes, revoke permissions, sign out, change kitchen and disable sharing; errors stay visible and delayed old contexts cannot restore prior kitchen data", true),
+      ("Reset or restore with delayed Watch commands and injected storage failure; retirement must save before erase/restore/identity removal and a failure must not report success", true),
+      ("Run, pause, resume and replace the Watch timer, lower the wrist and relaunch; a permitted local notification completes the saved deadline without private recipe names", true),
+      ("Exercise WatchConnectivity background delivery on physical paired devices; receipt commits finish before background task completion and queued work survives suspension", true),
+      ("Review all Watch screens with largest text, VoiceOver and Digital Crown; native controls, rejection alerts, ingredient checks and timer status remain understandable", true),
+      ("Convert locale-comma quantities and compatible units offline; incompatible dimensions never invent an ingredient density", true),
+      ("Request an iPhone handoff and then open Stocked there; navigation reaches the requested tab without claiming the Watch can force-launch the phone UI", true),
     ]),
   ]
 

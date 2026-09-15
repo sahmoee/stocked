@@ -15,6 +15,7 @@ struct GlobalSearchView: View {
     @State private var selectedOnline: OnlineRecipe?
     @State private var selectedUserRecipe: UserRecipe?
     @State private var selectedFood: IngredientEntry?
+    @State private var selectedTool: ToolboxTool?
 
     private var store: GuestDataStore { session.guestStore }
     private var localResults: [SearchResult] { search.localResults }
@@ -275,6 +276,16 @@ struct GlobalSearchView: View {
         .sheet(item: $selectedFood) { food in
             IngredientInfoSheet(entry: food).environment(session)
         }
+        .sheet(item: $selectedTool) { tool in
+            NavigationStack {
+                KitchenToolboxView().destination(for: tool)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { selectedTool = nil }
+                        }
+                    }
+            }.environment(session).stockedPresentationSurface()
+        }
     }
 
     /// Dismiss the search sheet and switch to the given tab (used when a tapped result lives
@@ -348,8 +359,9 @@ struct GlobalSearchView: View {
                     close(); navigate(to: .inventory)
                 case .plannedMeal:
                     close(); navigate(to: .cook)
-                case .tool:
-                    close(); navigate(to: .home)
+                case .tool(let tool):
+                    ToolboxUsageStore.shared.recordOpen(tool)
+                    selectedTool = tool
                 }
             }
             Divider().padding(.leading, 76)

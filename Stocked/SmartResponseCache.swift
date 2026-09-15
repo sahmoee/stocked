@@ -1,163 +1,105 @@
-// SmartResponseCache.swift — Improvement #15: stale-while-revalidate for the Smart endpoints.
-//
-// `StockedWorkerClient` already caches through `AIResultCache`. `SmartClient` — which backs
-// substitutions, nutrition, seasonal produce, expiry estimates, pantry matching, grocery
-// optimisation and meal suggestions — had no caching at all. Every call was a live 12-second-timeout
-// request, so on a slow connection the user watched a spinner and on no connection they got an
-// empty screen. Kitchens have bad Wi-Fi; the app should never look broken because of it.
-//
-// The policy here is stale-while-revalidate: return whatever we have IMMEDIATELY, then refresh in
-// the background so the next read is current. A slightly-old substitution list is worth far more
-// than a correct empty one.
-
 import Foundation
 
-// MARK: - Cache
-
+/// Stale-while-revalidate responses with one owned refresh per request identity.
 actor SmartResponseCache {
     static let shared = SmartResponseCache()
+    enum Freshness: Sendable { case fresh, stale, missing }
+    private struct Flight { let id: UUID; let task: Task<Data?, Never> }
+    private var storage: ResponseCacheStorage
+    private var flights: [String: Flight] = [:]
+    private var retryAfter: [String: TimeInterval] = [:]
+    private let uptime: @Sendable () -> TimeInterval
+    private let freshFor: TimeInterval = 3600
+    private let keepFor: TimeInterval = 14 * 24 * 3600
 
-    private struct Entry {
-        let data: Data
-        let storedAt: Date
+    init(rootDirectory: URL? = nil, now: @escaping @Sendable () -> Date = { Date() },
+         uptime: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+        let base = rootDirectory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first ?? FileManager.default.temporaryDirectory
+        storage = ResponseCacheStorage(directory: base.appendingPathComponent("StockedSmartCache", isDirectory: true),
+            limits: .init(memoryBytes: 8 * 1024 * 1024, diskBytes: 24 * 1024 * 1024), now: now,
+            legacyName: { name in (1...13).contains(name.count) && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) } })
+        self.uptime = uptime
     }
-
-    private var memory: [String: Entry] = [:]
-    private let dir: URL
-    /// Past this age we still SERVE the entry, but we also refresh behind it.
-    private let freshFor: TimeInterval = 60 * 60          // 1 hour
-    /// Past this we stop serving it at all — a season/expiry answer from last month is misleading.
-    private let keepFor: TimeInterval = 60 * 60 * 24 * 14 // 14 days
-    private let maxEntries = 400
-
-    private init() {
-        dir = URL.cachesDirectory.appendingPathComponent("StockedSmartCache", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    nonisolated static func key(_ endpoint: String, _ arguments: String, responseType: String = "") -> String {
+        ResponseCacheKey.make([endpoint, arguments, responseType])
     }
-
-    // MARK: Keys
-
-    /// FNV-1a over endpoint + arguments. Same scheme `AIResultCache` uses, for consistency.
-    nonisolated static func key(_ endpoint: String, _ arguments: String) -> String {
-        var hash: UInt64 = 0xcbf29ce484222325
-        for byte in Data("\(endpoint)|\(arguments)".utf8) {
-            hash ^= UInt64(byte)
-            hash = hash &* 0x100000001b3
-        }
-        return String(hash, radix: 36)
-    }
-
-    // MARK: Read
-
-    enum Freshness { case fresh, stale, missing }
-
+    func currentGeneration() -> UUID { storage.generation }
     func lookup(_ key: String) -> (data: Data, freshness: Freshness) {
-        guard let entry = load(key) else { return (Data(), .missing) }
-        let age = Date().timeIntervalSince(entry.storedAt)
-        if age > keepFor {
-            remove(key)
-            return (Data(), .missing)
+        guard let hit = storage.lookup(key) else { return (Data(), .missing) }
+        return (hit.data, hit.age < freshFor ? .fresh : .stale)
+    }
+    func store(_ data: Data, for key: String) { storage.store(data, for: key, ttl: keepFor) }
+    func remove(_ key: String) { storage.remove(key) }
+
+    /// Launch without waiting when an existing answer is on screen.
+    func refreshInBackground(_ key: String, expectedGeneration: UUID? = nil, fetch: @escaping @Sendable () async -> Data?) {
+        _ = flight(for: key, expectedGeneration: expectedGeneration, fetch: fetch)
+    }
+    func refreshedData(_ key: String, expectedGeneration: UUID? = nil, fetch: @escaping @Sendable () async -> Data?) async -> Data? {
+        guard !Task.isCancelled, let task = flight(for: key, expectedGeneration: expectedGeneration, fetch: fetch) else { return nil }
+        let result = await task.value
+        return Task.isCancelled || task.isCancelled ? nil : result
+    }
+    private func flight(for key: String, expectedGeneration: UUID?, fetch: @escaping @Sendable () async -> Data?) -> Task<Data?, Never>? {
+        guard !Task.isCancelled, expectedGeneration == nil || expectedGeneration == storage.generation else { return nil }
+        if let existing = flights[key] { return existing.task }
+        if let hit = storage.lookup(key), hit.age < freshFor { return Task { hit.data } }
+        let now = uptime()
+        retryAfter = retryAfter.filter { $0.value > now }
+        guard retryAfter[key] == nil, flights.count < 32 else { return nil }
+        let id = UUID(), generation = storage.generation
+        let task = Task { [weak self] in
+            guard !Task.isCancelled else { return Optional<Data>.none }
+            let result = await fetch()
+            guard let self else { return nil }
+            return await self.complete(result, key: key, id: id, generation: generation)
         }
-        return (entry.data, age <= freshFor ? .fresh : .stale)
+        flights[key] = Flight(id: id, task: task)
+        return task
     }
-
-    func store(_ data: Data, for key: String) {
-        let entry = Entry(data: data, storedAt: Date())
-        memory[key] = entry
-        let url = dir.appendingPathComponent(key)
-        try? data.write(to: url, options: .atomic)
-        pruneIfNeeded()
-    }
-
-    private func load(_ key: String) -> Entry? {
-        if let hit = memory[key] { return hit }
-        let url = dir.appendingPathComponent(key)
-        guard let data = try? Data(contentsOf: url),
-              let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let modified = attrs[.modificationDate] as? Date else { return nil }
-        let entry = Entry(data: data, storedAt: modified)
-        memory[key] = entry
-        return entry
-    }
-
-    private func remove(_ key: String) {
-        memory[key] = nil
-        try? FileManager.default.removeItem(at: dir.appendingPathComponent(key))
-    }
-
-    /// LRU by file modification date. Cheap and good enough for a few hundred small JSON blobs.
-    private func pruneIfNeeded() {
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.contentModificationDateKey]),
-              files.count > maxEntries else { return }
-        let sorted = files.sorted {
-            let a = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            let b = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            return a < b
+    private func complete(_ data: Data?, key: String, id: UUID, generation: UUID) -> Data? {
+        guard flights[key]?.id == id else { return nil }
+        flights[key] = nil
+        guard !Task.isCancelled, generation == storage.generation else { return nil }
+        if let data, !data.isEmpty {
+            storage.store(data, for: key, ttl: keepFor, expectedGeneration: generation)
+            retryAfter[key] = nil
+            return data
         }
-        for url in sorted.prefix(files.count - maxEntries) {
-            memory[url.lastPathComponent] = nil
-            try? FileManager.default.removeItem(at: url)
-        }
+        if retryAfter.count >= 256, let oldest = retryAfter.min(by: { $0.value < $1.value })?.key { retryAfter[oldest] = nil }
+        retryAfter[key] = uptime() + 30
+        return nil
     }
-
-    // MARK: Maintenance
-
     func clear() {
-        memory.removeAll()
-        try? FileManager.default.removeItem(at: dir)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for flight in flights.values { flight.task.cancel() }
+        flights.removeAll(); retryAfter.removeAll(); storage.clear()
     }
-
-    func sizeBytes() -> Int64 {
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
-        return files.reduce(Int64(0)) { sum, url in
-            sum + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-        }
-    }
-
-    func entryCount() -> Int {
-        (try? FileManager.default.contentsOfDirectory(atPath: dir.path).count) ?? 0
-    }
+    func sizeBytes() -> Int64 { storage.diskSizeBytes() }
+    func entryCount() -> Int { storage.diskEntryCount() }
 }
 
-// MARK: - Cached call helper
-
 nonisolated enum SmartCached {
-
-    /// Wrap any `SmartClient` call in stale-while-revalidate.
-    ///
-    /// - A cached value is returned immediately when one exists, even if stale.
-    /// - When it was stale, a background refresh is kicked off so the next read is current.
-    /// - When nothing is cached, this behaves exactly like a direct call.
-    ///
-    /// `decode` and `encode` keep the cache format independent of the model type, so this works
-    /// for every one of SmartClient's sixteen differently-shaped responses.
-    static func value<T: Codable & Sendable>(
-        endpoint: String,
-        arguments: String,
-        fetch: @escaping @Sendable () async -> T?
-    ) async -> T? {
-        let key = SmartResponseCache.key(endpoint, arguments)
-        let (data, freshness) = await SmartResponseCache.shared.lookup(key)
-
-        if freshness != .missing, let cached = try? JSONDecoder().decode(T.self, from: data) {
-            if freshness == .stale {
-                // Refresh behind the user's back; they already have an answer on screen.
-                Task.detached(priority: .utility) {
-                    if let fresh = await fetch(), let encoded = try? JSONEncoder().encode(fresh) {
-                        await SmartResponseCache.shared.store(encoded, for: key)
-                    }
-                }
+    static func value<T: Codable & Sendable>(endpoint: String, arguments: String,
+                                             fetch: @escaping @Sendable () async -> T?) async -> T? {
+        guard !Task.isCancelled else { return nil }
+        let cache = SmartResponseCache.shared
+        let key = SmartResponseCache.key(endpoint, arguments, responseType: String(reflecting: T.self))
+        let generation = await cache.currentGeneration()
+        let (data, freshness) = await cache.lookup(key)
+        guard !Task.isCancelled else { return nil }
+        let load: @Sendable () async -> Data? = {
+            guard !Task.isCancelled, let value = await fetch(), !Task.isCancelled else { return nil }
+            return try? JSONEncoder().encode(value)
+        }
+        if freshness != .missing {
+            if let cached = try? JSONDecoder().decode(T.self, from: data) {
+                if freshness == .stale { await cache.refreshInBackground(key, expectedGeneration: generation, fetch: load) }
+                return Task.isCancelled ? nil : cached
             }
-            return cached
+            // A model/schema mismatch must not be returned again on every lookup.
+            await cache.remove(key)
         }
-
-        guard let fresh = await fetch() else { return nil }
-        if let encoded = try? JSONEncoder().encode(fresh) {
-            await SmartResponseCache.shared.store(encoded, for: key)
-        }
-        return fresh
+        guard let fresh = await cache.refreshedData(key, expectedGeneration: generation, fetch: load), !Task.isCancelled else { return nil }
+        return try? JSONDecoder().decode(T.self, from: fresh)
     }
 }

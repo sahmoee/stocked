@@ -5,13 +5,14 @@
 // Time is user-configurable (default 7:30 AM).
 // ─────────────────────────────────────────────────────────────────────
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
 
 @MainActor
 final class DailyBriefNotificationManager {
 
     static let shared = DailyBriefNotificationManager()
     private init() {}
+    private var expiryTask: Task<Void, Never>?
 
     // MARK: - Authorization
 
@@ -54,44 +55,43 @@ final class DailyBriefNotificationManager {
 
     // Helper: read an hour key that uses 0 as "unset" (fall back to the supplied default).
     private func storedHour(_ key: String, default def: Int) -> Int {
-        let v = UserDefaults.standard.object(forKey: key) as? Int
-        return v ?? def
+        ReminderClockPolicy.hour(UserDefaults.standard.object(forKey: key) as? Int, fallback: def)
     }
     private func storedMinute(_ key: String) -> Int {
-        UserDefaults.standard.integer(forKey: key)
+        ReminderClockPolicy.minute(UserDefaults.standard.object(forKey: key) as? Int)
     }
 
     var expiryHour: Int {
         get { storedHour(expiryHourKey, default: 9) }
-        set { UserDefaults.standard.set(newValue, forKey: expiryHourKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.hour(newValue), forKey: expiryHourKey) }
     }
     var expiryMinute: Int {
         get { storedMinute(expiryMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: expiryMinKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.minute(newValue), forKey: expiryMinKey) }
     }
     var cookHour: Int {
         get { storedHour(cookHourKey, default: 16) }
-        set { UserDefaults.standard.set(newValue, forKey: cookHourKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.hour(newValue), forKey: cookHourKey) }
     }
     var cookMinute: Int {
         get { storedMinute(cookMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: cookMinKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.minute(newValue), forKey: cookMinKey) }
     }
     var stapleHour: Int {
         get { storedHour(stapleHourKey, default: 17) }
-        set { UserDefaults.standard.set(newValue, forKey: stapleHourKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.hour(newValue), forKey: stapleHourKey) }
     }
     var stapleMinute: Int {
         get { storedMinute(stapleMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: stapleMinKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.minute(newValue), forKey: stapleMinKey) }
     }
     var prepHour: Int {
         get { storedHour(prepHourKey, default: 10) }
-        set { UserDefaults.standard.set(newValue, forKey: prepHourKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.hour(newValue), forKey: prepHourKey) }
     }
     var prepMinute: Int {
         get { storedMinute(prepMinKey) }
-        set { UserDefaults.standard.set(newValue, forKey: prepMinKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.minute(newValue), forKey: prepMinKey) }
     }
 
     // #9 — per-item expiry reminders
@@ -118,8 +118,8 @@ final class DailyBriefNotificationManager {
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
     }
     var hour: Int {
-        get { UserDefaults.standard.integer(forKey: hourKey) == 0 ? 7 : UserDefaults.standard.integer(forKey: hourKey) }
-        set { UserDefaults.standard.set(newValue, forKey: hourKey) }
+        get { storedHour(hourKey, default: 7) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.hour(newValue), forKey: hourKey) }
     }
 
     /// Improvement #14 — the hour actually used for delivery.
@@ -127,9 +127,9 @@ final class DailyBriefNotificationManager {
     /// Starts at the user's configured `hour` and shifts toward when they're demonstrably
     /// reachable, but never by more than three hours and never outside 7am–9pm. If the user set
     /// 7am they meant morning; learning is allowed to refine that, not overrule it.
-    /// Falls straight back to `hour` until there's enough evidence.
+    /// Explicit overnight settings remain exact. Falls back to `hour` without enough evidence.
     var adaptiveHour: Int {
-        guard adaptiveTimingEnabled else { return hour }
+        guard adaptiveTimingEnabled, (7...21).contains(hour) else { return hour }
         return NotificationEngagement.shared.suggestedHour(preferred: hour)
     }
 
@@ -142,8 +142,8 @@ final class DailyBriefNotificationManager {
         set { UserDefaults.standard.set(newValue, forKey: "adaptiveNotifyTiming_v1") }
     }
     var minute: Int {
-        get { UserDefaults.standard.integer(forKey: minKey) }
-        set { UserDefaults.standard.set(newValue, forKey: minKey) }
+        get { storedMinute(minKey) }
+        set { UserDefaults.standard.set(ReminderClockPolicy.minute(newValue), forKey: minKey) }
     }
 
     // MARK: - Schedule
@@ -153,7 +153,7 @@ final class DailyBriefNotificationManager {
         // NOTIF FIX: schedulers never trigger the system permission dialog — they only run
         // when permission already exists. The one-time ask lives in
         // NotificationPermissionCoordinator (post-onboarding) and the Settings toggles.
-        NotificationPermissionCoordinator.ifAuthorized { self.schedule(store: store) }
+        NotificationPermissionCoordinator.ifAuthorized { if self.isEnabled { self.schedule(store: store) } }
     }
 
     func schedule(store: GuestDataStore) {
@@ -201,14 +201,14 @@ final class DailyBriefNotificationManager {
     func scheduleExpiryIfEnabled(store: GuestDataStore) {
         guard expiryRemindersEnabled else { cancelExpiry(); return }
         // NOTIF FIX: no permission dialog from a scheduler (see scheduleIfEnabled).
-        NotificationPermissionCoordinator.ifAuthorized { self.scheduleExpiry(store: store) }
+        NotificationPermissionCoordinator.ifAuthorized { if self.expiryRemindersEnabled { self.scheduleExpiry(store: store) } }
     }
 
     // Schedules one reminder per item that expires in the future, firing the morning
     // (9 AM) of the day BEFORE its expiry. Old expiry requests are cleared first so the
     // set always reflects current inventory.
     func scheduleExpiry(store: GuestDataStore) {
-        cancelExpiry()
+        var requests: [UNNotificationRequest] = []
         let cal = Calendar.current
         let now = Date()
 
@@ -250,15 +250,28 @@ final class DailyBriefNotificationManager {
                 repeats: false)
             let request = UNNotificationRequest(
                 identifier: expiryPrefix + item.id.uuidString, content: content, trigger: trigger)
-            UNUserNotificationCenter.current().add(request)
+            requests.append(request)
         }
+        replaceExpiryRequests(requests)
     }
 
-    func cancelExpiry() {
-        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-            let ids = requests.map(\.identifier).filter { $0.hasPrefix(self.expiryPrefix) }
-            if !ids.isEmpty {
-                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+    func cancelExpiry() { replaceExpiryRequests([]) }
+
+    /// Serialize replacement against the previous add/removal operation. A late
+    /// pending-requests callback must never erase the newly scheduled reminders.
+    private func replaceExpiryRequests(_ requests: [UNNotificationRequest]) {
+        let previous = expiryTask
+        previous?.cancel()
+        expiryTask = Task { @MainActor in
+            await previous?.value
+            guard !Task.isCancelled else { return }
+            let center = UNUserNotificationCenter.current()
+            let pending = await center.pendingNotificationRequests()
+            guard !Task.isCancelled else { return }
+            center.removePendingNotificationRequests(withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(self.expiryPrefix) })
+            for request in requests {
+                guard !Task.isCancelled else { return }
+                try? await center.add(request)
             }
         }
     }
@@ -273,7 +286,7 @@ final class DailyBriefNotificationManager {
     func scheduleCookSuggestionIfEnabled(store: GuestDataStore) {
         guard cookSuggestionEnabled else { cancelCookSuggestion(); return }
         // NOTIF FIX: no permission dialog from a scheduler (see scheduleIfEnabled).
-        NotificationPermissionCoordinator.ifAuthorized { self.scheduleCookSuggestion(store: store) }
+        NotificationPermissionCoordinator.ifAuthorized { if self.cookSuggestionEnabled { self.scheduleCookSuggestion(store: store) } }
     }
 
     /// Fires tomorrow at 4 PM (dinner-planning time) IF there are items expiring soon. Prefers a
@@ -410,8 +423,9 @@ final class DailyBriefNotificationManager {
     /// Formats any hour (0–23) + minute as a 12-hour label, e.g. "7:30 AM". Used by the
     /// per-reminder time pickers in Settings.
     func timeLabel(hour h: Int, minute m: Int) -> String {
-        let suffix = h < 12 ? "AM" : "PM"
-        let h12    = h == 0 ? 12 : h > 12 ? h - 12 : h
-        return String(format: "%d:%02d %@", h12, m, suffix)
+        let calendar = Calendar.current
+        let date = calendar.date(from: DateComponents(year: 2001, month: 1, day: 1,
+            hour: ReminderClockPolicy.hour(h), minute: ReminderClockPolicy.minute(m))) ?? .now
+        return date.formatted(date: .omitted, time: .shortened)
     }
 }

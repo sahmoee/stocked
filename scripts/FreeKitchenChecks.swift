@@ -1,4 +1,4 @@
-// Native check: swiftc Stocked/MealPlanExchange.swift Stocked/UnitConverter.swift scripts/FreeKitchenChecks.swift -o <temporary executable>
+// Native check: swiftc Stocked/MealPlanExchange.swift Stocked/UnitMath.swift Stocked/UnitConverter.swift scripts/FreeKitchenChecks.swift -o <temporary executable>
 import Foundation
 
 @main struct FreeKitchenChecks {

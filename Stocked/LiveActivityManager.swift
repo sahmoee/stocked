@@ -14,6 +14,7 @@ final class LiveActivityManager {
 
     private let log = Logger(subsystem: "com.sowens.Stocked", category: "liveactivity")
     private var current: Activity<CookTimerAttributes>?
+    private var currentOwner: UUID?
 
     /// Whether iOS will allow Live Activities right now (Info.plist key present AND the
     /// user's Settings toggle on). False is the most common reason timers never appear.
@@ -27,7 +28,7 @@ final class LiveActivityManager {
     var lastInfo: String? = nil
 
     /// Start (or replace) the Live Activity for the currently-running step timer.
-    func start(recipeTitle: String, stepNumber: Int, totalSteps: Int, stepText: String, endDate: Date) {
+    func start(recipeTitle: String, stepNumber: Int, totalSteps: Int, stepText: String, endDate: Date, owner: UUID? = nil) {
         let info = ActivityAuthorizationInfo()
         guard info.areActivitiesEnabled else {
             // Either NSSupportsLiveActivities is missing from Info.plist, or the user has
@@ -39,6 +40,7 @@ final class LiveActivityManager {
         }
         end()   // one timer on the Lock Screen at a time
 
+        currentOwner = owner
         let attributes = CookTimerAttributes(recipeTitle: recipeTitle.isEmpty ? "Cooking" : recipeTitle)
         let state = CookTimerAttributes.ContentState(
             stepNumber: stepNumber, totalSteps: totalSteps,
@@ -59,9 +61,10 @@ final class LiveActivityManager {
         }
     }
 
-    func end() {
+    func end(owner: UUID? = nil) {
+        guard owner == nil || owner == currentOwner else { return }
         guard let activity = current else { return }
-        current = nil
+        current = nil; currentOwner = nil
         Task { await activity.end(nil, dismissalPolicy: .immediate) }
     }
 }

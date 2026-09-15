@@ -1525,8 +1525,8 @@ struct CookingFlashcardView: View {
                                     .scaledFont(13, weight: .bold)
                                     .foregroundStyle(Color.stockedWhite)
                             } else if let t = stepTimer, t.isRunning {
-                                Text(t.displayString)
-                                    .scaledFont(9, weight: .bold, design: .monospaced)
+                                Image(systemName: "timer")
+                                    .scaledFont(14, weight: .semibold)
                                     .foregroundStyle(Color.stockedWhite)
                             } else {
                                 Text("\(stepNumber)")
@@ -1576,10 +1576,12 @@ struct CookingFlashcardView: View {
                             Spacer(minLength: 0)
                             // #6 — read this step aloud (tap again to stop).
                             Button { SpeechReader.shared.toggle(stepText) } label: {
-                                Image(systemName: "speaker.wave.2.fill")
+                                Image(systemName: SpeechReader.shared.speakingID == stepText ? "stop.fill" : "speaker.wave.2.fill")
                                     .scaledFont(14)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(SpeechReader.shared.speakingID == stepText ? session.accentColor : session.themeSecondaryText)
+                                    .frame(minWidth: 44, minHeight: 44)
                             }.buttonStyle(.plain)
+                            .accessibilityLabel(SpeechReader.shared.speakingID == stepText ? "Stop reading step \(stepNumber)" : "Read step \(stepNumber) aloud")
                         }
                         .padding(.horizontal, 14)
 
@@ -1590,59 +1592,11 @@ struct CookingFlashcardView: View {
                                 .padding(.horizontal, 14)
                         }
 
-                        // Timer controls
-                        if detectedSeconds != nil || stepTimer != nil {
-                            HStack(spacing: 12) {
-                                let t = stepTimer
-                                if t == nil {
-                                    Button {
-                                        timerEngine?.startTimer(stepIndex: stepIndex, stepText: stepText)
-                                        HapticManager.select()
-                                    } label: {
-                                        Label("Start Timer", systemImage: "play.fill")
-                                            .scaledFont(12, weight: .semibold)
-                                            .foregroundStyle(Color.stockedWhite)
-                                            .padding(.horizontal, 14).padding(.vertical, 11)
-                                            .background(Color.stockedGold).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
-                                    }.buttonStyle(.plain)
-                                } else if t?.isFinished == true {
-                                    Label("Done ✓", systemImage: "checkmark.circle.fill")
-                                        .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGreen)
-                                    Button { timerEngine?.resetTimer(stepIndex: stepIndex) } label: {
-                                        Text("Reset").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
-                                    }.buttonStyle(.plain)
-                                } else {
-                                    Text(t?.displayString ?? "")
-                                        .scaledFont(20, weight: .bold, design: .monospaced)
-                                        .foregroundStyle(Color.stockedGold)
-                                    if t?.isRunning == true {
-                                        Button { timerEngine?.pauseTimer(stepIndex: stepIndex) } label: {
-                                            Image(systemName: "pause.fill")
-                                                .scaledFont(13)
-                                                .foregroundStyle(Color.stockedWhite)
-                                                .padding(9)
-                                                .background(Color.stockedCharcoal).clipShape(Circle())
-                                        }.buttonStyle(.plain)
-                                    } else {
-                                        Button {
-                                            timerEngine?.startTimer(stepIndex: stepIndex, stepText: stepText)
-                                        } label: {
-                                            Image(systemName: "play.fill")
-                                                .scaledFont(13)
-                                                .foregroundStyle(Color.stockedWhite)
-                                                .padding(9)
-                                                .background(Color.stockedGold).clipShape(Circle())
-                                        }.buttonStyle(.plain)
-                                    }
-                                    Button { timerEngine?.resetTimer(stepIndex: stepIndex) } label: {
-                                        Image(systemName: "arrow.counterclockwise")
-                                            .scaledFont(12)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.4))
-                                    }.buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal, 14)
+                        // Both recipe details and active cooking use the same timer controls.
+                        if let timerEngine, detectedSeconds != nil || stepTimer != nil {
+                            StepTimerChip(stepIndex: stepIndex, stepText: stepText,
+                                          detectedSeconds: detectedSeconds, timerEngine: timerEngine)
+                                .padding(.horizontal, 14)
                         }
 
                         Button(action: onComplete) {

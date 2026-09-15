@@ -13,6 +13,7 @@ struct DailyBriefNotificationSettingsView: View {
     @State private var stapleOn  = DailyBriefNotificationManager.shared.stapleNudgeEnabled
     @State private var prepOn    = DailyBriefNotificationManager.shared.prepReminderEnabled
     @State private var scheduled = false
+    @State private var saveFeedbackTask: Task<Void, Never>?
 
     // Per-reminder fire times (defaults come from the manager's stored values).
     @State private var expiryHour   = DailyBriefNotificationManager.shared.expiryHour
@@ -49,8 +50,8 @@ struct DailyBriefNotificationSettingsView: View {
                             .scaledFont(15, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Spacer()
-                        Toggle("", isOn: $isEnabled)
-                            .tint(Color.stockedGold)
+                        Toggle("Daily kitchen brief", isOn: $isEnabled).labelsHidden()
+                            .tint(session.accentColor)
                             .onChange(of: isEnabled) { _, v in
                                 DailyBriefNotificationManager.shared.isEnabled = v
                                 if v {
@@ -68,35 +69,8 @@ struct DailyBriefNotificationSettingsView: View {
                     if isEnabled {
                         Divider().padding(.leading, 20)
 
-                        // Time picker
-                        HStack {
-                            Text("Notify at")
-                                .scaledFont(15, design: .serif)
-                                .foregroundStyle(session.themeTextColor)
-                            Spacer()
-                            Picker("Hour", selection: $hour) {
-                                ForEach(0..<24, id: \.self) { h in
-                                    let suffix = h < 12 ? "AM" : "PM"
-                                    let h12    = h == 0 ? 12 : h > 12 ? h - 12 : h
-                                    Text("\(h12) \(suffix)").tag(h)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .tint(Color.stockedGold)
-                            Text(":")
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
-                            Picker("Minute", selection: $minute) {
-                                ForEach([0, 15, 30, 45], id: \.self) { m in
-                                    Text(String(format: "%02d", m)).tag(m)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .tint(Color.stockedGold)
-                        }
-                        .padding(.horizontal, 20).padding(.vertical, 14)
-                        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
-                        .onChange(of: hour) { _, _ in save() }
-                        .onChange(of: minute) { _, _ in save() }
+                        timeRow(label: "Notify at", hour: $hour, minute: $minute, onChange: save)
+
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -105,8 +79,8 @@ struct DailyBriefNotificationSettingsView: View {
                 if scheduled {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
-                        Text("Daily brief scheduled for \(DailyBriefNotificationManager.shared.timeLabel)")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        Text("Reminder preference saved for \(DailyBriefNotificationManager.shared.timeLabel)")
+                            .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     }
                     .padding(.horizontal, 24).padding(.top, 16)
                     .transition(.opacity)
@@ -123,8 +97,8 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
-                        Toggle("", isOn: $expiryOn)
-                            .tint(Color.stockedGold)
+                        Toggle("Expiry reminders", isOn: $expiryOn).labelsHidden()
+                            .tint(session.accentColor)
                             .onChange(of: expiryOn) { _, v in
                                 DailyBriefNotificationManager.shared.expiryRemindersEnabled = v
                                 if v {
@@ -162,8 +136,8 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
-                        Toggle("", isOn: $cookSuggestOn)
-                            .tint(Color.stockedGold)
+                        Toggle("Cook suggestions", isOn: $cookSuggestOn).labelsHidden()
+                            .tint(session.accentColor)
                             .onChange(of: cookSuggestOn) { _, v in
                                 DailyBriefNotificationManager.shared.cookSuggestionEnabled = v
                                 if v {
@@ -199,8 +173,8 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
-                        Toggle("", isOn: $stapleOn)
-                            .tint(Color.stockedGold)
+                        Toggle("Low staples nudge", isOn: $stapleOn).labelsHidden()
+                            .tint(session.accentColor)
                             .onChange(of: stapleOn) { _, v in
                                 DailyBriefNotificationManager.shared.stapleNudgeEnabled = v
                                 if v {
@@ -235,8 +209,8 @@ struct DailyBriefNotificationSettingsView: View {
                                 .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
-                        Toggle("", isOn: $prepOn)
-                            .tint(Color.stockedGold)
+                        Toggle("Meal prep reminder", isOn: $prepOn).labelsHidden()
+                            .tint(session.accentColor)
                             .onChange(of: prepOn) { _, v in
                                 DailyBriefNotificationManager.shared.prepReminderEnabled = v
                                 if v {
@@ -270,6 +244,7 @@ struct DailyBriefNotificationSettingsView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { refreshAuthStatus() }
+        .onDisappear { saveFeedbackTask?.cancel(); saveFeedbackTask = nil }
         .onChange(of: scenePhase) { _, phase in
             // Coming back from the Settings app (where the user may have toggled permission)
             // should refresh the Allowed / Denied banner.
@@ -291,12 +266,12 @@ struct DailyBriefNotificationSettingsView: View {
                         .scaledFont(14, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Reminders can't be delivered until you allow notifications in Settings.")
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
-                Button("Open") { openSystemSettings() }
+                Button("Open Settings") { openSystemSettings() }
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(session.accentColor)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
             .background(Color.red.opacity(0.10))
@@ -306,8 +281,8 @@ struct DailyBriefNotificationSettingsView: View {
         case .authorized, .provisional, .ephemeral:
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
-                Text("Notifications allowed — reminders will arrive even when the app is closed.")
-                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
+                Text("Notifications are allowed. Focus settings and notification summaries can affect delivery.")
+                    .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 Spacer()
             }
             .padding(.horizontal, 24).padding(.bottom, 16)
@@ -322,36 +297,24 @@ struct DailyBriefNotificationSettingsView: View {
 
     // MARK: - Reusable inline time row
 
-    @ViewBuilder
     private func timeRow(label: String, hour: Binding<Int>, minute: Binding<Int>,
                          onChange: @escaping () -> Void) -> some View {
-        HStack {
-            Text(label)
-                .scaledFont(15, design: .serif)
-                .foregroundStyle(session.themeTextColor)
-            Spacer()
-            Picker("Hour", selection: hour) {
-                ForEach(0..<24, id: \.self) { h in
-                    let suffix = h < 12 ? "AM" : "PM"
-                    let h12    = h == 0 ? 12 : h > 12 ? h - 12 : h
-                    Text("\(h12) \(suffix)").tag(h)
-                }
-            }
-            .pickerStyle(.menu)
-            .tint(Color.stockedGold)
-            Text(":").foregroundStyle(session.themeTextColor.opacity(0.5))
-            Picker("Minute", selection: minute) {
-                ForEach([0, 15, 30, 45], id: \.self) { m in
-                    Text(String(format: "%02d", m)).tag(m)
-                }
-            }
-            .pickerStyle(.menu)
-            .tint(Color.stockedGold)
-        }
+        DatePicker(label, selection: Binding(get: {
+            Calendar.current.date(from: DateComponents(year: 2001, month: 1, day: 1,
+                hour: ReminderClockPolicy.hour(hour.wrappedValue),
+                minute: ReminderClockPolicy.minute(minute.wrappedValue))) ?? .now
+        }, set: { date in
+            let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+            hour.wrappedValue = ReminderClockPolicy.hour(parts.hour)
+            minute.wrappedValue = ReminderClockPolicy.minute(parts.minute)
+            onChange()
+        }), displayedComponents: .hourAndMinute)
+        .datePickerStyle(.compact)
+        .scaledFont(15, design: .serif)
+        .tint(session.accentColor)
+        .foregroundStyle(session.themeTextColor)
         .padding(.horizontal, 20).padding(.vertical, 14)
-        .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
-        .onChange(of: hour.wrappedValue) { _, _ in onChange() }
-        .onChange(of: minute.wrappedValue) { _, _ in onChange() }
+        .background(session.themeCardColor)
     }
 
     // MARK: - Authorization helpers
@@ -381,10 +344,12 @@ struct DailyBriefNotificationSettingsView: View {
         DailyBriefNotificationManager.shared.minute = minute
         DailyBriefNotificationManager.shared.scheduleIfEnabled(store: session.guestStore)
         refreshAuthStatus()
-        withAnimation { scheduled = true }
-        Task {
-            try? await Task.sleep(nanoseconds: 2000000000)
-            withAnimation { scheduled = false }
+        scheduled = true
+        saveFeedbackTask?.cancel()
+        saveFeedbackTask = Task { @MainActor in
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            guard !Task.isCancelled else { return }
+            scheduled = false
         }
     }
 }

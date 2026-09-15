@@ -734,7 +734,9 @@ class GuestDataStore {
     }
 
     // MARK: - Nuclear clear — wipes every byte of stored data
-    func clearAll() {
+    @discardableResult func clearAll() -> Bool {
+        do { try StockedPhoneWatchBridge.shared.invalidateKitchen() }
+        catch { ToastCenter.shared.warning(error.localizedDescription, duration: 6); return false }
         // ── 0. Stop any in-flight debounced save FIRST ───────────────
         // A save queued moments before this call (e.g. from a recent edit) would otherwise
         // fire its flush AFTER we wipe disk below and write the old data straight back — a
@@ -819,6 +821,7 @@ class GuestDataStore {
             UserDefaults.standard.set("Some saved connection keys could not be removed. Unlock this device and retry removal in Free Kitchen Connections.", forKey: "stocked.freeConnections.resetWarning.v1")
         }
         SyncConflictLog.shared.clear()
+        return true
     }
 
     func addGroceryItem(name: String) {

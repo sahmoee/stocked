@@ -3,6 +3,15 @@
 Stocked's loading work must stay bounded as household, recipe, grocery, QA, and history data grow.
 The following protections are the implementation checklist for every future feature and repair.
 
+The StockedWatch companion observes iPhone domain revisions and debounces snapshot publication.
+Only bounded summary pages and one requested recipe detail cross WatchConnectivity; no catalogue,
+photos or raw imports are copied. Browse/search requests replace application context, and reduced
+payloads advance cursors by their actual row counts. Mutation work uses a 64-item durable outbox,
+eight-message retry batches and a 30-second active retry pace. The phone's bounded UUID receipt
+journal persists intent and final outcomes around the existing authoritative mutation/durable-save
+boundary. Background WC callbacks hop to the main actor, and the Watch scene drains delivery before
+releasing its background task. See docs/WATCHOS_APP_2026_09_14.md for lifecycle and compatibility.
+
 1. `GuestDataStore` restores scalar preferences synchronously and hydrates large collections from an immutable disk snapshot off the main actor.
 2. `LocalDatabase` performs JSON encoding and coalesced file replacement on its serialized utility queue.
 3. Price and consumption histories use row-addressable SQLite storage through `GrowthDatabase`, with legacy JSON migration.
@@ -119,3 +128,28 @@ generic-device compilation are allowed; UI/runtime verification must not be clai
 Normal validation requires a successful generic-device build plus the `StockedTests` unit, migration,
 logic, and performance suites on both an iPhone and iPad simulator. CI discovers available
 simulators dynamically, builds the test bundle once, then executes it on both device families.
+
+
+Cooking countdowns (September 14, second pass) reuse a compiled, 32,768-character-bounded duration
+parser. Main-actor StepTimer tasks derive remaining time from deadlines, reject duplicate starts and
+weakly retain their model. Local restoration preserves exact deadlines, validates at most 128 timers
+and bounds numeric conversions. Notification runs use persisted UUIDs and generation/cancellation
+checks after asynchronous authorization/add; Live Activities follow the soonest owned running timer.
+Expiry notification replacement serializes removal/add work, and community price refresh reserves
+its task before the first suspension. See `docs/CODE_POLISH_PASS_2_2026_09_14.md` for native checks and
+OS/device limitations; these checks are not measurements of frame rate or guaranteed alert delivery.
+
+Response caching (September 14, third code pass) shares ResponseCacheStorage behind existing cache
+actors. Framed SHA-256 identities and typed Smart keys prevent ambiguous request reuse. Entries are
+bounded before disk-envelope encoding/reading; memory and disk have independent count/byte limits. Directory
+maintenance uses file metadata rather than decoding every payload; successful writes prune immediately.
+Cache reads touch access time without extending expiry. Clear recognizes owned regular files only,
+and AI/Smart producers reject retired generations. Smart has one producer per identity, immediate
+stale answers, 32 active-producer maximum and bounded 30-second failure cooldowns. No network-body
+policy or authoritative database changed. Legacy unverified response envelopes cold-miss once.
+
+Container quantity parsing bounds raw input before tokenization and changes only recognized numeric
+positions; explicit validation prevents malformed input from reaching host mutation callbacks. Local
+correction calibration bounds encoded restoration to 1 MiB and active evidence to 250 records with
+saturated counters; prompt conflicts are deterministic and scoped to item names. See
+`docs/CODE_PASS_3_40_IMPROVEMENTS_2026_09_14.md` for native asynchronous fixtures and recovery limits.

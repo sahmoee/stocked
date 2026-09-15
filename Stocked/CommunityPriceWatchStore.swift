@@ -45,10 +45,11 @@ import Observation
     }
     func cancel() { generation = UUID(); task?.cancel(); task = nil; refreshing = nil }
     func refresh(_ id: UUID? = nil) {
-        guard refreshing == nil else { return }
+        guard task == nil else { return }
         let chosen = Array(watches.filter { !$0.paused && (id == nil || $0.id == id) }.prefix(20))
         guard !chosen.isEmpty else { status = "Add or resume a saved price check first."; return }
         generation = UUID(); let token = generation
+        refreshing = chosen.first?.id // Reserve synchronously before the task can yield.
         task = Task {
             defer { if generation == token { refreshing = nil; task = nil } }
             var successes = 0, failures = 0, cooled = 0

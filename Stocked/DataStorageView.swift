@@ -50,6 +50,10 @@ struct DataStorageView: View {
         NavigationStack {
             List {
                 Section {
+                    NavigationLink { WatchCompanionSettingsView() } label: { Label("Apple Watch", systemImage: "applewatch") }
+                        .listRowBackground(Color.clear)
+                }
+                Section {
                     ForEach(liveCounts, id: \.label) { row in
                         HStack {
                             Text(row.label)
@@ -281,7 +285,7 @@ private enum AppCacheManager {
 
     static func usage() async -> Usage {
         let apiBytes = await APIResponseCache.shared.diskSizeBytes()
-        let aiBytes = Int(await AIResultCache.shared.sizeBytes())
+        let aiBytes = Int(await AIResultCache.shared.sizeBytes()) + Int(await SmartResponseCache.shared.sizeBytes())
         let dataBytes = LocalDatabase.shared.dataCacheSizeBytes
             + BarcodeCache.shared.sizeBytes
         return Usage(
@@ -302,6 +306,7 @@ private enum AppCacheManager {
         ImageCache.shared.clearAll()
         await APIResponseCache.shared.clear()
         await AIResultCache.shared.clear()
+        await SmartResponseCache.shared.clear()
         URLCache.shared.removeAllCachedResponses()
         UserDefaults.standard.removeObject(forKey: "onlineRecipesCache_v3")
         UserDefaults.standard.removeObject(forKey: "onlineRecipesCacheTimestamp_v3")

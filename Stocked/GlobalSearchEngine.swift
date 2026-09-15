@@ -117,7 +117,7 @@ nonisolated enum GlobalSearchEngine {
         collect(window); collect(cachedWindow); window = .init(limit: 5)
         for item in ToolboxTool.allCases {
             try Task.checkCancellation()
-            if FuzzyMatch.matches(query, item.title) || item.subtitle.lowercased().contains(query) {
+            if FuzzyMatch.matches(query, item.title) || item.searchText.localizedStandardContains(query) {
                 window.consider(id: item.rawValue, title: item.title, score: item.title.lowercased() == query ? 95 : 55, value: .tool(item))
             }
         }

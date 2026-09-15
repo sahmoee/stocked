@@ -170,6 +170,7 @@ struct ToolboxEmptyState: View {
             Text(title)
                 .scaledFont(17, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)
+                .multilineTextAlignment(.center)
             Text(message)
                 .scaledFont(14)
                 .foregroundStyle(session.themeSecondaryText)
@@ -185,6 +186,7 @@ struct ToolboxEmptyState: View {
 // MARK: - Shared UI: expiry urgency chip (UI/UX: consistent urgency colors)
 
 struct ExpiryUrgencyChip: View {
+    @Environment(AppSession.self) private var session
     let daysLeft: Int
 
     private var label: String {
@@ -201,12 +203,12 @@ struct ExpiryUrgencyChip: View {
     }
 
     var body: some View {
-        Text(label)
+        Label(label, systemImage: daysLeft < 0 ? "exclamationmark.circle" : (daysLeft <= 2 ? "clock.badge.exclamationmark" : "calendar"))
             .scaledFont(11, weight: .semibold)
-            .foregroundStyle(color)
+            .foregroundStyle(session.themeTextColor)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(Capsule().fill(color.opacity(0.14)))
-            .accessibilityLabel(daysLeft < 0 ? "Expired" : "Expires in \(label)")
+            .accessibilityLabel(daysLeft < 0 ? "Past the recorded expiry date" : (daysLeft == 0 ? "Recorded expiry is today" : "Recorded expiry in \(label)"))
     }
 }
 
@@ -223,10 +225,12 @@ struct ToolboxStatTile: View {
             Text(value)
                 .scaledFont(22, weight: .bold, design: .rounded)
                 .foregroundStyle(tint ?? session.themeTextColor)
+                .monospacedDigit()
+                .multilineTextAlignment(.center)
 
                 .fixedSize(horizontal: false, vertical: true)
             Text(label)
-                .scaledFont(11, weight: .medium)
+                .font(.stocked(.subheadline))
                 .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
         }
@@ -270,9 +274,10 @@ struct ToolboxSectionLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .scaledFont(11, weight: .semibold)
+            .font(.stocked(.subheadline)).fontWeight(.semibold)
             .foregroundStyle(session.themeSecondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 6)
+            .accessibilityAddTraits(.isHeader)
     }
 }

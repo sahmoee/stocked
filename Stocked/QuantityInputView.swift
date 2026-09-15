@@ -13,6 +13,7 @@ struct QuantityInputView: View {
     @Environment(\.stockedLayout) private var layoutMetrics
     @Binding var quantity: ParsedAmount
     @State private var raw: String = ""
+    @State private var validationMessage: String?
     @FocusState private var focused: Bool
 
     private let containerOptions = ["item", "bag", "can", "box", "pack", "jar", "bottle",
@@ -37,9 +38,14 @@ struct QuantityInputView: View {
                 }
             }
 
+            if let validationMessage {
+                Label(validationMessage, systemImage: "exclamationmark.circle")
+                    .font(.stocked(.caption)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             // Structured, editable controls
             controlLayout {
-                Stepper(value: $quantity.count, in: 0...9999, step: stepSize) {
+                Stepper(value: $quantity.count, in: 0...QuantityParser.maximumAmount, step: stepSize) {
                     HStack(spacing: 4) {
                         Text("Qty").foregroundStyle(.secondary).font(.stocked(.subheadline))
                         Text(ParsedAmount.trim(quantity.count)).font(.stocked(.headline).monospacedDigit())
@@ -63,7 +69,12 @@ struct QuantityInputView: View {
                 Text("Each").foregroundStyle(.secondary).font(.stocked(.subheadline))
                 TextField("amt", value: Binding(
                     get: { quantity.amountEach ?? 0 },
-                    set: { quantity.amountEach = $0 == 0 ? nil : $0 }
+                    set: { value in
+                        guard value.isFinite, value >= 0, value <= QuantityParser.maximumAmount else {
+                            validationMessage = "Enter a finite, nonnegative package size."; return
+                        }
+                        validationMessage = nil; quantity.amountEach = value == 0 ? nil : value
+                    }
                 ), format: .number)
                     .frame(minWidth: 72).textFieldStyle(StockedThemedTextFieldStyle())
                     .multilineTextAlignment(.trailing)
@@ -91,6 +102,8 @@ struct QuantityInputView: View {
     private func apply(_ text: String) {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         var parsed = QuantityParser.parse(text)
+        validationMessage = parsed.validationMessage
+        guard parsed.validationMessage == nil else { return }
         // Preserve any item name already set if the parse didn't find one.
         if parsed.item.isEmpty { parsed.item = quantity.item }
         quantity = parsed
@@ -107,9 +120,11 @@ struct NaturalQuantityField: View {
     var placeholder: String = "Type it: 6 cans of 8 oz, half a bag…"
     let onParse: (ParsedAmount) -> Void
     @State private var raw = ""
+    @State private var validationMessage: String?
     @FocusState private var focused: Bool
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 8) {
             Image(systemName: "wand.and.stars")
                 .scaledFont(13).foregroundStyle(Color.stockedGold)
@@ -129,12 +144,21 @@ struct NaturalQuantityField: View {
         .padding(12)
         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        if let validationMessage {
+            Label(validationMessage, systemImage: "exclamationmark.circle")
+                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        }
     }
 
     private func apply() {
         let t = raw.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty else { return }
-        onParse(QuantityParser.parse(t))
+        let parsed = QuantityParser.parse(t)
+        validationMessage = parsed.validationMessage
+        guard parsed.validationMessage == nil else { return }
+        onParse(parsed)
         raw = ""
         focused = false
         HapticManager.select()

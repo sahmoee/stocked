@@ -30,13 +30,18 @@ nonisolated enum UnitMath {
         "tsp": 4.92892, "teaspoon": 4.92892, "teaspoons": 4.92892,
     ]
 
-    private static func norm(_ unit: String) -> String {
+    static func normalized(_ unit: String) -> String {
         unit.lowercased().replacingOccurrences(of: ".", with: "")
-            .trimmingCharacters(in: .whitespaces)
+            .split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    static func baseFactor(for unit: String) -> Double? {
+        let key = normalized(unit)
+        return mass[key] ?? volume[key]
     }
 
     static func family(of unit: String) -> Family? {
-        let u = norm(unit)
+        let u = normalized(unit)
         if mass[u] != nil { return .mass }
         if volume[u] != nil { return .volume }
         return nil
@@ -44,7 +49,7 @@ nonisolated enum UnitMath {
 
     /// Whether two units can be summed (same family). Same spelling counts too.
     static func convertible(_ a: String, _ b: String) -> Bool {
-        let na = norm(a), nb = norm(b)
+        let na = normalized(a), nb = normalized(b)
         if na == nb { return true }
         guard let fa = family(of: na), let fb = family(of: nb) else { return false }
         return fa == fb
@@ -52,10 +57,13 @@ nonisolated enum UnitMath {
 
     /// Convert an amount between convertible units. Returns nil when not convertible.
     static func convert(_ amount: Double, from: String, to: String) -> Double? {
-        let nf = norm(from), nt = norm(to)
+        guard amount.isFinite, amount >= 0 else { return nil }
+        let nf = normalized(from), nt = normalized(to)
         if nf == nt { return amount }
-        if let a = mass[nf], let b = mass[nt] { return amount * a / b }
-        if let a = volume[nf], let b = volume[nt] { return amount * a / b }
-        return nil
+        guard convertible(nf, nt), let a = baseFactor(for: nf), let b = baseFactor(for: nt) else { return nil }
+        // Divide factors first: identical large-unit values need not overflow
+        // through an unnecessary intermediate base-unit quantity.
+        let result = amount * (a / b)
+        return result.isFinite ? result : nil
     }
 }

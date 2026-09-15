@@ -15,9 +15,9 @@
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"
-                     BlueprintIdentifier = "7BF490592FD3BD1A00F32BED"
-                     BuildableName = "Stocked.app"
-                     BlueprintName = "Stocked"
+                     BlueprintIdentifier = "A017C0DE0000000000000005"
+                     BuildableName = "StockedWatch.app"
+                     BlueprintName = "StockedWatch"
                      ReferencedContainer = "container:Stocked.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
@@ -33,23 +33,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "7BF490592FD3BD1A00F32BED"
-               BuildableName = "Stocked.app"
-               BlueprintName = "Stocked"
-               ReferencedContainer = "container:Stocked.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "7BAA00052FE0000000000005"
-               BuildableName = "StockedTests.xctest"
-               BlueprintName = "StockedTests"
+               BlueprintIdentifier = "A017C0DE0000000000000005"
+               BuildableName = "StockedWatch.app"
+               BlueprintName = "StockedWatch"
                ReferencedContainer = "container:Stocked.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -61,19 +47,6 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
-      <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "7BAA00052FE0000000000005"
-               BuildableName = "StockedTests.xctest"
-               BlueprintName = "StockedTests"
-               ReferencedContainer = "container:Stocked.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -89,9 +62,8 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7BF490592FD3BD1A00F32BED"
-            BuildableName = "Stocked.app"
-            BlueprintName = "Stocked"
+            BlueprintIdentifier = "A017C0DE0000000000000005"
+            BuildableName = "StockedWatch.app"
             ReferencedContainer = "container:Stocked.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -106,9 +78,8 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7BF490592FD3BD1A00F32BED"
-            BuildableName = "Stocked.app"
-            BlueprintName = "Stocked"
+            BlueprintIdentifier = "A017C0DE0000000000000005"
+            BuildableName = "StockedWatch.app"
             ReferencedContainer = "container:Stocked.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

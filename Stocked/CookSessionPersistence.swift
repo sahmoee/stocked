@@ -54,6 +54,8 @@ nonisolated struct CookSessionTimerState: Codable, Sendable {
     var endDate: Date? = nil          // set only while running
     var pausedRemaining: Int? = nil   // set only while paused mid-count
     var isFinished: Bool = false
+    /// Optional for legacy sessions; keeps each timer notification isolated across cooks.
+    var notificationID: String? = nil
 }
 
 // MARK: - Session snapshot (persisted form)

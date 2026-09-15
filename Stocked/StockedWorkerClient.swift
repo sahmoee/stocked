@@ -107,6 +107,7 @@ nonisolated enum StockedWorkerClient {
         catch { throw StockedServiceError.invalidRequest(error.localizedDescription) }
 
         let ttl = cacheTTL ?? route.defaultCacheTTL
+        let cacheGeneration = await AIResultCache.shared.currentGeneration()
         if ttl > 0, let cached = await AIResultCache.shared.value(
             route: route.rawValue, schemaVersion: route.schemaVersion, payloadData: payloadData
         ) { return cached }
@@ -144,7 +145,8 @@ nonisolated enum StockedWorkerClient {
             if ttl > 0 {
                 await AIResultCache.shared.save(data, route: route.rawValue,
                                                 schemaVersion: route.schemaVersion,
-                                                payloadData: payloadData, ttl: ttl)
+                                                payloadData: payloadData, ttl: ttl,
+                                                expectedGeneration: cacheGeneration)
             }
             return data
         } catch let error as StockedServiceError { throw error }

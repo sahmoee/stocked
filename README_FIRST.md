@@ -1,5 +1,34 @@
 # Read me first
 
+September 14: Stocked now includes an embedded native Apple Watch companion for groceries,
+inventory additions/edits, saved recipe favorites and steps, a durable local timer, the active meal
+plan and offline kitchen tools. iPhone remains authoritative; paired delivery uses bounded snapshots,
+search/pagination and a persistent 64-change queue with UUID receipts and reset epochs. Clear/restore
+must retire delayed Watch edits before mutating data. Read `docs/WATCHOS_APP_2026_09_14.md` for
+actual parity/handoff limits and local-only contracts. The 87 native checks and generic embedded
+iOS/Watch build 5 (255) passed; physical Watch acceptance remains open in QA section58.
+
+September 14, third code pass: shared response storage bounds cached reads, memory and disk;
+Smart requests coalesce and reject retired refreshes; Clear All includes Smart responses.
+Container quantities validate before committing, preserve package sizes and parse fractions/dozens
+without product-name digits altering counts. Local correction history is bounded and prediction-specific.
+See `docs/CODE_PASS_3_40_IMPROVEMENTS_2026_09_14.md` for the exact 40 corrections, one-time response-cache
+cold misses, local compatibility and validation limits. No household records or Worker schema changed.
+
+September 14, second pass: cooking timers now follow saved deadlines, isolate each notification run,
+validate restored state and keep the soonest owned Live Activity current. Unit display/math share a
+registry; midnight reminders and expiry replacement are repaired; price refreshes coalesce immediately.
+Recipe and active-cook timers share accessible controls, and reminders use localized native time inputs.
+See `docs/CODE_POLISH_PASS_2_2026_09_14.md` for the separate 20 code/10 polish ledger, verification,
+local snapshot compatibility and device-review limits. No Worker or household contract changed.
+
+September 14: Kitchen Toolbox → Kitchen Math adds ten offline calculators for package prices,
+buying quantities, pan scaling, baker’s percentages, hydration, ratios, trim yield, portion packing,
+batch timing and offers. Inputs are scene-local drafts; calculations never mutate kitchen records.
+Toolbox search/pinning/accessibility and shared tool presentation received twenty polish changes.
+Global search now opens the selected tool directly. See `STOCKED_30_IMPROVEMENTS_2026_09_14.md`
+for the exact ledger and native verification. No new provider, paid AI or household schema is involved.
+
 Stocked's September 9 layout pass aligns peer cards through shared lazy equal-height rows,
 uses actual sheet width for adaptive columns, reflows larger text and removes duplicate footer
 clearance. Ingredient grids keep compact summaries and full accessible names; long forms scroll.

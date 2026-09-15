@@ -976,7 +976,7 @@ class KitchenTransferManager {
         let journalData = try JSONEncoder().encode(journal)
         try LocalDatabase.shared.saveDataDurably(journalData, key: DBKey.kitchenRestoreRollback.rawValue)
 
-        apply(snapshot, into: store, selection: selection)
+        try apply(snapshot, into: store, selection: selection)
         let allCounts = Self.counts(in: snapshot)
         return KitchenRestoreReceipt(
             restoredAt: Date(), sections: selection.sections,
@@ -999,7 +999,7 @@ class KitchenTransferManager {
             KitchenRestoreRollbackJournal.self, key: DBKey.kitchenRestoreRollback.rawValue
         ) else { throw KitchenBackupError.rollbackUnavailable }
         let decoded = try decodeBackup(journal.package)
-        apply(decoded.snapshot, into: store, selection: .all)
+        try apply(decoded.snapshot, into: store, selection: .all)
         LocalDatabase.shared.delete(key: DBKey.kitchenRestoreRollback.rawValue)
         return KitchenRestoreReceipt(restoredAt: Date(), sections: Set(KitchenRestoreSection.allCases),
             counts: Self.counts(in: decoded.snapshot), merged: false, rollbackAvailable: false)
@@ -1056,7 +1056,8 @@ class KitchenTransferManager {
     }
 
     private func apply(_ snapshot: KitchenSnapshot, into store: GuestDataStore,
-                       selection: KitchenRestoreSelection) {
+                       selection: KitchenRestoreSelection) throws {
+        try StockedPhoneWatchBridge.shared.invalidateKitchen()
         let wasApplyingRemote = store.isApplyingHouseholdRemote
         store.isApplyingHouseholdRemote = true
         defer { store.isApplyingHouseholdRemote = wasApplyingRemote }

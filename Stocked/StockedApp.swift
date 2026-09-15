@@ -104,6 +104,8 @@ struct StockedApp: App {
             }
             // #19 — handle Siri-shortcut launch intents when we come to the foreground.
             if phase == .active {
+                StockedPhoneWatchBridge.shared.consumeHandoff()
+                StockedPhoneWatchBridge.shared.schedule()
                 // #14 — one data point for when this user is actually reachable. Used to nudge
                 // reminder delivery toward a time they'll see it, within bounds they chose.
                 NotificationEngagement.shared.recordAppOpen()
