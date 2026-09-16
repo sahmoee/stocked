@@ -12,7 +12,10 @@ final class DailyBriefNotificationManager {
 
     static let shared = DailyBriefNotificationManager()
     private init() {}
+    private var dailyTask: Task<Void, Never>?
     private var expiryTask: Task<Void, Never>?
+    private nonisolated struct DailyCounts: Sendable { var expiring: Int; var low: Int }
+    private nonisolated struct ExpiryPlan: Sendable { var id: UUID; var name: String; var fireDate: Date }
 
     // MARK: - Authorization
 
@@ -158,38 +161,37 @@ final class DailyBriefNotificationManager {
 
     func schedule(store: GuestDataStore) {
         cancel()
-        let content  = UNMutableNotificationContent()
-        content.categoryIdentifier = categoryID
-        content.sound = .default
-
-        // Build a useful summary
-        // WAS: a 3-day window and a raw-`level` 0.2 threshold, so the brief
-        // announced a different set of items than Inventory and the widget did.
-        let expiring = store.expiringSoonItems.filter { ($0.daysUntilExpiry ?? -1) >= 0 }
-        let lowStock = store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }
-
-        if expiring.isEmpty && lowStock.isEmpty {
-            content.title = "Good morning, your kitchen is looking good 🍳"
-            content.body  = "Tap to see what you can cook tonight."
-        } else {
-            var parts: [String] = []
-            if !expiring.isEmpty {
-                parts.append("⏰ \(expiring.count) item\(expiring.count == 1 ? "" : "s") expiring soon")
+        dailyTask?.cancel()
+        let inventory = store.inventoryItems
+        let fireHour = adaptiveHour, fireMinute = minute
+        dailyTask = Task {
+            let counts = await Task.detached(priority: .utility) {
+                DailyCounts(
+                    expiring: inventory.filter { $0.isExpiringSoon() && ($0.daysUntilExpiry ?? -1) >= 0 }.count,
+                    low: inventory.filter { KitchenAvailability.isRunningLow($0) }.count
+                )
+            }.value
+            guard !Task.isCancelled else { return }
+            let content = UNMutableNotificationContent()
+            content.categoryIdentifier = categoryID
+            content.sound = .default
+            if counts.expiring == 0 && counts.low == 0 {
+                content.title = "Good morning, your kitchen is looking good 🍳"
+                content.body = "Tap to see what you can cook tonight."
+            } else {
+                var parts: [String] = []
+                if counts.expiring > 0 { parts.append("⏰ \(counts.expiring) item\(counts.expiring == 1 ? "" : "s") expiring soon") }
+                if counts.low > 0 { parts.append("📉 \(counts.low) running low") }
+                content.title = "Daily Kitchen Brief"
+                content.body = parts.joined(separator: " · ")
             }
-            if !lowStock.isEmpty {
-                parts.append("📉 \(lowStock.count) running low")
-            }
-            content.title = "Daily Kitchen Brief"
-            content.body  = parts.joined(separator: " · ")
+            content.userInfo = ["action": "openDailyBrief"]
+            var comps = DateComponents(); comps.hour = fireHour; comps.minute = fireMinute
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            try? await UNUserNotificationCenter.current().add(
+                .init(identifier: requestID, content: content, trigger: trigger)
+            )
         }
-        content.userInfo = ["action": "openDailyBrief"]
-
-        var comps        = DateComponents()
-        comps.hour       = adaptiveHour   // #14 — learned window, bounded by the user's setting
-        comps.minute     = minute
-        let trigger      = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-        let request      = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request)
     }
 
     func cancel() {
@@ -208,51 +210,56 @@ final class DailyBriefNotificationManager {
     // (9 AM) of the day BEFORE its expiry. Old expiry requests are cleared first so the
     // set always reflects current inventory.
     func scheduleExpiry(store: GuestDataStore) {
-        var requests: [UNNotificationRequest] = []
-        let cal = Calendar.current
-        let now = Date()
-
-        // iOS caps pending local notifications at 64 per app. A large pantry could burn the
-        // whole budget (silently dropping the daily brief / timers). Keep the 40 soonest
-        // expiries — reminders beyond that horizon are rescheduled as inventory changes.
-        let upcoming = store.inventoryItems
-            .filter { ($0.expirationDate ?? .distantPast) > now }
-            .sorted { ($0.expirationDate ?? .distantFuture) < ($1.expirationDate ?? .distantFuture) }
-            .prefix(40)
-
-        for item in upcoming {
-            guard let exp = item.expirationDate, exp > now else { continue }
-            // Fire 1 day before expiry at the user's chosen time (default 9 AM).
-            guard let dayBefore = cal.date(byAdding: .day, value: -1, to: exp) else { continue }
-            var comps = cal.dateComponents([.year, .month, .day], from: dayBefore)
-            comps.hour = expiryHour
-            comps.minute = expiryMinute
-            guard let fireDate = cal.date(from: comps), fireDate > now else { continue }
-
+        let inventory = store.inventoryItems
+        let fireHour = expiryHour, fireMinute = expiryMinute
+        let previous = expiryTask
+        previous?.cancel()
+        expiryTask = Task {
+            await previous?.value
+            let plans = await Task.detached(priority: .utility) {
+                let cal = Calendar.current, now = Date()
+                return inventory
+                    .filter { ($0.expirationDate ?? .distantPast) > now }
+                    .sorted { ($0.expirationDate ?? .distantFuture) < ($1.expirationDate ?? .distantFuture) }
+                    .prefix(40)
+                    .compactMap { item -> ExpiryPlan? in
+                        guard let exp = item.expirationDate,
+                              let dayBefore = cal.date(byAdding: .day, value: -1, to: exp) else { return nil }
+                        var comps = cal.dateComponents([.year, .month, .day], from: dayBefore)
+                        comps.hour = fireHour; comps.minute = fireMinute
+                        guard let fireDate = cal.date(from: comps), fireDate > now else { return nil }
+                        return .init(id: item.id, name: item.name, fireDate: fireDate)
+                    }
+            }.value
+            guard !Task.isCancelled else { return }
+            let cal = Calendar.current
+            var requests: [UNNotificationRequest] = []
+            for plan in plans {
             let content = UNMutableNotificationContent()
             content.title = "Expiring tomorrow"
-            content.body  = "\(item.name.displayNormalized) expires tomorrow — cook or use it soon."
+            content.body  = "\(plan.name.displayNormalized) expires tomorrow — cook or use it soon."
             content.sound = .default
             // #17 — rich actions + per-item deep link: tag the category and carry the item's
             // id + name so the delegate can run "Add to Grocery"/"Mark Used" and open this exact item.
             content.categoryIdentifier = StockedNotificationCategory.expiryItem
             content.userInfo = [
                 StockedNotificationKey.action:   "openInventory",
-                StockedNotificationKey.itemID:   item.id.uuidString,
-                StockedNotificationKey.itemName: item.name
+                StockedNotificationKey.itemID:   plan.id.uuidString,
+                StockedNotificationKey.itemName: plan.name
             ]
             // Time Sensitive: food about to spoil should break through Focus / Do Not Disturb.
             // Requires the com.apple.developer.usernotifications.time-sensitive entitlement.
             content.interruptionLevel = .timeSensitive
 
             let trigger = UNCalendarNotificationTrigger(
-                dateMatching: cal.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate),
+                dateMatching: cal.dateComponents([.year, .month, .day, .hour, .minute], from: plan.fireDate),
                 repeats: false)
             let request = UNNotificationRequest(
-                identifier: expiryPrefix + item.id.uuidString, content: content, trigger: trigger)
+                identifier: expiryPrefix + plan.id.uuidString, content: content, trigger: trigger)
             requests.append(request)
+            }
+            await replaceExpiryRequestsNow(requests)
         }
-        replaceExpiryRequests(requests)
     }
 
     func cancelExpiry() { replaceExpiryRequests([]) }
@@ -273,6 +280,17 @@ final class DailyBriefNotificationManager {
                 guard !Task.isCancelled else { return }
                 try? await center.add(request)
             }
+        }
+    }
+
+    private func replaceExpiryRequestsNow(_ requests: [UNNotificationRequest]) async {
+        let center = UNUserNotificationCenter.current()
+        let pending = await center.pendingNotificationRequests()
+        guard !Task.isCancelled else { return }
+        center.removePendingNotificationRequests(withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(expiryPrefix) })
+        for request in requests {
+            guard !Task.isCancelled else { return }
+            try? await center.add(request)
         }
     }
 

@@ -226,7 +226,7 @@ struct ReceiptScannerView: View {
                 }
             }
         }
-        .onAppear { loadArchive() }
+        .task { await loadArchive() }
         .qaScreen("Receipt Scanner")
     }
 
@@ -1083,11 +1083,13 @@ extension ReceiptScannerView {
     }
 
     // MARK: - Archive persistence
-    private func loadArchive() {
-        guard let data = UserDefaults.standard.data(forKey: "receiptArchive_v1"),
-              let decoded = try? JSONDecoder().decode([ReceiptArchiveEntry].self, from: data)
-        else { return }
-        archive = decoded.sorted { $0.date > $1.date }
+    private func loadArchive() async {
+        guard let data = UserDefaults.standard.data(forKey: "receiptArchive_v1") else { return }
+        let decoded = await Task.detached(priority: .utility) {
+            (try? JSONDecoder().decode([ReceiptArchiveEntry].self, from: data))?
+                .sorted { $0.date > $1.date }
+        }.value
+        if let decoded { archive = decoded }
     }
 
     private func saveToArchive(itemCount: Int, items: [String] = [], spend: Double = 0) {
@@ -1098,8 +1100,12 @@ extension ReceiptScannerView {
         archive.insert(entry, at: 0)
         // Keep last 30 scans
         if archive.count > 30 { archive = Array(archive.prefix(30)) }
-        if let data = try? JSONEncoder().encode(archive) {
-            UserDefaults.standard.set(data, forKey: "receiptArchive_v1")
+        let snapshot = archive
+        Task {
+            let data = await Task.detached(priority: .utility) {
+                try? JSONEncoder().encode(snapshot)
+            }.value
+            if let data { UserDefaults.standard.set(data, forKey: "receiptArchive_v1") }
         }
     }
 

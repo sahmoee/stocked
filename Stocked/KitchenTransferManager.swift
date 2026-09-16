@@ -587,30 +587,25 @@ class KitchenTransferManager {
     func exportToFile(store: GuestDataStore, completion: @escaping (URL?) -> Void) {
         guard requirePermission(.backupExport) else { completion(nil); return }
         isExporting = true; statusMessage = ""; errorMessage = ""
-        let data: Data
-        do { data = try makeBackupData(store: store) }
-        catch {
-            isExporting = false; errorMessage = "Export failed: \(error.localizedDescription)"
-            completion(nil); return
-        }
+        let snapshot = makeSnapshot(store: store)
         let dateStr = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
             .replacingOccurrences(of: "/", with: "-")
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("Stocked-Kitchen-\(dateStr).stocked")
-        Task(priority: .userInitiated) {
+        Task {
             do {
-                try data.write(to: url)
-                Task { @MainActor in
-                    self.isExporting = false; self.exportedFileURL = url
-                    self.statusMessage = "Kitchen exported successfully!"
-                    completion(url)
-                }
+                try await Task.detached(priority: .userInitiated) {
+                    let key = try KitchenBackupKeyStore.loadOrCreate()
+                    let data = try KitchenBackupCodec.seal(snapshot, using: key)
+                    try data.write(to: url, options: .atomic)
+                }.value
+                self.isExporting = false; self.exportedFileURL = url
+                self.statusMessage = "Kitchen exported successfully!"
+                completion(url)
             } catch {
-                Task { @MainActor in
-                    self.isExporting = false
-                    self.errorMessage = "Export failed: \(error.localizedDescription)"
-                    completion(nil)
-                }
+                self.isExporting = false
+                self.errorMessage = "Export failed: \(error.localizedDescription)"
+                completion(nil)
             }
         }
     }
@@ -620,30 +615,24 @@ class KitchenTransferManager {
         guard requirePermission(.backupExport) else { completion(nil); return }
         isExporting = true; statusMessage = ""; errorMessage = ""
         let snapshot = makeSnapshot(store: store)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(snapshot) else {
-            isExporting = false; errorMessage = "Export failed: encode error"
-            completion(nil); return
-        }
         let dateStr = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
             .replacingOccurrences(of: "/", with: "-")
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("Stocked-Kitchen-\(dateStr).json")
-        Task(priority: .userInitiated) {
+        Task {
             do {
-                try data.write(to: url)
-                Task { @MainActor in
-                    self.isExporting = false; self.exportedFileURL = url
-                    self.statusMessage = "Kitchen exported as JSON!"
-                    completion(url)
-                }
+                try await Task.detached(priority: .userInitiated) {
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    try encoder.encode(snapshot).write(to: url, options: .atomic)
+                }.value
+                self.isExporting = false; self.exportedFileURL = url
+                self.statusMessage = "Kitchen exported as JSON!"
+                completion(url)
             } catch {
-                Task { @MainActor in
-                    self.isExporting = false
-                    self.errorMessage = "Export failed: \(error.localizedDescription)"
-                    completion(nil)
-                }
+                self.isExporting = false
+                self.errorMessage = "Export failed: \(error.localizedDescription)"
+                completion(nil)
             }
         }
     }
@@ -1354,26 +1343,19 @@ class KitchenTransferManager {
 
         let name       = store.displayName
         let deviceName = UIDevice.current.name
-        let data: Data
-        do { data = try makeBackupData(store: store) }
-        catch {
-            isBacking = false; errorMessage = "Backup encode failed: \(error.localizedDescription)"; return
-        }
-        guard let manifest = KitchenBackupCodec.manifest(in: data) else {
-            isBacking = false; errorMessage = "Backup encode failed: missing manifest."; return
-        }
-        let recoveryKey: Data
-        do {
-            guard let bytes = try KitchenBackupKeyStore.rawKeyData(matching: manifest.keyID) else {
-                throw KitchenBackupError.decryptionFailed
-            }
-            recoveryKey = bytes
-        } catch {
-            isBacking = false; errorMessage = "Backup key unavailable: \(error.localizedDescription)"; return
-        }
+        let snapshot = makeSnapshot(store: store)
 
         Task { @MainActor in
             do {
+                let prepared = try await Task.detached(priority: .userInitiated) { () throws -> (Data, KitchenBackupManifest, Data) in
+                    let key = try KitchenBackupKeyStore.loadOrCreate()
+                    let data = try KitchenBackupCodec.seal(snapshot, using: key)
+                    guard let manifest = KitchenBackupCodec.manifest(in: data),
+                          let recoveryKey = try KitchenBackupKeyStore.rawKeyData(matching: manifest.keyID)
+                    else { throw KitchenBackupError.decryptionFailed }
+                    return (data, manifest, recoveryKey)
+                }.value
+                let (data, manifest, recoveryKey) = prepared
                 // Check iCloud availability before attempting save
                 let status = try await cloudContainer.accountStatus()
                 guard status == .available else {
@@ -1697,24 +1679,25 @@ class KitchenTransferManager {
     // MARK: - Device Backup (saves .stocked file to Files app)
     func backupToDevice(store: GuestDataStore, completion: @escaping (URL?) -> Void) {
         guard requirePermission(.backupExport) else { completion(nil); return }
-        let data: Data
-        do { data = try makeBackupData(store: store) }
-        catch {
-            errorMessage = "Device backup failed: \(error.localizedDescription)"
-            completion(nil); return
-        }
+        let snapshot = makeSnapshot(store: store)
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let name = "Stocked_Backup_\(formatter.string(from: Date())).stocked"
         let url  = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-        do {
-            try data.write(to: url, options: .atomic)
-            exportedFileURL = url
-            statusMessage   = "Ready to save to Files"
-            completion(url)
-        } catch {
-            errorMessage = "Device backup failed: \(error.localizedDescription)"
-            completion(nil)
+        Task {
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    let key = try KitchenBackupKeyStore.loadOrCreate()
+                    let data = try KitchenBackupCodec.seal(snapshot, using: key)
+                    try data.write(to: url, options: .atomic)
+                }.value
+                exportedFileURL = url
+                statusMessage = "Ready to save to Files"
+                completion(url)
+            } catch {
+                errorMessage = "Device backup failed: \(error.localizedDescription)"
+                completion(nil)
+            }
         }
     }
 
