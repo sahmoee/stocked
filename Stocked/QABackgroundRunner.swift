@@ -352,7 +352,7 @@ nonisolated enum QAReportTransport {
         components.queryItems = [URLQueryItem(name: "source", value: source), URLQueryItem(name: "limit", value: "1000")]
         var request = URLRequest(url: components.url!, timeoutInterval: 20)
         request.httpMethod = "POST"
-        request.setValue("Joo", forHTTPHeaderField: "X-QA-Passcode")
+        request.setValue("6352", forHTTPHeaderField: "X-QA-Passcode")
         let (data, response) = try await URLSession.shared.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? -1
         guard (200...299).contains(code) else { throw StockedServiceError.httpStatus(code, "QA device sync was rejected") }

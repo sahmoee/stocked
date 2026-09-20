@@ -39,7 +39,7 @@ struct QAAIOverrideView: View {
         var components = URLComponents(string: "https://api.sowensstudios.com/_unified/qa/ai-config")!
         if method == "GET" { components.queryItems = [URLQueryItem(name: "app", value: app)] }
         var request = URLRequest(url: components.url!); request.httpMethod = method
-        request.setValue("Joo", forHTTPHeaderField: "X-QA-Passcode")
+        request.setValue("6352", forHTTPHeaderField: "X-QA-Passcode")
         if let body { request.httpBody = body; request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         let (data, response) = try await URLSession.shared.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }

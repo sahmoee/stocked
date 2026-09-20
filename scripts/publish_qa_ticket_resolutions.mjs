@@ -16,7 +16,7 @@ async function collection() {
   // transient statuses; authorization/schema errors still fail immediately.
   for (let attempt = 0; attempt < 30; attempt += 1) {
     response = await fetch(`${base}/_unified/qa/tickets/sync?source=stocked-app&limit=1000`, {
-      method: 'POST', headers: {'X-QA-Passcode': 'Joo'}, signal: AbortSignal.timeout(30000),
+      method: 'POST', headers: {'X-QA-Passcode': '6352'}, signal: AbortSignal.timeout(30000),
     });
     if (response.ok || (response.status !== 429 && response.status < 500)) break;
     if (attempt < 29) {
