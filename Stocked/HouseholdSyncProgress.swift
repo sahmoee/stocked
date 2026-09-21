@@ -22,12 +22,12 @@ struct HouseholdSyncProgress: View {
                 VStack(spacing: 16) {
                     icon(for: stage)
                     Text(title(for: stage))
-                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .scaledFont(17, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .multilineTextAlignment(.center)
                     if let sub = subtitle(for: stage) {
                         Text(sub)
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeTextColor.opacity(0.6))
                             .multilineTextAlignment(.center)
                     }
@@ -36,7 +36,7 @@ struct HouseholdSyncProgress: View {
                             cloud.clearStage()
                         } label: {
                             Text("Done")
-                                .font(.system(size: 15, weight: .semibold))
+                                .scaledFont(15, weight: .semibold)
                                 .foregroundStyle(Color.stockedWhite)
                                 .padding(.horizontal, 28).padding(.vertical, 10)
                                 .background(session.themeButtonColor)
@@ -59,10 +59,10 @@ struct HouseholdSyncProgress: View {
         switch stage {
         case .done:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 44)).foregroundStyle(Color.stockedGreen)
+                .scaledFont(44).foregroundStyle(Color.stockedGreen)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 44)).foregroundStyle(.red.opacity(0.8))
+                .scaledFont(44).foregroundStyle(.red.opacity(0.8))
         default:
             ProgressView().scaleEffect(1.4)
         }

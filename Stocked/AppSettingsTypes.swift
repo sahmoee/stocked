@@ -37,19 +37,54 @@ enum AppFont: String, Codable, CaseIterable {
     }
 }
 
-/// App-wide control density. The default is deliberately comfortable so large
-/// phones and iPads do not inherit an undersized phone layout, while the user can
-/// still choose a denser presentation without changing the system text setting.
+/// App-wide typography adjustment, independent of the device's Dynamic Type
+/// category. System Dynamic Type still applies on top of this preference.
+enum AppTextSize: String, Codable, CaseIterable, Identifiable {
+    case extraSmall = "XS"
+    case small = "Small"
+    case standard = "Standard"
+    case medium = "Medium"
+    case large = "Large"
+    case extraLarge = "XL"
+    case extraExtraLarge = "XXL"
+
+    var id: String { rawValue }
+    var multiplier: CGFloat {
+        switch self {
+        case .extraSmall: 0.82
+        case .small: 0.9
+        // Standard remains the geometry baseline, but the type baseline is slightly
+        // larger so the default is comfortably readable on Pro Max and iPad screens.
+        case .standard: 1.06
+        case .medium: 1.1
+        case .large: 1.22
+        case .extraLarge: 1.36
+        case .extraExtraLarge: 1.52
+        }
+    }
+}
+
+/// The single supported interface density. Typography is adjusted independently
+/// so controls can retain their placement while growing vertically around text.
 enum InterfaceSize: String, Codable, CaseIterable {
     case standard = "Standard"
-    case comfortable = "Comfortable"
-    case large = "Large"
 
-    var scale: CGFloat {
+    var scale: CGFloat { 1 }
+}
+
+/// Home-only spacing density. This never changes typography or the four-track
+/// placement contract; it only tunes internal breathing room and grid gutters.
+enum HomeWidgetDensity: String, Codable, CaseIterable, Identifiable {
+    case comfortable = "Comfortable"
+    case standard = "Standard"
+    case compact = "Compact"
+
+    var id: String { rawValue }
+    var spacingScale: CGFloat {
         switch self {
-        case .standard: return 1.0
-        case .comfortable: return 1.08
-        case .large: return 1.16
+        case .comfortable: 1.16
+        case .standard: 1
+        case .compact: 0.84
         }
     }
 }

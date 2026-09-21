@@ -122,21 +122,21 @@ struct MatchRing: View {
 
             if coverage.total == 0 {
                 Image(systemName: "questionmark")
-                    .font(.system(size: size * 0.34, weight: .bold))
+                    .font(.stockedSystem(size: size * 0.34, weight: .bold))
                     .foregroundStyle(tint)
             } else if coverage.isReady {
                 Image(systemName: "checkmark")
-                    .font(.system(size: size * 0.36, weight: .heavy))
+                    .font(.stockedSystem(size: size * 0.36, weight: .heavy))
                     .foregroundStyle(tint)
             } else {
                 VStack(spacing: -1) {
                     Text("\(coverage.have)")
-                        .font(.system(size: size * 0.34, weight: .heavy))
+                        .font(.stockedSystem(size: size * 0.34, weight: .heavy))
                         .foregroundStyle(tint)
                     Rectangle().fill(tint.opacity(0.35))
                         .frame(width: size * 0.30, height: 1)
                     Text("\(coverage.total)")
-                        .font(.system(size: size * 0.26, weight: .semibold))
+                        .font(.stockedSystem(size: size * 0.26, weight: .semibold))
                         .foregroundStyle(tint.opacity(0.7))
                 }
             }
@@ -162,8 +162,8 @@ struct MatchPill: View {
         return AnyView(
             HStack(spacing: 3) {
                 Image(systemName: coverage.isReady ? "checkmark.circle.fill" : "circle.lefthalf.filled")
-                    .font(.system(size: 9, weight: .bold))
-                Text(text).font(.system(size: 10, weight: .bold))
+                    .scaledFont(9, weight: .bold)
+                Text(text).scaledFont(10, weight: .bold)
             }
             .foregroundStyle(tint)
             .padding(.horizontal, 7).padding(.vertical, 2)

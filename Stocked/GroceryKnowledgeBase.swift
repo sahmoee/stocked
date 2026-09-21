@@ -68,13 +68,130 @@ nonisolated enum GroceryKnowledgeBase {
               privateLabels: ["Member's Mark", "Members Mark"], departments: GroceryAisle.allCases,
               officialLocatorURL: URL(string: "https://www.samsclub.com/club-finder")!),
         .init(id: "safeway", name: "Safeway", aliases: ["Albertsons", "Vons", "Jewel-Osco", "Acme", "Shaw's"],
-              privateLabels: ["Signature Select", "O Organics", "Open Nature", "Lucerne"], departments: GroceryAisle.allCases,
+              privateLabels: ["Signature Select", "O Organics", "Open Nature", "Lucerne", "Primo Taglio", "Waterfront Bistro", "Value Corner"], departments: GroceryAisle.allCases,
               officialLocatorURL: URL(string: "https://local.safeway.com/safeway.html")!),
+        .init(id: "ahold-delhaize", name: "Food Lion", aliases: ["Stop & Shop", "Stop and Shop", "Giant Food", "Giant", "Giant Eagle", "Hannaford", "Martin's"],
+              privateLabels: ["Nature's Promise", "Taste of Inspirations", "Guaranteed Value", "CareOne", "Home 360", "Always My Baby", "Limited Time Originals"],
+              departments: GroceryAisle.allCases, officialLocatorURL: URL(string: "https://stores.foodlion.com/")!),
+        .init(id: "meijer", name: "Meijer", aliases: ["Meijer Supercenter"],
+              privateLabels: ["Meijer", "Frederik's by Meijer", "True Goodness by Meijer", "Purple Cow", "Meijer Organics"],
+              departments: GroceryAisle.allCases, officialLocatorURL: URL(string: "https://www.meijer.com/shopping/store-finder.html")!),
+        .init(id: "shoprite", name: "ShopRite", aliases: ["Shop Rite", "Wakefern", "The Fresh Grocer", "Price Rite"],
+              privateLabels: ["Bowl & Basket", "Paperbird", "Wholesome Pantry", "ShopRite"],
+              departments: GroceryAisle.allCases, officialLocatorURL: URL(string: "https://www.shoprite.com/sm/pickup/rsid/3000/store-locator")!),
+        .init(id: "bjs", name: "BJ's Wholesale Club", aliases: ["BJs", "BJ's"],
+              privateLabels: ["Wellsley Farms", "Berkley Jensen"],
+              departments: GroceryAisle.allCases, officialLocatorURL: URL(string: "https://www.bjs.com/clubLocator")!),
     ]
+
+    // MARK: - Regional availability (location-aware ranking)
+
+    /// Coarse state-level footprint for banners that are clearly regional. A retailer absent from
+    /// this map (or with an empty set) is treated as national and always considered available —
+    /// so ranking degrades gracefully and never hides a store we're unsure about.
+    static let retailerRegions: [String: Set<String>] = [
+        "heb": ["TX"],
+        "publix": ["FL", "GA", "AL", "SC", "NC", "TN", "VA", "KY"],
+        "meijer": ["MI", "OH", "IN", "IL", "KY", "WI"],
+        "ahold-delhaize": ["NC", "SC", "VA", "GA", "TN", "PA", "NY", "NJ", "MD", "MA", "CT", "RI", "NH", "ME", "VT", "DE", "WV", "DC"],
+        "shoprite": ["NJ", "NY", "CT", "PA", "DE", "MD"],
+        "safeway": ["CA", "WA", "OR", "AZ", "CO", "NV", "ID", "MT", "TX", "VA", "MD", "DC", "AK", "HI", "NM", "WY", "IL", "ND", "SD", "NE"],
+        "bjs": ["ME", "NH", "VT", "MA", "RI", "CT", "NY", "NJ", "PA", "DE", "MD", "VA", "NC", "SC", "GA", "FL", "OH", "MI", "DC"],
+    ]
+
+    private static let stateNameToCode: [String: String] = [
+        "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
+        "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC",
+        "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL",
+        "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA",
+        "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN",
+        "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+        "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+        "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+        "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+        "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA",
+        "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+    ]
+
+    /// Normalize any US state input — a two-letter code or a full name — to its uppercase code.
+    static func stateCode(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count == 2 { return trimmed.uppercased() }
+        return stateNameToCode[trimmed.lowercased()] ?? trimmed.uppercased()
+    }
+
+    /// True when a banner plausibly operates in the given US state (code or full name). National
+    /// banners (not in `retailerRegions`) always return true.
+    static func regionAvailable(_ retailerID: String, state: String) -> Bool {
+        guard let footprint = retailerRegions[retailerID], !footprint.isEmpty else { return true }
+        return footprint.contains(stateCode(state))
+    }
+
+    /// Retailer profiles ordered in-region first, then national, then out-of-region — stable within
+    /// each tier. With no state supplied the canonical order is returned unchanged.
+    static func retailersOrdered(forState state: String?) -> [GroceryRetailerProfile] {
+        guard let state, !state.isEmpty else { return retailers }
+        let code = stateCode(state)
+        func rank(_ profile: GroceryRetailerProfile) -> Int {
+            guard let footprint = retailerRegions[profile.id], !footprint.isEmpty else { return 1 }
+            return footprint.contains(code) ? 0 : 2
+        }
+        return retailers.enumerated()
+            .sorted { rank($0.element) != rank($1.element) ? rank($0.element) < rank($1.element) : $0.offset < $1.offset }
+            .map(\.element)
+    }
+
+    // MARK: - Canonical product key + cross-store equivalents
+
+    /// Descriptor words stripped when reducing a branded product name to its generic identity, so
+    /// "Simple Truth Organic Black Beans" and "Good & Gather Black Beans" collapse to "black beans".
+    private static let canonicalNoise: Set<String> = [
+        "organic", "original", "classic", "premium", "natural", "fresh", "whole", "large", "small",
+        "kettle", "cooked", "style", "value", "brand", "the", "by", "of", "with", "and", "grade", "a",
+        "select", "signature", "family", "size", "pack", "sliced", "shredded", "boneless", "skinless",
+    ]
+
+    /// Reduce a (possibly branded) product name to a normalized generic key used for substitution
+    /// grouping and cross-store dedup. Removes any known private-label brand token, then descriptor
+    /// noise, leaving the core item words.
+    static func canonicalKey(_ productName: String, knownBrand: String? = nil) -> String {
+        var value = " " + normalize(productName) + " "
+        let explicitBrand = knownBrand.map { [normalize($0)] } ?? []
+        for token in explicitBrand + normalizedBrandNames {
+            guard !token.isEmpty, value.contains(" " + token + " ") else { continue }
+            value = value.replacingOccurrences(of: " " + token + " ", with: " ")
+        }
+        let words = value.split(separator: " ").map(String.init)
+            .filter { !$0.isEmpty && !canonicalNoise.contains($0) }
+        return words.joined(separator: " ")
+    }
+
+    /// Private-label equivalents of a product across every retailer, grouped by canonical key.
+    /// When a retailer id is supplied, that store's matches sort first (its own brand of the item).
+    static func equivalents(for productName: String, preferringRetailer retailerID: String? = nil) -> [CatalogEntry] {
+        let key = canonicalKey(productName)
+        guard !key.isEmpty else { return [] }
+        let matches = equivalentsByKey[key, default: []]
+        guard let retailerID else { return matches }
+        return matches.sorted { lhs, rhs in
+            let l = lhs.retailerIDs.contains(retailerID) ? 0 : 1
+            let r = rhs.retailerIDs.contains(retailerID) ? 0 : 1
+            return l < r
+        }
+    }
 
     static let allBrandNames: [String] = Array(Set(
         retailers.flatMap(\.privateLabels) + ProductCatalog.catalogExpansionBrandNames
     )).sorted { $0.count > $1.count }
+
+    private static let normalizedBrandNames = allBrandNames.map { normalize($0) }
+
+    // Immutable, bounded by the bundled catalog: do not scan and normalize every
+    // product for every ingredient in a Cook Now classification.
+    private static let equivalentsByKey = Dictionary(
+        grouping: ProductCatalog.retailerBrandItems,
+        by: { canonicalKey($0.name) }
+    )
 
     static func normalize(_ value: String) -> String {
         value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
@@ -255,5 +372,43 @@ nonisolated extension ProductCatalog {
         .init(name: "Open Nature Chicken Breast", brand: "Open Nature", category: "Fridge", emoji: "🍗", aisle: .meat, retailerIDs: ["safeway"]),
         .init(name: "Signature Select Potato Chips", brand: "Signature Select", category: "Pantry", emoji: "🥔", aisle: .snacks, retailerIDs: ["safeway"]),
         .init(name: "Signature Select Sparkling Water", brand: "Signature Select", category: "Pantry", emoji: "🥤", aisle: .beverages, retailerIDs: ["safeway"]),
+
+        // Ahold Delhaize (Food Lion / Stop & Shop / Giant / Hannaford) — 10
+        .init(name: "Nature's Promise Organic Whole Milk", brand: "Nature's Promise", category: "Fridge", emoji: "🥛", aisle: .dairy, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Nature's Promise Organic Large Eggs", brand: "Nature's Promise", category: "Fridge", emoji: "🥚", aisle: .dairy, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Nature's Promise Baby Spinach", brand: "Nature's Promise", category: "Fridge", emoji: "🥬", aisle: .produce, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Nature's Promise Black Beans", brand: "Nature's Promise", category: "Pantry", emoji: "🫘", aisle: .canned, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Taste of Inspirations Brioche Buns", brand: "Taste of Inspirations", category: "Pantry", emoji: "🥖", aisle: .bakery, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Taste of Inspirations Sharp Cheddar", brand: "Taste of Inspirations", category: "Fridge", emoji: "🧀", aisle: .dairy, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Guaranteed Value Spaghetti", brand: "Guaranteed Value", category: "Pantry", emoji: "🍝", aisle: .pantry, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Guaranteed Value Vegetable Oil", brand: "Guaranteed Value", category: "Staples", emoji: "🫒", aisle: .condiments, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Food Lion Potato Chips", brand: "Food Lion", category: "Pantry", emoji: "🥔", aisle: .snacks, retailerIDs: ["ahold-delhaize"]),
+        .init(name: "Nature's Promise Sparkling Water", brand: "Nature's Promise", category: "Pantry", emoji: "🥤", aisle: .beverages, retailerIDs: ["ahold-delhaize"]),
+
+        // Meijer — 10
+        .init(name: "Meijer Whole Milk", brand: "Meijer", category: "Fridge", emoji: "🥛", aisle: .dairy, retailerIDs: ["meijer"]),
+        .init(name: "Meijer Large Eggs", brand: "Meijer", category: "Fridge", emoji: "🥚", aisle: .dairy, retailerIDs: ["meijer"]),
+        .init(name: "Meijer Shredded Cheddar Cheese", brand: "Meijer", category: "Fridge", emoji: "🧀", aisle: .dairy, retailerIDs: ["meijer"]),
+        .init(name: "True Goodness by Meijer Organic Spinach", brand: "True Goodness by Meijer", category: "Fridge", emoji: "🥬", aisle: .produce, retailerIDs: ["meijer"]),
+        .init(name: "True Goodness by Meijer Black Beans", brand: "True Goodness by Meijer", category: "Pantry", emoji: "🫘", aisle: .canned, retailerIDs: ["meijer"]),
+        .init(name: "Meijer Spaghetti", brand: "Meijer", category: "Pantry", emoji: "🍝", aisle: .pantry, retailerIDs: ["meijer"]),
+        .init(name: "Meijer Pasta Sauce", brand: "Meijer", category: "Pantry", emoji: "🍅", aisle: .condiments, retailerIDs: ["meijer"]),
+        .init(name: "Purple Cow Vanilla Ice Cream", brand: "Purple Cow", category: "Freezer", emoji: "🍨", aisle: .frozen, retailerIDs: ["meijer"]),
+        .init(name: "Frederik's by Meijer Brie", brand: "Frederik's by Meijer", category: "Fridge", emoji: "🧀", aisle: .dairy, retailerIDs: ["meijer"]),
+        .init(name: "Meijer Potato Chips", brand: "Meijer", category: "Pantry", emoji: "🥔", aisle: .snacks, retailerIDs: ["meijer"]),
+
+        // ShopRite (Wakefern) — 6
+        .init(name: "Bowl & Basket Whole Milk", brand: "Bowl & Basket", category: "Fridge", emoji: "🥛", aisle: .dairy, retailerIDs: ["shoprite"]),
+        .init(name: "Bowl & Basket Large Eggs", brand: "Bowl & Basket", category: "Fridge", emoji: "🥚", aisle: .dairy, retailerIDs: ["shoprite"]),
+        .init(name: "Bowl & Basket Spaghetti", brand: "Bowl & Basket", category: "Pantry", emoji: "🍝", aisle: .pantry, retailerIDs: ["shoprite"]),
+        .init(name: "Wholesome Pantry Organic Black Beans", brand: "Wholesome Pantry", category: "Pantry", emoji: "🫘", aisle: .canned, retailerIDs: ["shoprite"]),
+        .init(name: "Wholesome Pantry Organic Baby Spinach", brand: "Wholesome Pantry", category: "Fridge", emoji: "🥬", aisle: .produce, retailerIDs: ["shoprite"]),
+        .init(name: "Bowl & Basket Potato Chips", brand: "Bowl & Basket", category: "Pantry", emoji: "🥔", aisle: .snacks, retailerIDs: ["shoprite"]),
+
+        // BJ's Wholesale Club — 4
+        .init(name: "Wellsley Farms Organic Whole Milk", brand: "Wellsley Farms", category: "Fridge", emoji: "🥛", aisle: .dairy, retailerIDs: ["bjs"]),
+        .init(name: "Wellsley Farms Large Eggs", brand: "Wellsley Farms", category: "Fridge", emoji: "🥚", aisle: .dairy, retailerIDs: ["bjs"]),
+        .init(name: "Wellsley Farms Chicken Breast", brand: "Wellsley Farms", category: "Freezer", emoji: "🍗", aisle: .meat, retailerIDs: ["bjs"]),
+        .init(name: "Berkley Jensen Trail Mix", brand: "Berkley Jensen", category: "Pantry", emoji: "🥜", aisle: .snacks, retailerIDs: ["bjs"]),
     ]
 }

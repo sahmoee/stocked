@@ -285,10 +285,11 @@ enum RecipeSourceRegistry {
     nonisolated(unsafe) static var customSnapshot: [RecipeSource] = []
 
     nonisolated static func source(for domain: String) -> RecipeSource? {
-        if let hit = bundled.first(where: { domain.contains($0.domain) || $0.domain.contains(domain) }) {
+        let host = domain.lowercased().replacingOccurrences(of: "www.", with: "")
+        if let hit = bundled.first(where: { host == $0.domain || host.hasSuffix("." + $0.domain) }) {
             return hit
         }
-        return customSnapshot.first { domain.contains($0.domain) || $0.domain.contains(domain) }
+        return customSnapshot.first { host == $0.domain || host.hasSuffix("." + $0.domain) }
     }
 }
 
@@ -543,6 +544,7 @@ struct JSONLDRecipeParser {
 
     /// Parse a WebRecipe from raw HTML. Returns nil if no Recipe JSON-LD block found.
     nonisolated static func parse(html: String, pageURL: String) -> WebRecipe? {
+        guard html.utf8.count <= RecipePageResponsePolicy.maximumHTMLBytes, !Task.isCancelled else { return nil }
         let domain = URL(string: pageURL)?.host?.replacingOccurrences(of: "www.", with: "") ?? pageURL
         let sourceName = RecipeSourceRegistry.source(for: domain)?.displayName ?? domain
 
@@ -552,7 +554,8 @@ struct JSONLDRecipeParser {
         let nsHTML = html as NSString
         let matches = regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
 
-        for match in matches {
+        for match in matches.prefix(32) {
+            guard !Task.isCancelled else { return nil }
             guard let range = Range(match.range(at: 1), in: html),
                   let data = String(html[range]).data(using: .utf8) else { continue }
 
@@ -563,14 +566,14 @@ struct JSONLDRecipeParser {
                 }
                 // Check @graph
                 if let graph = json["@graph"] as? [[String: Any]] {
-                    for node in graph {
+                    for node in graph.prefix(200) {
                         if let recipe = extractRecipe(from: node, pageURL: pageURL, domain: domain, sourceName: sourceName) {
                             return recipe
                         }
                     }
                 }
             } else if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                for node in arr {
+                for node in arr.prefix(200) {
                     if let recipe = extractRecipe(from: node, pageURL: pageURL, domain: domain, sourceName: sourceName) {
                         return recipe
                     }
@@ -618,16 +621,16 @@ struct JSONLDRecipeParser {
             WebRecipe.RecipeStep(index: idx, text: text, name: nil)
         }
         return WebRecipe(
-            title:       name,
+            title:       RecipePageMarkup.text(name),
             sourceURL:   pageURL,
             sourceName:  sourceName,
             sourceDomain: domain,
-            imageURL:    image,
+            imageURL:    RecipePageMarkup.imageURL(image, pageURL: pageURL),
             description: "",
             prepTime:    "", cookTime: "", totalTime: "", servings: "",
             difficulty:  "",
             category:    "", cuisine: "",
-            ingredients: ingredients,
+            ingredients: ingredients.map(RecipePageMarkup.text),
             steps:       recipeSteps,
             tags:        [],
             rating:      nil, ratingCount: nil, calories: nil,
@@ -635,7 +638,8 @@ struct JSONLDRecipeParser {
         )
     }
 
-    private nonisolated static func extractRecipe(from json: [String: Any], pageURL: String, domain: String, sourceName: String) -> WebRecipe? {
+    private nonisolated static func extractRecipe(from json: [String: Any], pageURL: String, domain: String, sourceName: String, depth: Int = 0) -> WebRecipe? {
+        guard depth < 16, !Task.isCancelled else { return nil }
         // Must be @type Recipe. Accept: exact "Recipe", namespaced "http://schema.org/Recipe",
         // or an array containing either form (case-insensitive, namespace-tolerant). Many sites
         // emit the namespaced or mixed-array form, which a strict == "Recipe" check would miss.
@@ -655,15 +659,15 @@ struct JSONLDRecipeParser {
         guard isRecipeType(json["@type"]) else {
             for key in ["mainEntity", "mainEntityOfPage"] {
                 if let nested = json[key] as? [String: Any],
-                   let r = extractRecipe(from: nested, pageURL: pageURL, domain: domain, sourceName: sourceName) {
+                   let r = extractRecipe(from: nested, pageURL: pageURL, domain: domain, sourceName: sourceName, depth: depth + 1) {
                     return r
                 }
             }
             return nil
         }
 
-        let title       = json["name"] as? String ?? "Untitled Recipe"
-        let description = json["description"] as? String ?? ""
+        let title       = RecipePageMarkup.text(json["name"] as? String ?? "")
+        let description = RecipePageMarkup.text(json["description"] as? String ?? "")
         let prepTime    = StockedFormatters.prettyDuration(json["prepTime"] as? String ?? "")
         let cookTime    = StockedFormatters.prettyDuration(json["cookTime"] as? String ?? "")
         let totalTime   = StockedFormatters.prettyDuration(json["totalTime"] as? String ?? "")
@@ -673,7 +677,18 @@ struct JSONLDRecipeParser {
                        ?? (json["recipeYield"] as? Int).map(String.init)
                        ?? flatString(json["recipeYield"])
                        ?? ""
-        let keywords    = (json["keywords"] as? String)?.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) } ?? []
+        var keywords = (json["keywords"] as? String)?.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            ?? (json["keywords"] as? [String]) ?? []
+        // Only explicit schema declarations, never an absence-of-allergens guess.
+        let diets = (json["suitableForDiet"] as? [String]) ?? (json["suitableForDiet"] as? String).map { [$0] } ?? []
+        for diet in diets {
+            switch diet.components(separatedBy: "/").last {
+            case "VeganDiet": keywords.append("Vegan")
+            case "VegetarianDiet": keywords.append("Vegetarian")
+            case "PescatarianDiet": keywords.append("Pescatarian")
+            default: break
+            }
+        }
         let calories    = (json["nutrition"] as? [String: Any])?["calories"] as? String
 
         // Image — string, array of strings, or ImageObject
@@ -682,16 +697,18 @@ struct JSONLDRecipeParser {
             imageURL = img
         } else if let imgs = json["image"] as? [String], let first = imgs.first {
             imageURL = first
-        } else if let imgObj = json["image"] as? [String: Any], let url = imgObj["url"] as? String {
+        } else if let imgObj = json["image"] as? [String: Any], let url = (imgObj["url"] ?? imgObj["contentUrl"]) as? String {
             imageURL = url
-        } else if let imgObjs = json["image"] as? [[String: Any]], let url = imgObjs.first?["url"] as? String {
+        } else if let imgObjs = json["image"] as? [[String: Any]], let first = imgObjs.first, let url = (first["url"] ?? first["contentUrl"]) as? String {
             imageURL = url
         } else {
             imageURL = ""
         }
 
         // Ingredients
-        let ingredients = (json["recipeIngredient"] as? [String]) ?? []
+        let rawIngredients = (json["recipeIngredient"] as? [String]) ?? []
+        guard rawIngredients.count <= 500 else { return nil } // Never silently drop required ingredients.
+        let ingredients = rawIngredients.map(RecipePageMarkup.text).filter { !$0.isEmpty }
 
         // Instructions — HowToStep array, HowToSection array, or plain string
         let steps = parseInstructions(json["recipeInstructions"])
@@ -713,6 +730,11 @@ struct JSONLDRecipeParser {
                   ?? (ratingObj["ratingValue"] as? String).flatMap(Double.init)
             ratingCount = (ratingObj["ratingCount"] as? Int)
                        ?? (ratingObj["ratingCount"] as? String).flatMap(Int.init)
+                       ?? (ratingObj["reviewCount"] as? Int)
+            let best = (ratingObj["bestRating"] as? Double) ?? (ratingObj["bestRating"] as? String).flatMap(Double.init) ?? 5
+            // Non-five-point ratings need an explicit scale adapter; don't mislabel them.
+            if best != 5 || !(1...5).contains(rating ?? 0) { rating = nil; ratingCount = nil }
+            if let count = ratingCount, count <= 0 { ratingCount = nil }
         }
 
         return WebRecipe(
@@ -720,7 +742,7 @@ struct JSONLDRecipeParser {
             sourceURL:   pageURL,
             sourceName:  sourceName,
             sourceDomain: domain,
-            imageURL:    imageURL,
+            imageURL:    RecipePageMarkup.imageURL(imageURL, pageURL: pageURL),
             description: description,
             prepTime:    prepTime,
             cookTime:    cookTime,
@@ -743,18 +765,21 @@ struct JSONLDRecipeParser {
         var steps: [WebRecipe.RecipeStep] = []
 
         func addStep(_ text: String, name: String? = nil, index: Int) {
-            let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard clean.count > 5 else { return }
-            steps.append(.init(index: index, text: clean, name: name))
+            let clean = RecipePageMarkup.text(text)
+            guard !clean.isEmpty, steps.count < 500 else { return }
+            steps.append(.init(index: steps.count, text: clean, name: name.map(RecipePageMarkup.text)))
         }
 
         if let arr = raw as? [[String: Any]] {
+            guard arr.count <= 500 else { return [] }
             var i = 0
-            for item in arr {
+            for item in arr.prefix(500) {
+                guard steps.count < 500 else { return [] } // Reject overflow; never omit the final cooking steps.
                 if let sectionSteps = item["itemListElement"] as? [[String: Any]] {
+                    guard steps.count + sectionSteps.count <= 500 else { return [] }
                     // HowToSection
                     let sectionName = item["name"] as? String
-                    for step in sectionSteps {
+                    for step in sectionSteps.prefix(500) {
                         let text = step["text"] as? String ?? step["name"] as? String ?? ""
                         addStep(text, name: sectionName, index: i); i += 1
                     }
@@ -763,12 +788,18 @@ struct JSONLDRecipeParser {
                     addStep(text, index: i); i += 1
                 }
             }
+        } else if let strings = raw as? [String] {
+            guard strings.count <= 500 else { return [] }
+            for string in strings.prefix(500) { addStep(string, index: steps.count) }
+        } else if let item = raw as? [String: Any] {
+            return parseInstructions([item])
         } else if let str = raw as? String {
             // Plain text block — split by newline or numbered patterns
             let lines = str.components(separatedBy: .newlines)
                 .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { $0.count > 10 }
-            for (i, line) in lines.enumerated() { addStep(line, index: i) }
+                .filter { !$0.isEmpty }
+            guard lines.count <= 500 else { return [] }
+            for (i, line) in lines.prefix(500).enumerated() { addStep(line, index: i) }
         }
         return steps
     }
@@ -798,6 +829,102 @@ struct JSONLDRecipeParser {
 // MARK: - Multi-Site Recipe Fetcher (the engine)
 actor WebRecipeFetcher {
     static let shared = WebRecipeFetcher()
+
+    struct DiscoveryBatch: Sendable {
+        var recipes: [WebRecipe] = []
+        var reachedSources = 0
+    }
+
+    /// Explicit user discovery only. Never grows/publishes the recipe catalogue as a
+    /// side effect of searching. Two concurrent publishers, six search pages, at most
+    /// four candidate pages per publisher, 3 MB per page, and an 18-second work deadline.
+    func discover(terms: [String]) async throws -> DiscoveryBatch {
+        let terms = terms.isEmpty ? ["recipes"] : Array(terms.prefix(4))
+        let seed = terms.joined(separator: "|")
+        let sources = RecipeSourceRegistry.liveSearchable.filter { !buildSearchURLs(for: $0, query: terms[0]).isEmpty }
+            .sorted { FinderQuery.stableVariety(seed + $0.domain) < FinderQuery.stableVariety(seed + $1.domain) }
+        let selected = Array(sources.prefix(6)), deadline = Date().addingTimeInterval(18)
+        var output = DiscoveryBatch(), seen = Set<String>()
+        for start in stride(from: 0, to: selected.count, by: 2) {
+            try Task.checkCancellation()
+            guard Date() < deadline else { break }
+            let batch = await withTaskGroup(of: DiscoveryBatch.self) { group in
+                for index in start..<min(start + 2, selected.count) {
+                    let source = selected[index], term = terms[index % terms.count]
+                    group.addTask { await self.discover(source: source, term: term, deadline: deadline) }
+                }
+                var result = DiscoveryBatch()
+                for await part in group { result.recipes += part.recipes; result.reachedSources += part.reachedSources }
+                return result
+            }
+            output.reachedSources += batch.reachedSources
+            for recipe in batch.recipes where seen.insert(FinderWebPolicy.identity(recipe.sourceURL)).inserted { output.recipes.append(recipe) }
+        }
+        try Task.checkCancellation()
+        return output
+    }
+
+    private func discover(source: RecipeSource, term: String, deadline: Date) async -> DiscoveryBatch {
+        guard !Task.isCancelled, Date() < deadline,
+              let path = buildSearchURLs(for: source, query: term).first,
+              let url = URL(string: path),
+              let (html, finalURL) = try? await boundedHTML(url: url, timeout: 6) else { return DiscoveryBatch() }
+        var output = DiscoveryBatch(reachedSources: 1)
+        let links = FinderPublisherLinks.candidates(html: html, baseURL: finalURL, domain: source.domain, query: term)
+        for link in links.prefix(4) {
+            guard !Task.isCancelled, Date() < deadline else { break }
+            await throttle(for: source.domain)
+            guard !Task.isCancelled, let recipe = await readRecipe(urlString: link, timeout: 5),
+                  RecipeBrowserPolicy.url(recipe.sourceURL) != nil,
+                  URL(string: recipe.imageURL)?.scheme == "https",
+                  !recipe.ingredients.isEmpty, !recipe.steps.isEmpty,
+                  RecipeQuality.hasMeaningfulTitle(recipe.title) else { continue }
+            output.recipes.append(recipe)
+            if output.recipes.count == 3 { break }
+        }
+        return output
+    }
+
+    /// Streams a bounded response. Cancellation propagates to URLSession; abandoned
+    /// searches/imports cannot leave detached HTML downloads running behind a drawer.
+    private func boundedHTML(url: URL, timeout: TimeInterval = 12) async throws -> (String, URL) {
+        guard let safe = RecipeBrowserPolicy.url(url.absoluteString) else { throw URLError(.badURL) }
+        let (bytes, response) = try await session.bytes(for: URLRequest(url: safe, timeoutInterval: timeout), delegate: RecipePageRedirectGuard())
+        // Also stop the underlying task when a size/status check exits the stream
+        // early; do not leave a rejected response downloading after parsing ends.
+        defer { bytes.task.cancel() }
+        guard let http = response as? HTTPURLResponse,
+              let final = response.url, RecipeBrowserPolicy.url(final.absoluteString) != nil else { throw URLError(.badServerResponse) }
+        if let failure = RecipePageResponsePolicy.failure(status: http.statusCode, mimeType: response.mimeType, expectedBytes: response.expectedContentLength) {
+            throw RecipePageLoadError(message: failure)
+        }
+        var data = Data(); data.reserveCapacity(64 * 1024)
+        for try await byte in bytes {
+            if data.count % 16384 == 0 { try Task.checkCancellation() }
+            guard data.count < RecipePageResponsePolicy.maximumHTMLBytes else { throw URLError(.dataLengthExceedsMaximum) }
+            data.append(byte)
+        }
+        try Task.checkCancellation()
+        guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else { throw URLError(.cannotDecodeContentData) }
+        return (html, final)
+    }
+
+    private func readRecipe(urlString: String, timeout: TimeInterval = 12) async -> WebRecipe? {
+        guard let url = RecipeBrowserPolicy.url(urlString),
+              let (html, final) = try? await boundedHTML(url: url, timeout: timeout), !Task.isCancelled else { return nil }
+        return JSONLDRecipeParser.parse(html: html, pageURL: final.absoluteString)
+    }
+
+    func pageHTML(_ urlString: String) async -> (html: String, url: URL)? {
+        guard let url = RecipeBrowserPolicy.url(urlString), !Task.isCancelled else { return nil }
+        return try? await boundedHTML(url: url)
+    }
+
+    func importPageHTML(_ urlString: String) async throws -> (html: String, url: URL) {
+        guard let url = RecipeBrowserPolicy.url(urlString) else { throw URLError(.badURL) }
+        try Task.checkCancellation()
+        return try await boundedHTML(url: url)
+    }
 
     private let catalogue = WebRecipeCatalogue.shared
     // #4: per-domain throttle — remember the last request time per host and space
@@ -977,35 +1104,9 @@ actor WebRecipeFetcher {
 
     /// Scrape a single recipe page URL and return a parsed WebRecipe
     func scrape(urlString: String) async -> WebRecipe? {
-        guard let url = URL(string: urlString) else { return nil }
-        do {
-            // Shield the fetch from parent-task cancellation: the share-import flow lives in a
-            // SwiftUI task whose lifecycle can cancel us mid-request ("network error — cancelled").
-            // Running the await inside an unstructured Task and awaiting its .value detaches the
-            // network call from the parent's cancellation.
-            let fetchTask = Task { try await session.data(from: url) }
-            let (data, response) = try await fetchTask.value
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            guard (200..<300).contains(status) else {
-                Log.net.error("scrape: HTTP \(status, privacy: .public) from \(url.host ?? "?", privacy: .public) — site likely blocked the request")
-                return nil
-            }
-            guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
-                Log.net.error("scrape: got \(data.count) bytes but couldn't decode as text")
-                return nil
-            }
-            let hasLD = html.range(of: "application/ld+json", options: .caseInsensitive) != nil
-            Log.net.log("scrape: HTTP 200, \(html.count) chars, ld+json present=\(hasLD ? "YES" : "NO", privacy: .public)")
-            let recipe = JSONLDRecipeParser.parse(html: html, pageURL: urlString)
-            if recipe == nil {
-                Log.net.error("scrape: \(hasLD ? "ld+json present but no Recipe node parsed" : "no ld+json on page", privacy: .public)")
-            }
-            if let r = recipe { await catalogue.save(r) }
-            return recipe
-        } catch {
-            Log.net.error("scrape: network error — \(error.localizedDescription, privacy: .public)")
-            return nil
-        }
+        guard let recipe = await readRecipe(urlString: urlString), !Task.isCancelled else { return nil }
+        await catalogue.save(recipe)
+        return recipe
     }
 
     // MARK: - Site-specific search URL patterns
@@ -1013,7 +1114,7 @@ actor WebRecipeFetcher {
     private func buildSearchURLs(for source: RecipeSource, query: String) -> [String] {
         let raw = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallback = raw.isEmpty ? "dinner" : raw
-        let q = fallback.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? fallback
+        let q = fallback.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&+=?#"))) ?? fallback
         let pathQ = fallback.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? fallback
         let plusQ = fallback.replacingOccurrences(of: " ", with: "+")
             .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? fallback
@@ -1112,16 +1213,13 @@ actor WebRecipeFetcher {
     // Fetch a search results page and extract recipe URLs, then scrape candidates until
     // the requested number of real JSON-LD recipes has been found.
     private func fetchRecipePage(url: URL, source: RecipeSource, limit: Int) async -> [WebRecipe]? {
-        guard let (data, response) = try? await session.data(from: url),
-              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-              let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
-        else { return nil }
+        guard !Task.isCancelled, let (html, finalURL) = try? await boundedHTML(url: url) else { return nil }
 
-        if let recipe = JSONLDRecipeParser.parse(html: html, pageURL: url.absoluteString) {
+        if let recipe = JSONLDRecipeParser.parse(html: html, pageURL: finalURL.absoluteString) {
             return [recipe]
         }
 
-        let recipeLinks = extractRecipeLinks(from: html, baseDomain: source.domain, baseURL: url)
+        let recipeLinks = FinderPublisherLinks.candidates(html: html, baseURL: finalURL, domain: source.domain)
         var results: [WebRecipe] = []
         let candidateLimit = max(4, limit * 3)
         for link in recipeLinks.prefix(candidateLimit) {
@@ -1133,53 +1231,6 @@ actor WebRecipeFetcher {
             }
         }
         return results.isEmpty ? nil : results
-    }
-
-    /// Pull same-domain links from publisher search pages. Most modern recipe sites use
-    /// relative links and many recipe slugs do not contain the word “recipe,” so the old
-    /// absolute-URL-only regex silently excluded most of the newly added publishers.
-    private func extractRecipeLinks(from html: String, baseDomain: String, baseURL: URL) -> [String] {
-        guard let regex = try? NSRegularExpression(
-            pattern: #"href\s*=\s*["']([^"'#]+)["']"#,
-            options: .caseInsensitive
-        ) else { return [] }
-
-        let ns = html as NSString
-        let matches = regex.matches(in: html, range: NSRange(location: 0, length: ns.length))
-        let blockedPieces = [
-            "/search", "/category", "/categories", "/tag/", "/tags/", "/author/",
-            "/about", "/contact", "/privacy", "/terms", "/shop", "/books", "/login",
-            "/account", "/newsletter", "/page/", "/wp-content/", "/cdn-cgi/"
-        ]
-        let blockedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf", ".css", ".js"]
-        let normalizedDomain = baseDomain.lowercased().replacingOccurrences(of: "www.", with: "")
-        var seen = Set<String>()
-        var preferred: [String] = []
-        var fallback: [String] = []
-
-        for match in matches {
-            guard let range = Range(match.range(at: 1), in: html) else { continue }
-            let raw = String(html[range]).replacingOccurrences(of: "&amp;", with: "&")
-            guard var components = URLComponents(url: URL(string: raw, relativeTo: baseURL)?.absoluteURL ?? baseURL,
-                                                 resolvingAgainstBaseURL: true),
-                  let host = components.host?.lowercased().replacingOccurrences(of: "www.", with: ""),
-                  host == normalizedDomain || host.hasSuffix(".\(normalizedDomain)") else { continue }
-            components.fragment = nil
-            guard let resolved = components.url else { continue }
-            let path = resolved.path.lowercased()
-            guard path != "/", path.count > 2,
-                  !blockedPieces.contains(where: { path.contains($0) }),
-                  !blockedExtensions.contains(where: { path.hasSuffix($0) }) else { continue }
-            let value = resolved.absoluteString
-            guard seen.insert(value).inserted else { continue }
-
-            if path.contains("recipe") || path.range(of: #"/20\d{2}/"#, options: .regularExpression) != nil {
-                preferred.append(value)
-            } else {
-                fallback.append(value)
-            }
-        }
-        return preferred + fallback
     }
 
     // MARK: - Pre-load known Taste of Home URLs (DeepSeek export May 2026)

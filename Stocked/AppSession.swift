@@ -392,7 +392,9 @@ class AppSession {
         } else {
             self.appBackground = .defaultTan
         }
-        self.preferredStore = ud.string(forKey: DBKey.preferredStore.rawValue) ?? "Walmart"
+        self.preferredStore = ud.string(forKey: DBKey.preferredStore.rawValue)
+            .flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+            ?? "Kroger"
         self.appleUserID    = ud.string(forKey: DBKey.appleUserID.rawValue) ?? ""
 
         if ud.bool(forKey: "wasGuest") {
@@ -420,6 +422,7 @@ class AppSession {
         // didSet does not fire during init, so set the sync gate explicitly to match the
         // account type we just resolved. Guests never use iCloud shared-pantry sync.
         SharedPantrySync.shared.accountAllowsSync = (accountType == .registered)
+        StockedPhoneWatchBridge.shared.start(session: self)
     }
 
     /// Persisted "user signed out" marker — keeps the login screen up across relaunches.
@@ -508,7 +511,7 @@ class AppSession {
         if !keepGuestData {
             // Discard: wipe the pre-sign-in guest data so the account starts clean. This does
             // not sign the user out — they remain registered.
-            guestStore.clearAll()
+            guard guestStore.clearAll() else { return }
             displayName = ""
         }
         pendingSignInMigration = false
@@ -529,14 +532,16 @@ class AppSession {
         HouseholdSync.shared.updateDisplayName(userName, store: guestStore)
     }
 
-    func signOut(clearData: Bool = false) {
+    func signOut(clearData: Bool = false) { _ = performSignOut(clearData: clearData) }
+
+    private func performSignOut(clearData: Bool) -> Bool {
         if clearData {
             // Wipe all GuestDataStore data and caches
-            guestStore.clearAll()
+            guard guestStore.clearAll() else { return false }
 
             // Reset all AppSession preferences to factory defaults
             isDarkMode           = false
-            preferredStore       = "Walmart"
+            preferredStore       = "Kroger"
             appleUserID          = ""
             cookStreak           = 0
             longestStreak        = 0
@@ -594,6 +599,7 @@ class AppSession {
             p.avatarPhotoData = nil
             guestStore.cookingProfile = p
         }
+        return true
     }
 
     /// Full account deletion (Apple App Store requirement for apps with accounts).
@@ -601,13 +607,12 @@ class AppSession {
     /// stored Apple credential — returning the app to a clean first-launch state. The user's
     /// Apple ID itself is managed by Apple (we can only stop using it and delete our data).
     func deleteAccount() {
-        // Leave any shared household so this device stops syncing and is removed as a participant.
+        let retiringUserID = appleUserID
+        // First prove the local reset can retire delayed Watch commands. Failure leaves identity,
+        // membership and data intact, and the reset boundary surfaces its error.
+        guard performSignOut(clearData: true) else { return }
         HouseholdCloudKit.shared.leaveHousehold()
-        // Full deletion also forgets the remembered Apple identity — unlike sign-out, there is
-        // no "come back later" here.
-        if !appleUserID.isEmpty { AppleProfileVault.forget(userID: appleUserID) }
-        // Reuse the thorough local wipe (data, caches, prefs, UserDefaults domain, Apple ID).
-        signOut(clearData: true)
+        if !retiringUserID.isEmpty { AppleProfileVault.forget(userID: retiringUserID) }
         Log.transfer.notice("Account deleted: local data and credentials cleared")
     }
 }

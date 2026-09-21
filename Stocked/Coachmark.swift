@@ -24,7 +24,9 @@ import SwiftUI
 enum CoachmarkPage: String, CaseIterable {
     case home, cook, inventory, recipes, grocery
 
-    var seenKey: String { "coachmark.seen.\(rawValue).v1" }
+    // Bump when the product tour gains material features or gesture changes so
+    // returning installations receive the same current guidance as new users.
+    var seenKey: String { "coachmark.seen.\(rawValue).v2" }
 }
 
 // MARK: - Step model
@@ -112,6 +114,7 @@ private struct CoachmarkHost: ViewModifier {
     let steps: [CoachmarkStep]
 
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedMotion) private var motion
     @State private var active = false
     @State private var index = 0
     @State private var appeared = false
@@ -142,8 +145,9 @@ private struct CoachmarkHost: ViewModifier {
                 guard !appeared else { return }
                 appeared = true
                 if !CoachmarkStore.hasSeen(page) && !steps.isEmpty {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                        withAnimation(.easeInOut(duration: 0.3)) { active = true }
+                    let delay = motion.permitsSpatialMotion ? 0.45 : 0
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        motion.animate(.standard, intent: .opacity) { active = true }
                         scrollToCurrent()
                     }
                 }
@@ -160,7 +164,7 @@ private struct CoachmarkHost: ViewModifier {
 
     private func advance() {
         if index + 1 < steps.count {
-            withAnimation(.easeInOut(duration: 0.25)) { index += 1 }
+            motion.animate(.selection, intent: .opacity) { index += 1 }
             scrollToCurrent()
         } else {
             finish()
@@ -169,13 +173,14 @@ private struct CoachmarkHost: ViewModifier {
 
     private func finish() {
         CoachmarkStore.markSeen(page)
-        withAnimation(.easeInOut(duration: 0.3)) { active = false }
+        motion.animate(.standard, intent: .opacity) { active = false }
     }
 }
 
 // MARK: - Overlay (dim + glowing spotlight or centered card)
 
 private struct CoachmarkOverlay: View {
+    @Environment(\.stockedLayout) private var layoutMetrics
     let step: CoachmarkStep
     let anchors: [String: Anchor<CGRect>]
     let proxy: GeometryProxy
@@ -197,7 +202,7 @@ private struct CoachmarkOverlay: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             dimWithHole
-            if let rect = spotlightRect {
+            if let rect = spotlightRect, !layoutMetrics.isAccessibilityText, proxy.size.height >= 600 {
                 glowRing(around: rect)
                 calloutCard(near: rect)
             } else {
@@ -260,33 +265,39 @@ private struct CoachmarkOverlay: View {
     }
 
     private var centeredCard: some View {
-        cardBody
-            .frame(maxWidth: 340)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        ScrollView {
+            cardBody
+                .frame(maxWidth: 340)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .defaultScrollAnchor(.center, for: .alignment)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var cardBody: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(step.title)
-                    .font(.system(size: 17, weight: .bold, design: .serif))
+                    .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(isDark ? Color.stockedWhite : Color.stockedCharcoal)
                 Spacer()
                 Text("\(stepNumber) of \(stepCount)")
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.45))
             }
             Text(step.body)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Skip") { onSkip() }
-                    .font(.system(size: 13, weight: .medium))
+                    .scaledFont(13, weight: .medium)
                     .foregroundStyle((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.5))
                 Spacer()
                 Button(stepNumber == stepCount ? "Got it" : "Next") { onNext() }
-                    .font(.system(size: 14, weight: .bold))
+                    .scaledFont(14, weight: .bold)
                     .foregroundStyle(Color.stockedCharcoal)
                     .padding(.horizontal, 18).padding(.vertical, 8)
                     .background(Color.stockedGold)
@@ -305,6 +316,7 @@ private struct CoachmarkOverlay: View {
 // MARK: - Pulsing glow halo
 
 private struct PulsingGlow: View {
+    @Environment(\.stockedMotion) private var motion
     let width: CGFloat
     let height: CGFloat
     let corner: CGFloat
@@ -334,6 +346,7 @@ private struct PulsingGlow: View {
         .scaleEffect(pulse ? 1.03 : 1.0)
         .shadow(color: Color.stockedGold.opacity(pulse ? 0.7 : 0.35), radius: pulse ? 24 : 14)
         .onAppear {
+            guard motion.permitsContinuousMotion else { return }
             withAnimation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true)) {
                 pulse = true
             }

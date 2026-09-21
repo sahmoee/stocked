@@ -5,6 +5,87 @@
 import WidgetKit
 import SwiftUI
 
+extension View {
+    nonisolated func widgetScaledFont(
+        _ size: CGFloat,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default
+    ) -> some View {
+        modifier(WidgetScaledFontModifier(size: size, weight: weight, design: design))
+    }
+}
+
+private struct WidgetScaledFontModifier: ViewModifier {
+    @ScaledMetric(relativeTo: .body) private var scaled: CGFloat = 14
+    @AppStorage(
+        "stocked.appTextSize",
+        store: UserDefaults(suiteName: "group.com.sowens.Stocked")
+    ) private var appTextSizeRaw = "Standard"
+    let weight: Font.Weight
+    let design: Font.Design
+
+    nonisolated init(size: CGFloat, weight: Font.Weight, design: Font.Design) {
+        _scaled = ScaledMetric(wrappedValue: size, relativeTo: Self.textStyle(for: size))
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(
+            size: scaled * Self.appScale(for: appTextSizeRaw),
+            weight: weight,
+            design: design
+        ))
+    }
+
+    nonisolated private static func appScale(for value: String) -> CGFloat {
+        switch value {
+        case "XS": 0.82
+        case "Small": 0.9
+        case "Medium": 1.1
+        case "Large": 1.22
+        case "XL": 1.36
+        case "XXL": 1.52
+        default: 1.06
+        }
+    }
+
+    nonisolated private static func textStyle(for size: CGFloat) -> Font.TextStyle {
+        switch size {
+        case ..<11.5: return .caption2
+        case ..<13: return .caption
+        case ..<16: return .subheadline
+        case ..<20: return .headline
+        case ..<28: return .title2
+        default: return .largeTitle
+        }
+    }
+}
+
+/// WidgetKit owns the outer family size, so atomic values adapt inside that shape.
+/// Every candidate remains linked to system Dynamic Type and Stocked's app text size.
+private struct WidgetFittedValue: View {
+    let value: String
+    let preferredSize: CGFloat
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            candidate(preferredSize)
+            candidate(preferredSize * 0.86)
+            candidate(preferredSize * 0.72)
+            candidate(max(13, preferredSize * 0.58))
+        }
+        .contentTransition(.numericText())
+    }
+
+    private func candidate(_ size: CGFloat) -> some View {
+        Text(value)
+            .widgetScaledFont(size, weight: .heavy, design: .serif)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: true)
+    }
+}
+
 // MARK: - Brand colors (kept local to the widget target)
 private extension Color {
     static let wGold     = Color(red: 0.635, green: 0.447, blue: 0.098) // #A27219
@@ -61,9 +142,9 @@ struct StockedWidgetView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Label("Kitchen dashboard", systemImage: "refrigerator.fill")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .widgetScaledFont(17, weight: .bold, design: .rounded)
                 Spacer()
-                if s.isStale { Label("Open to refresh", systemImage: "arrow.clockwise").font(.caption2).foregroundStyle(.secondary) }
+                if s.isStale { Label("Open to refresh", systemImage: "arrow.clockwise").widgetScaledFont(11).foregroundStyle(.secondary) }
             }
             HStack(spacing: 12) {
                 metric("\(s.stockPercent)%", "stocked", "chart.bar.fill", stockTint(s.stockPercent))
@@ -81,7 +162,7 @@ struct StockedWidgetView: View {
                 row("chart.bar.fill", .wGold, "Running low", names.prefix(4).joined(separator: " • "))
             }
             Spacer(minLength: 0)
-            Text("Updated \(s.updatedAt, style: .relative)").font(.caption2).foregroundStyle(.secondary)
+            Text("Updated \(s.updatedAt, style: .relative)").widgetScaledFont(11).foregroundStyle(.secondary)
         }
         .widgetURL(URL(string: "stocked://home"))
     }
@@ -89,8 +170,8 @@ struct StockedWidgetView: View {
     private func metric(_ value: String, _ label: String, _ icon: String, _ tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Image(systemName: icon).foregroundStyle(tint)
-            Text(value).font(.system(.title2, design: .rounded, weight: .bold)).contentTransition(.numericText())
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            WidgetFittedValue(value: value, preferredSize: 22)
+            Text(label).widgetScaledFont(12).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10).background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
@@ -101,24 +182,23 @@ struct StockedWidgetView: View {
     private var small: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Image(systemName: "refrigerator.fill").font(.system(size: 13)).foregroundStyle(Color.wGold)
-                Text("Stocked.").font(.system(size: 14, weight: .bold, design: .serif)).foregroundStyle(.primary)
+                Image(systemName: "refrigerator.fill").widgetScaledFont(13).foregroundStyle(Color.wGold)
+                Text("Stocked.").widgetScaledFont(14, weight: .bold, design: .serif).foregroundStyle(.primary)
             }
             Spacer(minLength: 0)
-            Text("\(s.stockPercent)%")
-                .font(.system(size: 40, weight: .heavy, design: .serif))
+            WidgetFittedValue(value: "\(s.stockPercent)%", preferredSize: 40)
                 .foregroundStyle(stockTint(s.stockPercent))
-            Text("stocked").font(.system(size: 12)).foregroundStyle(.secondary)
+            Text("stocked").widgetScaledFont(12).foregroundStyle(.secondary)
             Spacer(minLength: 0)
             if s.expiringCount > 0 {
                 Label("\(s.expiringCount) expiring", systemImage: "clock.badge.exclamationmark")
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.orange).lineLimit(1)
+                    .widgetScaledFont(11, weight: .semibold).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             } else if s.lowStockCount > 0 {
                 Label("\(s.lowStockCount) low", systemImage: "chart.bar.fill")
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.wGold).lineLimit(1)
+                    .widgetScaledFont(11, weight: .semibold).foregroundStyle(Color.wGold).fixedSize(horizontal: false, vertical: true)
             } else {
                 Label("All good", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.wGreen).lineLimit(1)
+                    .widgetScaledFont(11, weight: .semibold).foregroundStyle(Color.wGreen).fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -127,14 +207,23 @@ struct StockedWidgetView: View {
 
     // Home Screen — medium: status + what to act on + today's meal.
     private var medium: some View {
-        HStack(spacing: 16) {
+        ViewThatFits(in: .horizontal) {
+            mediumContent(tileWidth: 92, spacing: 16)
+            mediumContent(tileWidth: 72, spacing: 10)
+            mediumContent(tileWidth: 58, spacing: 8)
+        }
+        .widgetURL(URL(string: "stocked://home"))   // #13 tap → Home dashboard
+    }
+
+    private func mediumContent(tileWidth: CGFloat, spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
             VStack(spacing: 2) {
-                Text("\(s.stockPercent)%")
-                    .font(.system(size: 38, weight: .heavy, design: .serif))
+                WidgetFittedValue(value: "\(s.stockPercent)%", preferredSize: 38)
                     .foregroundStyle(stockTint(s.stockPercent))
-                Text("stocked").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text("stocked").widgetScaledFont(11).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(width: 92)
+            .frame(width: tileWidth)
             .padding(.vertical, 10)
             .background(stockTint(s.stockPercent).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
 
@@ -158,16 +247,17 @@ struct StockedWidgetView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .layoutPriority(1)
         }
-        .widgetURL(URL(string: "stocked://home"))   // #13 tap → Home dashboard
     }
 
     private func row(_ icon: String, _ tint: Color, _ title: String, _ detail: String) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 13)).foregroundStyle(tint).frame(width: 18)
+            Image(systemName: icon).widgetScaledFont(13).foregroundStyle(tint).frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary).lineLimit(1)
-                Text(detail).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                Text(title).widgetScaledFont(13, weight: .semibold).foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                Text(detail).widgetScaledFont(11).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
@@ -199,15 +289,15 @@ struct StockedWidgetView: View {
     // Lock Screen — rectangular: stock + next concern.
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(s.stockPercent)% stocked").font(.system(size: 15, weight: .bold))
+            Text("\(s.stockPercent)% stocked").widgetScaledFont(15, weight: .bold)
             if s.expiringCount > 0 {
-                Text("\(s.expiringCount) expiring soon").font(.system(size: 12))
+                Text("\(s.expiringCount) expiring soon").widgetScaledFont(12)
             } else if let meal = s.todayMeal, !meal.isEmpty {
-                Text("Tonight: \(meal)").font(.system(size: 12)).lineLimit(1)
+                Text("Tonight: \(meal)").widgetScaledFont(12).fixedSize(horizontal: false, vertical: true)
             } else if s.lowStockCount > 0 {
-                Text("\(s.lowStockCount) running low").font(.system(size: 12))
+                Text("\(s.lowStockCount) running low").widgetScaledFont(12)
             } else {
-                Text("Kitchen looks great").font(.system(size: 12))
+                Text("Kitchen looks great").widgetScaledFont(12)
             }
         }
         .widgetURL(URL(string: "stocked://home"))   // #13 tap → Home dashboard
@@ -248,17 +338,17 @@ struct ExpiringSoonWidgetView: View {
         } else {
           VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
-                Image(systemName: "clock.badge.exclamationmark").font(.system(size: 12, weight: .semibold))
-                Text("Use soon").font(.system(size: 13, weight: .bold))
+                Image(systemName: "clock.badge.exclamationmark").widgetScaledFont(12, weight: .semibold)
+                Text("Use soon").widgetScaledFont(13, weight: .bold)
                 Spacer()
-                Text("\(s.expiringCount)").font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(.orange)
+                WidgetFittedValue(value: "\(s.expiringCount)", preferredSize: 17).foregroundStyle(.orange)
             }
             if s.expiringNames.isEmpty {
                 Text(s.expiringCount == 0 ? "Nothing expiring" : "\(s.expiringCount) expiring")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                    .widgetScaledFont(12).foregroundStyle(.secondary)
             } else {
                 ForEach(s.expiringNames.prefix(family == .systemMedium ? 4 : 3), id: \.self) { n in
-                    Label(n, systemImage: "circle.fill").font(.system(size: 12)).lineLimit(1)
+                    Label(n, systemImage: "circle.fill").widgetScaledFont(12).fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
@@ -295,22 +385,22 @@ struct GroceryWidgetView: View {
         } else if family == .accessoryCircular {
           VStack(spacing: 0) {
             Image(systemName: "cart.fill")
-            Text("\(s.groceryCount)").font(.headline)
+            Text("\(s.groceryCount)").widgetScaledFont(17, weight: .semibold)
           }.widgetURL(URL(string: "stocked://grocery"))
         } else {
           VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Label("Grocery list", systemImage: "cart.fill").font(.system(size: 13, weight: .bold))
+                Label("Grocery list", systemImage: "cart.fill").widgetScaledFont(13, weight: .bold)
                 Spacer()
-                Text("\(s.groceryCount)").font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(Color.wGold)
+                WidgetFittedValue(value: "\(s.groceryCount)", preferredSize: 17).foregroundStyle(Color.wGold)
             }
             if let names = s.groceryNames, !names.isEmpty {
                 ForEach(names.prefix(family == .systemMedium ? 4 : 3), id: \.self) { name in
-                    Label(name, systemImage: "circle").font(.system(size: 12)).lineLimit(1)
+                    Label(name, systemImage: "circle").widgetScaledFont(12).fixedSize(horizontal: false, vertical: true)
                 }
             } else {
                 Spacer(minLength: 0)
-                Label("List is clear", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(Color.wGreen)
+                Label("List is clear", systemImage: "checkmark.circle.fill").widgetScaledFont(12).foregroundStyle(Color.wGreen)
             }
             Spacer(minLength: 0)
           }
@@ -348,16 +438,16 @@ struct TodayMealWidgetView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label(entry.snapshot.todayMealType ?? "Today's meal", systemImage: "fork.knife")
-                        .font(.system(size: 13, weight: .bold))
+                        .widgetScaledFont(13, weight: .bold)
                     Spacer()
                     Image(systemName: meal == nil ? "plus.circle.fill" : "arrow.right.circle.fill").foregroundStyle(Color.wGreen)
                 }
                 Spacer(minLength: 0)
                 Text(meal ?? "Nothing planned yet")
-                    .font(.system(family == .systemMedium ? .title3 : .headline, design: .serif, weight: .bold))
-                    .lineLimit(family == .systemMedium ? 2 : 3)
+                    .widgetScaledFont(family == .systemMedium ? 20 : 17, weight: .bold, design: .serif)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(meal == nil ? "Tap to choose a recipe" : "Tap to start cooking")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .widgetScaledFont(12).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .widgetURL(URL(string: "stocked://cook"))
@@ -389,17 +479,17 @@ struct RecipeLibraryWidgetView: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Label("Recipe library", systemImage: "book.closed.fill").font(.system(size: 13, weight: .bold))
+                    Label("Recipe library", systemImage: "book.closed.fill").widgetScaledFont(13, weight: .bold)
                     Spacer()
-                    Text("\(snapshot.recipeCount ?? 0)").font(.headline).foregroundStyle(Color.wGold)
+                    Text("\(snapshot.recipeCount ?? 0)").widgetScaledFont(17, weight: .semibold).foregroundStyle(Color.wGold)
                 }
                 Spacer(minLength: 0)
                 if let favorite = snapshot.favoriteRecipe, !favorite.isEmpty {
-                    Text("Favorite").font(.caption2).foregroundStyle(.secondary).textCase(.uppercase)
-                    Text(favorite).font(.system(.headline, design: .serif, weight: .bold)).lineLimit(2)
+                    Text("Favorite").widgetScaledFont(11).foregroundStyle(.secondary).textCase(.uppercase)
+                    Text(favorite).widgetScaledFont(17, weight: .bold, design: .serif).fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("Find something delicious").font(.system(.headline, design: .serif, weight: .bold)).lineLimit(2)
-                    Text("Browse your recipes").font(.caption).foregroundStyle(.secondary)
+                    Text("Find something delicious").widgetScaledFont(17, weight: .bold, design: .serif).fixedSize(horizontal: false, vertical: true)
+                    Text("Browse your recipes").widgetScaledFont(12).foregroundStyle(.secondary)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

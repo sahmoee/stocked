@@ -6,6 +6,7 @@ import Combine
 struct LoginView: View {
     @Environment(AppSession.self) var session
     @Environment(\.openURL) private var openURL
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var name      = ""
     @State private var animateIn = false
     @State private var appleError: String? = nil
@@ -15,20 +16,20 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
-            // Constrain content width on iPad — login form looks better centred and narrower
+            // A readable form scrolls when the keyboard or larger text needs room.
+            ScrollView {
             VStack(spacing: 0) {
-                Spacer()
 
                 // Logo
                 VStack(spacing: 10) {
                     StockedWordmark(size: 52)
                     Text("Kitchen Peace of Mind")
-                        .font(.system(size: 14, weight: .light, design: .serif))
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .scaledFont(14, weight: .light, design: .serif)
+                        .foregroundStyle(session.themeSecondaryText)
                         .tracking(1.4)
                 }
                 .opacity(animateIn ? 1 : 0).offset(y: animateIn ? 0 : 16)
-                .padding(.bottom, 52)
+                .padding(.bottom, 24)
 
                 // Sign in with Apple — overlay approach avoids NSAutoresizingMaskLayoutConstraint conflict
                 Color.clear
@@ -55,7 +56,7 @@ struct LoginView: View {
                 // Divider
                 HStack {
                     Rectangle().fill(Color.stockedCharcoal.opacity(0.18)).frame(height: 1)
-                    Text("or").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.35)).padding(.horizontal, 12)
+                    Text("or").scaledFont(13).foregroundStyle(session.themeSecondaryText).padding(.horizontal, 12)
                     Rectangle().fill(Color.stockedCharcoal.opacity(0.18)).frame(height: 1)
                 }
                 .padding(.horizontal, 32).padding(.bottom, 16)
@@ -65,12 +66,12 @@ struct LoginView: View {
                 VStack(spacing: 6) {
                     HStack {
                         Text("Name")
-                            .font(.system(size: 16))
+                            .scaledFont(16)
                             .foregroundStyle(session.themeTextColor)
                             .frame(width: 60, alignment: .leading)
                         TextField("What should we call you?", text: $name)
                     .foregroundStyle(session.themeTextColor)
-                            .font(.system(size: 16))
+                            .scaledFont(16)
                             .foregroundStyle(session.themeTextColor)
                             .autocorrectionDisabled()
                     }
@@ -86,9 +87,10 @@ struct LoginView: View {
                     session.enterKitchen(name: name)
                 } label: {
                     Text("Continue as Guest")
-                        .font(.system(size: 20, weight: .regular, design: .serif))
+                        .scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(trimmedName.isEmpty ? 0.45 : 1))
-                        .frame(maxWidth: .infinity).padding(.vertical, 20)
+                        .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight)
+                        .padding(.vertical, 10)
                         .background(Color.stockedGold.opacity(trimmedName.isEmpty ? 0.45 : 1))
                         .clipShape(Capsule())
                 }
@@ -98,14 +100,14 @@ struct LoginView: View {
                 .padding(.bottom, 10)
 
                 Text("Sign in with Apple, or continue as a guest with your name.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(12)
+                    .foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                     .opacity(animateIn ? 1 : 0)
 
                 if let err = appleError {
-                    Text(err).font(.system(size: 12)).foregroundStyle(.red)
+                    Text(err).scaledFont(12).foregroundStyle(.red)
                         .padding(.top, 8).multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -116,14 +118,17 @@ struct LoginView: View {
                     Text("·").foregroundStyle(session.themeTextColor.opacity(0.3))
                     Button("Terms") { if let u = URL(string: BuildConfig.termsURL) { openURL(u) } }
                 }
-                .font(.system(size: 11))
+                .scaledFont(11)
                 .tint(session.themeTextColor.opacity(0.5))
                 .padding(.top, 10)
                 .opacity(animateIn ? 1 : 0)
 
-                Spacer()
             }
-            .frame(maxWidth: 480)   // centre and constrain on iPad
+            .padding(.vertical, 24)
+            .frame(maxWidth: 480)
+            .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.6).delay(0.1)) { animateIn = true }

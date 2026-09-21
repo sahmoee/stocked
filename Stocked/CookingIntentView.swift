@@ -50,7 +50,6 @@ struct CookingIntentView: View {
 
                 affirmation
 
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goDiscovery) {
                 if let cs = cookSession { PreparationDiscoveryView().environment(cs) }
@@ -69,15 +68,15 @@ struct CookingIntentView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text(ImageFallbackService.emoji(for: anchor)).font(.system(size: 24))
+                Text(ImageFallbackService.emoji(for: anchor)).scaledFont(24)
                 Text("You're starting with \(anchor.displayNormalized).")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .scaledFont(20, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text("What do you want to do with it?")
-                .font(.system(size: 14))
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(14)
+                .foregroundStyle(session.themeSecondaryText)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
     }
@@ -87,8 +86,8 @@ struct CookingIntentView: View {
     private var effortStrip: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("How much energy do you have?")
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                .scaledFont(12.5, weight: .semibold)
+                .foregroundStyle(session.themeSecondaryText)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(CookEffortLevel.allCases) { level in
@@ -98,7 +97,7 @@ struct CookingIntentView: View {
                             HapticManager.select()
                         } label: {
                             Text(level.title)
-                                .font(.system(size: 12.5, weight: .semibold))
+                                .scaledFont(12.5, weight: .semibold)
                                 .foregroundStyle(selected ? Color.stockedCharcoal : session.themeTextColor)
                                 .padding(.horizontal, 12).padding(.vertical, 7)
                                 .background(selected ? Color.stockedGold : (dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6)))
@@ -108,7 +107,9 @@ struct CookingIntentView: View {
                         .a11yButton("Effort level: \(level.title)")
                     }
                 }
+                .stockedScrollTargetLayout()
             }
+            .stockedHorizontalSnap()
         }
         .padding(.horizontal, CookStyle.screenHPad)
     }
@@ -120,19 +121,19 @@ struct CookingIntentView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10).fill(Color.stockedGold.opacity(0.14)).frame(width: 40, height: 40)
-                    Image(systemName: intent.icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: intent.icon).scaledFont(16, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(intent.title)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(intent.blurb)
-                        .font(.system(size: 12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .scaledFont(12)
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                Image(systemName: "chevron.right").scaledFont(12, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
@@ -166,14 +167,14 @@ struct CookingIntentView: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("How much more are you trying to do?")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .scaledFont(18, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("The \(anchor.displayNormalized) is the star. We'll keep the extras light.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
-                    ScrollView(showsIndicators: false) {
+                        .scaledFont(13)
+                        .foregroundStyle(session.themeSecondaryText)
                         VStack(spacing: 8) {
                             ForEach(AddSomethingScope.allCases) { scope in
                                 Button {
@@ -184,10 +185,10 @@ struct CookingIntentView: View {
                                 } label: {
                                     HStack {
                                         Text(scope.title)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .scaledFont(14, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                         Spacer()
-                                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                                        Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                                     }
                                     .padding(13)
@@ -197,20 +198,22 @@ struct CookingIntentView: View {
                                 .buttonStyle(.plain)
                             }
                         }
-                    }
                 }
                 .padding(20)
+                }
             }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Close") { showAddScope = false } } }
         }
         .presentationDetents([.medium, .large])
+        .stockedPresentationSurface()
     }
 
     // MARK: Affirmation
 
     private var affirmation: some View {
         Text("The entrée is enough. You can stop after one thing, or keep going — your call.")
-            .font(.system(size: 12))
-            .foregroundStyle(session.themeTextColor.opacity(0.5))
+            .scaledFont(12)
+            .foregroundStyle(session.themeSecondaryText)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, CookStyle.screenHPad + 8)

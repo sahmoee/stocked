@@ -10,8 +10,10 @@
 import SwiftUI
 
 struct QuantityInputView: View {
+    @Environment(\.stockedLayout) private var layoutMetrics
     @Binding var quantity: ParsedAmount
     @State private var raw: String = ""
+    @State private var validationMessage: String?
     @FocusState private var focused: Bool
 
     private let containerOptions = ["item", "bag", "can", "box", "pack", "jar", "bottle",
@@ -19,12 +21,15 @@ struct QuantityInputView: View {
     private let unitOptions = ["", "oz", "fl oz", "lb", "g", "kg", "ml", "l", "cup", "gallon", "quart", "pint"]
 
     var body: some View {
+        let controlLayout = layoutMetrics.prefersVerticalControls || layoutMetrics.textScale > 1.3
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 12))
         VStack(alignment: .leading, spacing: 10) {
             // Natural-language field
             HStack {
                 Image(systemName: "text.cursor").foregroundStyle(.secondary)
                 TextField("e.g. 6 cans of 8 oz, half a bag", text: $raw)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(StockedThemedTextFieldStyle())
                     .focused($focused)
                     .onSubmit { apply(raw) }
                 if !raw.isEmpty {
@@ -33,12 +38,17 @@ struct QuantityInputView: View {
                 }
             }
 
+            if let validationMessage {
+                Label(validationMessage, systemImage: "exclamationmark.circle")
+                    .font(.stocked(.caption)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             // Structured, editable controls
-            HStack(spacing: 12) {
-                Stepper(value: $quantity.count, in: 0...9999, step: stepSize) {
+            controlLayout {
+                Stepper(value: $quantity.count, in: 0...QuantityParser.maximumAmount, step: stepSize) {
                     HStack(spacing: 4) {
-                        Text("Qty").foregroundStyle(.secondary).font(.subheadline)
-                        Text(ParsedAmount.trim(quantity.count)).font(.headline.monospacedDigit())
+                        Text("Qty").foregroundStyle(.secondary).font(.stocked(.subheadline))
+                        Text(ParsedAmount.trim(quantity.count)).font(.stocked(.headline).monospacedDigit())
                     }
                 }
                 .fixedSize()
@@ -55,13 +65,18 @@ struct QuantityInputView: View {
             }
 
             // "each amount" (e.g. 6 cans of 8 oz)
-            HStack(spacing: 8) {
-                Text("Each").foregroundStyle(.secondary).font(.subheadline)
+            controlLayout {
+                Text("Each").foregroundStyle(.secondary).font(.stocked(.subheadline))
                 TextField("amt", value: Binding(
                     get: { quantity.amountEach ?? 0 },
-                    set: { quantity.amountEach = $0 == 0 ? nil : $0 }
+                    set: { value in
+                        guard value.isFinite, value >= 0, value <= QuantityParser.maximumAmount else {
+                            validationMessage = "Enter a finite, nonnegative package size."; return
+                        }
+                        validationMessage = nil; quantity.amountEach = value == 0 ? nil : value
+                    }
                 ), format: .number)
-                    .frame(width: 64).textFieldStyle(.roundedBorder)
+                    .frame(minWidth: 72).textFieldStyle(StockedThemedTextFieldStyle())
                     .multilineTextAlignment(.trailing)
                 Picker("", selection: Binding(
                     get: { quantity.unitEach ?? "" },
@@ -69,13 +84,13 @@ struct QuantityInputView: View {
                 )) {
                     ForEach(unitOptions, id: \.self) { u in Text(u.isEmpty ? "—" : u).tag(u) }
                 }
-                .labelsHidden().frame(width: 90)
+                .labelsHidden().frame(minWidth: 90, alignment: .leading)
                 Spacer()
             }
 
             // Live summary
             Text(quantity.display)
-                .font(.footnote.weight(.medium))
+                .font(.stocked(.footnote).weight(.medium))
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
         }
@@ -87,6 +102,8 @@ struct QuantityInputView: View {
     private func apply(_ text: String) {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         var parsed = QuantityParser.parse(text)
+        validationMessage = parsed.validationMessage
+        guard parsed.validationMessage == nil else { return }
         // Preserve any item name already set if the parse didn't find one.
         if parsed.item.isEmpty { parsed.item = quantity.item }
         quantity = parsed
@@ -103,33 +120,45 @@ struct NaturalQuantityField: View {
     var placeholder: String = "Type it: 6 cans of 8 oz, half a bag…"
     let onParse: (ParsedAmount) -> Void
     @State private var raw = ""
+    @State private var validationMessage: String?
     @FocusState private var focused: Bool
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 8) {
             Image(systemName: "wand.and.stars")
-                .font(.system(size: 13)).foregroundStyle(Color.stockedGold)
+                .scaledFont(13).foregroundStyle(Color.stockedGold)
             TextField(placeholder, text: $raw)
-                .font(.system(size: 14))
+                .textFieldStyle(.plain)
+                .scaledFont(14)
                 .focused($focused)
                 .submitLabel(.done)
                 .onSubmit { apply() }
             if !raw.isEmpty {
                 Button { apply() } label: {
                     Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 18)).foregroundStyle(Color.stockedGold)
+                        .scaledFont(18).foregroundStyle(Color.stockedGold)
                 }.buttonStyle(.plain)
             }
         }
         .padding(12)
         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        if let validationMessage {
+            Label(validationMessage, systemImage: "exclamationmark.circle")
+                .scaledFont(12).foregroundStyle(session.themeSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        }
     }
 
     private func apply() {
         let t = raw.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty else { return }
-        onParse(QuantityParser.parse(t))
+        let parsed = QuantityParser.parse(t)
+        validationMessage = parsed.validationMessage
+        guard parsed.validationMessage == nil else { return }
+        onParse(parsed)
         raw = ""
         focused = false
         HapticManager.select()

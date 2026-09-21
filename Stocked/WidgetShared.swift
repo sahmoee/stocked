@@ -5,7 +5,7 @@ import Foundation
 
 /// A tiny, codable summary the main app writes to the shared App Group container and the
 /// widget reads. Keep it small — widgets get a limited memory budget.
-struct StockedWidgetSnapshot: Codable {
+nonisolated struct StockedWidgetSnapshot: Codable, Sendable {
     var stockPercent: Int
     var expiringCount: Int
     var expiringNames: [String]     // up to 3, soonest first
@@ -45,7 +45,7 @@ struct StockedWidgetSnapshot: Codable {
 }
 
 /// Read/write the snapshot via the shared App Group. Same group the Share Extension uses.
-enum WidgetStore {
+nonisolated enum WidgetStore {
     static let appGroupID = "group.com.sowens.Stocked"
     static let key = "stocked_widget_snapshot"
 

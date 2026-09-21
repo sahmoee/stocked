@@ -11,11 +11,12 @@ import os
 enum NutritionBackfill {
 
     static func runIfNeeded() {
-        let flagKey = "didBackfillNutrition_v1"
-        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        let flagKey = "didBackfillNutrition.lastRun.v2"
+        let last = UserDefaults.standard.object(forKey: flagKey) as? Date ?? .distantPast
+        guard Date().timeIntervalSince(last) >= 24 * 3600 else { return }
         Task(priority: .background) {
             await run(limit: 40)
-            UserDefaults.standard.set(true, forKey: flagKey)
+            UserDefaults.standard.set(Date(), forKey: flagKey)
         }
     }
 
@@ -45,13 +46,24 @@ enum NutritionBackfill {
         for line in ingredients {
             let name = IngredientSynonyms.canonical(RecipeIngredients.parse(line).name)
             guard !name.isEmpty else { continue }
-            // Local DB first (free, instant).
+            var candidates: [NutritionCandidate] = []
             if let facts = NutritionDatabase.facts(for: name), facts.calories > 0 {
-                total += facts.calories; counted += 1; continue
+                candidates.append(.init(facts: facts, source: "Stocked nutrition",
+                                        authority: 0.76, match: .name))
             }
-            // USDA fallback (cached inside the client).
-            if let facts = await USDANutritionClient.shared.facts(for: name), facts.calories > 0 {
-                total += facts.calories; counted += 1
+            async let usda = USDANutritionClient.shared.facts(for: name)
+            async let fatSecret = RetailEnrichmentClient.fatSecretFacts(for: name)
+            if let facts = await usda, facts.calories > 0 {
+                candidates.append(.init(facts: facts, source: "USDA FoodData Central",
+                                        authority: 0.98, match: .name))
+            }
+            if let facts = await fatSecret, facts.calories > 0 {
+                candidates.append(.init(facts: facts, source: "FatSecret Platform API",
+                                        authority: 0.82, match: .name))
+            }
+            if let result = NutritionReconciler.reconcile(candidates) {
+                total += result.facts.calories
+                counted += 1
             }
         }
         // Only return an estimate if we matched a meaningful share of ingredients.

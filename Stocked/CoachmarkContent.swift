@@ -27,6 +27,10 @@ enum InventoryCoachmarks {
               body: "Swipe left on any item to delete it, with a quick undo if you change your mind. Use Search and Sort at the top right to find an item fast or reorder the list."),
         .card(title: "Pull down to refresh",
               body: "Pull down on this screen, or almost any screen, to refresh. If you share a household, it also pulls everyone's latest changes right away."),
+        .card(title: "Reservations stay visible",
+              body: "Meals you plan can reserve pantry ingredients. Inventory shows what is available versus reserved and warns when future meals compete for the same food."),
+        .card(title: "More ways to update",
+              body: "Add items by hand, scan a barcode or receipt, use the Inventory Assistant, or review an AI inventory scan before any proposed changes are applied."),
     ]
 }
 
@@ -49,6 +53,10 @@ enum RecipeCoachmarks {
                    body: "Cocktails, mocktails, coffees, shakes, and party drinks now have a home of their own, grouped by type and refreshed with a pull."),
         .card(title: "Find a recipe fast",
               body: "Tap the search icon at the top right to search recipes directly. Scroll down to Discover for ideas based on what is in your kitchen right now."),
+        .card(title: "Fresh ideas on each visit",
+              body: "Recipe rails refresh once when you visit Recipes and whenever you manually refresh. Cards use verified recipe images and adapt to your chosen text and interface size."),
+        .card(title: "Save, import, and organize",
+              body: "Create a recipe manually or with AI, import from supported websites and shared links, mark favorites, track what you cooked, and organize recipes into collections."),
     ]
 }
 
@@ -64,6 +72,8 @@ enum GroceryCoachmarks {
               body: "Swipe left on any list item to delete it, with undo. Swiping a low-stock suggestion removes that item from your kitchen, so it asks first."),
         .card(title: "Store, share, and scan",
               body: "Tap the menu at the top right to set your store, share the list with someone, scan a paper list, or move checked items into your pantry."),
+        .card(title: "Plan-aware shopping",
+              body: "Meal plans can add combined missing ingredients automatically. Stocked keeps bought items separate and can move them into Inventory when the trip is done."),
     ]
 }
 
@@ -80,6 +90,10 @@ enum CookCoachmarks {
                    body: "Use Plan, Shop, and Prep in one workspace. Add meals to the week, open ingredient checks, catch over-allocation, review combined shopping needs, and complete prep before cooking."),
         .card(title: "Three ways to find a meal",
               body: "Inside Cook Now you can Build Around Food you choose, Match My Mood with a few quick questions, or hit Surprise Me to let the app pick for you. Match My Mood always lands on a recipe, checking the web, your database, and AI in turn."),
+        .card(title: "Cook with confidence",
+              body: "Check substitutions and missing ingredients, compare cooking methods and equipment, prepare components, follow the live cooking workspace, then record what was eaten or saved."),
+        .card(title: "Plan, shop, prep, cook",
+              body: "Cook Later carries a meal through the whole week: reserve pantry food, combine shopping needs, finish prep tasks, start cooking, and review the completed session."),
     ]
 }
 
@@ -103,10 +117,14 @@ enum HomeCoachmarks {
                    title: "Open your Daily Brief",
                    body: "Tap the Stocked title at the top of the screen any time to open your full Daily Brief: a quick rundown of what's expiring, what's low, and what's worth cooking today."),
         .card(title: "Make it yours",
-              body: "Press and hold anywhere on Home to customize. You can drag widgets to reorder them, remove ones you do not use, and add new ones from the gallery."),
+              body: "Touch and hold with one finger on Home to enter widget editing. Drag any widget to reorder it, drop it on the X to remove it, or tap the page background to finish."),
         .card(title: "Find everything in the menu",
               body: "Swipe from the left edge, or tap the menu icon, to open the side menu. Your profile, settings, tools, and help all live there — plus the Kitchen Toolbox, dozens of extra tools in one place."),
         .card(title: "Make the menu yours",
               body: "In the side menu, press and hold any row under Kitchen Tools or Insights and drag to reorder. Pull down on any screen to refresh it."),
+        .card(title: "Size the whole app for you",
+              body: "Settings lets you choose the app font, seven app-wide text sizes, and a separate recipe reading size. Pages, sheets, cards, buttons, and text grow or wrap without cutting labels off."),
+        .card(title: "Report an issue in QA mode",
+              body: "When QA mode is enabled, short-press with two fingers anywhere—or shake the device—to capture the current screen and open a QA ticket with diagnostics attached."),
     ]
 }

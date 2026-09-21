@@ -4,6 +4,7 @@ import SwiftUI
 struct QuizEditView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.stockedMotion) private var motion
 
     // Local copies of all profile fields
     @State private var householdSize:    Int      = 2
@@ -63,7 +64,7 @@ struct QuizEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveAndDismiss() }
-                        .font(.system(size: 15, weight: .bold))
+                        .scaledFont(15, weight: .bold)
                         .foregroundStyle(Color.stockedGold)
                 }
             }
@@ -76,24 +77,24 @@ struct QuizEditView: View {
         let isOpen = expanded == section
         return VStack(spacing: 0) {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                motion.animate(.standard, intent: .spatial) {
                     expanded = isOpen ? nil : section
                 }
             } label: {
                 HStack(spacing: 12) {
-                    Text(icon).font(.system(size: 20))
+                    Text(icon).scaledFont(20)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(.system(size: 14, weight: .semibold, design: .serif))
+                            .scaledFont(14, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text(value)
-                            .font(.system(size: 12))
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
-                            .lineLimit(1)
+                            .scaledFont(12)
+                            .foregroundStyle(session.themeSecondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Image(systemName: isOpen ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .scaledFont(12, weight: .semibold)
                         .foregroundStyle(Color.stockedGold)
                 }
                 .padding(14)
@@ -110,17 +111,16 @@ struct QuizEditView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color.stockedWhite.opacity(0.4))
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: - Section content views
     private var householdGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach([1,2,3,4,5,6], id: \.self) { n in
+        StockedEqualHeightGrid(items: [1,2,3,4,5,6], id: \.self, columns: 2, spacing: 8) { n in
                 chip(n == 1 ? "Just me 🙋" : n == 6 ? "6+ 👨‍👩‍👧‍👦" : "\(n) people",
                      selected: householdSize == n) { householdSize = n }
-            }
+
         }
     }
 
@@ -128,10 +128,9 @@ struct QuizEditView: View {
         let goals = [("🥦","Eat Healthier"),("⏱","Cook Faster"),
                      ("🌍","Explore Cuisines"),("♻️","Reduce Waste"),
                      ("😌","Stress Less"),("🤯","Decision Fatigue")]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(goals, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: goals, id: \.1, columns: 2, spacing: 8) { emoji, label in
                 chip("\(emoji)  \(label)", selected: cookingGoal == label) { cookingGoal = label }
-            }
+
         }
     }
 
@@ -139,37 +138,34 @@ struct QuizEditView: View {
         let styles = [("🍗","Omnivore"),("🐟","Pescatarian"),
                       ("🌱","Vegetarian"),("🌿","Vegan"),
                       ("🫙","Keto / Low-Carb"),("🤷","No Preference")]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(styles, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: styles, id: \.1, columns: 2, spacing: 8) { emoji, label in
                 chip("\(emoji)  \(label)", selected: dietaryStyle == label) { dietaryStyle = label }
-            }
+
         }
     }
 
     private var allergenGrid: some View {
         let all = ["🥜 Peanuts","🌰 Tree Nuts","🥛 Dairy","🥚 Eggs","🐟 Fish",
                    "🦐 Shellfish","🌾 Gluten","🫘 Soy","🌽 Corn","None"]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(all, id: \.self) { item in
+        return StockedEqualHeightGrid(items: all, id: \.self, columns: 2, spacing: 8) { item in
                 let clean = item.components(separatedBy: " ").dropFirst().joined(separator: " ")
                 chip(item, selected: clean == "None" ? allergens.isEmpty : allergens.contains(clean)) {
                     if clean == "None" { allergens = [] }
                     else if allergens.contains(clean) { allergens.removeAll { $0 == clean } }
                     else { allergens.append(clean) }
                 }
-            }
+
         }
     }
 
     private var cuisineGrid: some View {
         let cuisines = RecipeTaxonomy.cuisines.map { (CuisineBrowseView.flag(for: $0), $0) }
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(cuisines, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: cuisines, id: \.1, columns: 3, spacing: 8) { emoji, label in
                 chip("\(emoji)\n\(label)", selected: cuisinePrefs.contains(label)) {
                     if cuisinePrefs.contains(label) { cuisinePrefs.removeAll { $0 == label } }
                     else { cuisinePrefs.append(label) }
                 }
-            }
+
         }
     }
 
@@ -184,11 +180,11 @@ struct QuizEditView: View {
             ForEach(levels, id: \.1) { emoji, label, desc in
                 Button { skillLevel = label } label: {
                     HStack(spacing: 12) {
-                        Text(emoji).font(.system(size: 20))
+                        Text(emoji).scaledFont(20)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(label).font(.system(size: 13, weight: .semibold, design: .serif))
+                            Text(label).scaledFont(13, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
-                            Text(desc).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text(desc).scaledFont(11).foregroundStyle(session.themeSecondaryText)
                         }
                         Spacer()
                         if skillLevel == label {
@@ -208,13 +204,13 @@ struct QuizEditView: View {
         let days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun","Any"]
         return VStack(spacing: 10) {
             HStack {
-                Text("Meals per week").font(.system(size: 13, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                Text("Meals per week").scaledFont(13, weight: .semibold).foregroundStyle(session.themeTextColor)
                 Spacer()
-                Text("\(weeklyMeals)").font(.system(size: 14, weight: .bold)).foregroundStyle(Color.stockedGold)
+                Text("\(weeklyMeals)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedGold)
             }
             Slider(value: Binding(get: { Double(weeklyMeals) }, set: { weeklyMeals = Int($0) }), in: 1...21, step: 1)
                 .tint(Color.stockedGold)
-            Text("Grocery day").font(.system(size: 13, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text("Grocery day").scaledFont(13, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
                 ForEach(days, id: \.self) { day in
@@ -230,13 +226,12 @@ struct QuizEditView: View {
         let items = [("🍳","Stovetop"),("🔥","Oven"),("🔌","Microwave"),("💨","Air Fryer"),
                      ("🫕","Slow Cooker"),("🫙","Instant Pot"),("♨️","Grill / BBQ"),
                      ("🥗","Blender"),("🍹","Food Processor"),("🎛️","Toaster Oven")]
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(items, id: \.1) { emoji, label in
+        return StockedEqualHeightGrid(items: items, id: \.1, columns: 2, spacing: 8) { emoji, label in
                 chip("\(emoji)  \(label)", selected: cookingEquipment.contains(label)) {
                     if cookingEquipment.contains(label) { cookingEquipment.removeAll { $0 == label } }
                     else { cookingEquipment.append(label) }
                 }
-            }
+
         }
     }
 
@@ -244,12 +239,12 @@ struct QuizEditView: View {
     private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 12, weight: selected ? .bold : .medium, design: .serif))
+                .font(.stockedSystem(size: 12, weight: selected ? .bold : .medium, design: .serif))
                 .foregroundStyle(selected ? Color.stockedCharcoal : session.themeTextColor)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                 .background(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd).fill(selected ? Color.stockedGold : Color.stockedWhite.opacity(0.5)))
         }.buttonStyle(.plain)
     }

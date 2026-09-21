@@ -72,6 +72,17 @@ enum AppleOnDeviceAI {
         throw StockedServiceError.notConfigured(unavailableReason ?? "On-device AI is unavailable.")
         #endif
     }
+
+    /// Cleans retailer/receipt wording before nutrition and aisle matching. The
+    /// returned values are advisory lookup keys; user-visible names are untouched.
+    static func normalizeFoodNames(_ names: [String]) async -> [String: String] {
+        #if canImport(FoundationModels)
+        guard isAvailable else { return [:] }
+        return (try? await FoundationModelsFoodNames.run(names)) ?? [:]
+        #else
+        return [:]
+        #endif
+    }
 }
 
 #if canImport(FoundationModels)
@@ -212,6 +223,25 @@ private enum FoundationModelsInventoryScan {
             }
         }
         return .transport(error.localizedDescription)
+    }
+}
+
+private enum FoundationModelsFoodNames {
+    @Generable struct FoodName {
+        @Guide(description: "Exact original input string") var original: String
+        @Guide(description: "Short food identity retaining a meaningful brand, with receipt codes, prices, sizes and aisle numbers removed") var normalized: String
+    }
+    @Generable struct Result { var foods: [FoodName] }
+
+    static func run(_ names: [String]) async throws -> [String: String] {
+        let bounded = Array(names.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.prefix(30))
+        guard !bounded.isEmpty else { return [:] }
+        let session = LanguageModelSession(instructions: "Normalize grocery food names for catalog matching. Never invent a different product and never include non-food goods.")
+        let response = try await session.respond(to: bounded.map { "- \($0)" }.joined(separator: "\n"), generating: Result.self)
+        return Dictionary(keepingLastValues: response.content.foods.compactMap {
+            let clean = $0.normalized.trimmingCharacters(in: .whitespacesAndNewlines)
+            return clean.isEmpty ? nil : ($0.original, clean)
+        })
     }
 }
 #endif

@@ -28,6 +28,8 @@ The Worker may temporarily cache selected normalized results, such as barcode or
 
 Requested searches may contact providers such as TheMealDB, Spoonacular, USDA FoodData Central, Edamam, API Ninjas, RapidAPI services, retailer endpoints, recipe websites, and Sowens Studios content hosting. Requests can include search terms, barcodes, ingredient names, recipe URLs, and provider credentials included with the app. Each provider applies its own terms and privacy policy.
 
+Approved recipes synchronized from StockedMac may include structured recipe facts, publisher-provided text, the original source URL and attribution, and an image or image URL. Stocked does not claim ownership of third-party recipe or publisher content. The shared service normalizes titles, removes duplicate records, and rejects recipes without a usable image, instructions, or source provenance. Contact support for a source correction or rights-holder removal request.
+
 ## Health data
 
 If you explicitly enable the feature, Stocked may write cooked-meal nutrition to Apple Health. Stocked does not use Health information for advertising, tracking, data brokerage, credit, or employment decisions. Health information is handled through HealthKit permissions and remains subject to Apple's Health privacy controls. The current feature is intended to write selected nutrition records and does not require uploading Health data to Sowens Studios.

@@ -35,11 +35,13 @@ final class HouseholdAppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { @MainActor in HouseholdDeliveryService.shared.receiveAppleToken(deviceToken) }
         Log.transfer.notice("Registered for remote notifications")
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        Task { @MainActor in HouseholdDeliveryService.shared.appleRegistrationFailed() }
         Log.transfer.error("Remote notif registration failed: \(error.localizedDescription, privacy: .public)")
     }
 
@@ -47,6 +49,13 @@ final class HouseholdAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if userInfo["stockedHousehold"] is [String: Any] {
+            Task { @MainActor in
+                let refreshed = await HouseholdDeliveryService.shared.receiveBackgroundInvalidation()
+                completionHandler(refreshed ? .newData : .noData)
+            }
+            return
+        }
         guard let notification = CKNotification(fromRemoteNotificationDictionary: userInfo),
               notification.subscriptionID?.hasPrefix("household-") == true else {
             completionHandler(.noData); return

@@ -46,7 +46,7 @@ struct TappableEditText: View {
                 .font(font)
                 .foregroundStyle(text.isEmpty ? displayColor.opacity(0.35) : displayColor)
             Image(systemName: "pencil")
-                .font(.system(size: 9))
+                .scaledFont(9)
                 .foregroundStyle(displayColor.opacity(0.25))
         }
         .contentShape(Rectangle())

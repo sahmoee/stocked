@@ -21,13 +21,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import SwiftUI
-// Combine is needed explicitly for `.autoconnect()` on the Timer publisher below.
-// `Timer.publish` itself is vended by Foundation, so the call site looks like it
-// compiles with SwiftUI alone — but `autoconnect()` is defined on Combine's
-// `ConnectablePublisher`, and Swift will not use a method from a module the file
-// has not imported. Hence the error "Instance method 'autoconnect()' is not
-// available due to missing import of defining module".
-import Combine
 // For UIWindow / UIWindowScene, which QAHUDWindow owns directly.
 import UIKit
 
@@ -115,10 +108,6 @@ struct QAHUDBar: View {
 
     @AppStorage(QAHUDSettings.positionKey) private var atTop = false
 
-    /// Ticks the view so the numbers move even when nothing else changes.
-    @State private var tick = 0
-    private let refresh = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
-
     var body: some View {
         VStack {
             if !atTop { Spacer() }
@@ -128,7 +117,6 @@ struct QAHUDBar: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .allowsHitTesting(false)          // never steals a touch. Ever.
-        .onReceive(refresh) { _ in tick &+= 1 }
     }
 
     private var bar: some View {
@@ -156,7 +144,7 @@ struct QAHUDBar: View {
                     .foregroundStyle(.orange)
             }
         }
-        .font(.caption2.monospacedDigit())
+        .font(.stocked(.caption2).monospacedDigit())
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.ultraThinMaterial, in: Capsule())
@@ -173,7 +161,7 @@ struct QAHUDBar: View {
 
     private func stat(_ symbol: String, _ value: String, tint: Color) -> some View {
         HStack(spacing: 3) {
-            Image(systemName: symbol).font(.system(size: 9))
+            Image(systemName: symbol).scaledFont(9)
             Text(value)
         }
         .foregroundStyle(tint)

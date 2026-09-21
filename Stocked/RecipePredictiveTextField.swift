@@ -11,6 +11,7 @@ import SwiftUI
 // MARK: - RecipePredictiveTextField
 struct RecipePredictiveTextField: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
     let placeholder: String
     @Binding var text: String
 
@@ -26,7 +27,9 @@ struct RecipePredictiveTextField: View {
 
     @FocusState private var isFocused: Bool
     @State private var recipeSuggestions: [RecipeDatabaseEntry] = []
-    @State private var snapshot: [RecipeDatabaseEntry] = []
+    @State private var selectedSuggestionTitle: String?
+    @State private var recipeSuggestionPosition: UUID? = nil
+    @State private var ingredientSuggestionPosition: UUID? = nil
 
     private var showRecipes: Bool { recipesOnly || form != nil }
 
@@ -41,51 +44,57 @@ struct RecipePredictiveTextField: View {
         VStack(alignment: .leading, spacing: 0) {
             // ── Text field ────────────────────────────────────────────
             TextField(placeholder, text: $text)
-                .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
+                .foregroundStyle(session.themeTextColor)
                 .focused($isFocused)
                 .onSubmit { onCommit() }
                 .autocorrectionDisabled()
-                .onChange(of: text) { _, newValue in updateRecipeSuggestions(for: newValue) }
-                .task { snapshot = await RecipeDatabaseManager.shared.loadSnapshot() }
+                .task(id: "\(showRecipes):\(text)") {
+                    await updateRecipeSuggestions(for: text)
+                }
 
             // ── Recipe suggestion chips ───────────────────────────────
             if !recipeSuggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "book.closed.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.stockedGold.opacity(0.7))
+                            .font(.stockedCaption)
+                            .foregroundStyle(session.themeSecondaryText)
                         Text("Recipes")
-                            .font(.system(size: 10, weight: .semibold, design: .serif))
-                            .foregroundStyle(Color.stockedGold.opacity(0.7))
+                            .font(.stockedCaption.weight(.semibold))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                     .padding(.top, 8)
 
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        LazyHStack(spacing: 8) {
                             ForEach(recipeSuggestions) { entry in
-                                Button { selectRecipe(entry) } label: {
+                                Button {
+                                    motion.animate(.selection, intent: .spatial) {
+                                        recipeSuggestionPosition = entry.id
+                                    }
+                                    selectRecipe(entry)
+                                } label: {
                                     HStack(spacing: 5) {
                                         Image(systemName: "fork.knife")
-                                            .font(.system(size: 11))
-                                            .foregroundStyle(Color.stockedGold)
+                                            .scaledFont(11)
+                                            .foregroundStyle(session.accentColor)
                                         VStack(alignment: .leading, spacing: 1) {
                                             Text(entry.title)
-                                                .font(.system(size: 13, weight: .semibold, design: .serif))
+                                                .scaledFont(13, weight: .semibold, design: .serif)
                                                 .foregroundStyle(session.themeTextColor)
-                                                .lineLimit(1)
+                                                .fixedSize(horizontal: false, vertical: true)
                                             if !entry.totalTime.isEmpty || !entry.sourceName.isEmpty {
                                                 HStack(spacing: 4) {
                                                     if !entry.totalTime.isEmpty {
                                                         Text(entry.totalTime)
-                                                            .font(.system(size: 10))
-                                                            .foregroundStyle(.secondary)
+                                                            .font(.stockedCaption)
+                                                            .foregroundStyle(session.themeSecondaryText)
                                                     }
                                                     if !entry.sourceName.isEmpty && entry.sourceName != "My Recipes" {
                                                         Text("· \(entry.sourceName)")
-                                                            .font(.system(size: 10))
-                                                            .foregroundStyle(.secondary)
-                                                            .lineLimit(1)
+                                                            .font(.stockedCaption)
+                                                            .foregroundStyle(session.themeSecondaryText)
+                                                            .fixedSize(horizontal: false, vertical: true)
                                                     }
                                                 }
                                             }
@@ -93,18 +102,26 @@ struct RecipePredictiveTextField: View {
                                     }
                                     .padding(.horizontal, 11)
                                     .padding(.vertical, 7)
+                                    .frame(minHeight: 44)
                                     .background(Color.stockedGold.opacity(0.12))
                                     .overlay(Capsule().stroke(Color.stockedGold.opacity(0.45), lineWidth: 1))
                                     .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
+                                .id(entry.id)
                             }
                         }
                         .stockedScrollTargetLayout()
-                        .padding(.horizontal, 2)
                         .padding(.vertical, 2)
                     }
                     .stockedHorizontalSnap()
+                    .scrollPosition(id: $recipeSuggestionPosition, anchor: .center)
+                    .contentMargins(.horizontal, 2, for: .scrollContent)
+                    .onChange(of: recipeSuggestions.map(\.id)) { _, ids in
+                        if let current = recipeSuggestionPosition, !ids.contains(current) {
+                            recipeSuggestionPosition = ids.first
+                        }
+                    }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -112,47 +129,65 @@ struct RecipePredictiveTextField: View {
             // ── Ingredient suggestion chips (ingredient mode only) ────
             if !ingredientSuggestions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    LazyHStack(spacing: 8) {
                         ForEach(ingredientSuggestions) { entry in
                             Button {
+                                motion.animate(.selection, intent: .spatial) {
+                                    ingredientSuggestionPosition = entry.id
+                                }
                                 text = entry.name
                                 isFocused = false
                                 onSelect(entry.name)
                             } label: {
                                 HStack(spacing: 5) {
-                                    Text(entry.emoji).font(.system(size: 14))
+                                    Text(entry.emoji).scaledFont(14)
                                     Text(entry.name)
-                                        .font(.system(size: 13, weight: .medium, design: .serif))
+                                        .scaledFont(13, weight: .medium, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
-                                        .lineLimit(1)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 .padding(.horizontal, 11)
                                 .padding(.vertical, 7)
+                                    .frame(minHeight: 44)
                                 .background(Color.stockedGold.opacity(0.18))
                                 .overlay(Capsule().stroke(Color.stockedGold.opacity(0.5), lineWidth: 1))
                                 .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
+                            .id(entry.id)
                         }
                     }
                     .stockedScrollTargetLayout()
-                    .padding(.horizontal, 2)
                     .padding(.vertical, 2)
                 }
                 .stockedHorizontalSnap()
+                .scrollPosition(id: $ingredientSuggestionPosition, anchor: .center)
+                .contentMargins(.horizontal, 2, for: .scrollContent)
+                .onChange(of: ingredientSuggestions.map(\.id)) { _, ids in
+                    if let current = ingredientSuggestionPosition, !ids.contains(current) {
+                        ingredientSuggestionPosition = ids.first
+                    }
+                }
                 .padding(.top, 8)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(.easeInOut(duration: 0.15), value: recipeSuggestions.map(\.id))
-        .animation(.easeInOut(duration: 0.15), value: ingredientSuggestions.map(\.id))
+        .stockedAnimation(.selection, intent: .spatial, value: recipeSuggestions.map(\.id))
+        .stockedAnimation(.selection, intent: .spatial, value: ingredientSuggestions.map(\.id))
     }
 
     // MARK: - Private helpers
-    private func updateRecipeSuggestions(for query: String) {
-        guard showRecipes else { recipeSuggestions = []; return }
-        let mgr = RecipeDatabaseManager.shared
-        let results = mgr.suggestions(for: query, in: snapshot, limit: 12)
+    private func updateRecipeSuggestions(for query: String) async {
+        recipeSuggestions = []
+        if selectedSuggestionTitle != query { selectedSuggestionTitle = nil }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard showRecipes, !trimmed.isEmpty, query != selectedSuggestionTitle else { return }
+        // Ingredient-only fields used to load the entire writable recipe database too.
+        // Request just the visible suggestions, after typing settles; SwiftUI cancels
+        // this task on edits/dismissal and obsolete database results cannot replace chips.
+        do { try await Task.sleep(for: .milliseconds(180)) } catch { return }
+        let results = await RecipeDatabaseManager.shared.suggestions(for: trimmed, limit: 12)
+        guard !Task.isCancelled, query == text else { return }
         // #17: collapse near-duplicate titles so suggestions are clean, then cap at 6.
         let deduped = RecipeDedup.dedupe(results,
                                          title: { $0.title },
@@ -161,6 +196,7 @@ struct RecipePredictiveTextField: View {
     }
 
     private func selectRecipe(_ entry: RecipeDatabaseEntry) {
+        selectedSuggestionTitle = entry.title
         text = entry.title
         isFocused = false
         if let formBinding = form {
@@ -213,16 +249,16 @@ struct RecipeFormAutofillBanner: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles")
-                .foregroundStyle(Color.stockedGold)
-                .font(.system(size: 13))
+                .foregroundStyle(session.accentColor)
+                .scaledFont(13)
             Text("Autofilled from \(sourceName.isEmpty ? "recipe database" : sourceName)")
-                .font(.system(size: 12, weight: .medium, design: .serif))
+                .scaledFont(12, weight: .medium, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Spacer()
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .scaledFont(11, weight: .semibold)
+                    .foregroundStyle(session.themeSecondaryText)
             }
             .buttonStyle(.plain)
         }

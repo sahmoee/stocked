@@ -17,16 +17,16 @@ struct UsageInsightsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Usage Insights")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("A private, on-device count of which features you use. Nothing is uploaded or shared.")
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(13.5)
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 24).padding(.top, 4)
 
                 // Summary line
-                HStack(spacing: 14) {
+                StockedEqualHeightRow(columns: 2, spacing: 12) {
                     summaryStat("\(UsageMetrics.shared.totalEvents)", "actions logged")
                     summaryStat(daysSinceFirst, "days using Stocked")
                 }
@@ -36,10 +36,10 @@ struct UsageInsightsView: View {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Track usage on this device")
-                            .font(.system(size: 15, design: .serif))
+                            .scaledFont(15, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Local only — used to improve the app")
-                            .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 .tint(Color.stockedGold)
@@ -51,19 +51,19 @@ struct UsageInsightsView: View {
 
                 // Per-feature counts
                 Text("Most used")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(13, weight: .semibold)
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, 24)
 
                 VStack(spacing: 0) {
                     ForEach(Array(stats.enumerated()), id: \.element.id) { idx, stat in
                         HStack {
                             Text(stat.label)
-                                .font(.system(size: 14))
+                                .scaledFont(14)
                                 .foregroundStyle(session.themeTextColor.opacity(stat.count == 0 ? 0.4 : 0.9))
                             Spacer()
                             Text("\(stat.count)")
-                                .font(.system(size: 14, weight: .bold, design: .serif))
+                                .scaledFont(14, weight: .bold, design: .serif)
                                 .foregroundStyle(stat.count == 0 ? session.themeTextColor.opacity(0.3) : Color.stockedGold)
                         }
                         .padding(.horizontal, 18).padding(.vertical, 11)
@@ -79,15 +79,15 @@ struct UsageInsightsView: View {
                 // Widget detail (only if any recorded)
                 if !widgetBreakdown.isEmpty {
                     Text("Widgets added (by type)")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .scaledFont(13, weight: .semibold)
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 24)
                     VStack(spacing: 0) {
                         ForEach(Array(widgetBreakdown.enumerated()), id: \.offset) { idx, pair in
                             HStack {
-                                Text(pair.0).font(.system(size: 13.5)).foregroundStyle(session.themeTextColor.opacity(0.85))
+                                Text(pair.0).scaledFont(13.5).foregroundStyle(session.themeTextColor.opacity(0.85))
                                 Spacer()
-                                Text("\(pair.1)").font(.system(size: 13.5, weight: .bold, design: .serif)).foregroundStyle(Color.stockedGold)
+                                Text("\(pair.1)").scaledFont(13.5, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
                             }
                             .padding(.horizontal, 18).padding(.vertical, 9)
                             if idx < widgetBreakdown.count - 1 { Divider().opacity(0.3).padding(.leading, 18) }
@@ -100,7 +100,7 @@ struct UsageInsightsView: View {
 
                 Button(role: .destructive) { showResetConfirm = true } label: {
                     Text("Reset usage data")
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(Color.stockedError)
                 }
                 .padding(.horizontal, 24).padding(.top, 4)
@@ -121,11 +121,11 @@ struct UsageInsightsView: View {
 
     private func summaryStat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.system(size: 22, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-            Text(label).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
+            Text(value).scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
+            Text(label).scaledFont(12).foregroundStyle(session.themeSecondaryText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }

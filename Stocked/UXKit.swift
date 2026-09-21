@@ -94,7 +94,7 @@ final class ToastCenter {
 
     func dismiss() {
         dismissTask?.cancel()
-        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : StockedMotion.Spring.navigation.animation) {
             current = nil
         }
     }
@@ -107,7 +107,7 @@ final class ToastCenter {
 
     private func present(_ toast: StockedToast, duration: Double) {
         dismissTask?.cancel()
-        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .spring(response: 0.35, dampingFraction: 0.85)) {
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : StockedMotion.Spring.navigation.animation) {
             current = toast
         }
         if toast.style == .success { HapticManager.success() }
@@ -135,17 +135,17 @@ struct StockedToastOverlay: View {
             if let toast = center.current {
                 HStack(spacing: 12) {
                     Image(systemName: toast.style.icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .scaledFont(15, weight: .semibold)
                         .foregroundStyle(toast.style == .undo ? Color.stockedWhite.opacity(0.7) : toast.style.tint)
                         .a11yDecorative()
                     Text(toast.message)
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(13, weight: .semibold)
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
                     if toast.style == .undo {
                         Button { center.performUndo() } label: {
                             Text(toast.undoTitle)
-                                .font(.system(size: 13, weight: .bold))
+                                .scaledFont(13, weight: .bold)
                                 .foregroundStyle(Color.stockedGoldDark)
                         }
                         .buttonStyle(.plain)
@@ -184,6 +184,7 @@ extension View {
 // A subtle scale bump whenever an Equatable value changes — good for chips/badges.
 
 private struct PulseOnChange<V: Equatable>: ViewModifier {
+    @Environment(\.stockedMotion) private var motion
     let value: V
     @State private var scale: CGFloat = 1
 
@@ -191,11 +192,12 @@ private struct PulseOnChange<V: Equatable>: ViewModifier {
         content
             .scaleEffect(scale)
             .onChange(of: value) { _, _ in
-                guard !UIAccessibility.isReduceMotionEnabled else { return }
-                withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) { scale = 1.06 }
+                guard motion.permitsDecorativeMotion else { return }
+                motion.animate(.press, intent: .decorative) { scale = 1.06 }
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 180_000_000)
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { scale = 1 }
+                    guard !Task.isCancelled else { return }
+                    motion.animate(.selection, intent: .decorative) { scale = 1 }
                 }
             }
     }
@@ -209,6 +211,7 @@ extension View {
 // A small "Step N of M" with dots, for multi-step flows (e.g. cook → serving → plan).
 
 struct StepIndicator: View {
+    @Environment(\.stockedMotion) private var motion
     let current: Int   // 1-based
     let total: Int
     var tint: Color = .stockedGold
@@ -221,11 +224,11 @@ struct StepIndicator: View {
                     Capsule()
                         .fill(i <= current ? tint : dim.opacity(0.18))
                         .frame(width: i == current ? 18 : 7, height: 7)
-                        .animation(UIAccessibility.isReduceMotionEnabled ? nil : .spring(response: 0.3), value: current)
+                        .animation(motion.animation(.selection, intent: .spatial), value: current)
                 }
             }
             Text("Step \(current) of \(total)")
-                .font(.system(size: 11, weight: .semibold))
+                .scaledFont(11, weight: .semibold)
                 .foregroundStyle(dim.opacity(0.55))
         }
         .accessibilityElement(children: .ignore)
@@ -253,18 +256,19 @@ extension Color {
 private struct StockedCardModifier: ViewModifier {
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.stockedLayout) private var layout
     var isDark: Bool
     var padding: CGFloat
     var radius: CGFloat
 
     func body(content: Content) -> some View {
         content
-            .padding(padding)
+            .padding(max(padding, layout.surfaceContentPadding))
             .background(isDark ? Color.darkElevatedSurface :
                 Color.lightSurface.opacity(reduceTransparency ? 1 : 0.88))
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: max(radius, layout.surfaceCornerRadius), style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                RoundedRectangle(cornerRadius: max(radius, layout.surfaceCornerRadius), style: .continuous)
                     .stroke((isDark ? Color.stockedWhite : Color.stockedCharcoal)
                         .opacity(accessibilityContrast == .increased ? 0.72 : 0.30),
                         lineWidth: accessibilityContrast == .increased ? 2 : 1.25)
@@ -288,9 +292,10 @@ private struct StockedInteractiveSurfaceModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .frame(minWidth: 44, minHeight: layout.minimumControlHeight)
-            .contentShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .padding(.horizontal, max(0, (layout.controlHorizontalPadding - 12) / 2))
+            .contentShape(RoundedRectangle(cornerRadius: layout.controlCornerRadius))
             .overlay {
-                RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
+                RoundedRectangle(cornerRadius: layout.controlCornerRadius)
                     .stroke(session.themeContrastAccent.opacity(contrast == .increased ? 0.72 : 0.30),
                             lineWidth: contrast == .increased ? 2 : 1)
             }
@@ -305,14 +310,36 @@ extension View {
 // MARK: - Horizontal scroll settling
 // Every horizontal rail opts into view-aligned targets and size-aware bounce. This prevents
 // carousels from stopping between cards or remaining overscrolled with empty trailing space.
+private struct StockedCardRailBehaviorModifier: ViewModifier {
+    @Environment(\.stockedScrollActivity) private var parentActivity
+    @State private var activity = StockedScrollActivity.idle
+
+    private var effectiveActivity: StockedScrollActivity {
+        if activity.isScrolling { return activity }
+        if parentActivity.isScrolling { return parentActivity }
+        return activity
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .stockedRailSnapping()
+            .stockedTrackScrollActivity($activity)
+            .environment(\.stockedScrollActivity, effectiveActivity)
+    }
+}
+
 extension View {
     func stockedScrollTargetLayout() -> some View {
-        scrollTargetLayout()
+        stockedSnapTargetLayout()
     }
 
     func stockedHorizontalSnap() -> some View {
-        scrollTargetBehavior(.viewAligned(limitBehavior: .always))
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            .defaultScrollAnchor(.leading)
+        stockedChipRailSnapping()
+    }
+
+    /// One complete leading-aligned card per gesture for visual carousels. Compact
+    /// chip/filter rails retain multi-item flicking through `stockedHorizontalSnap`.
+    func stockedCardRailSnap() -> some View {
+        modifier(StockedCardRailBehaviorModifier())
     }
 }

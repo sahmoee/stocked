@@ -7,11 +7,34 @@ import WidgetKit
 
 @MainActor
 enum WidgetBridge {
+    private nonisolated struct Input: Sendable {
+        var inventory: [LocalInventoryItem]
+        var groceries: [LocalGroceryItem]
+        var meals: [PlannedMeal]
+        var recipes: [UserRecipe]
+        var stockPercent: Int
+    }
+
     static func refresh(store: GuestDataStore) {
+        let input = Input(
+            inventory: store.inventoryItems,
+            groceries: store.groceryItems,
+            meals: store.plannedMeals,
+            recipes: store.userRecipes,
+            stockPercent: store.stockPercent
+        )
+        Task {
+            let snap = await Task.detached(priority: .utility) { prepare(input) }.value
+            await Task.detached(priority: .utility) { WidgetStore.save(snap) }.value
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    private nonisolated static func prepare(_ input: Input) -> StockedWidgetSnapshot {
         let now = Date()
         let cutoff = now.addingTimeInterval(86_400 * 3)
 
-        let expiring = store.inventoryItems.filter {
+        let expiring = input.inventory.filter {
             guard $0.effectiveLevel > 0, let exp = $0.expirationDate else { return false }
             return exp > now && exp <= cutoff
         }
@@ -20,31 +43,29 @@ enum WidgetBridge {
             .prefix(3)
             .map { $0.name }
 
-        let lowStock = store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }.count
-        let lowStockNames = store.inventoryItems.filter { KitchenAvailability.isRunningLow($0) }
+        let lowStock = input.inventory.filter { KitchenAvailability.isRunningLow($0) }.count
+        let lowStockNames = input.inventory.filter { KitchenAvailability.isRunningLow($0) }
             .prefix(4).map(\.name)
-        let meal = store.plannedMeals.first { $0.dayIndex == 0 && !$0.isCooked }
+        let meal = input.meals.first { $0.dayIndex == 0 && !$0.isCooked }
         let todayMeal = meal?.title
-        let uncheckedGrocery = store.groceryItems.filter { !$0.isChecked }
+        let uncheckedGrocery = input.groceries.filter { !$0.isChecked }
         let grocery = uncheckedGrocery.count
-        let favorite = store.userRecipes.first(where: \.isFavorited)?.title
+        let favorite = input.recipes.first(where: \.isFavorited)?.title
 
         let snap = StockedWidgetSnapshot(
-            stockPercent: store.stockPercent,
+            stockPercent: input.stockPercent,
             expiringCount: expiring.count,
             expiringNames: Array(expiringNames),
             lowStockCount: lowStock,
             todayMeal: todayMeal,
             groceryCount: grocery,
             updatedAt: now,
-            inventoryCount: store.inventoryItems.filter { $0.effectiveLevel > 0 }.count,
+            inventoryCount: input.inventory.filter { $0.effectiveLevel > 0 }.count,
             lowStockNames: Array(lowStockNames),
             groceryNames: Array(uncheckedGrocery.prefix(4).map(\.name)),
             todayMealType: meal?.mealType,
-            recipeCount: store.userRecipes.count,
+            recipeCount: input.recipes.count,
             favoriteRecipe: favorite)
-
-        WidgetStore.save(snap)
-        WidgetCenter.shared.reloadAllTimelines()
+        return snap
     }
 }

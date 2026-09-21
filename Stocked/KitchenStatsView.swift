@@ -27,23 +27,23 @@ struct KitchenStatsView: View {
     var body: some View {
         StockedShell(showBack: true, titleText: "Kitchen Stats") {
             VStack(spacing: 14) {
-                HStack(spacing: 12) {
+                StockedEqualHeightRow(columns: 2, spacing: 12) {
                     statTile("Used", "\(totalUsed)", "items finished")
                     statTile("Wasted", "\(totalWasted)", "let expire")
                 }
-                HStack(spacing: 12) {
+                StockedEqualHeightRow(columns: 2, spacing: 12) {
                     statTile("Waste rate", wasteRate == 0 ? "—" : String(format: "%.0f%%", wasteRate * 100), "of tracked items")
                     statTile("Value wasted", moneyWasted == 0 ? "—" : String(format: "$%.0f", moneyWasted), "expired unused")
                 }
 
                 if !topRecipes.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Most cooked").font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
+                        Text("Most cooked").scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                         ForEach(topRecipes, id: \.title) { r in
                             HStack {
-                                Text(r.title).font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.8))
+                                Text(r.title).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.8))
                                 Spacer()
-                                Text("\(r.count)×").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                                Text("\(r.count)×").scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
                             }
                             .padding(.vertical, 4)
                         }
@@ -55,7 +55,7 @@ struct KitchenStatsView: View {
 
                 if log.isEmpty {
                     Text("As you use up and remove items, your stats will build here.")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center).padding(.top, 8)
                 }
             }
@@ -65,12 +65,12 @@ struct KitchenStatsView: View {
 
     private func statTile(_ label: String, _ value: String, _ sub: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label.uppercased()).font(.system(size: 11, weight: .bold)).foregroundStyle(session.themeTextColor.opacity(0.4))
-            Text(value).font(.system(size: 26, weight: .bold, design: .serif)).foregroundStyle(session.themeTextColor)
-            Text(sub).font(.system(size: 11)).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text(label.uppercased()).scaledFont(11, weight: .bold).foregroundStyle(session.themeSecondaryText)
+            Text(value).scaledFont(26, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
+            Text(sub).scaledFont(11).foregroundStyle(session.themeSecondaryText)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 20))
     }
 }

@@ -1,0 +1,52 @@
+[
+  {
+    "number": "STK-89-0140",
+    "title": "Nothing ever loads",
+    "resolution": "2026-09-03 code fix: downloaded recipe search now runs concurrently with publisher discovery and publishes coalesced early matches. Existing cards are usable while more results load; generation guards reject obsolete snapshots. Web failure cannot hide cached results. Validated with 314 local checks plus 2 live publisher checks and generic iOS-device app/extensions/test-bundle compilation; no simulator. QA-38-02/03 cover throttled publishers and stale-query regression. Physical-device verification pending; corrected client must be installed before tester verification. See QA_TICKET_FOLLOWUP.md."
+  },
+  {
+    "number": "STK-89-0141",
+    "title": "Actually does load",
+    "resolution": "2026-09-03 code fix: one search merges downloaded and website matches into the same sorted list, shows cached cards before network discovery finishes, and deduplicates canonical URLs including matches beyond the visible window. All sources use unchanged strict dietary/inventory filters. Same-title personal recipes retain distinct IDs. Validation: 314 local checks, 2 live checks, generic iOS-device app/extensions/test-bundle compile; no simulator. QA-38 covers loading, counts, source union and filter persistence. Physical-device verification pending; phone latency and memory measurements are not inferred from native checks."
+  },
+  {
+    "number": "STK-89-0142",
+    "title": "Remove options for picking where it’s searching",
+    "resolution": "2026-09-03 code fix: removed Recipe websites/Database backup choices and separate result-source headings. Direct search and quiz use one shared results flow; source websites remain credited on recipe cards. Offline/unavailable-source notices preserve honest availability without asking users to pick a database. Validation: 314 local checks, 2 live checks and generic iOS-device compilation passed; no simulator. QA-38-01 covers the unified interface. Physical-device verification pending."
+  },
+  {
+    "number": "STK-89-0135",
+    "title": "Empty",
+    "resolution": "2026-09-03 follow-up: full downloaded catalogue now participates in every unified search alongside publisher results, with early usable matches and resumable full-archive syncing. Retained earlier Jamaican/Caribbean specificity, real opt-in alternatives and strict allergen/dietary/kitchen requirements. Existing iOS f0be9d0, Mac 957f39e and deployed Worker 36e2a672-5d64-4236-87d1-eba4cc9c61b7/server priority provenance is documented in QA_TICKET_FOLLOWUP.md; no new deployment in this pass. Some exact combinations legitimately remain empty rather than fabricating tags or recipes. Current validation: 314 local checks, 2 live checks, generic iOS-device compile. QA-38/39/42 cover this flow. Physical-device verification pending, including updated Mac/iPhone/iPad clients."
+  },
+  {
+    "number": "STK-89-0009",
+    "title": "Side Drawer isn’t pulling fully in",
+    "resolution": "2026-09-03 code fix: drawer translation is gesture-scoped and resets after interrupted/cancelled gestures. Added horizontal-axis guards so vertical scrolling cannot start a partial opening; pull-tab hit width is 44 points. Kept shared motion/theme behavior. Generic iOS-device application/extensions/test-bundle compilation passed; no simulator. QA-43-01/02 explicitly exercise repeated and interrupted drawer openings while syncing and after QA filing. Physical-device verification pending on iPhone 17 Pro and Pro Max; animation/freeze recovery is not claimed from compilation alone."
+  },
+  {
+    "number": "STK-89-0008",
+    "title": "There isn’t enough contrast between the background words and size of text",
+    "resolution": "2026-09-03 code fix: Grocery row metadata, unchecked controls and quantity text no longer use faded gold/fixed low-opacity charcoal. Uses semantic text/contrast-accent tokens in both themes; item/quantity labels are larger, metadata wraps, and row actions/quantity controls have 44-point targets with a flexible inset. Generic iOS-device compile passed; no simulator. QA-43-04 covers both themes and large text. Physical-device verification pending; the historical high-memory telemetry also remains part of QA-43-08 regression testing."
+  },
+  {
+    "number": "STK-89-0007",
+    "title": "There should be filters and sort options",
+    "resolution": "2026-09-03 verified in code: unified Recipe Results has removable filter chips, Sort & Filter with all seven supported categories, count preview and nine actual-data sorts. Draft sort only applies on Apply; detail return preserves filters/sort. 126 Finder logic checks plus new merge/QA/browser checks pass; generic iOS-device XCTest bundle compiles (not executed). QA-37/38/39 now cover these features. Physical-device verification pending; no simulator used."
+  },
+  {
+    "number": "STK-89-0006",
+    "title": "This should be a “Coming Soon” feature.",
+    "resolution": "2026-09-03 confirmed requested target is Create with Stocked AI. Hub banner and Add Recipe entry are disabled and labelled Coming Soon; implementation is retained. Generic iOS-device app/extensions/test-bundle compilation passes; no simulator. QA-37-01 and QA-43-07 cover all entry points. Physical-device verification pending."
+  },
+  {
+    "number": "STK-89-0130",
+    "title": "Small image",
+    "resolution": "2026-09-03 confirmed the larger shared Home hero illustration and Stock Level artwork sizing remain applied via StockedLayoutMetrics, including phone/tablet and Dynamic Type geometry coverage in AdaptiveUIFoundationTests/MotionAlignmentTests. No unrelated Home redesign was performed. Generic iOS-device app/extensions/test-bundle compilation passed; UI tests were not executed and no simulator used. QA-43-05 covers visual confirmation on both phone sizes. Physical-device verification pending."
+  },
+  {
+    "number": "STK-3-0002",
+    "title": "Main thread blocked 4.4s on —",
+    "resolution": "2026-09-03 follow-up on recorded Cook Now classify launch stall: retained utility-executor classification, immutable revision-gated snapshots and delayed launch QA. Added true QA nudge coalescing, background cancellation, same-count edit revisions and stale-run rejection to reduce repeated classification contention. Corrected two false QA invariants (titles are not identities; explicit optional flags govern structured ingredients). 314 local checks and 2 live checks pass; generic iOS-device app/extensions/test-bundle compiles. QA-43-03/08 and QA-44-05/06 require runtime regression. Physical-device verification pending: no new phone hang/memory capture or simulator run was performed."
+  }
+]

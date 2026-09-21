@@ -29,14 +29,16 @@ struct RecipeURLImportView: View {
 
     var body: some View {
         ZStack { session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.15)).frame(width: 40, height: 4).padding(.top, 12)
                 HStack {
                     Text("Import Recipe").stocked(.headline).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 26))
+                        Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .frame(minWidth: 44, minHeight: 44)
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
@@ -44,10 +46,11 @@ struct RecipeURLImportView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "link").foregroundStyle(session.themeTextColor.opacity(0.4))
                         TextField("Paste a recipe URL…", text: $urlText)
+                            .textFieldStyle(.plain)
                             .stocked(.body).foregroundStyle(session.themeTextColor)
                             .keyboardType(.URL).autocorrectionDisabled()
                     }
-                    .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
                     .padding(.horizontal, 24)
 
                     Text("Paste any recipe URL — we'll extract the title, ingredients and steps automatically.")
@@ -62,7 +65,7 @@ struct RecipeURLImportView: View {
                                 CachedAsyncImage(url: url.absoluteString, imageData: nil, height: 64)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(r.title).stocked(.callout).foregroundStyle(session.themeTextColor).lineLimit(2)
+                                Text(r.title).stocked(.callout).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                                 Text("\(r.ingredients.count) ingredients · \(r.source)")
                                     .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
@@ -75,20 +78,22 @@ struct RecipeURLImportView: View {
                                 }
                             } label: {
                                 Image(systemName: showSaved ? "checkmark.circle.fill" : "plus.circle.fill")
-                                    .font(.system(size: 28))
+                                    .scaledFont(28)
                                     .foregroundStyle(showSaved ? Color.stockedGreen : Color.stockedGold)
                             }.buttonStyle(.plain)
                         }
-                        .padding(14).background(Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 14))
+                        .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
                         .padding(.horizontal, 24)
                     }
                     if showError { Text(errorMsg).stocked(.caption).foregroundStyle(.red).padding(.horizontal, 24) }
                 }
-                Spacer()
                 Button("Import Recipe") { Task { await doImport() } }
                     .disabled(urlText.isEmpty || loading)
-                    .padding(.horizontal, 24).padding(.bottom, 32).stockedPrimary()
+                    .stockedPrimary()
+                    .padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 20)
             }
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }.presentationDetents([.medium, .large])
     }
 
@@ -180,8 +185,9 @@ struct OCRConfirmationView: View {
                     Text("Confirm Receipt Items").stocked(.headline).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 26))
+                        Image(systemName: "xmark.circle.fill").scaledFont(26)
                             .foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .frame(minWidth: 44, minHeight: 44)
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
@@ -201,12 +207,13 @@ struct OCRConfirmationView: View {
                                     get: { edited[line] ?? translated },
                                     set: { edited[line] = $0 }
                                 ))
+                                .textFieldStyle(.plain)
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-                                .stocked(.body).foregroundStyle(inc ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.3))
+                                .stocked(.body).foregroundStyle(inc ? session.themeTextColor : session.themeSecondaryText)
                                 .strikethrough(!inc)
                                 Spacer()
                             }
-                            .padding(12).background(Color.stockedWhite.opacity(0.35)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         }
                     }.padding(.horizontal, 20)
                 }

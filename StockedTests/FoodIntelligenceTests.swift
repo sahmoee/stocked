@@ -17,7 +17,7 @@ final class FoodIntelligenceTests: XCTestCase {
     }
 
     func testMatcherRecognizesPluralAndBrandNoise() {
-        XCTAssertGreaterThan(FoodNameMatcher.score("Great Value canned tomatoes", "tomato cans"), 0.45)
+        XCTAssertGreaterThan(FoodNameMatcher.matches("Great Value canned tomatoes", "tomato cans").score, 0.45)
     }
 
     func testZoneConsensusRequiresReviewForStrongColdConflict() {

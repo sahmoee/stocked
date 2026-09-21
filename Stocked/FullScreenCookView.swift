@@ -9,6 +9,7 @@ import SwiftUI
 struct FullScreenCookView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.stockedMotion) private var motion
     let recipeTitle: String
     let steps: [String]
     @Binding var currentCard: Int
@@ -22,17 +23,17 @@ struct FullScreenCookView: View {
 
     var body: some View {
         ZStack {
-            Color.stockedCharcoal.ignoresSafeArea()
+            session.themeBgColor.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // ── Top bar ───────────────────────────────────────────
                 HStack(spacing: 12) {
                     Button { voice.stop(); dismiss() } label: {
                         Image(systemName: "arrow.down.right.and.arrow.up.left")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color.stockedWhite.opacity(0.8))
+                            .scaledFont(16, weight: .semibold)
+                            .foregroundStyle(session.themeTextColor.opacity(0.8))
                             .padding(10)
-                            .background(Color.white.opacity(0.10))
+                            .background(session.themeTextColor.opacity(0.10))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -40,22 +41,22 @@ struct FullScreenCookView: View {
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(recipeTitle)
-                            .font(.system(size: 14, weight: .bold, design: .serif))
-                            .foregroundStyle(Color.stockedWhite)
-                            .lineLimit(1)
+                            .scaledFont(14, weight: .bold, design: .serif)
+                            .foregroundStyle(session.themeTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text("Step \(min(currentCard + 1, steps.count)) of \(steps.count)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                            .scaledFont(11)
+                            .foregroundStyle(session.themeTextColor.opacity(0.55))
                     }
                     Spacer()
 
                     // Read aloud
                     Button { SpeechReader.shared.toggle(steps.indices.contains(currentCard) ? steps[currentCard] : "") } label: {
                         Image(systemName: "speaker.wave.2.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color.stockedGold)
+                            .scaledFont(15)
+                            .foregroundStyle(session.accentColor)
                             .padding(10)
-                            .background(Color.white.opacity(0.10))
+                            .background(session.themeTextColor.opacity(0.10))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -66,10 +67,10 @@ struct FullScreenCookView: View {
                         voice.toggle { handle($0) }
                     } label: {
                         Image(systemName: voice.isListening ? "mic.fill" : "mic.slash.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(voice.isListening ? Color.stockedCharcoal : Color.stockedWhite.opacity(0.7))
+                            .scaledFont(15)
+                            .foregroundStyle(voice.isListening ? Color.stockedCharcoal : session.themeTextColor.opacity(0.7))
                             .padding(10)
-                            .background(voice.isListening ? Color.stockedGold : Color.white.opacity(0.10))
+                            .background(voice.isListening ? Color.stockedGold : session.themeTextColor.opacity(0.10))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -79,84 +80,100 @@ struct FullScreenCookView: View {
 
                 if voice.isListening {
                     Text("Listening — say \"next\", \"back\", \"repeat\", or \"finish\"")
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(Color.stockedGold.opacity(0.9))
+                        .scaledFont(11.5, weight: .medium)
+                        .foregroundStyle(session.accentColor)
                         .padding(.top, 8)
                 } else if voice.authDenied {
                     Text("Voice control needs mic + speech access — enable both in Settings → Stocked.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                        .scaledFont(11)
+                        .foregroundStyle(session.themeTextColor.opacity(0.5))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24).padding(.top, 8)
                 }
 
-                Spacer()
-
                 // ── The step ──────────────────────────────────────────
-                if steps.indices.contains(currentCard) {
-                    Text(steps[currentCard])
-                        .font(.system(size: RecipeTextPrefs.shared.scaled(26), weight: .medium, design: .serif))
-                        .foregroundStyle(Color.stockedWhite)
-                        .multilineTextAlignment(.center)
-                        .minimumScaleFactor(0.5)
-                        .padding(.horizontal, 28)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .id(currentCard)
-                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
-                                                removal: .move(edge: .leading).combined(with: .opacity)))
-                        .offset(x: dragOffset.width)
-                        .gesture(DragGesture()
-                            .onChanged { dragOffset = $0.translation }
-                            .onEnded { v in
-                                withAnimation(.spring(response: 0.3)) {
-                                    if v.translation.width < -60 { goNext() }
-                                    else if v.translation.width > 60 { goBack() }
-                                    dragOffset = .zero
-                                }
-                            })
+                GeometryReader { bounds in
+                    ScrollView {
+                        if steps.indices.contains(currentCard) {
+                            Text(steps[currentCard])
+                                .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(26), weight: .medium, design: .serif))
+                                .foregroundStyle(session.themeTextColor)
+                                .multilineTextAlignment(.center)
+
+                                .padding(.horizontal, 28)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, minHeight: bounds.size.height)
+                                .id(currentCard)
+                                .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
+                                                        removal: .move(edge: .leading).combined(with: .opacity)))
+                                .offset(x: dragOffset.width)
+                                .gesture(DragGesture()
+                                    .onChanged { dragOffset = $0.translation }
+                                    .onEnded { v in
+                                        let projectedX = v.predictedEndTranslation.width
+                                        let target = StockedVelocitySnapPolicy().targetIndex(
+                                            currentIndex: currentCard,
+                                            currentOffset: CGFloat(currentCard) * 200 - projectedX,
+                                            itemExtent: 200,
+                                            velocity: 0,
+                                            itemCount: steps.count
+                                        )
+                                        motion.animate(.settle, intent: .spatial) {
+                                            if target > currentCard { completedSteps.insert(currentCard) }
+                                            currentCard = target
+                                            dragOffset = .zero
+                                        }
+                                    })
+                        }
+                    }
+                    .stockedSizeAwareScrollBounce([.vertical])
                 }
 
-                Spacer()
-
                 // Dot indicators
-                HStack(spacing: 7) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                  HStack(spacing: 7) {
                     ForEach(steps.indices, id: \.self) { i in
                         Circle()
                             .fill(i == currentCard ? Color.stockedGold
                                   : (completedSteps.contains(i) ? Color.stockedGold.opacity(0.45)
-                                     : Color.white.opacity(0.25)))
+                                     : session.themeTextColor.opacity(0.25)))
                             .frame(width: i == currentCard ? 10 : 7, height: i == currentCard ? 10 : 7)
-                            .animation(.spring(response: 0.25), value: currentCard)
+                            .stockedAnimation(.selection, intent: .spatial, value: currentCard)
                     }
+                  }
+                  .frame(minWidth: 0, maxWidth: .infinity)
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 20)
 
                 // ── Nav + finish ──────────────────────────────────────
                 HStack(spacing: 16) {
-                    Button { withAnimation(.spring(response: 0.3)) { goBack() } } label: {
+                    Button { motion.animate(.selection, intent: .spatial) { goBack() } } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(currentCard == 0 ? Color.white.opacity(0.25) : Color.stockedWhite)
-                            .frame(width: 64, height: 56)
-                            .background(Color.white.opacity(0.10))
+                            .scaledFont(22, weight: .bold)
+                            .foregroundStyle(currentCard == 0 ? session.themeTextColor.opacity(0.25) : session.themeTextColor)
+                            .frame(minWidth: 56, minHeight: 56)
+                            .background(session.themeTextColor.opacity(0.10))
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                     }
                     .buttonStyle(.plain)
                     .disabled(currentCard == 0)
 
                     Button {
-                        if atEnd { finishNow() } else { withAnimation(.spring(response: 0.3)) { goNext() } }
+                        if atEnd { finishNow() }
+                        else { motion.animate(.selection, intent: .spatial) { goNext() } }
                     } label: {
                         HStack(spacing: 8) {
                             Text(atEnd ? "Finish Cooking" : "Next Step")
-                                .font(.system(size: 17, weight: .semibold, design: .serif))
+                                .scaledFont(17, weight: .semibold, design: .serif)
                             Image(systemName: atEnd ? "flag.fill" : "chevron.right")
-                                .font(.system(size: 15, weight: .bold))
+                                .scaledFont(15, weight: .bold)
                         }
-                        .foregroundStyle(atEnd ? Color.stockedCharcoal : Color.stockedWhite)
+                        .foregroundStyle(atEnd ? Color.stockedCharcoal : session.themeTextColor)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(atEnd ? Color.stockedGold : Color.white.opacity(0.14))
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 56)
+                        .background(atEnd ? Color.stockedGold : session.themeTextColor.opacity(0.14))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                     }
                     .buttonStyle(.plain)
@@ -187,7 +204,7 @@ struct FullScreenCookView: View {
     }
 
     private func handle(_ command: VoiceCookCommand) {
-        withAnimation(.spring(response: 0.3)) {
+        motion.animate(.selection, intent: .spatial) {
             switch command {
             case .next:       atEnd ? finishNow() : goNext()
             case .back:       goBack()

@@ -37,59 +37,61 @@ struct PlannedMealCookTransitionView: View {
         NavigationStack {
             ZStack {
                 session.themeBgColor.ignoresSafeArea()
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    VStack(spacing: 10) {
-                        // Cook ahead leads when the meal is planned for a future day.
-                        if isFuture {
-                            choice(icon: "clock.arrow.circlepath", title: "Cook Ahead Now",
-                                   subtitle: "Cook it early — it stays on \(dayLabel(meal.dayIndex))'s plan and moves to Finish & Serve.",
-                                   primary: true) {
-                                store.setCookAheadStatus(.cookingEarly, for: meal.id)
-                                dismiss(); onCookAhead(meal)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        VStack(spacing: 10) {
+                            // Cook ahead leads when the meal is planned for a future day.
+                            if isFuture {
+                                choice(icon: "clock.arrow.circlepath", title: "Cook Ahead Now",
+                                       subtitle: "Cook it early — it stays on \(dayLabel(meal.dayIndex))'s plan and moves to Finish & Serve.",
+                                       primary: true) {
+                                    store.setCookAheadStatus(.cookingEarly, for: meal.id)
+                                    dismiss(); onCookAhead(meal)
+                                }
+                                choice(icon: "flame", title: "Start Cooking (serve now)",
+                                       subtitle: "Cook and eat now instead of \(dayLabel(meal.dayIndex)).", primary: false) {
+                                    dismiss(); onStartCooking(meal)
+                                }
+                            } else {
+                                choice(icon: "flame", title: "Start Cooking",
+                                       subtitle: "Cook it now for \(meal.mealType.lowercased()).", primary: true) {
+                                    dismiss(); onStartCooking(meal)
+                                }
+                                choice(icon: "clock.arrow.circlepath", title: "Cook Ahead",
+                                       subtitle: "Cook now, cool and store, finish at meal time.", primary: false) {
+                                    store.setCookAheadStatus(.cookingEarly, for: meal.id)
+                                    dismiss(); onCookAhead(meal)
+                                }
                             }
-                            choice(icon: "flame", title: "Start Cooking (serve now)",
-                                   subtitle: "Cook and eat now instead of \(dayLabel(meal.dayIndex)).", primary: false) {
-                                dismiss(); onStartCooking(meal)
-                            }
-                        } else {
-                            choice(icon: "flame", title: "Start Cooking",
-                                   subtitle: "Cook it now for \(meal.mealType.lowercased()).", primary: true) {
-                                dismiss(); onStartCooking(meal)
-                            }
-                            choice(icon: "clock.arrow.circlepath", title: "Cook Ahead",
-                                   subtitle: "Cook now, cool and store, finish at meal time.", primary: false) {
-                                store.setCookAheadStatus(.cookingEarly, for: meal.id)
-                                dismiss(); onCookAhead(meal)
+                            choice(icon: "list.bullet.clipboard", title: "Prep Only",
+                                   subtitle: "Just get the ingredients ready for later.", primary: false) {
+                                store.setCookAheadStatus(.prepped, for: meal.id)
+                                dismiss(); onPrepOnly(meal)
                             }
                         }
-                        choice(icon: "list.bullet.clipboard", title: "Prep Only",
-                               subtitle: "Just get the ingredients ready for later.", primary: false) {
-                            store.setCookAheadStatus(.prepped, for: meal.id)
-                            dismiss(); onPrepOnly(meal)
-                        }
+                        Text("However you cook it, the meal keeps its place on your plan until you serve it.")
+                            .scaledFont(11.5)
+                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 4)
                     }
-                    Text("However you cook it, the meal keeps its place on your plan until you serve it.")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 4)
-                    Spacer()
+                    .padding(20)
                 }
-                .padding(20)
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+        .stockedPresentationSurface(width: .form)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(meal.title)
-                .font(.system(size: 20, weight: .bold, design: .serif))
+                .scaledFont(20, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("Planned for \(dayLabel(meal.dayIndex)) · \(meal.mealType)")
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(12.5, weight: .semibold)
                 .foregroundStyle(Color.stockedGold)
         }
     }
@@ -104,19 +106,19 @@ struct PlannedMealCookTransitionView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(primary ? Color.stockedGold.opacity(0.2) : Color.stockedGold.opacity(0.1))
                         .frame(width: 40, height: 40)
-                    Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.stockedGold)
+                    Image(systemName: icon).scaledFont(16, weight: .semibold).foregroundStyle(Color.stockedGold)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(session.themeTextColor.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(session.themeTextColor.opacity(0.3))
+                Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)

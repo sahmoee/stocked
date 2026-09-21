@@ -116,17 +116,17 @@ struct QACheckTicketSheet: View {
             Form {
                 Section {
                     Text(item.text)
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .fixedSize(horizontal: false, vertical: true)
                 } header: {
                     HStack(spacing: 6) {
                         Text(item.ticket)
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .scaledFont(9, weight: .bold, design: .monospaced)
                         if item.blocker {
-                            Text("BLOCKER").font(.system(size: 9, weight: .bold)).foregroundStyle(.red)
+                            Text("BLOCKER").scaledFont(9, weight: .bold).foregroundStyle(.red)
                         }
                         Text("· \(verdict.rawValue.uppercased())")
-                            .font(.system(size: 9, weight: .bold))
+                            .scaledFont(9, weight: .bold)
                             .foregroundStyle(verdict.color)
                     }
                 }
@@ -134,7 +134,7 @@ struct QACheckTicketSheet: View {
                 Section {
                     TextField("What you did, what you expected, what happened",
                               text: $note, axis: .vertical)
-                        .lineLimit(4...10)
+                        .lineLimit(4...)
                 } header: {
                     Text("Detail")
                 } footer: {

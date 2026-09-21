@@ -113,15 +113,28 @@ nonisolated enum MeasureParser {
         // Separate any vulgar fraction glued to a digit ("1½" → "1 ½") so tokenizing works.
         s = spaceOutFractions(s)
         // European decimals: "1,5 kg". Only when a digit sits on both sides, so "salt, pepper" is safe.
-        s = s.replacingOccurrences(of: #"(?<=\d),(?=\d)"#, with: ".", options: .regularExpression)
+        // This parser runs while the shared recipe search index is rebuilt. Compiling a
+        // look-behind regex for every ingredient made large syncs appear to freeze the app.
+        // A single linear pass is both more precise and dramatically cheaper.
+        s = normalizeDecimalCommas(s)
 
         var tokens = s.split(separator: " ").map(String.init).filter { !$0.isEmpty }
         var amount: Double? = nil
 
+        // A compact range is a single token ("2-3"), so split it before the regular
+        // numeric path. Keep the conservative lower bound and discard the upper bound.
+        if let first = tokens.first {
+            let rangeParts = first.split(omittingEmptySubsequences: true, whereSeparator: { $0 == "-" || $0 == "–" })
+            if rangeParts.count == 2, let low = number(String(rangeParts[0])), number(String(rangeParts[1])) != nil {
+                amount = low
+                tokens.removeFirst()
+            }
+        }
+
         // ── Amount: consume leading numeric tokens ───────────────────────────
         // Handles "2", "1/2", "½", "1 1/2", "1 ½", and ranges "2-3" / "2 to 3" (takes the low end —
         // under-buying is recoverable, over-scaling a recipe is not).
-        if let first = tokens.first, let n = number(first) {
+        if amount == nil, let first = tokens.first, let n = number(first) {
             var total = n
             tokens.removeFirst()
             // A whole number followed by a bare fraction is one mixed number.
@@ -206,6 +219,22 @@ nonisolated enum MeasureParser {
         return out
     }
 
+    private static func normalizeDecimalCommas(_ input: String) -> String {
+        var output = ""
+        output.reserveCapacity(input.utf8.count)
+        var index = input.startIndex
+        var previousIsDigit = false
+        while index < input.endIndex {
+            let character = input[index]
+            let next = input.index(after: index)
+            let nextIsDigit = next < input.endIndex && input[next].isNumber
+            output.append(character == "," && previousIsDigit && nextIsDigit ? "." : character)
+            previousIsDigit = character.isNumber
+            index = next
+        }
+        return output
+    }
+
     /// Decimal back to the nicest readable form: 1.5 → "1½", 0.25 → "¼", 2.0 → "2".
     static func pretty(_ value: Double) -> String {
         guard value > 0 else { return "0" }
@@ -219,9 +248,10 @@ nonisolated enum MeasureParser {
             return whole == 0 ? hit.1 : "\(Int(whole))\(hit.1)"
         }
         if frac < 0.02 { return String(Int(whole)) }
-        return String(format: "%.2f", value)
-            .replacingOccurrences(of: #"0+$"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"\.$"#, with: "", options: .regularExpression)
+        var rendered = String(format: "%.2f", value)
+        while rendered.last == "0" { rendered.removeLast() }
+        if rendered.last == "." { rendered.removeLast() }
+        return rendered
     }
 
     // ── Conversion ───────────────────────────────────────────────────────────

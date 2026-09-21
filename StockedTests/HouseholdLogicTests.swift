@@ -40,7 +40,7 @@ final class HouseholdLogicTests: XCTestCase {
 
     // MARK: Shelf-life estimation (#9)
 
-    func testShelfLifeKeywordBeatsZone() {
+    @MainActor func testShelfLifeKeywordBeatsZone() {
         let store = GuestDataStore()
         let base = Date(timeIntervalSince1970: 1_000_000)
         // "milk" keyword → 7 days, regardless of zone.
@@ -48,12 +48,12 @@ final class HouseholdLogicTests: XCTestCase {
         XCTAssertEqual(milk, Calendar.current.date(byAdding: .day, value: 7, to: base))
     }
 
-    func testShelfStablePantryHasNoExpiry() {
+    @MainActor func testShelfStablePantryHasNoExpiry() {
         let store = GuestDataStore()
         XCTAssertNil(store.estimatedUseBy(forName: "Canned Beans", zone: "Pantry"))
     }
 
-    func testFridgeFallbackWhenNoKeyword() {
+    @MainActor func testFridgeFallbackWhenNoKeyword() {
         let store = GuestDataStore()
         let base = Date(timeIntervalSince1970: 2_000_000)
         let unknown = store.estimatedUseBy(forName: "Mystery Dish", zone: "Fridge", from: base)

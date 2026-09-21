@@ -56,7 +56,7 @@ final class QAAccessGate {
 
     /// Case-insensitive. Kept here rather than in the view so there is exactly
     /// one copy of it in the app.
-    private static let code = "Joo"
+    private static let code = "6352"
 
     /// Backing store is `UserDefaults`, but reads go through these mirrored
     /// properties so `@Observable` can see them change. Writing both in the same

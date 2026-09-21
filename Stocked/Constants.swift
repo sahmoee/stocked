@@ -53,7 +53,9 @@ enum StockedAPI {
     static let mealByID     = "\(mealDBBase)/lookup.php?i="
     static let openFoodFacts = "https://world.openfoodfacts.org/api/v0/product"
     static let anthropicMessages = "https://api.anthropic.com/v1/messages"
-    static let anthropicModel    = "claude-sonnet-4-20250514"
+    // Legacy direct-call fallback only. Normal AI traffic is owned by the
+    // Unified Worker, which also enforces the lowest-credit-first policy.
+    static let anthropicModel    = "claude-haiku-4-5-20251001"
 }
 
 enum StockedUI {
@@ -67,7 +69,7 @@ enum StockedUI {
     static let offlineCacheLimit        = 100
     static let undoToastDuration        = 4.0
     static let skeletonRows             = 4
-    static let scrollBottomPad: CGFloat  = 120  // safe clearance below scroll content
+    static let scrollBottomPad: CGFloat  = 20   // navigation reserves its own space outside page content
     static let navHeight:        CGFloat  = 68   // global bottom navigation height
 }
 

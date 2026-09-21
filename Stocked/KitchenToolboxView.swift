@@ -21,6 +21,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
     case duplicates, achievements, pantryAudit
     // New tools (overall improvements #5, #9, #10/#11, #13)
     case savings, reorder, activity, shelfScan
+    case kitchenMath
 
     var id: String { rawValue }
 
@@ -69,6 +70,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .reorder:          return "Reorder Soon"
         case .activity:         return "Household Activity"
         case .shelfScan:        return "Scan a Shelf"
+        case .kitchenMath:      return "Kitchen Math"
         }
     }
 
@@ -117,6 +119,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .reorder:          return "Staples you're about to run out of"
         case .activity:         return "Recent changes and sync status"
         case .shelfScan:        return "Add items from a photo of a shelf"
+        case .kitchenMath:      return "Prices, packages, pan sizes, dough and portions"
         }
     }
 
@@ -165,6 +168,7 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
         case .reorder:          return "arrow.clockwise.circle"
         case .activity:         return "clock.arrow.circlepath"
         case .shelfScan:        return "camera.viewfinder"
+        case .kitchenMath:      return "function"
         }
     }
 
@@ -194,10 +198,17 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
             return "Housekeeping"
         case .reorder:
             return "Planning"
+        case .kitchenMath:
+            return "Reference"
         }
     }
 
     static let categoryOrder = ["Insights", "Planning", "Cooking", "Reference", "Housekeeping"]
+
+    var searchText: String {
+        let calculations = self == .kitchenMath ? KitchenMathTool.allCases.map { $0.title + " " + $0.subtitle }.joined(separator: " ") : ""
+        return [title, subtitle, category, calculations].joined(separator: " ")
+    }
 }
 
 // MARK: - Hub view
@@ -205,15 +216,16 @@ nonisolated enum ToolboxTool: String, CaseIterable, Identifiable {
 struct KitchenToolboxView: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var search = ""
     /// Improvement #4 — usage-based ranking, pinning, and a Recent row.
     private let usage = ToolboxUsageStore.shared
 
     private var filtered: [ToolboxTool] {
-        let q = search.trimmingCharacters(in: .whitespaces)
+        let q = search.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return ToolboxTool.allCases }
         return ToolboxTool.allCases.filter {
-            FuzzyMatch.matches(q, $0.title) || $0.subtitle.localizedCaseInsensitiveContains(q)
+            FuzzyMatch.matches(q, $0.title) || $0.searchText.localizedStandardContains(q)
         }
     }
 
@@ -230,7 +242,7 @@ struct KitchenToolboxView: View {
     /// Pinned + recently used, shown above everything else. Hidden while searching (the search
     /// results ARE the answer then) and until there's any history to show.
     private var quickAccess: [(label: String, tools: [ToolboxTool])] {
-        guard search.trimmingCharacters(in: .whitespaces).isEmpty, usage.hasHistory else { return [] }
+        guard search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, usage.hasHistory else { return [] }
         var out: [(String, [ToolboxTool])] = []
         let favs = usage.favorites
         if !favs.isEmpty { out.append(("Pinned", favs)) }
@@ -242,10 +254,18 @@ struct KitchenToolboxView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 10) {
+                StockedSearchField(text: $search, prompt: "Search tools or categories")
+                Text(search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                     ? "\(ToolboxTool.allCases.count) tools · Pin the ones you reach for most."
+                     : "\(filtered.count) matching \(filtered.count == 1 ? "tool" : "tools")")
+                    .font(.stocked(.subheadline))
+                    .foregroundStyle(session.themeSecondaryText)
                 if grouped.isEmpty {
                     ToolboxEmptyState(icon: "magnifyingglass",
                                       title: "No tools match",
                                       message: "Try a different search — every tool is listed by name and what it does.")
+                    Button("Show all tools") { search = "" }
+                        .buttonStyle(StockedSecondaryButtonStyle())
                 }
                 ForEach(quickAccess, id: \.label) { group in
                     ToolboxSectionLabel(text: group.label)
@@ -257,12 +277,14 @@ struct KitchenToolboxView: View {
                 }
             }
             .padding(.horizontal, 18)
-            .padding(.bottom, 24)
+            .padding(.vertical, 12)
+            .frame(maxWidth: layoutMetrics.readableContentWidth, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
         .stockedScreen()
         .navigationTitle("Kitchen Toolbox")
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $search, prompt: "Search tools")
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") { dismiss() }
@@ -277,31 +299,43 @@ struct KitchenToolboxView: View {
     /// One grid, used by both the quick-access rows and the category sections.
     @ViewBuilder
     private func toolGrid(_ tools: [ToolboxTool]) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                  spacing: 10) {
-            ForEach(tools) { tool in
-                NavigationLink(value: tool) {
-                    ToolboxTile(tool: tool, isFavorite: usage.isFavorite(tool))
-                }
-                .buttonStyle(.plain)
-                .simultaneousGesture(TapGesture().onEnded {
-                    HapticManager.light()
-                    usage.recordOpen(tool)
-                })
-                .contextMenu {
+        StockedEqualHeightGrid(items: tools, columns: layoutMetrics.contentWidth < 360 ? 1 : (layoutMetrics.contentWidth >= 700 ? 3 : 2), spacing: 12) { tool in
+                ZStack(alignment: .topTrailing) {
+                    NavigationLink(value: tool) {
+                        ToolboxTile(tool: tool, isFavorite: usage.isFavorite(tool))
+                    }
+                    .buttonStyle(PressableStyle(scale: 0.98))
+                    .simultaneousGesture(TapGesture().onEnded {
+                        HapticManager.light()
+                        usage.recordOpen(tool)
+                    })
+                    .contextMenu {
+                        Button {
+                            usage.toggleFavorite(tool)
+                        } label: {
+                            Label(usage.isFavorite(tool) ? "Unpin" : "Pin to top",
+                                  systemImage: usage.isFavorite(tool) ? "pin.slash" : "pin")
+                        }
+                    }
                     Button {
                         usage.toggleFavorite(tool)
                     } label: {
-                        Label(usage.isFavorite(tool) ? "Unpin" : "Pin to top",
-                              systemImage: usage.isFavorite(tool) ? "pin.slash" : "pin")
+                        Image(systemName: usage.isFavorite(tool) ? "pin.fill" : "pin")
+                            .font(.stocked(.subheadline))
+                            .foregroundStyle(session.accentColor)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(usage.isFavorite(tool) ? "Unpin" : "Pin") \(tool.title)")
+                    .accessibilityValue(usage.isFavorite(tool) ? "Pinned" : "Not pinned")
+                    .padding(6)
                 }
-            }
         }
     }
 
     @ViewBuilder
-    private func destination(for tool: ToolboxTool) -> some View {
+    func destination(for tool: ToolboxTool) -> some View {
         switch tool {
         case .pantryValue:      PantryValueView()
         case .expiryCalendar:   ExpiryCalendarView()
@@ -346,6 +380,7 @@ struct KitchenToolboxView: View {
         case .reorder:          ReorderSoonView()
         case .activity:         KitchenActivityView()
         case .shelfScan:        ShelfScanView()
+        case .kitchenMath:      KitchenMathView()
         }
     }
 }
@@ -354,6 +389,7 @@ struct KitchenToolboxView: View {
 
 private struct ToolboxTile: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.colorSchemeContrast) private var contrast
     let tool: ToolboxTool
     var isFavorite: Bool = false
 
@@ -361,38 +397,37 @@ private struct ToolboxTile: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 0) {
                 Image(systemName: tool.icon)
-                    .font(.system(size: 20, weight: .medium))
+                    .scaledFont(20, weight: .medium)
                     .foregroundStyle(session.accentColor)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(session.accentColor.opacity(session.isDarkMode ? 0.16 : 0.12)))
                 Spacer(minLength: 0)
-                if isFavorite {
-                    Image(systemName: "pin.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(session.accentColor.opacity(0.7))
-                        .padding(.top, 2)
-                }
+                // Space for the separate, accessible pin control; never overlap the title.
+                Color.clear.frame(width: 44, height: 34).accessibilityHidden(true)
             }
             Text(tool.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.stocked(.headline))
                 .foregroundStyle(session.themeTextColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+
             Text(tool.subtitle)
-                .font(.system(size: 11))
+                .font(.stocked(.subheadline))
                 .foregroundStyle(session.themeSecondaryText)
-                .lineLimit(2, reservesSpace: true)
+                .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(session.themeCardColor)
         )
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(session.themeTextColor.opacity(contrast == .increased ? 0.65 : 0.1), lineWidth: contrast == .increased ? 2 : 1))
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(tool.title)
+        .accessibilityValue(isFavorite ? "Pinned tool" : "")
         .accessibilityHint(tool.subtitle)
     }
 }

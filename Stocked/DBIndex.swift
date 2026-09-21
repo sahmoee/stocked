@@ -17,7 +17,7 @@ import Foundation
 // rule is used to build an index and to query it. Diacritic folding makes "jalapeño" and
 // "jalapeno" match.
 
-enum DBNormalize {
+nonisolated enum DBNormalize {
     static func key(_ s: String) -> String {
         s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
          .trimmingCharacters(in: .whitespacesAndNewlines)

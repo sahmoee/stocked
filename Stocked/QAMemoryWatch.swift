@@ -266,15 +266,15 @@ struct QAMemoryWatchView: View {
             Section {
                 HStack(spacing: 10) {
                     Image(systemName: watch.shape.symbol)
-                        .font(.title3)
+                        .font(.stocked(.title3))
                         .foregroundStyle(watch.shape.tint)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(watch.shape.title).font(.system(size: 15, weight: .semibold))
-                        Text(watch.spanText).font(.caption2).foregroundStyle(.secondary)
+                        Text(watch.shape.title).scaledFont(15, weight: .semibold)
+                        Text(watch.spanText).font(.stocked(.caption2)).foregroundStyle(.secondary)
                     }
                 }
                 Text(watch.verdict)
-                    .font(.caption)
+                    .font(.stocked(.caption))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } header: {
@@ -306,9 +306,9 @@ struct QAMemoryWatchView: View {
                 Section {
                     ForEach(watch.suspects) { s in
                         HStack {
-                            Text(s.screen).font(.system(size: 13))
+                            Text(s.screen).scaledFont(13)
                             Spacer()
-                            Text("\(s.count)×").font(.caption).foregroundStyle(.secondary)
+                            Text("\(s.count)×").font(.stocked(.caption)).foregroundStyle(.secondary)
                         }
                     }
                 } header: {
@@ -333,7 +333,7 @@ struct QAMemoryWatchView: View {
                     Label("Reset series", systemImage: "arrow.counterclockwise")
                 }
                 if !filed.isEmpty {
-                    Text(filed).font(.caption).foregroundStyle(Color.stockedGreen)
+                    Text(filed).font(.stocked(.caption)).foregroundStyle(Color.stockedGreen)
                 }
             }
         }
@@ -344,10 +344,10 @@ struct QAMemoryWatchView: View {
 
     private func numberRow(_ label: String, _ value: String) -> some View {
         HStack {
-            Text(label).font(.system(size: 13))
+            Text(label).scaledFont(13)
             Spacer()
             Text(value)
-                .font(.system(size: 13, design: .monospaced))
+                .scaledFont(13, design: .monospaced)
                 .foregroundStyle(.secondary)
         }
     }
@@ -384,7 +384,7 @@ private struct QAMemorySparkline: View {
                     Spacer()
                     Text(String(format: "%.0f MB", lo))
                 }
-                .font(.system(size: 9, design: .monospaced))
+                .scaledFont(9, design: .monospaced)
                 .foregroundStyle(.tertiary)
             }
         }

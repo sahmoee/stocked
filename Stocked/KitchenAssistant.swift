@@ -132,23 +132,23 @@ struct KitchenAssistantView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     if thread.isEmpty {
                         Text("Ask about your kitchen")
-                            .font(.system(size: 20, weight: .bold, design: .serif))
+                            .scaledFont(20, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Answers come straight from your inventory — instant, and always accurate.")
-                            .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                     }
                     ForEach(thread) { a in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(a.question)
-                                .font(.system(size: 13, weight: .semibold))
+                                .scaledFont(13, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                             Text(a.text)
-                                .font(.system(size: 15, weight: .medium))
+                                .scaledFont(15, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
                             ForEach(Array(a.items.enumerated()), id: \.offset) { _, line in
                                 HStack(spacing: 8) {
                                     Circle().fill(session.accentColor).frame(width: 5, height: 5)
-                                    Text(line).font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.85))
+                                    Text(line).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.85))
                                 }
                             }
                         }
@@ -159,7 +159,7 @@ struct KitchenAssistantView: View {
                     }
                     if unmatched {
                         Text("I can answer questions about what you have, what's expiring, and what's in each zone.")
-                            .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
                     }
                 }
                 .padding(18)
@@ -170,15 +170,18 @@ struct KitchenAssistantView: View {
                 HStack(spacing: 8) {
                     ForEach(suggestions, id: \.self) { s in
                         Button { ask(s) } label: {
-                            Text(s).font(.system(size: 12, weight: .medium))
+                            Text(s).scaledFont(12, weight: .medium)
                                 .padding(.horizontal, 12).padding(.vertical, 7)
                                 .background(session.accentColor.opacity(0.14))
                                 .foregroundStyle(session.accentColor)
                                 .clipShape(Capsule())
                         }.buttonStyle(.plain)
                     }
-                }.padding(.horizontal, 18)
+                }
+                .stockedScrollTargetLayout()
+                .padding(.horizontal, 18)
             }
+            .stockedHorizontalSnap()
             .padding(.bottom, 8)
 
             HStack(spacing: 10) {
@@ -190,7 +193,7 @@ struct KitchenAssistantView: View {
                     .onSubmit { ask(input) }
                 Button { ask(input) } label: {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28)).foregroundStyle(session.accentColor)
+                        .scaledFont(28).foregroundStyle(session.accentColor)
                 }
                 .buttonStyle(.plain)
                 .disabled(input.trimmingCharacters(in: .whitespaces).isEmpty)

@@ -1,5 +1,5 @@
 import UIKit
-import Vision
+@preconcurrency import Vision
 
 /// On device Vision OCR helper that pairs with DocumentScannerView.
 /// Returns recognized lines in top to bottom reading order.

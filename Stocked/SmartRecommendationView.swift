@@ -40,6 +40,7 @@ struct SmartRecommendationView: View {
     let mode: Mode
     @Environment(AppSession.self) var session
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
+    @Environment(\.stockedMotion) private var motion
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool { session.isDarkMode }
 
@@ -51,10 +52,12 @@ struct SmartRecommendationView: View {
     @State private var goRefreshKitchen = false
     @State private var goMood = false
     @State private var loading = true
+    @State private var recommendationTask: Task<Void, Never>?
 
     var body: some View {
-        StockedShell(showBack: true, titleText: "Tonight's Pick") {
-            VStack(alignment: .leading, spacing: 16) {
+        NavigationStack {
+            StockedShell(showBack: true, titleText: "Tonight's Pick") {
+                VStack(alignment: .leading, spacing: 16) {
                 contextLine
 
                 if loading {
@@ -67,19 +70,22 @@ struct SmartRecommendationView: View {
                     noMatchState
                 }
 
-                Spacer(minLength: 20)
             }
-            .navigationDestination(isPresented: $goRecipe) {
-                if let pick { UserRecipeDetailView(recipe: pick.recipe) }
+                .navigationDestination(isPresented: $goRecipe) {
+                    if let pick { UserRecipeDetailView(recipe: pick.recipe) }
+                }
+                .navigationDestination(isPresented: $goAll) {
+                    CookNowResultsView(focus: .readyFirst)
+                }
+                .navigationDestination(isPresented: $goRefreshKitchen) { RefreshKitchenView() }
+                .navigationDestination(isPresented: $goMood) { MatchMyMoodFlowView() }
             }
-            .navigationDestination(isPresented: $goAll) {
-                CookNowResultsView(focus: .readyFirst)
-            }
-            .navigationDestination(isPresented: $goRefreshKitchen) { RefreshKitchenView() }
-            .navigationDestination(isPresented: $goMood) { MatchMyMoodFlowView() }
         }
         .task { recommend(excludingCurrent: false) }
         .onChange(of: store.inventoryRevision) { _, _ in recommend(excludingCurrent: false) }
+        .onChange(of: store.recipeRevision) { _, _ in recommend(excludingCurrent: false) }
+        .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recommend(excludingCurrent: false) }
+        .onDisappear { recommendationTask?.cancel() }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
             goRecipe = false; goAll = false; goRefreshKitchen = false; goMood = false
         }
@@ -88,11 +94,17 @@ struct SmartRecommendationView: View {
     // MARK: Recommendation
 
     private func recommend(excludingCurrent: Bool) {
+        recommendationTask?.cancel()
+        recommendationTask = Task { await computeRecommendation(excludingCurrent: excludingCurrent) }
+    }
+
+    private func computeRecommendation(excludingCurrent: Bool) async {
         loading = candidates.isEmpty
         if case .ingredient(let ing) = mode { cookSession?.selectedIngredient = ing }
 
-        var pool = CookNowCompute.run(store: store, session: cookSession).classified
-            .filter(\.isActionableCookNowOption)
+        guard let snapshot = await CookNowCompute.runYielding(store: store, session: cookSession),
+              !Task.isCancelled else { return }
+        var pool = snapshot.classified.filter(\.isActionableCookNowOption)
 
         // Scope by the chosen ingredient: the recipe must actually use it.
         if case .ingredient(let ing) = mode {
@@ -127,8 +139,13 @@ struct SmartRecommendationView: View {
             return s
         }
 
+        // Score once per candidate instead of repeating ingredient matching and
+        // profile scans for both sides of every sort comparison.
+        let scores = Dictionary(pool.map { ($0.id, score($0)) }, uniquingKeysWith: { first, _ in first })
         var ranked = pool.sorted {
-            $0.readiness == $1.readiness ? score($0) > score($1) : $0.readiness < $1.readiness
+            if $0.readiness != $1.readiness { return $0.readiness < $1.readiness }
+            let lhs = scores[$0.id, default: 0], rhs = scores[$1.id, default: 0]
+            return lhs == rhs ? $0.id.uuidString < $1.id.uuidString : lhs > rhs
         }
 
         // Surprise keeps the same intelligence but shuffles within the best
@@ -163,7 +180,7 @@ struct SmartRecommendationView: View {
             let next = ranked.first { $0.recipe.id != current.recipe.id }
             if let next {
                 exhausted = false
-                withAnimation(.spring(response: 0.3)) { pick = next }
+                motion.animate(.standard, intent: .spatial) { pick = next }
             } else {
                 exhausted = true    // intentional strongest-match state
             }
@@ -194,7 +211,7 @@ struct SmartRecommendationView: View {
                 Label("Best pick for you", systemImage: "sparkles")
             }
         }
-        .font(.system(size: 13, weight: .semibold))
+        .scaledFont(13, weight: .semibold)
         .foregroundStyle(Color.stockedGold)
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
     }
@@ -208,13 +225,13 @@ struct SmartRecommendationView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(c.recipe.title)
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 if !c.recipe.description.isEmpty {
                     Text(c.recipe.description)
-                        .font(.system(size: 13))
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
-                        .lineLimit(2)
+                        .scaledFont(13)
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 HStack(spacing: 14) {
@@ -226,7 +243,7 @@ struct SmartRecommendationView: View {
                         Label(c.recipe.difficulty, systemImage: "flame")
                     }
                 }
-                .font(.system(size: 12.5))
+                .scaledFont(12.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.65))
 
                 readinessLine(c)
@@ -243,13 +260,13 @@ struct SmartRecommendationView: View {
     private var servingControl: some View {
         HStack(spacing: 6) {
             Button { adjustServings(-1) } label: {
-                Image(systemName: "minus.circle").font(.system(size: 14))
+                Image(systemName: "minus.circle").scaledFont(14)
             }.buttonStyle(.plain)
             Text("Serves \(cookSession?.servings ?? max(1, store.cookingProfile.householdSize))")
-                .font(.system(size: 12.5, weight: .semibold))
+                .scaledFont(12.5, weight: .semibold)
                 .contentTransition(.numericText())
             Button { adjustServings(+1) } label: {
-                Image(systemName: "plus.circle").font(.system(size: 14))
+                Image(systemName: "plus.circle").scaledFont(14)
             }.buttonStyle(.plain)
         }
         .foregroundStyle(Color.stockedGold)
@@ -259,7 +276,7 @@ struct SmartRecommendationView: View {
 
     private func adjustServings(_ delta: Int) {
         guard let cs = cookSession else { return }
-        withAnimation(.spring(response: 0.25)) { cs.setServings(cs.servings + delta) }
+        motion.animate(.selection, intent: .spatial) { cs.setServings(cs.servings + delta) }
         HapticManager.select()
     }
 
@@ -285,8 +302,8 @@ struct SmartRecommendationView: View {
             }
         }()
         return HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-            Text(text).font(.system(size: 12.5, weight: .semibold))
+            Image(systemName: icon).scaledFont(13, weight: .semibold)
+            Text(text).scaledFont(12.5, weight: .semibold)
         }
         .foregroundStyle(color)
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -304,16 +321,16 @@ struct SmartRecommendationView: View {
             if !reasons.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Why we picked this")
-                        .font(.system(size: 14, weight: .bold, design: .serif))
+                        .scaledFont(14, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     ForEach(reasons, id: \.self) { r in
                         HStack(spacing: 8) {
                             Image(systemName: "sparkle")
-                                .font(.system(size: 9))
+                                .scaledFont(9)
                                 .foregroundStyle(Color.stockedGold)
                             Text(r)
-                                .font(.system(size: 12.5))
-                                .foregroundStyle(session.themeTextColor.opacity(0.7))
+                                .scaledFont(12.5)
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                     }
                 }
@@ -350,7 +367,7 @@ struct SmartRecommendationView: View {
             }
             Button { goRecipe = true; HapticManager.light() } label: {
                 Text("View Recipe")
-                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .scaledFont(16, weight: .semibold, design: .serif)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                     .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -364,7 +381,7 @@ struct SmartRecommendationView: View {
             HStack(spacing: 10) {
                 Button { recommend(excludingCurrent: true); HapticManager.light() } label: {
                     Label("Try Another", systemImage: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
@@ -375,7 +392,7 @@ struct SmartRecommendationView: View {
 
                 Button { goAll = true } label: {
                     Text("See All Options")
-                        .font(.system(size: 14, weight: .semibold))
+                        .scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
@@ -392,11 +409,11 @@ struct SmartRecommendationView: View {
     private var strongestMatchNotice: some View {
         VStack(spacing: 4) {
             Text("That's the strongest match we found.")
-                .font(.system(size: 13.5, weight: .semibold, design: .serif))
+                .scaledFont(13.5, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("No other recipes fit your current ingredients and preferences.")
-                .font(.system(size: 12))
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(12)
+                .foregroundStyle(session.themeSecondaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12).padding(.horizontal, 14)
@@ -410,7 +427,7 @@ struct SmartRecommendationView: View {
         VStack(spacing: 12) {
             ProgressView()
             Text("Finding the best recipe for you…")
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(session.themeTextColor.opacity(0.5))
         }
         .frame(maxWidth: .infinity).padding(.vertical, 60)
@@ -419,15 +436,15 @@ struct SmartRecommendationView: View {
     private var noMatchState: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("We couldn't find a match yet.")
-                .font(.system(size: 18, weight: .bold, design: .serif))
+                .scaledFont(18, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text(noMatchDetail)
-                .font(.system(size: 13.5))
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .scaledFont(13.5)
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Button { goAll = true } label: {
                 Text("View More Possibilities")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedWhite)
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(dark ? Color.darkSurface : Color.stockedCharcoal)
@@ -435,7 +452,7 @@ struct SmartRecommendationView: View {
             }.buttonStyle(.plain)
             Button { goRefreshKitchen = true } label: {
                 Text("Refresh Kitchen")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))
@@ -443,7 +460,7 @@ struct SmartRecommendationView: View {
             }.buttonStyle(.plain)
             Button { goMood = true } label: {
                 Text("Match My Mood")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6))

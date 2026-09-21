@@ -18,8 +18,8 @@ struct SplashView: View {
                 StockedWordmark(size: 38)
 
                 Text("Kitchen Peace of Mind")
-                    .font(.system(size: 13, weight: .light, design: .serif))
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(13, weight: .medium, design: .serif)
+                    .foregroundStyle(session.themeTextColor.opacity(0.82))
                     .tracking(1.2)
             }
             .opacity(opacity)

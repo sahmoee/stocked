@@ -57,16 +57,16 @@ struct PendingSyncBadge: View {
                     Image(systemName: center.isOffline
                           ? "tray.and.arrow.down"
                           : "arrow.triangle.2.circlepath")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                     Text(label)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .scaledFont(11.5, weight: .medium)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     // An op stuck through 8+ retries while online deserves a visible hint
                     // rather than an eternally-spinning promise (never silently discard).
                     if sync.syncStatus.hasStuckOperations {
                         Text("· having trouble syncing")
-                            .font(.system(size: 11.5, weight: .medium))
+                            .scaledFont(11.5, weight: .medium)
                             .foregroundStyle(Color.stockedError.opacity(0.85))
                     }
                 }

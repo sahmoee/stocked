@@ -37,19 +37,23 @@ enum IngredientIntel {
     // MARK: Predictive conversions (2 sensible targets, formatted)
     static func convertTargets(measure: String, name: String) -> [String] {
         let (amt, unit) = parseMeasure(measure)
-        guard let a = amt, !unit.isEmpty else { return [] }
+        guard let a = amt, a.isFinite, a >= 0, !unit.isEmpty else { return [] }
         let dens = UnitConverter.density(for: name)
         if let ml = mlPer[unit] {                    // volume in → show weight + tidy volume
             let totalMl = a * ml
-            return [fmtMass(totalMl * dens), fmtVol(totalMl)]
+            guard totalMl.isFinite else { return [] }
+            let mass = dens.map { totalMl * $0 }
+            return (mass.flatMap { $0.isFinite ? ["≈ " + fmtMass($0)] : nil } ?? []) + [fmtVol(totalMl)]
         } else if let g = gPer[unit] {               // mass in → show volume + other mass unit
             let totalG = a * g
-            return [fmtVol(totalG / dens), fmtMassUS(totalG)]
+            guard totalG.isFinite else { return [] }
+            let volume = dens.map { totalG / $0 }
+            return (volume.flatMap { $0.isFinite ? ["≈ " + fmtVol($0)] : nil } ?? []) + [fmtMassUS(totalG)]
         }
         return []
     }
 
-    private static func fmtMass(_ g: Double) -> String { g >= 1000 ? "\(r1(g/1000)) kg" : "\(Int(g.rounded())) g" }
+    private static func fmtMass(_ g: Double) -> String { g >= 1000 ? "\(r1(g/1000)) kg" : "\(UnitConverter.formatAmount(g, fractionDigits: 0) ?? "") g" }
     private static func fmtMassUS(_ g: Double) -> String { g >= 453.592 ? "\(r1(g/453.592)) lb" : "\(r1(g/28.3495)) oz" }
     private static func fmtVol(_ ml: Double) -> String {
         let cups = ml / 236.588
@@ -59,12 +63,11 @@ enum IngredientIntel {
         return "\(r1(ml / 4.92892)) tsp"
     }
     private static func r1(_ x: Double) -> String {
-        let v = (x * 10).rounded() / 10
-        return v == v.rounded() ? String(Int(v)) : String(format: "%.1f", v)
+        UnitConverter.formatAmount(x) ?? ""
     }
 
     // MARK: Substitutions (compact local table; sub + ratio)
-    private static let subs: [String: [(sub: String, ratio: String)]] = [
+    nonisolated private static let subs: [String: [(sub: String, ratio: String)]] = [
         "butter": [("olive oil", "¾ the amount"), ("coconut oil", "1:1"), ("applesauce", "1:1")],
         "egg": [("flax egg (1 tbsp flax + 3 tbsp water)", "per egg"), ("¼ cup applesauce", "per egg"), ("¼ cup mashed banana", "per egg")],
         "milk": [("almond milk", "1:1"), ("oat milk", "1:1"), ("soy milk", "1:1")],
@@ -78,7 +81,7 @@ enum IngredientIntel {
         "vegetable oil": [("melted butter", "1:1"), ("applesauce", "1:1")],
         "cornstarch": [("2 tbsp flour", "per 1 tbsp")],
     ]
-    static func substitutions(_ name: String) -> [(sub: String, ratio: String)] {
+    nonisolated static func substitutions(_ name: String) -> [(sub: String, ratio: String)] {
         let n = name.lowercased().trimmingCharacters(in: .whitespaces)
         if let exact = subs[n] { return exact }
         if let (_, list) = subs.first(where: { n.contains($0.key) || $0.key.contains(n) }) { return list }
@@ -133,9 +136,13 @@ extension View {
 /// too, and they sort first. Defaulted to empty so existing call sites are unaffected.
 @ViewBuilder
 func ingredientQuickMenu(measure: String, name: String,
-                         userEntries: [UserSubstitutionEntry] = []) -> some View {
+                         userEntries: [UserSubstitutionEntry] = [],
+                         brandPreferences: BrandPreferences = BrandPreferences(),
+                         retailerID: String? = nil) -> some View {
     let conv = IngredientIntel.convertTargets(measure: measure, name: name)
-    let subs = SubstitutionEngine.local(for: name, userEntries: userEntries)
+    let subs = SubstitutionEngine.local(for: name, userEntries: userEntries,
+                                        brandPreferences: brandPreferences,
+                                        retailerID: retailerID)
     if !conv.isEmpty {
         Section("Convert") {
             ForEach(conv, id: \.self) { value in
@@ -166,10 +173,14 @@ struct IngredientActionsButton: View {
         if IngredientIntel.hasActions(measure: measure, name: name) {
             Menu {
                 ingredientQuickMenu(measure: measure, name: name,
-                                    userEntries: session.guestStore.userSubstitutions)
+                                    userEntries: session.guestStore.userSubstitutions,
+                                    brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                                    retailerID: GroceryKnowledgeBase.retailer(
+                                        matching: session.preferredStore
+                                    )?.id)
             } label: {
                 Image(systemName: "arrow.left.arrow.right.circle")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(.tertiary)
             }
             .fixedSize()
@@ -181,11 +192,20 @@ struct IngredientActionsButton: View {
 // MARK: - Attach long-press actions to any ingredient view (zero layout change)
 
 private struct IngredientQuickActionsModifier: ViewModifier {
+    @Environment(AppSession.self) private var session
     let measure: String
     let name: String
     func body(content: Content) -> some View {
         if IngredientIntel.hasActions(measure: measure, name: name) {
-            content.contextMenu { ingredientQuickMenu(measure: measure, name: name) }
+            content.contextMenu {
+                ingredientQuickMenu(
+                    measure: measure,
+                    name: name,
+                    userEntries: session.guestStore.userSubstitutions,
+                    brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                    retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
+                )
+            }
         } else {
             content
         }

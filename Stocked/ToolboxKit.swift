@@ -165,18 +165,19 @@ struct ToolboxEmptyState: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 40, weight: .light))
+                .scaledFont(40, weight: .light)
                 .foregroundStyle(session.themeSecondaryText.opacity(0.6))
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .scaledFont(17, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)
+                .multilineTextAlignment(.center)
             Text(message)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 32)
-        .padding(.vertical, 40)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
@@ -185,6 +186,7 @@ struct ToolboxEmptyState: View {
 // MARK: - Shared UI: expiry urgency chip (UI/UX: consistent urgency colors)
 
 struct ExpiryUrgencyChip: View {
+    @Environment(AppSession.self) private var session
     let daysLeft: Int
 
     private var label: String {
@@ -201,12 +203,12 @@ struct ExpiryUrgencyChip: View {
     }
 
     var body: some View {
-        Text(label)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(color)
+        Label(label, systemImage: daysLeft < 0 ? "exclamationmark.circle" : (daysLeft <= 2 ? "clock.badge.exclamationmark" : "calendar"))
+            .scaledFont(11, weight: .semibold)
+            .foregroundStyle(session.themeTextColor)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(Capsule().fill(color.opacity(0.14)))
-            .accessibilityLabel(daysLeft < 0 ? "Expired" : "Expires in \(label)")
+            .accessibilityLabel(daysLeft < 0 ? "Past the recorded expiry date" : (daysLeft == 0 ? "Recorded expiry is today" : "Recorded expiry in \(label)"))
     }
 }
 
@@ -221,17 +223,19 @@ struct ToolboxStatTile: View {
     var body: some View {
         VStack(spacing: 5) {
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .scaledFont(22, weight: .bold, design: .rounded)
                 .foregroundStyle(tint ?? session.themeTextColor)
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
+                .monospacedDigit()
+                .multilineTextAlignment(.center)
+
+                .fixedSize(horizontal: false, vertical: true)
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.stocked(.subheadline))
                 .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
         }
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity)
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(session.themeCardColor)
@@ -270,9 +274,10 @@ struct ToolboxSectionLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .semibold))
+            .font(.stocked(.subheadline)).fontWeight(.semibold)
             .foregroundStyle(session.themeSecondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 6)
+            .accessibilityAddTraits(.isHeader)
     }
 }

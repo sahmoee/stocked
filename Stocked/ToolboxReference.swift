@@ -36,7 +36,7 @@ struct SeasonalProduceView: View {
                 ToolboxCard {
                     HStack {
                         Text("Month")
-                            .font(.system(size: 14, weight: .medium))
+                            .scaledFont(14, weight: .medium)
                             .foregroundStyle(session.themeSecondaryText)
                         Spacer()
                         Picker("Month", selection: $month) {
@@ -55,12 +55,12 @@ struct SeasonalProduceView: View {
                     ToolboxCard {
                         HStack {
                             Text("🥬 \(produce)")
-                                .font(.system(size: 14, weight: .medium))
+                                .scaledFont(14, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
                             Spacer()
                             if have {
                                 Label("In your kitchen", systemImage: "checkmark.circle.fill")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .scaledFont(11, weight: .semibold)
                                     .foregroundStyle(.green)
                             } else {
                                 Button {
@@ -69,7 +69,7 @@ struct SeasonalProduceView: View {
                                     ToastCenter.shared.success("Added \(produce) to grocery list")
                                 } label: {
                                     Image(systemName: "cart.badge.plus")
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .scaledFont(15, weight: .semibold)
                                         .foregroundStyle(session.accentColor)
                                 }
                                 .buttonStyle(.plain)
@@ -79,7 +79,7 @@ struct SeasonalProduceView: View {
                     }
                 }
                 Text("In-season produce is usually cheaper, fresher, and lasts longer at home.")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -158,17 +158,17 @@ struct StorageTipsView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
                                 Text(tip.food)
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .scaledFont(15, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Text(tip.where_)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .scaledFont(11, weight: .semibold)
                                     .foregroundStyle(session.accentColor)
                                     .padding(.horizontal, 8).padding(.vertical, 3)
                                     .background(Capsule().fill(session.accentColor.opacity(0.14)))
                             }
                             Text(tip.tip)
-                                .font(.system(size: 13))
+                                .scaledFont(13)
                                 .foregroundStyle(session.themeSecondaryText)
                         }
                     }
@@ -253,7 +253,7 @@ struct ShelfLifeLookupView: View {
                     Spacer()
                     ForEach(["🏺 Pantry", "❄️ Fridge", "🧊 Freezer"], id: \.self) { label in
                         Text(label)
-                            .font(.system(size: 10, weight: .semibold))
+                            .scaledFont(10, weight: .semibold)
                             .foregroundStyle(session.themeSecondaryText)
                             .frame(width: 62)
                     }
@@ -266,13 +266,13 @@ struct ShelfLifeLookupView: View {
                     ToolboxCard {
                         HStack {
                             Text(entry.food)
-                                .font(.system(size: 13, weight: .medium))
+                                .scaledFont(13, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
-                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             ForEach([entry.pantryDays, entry.fridgeDays, entry.freezerDays].indices, id: \.self) { i in
                                 Text(days([entry.pantryDays, entry.fridgeDays, entry.freezerDays][i]))
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .scaledFont(12, weight: .semibold, design: .rounded)
                                     .foregroundStyle(session.accentColor)
                                     .frame(width: 62)
                             }
@@ -282,7 +282,7 @@ struct ShelfLifeLookupView: View {
                     }
                 }
                 Text("Typical times for quality and safety — always trust your eyes and nose first.")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -332,7 +332,7 @@ struct PantrySnapshotView: View {
                 } else {
                     ShareLink(item: snapshotText) {
                         Label("Share snapshot", systemImage: "square.and.arrow.up")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(15, weight: .semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor))
@@ -345,7 +345,7 @@ struct PantrySnapshotView: View {
                         ToastCenter.shared.success("Copied to clipboard")
                     } label: {
                         Label("Copy to clipboard", systemImage: "doc.on.doc")
-                            .font(.system(size: 15, weight: .semibold))
+                            .scaledFont(15, weight: .semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(RoundedRectangle(cornerRadius: 14).fill(session.accentColor.opacity(0.14)))
@@ -354,7 +354,7 @@ struct PantrySnapshotView: View {
                     .buttonStyle(.plain)
                     ToolboxCard {
                         Text(snapshotText)
-                            .font(.system(size: 12, design: .monospaced))
+                            .scaledFont(12, design: .monospaced)
                             .foregroundStyle(session.themeSecondaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)

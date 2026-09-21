@@ -54,6 +54,8 @@ nonisolated struct CookSessionTimerState: Codable, Sendable {
     var endDate: Date? = nil          // set only while running
     var pausedRemaining: Int? = nil   // set only while paused mid-count
     var isFinished: Bool = false
+    /// Optional for legacy sessions; keeps each timer notification isolated across cooks.
+    var notificationID: String? = nil
 }
 
 // MARK: - Session snapshot (persisted form)
@@ -171,6 +173,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     /// Explicit pause: freeze the given state and mark it paused.
@@ -181,6 +184,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     /// Safety-net pause for unexpected exits (swipe-back, view teardown). Only
@@ -192,6 +196,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     /// Adopt a snapshot the user chose to resume: it becomes the live session
@@ -204,6 +209,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.publish(snap)
     }
 
     // MARK: Completion (idempotent)
@@ -255,6 +261,7 @@ final class ActiveCookSessionStore {
         snap.lastSavedAt = Date()
         current = snap
         persistSession()
+        HouseholdCookStore.shared.end(sessionID: snap.id)
     }
 
     // MARK: Cancel / clear
@@ -272,6 +279,7 @@ final class ActiveCookSessionStore {
                 recordedTokens.append(snap.completionToken)
                 Self.saveLedger(recordedTokens, key: Self.recordLedgerKey)
             }
+            HouseholdCookStore.shared.end(sessionID: snap.id)
         }
         current = nil
         persistSession()
@@ -292,6 +300,7 @@ final class ActiveCookSessionStore {
         let terminal = snap.status == .completed || snap.status == .canceled
         let tooOld = Date().timeIntervalSince(snap.lastSavedAt) >= Self.staleAfter
         if terminal || tooOld {
+            HouseholdCookStore.shared.end(sessionID: snap.id)
             current = nil
             persistSession()
         }
@@ -322,41 +331,48 @@ final class ActiveCookSessionStore {
 /// saved step (never the recipe detail page); the trailing option discards via
 /// the RL-002 cancel confirmation owned by the presenting screen.
 struct CookSessionResumeCard: View {
+    @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
+
+    private var stacksControls: Bool { layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls }
     let snapshot: ActiveCookSessionSnapshot
     let onResume: () -> Void
     let onDiscard: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                            : AnyLayout(HStackLayout(spacing: 8))) {
                 Image(systemName: snapshot.status == .paused ? "pause.circle.fill" : "flame.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .scaledFont(14, weight: .semibold)
                     .foregroundStyle(Color.stockedGold)
                 Text(snapshot.status == .paused ? "Paused cooking session" : "Cooking in progress")
-                    .font(.system(size: 12, weight: .bold))
+                    .scaledFont(12, weight: .bold)
                     .kerning(0.6)
                     .foregroundStyle(Color.stockedGold)
-                Spacer()
+                if !stacksControls { Spacer() }
                 Text(snapshot.pausedAgoLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                    .scaledFont(11)
+                    .foregroundStyle(session.themeSecondaryText)
             }
             Text(snapshot.recipeTitle)
-                .font(.system(size: 17, weight: .bold, design: .serif))
-                .foregroundStyle(Color.stockedWhite)
-                .lineLimit(2)
+                .scaledFont(17, weight: .bold, design: .serif)
+                .foregroundStyle(session.themeTextColor)
+                .fixedSize(horizontal: false, vertical: true)
             Text("\(snapshot.stepProgressLabel) · serves \(snapshot.servings)")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.stockedWhite.opacity(0.65))
-            HStack(spacing: 10) {
+                .scaledFont(12)
+                .foregroundStyle(session.themeSecondaryText)
+            (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                            : AnyLayout(HStackLayout(spacing: 10))) {
                 Button(action: onResume) {
                     HStack(spacing: 6) {
-                        Image(systemName: "play.fill").font(.system(size: 11, weight: .bold))
+                        Image(systemName: "play.fill").scaledFont(11, weight: .bold)
                         Text("Resume Cooking")
-                            .font(.system(size: 13.5, weight: .semibold, design: .serif))
+                            .scaledFont(13.5, weight: .semibold, design: .serif)
                     }
                     .foregroundStyle(Color.stockedCharcoal)
                     .padding(.horizontal, 16).padding(.vertical, 9)
+                    .frame(minHeight: 44)
                     .background(Color.stockedGold)
                     .clipShape(Capsule())
                 }
@@ -365,20 +381,21 @@ struct CookSessionResumeCard: View {
                             hint: "Returns to the exact step you left")
                 Button(action: onDiscard) {
                     Text("Cancel Meal")
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
+                        .scaledFont(12.5, weight: .semibold)
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.horizontal, 12).padding(.vertical, 9)
-                        .background(Color.white.opacity(0.10))
+                        .frame(minHeight: 44)
+                        .background(session.themeTextColor.opacity(0.08))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .a11yButton("Cancel this meal", hint: "Discards progress without recording the meal")
-                Spacer()
+                if !stacksControls { Spacer() }
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.stockedCharcoal)
+        .background(session.themeCardColor)
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
         .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
             .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))

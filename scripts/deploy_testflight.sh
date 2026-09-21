@@ -14,13 +14,8 @@ developer_dir="${DEVELOPER_DIR:-/Volumes/Macintosh SSD/Applications/Xcode.app/Co
 mkdir -p "${archive_root}"
 
 marketing_before="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);.*/\1/p' "${pbx}" | sort -u)"
-current="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([0-9][0-9]*\);.*/\1/p' "${pbx}" | sort -n | tail -1)"
-[[ -n "${current}" ]] || { print -u2 "No numeric CURRENT_PROJECT_VERSION found"; exit 1; }
-next=$((current + 1))
-
-perl -0pi -e "s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = ${next};/g" "${pbx}"
-marketing_after="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);.*/\1/p' "${pbx}" | sort -u)"
-[[ "${marketing_before}" == "${marketing_after}" ]] || { print -u2 "Refusing deployment: marketing version changed"; exit 1; }
+# The shared scheme reserves and stamps the build. Do not bump twice here.
+next="auto"
 
 stamp="$(date +%Y%m%d-%H%M%S)"
 archive="${archive_root}/Stocked-b${next}-${stamp}.xcarchive"
@@ -50,9 +45,11 @@ export DEVELOPER_DIR="${developer_dir}"
 xcodebuild -project "${project}" -scheme "${scheme}" -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "${archive}" \
   -allowProvisioningUpdates "${auth[@]}" archive
+next="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' "${archive}/Info.plist")"
+marketing_after="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);.*/\1/p' "${pbx}" | sort -u)"
+[[ "${marketing_before}" == "${marketing_after}" ]] || { print -u2 "Refusing upload: marketing version changed"; exit 1; }
 xcodebuild -exportArchive -archivePath "${archive}" -exportOptionsPlist "${export_options}" \
   -allowProvisioningUpdates "${auth[@]}"
 
 print "Uploaded Stocked build ${next} to App Store Connect/TestFlight."
 print "Marketing version remained: ${marketing_after}"
-

@@ -74,6 +74,7 @@ final class NetworkMonitor {
 
 struct OfflineBanner: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedMotion) private var motion
     // Reading the shared monitor's observable properties inside `body` registers this
     // view for updates when connectivity changes.
     @State private var monitor = NetworkMonitor.shared
@@ -85,11 +86,11 @@ struct OfflineBanner: View {
             if isOffline {
                 HStack(spacing: 7) {
                     Image(systemName: "wifi.slash")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(11, weight: .semibold)
                     Text("Offline — changes save here and sync when you reconnect")
-                        .font(.system(size: 11.5, weight: .medium))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .scaledFont(11.5, weight: .medium)
+                        .fixedSize(horizontal: false, vertical: true)
+
                 }
                 .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .frame(maxWidth: .infinity)
@@ -103,6 +104,6 @@ struct OfflineBanner: View {
             // handles its own visibility — hidden unless queued work is actually waiting.
             PendingSyncBadge()
         }
-        .animation(.easeInOut(duration: 0.25), value: isOffline)
+        .animation(motion.animation(.standard, intent: .spatial), value: isOffline)
     }
 }

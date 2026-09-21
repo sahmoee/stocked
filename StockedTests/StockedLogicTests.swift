@@ -32,19 +32,19 @@ final class StockedLogicTests: XCTestCase {
 
     // MARK: Recipe import
 
-    func testRecipeImportNormalizesBareAndTrackedURLs() {
+    @MainActor func testRecipeImportNormalizesBareAndTrackedURLs() {
         let normalized = RecipeImportCoordinator.normalizedURLString(
             from: "example.com/chili?utm_source=newsletter&v=42#ingredients")
         XCTAssertEqual(normalized, "https://example.com/chili?v=42")
     }
 
-    func testRecipeImportExtractsURLFromSharedText() {
+    @MainActor func testRecipeImportExtractsURLFromSharedText() {
         let normalized = RecipeImportCoordinator.normalizedURLString(
             from: "Try this recipe https://example.com/pasta?fbclid=abc")
         XCTAssertEqual(normalized, "https://example.com/pasta")
     }
 
-    func testMultiScreenshotMergeRemovesRepeatedLines() {
+    @MainActor func testMultiScreenshotMergeRemovesRepeatedLines() {
         let merged = RecipeTextParser.mergeOCRPages([
             "Chocolate Cake\nIngredients\n1 cup flour",
             "Chocolate Cake\nInstructions\n1. Mix well"
@@ -52,6 +52,24 @@ final class StockedLogicTests: XCTestCase {
         XCTAssertEqual(merged.components(separatedBy: "Chocolate Cake").count - 1, 1)
         XCTAssertTrue(merged.contains("1 cup flour"))
         XCTAssertTrue(merged.contains("1. Mix well"))
+    }
+
+    func testRecipeSourceBalancingPreventsOneProviderFromFillingThePool() {
+        func recipe(_ id: String, source: String) -> OnlineRecipe {
+            OnlineRecipe(id: id, title: "Recipe \(id)", category: "Dinner", area: "",
+                         instructions: "Prepare ingredients.\nCook until done.",
+                         imageURL: "https://example.com/\(id).jpg",
+                         ingredients: ["one", "two", "three"], measures: ["", "", ""],
+                         source: source)
+        }
+        let mealDB = (0..<8).map { recipe("meal-\($0)", source: "TheMealDB Database") }
+        let harvested = (0..<3).map { recipe("publisher-\($0)", source: "Publisher") }
+
+        let result = RecipeSourceHub.balancedRecipes(mealDB + harvested, limit: 6)
+
+        XCTAssertEqual(result.count, 6)
+        XCTAssertEqual(result.filter { RecipeSourceHub.canonicalSourceName($0.source) == "TheMealDB" }.count, 3)
+        XCTAssertEqual(result.filter { $0.source == "Publisher" }.count, 3)
     }
 
     func testQATicketRequiresWorkerAndFolderSync() {
@@ -73,19 +91,108 @@ final class StockedLogicTests: XCTestCase {
         XCTAssertEqual(ticket.isFullySynced, !QACPanelSettings.isConfigured)
     }
 
+    func testCurrentLayoutTicketsShipDeviceVerifiableResolutions() {
+        let tickets = [
+            QATicket(number: "STK-89-0088", title: "Ingredients"),
+            QATicket(number: "STK-89-0089", title: "Button size"),
+            QATicket(number: "STK-89-0090", title: "Percentage"),
+            QATicket(number: "STK-128-0170-E54C79A8D3BF42BE", title: "Size"),
+            QATicket(number: "STK-134-0176-E54C79A8D3BF42BE", title: "Color"),
+            QATicket(number: "STK-134-0175-E54C79A8D3BF42BE", title: "Sizing"),
+            QATicket(number: "STK-134-0174-E54C79A8D3BF42BE", title: "Main thread blocked 1.9s on Recipes"),
+            QATicket(number: "STK-122-0162-E54C79A8D3BF42BE", title: "Main thread blocked 1.4s on Home"),
+            QATicket(number: "STK-122-0161-E54C79A8D3BF42BE", title: "Refreshing"),
+            QATicket(number: "STK-115-0144-E54C79A8D3BF42BE", title: "Main thread blocked 5.0s on Recipe Results"),
+            QATicket(number: "STK-115-0143-E54C79A8D3BF42BE", title: "Main thread blocked 3.1s on Home"),
+        ]
+
+        for ticket in tickets {
+            let resolution = QATicketStore.shippedResolution(for: ticket)
+            XCTAssertNotNil(resolution, "\(ticket.number) must become Fixed in the corrected build")
+            XCTAssertFalse(resolution?.isEmpty ?? true)
+        }
+    }
+
+    func testHomeReadyToCookSnapshotRanksOffTheRenderPath() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        var tomato = LocalInventoryItem(name: "Tomatoes")
+        tomato.expirationDate = now.addingTimeInterval(86_400)
+        var basil = LocalInventoryItem(name: "Fresh basil")
+        basil.expirationDate = now.addingTimeInterval(2 * 86_400)
+
+        var soup = UserRecipe(
+            title: "Tomato basil soup",
+            ingredients: [
+                RecipeIngredient(name: "tomato", amount: "4"),
+                RecipeIngredient(name: "basil", amount: "1 bunch")
+            ]
+        )
+        soup.cookCount = 1
+        var salad = UserRecipe(
+            title: "Tomato salad",
+            ingredients: [RecipeIngredient(name: "tomatoes", amount: "2")]
+        )
+        salad.cookCount = 8
+
+        let picks = HomeReadyToCookPolicy.picks(
+            recipes: [salad, soup], inventory: [tomato, basil], limit: 2, now: now)
+
+        XCTAssertEqual(picks.map(\.title), ["Tomato basil soup", "Tomato salad"])
+    }
+
+    @MainActor
+    func testEveryAppTextOptionUsesTheSingleMonotonicTypographyScale() {
+        let scales = AppTextSize.allCases.map {
+            StockedType.appTextScale(for: $0.rawValue)
+        }
+
+        XCTAssertEqual(scales.count, AppTextSize.allCases.count)
+        XCTAssertTrue(zip(scales, scales.dropFirst()).allSatisfy(<))
+    }
+
+    @MainActor
+    func testFontSizeDoesNotChangeControlPlacementPolicy() {
+        let standard = StockedLayoutMetrics(
+            width: 393,
+            height: 852,
+            isAccessibilityText: false,
+            interfaceScale: 1,
+            textScale: 1
+        )
+        let enlarged = StockedLayoutMetrics(
+            width: 393,
+            height: 852,
+            isAccessibilityText: true,
+            interfaceScale: 1,
+            textScale: 2.2
+        )
+
+        let standardPrefersVertical = standard.prefersVerticalControls
+        let enlargedPrefersVertical = enlarged.prefersVerticalControls
+        let standardColumnCount = standard.gridColumns(minimum: 104).count
+        let enlargedColumnCount = enlarged.gridColumns(minimum: 104).count
+        let standardControlHeight = standard.minimumControlHeight
+        let enlargedControlHeight = enlarged.minimumControlHeight
+
+        XCTAssertEqual(standardPrefersVertical, enlargedPrefersVertical)
+        XCTAssertEqual(standardColumnCount, enlargedColumnCount)
+        XCTAssertGreaterThan(enlargedControlHeight, standardControlHeight)
+    }
+
     // MARK: Grocery de-duplication (#17)
 
-    func testGroceryDedupCollapsesCaseAndAccents() {
+    @MainActor func testGroceryDedupCollapsesCaseAndAccents() {
         let existing = ["Milk", "Eggs"]
         XCTAssertTrue(GroceryDedup.isDuplicate("milk", in: existing))
         XCTAssertTrue(GroceryDedup.isDuplicate("MILK", in: existing))
         XCTAssertFalse(GroceryDedup.isDuplicate("Almond Milk", in: existing))
     }
 
-    func testGroceryDedupHandlesBrandPrefix() {
+    @MainActor func testGroceryDedupHandlesBrandPrefix() {
         // "Great Value Milk" should be treated as a duplicate of "Milk" only if the policy says
-        // so. Current policy: exact normalized match, so it is NOT a dup. This documents intent.
-        XCTAssertFalse(GroceryDedup.isDuplicate("Great Value Milk", in: ["Milk"]))
+        // Brand prefixes are deliberately ignored so the same underlying ingredient
+        // cannot create duplicate shopping rows.
+        XCTAssertTrue(GroceryDedup.isDuplicate("Great Value Milk", in: ["Milk"]))
     }
 
     // MARK: Expiry math (#16 / inventory)
@@ -112,7 +219,8 @@ private struct TestExpiry {
     var expirationDate: Date?
     var daysUntilExpiry: Int? {
         guard let exp = expirationDate else { return nil }
-        return Calendar.current.dateComponents([.day], from: Date(), to: exp).day
+        let cal = Calendar.current
+        return cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: exp)).day
     }
     var isExpiringSoon: Bool { (daysUntilExpiry ?? 999) <= 3 }
 }

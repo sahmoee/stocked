@@ -187,14 +187,14 @@ struct RegionalFoodView: View {
                 ForEach(RegionalFood.search(search)) { a in
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
-                            Text(a.us).font(.system(size: 14, weight: .semibold))
+                            Text(a.us).scaledFont(14, weight: .semibold)
                             Image(systemName: "arrow.left.arrow.right")
-                                .font(.system(size: 9)).foregroundStyle(.secondary)
-                            Text(a.uk).font(.system(size: 14, weight: .semibold))
+                                .scaledFont(9).foregroundStyle(.secondary)
+                            Text(a.uk).scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.accentColor)
                         }
                         if !a.note.isEmpty {
-                            Text(a.note).font(.system(size: 11)).foregroundStyle(.secondary)
+                            Text(a.note).scaledFont(11).foregroundStyle(.secondary)
                         }
                     }
                     .padding(.vertical, 2)
@@ -218,8 +218,8 @@ struct RegionalFoodView: View {
                                 .foregroundStyle(.secondary)
                             Text("gas \(t.gasMark)").foregroundStyle(.secondary)
                         }
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        Text(t.description).font(.system(size: 11)).foregroundStyle(.secondary)
+                        .scaledFont(13, weight: .medium, design: .monospaced)
+                        Text(t.description).scaledFont(11).foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 2)
                 }
@@ -236,12 +236,12 @@ struct RegionalFoodView: View {
         List {
             Section {
                 TextField("Paste an ingredient list", text: $toTranslate, axis: .vertical)
-                    .lineLimit(4...12)
+                    .lineLimit(4...)
             } header: { Text("Original") }
             if !toTranslate.isEmpty {
                 Section {
                     Text(RegionalFood.translate(toTranslate, to: pref.region))
-                        .font(.system(size: 14)).foregroundStyle(session.themeTextColor)
+                        .scaledFont(14).foregroundStyle(session.themeTextColor)
                 } header: { Text("In \(pref.region.rawValue) terms") }
             }
         }

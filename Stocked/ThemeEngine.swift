@@ -7,7 +7,7 @@ import SwiftUI
 
 // MARK: - Computed theme colors (light/dark only)
 extension AppSession {
-    var accentColor:      Color { isDarkMode ? Color.stockedGoldDark : Color.stockedGold }
+    var accentColor:      Color { Color.appAccent(isDarkMode) }
     var themeBgColor:     Color { Color.appBg(isDarkMode) }
     var themeButtonColor: Color { Color.appButton(isDarkMode) }
     var themeTextColor:   Color { Color.appText(isDarkMode) }

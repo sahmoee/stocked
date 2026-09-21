@@ -61,7 +61,7 @@ struct RecipeCatalogImportView: View {
                     Section("Progress") {
                         ProgressView(value: progress)
                         Text(statusLine)
-                            .font(.caption)
+                            .font(.stocked(.caption))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -71,7 +71,7 @@ struct RecipeCatalogImportView: View {
                         Label(statusLine, systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text("Catalog is live. All users receive the new recipes on their next app open (6-hour edge cache).")
-                            .font(.caption)
+                            .font(.stocked(.caption))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -85,10 +85,10 @@ struct RecipeCatalogImportView: View {
 
                 Section("How it works") {
                     Text("Reads the recipe CSV, converts each row to RemoteRecipe format, and uploads 100-recipe pages to the Worker via POST /admin/catalog/chunk. The Worker stores them in KV and begins rotating through all pages every 6 hours — so every Stocked user sees different recipes each day.")
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(.secondary)
                     Text("Images: separately upload the \"Food Images\" folder to your CPanel hosting at /content/img/recipes/ so the image proxy resolves them.")
-                        .font(.caption)
+                        .font(.stocked(.caption))
                         .foregroundStyle(.secondary)
                 }
             }

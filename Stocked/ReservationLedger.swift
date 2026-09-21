@@ -75,6 +75,29 @@ final class ReservationLedger {
 
     // MARK: Refresh (RL-006)
 
+    /// Presentation-only refresh. Mutating cook flows keep the synchronous API;
+    /// navigation must not run recipe × inventory matching on the main actor.
+    func refreshForPresentation(store: GuestDataStore) async {
+        let inventoryRevision = store.inventoryRevision
+        let planRevision = store.planRevision
+        let stamp = overrideStamp
+        guard inventoryRevision != lastInventoryRevision || planRevision != lastPlanRevision
+                || stamp != lastOverrideStamp else { return }
+        let meals = store.plannedMeals
+        let inventory = store.inventoryItems
+        let pending = pendingConsumption(currentInventoryRevision: inventoryRevision)
+        let worker = Task.detached(priority: .utility) {
+            ReservationEngine.compute(meals: meals, inventory: inventory, pendingConsumption: pending)
+        }
+        let result = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+        guard !Task.isCancelled, inventoryRevision == store.inventoryRevision,
+              planRevision == store.planRevision, stamp == overrideStamp else { return }
+        snapshot = result
+        lastInventoryRevision = inventoryRevision
+        lastPlanRevision = planRevision
+        lastOverrideStamp = stamp
+    }
+
     /// Recompute the snapshot only when something it depends on changed.
     /// Cheap to call from every surface's .task / .onChange — that is the point.
     func refreshIfNeeded(store: GuestDataStore) {

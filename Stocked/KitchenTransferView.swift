@@ -48,20 +48,20 @@ struct KitchenTransferView: View {
                 HStack {
                     Button { dismiss() } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold))
+                            .scaledFont(20, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                     }.buttonStyle(.plain)
                     Spacer()
                     Text("Stocked.")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .scaledFont(26, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Color.clear.frame(width: 24)
                 }
                 .padding(.horizontal, 20)
                 Text("Kitchen Transfer")
-                    .font(.system(size: 18, weight: .regular, design: .serif))
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(18, weight: .regular, design: .serif)
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.top, 4).padding(.bottom, 16)
 
                 VStack(spacing: 20) {
@@ -79,7 +79,7 @@ struct KitchenTransferView: View {
                         statusBanner(manager.errorMessage, isError: true)
                     }
 
-                    Spacer(minLength: 40)
+                    Color.clear.frame(height: 16)
                 }
                 .padding(.horizontal, 24)
             }
@@ -244,15 +244,15 @@ struct KitchenTransferView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.displayName.isEmpty ? "My Kitchen" : "\(store.displayName)'s Kitchen")
-                        .font(.system(size: 16, weight: .bold, design: .serif))
+                        .scaledFont(16, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedWhite)
                     Text("Last backup: \(manager.lastBackupDate)")
-                        .font(.system(size: 12))
+                        .scaledFont(12)
                         .foregroundStyle(Color.stockedWhite.opacity(0.55))
                 }
                 Spacer()
                 Image(systemName: "refrigerator.fill")
-                    .font(.system(size: 28)).foregroundStyle(Color.stockedGold)
+                    .scaledFont(28).foregroundStyle(Color.stockedGold)
             }
 
             HStack(spacing: 0) {
@@ -269,8 +269,8 @@ struct KitchenTransferView: View {
 
     private func summaryPill(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 18, weight: .bold, design: .serif)).foregroundStyle(Color.stockedGold)
-            Text(label).font(.system(size: 11)).foregroundStyle(Color.stockedWhite.opacity(0.55))
+            Text(value).scaledFont(18, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
+            Text(label).scaledFont(11).foregroundStyle(Color.stockedWhite.opacity(0.55))
         }
         .frame(maxWidth: .infinity)
     }
@@ -480,11 +480,11 @@ struct KitchenTransferView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .bold))
+                    .scaledFont(13, weight: .bold)
                     .foregroundStyle(session.themeTextColor.opacity(0.45))
                 Text(title.uppercased())
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .scaledFont(11, weight: .bold)
+                    .foregroundStyle(session.themeSecondaryText)
                     .tracking(1)
             }
             .padding(.bottom, 8)
@@ -511,21 +511,21 @@ struct KitchenTransferView: View {
                         .fill(iconColor)
                         .frame(width: 38, height: 38)
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .scaledFont(16, weight: .semibold)
                         .foregroundStyle(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(subtitle)
-                        .font(.system(size: 12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(12)
+                        .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(.horizontal, 16).padding(.vertical, 14)
@@ -538,7 +538,7 @@ struct KitchenTransferView: View {
             Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                 .foregroundStyle(isError ? .red : Color.stockedGreen)
             Text(message)
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .foregroundStyle(isError ? .red : Color.stockedGreen)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -558,24 +558,25 @@ struct QRTransferSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 // Handle
                 Capsule().fill(Color.stockedCharcoal.opacity(0.18)).frame(width: 40, height: 4)
-                    .padding(.top, 12).padding(.bottom, 24)
+                    .padding(.top, 12).padding(.bottom, 16)
 
                 Text("QR Code Transfer")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
 
                 Text("Have another device running Stocked\nscan this code to import your kitchen.")
-                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                    .multilineTextAlignment(.center).padding(.bottom, 28)
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
+                    .multilineTextAlignment(.center).padding(.bottom, 16)
 
                 if let qrImage = manager.qrCodeImage {
                     Image(uiImage: qrImage)
                         .interpolation(.none)
                         .resizable().scaledToFit()
-                        .frame(width: 260, height: 260)
+                        .frame(maxWidth: 260)
                         .padding(20)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
@@ -587,7 +588,7 @@ struct QRTransferSheet: View {
                         Label("\(store.inventoryItems.count) items", systemImage: "tray.fill")
                         Label("\(store.stockPercent)% stocked", systemImage: "chart.bar.fill")
                     }
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
                     .padding(.bottom, 20)
 
                     // Save QR image button
@@ -598,13 +599,12 @@ struct QRTransferSheet: View {
                         HStack(spacing: 8) {
                             Image(systemName: "photo.badge.arrow.down.fill")
                             Text("Save to Photos")
-                                .font(.system(size: 15, weight: .semibold))
+                                .scaledFont(15, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
                         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }
-                    .padding(.horizontal, 40)
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
@@ -613,7 +613,7 @@ struct QRTransferSheet: View {
                         if manager.statusMessage.contains("Generating") {
                             VStack(spacing: 14) {
                                 ProgressView().tint(Color.stockedCharcoal).scaleEffect(1.4)
-                                Text("Generating…").font(.system(size: 14))
+                                Text("Generating…").scaledFont(14)
                                     .foregroundStyle(session.themeTextColor.opacity(0.5))
                             }
                         }
@@ -624,18 +624,20 @@ struct QRTransferSheet: View {
 
                 if !manager.statusMessage.isEmpty && !manager.statusMessage.contains("Generating") {
                     Text(manager.statusMessage)
-                        .font(.system(size: 13)).foregroundStyle(Color.stockedGreen)
+                        .scaledFont(13).foregroundStyle(Color.stockedGreen)
                         .padding(.top, 12)
                 }
                 if !manager.errorMessage.isEmpty {
                     Text(manager.errorMessage)
-                        .font(.system(size: 13)).foregroundStyle(.red)
+                        .scaledFont(13).foregroundStyle(.red)
                         .padding(.top, 8)
                 }
 
-                Spacer()
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .presentationDetents([.large])
     }
@@ -652,17 +654,18 @@ struct TransferOptionsSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.18)).frame(width: 40, height: 4)
-                    .padding(.top, 12).padding(.bottom, 24)
+                    .padding(.top, 12).padding(.bottom, 16)
 
                 Text("iCloud Kitchen Sync")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
 
                 Text("Your kitchen data is stored privately\nin your personal iCloud.")
-                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                    .multilineTextAlignment(.center).padding(.bottom, 28)
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
+                    .multilineTextAlignment(.center).padding(.bottom, 16)
 
                 VStack(spacing: 14) {
                     iCloudActionButton(
@@ -700,16 +703,18 @@ struct TransferOptionsSheet: View {
 
                 if !manager.statusMessage.isEmpty {
                     Text(manager.statusMessage)
-                        .font(.system(size: 13)).foregroundStyle(Color.stockedGreen).padding(.top, 16)
+                        .scaledFont(13).foregroundStyle(Color.stockedGreen).padding(.top, 16)
                 }
                 if !manager.errorMessage.isEmpty {
                     Text(manager.errorMessage)
-                        .font(.system(size: 13)).foregroundStyle(.red).padding(.top, 8)
+                        .scaledFont(13).foregroundStyle(.red).padding(.top, 8)
                 }
 
-                Spacer()
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .presentationDetents([.medium, .large])
     }
@@ -723,13 +728,13 @@ struct TransferOptionsSheet: View {
                     if isLoading {
                         ProgressView().tint(.white).scaleEffect(0.9)
                     } else {
-                        Image(systemName: icon).font(.system(size: 20)).foregroundStyle(.white)
+                        Image(systemName: icon).scaledFont(20).foregroundStyle(.white)
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 15, weight: .semibold, design: .serif))
+                    Text(title).scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 }
                 Spacer()
             }
@@ -754,17 +759,18 @@ struct ImportModeSheet: View {
     var body: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
+            ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.18)).frame(width: 40, height: 4)
-                    .padding(.top, 12).padding(.bottom, 24)
+                    .padding(.top, 12).padding(.bottom, 16)
 
                 Text("Import Kitchen")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor).padding(.bottom, 8)
 
                 Text("How would you like to import?")
-                    .font(.system(size: 14)).foregroundStyle(session.themeTextColor.opacity(0.6))
-                    .padding(.bottom, 28)
+                    .scaledFont(14).foregroundStyle(session.themeSecondaryText)
+                    .padding(.bottom, 16)
 
                 VStack(spacing: 12) {
                     importModeButton(icon: "doc.fill", title: "Import File (Replace)",
@@ -797,9 +803,11 @@ struct ImportModeSheet: View {
                     }
                 }
 
-                Spacer()
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .presentationDetents([.large])
     }
@@ -810,15 +818,15 @@ struct ImportModeSheet: View {
             HStack(spacing: 14) {
                 ZStack {
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd).fill(color).frame(width: 42, height: 42)
-                    Image(systemName: icon).font(.system(size: 17)).foregroundStyle(.white)
+                    Image(systemName: icon).scaledFont(17).foregroundStyle(.white)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(session.themeTextColor)
-                    Text(subtitle).font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    Text(title).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
+                    Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 12))
+                Image(systemName: "chevron.right").scaledFont(12)
                     .foregroundStyle(session.themeTextColor.opacity(0.3))
             }
             .padding(14).background(session.isDarkMode ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: 14))

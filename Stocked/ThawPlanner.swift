@@ -116,12 +116,12 @@ struct ThawPlannerView: View {
         Group {
             if frozen.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "snowflake").font(.system(size: 34))
+                    Image(systemName: "snowflake").scaledFont(34)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("Nothing in the freezer").font(.system(size: 16, weight: .semibold))
+                    Text("Nothing in the freezer").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Items stored in the Freezer zone show up here with thaw timing.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 40)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -131,25 +131,25 @@ struct ThawPlannerView: View {
                             ForEach(ThawMethod.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }.pickerStyle(.segmented)
                         Stepper("Eating around \(dinnerHour):00 tomorrow", value: $dinnerHour, in: 6...23)
-                        Text(method.guidance).font(.footnote).foregroundStyle(.secondary)
+                        Text(method.guidance).font(.stocked(.footnote)).foregroundStyle(.secondary)
                     }
 
                     Section("Take out") {
                         ForEach(plans) { plan in
                             VStack(alignment: .leading, spacing: 5) {
                                 HStack {
-                                    Text(plan.item.name).font(.system(size: 15, weight: .semibold))
+                                    Text(plan.item.name).scaledFont(15, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
                                     Spacer()
-                                    Text(plan.estimate.readable).font(.system(size: 12, weight: .bold))
+                                    Text(plan.estimate.readable).scaledFont(12, weight: .bold)
                                         .foregroundStyle(session.accentColor)
                                 }
                                 if let meal = plan.forMeal {
-                                    Text("for \(meal)").font(.system(size: 12))
+                                    Text("for \(meal)").scaledFont(12)
                                         .foregroundStyle(session.themeTextColor.opacity(0.6))
                                 }
                                 Text("Take out \(takeOutLabel(plan.estimate.takeOutAt))")
-                                    .font(.system(size: 12)).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
                                 Button {
                                     schedule(plan)
                                 } label: {
@@ -157,7 +157,7 @@ struct ThawPlannerView: View {
                                         Image(systemName: scheduled.contains(plan.id) ? "bell.fill" : "bell")
                                         Text(scheduled.contains(plan.id) ? "Reminder set" : "Remind me")
                                     }
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .scaledFont(11, weight: .semibold)
                                     .padding(.horizontal, 10).padding(.vertical, 6)
                                     .background(scheduled.contains(plan.id) ? Color.green.opacity(0.15) : session.themeTextColor.opacity(0.07))
                                     .foregroundStyle(scheduled.contains(plan.id) ? .green : session.themeTextColor.opacity(0.8))

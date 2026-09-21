@@ -150,15 +150,15 @@ struct GardenHarvestView: View {
         Group {
             if store.entries.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "leaf.circle").font(.system(size: 34))
+                    Image(systemName: "leaf.circle").scaledFont(34)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("No harvests logged").font(.system(size: 16, weight: .semibold))
+                    Text("No harvests logged").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Log what you pick and it goes straight into your pantry with a realistic shelf life — plus you get a running total of what the garden actually produced this year.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
                     Button { showAdd = true } label: {
-                        Text("Log a harvest").font(.system(size: 14, weight: .semibold))
+                        Text("Log a harvest").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
                             .background(session.accentColor).foregroundStyle(.white).clipShape(Capsule())
                     }.buttonStyle(.plain).padding(.top, 4)
@@ -183,9 +183,9 @@ struct GardenHarvestView: View {
                                                            method: PreservationGuide.methods(for: g.crop)[0])
                                 } label: {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(g.crop).font(.system(size: 14, weight: .semibold))
+                                        Text(g.crop).scaledFont(14, weight: .semibold)
                                         Text("\(fmt(g.amount)) \(g.unit) in two weeks · keeps about \(HarvestMath.freshDays(for: g.crop)) days fresh")
-                                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                                            .scaledFont(11).foregroundStyle(.secondary)
                                     }
                                 }
                             }
@@ -197,14 +197,14 @@ struct GardenHarvestView: View {
                     Section("By crop") {
                         ForEach(totals) { t in
                             HStack {
-                                Text(t.crop).font(.system(size: 14))
+                                Text(t.crop).scaledFont(14)
                                 Spacer()
                                 Text("\(fmt(t.amount)) \(t.unit)")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .scaledFont(14, weight: .semibold)
                                     .foregroundStyle(session.accentColor)
                                 if t.value > 0 {
                                     Text(t.value, format: .currency(code: currency))
-                                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                                        .scaledFont(11).foregroundStyle(.secondary)
                                 }
                             }
                         }
@@ -214,13 +214,13 @@ struct GardenHarvestView: View {
                         ForEach(store.recent) { e in
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack {
-                                    Text(e.crop).font(.system(size: 14, weight: .semibold))
+                                    Text(e.crop).scaledFont(14, weight: .semibold)
                                     Spacer()
-                                    Text("\(fmt(e.amount)) \(e.unit)").font(.system(size: 13))
+                                    Text("\(fmt(e.amount)) \(e.unit)").scaledFont(13)
                                 }
                                 Text(e.date.formatted(date: .abbreviated, time: .omitted)
                                      + (e.note.isEmpty ? "" : " · \(e.note)"))
-                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                                    .scaledFont(11).foregroundStyle(.secondary)
                             }
                         }
                         .onDelete { idx in idx.map { store.recent[$0] }.forEach { store.remove($0) } }
@@ -242,9 +242,9 @@ struct GardenHarvestView: View {
     }
     private func stat(_ label: String, _ value: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 15, weight: .bold)).foregroundStyle(session.accentColor)
-                .minimumScaleFactor(0.7).lineLimit(1)
-            Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
+            Text(value).scaledFont(15, weight: .bold).foregroundStyle(session.accentColor)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(label).scaledFont(10).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity)
     }
 }
@@ -290,12 +290,13 @@ private struct AddHarvestSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") { save() }
-                        .font(.body.bold())
+                        .font(.stocked(.body).bold())
                         .disabled(crop.trimmingCharacters(in: .whitespaces).isEmpty || (Double(amountText) ?? 0) <= 0)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 
     private func save() {

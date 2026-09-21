@@ -12,6 +12,10 @@
 		7B52664A2FDB475300ABE8B1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B5266492FDB475300ABE8B1 /* SwiftUI.framework */; };
 		7B5266572FDB475700ABE8B1 /* StockedWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7BA5021E3BD8B1A700ABE8B1 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BA5021F3BD8B1A700ABE8B1 /* libsqlite3.tbd */; };
+		A017C0DE0000000000000001 /* StockedWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000002 /* StockedWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A017C0DE0000000000000012 /* Stocked/CookingTimerPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000013 /* Stocked/CookingTimerPolicy.swift */; };
+		A017C0DE0000000000000014 /* Stocked/UnitMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000015 /* Stocked/UnitMath.swift */; };
+		A017C0DE0000000000000016 /* Stocked/KitchenMathCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000017 /* Stocked/KitchenMathCore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,6 +33,20 @@
 			remoteGlobalIDString = 7B5266442FDB475200ABE8B1;
 			remoteInfo = StockedWidgetsExtension;
 		};
+		7BAA00012FE0000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7BF490522FD3BD1A00F32BED /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7BF490592FD3BD1A00F32BED;
+			remoteInfo = Stocked;
+		};
+		A017C0DE000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7BF490522FD3BD1A00F32BED /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A017C0DE0000000000000005;
+			remoteInfo = StockedWatch;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +62,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A017C0DE000000000000000D /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				A017C0DE0000000000000001 /* StockedWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -54,7 +83,12 @@
 		7B5266472FDB475200ABE8B1 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		7B5266492FDB475300ABE8B1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		7BA5021F3BD8B1A700ABE8B1 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
+		7BAA00022FE0000000000002 /* StockedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StockedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7BF4905A2FD3BD1A00F32BED /* Stocked.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stocked.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A017C0DE0000000000000002 /* StockedWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StockedWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A017C0DE0000000000000013 /* Stocked/CookingTimerPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stocked/CookingTimerPolicy.swift; sourceTree = SOURCE_ROOT; };
+		A017C0DE0000000000000015 /* Stocked/UnitMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stocked/UnitMath.swift; sourceTree = SOURCE_ROOT; };
+		A017C0DE0000000000000017 /* Stocked/KitchenMathCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stocked/KitchenMathCore.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -106,6 +140,11 @@
 			path = StockedWidgets;
 			sourceTree = "<group>";
 		};
+		7BAA00032FE0000000000003 /* StockedTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StockedTests;
+			sourceTree = "<group>";
+		};
 		7BF4905C2FD3BD1A00F32BED /* Stocked */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -113,6 +152,16 @@
 				7B52665F2FDB47C200ABE8B1 /* Exceptions for "Stocked" folder in "StockedWidgets" target */,
 			);
 			path = Stocked;
+			sourceTree = "<group>";
+		};
+		A017C0DE0000000000000003 /* StockedWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StockedWatch;
+			sourceTree = "<group>";
+		};
+		A017C0DE0000000000000004 /* StockedWatchShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StockedWatchShared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -134,11 +183,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7BAA00042FE0000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7BF490572FD3BD1A00F32BED /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				7BA5021E3BD8B1A700ABE8B1 /* libsqlite3.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A017C0DE0000000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,6 +231,12 @@
 				7B52646F2FD8FFDF00ABE8B1 /* Secrets.xcconfig */,
 				7B5264702FD8FFDF00ABE8B1 /* Secrets.example.xcconfig */,
 				7BF4905C2FD3BD1A00F32BED /* Stocked */,
+				A017C0DE0000000000000003 /* StockedWatch */,
+				A017C0DE0000000000000004 /* StockedWatchShared */,
+				A017C0DE0000000000000013 /* Stocked/CookingTimerPolicy.swift */,
+				A017C0DE0000000000000015 /* Stocked/UnitMath.swift */,
+				A017C0DE0000000000000017 /* Stocked/KitchenMathCore.swift */,
+				7BAA00032FE0000000000003 /* StockedTests */,
 				7B52645F2FD8B1A700ABE8B1 /* StockedShareExtension */,
 				7B52664B2FDB475300ABE8B1 /* StockedWidgets */,
 				7B5266462FDB475200ABE8B1 /* Frameworks */,
@@ -180,8 +249,10 @@
 			isa = PBXGroup;
 			children = (
 				7BF4905A2FD3BD1A00F32BED /* Stocked.app */,
+				A017C0DE0000000000000002 /* StockedWatch.app */,
 				7B52645E2FD8B1A700ABE8B1 /* StockedShareExtension.appex */,
 				7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */,
+				7BAA00022FE0000000000002 /* StockedTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -196,6 +267,7 @@
 				7B52645A2FD8B1A700ABE8B1 /* Sources */,
 				7B52645B2FD8B1A700ABE8B1 /* Frameworks */,
 				7B52645C2FD8B1A700ABE8B1 /* Resources */,
+				51414255494C440000000001 /* Stamp QA build number */,
 			);
 			buildRules = (
 			);
@@ -218,6 +290,7 @@
 				7B5266412FDB475200ABE8B1 /* Sources */,
 				7B5266422FDB475200ABE8B1 /* Frameworks */,
 				7B5266432FDB475200ABE8B1 /* Resources */,
+				51414255494C440000000002 /* Stamp QA build number */,
 			);
 			buildRules = (
 			);
@@ -233,29 +306,81 @@
 			productReference = 7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		7BF490592FD3BD1A00F32BED /* Stocked */ = {
+		7BAA00052FE0000000000005 /* StockedTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7BF490672FD3BD1D00F32BED /* Build configuration list for PBXNativeTarget "Stocked" */;
+			buildConfigurationList = 7BAA000D2FE000000000000D /* Build configuration list for PBXNativeTarget "StockedTests" */;
 			buildPhases = (
-				7BF490562FD3BD1A00F32BED /* Sources */,
-				7BF490572FD3BD1A00F32BED /* Frameworks */,
-				7BF490582FD3BD1A00F32BED /* Resources */,
-				7B52646D2FD8B1A800ABE8B1 /* Embed Foundation Extensions */,
+				7BAA00062FE0000000000006 /* Sources */,
+				7BAA00042FE0000000000004 /* Frameworks */,
+				7BAA00072FE0000000000007 /* Resources */,
+				51414255494C440000000003 /* Stamp QA build number */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7BAA00082FE0000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				7BAA00032FE0000000000003 /* StockedTests */,
+			);
+			name = StockedTests;
+			packageProductDependencies = (
+			);
+			productName = StockedTests;
+			productReference = 7BAA00022FE0000000000002 /* StockedTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		7BF490592FD3BD1A00F32BED /* Stocked */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7BF490672FD3BD1D00F32BED /* Build configuration list for PBXNativeTarget "Stocked" */;
+			buildPhases = (
+				A017C0DE000000000000000D /* Embed Watch Content */,
+				7BF490562FD3BD1A00F32BED /* Sources */,
+				7BF490572FD3BD1A00F32BED /* Frameworks */,
+				7BF490582FD3BD1A00F32BED /* Resources */,
+				7B52646D2FD8B1A800ABE8B1 /* Embed Foundation Extensions */,
+				51414255494C440000000004 /* Stamp QA build number */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A017C0DE000000000000000C /* PBXTargetDependency */,
 				7B5264672FD8B1A800ABE8B1 /* PBXTargetDependency */,
 				7B5266562FDB475700ABE8B1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7BF4905C2FD3BD1A00F32BED /* Stocked */,
+				A017C0DE0000000000000004 /* StockedWatchShared */,
 			);
 			name = Stocked;
 			packageProductDependencies = (
 			);
 			productName = Stocked;
 			productReference = 7BF4905A2FD3BD1A00F32BED /* Stocked.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A017C0DE0000000000000005 /* StockedWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A017C0DE0000000000000006 /* Build configuration list for PBXNativeTarget "StockedWatch" */;
+			buildPhases = (
+				A017C0DE0000000000000007 /* Sources */,
+				A017C0DE0000000000000008 /* Frameworks */,
+				A017C0DE0000000000000009 /* Resources */,
+				A017C0DE000000000000000A /* Stamp QA build number */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A017C0DE0000000000000003 /* StockedWatch */,
+				A017C0DE0000000000000004 /* StockedWatchShared */,
+			);
+			name = StockedWatch;
+			packageProductDependencies = (
+			);
+			productName = StockedWatch;
+			productReference = A017C0DE0000000000000002 /* StockedWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -266,13 +391,17 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					7B52645D2FD8B1A700ABE8B1 = {
 						CreatedOnToolsVersion = 26.3;
 					};
 					7B5266442FDB475200ABE8B1 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					7BAA00052FE0000000000005 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 7BF490592FD3BD1A00F32BED;
 					};
 					7BF490592FD3BD1A00F32BED = {
 						CreatedOnToolsVersion = 26.3;
@@ -293,7 +422,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				A017C0DE0000000000000005 /* StockedWatch */,
 				7BF490592FD3BD1A00F32BED /* Stocked */,
+				7BAA00052FE0000000000005 /* StockedTests */,
 				7B52645D2FD8B1A700ABE8B1 /* StockedShareExtension */,
 				7B5266442FDB475200ABE8B1 /* StockedWidgets */,
 			);
@@ -315,6 +446,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7BAA00072FE0000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7BF490582FD3BD1A00F32BED /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -322,7 +460,112 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A017C0DE0000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		51414255494C440000000001 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+				"$(PROJECT_TEMP_DIR)/qa-build-number",
+				"$(SRCROOT)/scripts/qa_build_number.py",
+			);
+			name = "Stamp QA build number";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n";
+			showEnvVarsInLog = 0;
+		};
+		51414255494C440000000002 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+				"$(PROJECT_TEMP_DIR)/qa-build-number",
+				"$(SRCROOT)/scripts/qa_build_number.py",
+			);
+			name = "Stamp QA build number";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n";
+			showEnvVarsInLog = 0;
+		};
+		51414255494C440000000003 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+				"$(PROJECT_TEMP_DIR)/qa-build-number",
+				"$(SRCROOT)/scripts/qa_build_number.py",
+			);
+			name = "Stamp QA build number";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n";
+			showEnvVarsInLog = 0;
+		};
+		51414255494C440000000004 /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+				"$(PROJECT_TEMP_DIR)/qa-build-number",
+				"$(SRCROOT)/scripts/qa_build_number.py",
+			);
+			name = "Stamp QA build number";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n";
+			showEnvVarsInLog = 0;
+		};
+		A017C0DE000000000000000A /* Stamp QA build number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+				"$(PROJECT_TEMP_DIR)/qa-build-number",
+				"$(SRCROOT)/scripts/qa_build_number.py",
+			);
+			name = "Stamp QA build number";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\n/usr/bin/python3 \"$SRCROOT/scripts/qa_build_number.py\" --stamp-product \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --reservation-dir \"$PROJECT_TEMP_DIR\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		7B52645A2FD8B1A700ABE8B1 /* Sources */ = {
@@ -339,10 +582,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7BAA00062FE0000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7BF490562FD3BD1A00F32BED /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A017C0DE0000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A017C0DE0000000000000012 /* Stocked/CookingTimerPolicy.swift in Sources */,
+				A017C0DE0000000000000014 /* Stocked/UnitMath.swift in Sources */,
+				A017C0DE0000000000000016 /* Stocked/KitchenMathCore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -359,6 +619,16 @@
 			target = 7B5266442FDB475200ABE8B1 /* StockedWidgets */;
 			targetProxy = 7B5266552FDB475700ABE8B1 /* PBXContainerItemProxy */;
 		};
+		7BAA00082FE0000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7BF490592FD3BD1A00F32BED /* Stocked */;
+			targetProxy = 7BAA00012FE0000000000001 /* PBXContainerItemProxy */;
+		};
+		A017C0DE000000000000000C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A017C0DE0000000000000005 /* StockedWatch */;
+			targetProxy = A017C0DE000000000000000B /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -367,7 +637,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -379,7 +649,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.13;
+				MARKETING_VERSION = 5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -397,7 +667,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = StockedShareExtension/StockedShareExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedShareExtension/Info.plist;
@@ -409,7 +679,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.13;
+				MARKETING_VERSION = 5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedShareExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -429,7 +699,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = StockedWidgets/StockedWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -441,7 +711,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.13;
+				MARKETING_VERSION = 5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -461,7 +731,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = StockedWidgets/StockedWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = StockedWidgets/Info.plist;
@@ -473,7 +743,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.13;
+				MARKETING_VERSION = 5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.StockedWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -483,6 +753,42 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7BAA000B2FE000000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 5DV5N49VG8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.StockedTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stocked.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stocked";
+			};
+			name = Debug;
+		};
+		7BAA000C2FE000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 5DV5N49VG8;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.StockedTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Stocked.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Stocked";
 			};
 			name = Release;
 		};
@@ -524,7 +830,7 @@
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -545,6 +851,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -588,7 +895,7 @@
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -602,6 +909,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -615,7 +923,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -631,7 +939,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.13;
+				MARKETING_VERSION = 5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -653,7 +961,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Stocked/Stocked.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 119;
 				DEVELOPMENT_TEAM = 5DV5N49VG8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -669,7 +977,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.13;
+				MARKETING_VERSION = 5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -680,6 +988,68 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A017C0DE000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 119;
+				DEVELOPMENT_TEAM = 5DV5N49VG8;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Stocked;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.sowens.Stocked;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		A017C0DE000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 119;
+				DEVELOPMENT_TEAM = 5DV5N49VG8;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Stocked;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.sowens.Stocked;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sowens.Stocked.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -704,6 +1074,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		7BAA000D2FE000000000000D /* Build configuration list for PBXNativeTarget "StockedTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7BAA000B2FE000000000000B /* Debug */,
+				7BAA000C2FE000000000000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		7BF490552FD3BD1A00F32BED /* Build configuration list for PBXProject "Stocked" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -718,6 +1097,15 @@
 			buildConfigurations = (
 				7BF490682FD3BD1D00F32BED /* Debug */,
 				7BF490692FD3BD1D00F32BED /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A017C0DE0000000000000006 /* Build configuration list for PBXNativeTarget "StockedWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A017C0DE000000000000000E /* Debug */,
+				A017C0DE000000000000000F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

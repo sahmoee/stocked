@@ -175,7 +175,7 @@ enum QASearchIndex {
             let body = "\(t.number) \(t.body) \(t.context.screen) \(t.status.rawValue) \(t.severity.rawValue)"
             let s = score(terms: terms, title: t.title, body: body)
             guard s > 0 else { return nil }
-            var bits = [t.status.title, t.severity.title, t.context.screen]
+            var bits = [t.statusLabel, t.severity.title, t.context.screen, t.context.identity?.label ?? "Unassigned tester"]
             if let dup = t.duplicateOf { bits.append("dup of \(dup)") }
             if let again = t.seenAgain, again > 0 { bits.append("seen \(again + 1)×") }
             return QASearchHit(kind: .ticket,
@@ -183,7 +183,7 @@ enum QASearchIndex {
                                title: t.title,
                                subtitle: bits.joined(separator: " · "),
                                // An open ticket outranks a closed one.
-                               score: s + (t.status.isClosed ? 0 : 4),
+                               score: s + (t.needsAttention ? 4 : 0),
                                sectionNumber: nil,
                                ticketID: t.id)
         }
@@ -265,7 +265,7 @@ struct QASearchView: View {
             if query.trimmingCharacters(in: .whitespaces).count < 2 {
                 Section {
                     Text("Type two characters or more. This searches all 270 checkbook rows, every ticket, the triage findings, the invariant results, the screens visited this session and the last 200 session events at once.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.stocked(.caption)).foregroundStyle(.secondary)
                 }
             } else if groups.isEmpty {
                 Section {
@@ -314,22 +314,22 @@ struct QASearchView: View {
     private func label(_ hit: QASearchHit) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: hit.kind.symbol)
-                .font(.caption)
+                .font(.stocked(.caption))
                 .foregroundStyle(Color.stockedGold)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 3) {
                 Text(hit.title)
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
                     Text(hit.tag)
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .scaledFont(9, weight: .bold, design: .monospaced)
                         .padding(.horizontal, 5).padding(.vertical, 2)
                         .background(Capsule().fill(Color.gray.opacity(0.15)))
                         .foregroundStyle(.secondary)
                     Text(hit.subtitle)
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .font(.stocked(.caption2)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

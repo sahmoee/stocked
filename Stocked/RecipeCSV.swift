@@ -471,7 +471,7 @@ struct RecipeCSVRemovalSheet: View {
             List {
                 Section {
                     Text(summary)
-                        .font(.system(size: 13))
+                        .scaledFont(13)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -489,7 +489,7 @@ struct RecipeCSVRemovalSheet: View {
                         ForEach(plan.ambiguous) { m in
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("\"\(m.row.title)\" matches \(m.candidates.count) recipes")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .scaledFont(12, weight: .semibold)
                                     .foregroundStyle(Color.stockedWarning)
                                 ForEach(m.candidates) { c in candidateRow(c, matchedByID: false) }
                             }
@@ -503,10 +503,10 @@ struct RecipeCSVRemovalSheet: View {
                         ForEach(plan.unmatched) { m in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(m.row.title)
-                                    .font(.system(size: 14))
+                                    .scaledFont(14)
                                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                                 Text("line \(m.row.lineNumber)")
-                                    .font(.system(size: 11))
+                                    .scaledFont(11)
                                     .foregroundStyle(session.themeTextColor.opacity(0.35))
                             }
                         }
@@ -526,20 +526,20 @@ struct RecipeCSVRemovalSheet: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: selected.contains(c.id) ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 19))
+                    .scaledFont(19)
                     .foregroundStyle(selected.contains(c.id) ? Color.stockedError : session.themeTextColor.opacity(0.3))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(c.title)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(c.library == .saved ? "Saved recipe · \(c.detail)" : c.detail)
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
                 Spacer(minLength: 0)
                 if !matchedByID {
                     Image(systemName: "textformat.abc")
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                         .help("Matched by title, not ID")
                 }
@@ -557,7 +557,7 @@ struct RecipeCSVRemovalSheet: View {
                 Text(selectedCount == 0
                      ? "Nothing selected"
                      : "Remove \(selectedCount) recipe\(selectedCount == 1 ? "" : "s")")
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(16, weight: .semibold)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -568,7 +568,7 @@ struct RecipeCSVRemovalSheet: View {
             .disabled(selectedCount == 0)
 
             Text("A copy of everything removed is saved first.")
-                .font(.system(size: 11))
+                .scaledFont(11)
                 .foregroundStyle(session.themeTextColor.opacity(0.45))
         }
         .padding(.horizontal, 20)
@@ -580,15 +580,15 @@ struct RecipeCSVRemovalSheet: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 38))
+                .scaledFont(38)
                 .foregroundStyle(Color.stockedSuccess)
             Text("Nothing to remove")
-                .font(.system(size: 18, weight: .semibold, design: .serif))
+                .scaledFont(18, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text(plan.hadRemoveColumn
                  ? "That file has \(plan.totalDataRows) recipes but none are marked in the remove column."
                  : "That file didn't list any recipes.")
-                .font(.system(size: 13))
+                .scaledFont(13)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(session.themeTextColor.opacity(0.6))
                 .padding(.horizontal, 40)
@@ -598,10 +598,10 @@ struct RecipeCSVRemovalSheet: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 34))
+                .scaledFont(34)
                 .foregroundStyle(Color.stockedWarning)
             Text(message)
-                .font(.system(size: 14))
+                .scaledFont(14)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(session.themeTextColor.opacity(0.75))
                 .padding(.horizontal, 36)

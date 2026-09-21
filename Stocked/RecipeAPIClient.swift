@@ -1,6 +1,7 @@
 // RecipeAPIClient.swift — async/await network layer + 100-recipe offline cache
 // Code Professional #1, #9  |  App Better #13
 import Foundation
+import Observation
 import os
 
 struct MealDBResponse: Decodable { let meals: [MealDBMeal]? }
@@ -69,6 +70,7 @@ struct CachedRecipe: Codable, Identifiable, Sendable {
 }
 
 // MARK: - Offline Cache (last 100, disk-backed, TTL refresh) (#7)
+@Observable
 class OfflineRecipeCache {
     static let shared = OfflineRecipeCache()
     private let key   = StockedKeys.offlineRecipeCache

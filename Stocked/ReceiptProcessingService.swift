@@ -9,6 +9,51 @@ nonisolated struct ReceiptNormalizedItem: Sendable, Equatable {
     let quantity: Int
     let sizeAmount: Double?
     let sizeUnit: String?
+    let identity: ProductIdentity
+    let aisle: GroceryAisle
+    let resolutionConfidence: Double
+    let provenance: FieldProvenance
+
+    /// Compatibility adapter into the one review/apply contract. Receipt screens can migrate one
+    /// call site at a time without changing their OCR and grouping UI in the same release.
+    func proposedChange(containerType: String? = nil) -> ProposedChange {
+        var change = InventoryProposalBatch.reviewableAdd(
+            name: resolved,
+            quantity: quantity,
+            containerType: containerType,
+            sizeAmount: sizeAmount,
+            sizeUnit: sizeUnit,
+            brand: brand,
+            barcode: identity.namespace == .barcode ? identity.key : nil,
+            origin: .receipt,
+            sourceID: provenance.sourceID,
+            badge: provenance.badge,
+            reason: "Found on your receipt"
+        )
+        let resolvedStorage = change.product?.storageCategory
+        change.product = InventoryProposalProduct(
+            identity: identity,
+            displayName: resolved,
+            brand: brand,
+            storageCategory: resolvedStorage,
+            aisle: aisle,
+            barcode: identity.namespace == .barcode ? identity.key : nil,
+            resolutionConfidence: resolutionConfidence
+        )
+        change.fieldProvenance[.name] = provenance
+        change.fieldProvenance[.brand] = provenance
+        change.fieldProvenance[.quantity] = provenance
+        change.fieldProvenance[.size] = provenance
+        if resolutionConfidence < 0.72,
+           !change.reviewIssues.contains(where: { $0.code == "low-receipt-match" }) {
+            change.reviewIssues.append(InventoryProposalIssue(
+                code: "low-receipt-match",
+                message: "Receipt text did not confidently match a known product.",
+                field: .name
+            ))
+        }
+        return change
+    }
 }
 
 nonisolated enum ReceiptProcessingService {
@@ -28,8 +73,20 @@ nonisolated enum ReceiptProcessingService {
         let separated = separateBrand(from: catalogMatch?.name ?? display, storeName: storeName)
         let name = normalizeName(separated.name)
         guard name.count >= 2 else { return nil }
+        let retailerID = GroceryKnowledgeBase.retailer(matching: storeName)?.id
+        let resolution = ProductCatalog.resolve(ProductResolutionContext(
+            rawName: name,
+            brand: separated.brand,
+            retailerID: retailerID
+        ))
+        let sourceID = retailerID.map { "receipt:\($0)" } ?? "receipt"
+        let provenance = FieldProvenance(sourceID: sourceID, sourceName: "Receipt scan",
+                                         badge: .aiParsed)
         return ReceiptNormalizedItem(raw: cleanedRaw, resolved: name, brand: separated.brand,
-                                     quantity: max(1, quantity), sizeAmount: size?.0, sizeUnit: size?.1)
+                                     quantity: max(1, quantity), sizeAmount: size?.0, sizeUnit: size?.1,
+                                     identity: resolution.identity, aisle: resolution.aisle,
+                                     resolutionConfidence: resolution.confidence,
+                                     provenance: provenance)
     }
 
     static func consolidate<T>(_ items: [T], key: (T) -> String, quantity: (T) -> Int,

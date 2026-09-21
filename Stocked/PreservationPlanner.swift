@@ -137,12 +137,12 @@ struct PreservationPlannerView: View {
         Group {
             if atRisk.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "archivebox").font(.system(size: 34))
+                    Image(systemName: "archivebox").scaledFont(34)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("Nothing at risk").font(.system(size: 16, weight: .semibold))
+                    Text("Nothing at risk").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("When something is about to turn, it shows up here with the specific way to save it — freeze, blanch, pickle, dry — and how much time that buys.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -156,7 +156,7 @@ struct PreservationPlannerView: View {
                                 Text("At risk")
                                 Spacer()
                                 Text(totalAtRisk, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
-                                    .font(.system(size: 15, weight: .bold)).foregroundStyle(.orange)
+                                    .scaledFont(15, weight: .bold).foregroundStyle(.orange)
                             }
                         }
                     }
@@ -168,12 +168,12 @@ struct PreservationPlannerView: View {
                                 } label: {
                                     VStack(alignment: .leading, spacing: 2) {
                                         HStack {
-                                            Text(m.name).font(.system(size: 14, weight: .semibold))
+                                            Text(m.name).scaledFont(14, weight: .semibold)
                                             Spacer()
-                                            Text("+\(m.readableGain)").font(.system(size: 12, weight: .bold))
+                                            Text("+\(m.readableGain)").scaledFont(12, weight: .bold)
                                                 .foregroundStyle(session.accentColor)
                                         }
-                                        Text(m.effort).font(.system(size: 11)).foregroundStyle(.secondary)
+                                        Text(m.effort).scaledFont(11).foregroundStyle(.secondary)
                                     }
                                 }
                             }
@@ -214,24 +214,24 @@ struct PreservationDetailView: View {
         List {
             Section {
                 Text("\(method.name) \(itemName.lowercased())")
-                    .font(.system(size: 18, weight: .bold)).foregroundStyle(session.themeTextColor)
+                    .scaledFont(18, weight: .bold).foregroundStyle(session.themeTextColor)
                 HStack {
                     Label(method.readableGain, systemImage: "clock.arrow.circlepath")
                     Spacer()
                     Label(method.effort, systemImage: "hourglass")
                 }
-                .font(.system(size: 12)).foregroundStyle(session.accentColor)
+                .scaledFont(12).foregroundStyle(session.accentColor)
             }
             Section("Steps") {
                 ForEach(Array(method.steps.enumerated()), id: \.offset) { i, step in
                     HStack(alignment: .top, spacing: 10) {
-                        Text("\(i + 1)").font(.system(size: 12, weight: .bold, design: .monospaced))
+                        Text("\(i + 1)").scaledFont(12, weight: .bold, design: .monospaced)
                             .foregroundStyle(session.accentColor).frame(width: 18, alignment: .leading)
-                        Text(step).font(.system(size: 14))
+                        Text(step).scaledFont(14)
                     }
                 }
             }
-            Section("Worth knowing") { Text(method.note).font(.system(size: 13)) }
+            Section("Worth knowing") { Text(method.note).scaledFont(13) }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)

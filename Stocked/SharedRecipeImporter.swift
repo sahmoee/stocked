@@ -106,43 +106,14 @@ enum SharedRecipeImporter {
                 }
             } else {
             Log.app.log("ShareImport: got URL, scraping \(urlStr, privacy: .public)")
-            if let web = try? await WebRecipeManager.shared.importFromURL(urlStr) {
-                var form = AddRecipeForm()
-                form.title       = web.title
-                form.ingredients = web.ingredients
-                form.steps       = web.steps.map { $0.text }
-                form.imageURL    = web.imageURL
-                form.sourceURL   = urlStr
-                form.servings    = web.servings
-                form.description = web.description
-                form.prepTime    = web.prepTime
-                form.cookTime    = web.cookTime
-                form.cuisine     = web.cuisine
-                // #2 — keep the verbatim source text so the AI structures from real data
-                // (not a re-parse) and "Show original text" works for link imports too.
-                form.originalText = RecipeImportAI.composeRawText(
-                    title: web.title, description: web.description,
-                    ingredients: web.ingredients, steps: web.steps.map { $0.text })
-                Log.app.log("ShareImport: scrape OK — title='\(form.title, privacy: .public)' ingredients=\(form.ingredients.count) steps=\(form.steps.count)")
-                if !form.title.isEmpty || !form.ingredients.isEmpty {
-                    return .success(Result(form: form, source: hostName(urlStr)))
-                }
-                Log.app.error("ShareImport: scrape returned a recipe with no title/ingredients")
-            } else {
-                Log.app.error("ShareImport: importFromURL threw / returned nil — no Schema.org Recipe JSON-LD. Trying visible-page-text fallback.")
+            if let result = try? await RecipeImportCoordinator.importURL(urlStr, progress: { _ in }), !Task.isCancelled {
+                return .success(Result(form: result.form, source: result.source))
             }
             // Fall through to text if present.
             if (payload["text"] as? String)?.isEmpty == false {
                 Log.app.log("ShareImport: falling back to shared text")
             } else {
-                // Last resort for a URL with no structured data: fetch the page and run the
-                // visible text through the recipe parser. Best-effort — pages vary wildly, so
-                // the user still lands in the editable form to fix anything.
-                if let form = await Self.parsePageText(urlStr) {
-                    Log.app.log("ShareImport: page-text fallback extracted a recipe")
-                    return .success(Result(form: form, source: hostName(urlStr)))
-                }
-                Log.app.error("ShareImport: page-text fallback found no recipe either")
+                // The shared pipeline already attempted both formats from one response.
                 return .scrapeFailed(hostName(urlStr))
             }
             }   // end non-social web-scrape branch (RL-009)
@@ -185,7 +156,7 @@ enum SharedRecipeImporter {
         return nil
     }
 
-    private static func hostName(_ s: String) -> String {
+    private nonisolated static func hostName(_ s: String) -> String {
         URL(string: s)?.host?.replacingOccurrences(of: "www.", with: "") ?? "Shared"
     }
 
@@ -193,30 +164,33 @@ enum SharedRecipeImporter {
     /// to visible text, and run the same heuristic parser used by Text Manually. Returns a form
     /// only if it found enough to look like a recipe. The user reviews/edits before saving.
     static func parsePageText(_ urlStr: String) async -> AddRecipeForm? {
-        guard let url = URL(string: urlStr) else { return nil }
-        var req = URLRequest(url: url)
-        req.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
-        req.timeoutInterval = 12
-        let fetchTask = Task { try await URLSession.shared.data(for: req) }
-        guard let (data, resp) = try? await fetchTask.value,
-              let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-              let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1)
-        else { return nil }
+        guard let page = await WebRecipeFetcher.shared.pageHTML(urlStr), !Task.isCancelled else { return nil }
+        let work = Task.detached(priority: .utility) {
+            guard !Task.isCancelled else { return nil as AddRecipeForm? }
+            let form = visiblePageForm(html: page.html, urlStr: page.url.absoluteString)
+            return Task.isCancelled ? nil : form
+        }
+        return await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
+    }
 
-        let text = strippedText(from: html)
+    nonisolated static func visiblePageForm(html: String, urlStr: String) -> AddRecipeForm? {
+        guard html.utf8.count <= RecipePageResponsePolicy.maximumHTMLBytes, !Task.isCancelled else { return nil }
+        let main = html.range(of: #"<main\b[^>]*>[\s\S]*?</main>"#, options: [.regularExpression, .caseInsensitive])
+        let text = strippedText(from: main.map { String(html[$0]) } ?? html)
         guard text.count > 80 else { return nil }   // too little to be a recipe page
         let form = RecipeTextParser.parse(text)
-        guard !form.ingredients.isEmpty || form.steps.count >= 2 else { return nil }
+        guard !form.ingredients.isEmpty, !form.steps.isEmpty,
+              form.ingredients.count <= 500, form.steps.count <= 500 else { return nil }
         var f = form
         f.sourceURL = urlStr
         f.originalText = text
-        if f.title.isEmpty { f.title = htmlTitle(html) ?? hostName(urlStr) }
+        if let title = htmlTitle(html) { f.title = title }
         return f
     }
 
     /// Strip scripts/styles/tags to readable text, collapsing whitespace and keeping line breaks
     /// at block boundaries so the recipe parser can see ingredient/step lines.
-    private static func strippedText(from html: String) -> String {
+    private nonisolated static func strippedText(from html: String) -> String {
         var s = html
         // Drop script/style/noscript blocks entirely.
         for tag in ["script", "style", "noscript", "head"] {
@@ -229,9 +203,7 @@ enum SharedRecipeImporter {
         s = s.replacingOccurrences(of: "<br[^>]*>", with: "\n", options: [.regularExpression, .caseInsensitive])
         // Remove all remaining tags.
         s = s.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-        // Decode a few common entities.
-        let ents = ["&amp;":"&","&lt;":"<","&gt;":">","&quot;":"\"","&#39;":"'","&nbsp;":" ","&frac12;":"½","&frac14;":"¼","&frac34;":"¾"]
-        for (k,v) in ents { s = s.replacingOccurrences(of: k, with: v) }
+        s = RecipePageMarkup.text(s)
         // Collapse spaces per line, drop empty lines.
         let lines = s.components(separatedBy: "\n")
             .map { $0.replacingOccurrences(of: "[ \\t]+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces) }
@@ -239,10 +211,11 @@ enum SharedRecipeImporter {
         return lines.joined(separator: "\n")
     }
 
-    private static func htmlTitle(_ html: String) -> String? {
+    private nonisolated static func htmlTitle(_ html: String) -> String? {
         guard let r = html.range(of: "<title[^>]*>([\\s\\S]*?)</title>", options: [.regularExpression, .caseInsensitive]) else { return nil }
-        let inner = String(html[r]).replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        let t = inner.components(separatedBy: CharacterSet(charactersIn: "|–-")).first?.trimmingCharacters(in: .whitespaces) ?? inner.trimmingCharacters(in: .whitespaces)
+        let inner = RecipePageMarkup.text(String(html[r]))
+        let separator = inner.range(of: #"\s+[|–—]\s+"#, options: .regularExpression)
+        let t = separator.map { String(inner[..<$0.lowerBound]) } ?? inner
         return t.isEmpty ? nil : t
     }
 }

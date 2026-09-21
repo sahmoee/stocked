@@ -74,22 +74,23 @@ final class RecipeTextPrefs {
 
 struct RecipeTextSizeControl: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedMotion) private var motion
 
     var body: some View {
         let prefs = RecipeTextPrefs.shared
         VStack(alignment: .leading, spacing: 8) {
             Label("Recipe Text Size", systemImage: "textformat.size")
-                .font(.system(size: 14, design: .serif)).foregroundStyle(session.themeTextColor)
-            HStack(spacing: 6) {
-                ForEach(RecipeTextSize.allCases) { option in
+                .scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
+            StockedEqualHeightGrid(items: RecipeTextSize.allCases, columns: 4, spacing: 6) { option in
                     Button {
-                        withAnimation(.spring(response: 0.25)) { prefs.size = option }
+                        motion.animate(.selection, intent: .spatial) { prefs.size = option }
                         HapticManager.select()
                     } label: {
                         Text(option.label)
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(12, weight: .bold)
                             .foregroundStyle(prefs.size == option ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
                             .padding(.horizontal, 11).padding(.vertical, 7)
+                            .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                             .background(prefs.size == option ? Color.stockedGold : Color.clear)
                             .clipShape(Capsule())
                             .overlay(Capsule().stroke(
@@ -97,11 +98,10 @@ struct RecipeTextSizeControl: View {
                                 lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-                }
             }
             // Live preview so the effect is obvious before leaving Settings.
             Text("Simmer for 10 minutes, stirring occasionally.")
-                .font(.system(size: prefs.scaled(14)))
+                .font(.stockedSystem(size: prefs.scaled(14)))
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -201,15 +201,15 @@ struct TimedStepRow: View {
                     .frame(width: 24, height: 24)
                 if timerEngine.timers[stepIndex]?.isFinished == true {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                        .scaledFont(11, weight: .bold).foregroundStyle(Color.stockedWhite)
                 } else {
                     Text("\(stepNumber)")
-                        .font(.system(size: 12, weight: .bold)).foregroundStyle(Color.stockedWhite)
+                        .scaledFont(12, weight: .bold).foregroundStyle(Color.stockedWhite)
                 }
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text(stepText)
-                    .font(.system(size: RecipeTextPrefs.shared.scaled(14)))
+                    .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(14)))
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
                 if detectedSeconds != nil || timerEngine.timers[stepIndex] != nil {
@@ -227,14 +227,14 @@ struct TimedStepRow: View {
             } label: {
                 Image(systemName: SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)"
                       ? "speaker.wave.2.fill" : "speaker.wave.2")
-                    .font(.system(size: 13))
+                    .scaledFont(13)
                     .foregroundStyle(SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)"
-                                     ? Color.stockedGold : session.themeTextColor.opacity(0.35))
-                    .frame(width: 26, height: 26)
+                                     ? session.accentColor : session.themeSecondaryText)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .a11yButton("Read step \(stepNumber) aloud")
+            .a11yButton(SpeechReader.shared.speakingID == "\(timerEngine.recipeTitle)-\(stepNumber)" ? "Stop reading step \(stepNumber)" : "Read step \(stepNumber) aloud")
         }
     }
 }
@@ -249,67 +249,66 @@ struct StepTimerChip: View {
     let stepText: String
     let detectedSeconds: Int?
     let timerEngine: StepTimerEngine
-
     private var timer: StepTimer? { timerEngine.timers[stepIndex] }
-
-    var body: some View {
-        Button {
-            HapticManager.select()
-            if let t = timer {
-                if t.isFinished {
-                    timerEngine.resetTimer(stepIndex: stepIndex)
-                } else if t.isRunning {
-                    timerEngine.pauseTimer(stepIndex: stepIndex)
-                } else {
-                    timerEngine.startTimer(stepIndex: stepIndex, stepText: stepText)
-                }
-            } else {
-                timerEngine.startTimer(stepIndex: stepIndex, stepText: stepText)
-            }
-        } label: {
-            chipLabel
-        }
-        .buttonStyle(.plain)
-        .animation(.spring(response: 0.25), value: timer?.isRunning)
+    private var seconds: Int { timer?.remaining ?? detectedSeconds ?? 0 }
+    private var actionLabel: String {
+        guard let timer else { return "Start timer" }
+        return timer.isFinished ? "Reset timer" : timer.isRunning ? "Pause" : timer.remaining == timer.totalSeconds ? "Start timer" : "Resume"
     }
-
-    @ViewBuilder private var chipLabel: some View {
-        if let t = timer {
-            if t.isFinished {
-                HStack(spacing: 5) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .bold))
-                    Text("Timer done — tap to reset").font(.system(size: 11, weight: .semibold))
+    private var symbol: String {
+        guard let timer else { return "timer" }
+        return timer.isFinished ? "arrow.counterclockwise" : timer.isRunning ? "pause.fill" : "play.fill"
+    }
+    private var stateLabel: String {
+        guard let timer else { return "Ready" }
+        return timer.isFinished ? "Finished" : timer.isRunning ? "Running" : timer.remaining == timer.totalSeconds ? "Ready" : "Paused"
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Button(action: performAction) {
+                HStack(spacing: 8) {
+                    Image(systemName: symbol).accessibilityHidden(true)
+                    Text(actionLabel).fixedSize(horizontal: false, vertical: true)
+                    if timer?.isFinished == true {
+                        Image(systemName: "checkmark.circle.fill").accessibilityHidden(true)
+                    } else {
+                        Text(CookingTimerPolicy.display(seconds)).monospacedDigit()
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                .foregroundStyle(Color.stockedGreen)
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Color.stockedGreen.opacity(0.12)).clipShape(Capsule())
-            } else if t.isRunning {
-                HStack(spacing: 6) {
-                    Image(systemName: "pause.fill").font(.system(size: 10, weight: .bold))
-                    Text(t.displayString).font(.system(size: 12, weight: .bold, design: .monospaced))
-                }
-                .foregroundStyle(Color.stockedWhite)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Color.stockedGold).clipShape(Capsule())
-            } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "play.fill").font(.system(size: 10, weight: .bold))
-                    Text(t.displayString).font(.system(size: 12, weight: .bold, design: .monospaced))
-                    Text("paused").font(.system(size: 10, weight: .semibold))
-                }
-                .foregroundStyle(Color.stockedGold)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+                .scaledFont(14, weight: .semibold)
+                .foregroundStyle(session.accentColor)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .frame(minHeight: 44)
+                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
+                    .strokeBorder(session.accentColor.opacity(timer?.isRunning == true ? 0.8 : 0.35), lineWidth: timer?.isRunning == true ? 2 : 1))
+                .contentShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             }
-        } else if let secs = detectedSeconds {
-            HStack(spacing: 5) {
-                Image(systemName: "timer").font(.system(size: 10, weight: .bold))
-                Text(RecipeTimerFormat.short(secs)).font(.system(size: 11, weight: .bold))
-                Text("· Start timer").font(.system(size: 11, weight: .semibold)).opacity(0.75)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Step \(stepIndex + 1) timer, \(stateLabel)")
+            .accessibilityValue(CookingTimerPolicy.spoken(seconds))
+            .accessibilityHint(actionLabel)
+            .contextMenu {
+                if timer != nil { Button("Reset timer", systemImage: "arrow.counterclockwise") { timerEngine.resetTimer(stepIndex: stepIndex) } }
             }
-            .foregroundStyle(Color.stockedGold)
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
+            .accessibilityAction(named: "Reset timer") { if timer != nil { timerEngine.resetTimer(stepIndex: stepIndex) } }
+            if timer == nil {
+                Text("From this step. Time ranges use the longer duration.")
+                    .scaledFont(11).foregroundStyle(session.themeSecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let status = timerEngine.notificationStatus {
+                Label(status, systemImage: "bell.slash")
+                    .scaledFont(12).foregroundStyle(session.themeSecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .stockedAnimation(.selection, intent: .spatial, value: timer?.isRunning)
+    }
+    private func performAction() {
+        HapticManager.select()
+        if timer?.isFinished == true { timerEngine.resetTimer(stepIndex: stepIndex) }
+        else if timer?.isRunning == true { timerEngine.pauseTimer(stepIndex: stepIndex) }
+        else { timerEngine.startTimer(stepIndex: stepIndex, stepText: stepText) }
     }
 }

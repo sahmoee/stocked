@@ -29,6 +29,7 @@ nonisolated struct QADiagnosticsReport: Sendable {
     let startedAt: Date
     let duration: TimeInterval
     let sections: [QADiagnosticsSection]
+    var identity: QAReportIdentity?
 
     var violationCount: Int { sections.flatMap(\.rows).filter { $0.status == .violation }.count }
     var blockedCount: Int   { sections.flatMap(\.rows).filter { $0.status == .blocked }.count }
@@ -40,6 +41,7 @@ nonisolated struct QADiagnosticsReport: Sendable {
 
     var exportText: String {
         var out = ["Stocked Full Diagnostics — \(startedAt.formatted()) (\(String(format: "%.1f", duration))s)",
+                   identity?.label ?? "Unassigned tester",
                    "Build \(BuildConfig.buildNumber) · v\(BuildConfig.version)", "Verdict: \(verdict)", ""]
         for s in sections {
             out.append("== \(s.title) ==")
@@ -53,13 +55,16 @@ nonisolated struct QADiagnosticsReport: Sendable {
 @MainActor
 enum QAFullDiagnostics {
 
-    static func run(store: GuestDataStore, session: CookNowSession?) async -> QADiagnosticsReport {
+    static func run(store: GuestDataStore, session: CookNowSession?, invariantResults: [QAInvariantResult]? = nil) async -> QADiagnosticsReport {
         let started = Date()
+        let identity = QAIdentityStore.shared.capture()
         var sections: [QADiagnosticsSection] = []
 
         // 1 — Invariants (forced full suite).
-        sections.append(QADiagnosticsSection(title: "Invariants",
-                                             rows: QAInvariants.runAll(store: store, session: session)))
+        let invariants: [QAInvariantResult]
+        if let invariantResults { invariants = invariantResults }
+        else { invariants = await QAInvariants.runAllYielding(store: store, session: session) }
+        sections.append(QADiagnosticsSection(title: "Invariants", rows: invariants))
 
         // 2 — Backend.
         var backend: [QAInvariantResult] = []
@@ -115,12 +120,21 @@ enum QAFullDiagnostics {
             detail: oq.pendingCount == 0 ? "empty" : "\(oq.pendingCount) item(s) waiting\(oq.isOffline ? " (device offline — expected)" : "")",
             critical: false))
         let tickets = QATicketStore.shared
+        let pendingTickets = Dictionary(uniqueKeysWithValues: tickets.unsynced.map { ($0.number, $0.updatedAt) })
+        var seenDestinations = Set<String>()
+        let failedNumbers = Set(QASyncQueue.shared.attempts.compactMap { attempt -> String? in
+            guard let changedAt = pendingTickets[attempt.number], attempt.at >= changedAt,
+                  seenDestinations.insert(attempt.number + "|" + attempt.destination).inserted else { return nil }
+            return attempt.ok ? nil : attempt.number
+        })
         sync.append(QAInvariantResult(name: "QA ticket delivery",
-            status: tickets.unsynced.isEmpty ? .ok : .violation,
+            status: pendingTickets.isEmpty ? .ok : !ConnectivityMonitor.isOnlineFlag || failedNumbers.isEmpty ? .blocked : .violation,
             detail: tickets.unsynced.isEmpty
                 ? "all \(tickets.tickets.count) ticket(s) reached every required destination"
                 : "\(tickets.unsynced.count) ticket(s) incomplete · \(QASyncQueue.shared.summary)",
-            critical: tickets.blockers.contains { !$0.isFullySynced }))
+            // A newly queued report is not a failed delivery. Otherwise the
+            // autonomous reporter would create a failure ticket about itself.
+            critical: tickets.blockers.contains { failedNumbers.contains($0.number) }))
         sections.append(QADiagnosticsSection(title: "Sync", rows: sync))
 
         // 5 — Notifications.
@@ -161,9 +175,11 @@ enum QAFullDiagnostics {
         // 7 — Storage.
         var storage: [QAInvariantResult] = []
         if let docs = try? FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false) {
-            let bytes = folderSize(docs)
-            storage.append(QAInvariantResult(name: "Documents footprint", status: .ok,
-                detail: ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file), critical: false))
+            let task = Task.detached(priority: .utility) { folderSize(docs) }
+            let result = await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+            storage.append(QAInvariantResult(name: "Documents footprint", status: result.complete ? .ok : .blocked,
+                detail: ByteCountFormatter.string(fromByteCount: result.bytes, countStyle: .file)
+                    + (result.complete ? "" : " measured; bounded scan incomplete"), critical: false))
         }
         let diagLog = DiagnosticsMonitor.shared.currentLog()
         storage.append(QAInvariantResult(name: "Crash/hang log", status: .ok,
@@ -181,7 +197,7 @@ enum QAFullDiagnostics {
 
         return QADiagnosticsReport(startedAt: started,
                                    duration: Date().timeIntervalSince(started),
-                                   sections: sections)
+                                   sections: sections, identity: identity)
     }
 
     // MARK: - Helpers
@@ -218,14 +234,18 @@ enum QAFullDiagnostics {
         }
     }
 
-    private static nonisolated func folderSize(_ url: URL) -> Int64 {
+    private static nonisolated func folderSize(_ url: URL) -> (bytes: Int64, complete: Bool) {
         var total: Int64 = 0
+        var count = 0
+        let deadline = Date().addingTimeInterval(0.25)
         if let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey],
                                                   options: [.skipsHiddenFiles]) {
             for case let f as URL in e {
+                guard !Task.isCancelled, count < 2000, Date() < deadline else { return (total, false) }
+                count += 1
                 total += Int64((try? f.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
             }
         }
-        return total
+        return (total, true)
     }
 }

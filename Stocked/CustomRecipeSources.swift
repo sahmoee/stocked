@@ -163,7 +163,7 @@ struct RecipeSourcesManagerView: View {
                             }
                         } label: {
                             Label("Add Source", systemImage: "plus.circle.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                                .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(Color.stockedGold)
                         }
                         .disabled(domain.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -184,9 +184,9 @@ struct RecipeSourcesManagerView: View {
                                     HStack {
                                         Text(s.emoji)
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(s.displayName).font(.system(size: 14, weight: .medium))
+                                            Text(s.displayName).scaledFont(14, weight: .medium)
                                                 .foregroundStyle(session.themeTextColor)
-                                            Text(s.specialty).font(.system(size: 11))
+                                            Text(s.specialty).scaledFont(11)
                                                 .foregroundStyle(session.themeSecondaryText)
                                         }
                                         Spacer()
@@ -205,9 +205,9 @@ struct RecipeSourcesManagerView: View {
                                 HStack {
                                     Text(src.iconEmoji)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(src.displayName).font(.system(size: 14, weight: .medium))
+                                        Text(src.displayName).scaledFont(14, weight: .medium)
                                             .foregroundStyle(session.themeTextColor)
-                                        Text(src.domain).font(.system(size: 11))
+                                        Text(src.domain).scaledFont(11)
                                             .foregroundStyle(session.themeSecondaryText)
                                     }
                                     Spacer()
@@ -222,7 +222,7 @@ struct RecipeSourcesManagerView: View {
                     // Built-in count
                     Section {
                         Text("Configured sources are discovery candidates only. Recipe browsing shows a source after it reaches 20 complete recipes; failed sources with five or fewer are removed from cache.")
-                            .font(.system(size: 12))
+                            .scaledFont(12)
                             .foregroundStyle(session.themeSecondaryText)
                     }
                 }

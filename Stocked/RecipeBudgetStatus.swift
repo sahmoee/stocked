@@ -56,9 +56,9 @@ struct RecipeBudgetBanner: View {
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Fresh online recipe ideas are paused")
-                        .font(.system(size: 13, weight: .semibold))
+                        .scaledFont(13, weight: .semibold)
                     Text("You've reached today's limit for new online suggestions — they'll refresh tomorrow. Your saved recipes and what's in your kitchen are still fully available.")
-                        .font(.system(size: 11))
+                        .scaledFont(11)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

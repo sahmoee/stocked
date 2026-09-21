@@ -12,9 +12,9 @@ struct CookRightNowView: View {
     @State private var openRecipe: UserRecipe? = nil
     @State private var goRecipe = false
 
-    private var ranked: [(recipe: UserRecipe, expiringUsed: [String])] {
-        store.cookableRankedByExpiry()
-    }
+    @State private var ranked: [(recipe: UserRecipe, expiringUsed: [String])] = []
+    @State private var isLoading = true
+    private var rankingRevision: String { "\(store.inventoryRevision)|\(store.recipeRevision)" }
     private var expiring: [LocalInventoryItem] { store.expiringSoonItems }
 
     var body: some View {
@@ -24,13 +24,13 @@ struct CookRightNowView: View {
                 // Title
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Cook Right Now")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .scaledFont(24, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text(ranked.isEmpty
+                    Text(isLoading ? "Finding fully stocked meals…" : ranked.isEmpty
                          ? "Nothing's fully stocked yet — add a few items and these will fill in."
                          : "Meals you can make with what's on hand. Top picks use what's expiring first.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(14)
+                        .foregroundStyle(session.themeSecondaryText)
                 }
                 .padding(.horizontal, 24).padding(.top, 4)
 
@@ -38,20 +38,20 @@ struct CookRightNowView: View {
                 if !expiring.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Use these soon")
-                            .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .scaledFont(12.5, weight: .semibold)
+                            .foregroundStyle(session.themeSecondaryText)
                             .padding(.horizontal, 24)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(expiring, id: \.id) { item in
                                     HStack(spacing: 5) {
                                         Image(systemName: "clock.badge.exclamationmark")
-                                            .font(.system(size: 10, weight: .bold))
+                                            .scaledFont(10, weight: .bold)
                                         Text(item.name.displayNormalized)
-                                            .font(.system(size: 12, weight: .semibold))
+                                            .scaledFont(12, weight: .semibold)
                                         if let d = item.daysUntilExpiry {
                                             Text(d <= 0 ? "today" : "\(d)d")
-                                                .font(.system(size: 11, weight: .bold))
+                                                .scaledFont(11, weight: .bold)
                                                 .foregroundStyle(Color.stockedError)
                                         }
                                     }
@@ -69,13 +69,17 @@ struct CookRightNowView: View {
                 }
 
                 // Ranked makeable meals
-                if ranked.isEmpty {
+                if isLoading {
+                    ProgressView("Checking available ingredients…")
+                        .tint(session.accentColor).padding(.vertical, 12)
+                }
+                if ranked.isEmpty && !isLoading {
                     StockedEmptyState(icon: "frying.pan",
                                       title: "No ready meals yet",
                                       subtitle: "When your recipes are fully stocked, they'll appear here — ready to cook with zero shopping.")
                         .padding(.horizontal, 24).padding(.top, 12)
                 } else {
-                    VStack(spacing: 12) {
+                    LazyVStack(spacing: 12) {
                         ForEach(ranked, id: \.recipe.id) { entry in
                             cookNowCell(entry.recipe, expiringUsed: entry.expiringUsed)
                         }
@@ -83,13 +87,25 @@ struct CookRightNowView: View {
                     .padding(.horizontal, 24)
                 }
 
-                Spacer(minLength: 24)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .navigationDestination(isPresented: $goRecipe) {
                 if let r = openRecipe { UserRecipeDetailView(recipe: r) }
             }
             .onAppear { UsageMetrics.shared.record(.cookRightNowOpened) }
+            .task(id: rankingRevision) {
+                isLoading = true
+                let revision = rankingRevision
+                let recipes = store.cookCatalog
+                let inventory = store.inventoryItems
+                let worker = Task.detached(priority: .utility) {
+                    GuestDataStore.cookableRankedByExpiry(recipes: recipes, inventory: inventory)
+                }
+                let result = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+                guard !Task.isCancelled, revision == rankingRevision else { return }
+                ranked = result
+                isLoading = false
+            }
         }
     }
 
@@ -107,8 +123,8 @@ struct CookRightNowView: View {
                     HStack {
                         Spacer()
                         HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill").font(.system(size: 9, weight: .bold))
-                            Text("Ready").font(.system(size: 10, weight: .bold))
+                            Image(systemName: "checkmark.circle.fill").scaledFont(9, weight: .bold)
+                            Text("Ready").scaledFont(10, weight: .bold)
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 4)
@@ -121,27 +137,27 @@ struct CookRightNowView: View {
                 // Bottom: title + "uses expiring" + cook button.
                 VStack(alignment: .leading, spacing: 6) {
                     Text(recipe.title)
-                        .font(.system(size: 17, weight: .bold, design: .serif))
-                        .foregroundStyle(.white).lineLimit(2)
+                        .scaledFont(17, weight: .bold, design: .serif)
+                        .foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
                     if !expiringUsed.isEmpty {
                         HStack(spacing: 5) {
-                            Image(systemName: "leaf.fill").font(.system(size: 10, weight: .bold))
+                            Image(systemName: "leaf.fill").scaledFont(10, weight: .bold)
                                 .foregroundStyle(Color.stockedGreen)
                             Text("Uses \(expiringUsed.prefix(3).joined(separator: ", "))")
-                                .font(.system(size: 12, weight: .semibold))
+                                .scaledFont(12, weight: .semibold)
                                 .foregroundStyle(.white.opacity(0.92))
-                                .lineLimit(1)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     HStack(spacing: 8) {
                         if !recipe.cookTime.isEmpty {
                             Label(recipe.cookTime, systemImage: "clock")
-                                .font(.system(size: 11, weight: .medium))
+                                .scaledFont(11, weight: .medium)
                                 .foregroundStyle(.white.opacity(0.85))
                         }
                         Spacer()
                         Text("Cook")
-                            .font(.system(size: 12.5, weight: .bold))
+                            .scaledFont(12.5, weight: .bold)
                             .foregroundStyle(Color.stockedCharcoal)
                             .padding(.horizontal, 14).padding(.vertical, 6)
                             .background(Color.stockedGold).clipShape(Capsule())

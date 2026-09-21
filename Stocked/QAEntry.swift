@@ -38,9 +38,14 @@ struct QAUnlockGate<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     @Environment(AppSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
     @State private var gate = QAAccessGate.shared
     @State private var code = ""
     @State private var wrong = false
+    @State private var shake = false
+
+    private var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—" }
+    private var buildNumber: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—" }
 
     var body: some View {
         Group {
@@ -70,48 +75,87 @@ struct QAUnlockGate<Content: View>: View {
     private var lockedPane: some View {
         ZStack {
             session.themeBgColor.ignoresSafeArea()
-            VStack(spacing: 18) {
-                Image(systemName: "checklist")
-                    .font(.system(size: 40))
-                    .foregroundStyle(Color.stockedGold)
+            ScrollView {
+            VStack(spacing: 0) {
+                Spacer().frame(height: 36)
+                Image(systemName: "lock.shield")
+                    .scaledFont(48)
+                    .foregroundStyle(session.themeTextColor.opacity(0.5))
                 Text(lockedTitle)
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .scaledFont(22, weight: .bold)
                     .foregroundStyle(session.themeTextColor)
-                Text(gate.hasEverUnlocked
-                     ? "The last unlock has expired. The code opens QA for another ten minutes."
-                     : lockedMessage)
-                    .font(.system(size: 13))
+                    .padding(.top, 18)
+                Text("Stocked · \(appVersion) (\(buildNumber))")
+                    .scaledFont(13)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                     .multilineTextAlignment(.center)
-                SecureField("QA code", text: $code)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(session.themeCardColor))
-                    .frame(maxWidth: 240)
-                    .multilineTextAlignment(.center)
-                    .onSubmit(tryUnlock)
+                HStack(spacing: 16) {
+                    ForEach(0..<4, id: \.self) { index in
+                        Circle()
+                            .fill(index < code.count ? Color.stockedGold : session.themeTextColor.opacity(0.2))
+                            .frame(width: 14, height: 14)
+                    }
+                }
+                .padding(.top, 48)
+                .offset(x: shake ? -8 : 0)
+                .animation(shake ? .default.repeatCount(3, autoreverses: true).speed(4) : .default, value: shake)
+                Text("Enter your four-digit access code")
+                    .scaledFont(11)
+                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .padding(.top, 8)
                 if wrong {
                     Text("That's not the code.")
-                        .font(.system(size: 12)).foregroundStyle(.red)
+                        .scaledFont(12).foregroundStyle(.red)
+                        .padding(.top, 8)
                 }
-                Button(action: tryUnlock) {
-                    Text("Unlock")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color.stockedBlack)
-                        .padding(.horizontal, 34).padding(.vertical, 11)
-                        .background(Capsule().fill(Color.stockedGold))
-                }
-                .buttonStyle(.plain)
-                Text("One unlock lasts ten minutes across every QA screen.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
-                    .multilineTextAlignment(.center)
+                keypad.padding(.top, 40)
+                Button("Cancel") { dismiss() }
+                    .scaledFont(16)
+                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .padding(.top, 36)
             }
-            .padding(24)
+            .padding(20)
+            .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .navigationTitle("QA")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var keypad: some View {
+        VStack(spacing: 16) {
+            ForEach([[1, 2, 3], [4, 5, 6], [7, 8, 9], [0]], id: \.self) { row in
+                HStack(spacing: 24) {
+                    if row == [0] { Color.clear.frame(width: 72, height: 72) }
+                    ForEach(row, id: \.self) { digit in
+                        Button {
+                            guard code.count < 4 else { return }
+                            code.append(String(digit))
+                            if code.count == 4 { tryUnlock() }
+                        } label: {
+                            Text("\(digit)")
+                                .scaledFont(28)
+                                .frame(width: 72, height: 72)
+                                .background(Circle().fill(session.themeCardColor))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(session.themeTextColor)
+                    }
+                    if row == [0] {
+                        Button {
+                            if !code.isEmpty { code.removeLast() }
+                        } label: {
+                            Image(systemName: "delete.left")
+                                .scaledFont(20)
+                                .frame(width: 72, height: 72)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.stockedGold)
+                    }
+                }
+            }
+        }
     }
 
     private func tryUnlock() {
@@ -124,6 +168,11 @@ struct QAUnlockGate<Content: View>: View {
         } else {
             wrong = true
             code = ""
+            shake = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(400))
+                shake = false
+            }
         }
     }
 }

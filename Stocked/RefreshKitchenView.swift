@@ -34,20 +34,23 @@ struct RefreshKitchenView: View {
         StockedShell(showBack: true, titleText: "Refresh Kitchen") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Confirm a few high-impact items to improve tonight's matches.")
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(13.5)
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if remaining.isEmpty {
+                if !built {
+                    ProgressView("Checking your kitchen…")
+                        .tint(session.accentColor).padding(.vertical, 20)
+                } else if remaining.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 44)).foregroundStyle(Color.stockedGreen)
+                            .scaledFont(44).foregroundStyle(Color.stockedGreen)
                         Text(handled.isEmpty ? "Everything checks out!" : "All caught up!")
-                            .font(.system(size: 17, weight: .semibold, design: .serif))
+                            .scaledFont(17, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Tonight's matches are as accurate as your kitchen can make them.")
-                            .font(.system(size: 13))
+                            .scaledFont(13)
                             .foregroundStyle(session.themeTextColor.opacity(0.5))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 30)
@@ -62,20 +65,18 @@ struct RefreshKitchenView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
 
-                Spacer(minLength: 20)
             }
         }
-        .task { buildQueueIfNeeded() }
+        .task { await buildQueueIfNeeded() }
     }
 
     // MARK: Queue construction
 
-    private func buildQueueIfNeeded() {
+    private func buildQueueIfNeeded() async {
         guard !built else { return }
-        built = true
-
-        // Classify once to find pivot ingredients.
-        let snapshot = CookNowCompute.run(store: store, session: nil)
+        // Let the screen appear while the shared classifier runs off-main.
+        guard let snapshot = await CookNowCompute.runYielding(store: store, session: nil),
+              !Task.isCancelled else { return }
 
         // Names that gate Almost Ready recipes (their missing items) — items
         // matching these unlock meals when confirmed present.
@@ -110,6 +111,7 @@ struct RefreshKitchenView: View {
             out.append(item)
         }
         queue = Array(out.prefix(8))   // focused, never a full audit
+        built = true
     }
 
     // MARK: Row (same verbs and store calls as PantryAuditView)
@@ -118,18 +120,18 @@ struct RefreshKitchenView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Text(ImageFallbackService.emoji(for: item.name))
-                    .font(.system(size: 20)).frame(width: 26)
+                    .scaledFont(20).frame(width: 26)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name.displayNormalized)
-                        .font(.system(size: 15, weight: .semibold, design: .serif))
+                        .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     if let days = GuestDataStore.staleness(of: item) {
                         Text("Last seen \(days) day\(days == 1 ? "" : "s") ago · \(item.zone)")
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(session.themeTextColor.opacity(0.45))
                     } else if item.isExpiringSoon {
                         Text("Expiring soon · \(item.zone)")
-                            .font(.system(size: 11.5))
+                            .scaledFont(11.5)
                             .foregroundStyle(Color.stockedGold)
                     }
                 }
@@ -163,7 +165,7 @@ struct RefreshKitchenView: View {
             HapticManager.light()
         } label: {
             Label(title, systemImage: icon)
-                .font(.system(size: 11.5, weight: .semibold))
+                .scaledFont(11.5, weight: .semibold)
                 .foregroundStyle(color)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)

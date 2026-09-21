@@ -17,6 +17,7 @@
 import SwiftUI
 
 struct SwipeToDeleteModifier: ViewModifier {
+    @Environment(\.stockedMotion) private var motion
     let confirmTitle: String?
     let onDelete: () -> Void
 
@@ -36,8 +37,8 @@ struct SwipeToDeleteModifier: ViewModifier {
                     fire()
                 } label: {
                     VStack(spacing: 3) {
-                        Image(systemName: "trash.fill").font(.system(size: 16, weight: .semibold))
-                        Text("Delete").font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "trash.fill").scaledFont(16, weight: .semibold)
+                        Text("Delete").scaledFont(11, weight: .semibold)
                     }
                     .foregroundStyle(.white)
                     .frame(width: actionWidth)
@@ -64,19 +65,25 @@ struct SwipeToDeleteModifier: ViewModifier {
                             offsetX = max(value.translation.width, -actionWidth - 40)
                         }
                         .onEnded { value in
-                            if value.translation.width < -triggerThreshold {
+                            let projected = min(0, value.predictedEndTranslation.width)
+                            if projected < -triggerThreshold {
                                 fire()
-                            } else if value.translation.width < -actionWidth / 2 {
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { offsetX = -actionWidth }
                             } else {
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { offsetX = 0 }
+                                let target = StockedVelocitySnapPolicy().magneticValue(
+                                    projected,
+                                    increment: actionWidth,
+                                    bounds: -actionWidth...0
+                                )
+                                motion.animate(.settle, intent: .spatial) { offsetX = target }
                             }
                         }
                 )
         }
         .confirmationDialog(confirmTitle ?? "", isPresented: $showConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) { commit() }
-            Button("Cancel", role: .cancel) { withAnimation(.spring(response: 0.28)) { offsetX = 0 } }
+            Button("Cancel", role: .cancel) {
+                motion.animate(.settle, intent: .spatial) { offsetX = 0 }
+            }
         }
     }
 
@@ -90,9 +97,12 @@ struct SwipeToDeleteModifier: ViewModifier {
     }
 
     private func commit() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { offsetX = -500 }
+        motion.animate(.settle, intent: .spatial) { offsetX = -500 }
         // Let the row slide off before the data mutation animates the collapse.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+        Task { @MainActor in
+            if motion.permitsSpatialMotion {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
             onDelete()
             offsetX = 0
         }

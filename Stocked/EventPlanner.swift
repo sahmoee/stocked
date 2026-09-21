@@ -173,15 +173,15 @@ struct EventPlannerView: View {
         Group {
             if store.events.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "party.popper").font(.system(size: 34))
+                    Image(systemName: "party.popper").scaledFont(34)
                         .foregroundStyle(session.themeTextColor.opacity(0.25))
-                    Text("No events planned").font(.system(size: 16, weight: .semibold))
+                    Text("No events planned").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Plan a dinner party or holiday meal — Stocked scales every dish to the headcount, checks it against your guests' allergies, and builds one shopping list.")
-                        .font(.system(size: 13)).multilineTextAlignment(.center)
+                        .scaledFont(13).multilineTextAlignment(.center)
                         .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
                     Button { showNew = true } label: {
-                        Text("Plan an event").font(.system(size: 14, weight: .semibold))
+                        Text("Plan an event").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
                             .background(session.accentColor).foregroundStyle(.white).clipShape(Capsule())
                     }.buttonStyle(.plain).padding(.top, 4)
@@ -191,9 +191,9 @@ struct EventPlannerView: View {
                     ForEach(store.upcoming) { e in
                         NavigationLink { EventDetailView(eventID: e.id) } label: {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(e.name).font(.system(size: 15, weight: .semibold))
+                                Text(e.name).scaledFont(15, weight: .semibold)
                                 Text("\(e.date.formatted(date: .abbreviated, time: .shortened)) · \(e.dishes.count) dishes")
-                                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                                    .scaledFont(12).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -233,11 +233,12 @@ private struct NewEventSheet: View {
                     Button("Create") {
                         store.add(KitchenEvent(name: name.trimmingCharacters(in: .whitespaces), date: date))
                         dismiss()
-                    }.font(.body.bold()).disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }.font(.stocked(.body).bold()).disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }
 
@@ -276,9 +277,9 @@ struct EventDetailView: View {
                         Spacer()
                         if !g.allergies.isEmpty {
                             Text(g.allergies.joined(separator: ", "))
-                                .font(.system(size: 11)).foregroundStyle(.orange)
+                                .scaledFont(11).foregroundStyle(.orange)
                         } else if g.diet != "None" {
-                            Text(g.diet).font(.system(size: 11)).foregroundStyle(.secondary)
+                            Text(g.diet).scaledFont(11).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -290,7 +291,7 @@ struct EventDetailView: View {
                         store.update(e); guestName = ""
                     }.disabled(guestName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-                Text("Cooking for \(headcount)").font(.footnote).foregroundStyle(.secondary)
+                Text("Cooking for \(headcount)").font(.stocked(.footnote)).foregroundStyle(.secondary)
             }
 
             if !conflicts.isEmpty {
@@ -298,8 +299,8 @@ struct EventDetailView: View {
                     ForEach(conflicts) { c in
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(c.guest) can't eat \(c.dish)")
-                                .font(.system(size: 13, weight: .semibold)).foregroundStyle(.red)
-                            Text("contains \(c.ingredient)").font(.system(size: 12)).foregroundStyle(.secondary)
+                                .scaledFont(13, weight: .semibold).foregroundStyle(.red)
+                            Text("contains \(c.ingredient)").scaledFont(12).foregroundStyle(.secondary)
                         }
                     }
                 } header: {
@@ -311,9 +312,9 @@ struct EventDetailView: View {
             Section("Menu") {
                 ForEach(event.dishes) { d in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(d.title).font(.system(size: 15, weight: .semibold))
+                        Text(d.title).scaledFont(15, weight: .semibold)
                         Text("serves \(d.baseServings) → make ×\(String(format: "%.0f", EventMath.scale(dish: d, headcount: headcount)))")
-                            .font(.system(size: 12)).foregroundStyle(session.accentColor)
+                            .scaledFont(12).foregroundStyle(session.accentColor)
                     }
                 }
                 .onDelete { idx in var e = event; e.dishes.remove(atOffsets: idx); store.update(e) }
@@ -323,7 +324,7 @@ struct EventDetailView: View {
             let list = EventMath.shoppingList(dishes: event.dishes, headcount: headcount)
             if !list.isEmpty {
                 Section {
-                    ForEach(list, id: \.self) { Text($0).font(.system(size: 14)) }
+                    ForEach(list, id: \.self) { Text($0).scaledFont(14) }
                     Button {
                         HapticManager.success()
                         for line in list { session.guestStore.addGroceryItem(name: line) }
@@ -356,7 +357,7 @@ private struct AddEventDishSheet: View {
                 Stepper("Recipe serves \(servings)", value: $servings, in: 1...50)
                 Section {
                     TextField("One ingredient per line", text: $ingredientsText, axis: .vertical)
-                        .lineLimit(4...14)
+                        .lineLimit(4...)
                 } header: { Text("Ingredients") } footer: {
                     Text("These are checked against every guest's allergies and diet, and rolled into the scaled shopping list.")
                 }
@@ -371,10 +372,11 @@ private struct AddEventDishSheet: View {
                         onAdd(EventDish(title: title.trimmingCharacters(in: .whitespaces),
                                         baseServings: servings, ingredients: ing))
                         dismiss()
-                    }.font(.body.bold()).disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }.font(.stocked(.body).bold()).disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
         }
+        .stockedPresentationSurface(width: .form)
     }
 }

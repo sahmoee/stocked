@@ -4,7 +4,7 @@
 // on launch and after big data changes keeps it fresh without touching the hot path.
 
 import Foundation
-import CoreSpotlight
+@preconcurrency import CoreSpotlight
 import UniformTypeIdentifiers
 
 @MainActor

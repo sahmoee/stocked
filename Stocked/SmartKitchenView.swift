@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SubstitutionsToolView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var name = ""
     @State private var vegan = false
     @State private var glutenFree = false
@@ -36,24 +37,29 @@ struct SubstitutionsToolView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Out of something? Find what to use instead, with the right ratio. Your own saved swaps come first.")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
 
                 TextField("Ingredient (e.g. butter, egg, buttermilk)", text: $name)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(StockedThemedTextFieldStyle())
                     .onSubmit(run)
                     .onChange(of: name) { _, new in
                         // Improvement #1: local results appear as you type, with no network round trip.
-                        let local = SubstitutionEngine.local(for: new, userEntries: session.guestStore.userSubstitutions)
+                        let local = SubstitutionEngine.local(
+                            for: new,
+                            userEntries: session.guestStore.userSubstitutions,
+                            brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+                            retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
+                        )
                         if !local.isEmpty { subs = local; searched = true }
                     }
-                HStack(spacing: 16) {
+                adaptiveToggleLayout {
                     Toggle("Vegan", isOn: $vegan).toggleStyle(.switch)
                     Toggle("Gluten-free", isOn: $glutenFree).toggleStyle(.switch)
-                }.font(.system(size: 13))
+                }.scaledFont(13)
 
                 Button(action: run) {
                     HStack { if loading { ProgressView().controlSize(.small) }
-                        Text("Find substitutes").font(.system(size: 15, weight: .semibold)) }
+                        Text("Find substitutes").scaledFont(15, weight: .semibold) }
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(session.accentColor).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -61,7 +67,7 @@ struct SubstitutionsToolView: View {
 
                 if searched && subs.isEmpty && !loading {
                     Text("No substitutes found for \"\(name)\". Try a common baking ingredient.")
-                        .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
                 }
                 ForEach(subs) { s in
                     SubstitutionRow(substitution: s)
@@ -70,12 +76,20 @@ struct SubstitutionsToolView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             }
-            .padding(18)
+            .padding(20)
         }
         .stockedScreen()
         .navigationTitle("Substitutions")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: seedFromProfileIfNeeded)   // DEP-09
+    }
+
+    private var adaptiveToggleLayout: AnyLayout {
+        if layoutMetrics.prefersVerticalControls || layoutMetrics.textScale > 1.3 {
+            AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+        } else {
+            AnyLayout(HStackLayout(spacing: 16))
+        }
     }
 
     /// Renders local results immediately, then folds in the Worker's diet-aware suggestions.
@@ -84,10 +98,18 @@ struct SubstitutionsToolView: View {
         let n = name
         let diet = vegan ? "vegan" : (glutenFree ? "gluten-free" : nil)
         let entries = session.guestStore.userSubstitutions
+        let brandPreferences = session.guestStore.cookingProfile.brandPreferences
+        let retailerID = GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
         loading = true
         searched = true
         Task {
-            let combined = await SubstitutionEngine.all(for: n, userEntries: entries, diet: diet) { local in
+            let combined = await SubstitutionEngine.all(
+                for: n,
+                userEntries: entries,
+                diet: diet,
+                brandPreferences: brandPreferences,
+                retailerID: retailerID
+            ) { local in
                 subs = local
             }
             subs = combined
@@ -100,6 +122,7 @@ struct SubstitutionsToolView: View {
 
 struct NutritionToolView: View {
     @Environment(AppSession.self) private var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     @State private var text = "100 g chicken\n1 cup rice\n1 tbsp olive oil"
     @State private var result: SmartNutrition?
     @State private var loading = false
@@ -108,38 +131,47 @@ struct NutritionToolView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Rough calories and macros for a list of ingredients. Estimates only — not medical advice.")
-                    .font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
 
                 TextField("Ingredients, one per line", text: $text, axis: .vertical)
-                    .lineLimit(3...10).textFieldStyle(.roundedBorder)
+                    .lineLimit(3...).textFieldStyle(StockedThemedTextFieldStyle())
 
                 Button(action: run) {
                     HStack { if loading { ProgressView().controlSize(.small) }
-                        Text("Estimate").font(.system(size: 15, weight: .semibold)) }
+                        Text("Estimate").scaledFont(15, weight: .semibold) }
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(session.accentColor).foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }.disabled(loading)
 
                 if let r = result {
-                    HStack(spacing: 10) {
-                        macro("\(r.total.kcal)", "kcal")
-                        macro("\(r.total.protein)g", "protein")
-                        macro("\(r.total.carbs)g", "carbs")
-                        macro("\(r.total.fat)g", "fat")
+                    Text(r.complete == true ? "Estimated total" : "Subtotal of ingredients we could estimate")
+                        .font(.headline).foregroundStyle(session.themeTextColor)
+                    Text(r.note ?? "Estimates can be incomplete. Missing nutrition or quantities aren't zero.")
+                        .font(.caption).foregroundStyle(session.themeSecondaryText)
+                    if r.items.contains(where: { $0.kcal != nil }) {
+                        StockedEqualHeightGrid(
+                            items: [("\(r.total.kcal)", "kcal"), ("\(r.total.protein)g", "protein"),
+                                    ("\(r.total.carbs)g", "carbs"), ("\(r.total.fat)g", "fat")],
+                            id: \.1,
+                            columns: layoutMetrics.gridColumns(minimum: 72, maximum: 4, spacing: 10).count,
+                            spacing: 10
+                        ) { value, label in
+                            macro(value, label)
+                        }
                     }
                     ForEach(Array(r.items.enumerated()), id: \.offset) { _, it in
                         HStack {
-                            Text(it.name.capitalized).font(.system(size: 13)).foregroundStyle(session.themeTextColor)
+                            Text(it.name.capitalized).scaledFont(13).foregroundStyle(session.themeTextColor)
                             Spacer()
-                            Text(it.kcal.map { "\($0) kcal" } ?? "—").font(.system(size: 13)).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            Text(it.kcal.map { "\($0) kcal" } ?? "—").scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         }
                         .padding(.vertical, 4)
                         Divider().opacity(0.4)
                     }
                 }
             }
-            .padding(18)
+            .padding(20)
         }
         .stockedScreen()
         .navigationTitle("Nutrition")
@@ -147,10 +179,10 @@ struct NutritionToolView: View {
     }
     private func macro(_ v: String, _ label: String) -> some View {
         VStack(spacing: 1) {
-            Text(v).font(.system(size: 17, weight: .bold)).foregroundStyle(session.accentColor)
-            Text(label).font(.system(size: 10)).foregroundStyle(session.themeTextColor.opacity(0.5))
+            Text(v).scaledFont(17, weight: .bold).foregroundStyle(session.accentColor)
+            Text(label).scaledFont(10).foregroundStyle(session.themeSecondaryText)
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.vertical, 10)
         .background(session.themeTextColor.opacity(0.05)).clipShape(RoundedRectangle(cornerRadius: 12))
     }
     private func run() {

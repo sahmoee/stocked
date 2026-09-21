@@ -1,0 +1,72 @@
+[
+  {
+    "number": "STK-128-0170-E54C79A8D3BF42BE",
+    "title": "Size",
+    "resolution": "Rebalanced the Inventory hero for phone geometry: the refrigerator now scales to fill the right side instead of sitting undersized inside a fixed-height slot, while the copy stays anchored on the left and accessibility text uses a vertical fallback. This removes the reported empty gap without clipping the artwork or controls. The QA accessibility sweep also ignores non-accessibility window, scroll-host, passthrough, and floating-bar containers so those implementation gestures are no longer filed as unlabeled VoiceOver controls. Generic iPhone and iPad device compilation and deterministic regression checks passed; no simulator was used. Physical-device verification pending."
+  },
+  {
+    "number": "STK-128-0171-E54C79A8D3BF42BE",
+    "title": "Accessibility: 4 issues on Inventory",
+    "resolution": "The accessibility sweep now audits only views exposed as accessibility elements. UIKit and SwiftUI window, passthrough, scroll-host, and floating-bar containers may carry internal gestures but are not VoiceOver stops; their visible child controls are still inspected. This removes the four repeated framework-container false positives without suppressing real unlabeled controls or undersized targets. The policy has deterministic regression coverage, 46 native QA checks passed, and the app/extensions/XCTest bundles compile for the generic iOS device target; no simulator was used. Physical-device verification pending."
+  },
+  {
+    "number": "STK-122-0163-E54C79A8D3BF42BE",
+    "title": "Accessibility: 4 issues on Recipes",
+    "resolution": "The accessibility sweep now audits only views exposed as accessibility elements. UIKit and SwiftUI window, passthrough, scroll-host, and floating-bar containers may carry internal gestures but are not VoiceOver stops; their visible child controls are still inspected. This removes the four repeated framework-container false positives without suppressing real unlabeled controls or undersized targets. The policy has deterministic regression coverage, 46 native QA checks passed, and the app/extensions/XCTest bundles compile for the generic iOS device target; no simulator was used. Physical-device verification pending."
+  },
+  {
+    "number": "STK-122-0151-E54C79A8D3BF42BE",
+    "title": "Accessibility: 4 issues on Home",
+    "resolution": "The accessibility sweep now audits only views exposed as accessibility elements. UIKit and SwiftUI window, passthrough, scroll-host, and floating-bar containers may carry internal gestures but are not VoiceOver stops; their visible child controls are still inspected. This removes the four repeated framework-container false positives without suppressing real unlabeled controls or undersized targets. The policy has deterministic regression coverage, 46 native QA checks passed, and the app/extensions/XCTest bundles compile for the generic iOS device target; no simulator was used. Physical-device verification pending."
+  },
+  {
+    "number": "STK-120-0010-57A86A9FE9D94C01",
+    "title": "Accessibility: 4 issues on Recipes",
+    "resolution": "The accessibility sweep now audits only views exposed as accessibility elements. UIKit and SwiftUI window, passthrough, scroll-host, and floating-bar containers may carry internal gestures but are not VoiceOver stops; their visible child controls are still inspected. This removes the four repeated framework-container false positives without suppressing real unlabeled controls or undersized targets. The policy has deterministic regression coverage, 46 native QA checks passed, and the app/extensions/XCTest bundles compile for the generic iOS device target; no simulator was used. Physical-device verification pending."
+  },
+  {
+    "number": "STK-115-0148-E54C79A8D3BF42BE",
+    "title": "Accessibility: 4 issues on Inventory",
+    "resolution": "The accessibility sweep now audits only views exposed as accessibility elements. UIKit and SwiftUI window, passthrough, scroll-host, and floating-bar containers may carry internal gestures but are not VoiceOver stops; their visible child controls are still inspected. This removes the four repeated framework-container false positives without suppressing real unlabeled controls or undersized targets. The policy has deterministic regression coverage, 46 native QA checks passed, and the app/extensions/XCTest bundles compile for the generic iOS device target; no simulator was used. Physical-device verification pending."
+  },
+  {
+    "number": "STK-115-0145-E54C79A8D3BF42BE",
+    "title": "Accessibility: 4 issues on Recipes",
+    "resolution": "The accessibility sweep now audits only views exposed as accessibility elements. UIKit and SwiftUI window, passthrough, scroll-host, and floating-bar containers may carry internal gestures but are not VoiceOver stops; their visible child controls are still inspected. This removes the four repeated framework-container false positives without suppressing real unlabeled controls or undersized targets. The policy has deterministic regression coverage, 46 native QA checks passed, and the app/extensions/XCTest bundles compile for the generic iOS device target; no simulator was used. Physical-device verification pending."
+  },
+  {
+    "number": "STK-134-0176-E54C79A8D3BF42BE",
+    "title": "Color",
+    "resolution": "Replaced Recipes' separate fixed off-white card fill with the shared semantic Stocked surface. The Recipes destination, finder, browser, saved-recipe, online-recipe, and preview cards now inherit the same coordinated light and dark surfaces as the rest of the app instead of changing to a mismatched palette. Theme token regression coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+  },
+  {
+    "number": "STK-134-0175-E54C79A8D3BF42BE",
+    "title": "Sizing",
+    "resolution": "Applied one exact shared standard-text height to all three Recipes destination cards so My Collection's optional recipe count can no longer make that card larger than Ready to Cook or Past Meals. Accessibility text remains content-driven so enlarged copy is never clipped. Adaptive layout regression coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+  },
+  {
+    "number": "STK-134-0174-E54C79A8D3BF42BE",
+    "title": "Main thread blocked 1.9s on Recipes",
+    "resolution": "Removed invisible legacy Discover hydration, database refresh, and classification work from Recipes tab appearance. The redesigned destination-grid root now renders only its visible content; recipe catalog work starts on demand in the destination that uses it. Generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+  },
+  {
+    "number": "STK-122-0162-E54C79A8D3BF42BE",
+    "title": "Main thread blocked 1.4s on Home",
+    "resolution": "Moved Home's ready-to-cook recipe/expiry matching to one revision-keyed utility snapshot and reused its small result across widget sizing, recommendations, and content. SwiftUI no longer repeats the recipes-by-expiring-items scan during layout or root reconstruction. Deterministic ranking coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+  },
+  {
+    "number": "STK-122-0161-E54C79A8D3BF42BE",
+    "title": "Refreshing",
+    "resolution": "Separated blocking recipe loading from optional source enrichment. As soon as usable matches arrive, Recipe Results now shows a stable result count and normal controls while any remaining web/catalog check is identified as background work instead of leaving the screen continuously labeled as refreshing. Request-generation regression checks and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+  },
+  {
+    "number": "STK-115-0144-E54C79A8D3BF42BE",
+    "title": "Main thread blocked 5.0s on Recipe Results",
+    "resolution": "Throttled Recipe Results previews to the first usable result and meaningful paced growth instead of publishing and diffing a complete image-card grid up to five times per second during the detached corpus walk. Heavy query work remains off the main actor and obsolete generations stay cancellable. Native request-state checks and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+  },
+  {
+    "number": "STK-115-0143-E54C79A8D3BF42BE",
+    "title": "Main thread blocked 3.1s on Home",
+    "resolution": "Moved Home's ready-to-cook recipe/expiry matching to one revision-keyed utility snapshot and reused its small result across widget sizing, recommendations, and content. SwiftUI no longer repeats the recipes-by-expiring-items scan during layout or root reconstruction. Deterministic ranking coverage and generic iPhone/iPad device compilation passed without a simulator. Physical-device verification pending."
+  }
+]

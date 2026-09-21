@@ -77,10 +77,10 @@ nonisolated enum ReadinessCalculator {
         items.filter { $0.name.lowercased().contains("water") }.reduce(0) { sum, item in
             let qty = Double(max(1, item.quantity))
             if let amount = item.sizeAmount, let unit = item.sizeUnit?.lowercased() {
-                if unit.contains("l") && !unit.contains("ml") { return sum + amount * qty }
-                if unit.contains("ml") { return sum + (amount / 1000) * qty }
                 if unit.contains("gal") { return sum + amount * 3.785 * qty }
+                if unit.contains("ml") { return sum + (amount / 1000) * qty }
                 if unit.contains("oz") { return sum + (amount * 0.0296) * qty }
+                if unit == "l" || unit.contains("liter") || unit.contains("litre") { return sum + amount * qty }
             }
             return sum + 1.0 * qty   // assume a 1 L bottle
         }
@@ -142,10 +142,10 @@ struct EmergencyPantryView: View {
             Section {
                 VStack(spacing: 6) {
                     Text(result.rating)
-                        .font(.system(size: 26, weight: .bold))
+                        .scaledFont(26, weight: .bold)
                         .foregroundStyle(result.ratingColor)
                     Text("of food and water for \(people) \(people == 1 ? "person" : "people")")
-                        .font(.system(size: 13)).foregroundStyle(.secondary)
+                        .scaledFont(13).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
@@ -175,7 +175,7 @@ struct EmergencyPantryView: View {
                                 HapticManager.light()
                                 session.guestStore.addGroceryItem(name: staple)
                             }
-                            .font(.system(size: 12, weight: .semibold))
+                            .scaledFont(12, weight: .semibold)
                             .buttonStyle(.borderless)
                         }
                     }
@@ -186,7 +186,7 @@ struct EmergencyPantryView: View {
 
             if !result.expiringSoon.isEmpty {
                 Section {
-                    ForEach(result.expiringSoon, id: \.self) { Text($0).font(.system(size: 14)) }
+                    ForEach(result.expiringSoon, id: \.self) { Text($0).scaledFont(14) }
                 } header: { Text("Rotate these") } footer: {
                     Text("Emergency supplies fail quietly — they expire while you're not looking. Eat these now and replace them, so the shelf stays live.")
                 }
@@ -201,9 +201,9 @@ struct EmergencyPantryView: View {
 
     private func row(_ label: String, _ value: String, color: Color = .primary) -> some View {
         HStack {
-            Text(label).font(.system(size: 14))
+            Text(label).scaledFont(14)
             Spacer()
-            Text(value).font(.system(size: 14, weight: .semibold)).foregroundStyle(color)
+            Text(value).scaledFont(14, weight: .semibold).foregroundStyle(color)
         }
     }
 }

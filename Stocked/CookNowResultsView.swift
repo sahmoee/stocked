@@ -26,12 +26,16 @@ struct CookNowResultsView: View {
     @Environment(CookNowSession.self) private var cookSession: CookNowSession?
     private var store: GuestDataStore { session.guestStore }
 
-    @State private var snapshot = CookNowCompute.Output.empty
+    @State private var foodSnapshot = CookNowCompute.Output.empty
+    @State private var drinkSnapshot = CookNowCompute.Output.empty
+    @State private var isClassifying = true
+    private var snapshot: CookNowCompute.Output { contentKind == .drinks ? drinkSnapshot : foodSnapshot }
     @State private var openRecipe: UserRecipe? = nil
     @State private var goRecipe = false
     @State private var showMore = false
     @State private var isGeneratingRecipe = false
     @State private var generationMessage: String?
+    @State private var contentKind = ContentKind.food
     // RL-004 — Cook Anyway review for recipes that touch meal-plan reservations.
     @State private var overridePayload: ReservationOverridePayload? = nil
 
@@ -39,15 +43,28 @@ struct CookNowResultsView: View {
         StockedShell(showBack: true, titleText: title) {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Based on what's currently logged")
-                    .font(.system(size: 12))
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .scaledFont(12)
+                    .foregroundStyle(session.themeSecondaryText)
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
+
+                if hasDrinks {
+                    Picker("Recipe type", selection: $contentKind) {
+                        ForEach(ContentKind.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, CookStyle.screenHPad)
+                }
 
                 if focus == .readyFirst {
                     inventoryRecipeButton
                 }
 
-                if isEmptyEverywhere {
+                if isClassifying {
+                    ProgressView("Finding what you can make…")
+                        .tint(session.accentColor)
+                        .padding(.horizontal, CookStyle.screenHPad)
+                }
+                if isEmptyEverywhere && !isClassifying {
                     CookEmptyState(
                         icon: "fork.knife",
                         title: "No matches yet",
@@ -72,7 +89,6 @@ struct CookNowResultsView: View {
                     // duplicate that same population below the normal results list.
                 }
 
-                Spacer(minLength: 20)
             }
             .navigationDestination(isPresented: $goRecipe) {
                 if let openRecipe { UserRecipeDetailView(recipe: openRecipe) }
@@ -80,6 +96,7 @@ struct CookNowResultsView: View {
             .navigationDestination(isPresented: $goRefresh) { RefreshKitchenView() }
         }
         .task {
+            recompute()
             // Hydrate the Discover pool from its own persisted cache before
             // classifying, so opening this screen on a cold launch scores the
             // real recipe library instead of only the starter meals.
@@ -89,6 +106,8 @@ struct CookNowResultsView: View {
         }
         .qaScreen("Cook Now results")
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
+        .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recompute() }
+        .onDisappear { classificationTask?.cancel() }
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
         .onChange(of: store.planRevision)      { _, _ in recompute() }  // RL-006: plan edits move reservations
         .sheet(item: $overridePayload) { payload in
@@ -115,8 +134,23 @@ struct CookNowResultsView: View {
     }
 
     private func recompute() {
-        snapshot = CookNowCompute.run(store: store, session: cookSession)
+        classificationTask?.cancel()
+        isClassifying = true
+        classificationTask = Task {
+            guard let result = await CookNowCompute.runYielding(store: store, session: cookSession),
+                  !Task.isCancelled else { return }
+            let worker = Task.detached(priority: .userInitiated) {
+                Self.contentSnapshots(result)
+            }
+            let partition = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+            guard !Task.isCancelled else { return }
+            foodSnapshot = partition.food
+            drinkSnapshot = partition.drinks
+            isClassifying = false
+        }
     }
+
+    @State private var classificationTask: Task<Void, Never>?
 
     // PERF: this used to touch all four tier lists, and each of those was a
     // computed property that re-filtered and re-sorted the whole catalog. Between
@@ -124,17 +158,42 @@ struct CookNowResultsView: View {
     // ~150 recipes. The tiers are stored on Output now and this is a Bool read.
     private var isEmptyEverywhere: Bool { snapshot.isEmptyEverywhere }
 
+    private enum ContentKind: CaseIterable { case food, drinks; var label: String { self == .food ? "Food" : "Drinks" } }
+    private var hasDrinks: Bool { !drinkSnapshot.classified.isEmpty }
+
+    /// Materialize content sections once. Repeated body reads must not parse
+    /// every recipe's metadata or re-run image/quality validation on each frame.
+    nonisolated private static func contentSnapshots(_ full: CookNowCompute.Output)
+        -> (food: CookNowCompute.Output, drinks: CookNowCompute.Output) {
+        let drinkIDs = Set(full.classified.filter {
+            RecipeDisplayPolicy.isDrink(title: $0.recipe.title,
+                categories: $0.recipe.categories ?? [], tags: $0.recipe.tags)
+        }.map(\.id))
+        func project(drinks: Bool) -> CookNowCompute.Output {
+            func matches(_ recipe: ClassifiedRecipe) -> Bool { drinkIDs.contains(recipe.id) == drinks }
+            var output = full
+            output.classified = full.classified.filter(matches)
+            output.readyNow = full.readyNow.filter(matches)
+            output.needsReview = full.needsReview.filter(matches)
+            output.almostReady = full.almostReady.filter(matches)
+            output.morePossibilities = full.morePossibilities.filter(matches)
+            output.metrics = CookNowEngine.metrics(from: output.classified)
+            return output
+        }
+        return (project(drinks: false), project(drinks: true))
+    }
+
     private var inventoryRecipeButton: some View {
         VStack(alignment: .leading, spacing: 7) {
             Button(action: generateInventoryRecipe) {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 15, weight: .bold))
+                        .scaledFont(15, weight: .bold)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isGeneratingRecipe ? "Creating your recipe…" : "Create a recipe with AI")
-                            .font(.system(size: 14, weight: .bold))
+                            .scaledFont(14, weight: .bold)
                         Text("Built from what's in your inventory")
-                            .font(.system(size: 11, weight: .medium))
+                            .scaledFont(11, weight: .medium)
                             .opacity(0.72)
                     }
                     Spacer()
@@ -142,7 +201,7 @@ struct CookNowResultsView: View {
                         ProgressView().tint(Color.stockedCharcoal)
                     } else {
                         Image(systemName: "arrow.right")
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(12, weight: .bold)
                     }
                 }
                 .foregroundStyle(Color.stockedCharcoal)
@@ -157,7 +216,7 @@ struct CookNowResultsView: View {
 
             if let generationMessage {
                 Text(generationMessage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .scaledFont(11, weight: .semibold)
                     .foregroundStyle(session.themeTextColor.opacity(0.6))
             }
         }
@@ -208,10 +267,10 @@ struct CookNowResultsView: View {
                 } else {
                     Button { withAnimation { showMore = true } } label: {
                         HStack {
-                            Text("More possibilities (\(snapshot.morePossibilities.count))")
-                                .font(.system(size: 13.5, weight: .semibold))
+                            Text("More possibilities")
+                                .scaledFont(13.5, weight: .semibold)
                             Spacer()
-                            Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "chevron.down").scaledFont(11, weight: .semibold)
                         }
                         .foregroundStyle(Color.stockedGold)
                         .padding(.vertical, 11).padding(.horizontal, 14)
@@ -220,7 +279,7 @@ struct CookNowResultsView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, CookStyle.screenHPad)
-                    .a11yButton("Show more possibilities, \(snapshot.morePossibilities.count) recipes missing six or more items")
+                    .a11yButton("Show more possibilities")
                 }
             }
         }
@@ -232,12 +291,12 @@ struct CookNowResultsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(.system(size: 16, weight: .bold, design: .serif))
+                            .scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         if !subtitle.isEmpty {
                             Text(subtitle)
-                                .font(.system(size: 12))
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12)
+                                .foregroundStyle(session.themeSecondaryText)
                         }
                     }
                     // PERF: LazyVStack. The eager VStack built all 12 CookRecipeCards
@@ -246,11 +305,11 @@ struct CookNowResultsView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(items.prefix(12)) { c in
                             CookRecipeCard(
-                                title: c.recipe.title,
+                                title: RecipeDisplayPolicy.cleanedTitle(c.recipe.title),
                                 subtitle: rowSubtitle(c),
                                 matchPercent: matchPercent(c),
                                 imageURL: c.recipe.imageURL,
-                                usesUniformIcon: true
+                                usesUniformIcon: false
                             ) {
                                 // RL-004 — a recipe using reserved ingredients gets the
                                 // informative Cook Anyway review first (never blocking:
@@ -260,9 +319,8 @@ struct CookNowResultsView: View {
                                 if c.usesReservedIngredients && !touches.isEmpty {
                                     overridePayload = ReservationOverridePayload(recipe: c.recipe, touches: touches)
                                 } else {
-                                    // Persist first when this came from Discover or
-                                    // a generated recipe, so the detail screen's
-                                    // actions are real rather than silent no-ops.
+                                    // Keep a private working copy for cooking actions;
+                                    // opening a recipe does not mean Save to My Collection.
                                     openRecipe = store.ensureSavedForCooking(c.recipe)
                                     goRecipe = true
                                 }
