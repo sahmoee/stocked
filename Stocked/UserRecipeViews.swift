@@ -260,6 +260,18 @@ struct UserRecipeDetailView: View {
     private var recipeOptionsToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                if !recipe.belongsToMyCollection || !session.guestStore.userRecipes.contains(where: { $0.id == recipe.id }) {
+                    Button("Save to My Collection", systemImage: "bookmark") {
+                        var saved = recipe
+                        saved.collectionSavedByUser = true
+                        if session.guestStore.userRecipes.contains(where: { $0.id == saved.id }) {
+                            session.guestStore.updateUserRecipe(saved)
+                        } else {
+                            session.guestStore.addUserRecipe(saved)
+                        }
+                        recipe = saved
+                    }
+                }
                 if RecipeBrowserPolicy.url(recipe.attributedSourceURL ?? "") != nil {
                     Button("View original recipe", systemImage: "safari") { showOriginalRecipe = true }
                 }

@@ -1676,7 +1676,9 @@ final class HouseholdSync {
                     } else if HouseholdMergePolicy.remoteWins(remoteUpdatedAt: r.updatedAt, remoteWriterID: r.lastWriterID, localUpdatedAt: local.updatedAt, localWriterID: local.lastWriterID) {
                         SyncConflictLog.shared.record(entityType: "Recipe", entityName: local.title,
                                                       replaced: local.title, winning: r.title, writer: r.lastWriterID)
-                        byID[r.id] = r; touched = true
+                        var incoming = r
+                        if incoming.collectionSavedByUser == nil { incoming.collectionSavedByUser = local.collectionSavedByUser }
+                        byID[r.id] = incoming; touched = true
                     }
                 } else if !userRecipeTombstones.contains(r.id.uuidString) {
                     byID[r.id] = r; touched = true

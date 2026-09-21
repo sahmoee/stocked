@@ -2,6 +2,25 @@ import XCTest
 @testable import Stocked
 
 final class RecipeFinderIntegrationTests: XCTestCase {
+    func testLegacyHarvestRequiresExplicitCollectionReview() throws {
+        var harvested = UserRecipe(title: "Auto-harvested")
+        harvested.sourceURL = "https://example.org/recipe"
+        harvested.notes = "Source: Publisher — https://example.org/recipe"
+        XCTAssertFalse(harvested.belongsToMyCollection)
+        XCTAssertTrue(harvested.needsCollectionReview)
+        let restored = try JSONDecoder().decode(UserRecipe.self, from: JSONEncoder().encode(harvested))
+        XCTAssertTrue(restored.needsCollectionReview)
+        harvested.collectionSavedByUser = true
+        XCTAssertTrue(harvested.belongsToMyCollection)
+        XCTAssertFalse(harvested.needsCollectionReview)
+        harvested.collectionSavedByUser = nil
+        harvested.isFavorited = true
+        XCTAssertTrue(harvested.belongsToMyCollection)
+        var handwritten = UserRecipe(title: "My recipe")
+        XCTAssertTrue(handwritten.belongsToMyCollection)
+        handwritten.collectionSavedByUser = false
+        XCTAssertFalse(handwritten.belongsToMyCollection)
+    }
     func testJamaicanRecipesKeepSpecificAndParentCuisine() {
         XCTAssertEqual(RecipeTaxonomy.canonicalCuisine("Jamaican"), "Jamaican")
         XCTAssertEqual(RecipeTaxonomy.parentCuisine("Jamaican"), "Caribbean")

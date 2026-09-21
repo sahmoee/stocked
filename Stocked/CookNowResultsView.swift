@@ -319,9 +319,8 @@ struct CookNowResultsView: View {
                                 if c.usesReservedIngredients && !touches.isEmpty {
                                     overridePayload = ReservationOverridePayload(recipe: c.recipe, touches: touches)
                                 } else {
-                                    // Persist first when this came from Discover or
-                                    // a generated recipe, so the detail screen's
-                                    // actions are real rather than silent no-ops.
+                                    // Keep a private working copy for cooking actions;
+                                    // opening a recipe does not mean Save to My Collection.
                                     openRecipe = store.ensureSavedForCooking(c.recipe)
                                     goRecipe = true
                                 }

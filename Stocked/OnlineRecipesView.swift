@@ -2070,7 +2070,7 @@ struct OnlineRecipeDetailView: View {
             .onAppear {
                 // Reflect existing save state: match by title against My Collection.
                 if let existing = session.guestStore.userRecipes.first(where: {
-                    $0.title.caseInsensitiveCompare(recipe.title) == .orderedSame
+                    $0.belongsToMyCollection && $0.title.caseInsensitiveCompare(recipe.title) == .orderedSame
                 }) {
                     savedRecipeID = existing.id
                 }

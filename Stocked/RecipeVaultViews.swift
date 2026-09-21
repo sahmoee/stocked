@@ -69,7 +69,7 @@ struct RecipeVaultView: View {
         var recents: [UserRecipe] = []
     }
     private func recomputeHubStats() {
-        let recipes = session.guestStore.userRecipes
+        let recipes = session.guestStore.userRecipes.filter(\.belongsToMyCollection)
         var fav = 0, cooked = 0
         var cuisineSet = Set<String>()
         for r in recipes {
@@ -89,7 +89,8 @@ struct RecipeVaultView: View {
     private var hubStatsSignature: Int {
         var hasher = Hasher()
         for r in session.guestStore.userRecipes {
-            hasher.combine(r.id); hasher.combine(r.isFavorited)
+            hasher.combine(r.id); hasher.combine(r.collectionSavedByUser); hasher.combine(r.notes)
+            hasher.combine(r.isFavorited)
             hasher.combine(r.cookCount); hasher.combine(r.cuisine)
         }
         hasher.combine(session.recentlyViewedRecipeIDs)
@@ -735,8 +736,9 @@ struct RecipeVaultView: View {
                 }
 
                 // ── #244 — Top Categories (mockup) ──────────────────────
-                let cuisineCounts: [(String, Int)] = RecipeFacets.availableCuisines(in: session.guestStore.userRecipes)
-                    .map { ($0, RecipeFacets.count(cuisine: $0, in: session.guestStore.userRecipes)) }
+                let collectionRecipes = session.guestStore.userRecipes.filter(\.belongsToMyCollection)
+                let cuisineCounts: [(String, Int)] = RecipeFacets.availableCuisines(in: collectionRecipes)
+                    .map { ($0, RecipeFacets.count(cuisine: $0, in: collectionRecipes)) }
                     .sorted { $0.1 > $1.1 }
                     .prefix(4)
                     .map { ($0.0, $0.1) }
@@ -817,7 +819,7 @@ struct RecipeVaultView: View {
                 UserRecipeDetailView(recipe: recipe)   // #240
             case .saved:
                 RecipeListView(title: "Saved",
-                               recipes: session.guestStore.userRecipes,
+                               recipes: session.guestStore.userRecipes.filter(\.belongsToMyCollection),
                                onCreate: { showCreate = true }).environment(session)
             case .favorites:
                 RecipeListView(title: "Favorites",
@@ -829,7 +831,7 @@ struct RecipeVaultView: View {
                 CollectionsListView().environment(session)
             case .savedCuisine(let cuisine):
                 RecipeListView(title: cuisine,
-                               recipes: session.guestStore.userRecipes.filter { $0.cuisine == cuisine })
+                               recipes: session.guestStore.userRecipes.filter { $0.belongsToMyCollection && $0.cuisine == cuisine })
                     .environment(session)
             case .dbRecipe(let entry):
                 RecipeOverviewView(
@@ -1763,7 +1765,7 @@ private nonisolated struct RecipeCollectionSnapshotBuilder {
 
         // Keep personal source records recoverable, but omit publisher stock artwork from cards.
         var entries = recipes.filter {
-            !RecipeDisplayPolicy.isKnownPublisherPlaceholder($0.imageURL ?? "")
+            $0.belongsToMyCollection && !RecipeDisplayPolicy.isKnownPublisherPlaceholder($0.imageURL ?? "")
         }.map { recipe -> RecipeCollectionEntry in
             let needed = recipe.ingredients.filter { !$0.isOptional }
             let have = needed.filter { ingredient in
@@ -1897,7 +1899,7 @@ private struct RecipeMyCollectionView: View {
         snapshotGeneration &+= 1
         let generation = snapshotGeneration
         let store = session.guestStore
-        let recipes = store.userRecipes
+        let recipes = store.userRecipes.filter(\.belongsToMyCollection)
         let inventory = store.inventoryItems
         let allergens = store.cookingProfile.allergens
         let cuisinePrefs = store.cookingProfile.cuisinePrefs
@@ -1923,6 +1925,17 @@ private struct RecipeMyCollectionView: View {
     var body: some View {
         let entries = collectionSnapshot.entries
         VStack(alignment: .leading, spacing: 0) {
+            let unreviewed = session.guestStore.userRecipes.filter(\.needsCollectionReview)
+            if !unreviewed.isEmpty {
+                NavigationLink {
+                    RecipeCollectionReviewView().environment(session)
+                } label: {
+                    Label("Review \(unreviewed.count) older imported recipes", systemImage: "tray.full")
+                        .font(.stocked(.subheadline)).frame(minHeight: 44)
+                }
+                .buttonStyle(.plain).foregroundStyle(session.accentColor)
+                .padding(.horizontal, 20).padding(.bottom, 10)
+            }
             NavigationLink { SmartCookbooksView() } label: {
                 Label("Smart cookbooks", systemImage: "books.vertical")
                     .font(.stocked(.headline)).frame(minHeight: 44)
@@ -2346,6 +2359,58 @@ struct RecipePreviewCard: View {
 
 
 // MARK: - #245 — Recipe list (hub destinations) + Collections
+/// Older Mac harvest records did not record whether a person chose Save. Keep them
+/// intact and searchable here; adopting one is an explicit, household-synced action.
+private struct RecipeCollectionReviewView: View {
+    @Environment(AppSession.self) private var session
+    @State private var query = ""
+
+    var body: some View {
+        let unreviewed = session.guestStore.userRecipes.filter(\.needsCollectionReview)
+        let matches = unreviewed.filter {
+            query.isEmpty || $0.title.localizedCaseInsensitiveContains(query)
+                || ($0.sourceName?.localizedCaseInsensitiveContains(query) == true)
+        }
+        StockedShell(showBack: true) {
+            ScrollView {
+              VStack(alignment: .leading, spacing: 12) {
+                Text("Review imported recipes")
+                    .scaledFont(24, weight: .bold, design: .serif)
+                    .foregroundStyle(session.themeTextColor)
+                Text("These older imports did not record whether you chose Save. They remain available for cooking. Choose Keep for the ones you want in My Collection.")
+                    .scaledFont(13).foregroundStyle(session.themeSecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextField("Search titles or sources", text: $query)
+                    .textInputAutocapitalization(.never)
+                    .stockedGlassSurface(.control, cornerRadius: 14)
+                Text("\(matches.count) to review")
+                    .scaledFont(12).foregroundStyle(session.themeSecondaryText)
+                LazyVStack(spacing: 10) {
+                    ForEach(matches) { recipe in
+                        HStack(alignment: .top, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(recipe.title).scaledFont(15, weight: .semibold)
+                                if let source = recipe.sourceName {
+                                    Text(source).scaledFont(12).foregroundStyle(session.themeSecondaryText)
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                            Button("Keep") {
+                                var saved = recipe
+                                saved.collectionSavedByUser = true
+                                session.guestStore.updateUserRecipe(saved)
+                            }.buttonStyle(.borderedProminent)
+                        }
+                        .foregroundStyle(session.themeTextColor)
+                        .padding(12)
+                        .background(RecipeCardStyle.surface(isDark: session.isDarkMode), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                }
+              }.padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
 struct RecipeListView: View {
     @Environment(AppSession.self) var session
     let title: String
@@ -2435,8 +2500,9 @@ struct CollectionsListView: View {
     @State private var goList = false
 
     private var cuisines: [(String, Int)] {
-        RecipeFacets.availableCuisines(in: session.guestStore.userRecipes)
-            .map { ($0, RecipeFacets.count(cuisine: $0, in: session.guestStore.userRecipes)) }
+        let recipes = session.guestStore.userRecipes.filter(\.belongsToMyCollection)
+        return RecipeFacets.availableCuisines(in: recipes)
+            .map { ($0, RecipeFacets.count(cuisine: $0, in: recipes)) }
             .sorted { $0.1 > $1.1 }
     }
 
@@ -2501,7 +2567,7 @@ struct CollectionsListView: View {
         .navigationDestination(isPresented: $goList) {
             if let selectedCuisine {
                 RecipeListView(title: selectedCuisine,
-                               recipes: session.guestStore.userRecipes.filter { RecipeFacets.matches($0, cuisine: selectedCuisine) })
+                               recipes: session.guestStore.userRecipes.filter { $0.belongsToMyCollection && RecipeFacets.matches($0, cuisine: selectedCuisine) })
                     .environment(session)
             }
         }

@@ -377,6 +377,10 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var categories:   [String]? = nil
     /// Bounded, private import provenance. Never included in the public harvest wire.
     var portableSource: PortableRecipeSource? = nil
+    /// Explicit collection intent. Nil means an older record without this distinction.
+    /// Auto-harvested Mac records had a generated Source: note; keep them reviewable
+    /// without claiming the person saved them.
+    var collectionSavedByUser: Bool? = nil
     var author: String? = nil
     var license: String? = nil
     var imageAttribution: String? = nil
@@ -389,6 +393,14 @@ nonisolated struct UserRecipe: Identifiable, Codable, Sendable, Equatable {
     var dishRole:     DishRole = .unspecified  // classification for prep discovery; legacy recipes decode as .unspecified
 
     var ingredientNames: [String] { ingredients.map(\.name) }
+    var belongsToMyCollection: Bool {
+        if let collectionSavedByUser { return collectionSavedByUser }
+        if isFavorited || cookCount > 0 { return true }
+        return !notes.hasPrefix("Source: ")
+    }
+    var needsCollectionReview: Bool {
+        collectionSavedByUser == nil && !belongsToMyCollection
+    }
     var estimatedCalories: Int? {
         let total = ingredients.compactMap { $0.nutrition?.calories }.reduce(0, +)
         return total == 0 ? nil : total / max(1, servings)

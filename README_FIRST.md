@@ -4,6 +4,17 @@
 
 # Read me first
 
+My Collection now counts explicit saves, creations and reviewed imports. Opening a
+Cook Now recipe keeps a working copy but does not silently save it. Older Mac
+harvest records with a `Source:` attribution and no saved-intent marker remain
+in household data; the collection offers a searchable review path to keep them
+individually. Favorited or cooked legacy records remain visible. The optional
+`collectionSavedByUser` field is carried through the existing household recipe
+JSON by UnifiedWorker; old clients omit it and continue to function. Ship the
+Mac harvester change before or alongside iOS so new automatic harvests never
+enter household saved recipes. Generic-device compilation verifies the client;
+physical-device collection and cross-version sync remain acceptance checks.
+
 The optional FeaturePromo2026 helper scripts resolve assets relative to the checkout. They write
 the video beside the scripts by default; set `STOCKED_PROMO_OUTPUT` to use another output path.
 

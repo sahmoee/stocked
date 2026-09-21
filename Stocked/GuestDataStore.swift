@@ -975,7 +975,7 @@ class GuestDataStore {
     }
     /// Normalized titles of saved recipes — for de-duping online results (#4).
     var savedRecipeTitles: Set<String> {
-        Set(userRecipes.map { OnlineRecipeFacts.normalizedTitle($0.title) })
+        Set(userRecipes.filter(\.belongsToMyCollection).map { OnlineRecipeFacts.normalizedTitle($0.title) })
     }
 
     /// Import an online recipe into My Collection with STRUCTURED ingredient fields (#5):
@@ -989,7 +989,10 @@ class GuestDataStore {
     func saveGeneratedRecipe(_ r: GeneratedRecipe) -> UUID {
         if let existing = userRecipes.first(where: {
             OnlineRecipeFacts.normalizedTitle($0.title) == OnlineRecipeFacts.normalizedTitle(r.title)
-        }) { return existing.id }
+        }) {
+            if !existing.belongsToMyCollection { var saved = existing; saved.collectionSavedByUser = true; updateUserRecipe(saved) }
+            return existing.id
+        }
 
         // Conversion moved to RecipeAdapter — it was duplicated here and in
         // importOnlineRecipe, and the classifier needs the same shape.
@@ -1005,7 +1008,10 @@ class GuestDataStore {
     func importOnlineRecipe(_ recipe: OnlineRecipe) -> UUID {
         if let existing = userRecipes.first(where: {
             OnlineRecipeFacts.normalizedTitle($0.title) == OnlineRecipeFacts.normalizedTitle(recipe.title)
-        }) { return existing.id }
+        }) {
+            if !existing.belongsToMyCollection { var saved = existing; saved.collectionSavedByUser = true; updateUserRecipe(saved) }
+            return existing.id
+        }
 
         // Conversion moved to RecipeAdapter (shared with the classification pool
         // and with saveGeneratedRecipe).
@@ -1671,8 +1677,8 @@ class GuestDataStore {
     /// `UserRecipeDetailView` a recipe the store had never seen, so rename,
     /// delete, favourite, and cook-history all looked available and silently did
     /// nothing (they resolve by id against `userRecipes`). Cook Now is an
-    /// intent-to-cook surface, so persisting on open is the honest fix: the
-    /// recipe becomes the user's, and every downstream action works.
+    /// intent-to-cook surface, so keep a working copy for downstream cooking
+    /// actions without treating opening a recipe as an explicit collection save.
     ///
     /// Idempotent by id and by normalized title, so repeated opens do not
     /// duplicate.
@@ -1718,7 +1724,7 @@ class GuestDataStore {
 
         saved.id = UUID()          // a real, store-owned identity
         saved.dateCreated = Date()
-        addUserRecipe(saved)
+        addUserRecipe(saved, saveToCollection: false)
         return saved
     }
 
@@ -2149,11 +2155,12 @@ class GuestDataStore {
     var userSubstitutions: [UserSubstitutionEntry] = [] {
         didSet { saveDebounced("userSubstitutions_v1", userSubstitutions) }
     }
-    func addUserRecipe(_ recipeIn: UserRecipe) {
+    func addUserRecipe(_ recipeIn: UserRecipe, saveToCollection: Bool = true) {
         // Every save funnel (create form, web import, share extension, AI generator)
         // passes through here, so blank/whitespace steps are dropped once, centrally —
         // no recipe can render an empty numbered instruction row.
         var r = recipeIn
+        r.collectionSavedByUser = saveToCollection
         guard (r.portableSource != nil && r.instructions.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
                 || r.imageData != nil
                 || r.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
