@@ -1,8 +1,10 @@
 import AppKit
 import AVFoundation
 
-let input = URL(fileURLWithPath: "/Users/key/Downloads/Stocked-Promo-Features-1080x1920.mp4")
-let output = "/Users/key/Documents/stocked/Promo/FeaturePromo2026/verification-contact-sheet.png"
+let scriptDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+let input = URL(fileURLWithPath: ProcessInfo.processInfo.environment["STOCKED_PROMO_OUTPUT"]
+    ?? scriptDirectory.appendingPathComponent("Stocked-Promo-Features-1080x1920.mp4").path)
+let output = scriptDirectory.appendingPathComponent("verification-contact-sheet.png").path
 let asset = AVURLAsset(url: input)
 let generator = AVAssetImageGenerator(asset: asset)
 generator.appliesPreferredTrackTransform = true

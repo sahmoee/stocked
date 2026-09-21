@@ -4,6 +4,9 @@
 
 # Read me first
 
+The optional FeaturePromo2026 helper scripts resolve assets relative to the checkout. They write
+the video beside the scripts by default; set `STOCKED_PROMO_OUTPUT` to use another output path.
+
 September 20 build note: the repository's iCloud/File Provider root must remain **Keep Downloaded**.
 An almost-full startup disk had evicted asset-catalog JSON and images, causing Xcode's iOS and Watch
 targets to report `failed to read asset tags`. The local project is pinned; if the repository is

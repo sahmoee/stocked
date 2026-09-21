@@ -3,8 +3,11 @@ import AVFoundation
 import CoreVideo
 
 let W = 1080, H = 1920, fps: Int32 = 30
-let root = "/Users/key/Documents/stocked/Stocked/Assets .xcassets"
-let output = "/Users/key/Downloads/Stocked-Promo-Features-1080x1920.mp4"
+let scriptDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+let projectDirectory = scriptDirectory.deletingLastPathComponent().deletingLastPathComponent()
+let root = projectDirectory.appendingPathComponent("Stocked/Assets .xcassets").path
+let output = ProcessInfo.processInfo.environment["STOCKED_PROMO_OUTPUT"]
+    ?? scriptDirectory.appendingPathComponent("Stocked-Promo-Features-1080x1920.mp4").path
 
 struct Scene {
     let eyebrow: String
