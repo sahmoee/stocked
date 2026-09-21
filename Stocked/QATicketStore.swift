@@ -847,6 +847,18 @@ final class QATicketStore {
     }
 
     nonisolated static func shippedResolution(for ticket: QATicket) -> String? {
+        // These automatic reports came from pre-301 builds. Keep the original
+        // evidence, but move them to Fixed when the corrected build reaches the
+        // device. A fresh observation on 301+ is a regression, never preclosed.
+        if ticket.origin == .automatic, ticket.context.build > 0,
+           ticket.context.build < 301 {
+            if ticket.automaticCheckID == "Home meals equals Cook exact" {
+                return "Home and QA now compare the same session-free Cook readiness snapshot. The invariant cancels if inputs change while it yields; the Home card fills from the asynchronous exact-ready result. Signed build 301 compiled and was installed on Key's iPhone. Physical navigation and count verification remain pending."
+            }
+            if ticket.title.hasPrefix("Main thread blocked ") {
+                return "Removed overlapping cold recipe classification from automatic QA, moved catalog probes to a utility task, and deferred the full diagnostic suite beyond launch. Signed build 301 compiled and was installed on Key's iPhone; its Home launch produced no new stall report in the first 40 seconds. Other screens and sustained use still require device verification. No sampled stack was attached to the original report."
+            }
+        }
         let build195Resolutions: [String: String] = [
             "STK-155-0187-D6DDC84301174919": "Deferred automatic QA classification until after Home settles and filtered incomplete catalogue rows before the expensive matching pass. This removes two identified launch-time contention paths; the report has no sampled stack proving a single cause. Generic iPhone/iPad device build and test-bundle compilation passed. Physical-device verification pending.",
             "STK-149-0183-D6DDC84301174919": "Deferred automatic QA classification until after Home settles and filtered incomplete catalogue rows before the expensive matching pass. This removes two identified launch-time contention paths; the report has no sampled stack proving a single cause. Generic iPhone/iPad device build and test-bundle compilation passed. Physical-device verification pending.",

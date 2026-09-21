@@ -10,6 +10,20 @@ discovery revision. A warm Cook Now snapshot also supplies the store's exact cou
 main-thread pass. Offline/local fallback remains available before classification completes. This
 addresses the recurring QA mismatch where lightweight metrics left Home at zero while Cook showed
 exact-ready meals; physical-device recheck and frame-time verification are still required.
+The QA invariant compares Home with Cook's household baseline, not temporary
+Cook-session ingredient overrides. It discards a run if either input revision
+changes between asynchronous probes.
+Automatic QA now runs its catalog coverage, duplicate-ID, Discover-pool and
+optional-ingredient checks from immutable snapshots on a utility task; the
+foreground actor only captures inputs and rejects a result after a revision
+change. This reduces one catalog-sized source of cross-screen frame stalls;
+the historical freeze tickets still require a fresh device pass.
+The automatic full diagnostic suite begins only after ten minutes of foreground
+QA use, instead of stacking on the first launch-time invariant pass; the QA
+screen's explicit Run Everything action remains available immediately.
+Automatic invariants wait thirty seconds and use a warmed Cook snapshot rather
+than starting cold classification during Home startup. Explicit QA runs may
+still classify immediately.
 
 My Collection now counts explicit saves, creations and reviewed imports. Opening a
 Cook Now recipe keeps a working copy but does not silently save it. Older Mac

@@ -38,7 +38,10 @@ final class QABackgroundRunner {
     private(set) var lastPublish: Date?
     private(set) var lastPublishOutcome: String = "never published"
     private(set) var lastDiagnostics: QADiagnosticsReport?
-    private var diagnosticsAt = Date.distantPast
+    // The first foreground QA pass already classifies recipes and inspects the
+    // live screen. Running the complete network/storage/notification diagnostic
+    // suite in the same launch window stacked unrelated work on Home.
+    private var diagnosticsAt = Date()
 
     /// Auto-publish to the worker after a run that found something new.
     var autoPublish: Bool {
@@ -72,7 +75,7 @@ final class QABackgroundRunner {
             // Let launch hydration and the first visible transition settle before
             // the expensive baseline. Running this on the first Home frame was a
             // major contributor to the build 68/77 launch-stall tickets.
-            try? await Task.sleep(for: .seconds(12))
+            try? await Task.sleep(for: .seconds(30))
             guard !Task.isCancelled else { return }
             await self?.runNow(force: false)
             while !Task.isCancelled {
@@ -146,7 +149,10 @@ final class QABackgroundRunner {
         isRunning = true
         defer { isRunning = false }
         surfaceNewCrashes()
-        let results = await QAInvariants.runAllYielding(store: store, session: session)
+        let invariantProcess = QAProcessTracker.shared.begin("Automatic QA invariants")
+        let results = await QAInvariants.runAllYielding(
+            store: store, session: session, allowColdClassification: force)
+        invariantProcess.finish(detail: "\(results.count) checks")
         guard !results.isEmpty, !Task.isCancelled, QARecorder.shared.isEnabled,
               UIApplication.shared.applicationState == .active, sig == signature(store) else {
             return // Cancellation or changing inputs: retry, don't record a clean run.
@@ -159,7 +165,9 @@ final class QABackgroundRunner {
         // No synthetic UI taps, recipe imports, purchases or manual sign-offs.
         var freshDiagnosticRows: [QAInvariantResult] = []
         if diagnosticsDue || force {
+            let diagnosticProcess = QAProcessTracker.shared.begin("Full QA diagnostics")
             let report = await QAFullDiagnostics.run(store: store, session: session, invariantResults: results)
+            diagnosticProcess.finish(detail: "\(report.sections.count) sections")
             guard !Task.isCancelled, QARecorder.shared.isEnabled,
                   UIApplication.shared.applicationState == .active, sig == signature(store) else { return }
             lastDiagnostics = report; diagnosticsAt = Date()

@@ -48,7 +48,8 @@ enum QAInvariants {
     /// runner uses THIS — running the whole suite synchronously stalled the main
     /// thread for long enough during cooking that the iOS watchdog killed the app
     /// (the "CRASH type=10 signal=9" entries in the diagnostics log).
-    static func runAllYielding(store: GuestDataStore, session: CookNowSession?) async -> [QAInvariantResult] {
+    static func runAllYielding(store: GuestDataStore, session: CookNowSession?,
+                               allowColdClassification: Bool = true) async -> [QAInvariantResult] {
         // BUILD 75 — ONE snapshot for the whole suite.
         //
         // Three probes each called `CookNowCompute.run` independently, and this
@@ -65,8 +66,37 @@ enum QAInvariants {
         // apart with an inventory edit in between, a real divergence and a
         // perfectly ordinary edit look exactly the same. Every probe now judges
         // the same snapshot, taken once, before the first yield.
+        // Automatic QA must not launch another cold catalog classification while
+        // Home and Cook are still preparing their first frames. A manual run can
+        // explicitly request it; the periodic runner will retry after the app
+        // has produced a cached snapshot.
+        if !allowColdClassification,
+           CookNowCompute.cached(store: store, session: session) == nil { return [] }
+        let cookStarted = Date()
         guard let snapshot = await CookNowCompute.runYielding(store: store, session: session) else {
             return [] // Interrupted snapshots are not evidence of failed invariants.
+        }
+        noteSlowPhase("Cook snapshot", since: cookStarted)
+        // Home never applies the in-progress Cook session's ingredient overrides.
+        // Compare it with the household baseline, even while Cook is open.
+        let homeStarted = Date()
+        guard let homeSnapshot = session == nil ? snapshot :
+                await CookNowCompute.runYielding(store: store, session: nil) else { return [] }
+        noteSlowPhase("Home baseline snapshot", since: homeStarted)
+        let homeRevision = CookNowCompute.revisionKey(store: store, session: nil)
+        let cookRevision = CookNowCompute.revisionKey(store: store, session: session)
+        let captureStarted = Date()
+        let recipes = store.cookCatalog
+        let generated = store.savedGeneratedRecipes
+        let discover = OnlineRecipesLoader.shared.recipes
+        let inventory = store.inventoryItems
+        let inStockNames = store.inStockNameSet
+        let recipeIDs = store.userRecipes.map(\.id)
+        noteSlowPhase("Catalog capture", since: captureStarted)
+        let catalogChecks = Task.detached(priority: .utility) {
+            Self.catalogChecks(recipes: recipes, generated: generated,
+                               discover: discover, inventory: inventory,
+                               inStockNames: inStockNames, recipeIDs: recipeIDs)
         }
         await Task.yield()
 
@@ -75,23 +105,32 @@ enum QAInvariants {
             { allergenExclusion(store: store, session: session, snapshot: snapshot) },
             { readyRecipesTrulyStocked(store: store, session: session, snapshot: snapshot) },
             { surfacedRecipesAreShowable(store: store, session: session, snapshot: snapshot) },
-            { coverageInternalConsistency(store: store) },
-            { homeMatchesCookExact(store: store, session: session, snapshot: snapshot) },
+            { homeMatchesCookExact(store: store, session: nil, snapshot: homeSnapshot) },
             { reservationMath(store: store) },
             { lowStockAgreement(store: store) },
             { expiringAgreement(store: store) },
             { availabilityFloorRespected(store: store) },
-            { noDuplicateIdentities(store: store) },
-            { discoverPoolReachingClassifier(store: store) },
-            { optionalIngredientsExcluded(store: store) },
             { classificationNotRepeating() },
             { workerConfigured() },
         ]
-        for probe in probes {
-            guard !Task.isCancelled else { return [] }
+        for (index, probe) in probes.enumerated() {
+            guard !Task.isCancelled,
+                  homeRevision == CookNowCompute.revisionKey(store: store, session: nil),
+                  cookRevision == CookNowCompute.revisionKey(store: store, session: session) else { return [] }
+            let started = Date()
             out.append(probe())
+            noteSlowPhase("Probe \(index + 1): \(out.last?.name ?? "unknown")", since: started)
             await Task.yield()   // let UI/timer work interleave between probes
         }
+        let catalogResults = await withTaskCancellationHandler {
+            await catalogChecks.value
+        } onCancel: {
+            catalogChecks.cancel()
+        }
+        guard !Task.isCancelled,
+              homeRevision == CookNowCompute.revisionKey(store: store, session: nil),
+              cookRevision == CookNowCompute.revisionKey(store: store, session: session) else { return [] }
+        out += catalogResults
         out += QAFeatureContracts.run().map {
             QAInvariantResult(name: $0.name, status: $0.passed ? .ok : .violation,
                 detail: $0.detail, critical: !$0.passed)
@@ -99,15 +138,90 @@ enum QAInvariants {
         return out
     }
 
+    private static func noteSlowPhase(_ name: String, since start: Date) {
+        let milliseconds = Date().timeIntervalSince(start) * 1000
+        guard milliseconds >= 120 else { return }
+        QARecorder.shared.record(.note, screen: QARecorder.shared.currentScreen,
+            label: "QA slow phase: \(name)",
+            detail: String(format: "%.0f ms elapsed", milliseconds))
+    }
+
+    /// Large catalog checks never run on the frame-producing actor during
+    /// automatic QA. Captured value snapshots keep the pass read-only.
+    nonisolated private static func catalogChecks(
+        recipes: [UserRecipe], generated: [GeneratedRecipe], discover: [OnlineRecipe],
+        inventory: [LocalInventoryItem], inStockNames: Set<String>, recipeIDs: [UUID]
+    ) -> [QAInvariantResult] {
+        guard !Task.isCancelled else { return [] }
+        let sample = Array(recipes.prefix(120))
+        let inconsistent = sample.filter { recipe in
+            let coverage = KitchenAvailability.coverage(
+                lines: recipe.ingredients.map(\.name),
+                optionalFlags: recipe.ingredients.map(\.isOptional),
+                availableNames: inStockNames)
+            return coverage.missingNames.count != coverage.missingCount
+        }
+        let coverageResult = sample.isEmpty
+            ? QAInvariantResult(name: "Coverage self-consistency", status: .blocked,
+                                detail: "no recipes in catalog", critical: false)
+            : QAInvariantResult(name: "Coverage self-consistency",
+                                status: inconsistent.isEmpty ? .ok : .violation,
+                                detail: inconsistent.isEmpty ? "\(sample.count) recipes checked"
+                                    : "\(inconsistent.count) recipes have inconsistent missing counts",
+                                critical: !inconsistent.isEmpty)
+
+        let invIDs = inventory.map(\.id)
+        let invDuplicates = invIDs.count - Set(invIDs).count
+        let recipeDuplicates = recipeIDs.count - Set(recipeIDs).count
+        let duplicateResult = QAInvariantResult(name: "No duplicate identities",
+            status: invDuplicates + recipeDuplicates == 0 ? .ok : .violation,
+            detail: "\(invDuplicates) inventory and \(recipeDuplicates) recipe duplicate IDs",
+            critical: invDuplicates + recipeDuplicates > 0)
+
+        guard !Task.isCancelled else { return [] }
+        let eligible = RecipeAdapter.classifiableCatalog(
+            saved: recipes, generated: generated, discover: discover,
+            availableTokens: RecipeAdapter.availableTokens(in: inventory))
+        let added = eligible.count - recipes.count - generated.filter { !$0.isHidden }.count
+        let discoverResult = discover.isEmpty
+            ? QAInvariantResult(name: "Discover pool reaches classifier", status: .blocked,
+                                detail: "Discover cache empty", critical: false)
+            : QAInvariantResult(name: "Discover pool reaches classifier",
+                                status: added > 0 ? .ok : .violation,
+                                detail: "\(discover.count) cached; \(max(0, added)) reached classifier",
+                                critical: added <= 0)
+
+        let optionalResult: QAInvariantResult
+        if let recipe = recipes.first(where: { $0.ingredients.contains(where: \.isOptional) }) {
+            let coverage = KitchenAvailability.coverage(
+                lines: recipe.ingredients.map(\.name),
+                optionalFlags: recipe.ingredients.map(\.isOptional),
+                availableNames: inStockNames)
+            let required = recipe.ingredients.filter {
+                !$0.isOptional && !KitchenAvailability.parsedName($0.name).isEmpty
+            }.count
+            optionalResult = QAInvariantResult(name: "Optional ingredients excluded",
+                status: coverage.total == required ? .ok : .violation,
+                detail: "\(recipe.title): \(coverage.total) counted; \(required) required",
+                critical: coverage.total != required)
+        } else {
+            optionalResult = QAInvariantResult(name: "Optional ingredients excluded",
+                status: .blocked, detail: "no recipe with an optional ingredient to test",
+                critical: false)
+        }
+        return Task.isCancelled ? [] : [coverageResult, duplicateResult, discoverResult, optionalResult]
+    }
+
     /// Run every probe. Ordered so the critical ones surface first in the UI.
     static func runAll(store: GuestDataStore, session: CookNowSession?) -> [QAInvariantResult] {
         let snapshot = CookNowCompute.run(store: store, session: session)
+        let homeSnapshot = session == nil ? snapshot : CookNowCompute.run(store: store, session: nil)
         var out: [QAInvariantResult] = []
         out.append(allergenExclusion(store: store, session: session, snapshot: snapshot))
         out.append(readyRecipesTrulyStocked(store: store, session: session, snapshot: snapshot))
         out.append(surfacedRecipesAreShowable(store: store, session: session, snapshot: snapshot))
         out.append(coverageInternalConsistency(store: store))
-        out.append(homeMatchesCookExact(store: store, session: session, snapshot: snapshot))
+        out.append(homeMatchesCookExact(store: store, session: nil, snapshot: homeSnapshot))
         out.append(reservationMath(store: store))
         out.append(lowStockAgreement(store: store))
         out.append(expiringAgreement(store: store))
