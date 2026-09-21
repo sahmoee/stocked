@@ -2293,6 +2293,11 @@ class GuestDataStore {
         KitchenStock.byCategory(staples: stockStaples, inStock: inStockNameSet)
     }
     var availableMeals: Int {
+        // A completed Cook Now snapshot is authoritative. Reusing it is O(1)
+        // and avoids a second main-thread classification on Home or in QA.
+        if let snapshot = CookNowCompute.cached(store: self, session: nil) {
+            return snapshot.readyNow.filter { $0.readiness == .exact }.count
+        }
         // #247 — must agree with the Cook Now rail.
         //
         // IT DID NOT. This count used `stockMatch` (loose substring matcher, no
@@ -2372,6 +2377,18 @@ class GuestDataStore {
                           recipes: recipeRevision,
                           plans: planRevision,
                           day: today) {
+            if includeMealsReady,
+               let snapshot = CookNowCompute.cached(store: self, session: nil) {
+                let exact = snapshot.readyNow.filter { $0.readiness == .exact }.count
+                if cached.value.mealsReady != exact {
+                    var refreshed = cached.value
+                    refreshed.mealsReady = exact
+                    completeMetricsCache = MetricsCache(inventoryRevision: inventoryRevision,
+                        groceryRevision: groceryRevision, recipeRevision: recipeRevision,
+                        planRevision: planRevision, calendarDay: today, value: refreshed)
+                    return refreshed
+                }
+            }
             return cached.value
         }
 

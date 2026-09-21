@@ -101,7 +101,7 @@ struct HomeView: View {
     private var expiringCount: Int { kitchenMetrics.expiringSoonCount }
     private var mealsAvailable: Int { kitchenMetrics.mealsReady }
     private var metricsRevision: String {
-        "\(store.inventoryRevision):\(store.groceryRevision):\(store.recipeRevision):\(store.planRevision)"
+        "\(store.inventoryRevision):\(store.groceryRevision):\(store.recipeRevision):\(store.planRevision):\(CookNowCompute.revisionKey(store: store, session: nil))"
     }
     private var readyToCookRevision: String {
         "\(store.inventoryRevision):\(store.recipeRevision)"
@@ -184,6 +184,12 @@ struct HomeView: View {
                 await Task.yield()
                 kitchenMetrics = store.lightweightMetrics
                 widgetsLastUpdated = Date()
+                // The lightweight snapshot deliberately skips recipe classification.
+                // Fill this widget from the same off-main snapshot used by Cook Now.
+                if let ready = await CookNowCompute.runYielding(store: store, session: nil),
+                   !Task.isCancelled {
+                    kitchenMetrics.mealsReady = ready.readyNow.filter { $0.readiness == .exact }.count
+                }
             }
             .task(id: readyToCookRevision) {
                 await Task.yield()

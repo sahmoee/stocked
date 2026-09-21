@@ -4,6 +4,13 @@
 
 # Read me first
 
+Home's Meals Ready widget first paints lightweight inventory metrics, then fills its meal count
+from the asynchronous Cook Now classification for the current recipe, inventory, plan, profile and
+discovery revision. A warm Cook Now snapshot also supplies the store's exact count without a second
+main-thread pass. Offline/local fallback remains available before classification completes. This
+addresses the recurring QA mismatch where lightweight metrics left Home at zero while Cook showed
+exact-ready meals; physical-device recheck and frame-time verification are still required.
+
 My Collection now counts explicit saves, creations and reviewed imports. Opening a
 Cook Now recipe keeps a working copy but does not silently save it. Older Mac
 harvest records with a `Source:` attribution and no saved-intent marker remain
