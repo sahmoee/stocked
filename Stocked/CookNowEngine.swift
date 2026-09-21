@@ -26,7 +26,7 @@ import Foundation
 
 /// The seven-tier readiness classification. Order matters: `rawValue` ascends
 /// from most-ready to least-ready, so tiers sort naturally.
-nonisolated enum CookNowReadiness: Int, Sendable, Comparable, CaseIterable {
+nonisolated enum CookNowReadiness: Int, Codable, Sendable, Comparable, CaseIterable {
     /// All required ingredients are on hand in the inventory.
     case exact = 0
     /// Every gap is covered by a substitute the user already has AND has
@@ -79,8 +79,8 @@ nonisolated enum CookNowReadiness: Int, Sendable, Comparable, CaseIterable {
 /// How a single required ingredient was resolved during classification. Drives
 /// the grouped readiness summary ("9 exact · 1 substitution · 1 missing") and
 /// the Kitchen Check / Recipe Detail ingredient rows.
-nonisolated struct IngredientResolution: Identifiable, Sendable, Equatable {
-    enum Status: Sendable, Equatable {
+nonisolated struct IngredientResolution: Identifiable, Codable, Sendable, Equatable {
+    enum Status: Codable, Sendable, Equatable {
         /// Found in inventory by name.
         case inStock
         /// Not in stock directly, but a valid substitute is in stock and
@@ -115,7 +115,7 @@ nonisolated struct IngredientResolution: Identifiable, Sendable, Equatable {
 
 /// A recipe plus its full Cook Now classification. Value type, Sendable, so it
 /// can be produced off-main and handed to the UI.
-nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
+nonisolated struct ClassifiedRecipe: Identifiable, Codable, Sendable, Equatable {
     let recipe: UserRecipe
     let readiness: CookNowReadiness
     let resolutions: [IngredientResolution]
@@ -178,7 +178,7 @@ nonisolated struct ClassifiedRecipe: Identifiable, Sendable, Equatable {
 
 /// The aggregate numbers the Direction B dashboard renders. All derived from
 /// real classification — never hardcoded.
-nonisolated struct CookNowMetrics: Sendable, Equatable {
+nonisolated struct CookNowMetrics: Codable, Sendable, Equatable {
     var exactReady: Int = 0            // recipes at .exact
     var readyWithSwaps: Int = 0        // recipes at .readyWithSwap
     var readyWithinFive: Int = 0       // recipes with 1–5 unresolved after substitutions
@@ -201,7 +201,7 @@ nonisolated struct CookNowMetrics: Sendable, Equatable {
 
     /// Which adaptive dashboard state to render. The dashboard changes emphasis
     /// rather than showing the same layout with zeros.
-    enum Emphasis: Sendable, Equatable {
+    enum Emphasis: Codable, Sendable, Equatable {
         case emptyInventory       // nothing logged at all
         case readyAndAlmost       // normal two-metric dashboard
         case almostOnly           // Ready now is zero; lead with Almost ready

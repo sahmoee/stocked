@@ -43,7 +43,7 @@ enum CookNowCompute {
     /// The tier lists are STORED, not computed. See the perf note above: they
     /// are read many times per frame and each read used to re-filter and re-sort
     /// the full catalog.
-    nonisolated struct Output: Sendable {
+    nonisolated struct Output: Codable, Sendable {
         var classified: [ClassifiedRecipe] = []
         var metrics = CookNowMetrics()
         var emphasis: CookNowMetrics.Emphasis = .noMatches
@@ -136,6 +136,7 @@ enum CookNowCompute {
     private static var memoGeneration: UInt64 = 0
     private static let memoCap = 4
     private static let workPool = CookComputationPool<Output>()
+    private static let diskCache = CookNowPersistentCache.shared
 
     /// The part of the cache key that describes the session.
     ///
@@ -229,6 +230,22 @@ enum CookNowCompute {
         if let hit = cached(store: store, session: session) { return hit }
         let revision = key(store: store, session: session)
         let generation = memoGeneration
+
+        // A disk hit avoids the expensive ingredient/substitution classification after
+        // relaunch. The key describes the actual inputs rather than transient revision
+        // counters, so an inventory, recipe, reservation or preference change is a miss.
+        await ReservationLedger.shared.refreshForPresentation(store: store)
+        guard !Task.isCancelled, generation == memoGeneration,
+              revision == key(store: store, session: session) else { return nil }
+        let persistentKey = await persistentKey(store: store, session: session)
+        if let hit = await diskCache.value(for: persistentKey) {
+            guard !Task.isCancelled, generation == memoGeneration,
+                  revision == key(store: store, session: session) else { return nil }
+            let restored = restoringCurrentRecipes(in: hit, store: store)
+            remember(restored, for: revision)
+            return restored
+        }
+
         let result = await workPool.value(for: revision) {
             Task { @MainActor in
                 // Reservation matching belongs off-main too, before the immutable
@@ -250,10 +267,84 @@ enum CookNowCompute {
         guard let out = result else { return nil }
         guard generation == memoGeneration,
               revision == key(store: store, session: session), !Task.isCancelled else { return nil }
-        memo.removeAll { $0.key == revision }
-        memo.insert(MemoEntry(key: revision, value: out), at: 0)
-        if memo.count > memoCap { memo.removeLast(memo.count - memoCap) }
+        remember(out, for: revision)
+        await diskCache.store(diskRepresentation(of: out), for: persistentKey)
         return out
+    }
+
+    private static func remember(_ output: Output, for revision: String) {
+        memo.removeAll { $0.key == revision }
+        memo.insert(MemoEntry(key: revision, value: output), at: 0)
+        if memo.count > memoCap { memo.removeLast(memo.count - memoCap) }
+    }
+
+    /// Cached classifications do not duplicate private recipe photos. Current saved recipes
+    /// are joined back by stable ID on read; online/generated rows retain their remote URL.
+    private static func diskRepresentation(of output: Output) -> Output {
+        var copy = output
+        copy.classified = output.classified.map { row in
+            var recipe = row.recipe
+            recipe.imageData = nil
+            return ClassifiedRecipe(recipe: recipe, readiness: row.readiness,
+                                    resolutions: row.resolutions, usesReserved: row.usesReserved)
+        }
+        copy.buildTiers()
+        return copy
+    }
+
+    private static func restoringCurrentRecipes(in output: Output, store: GuestDataStore) -> Output {
+        // Imported or migrated data can temporarily contain repeated IDs. Keep the latest
+        // authoritative record instead of allowing a cache read to trap on that input.
+        var current: [UUID: UserRecipe] = [:]
+        for recipe in store.cookCatalog { current[recipe.id] = recipe }
+        var restored = output
+        restored.classified = output.classified.map { row in
+            ClassifiedRecipe(recipe: current[row.id] ?? row.recipe, readiness: row.readiness,
+                             resolutions: row.resolutions, usesReserved: row.usesReserved)
+        }
+        restored.buildTiers()
+        return restored
+    }
+
+    /// Stable, content-addressed identity for the persistent result. Do not use Swift's
+    /// randomized Hasher or ObjectIdentifier here: both change between launches.
+    private static func persistentKey(store: GuestDataStore, session: CookNowSession?) async -> String {
+        let scope = HouseholdSync.shared.joinCode ?? "local-kitchen"
+        let inventory = store.inventoryItems
+        let recipes = store.cookCatalog
+        let generated = store.savedGeneratedRecipes
+        let online = OnlineRecipesLoader.shared.recipes
+        let substitutions = store.userSubstitutions
+        let allergens = store.cookingProfile.allergens
+        let familyAllergens = FamilyProfileStore.shared.activeAllergens
+        let familyDislikes = FamilyProfileStore.shared.profiles.filter(\.isPresent).flatMap(\.dislikes)
+        let reserved = ReservationLedger.shared.snapshot.reservedNames
+        let sessionKey = sessionComponent(session)
+        return await Task.detached(priority: .utility) {
+            var parts = ["cook-now-output-v1", scope]
+            parts += inventory.sorted { $0.id.uuidString < $1.id.uuidString }.map {
+            "i|\($0.id)|\($0.updatedAt)|\($0.name.lowercased())|\($0.quantity)|\($0.level)|\($0.quantityUsed ?? -1)|\($0.expirationDate?.timeIntervalSince1970 ?? -1)"
+            }
+            parts += recipes.sorted { $0.id.uuidString < $1.id.uuidString }.map {
+            let ingredients = $0.ingredients.map { "\($0.name.lowercased()):\($0.isOptional)" }.joined(separator: ";")
+            return "r|\($0.id)|\($0.updatedAt)|\(ingredients)"
+            }
+            parts += generated.sorted { $0.id.uuidString < $1.id.uuidString }.map {
+            "g|\($0.id)|\($0.updatedAt)|" + $0.ingredients.map { $0.name.lowercased() }.joined(separator: ";")
+            }
+            parts += online.sorted { $0.id < $1.id }.map {
+            "o|\($0.id)|" + $0.ingredients.map { $0.lowercased() }.joined(separator: ";")
+            }
+            parts += substitutions.sorted { $0.id.uuidString < $1.id.uuidString }.map {
+            "s|\($0.ingredient.lowercased())|\($0.substitute.lowercased())"
+            }
+            parts.append("a|" + allergens.sorted().joined(separator: ";"))
+            parts.append("fa|" + familyAllergens.sorted().joined(separator: ";"))
+            parts.append("fd|" + familyDislikes.map { $0.lowercased() }.sorted().joined(separator: ";"))
+            parts.append("reserved|" + reserved.sorted().joined(separator: ";"))
+            parts.append("session|" + sessionKey)
+            return ResponseCacheKey.make(parts)
+        }.value
     }
 
     nonisolated private struct Input: Sendable {

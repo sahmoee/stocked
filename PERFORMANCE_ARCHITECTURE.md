@@ -153,3 +153,11 @@ positions; explicit validation prevents malformed input from reaching host mutat
 correction calibration bounds encoded restoration to 1 MiB and active evidence to 250 records with
 saturated counters; prompt conflicts are deterministic and scoped to item names. See
 `docs/CODE_PASS_3_40_IMPROVEMENTS_2026_09_14.md` for native asynchronous fixtures and recovery limits.
+## Persistent Cook Now results
+
+`CookNowPersistentCache` owns bounded disposable classification responses. `CookNowCompute` creates
+a stable content key from the exact kitchen inputs, checks memory first and disk second, and only
+then starts the shared cancellable classifier. The cache stores derived classifications without
+duplicating private image bytes; saved recipe photos are rejoined by ID from `GuestDataStore`.
+Inventory, recipe, substitution, profile, reservation, household or Cook-session changes create a
+new key. Clear Cache removes these entries. The cache never owns or mutates kitchen records.

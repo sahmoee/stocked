@@ -3963,6 +3963,9 @@
     "Enter your calendar home URL (or full calendar URL), username and an app-specific password from your existing CalDAV service." : {
 
     },
+    "Enter your four-digit access code" : {
+
+    },
     "Enter your Grocy web or /api address and an API key from Grocy settings." : {
 
     },
@@ -6328,9 +6331,6 @@
     "One tap sweeps every layer: the invariant suite plus live Worker health, remote config, connectivity, sync, notification budget, data integrity, storage, and the cook-session record." : {
 
     },
-    "One unlock lasts ten minutes across every QA screen." : {
-
-    },
     "One unlock lasts ten minutes across every QA screen. The floating button stays available afterwards and re-prompts only when the ten minutes have run out. Ringed taps are drawn into the screenshot itself; the live overlay is for recording a screen capture and is never photographed." : {
 
     },
@@ -7006,9 +7006,6 @@
 
     },
     "QA Checkbook" : {
-
-    },
-    "QA code" : {
 
     },
     "QA device" : {
@@ -8792,6 +8789,16 @@
     "Stocked — %@" : {
 
     },
+    "Stocked · %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Stocked · %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "Stocked combines shortages, avoids duplicate grocery rows, and keeps every meal that needs the item attached." : {
 
     },
@@ -9526,9 +9533,6 @@
 
     },
     "Unknown dates or price bases are excluded. Blank location fields allow reports anywhere. A discount may have extra conditions." : {
-
-    },
-    "Unlock" : {
 
     },
     "Unlock Household Sync" : {

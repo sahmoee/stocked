@@ -307,6 +307,7 @@ private enum AppCacheManager {
         await APIResponseCache.shared.clear()
         await AIResultCache.shared.clear()
         await SmartResponseCache.shared.clear()
+        await CookNowPersistentCache.shared.clear()
         URLCache.shared.removeAllCachedResponses()
         UserDefaults.standard.removeObject(forKey: "onlineRecipesCache_v3")
         UserDefaults.standard.removeObject(forKey: "onlineRecipesCacheTimestamp_v3")

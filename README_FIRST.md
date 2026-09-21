@@ -1,4 +1,23 @@
+> **Shared rules live in the master doc:** read `/Users/key/Documents/CLAUDE_ALL_PROJECTS_HANDOFF.md` first for the
+> shared safety, QA, build-numbering, endpoint, machine, and cross-project delivery contracts.
+> This file holds only Stocked-specific facts.
+
 # Read me first
+
+September 20 build note: the repository's iCloud/File Provider root must remain **Keep Downloaded**.
+An almost-full startup disk had evicted asset-catalog JSON and images, causing Xcode's iOS and Watch
+targets to report `failed to read asset tags`. The local project is pinned; if the repository is
+moved or restored on another Mac, pin the new root and fully materialize it before building.
+
+September 20: Cook Now classification now keeps a bounded, disposable 30-day disk cache keyed to
+the exact inventory, recipe, substitution, household preference, reservation and session inputs.
+Previously found matches and Meals Ready Now results return immediately after relaunch when those
+inputs are unchanged; any relevant edit produces a cache miss and a fresh cancellable background
+classification. Private recipe photo bytes are not duplicated into this cache, and Data & Storage
+→ Clear Cache removes it. GuestDataStore remains authoritative.
+Every completed import continues through `addUserRecipe`, so imported recipes increment the same
+saved-recipe count and Cook revision as manually created recipes; they are never held in a separate
+temporary import count.
 
 September 14: Stocked now includes an embedded native Apple Watch companion for groceries,
 inventory additions/edits, saved recipe favorites and steps, a durable local timer, the active meal
