@@ -1301,6 +1301,9 @@
     "%lld things for\nyour next trip." : {
 
     },
+    "%lld to review" : {
+
+    },
     "%lld tools · Pin the ones you reach for most." : {
 
     },
@@ -7728,6 +7731,9 @@
         }
       }
     },
+    "Review %lld older imported recipes" : {
+
+    },
     "Review %lld Substitution%@" : {
       "localizations" : {
         "en" : {
@@ -7760,6 +7766,9 @@
 
     },
     "Review Household Changes" : {
+
+    },
+    "Review imported recipes" : {
 
     },
     "Review ingredients" : {
@@ -8122,6 +8131,9 @@
 
     },
     "Search this index" : {
+
+    },
+    "Search titles or sources" : {
 
     },
     "Search your recipes by name or cuisine." : {
@@ -9218,6 +9230,9 @@
 
     },
     "These meals will be re-checked automatically — anything left short shows up as a conflict in the planner." : {
+
+    },
+    "These older imports did not record whether you chose Save. They remain available for cooking. Choose Keep for the ones you want in My Collection." : {
 
     },
     "These two recipes look similar. Keep one, or keep both." : {
