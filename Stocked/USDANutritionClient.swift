@@ -12,7 +12,11 @@ actor USDANutritionClient {
     private let base = "https://api.nal.usda.gov/fdc/v1"
     private var apiKey: String { BuildConfig.usdaAPIKey }
     private let cacheTTL: TimeInterval = 60 * 60 * 24 * 30
+    private let negativeCacheTTL: TimeInterval = 60 * 60 * 24 * 7
+    private let cooldownKey = "usdaNutritionClient.cooldownUntil.v1"
+    private let negativePrefix = "usda:nutrition-negative:"
     private var memory: [String: NutritionFacts] = [:]
+    private var negativeMemory: [String: Date] = [:]
     private let session: URLSession = {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 8
@@ -22,10 +26,10 @@ actor USDANutritionClient {
     }()
 
     func facts(for name: String) async -> NutritionFacts? {
-        let key = name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { return nil }
+        guard let key = normalizedSearchTerm(name, minimumLength: 2) else { return nil }
         if let local = NutritionDatabase.facts(for: key) { return local }
         if let cached = memory[key] { return cached }
+        guard shouldAttemptLookup(for: key) else { return nil }
 
         let cacheKey = "usda:nutrition:\(key)"
         if let cached = await APIResponseCache.shared.value(for: cacheKey, as: NutritionFacts.self) {
@@ -37,7 +41,10 @@ actor USDANutritionClient {
             dataTypes: "Branded,Foundation,Survey (FNDDS),SR Legacy",
             pageSize: 5
         ).first,
-              let facts = parseFood(first) else { return nil }
+              let facts = parseFood(first) else {
+            markNegativeLookup(for: key)
+            return nil
+        }
         memory[key] = facts
         await APIResponseCache.shared.store(facts, for: cacheKey, ttl: cacheTTL)
         return facts
@@ -47,7 +54,7 @@ actor USDANutritionClient {
     /// has images and labels; USDA fills brand, ingredients, serving size and nutrition gaps.
     func lookupProduct(barcode: String) async -> OpenFoodProduct? {
         let cleaned = normalizedBarcode(barcode)
-        guard !cleaned.isEmpty else { return nil }
+        guard !cleaned.isEmpty, hasUsableAPIKey, !isCoolingDown else { return nil }
         let cacheKey = "usda:barcode:\(cleaned)"
         if let cached = await APIResponseCache.shared.value(for: cacheKey, as: OpenFoodProduct.self) {
             return cached
@@ -80,6 +87,7 @@ actor USDANutritionClient {
     }
 
     private func searchFoods(query: String, dataTypes: String, pageSize: Int) async -> [[String: Any]] {
+        guard hasUsableAPIKey, !isCoolingDown else { return [] }
         guard var components = URLComponents(string: "\(base)/foods/search") else { return [] }
         components.queryItems = [
             URLQueryItem(name: "query", value: query),
@@ -94,7 +102,8 @@ actor USDANutritionClient {
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 await SourceHealth.shared.record("usda", success: false,
                                                  latency: Date().timeIntervalSince(startedAt))
-                Log.net.error("USDA lookup failed (HTTP \(http.statusCode, privacy: .public))")
+                noteHTTPFailure(http.statusCode, retryAfter: http.value(forHTTPHeaderField: "Retry-After"))
+                Log.net.error("USDA lookup failed (HTTP \(http.statusCode, privacy: .public)); cooling down upstream lookups")
                 return []
             }
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -110,6 +119,63 @@ actor USDANutritionClient {
                                              latency: Date().timeIntervalSince(startedAt))
             return []
         }
+    }
+
+    private var hasUsableAPIKey: Bool {
+        let cleaned = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return false }
+        let upper = cleaned.uppercased()
+        return upper != "DEMO_KEY" && upper != "YOUR_USDA_API_KEY" && upper != "$(USDA_API_KEY)"
+    }
+
+    private var isCoolingDown: Bool {
+        guard let until = UserDefaults.standard.object(forKey: cooldownKey) as? Date else { return false }
+        return until > Date()
+    }
+
+    private func shouldAttemptLookup(for key: String) -> Bool {
+        guard hasUsableAPIKey, !isCoolingDown else { return false }
+        if let until = negativeMemory[key], until > Date() { return false }
+        if let until = UserDefaults.standard.object(forKey: negativePrefix + key) as? Date, until > Date() {
+            negativeMemory[key] = until
+            return false
+        }
+        return true
+    }
+
+    private func markNegativeLookup(for key: String) {
+        let until = Date().addingTimeInterval(negativeCacheTTL)
+        negativeMemory[key] = until
+        UserDefaults.standard.set(until, forKey: negativePrefix + key)
+    }
+
+    private func noteHTTPFailure(_ statusCode: Int, retryAfter: String?) {
+        let retryAfterSeconds = NetworkRetryPolicy.retryAfterSeconds(retryAfter) ?? 0
+        let cooldown: TimeInterval
+        switch statusCode {
+        case 400, 401, 403:
+            cooldown = max(retryAfterSeconds, 12 * 60 * 60)
+        case 429:
+            cooldown = max(retryAfterSeconds, 60 * 60)
+        case 500..<600:
+            cooldown = max(retryAfterSeconds, 5 * 60)
+        default:
+            cooldown = retryAfterSeconds
+        }
+        guard cooldown > 0 else { return }
+        UserDefaults.standard.set(Date().addingTimeInterval(cooldown), forKey: cooldownKey)
+    }
+
+    private func normalizedSearchTerm(_ value: String, minimumLength: Int) -> String? {
+        let collapsed = value
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9 &+'-]", with: " ", options: .regularExpression)
+            .split(separator: " ")
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard collapsed.count >= minimumLength else { return nil }
+        guard collapsed.rangeOfCharacter(from: .letters) != nil else { return nil }
+        return String(collapsed.prefix(96))
     }
 
     private func parseFood(_ food: [String: Any], servingSize: String = "100 g") -> NutritionFacts? {

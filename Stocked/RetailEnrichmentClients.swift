@@ -202,15 +202,17 @@ enum RetailEnrichmentMaintenance {
         let last = UserDefaults.standard.object(forKey: key) as? Date ?? .distantPast
         guard Date().timeIntervalSince(last) >= 24 * 3600 else { return }
         UserDefaults.standard.set(Date(), forKey: key)
-        let inventory = rotatingBatch(store.inventoryItems, cursorKey: inventoryCursorKey, limit: 30)
-        let grocery = rotatingBatch(store.groceryItems.filter { !$0.isChecked }, cursorKey: groceryCursorKey, limit: 20)
+        let inventory = rotatingBatch(store.inventoryItems, cursorKey: inventoryCursorKey, limit: 8)
+        let grocery = rotatingBatch(store.groceryItems.filter { !$0.isChecked }, cursorKey: groceryCursorKey, limit: 6)
         Task(priority: .background) {
             let groceryAliases = await AppleOnDeviceAI.normalizeFoodNames(grocery.map(\.name))
             for item in inventory {
                 await enrichInventoryItem(id: item.id, store: store)
+                try? await Task.sleep(for: .milliseconds(750))
             }
             for item in grocery {
                 _ = await RetailEnrichmentClient.reconciledFacts(for: groceryAliases[item.name] ?? item.name)
+                try? await Task.sleep(for: .milliseconds(750))
             }
         }
     }
@@ -224,9 +226,9 @@ enum RetailEnrichmentMaintenance {
 
     static func enqueueInventoryItems(ids: [UUID], store: GuestDataStore) {
         Task(priority: .utility) {
-            for id in ids {
+            for id in ids.prefix(12) {
                 await enrichInventoryItem(id: id, store: store)
-                try? await Task.sleep(for: .milliseconds(200))
+                try? await Task.sleep(for: .milliseconds(750))
             }
         }
     }
