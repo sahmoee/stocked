@@ -159,7 +159,7 @@ struct MultiRecipeTimelineView: View {
                     }
 
                     Section {
-                        ForEach(recipes) { r in Text(r.title) }
+                        ForEach(recipes) { r in Text(r.title.recipeDisplayTitle) }
                             .onDelete { idx in recipes.remove(atOffsets: idx) }
                     } header: { Text("Dishes") }
                 }

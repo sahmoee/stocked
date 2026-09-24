@@ -549,7 +549,7 @@ struct MealCostView: View {
                         } label: {
                             ToolboxCard {
                                 HStack {
-                                    Text(recipe.title)
+                                    Text(recipe.title.recipeDisplayTitle)
                                         .scaledFont(14, weight: .medium)
                                         .foregroundStyle(session.themeTextColor)
                                         .fixedSize(horizontal: false, vertical: true)

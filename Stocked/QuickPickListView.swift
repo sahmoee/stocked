@@ -79,7 +79,7 @@ struct QuickPickListView: View {
                                         .frame(maxWidth: .infinity)
                                         .clipped()
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(recipe.title)
+                                        Text(recipe.title.recipeDisplayTitle)
                                             .scaledFont(13, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                             .fixedSize(horizontal: false, vertical: true)

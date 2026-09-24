@@ -34,7 +34,7 @@ struct UserRecipeCard: View {
                 }
             }
             VStack(alignment: .leading, spacing: 10) {
-                Text(recipe.title).scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
+                Text(recipe.title.recipeDisplayTitle).scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
                     if !recipe.cookTime.isEmpty {
@@ -165,7 +165,7 @@ struct UserRecipeDetailView: View {
                     recipe: recipe, pastMeals: session.guestStore.pastMeals,
                     priceHistory: session.guestStore.priceHistory)
             }
-            .navigationTitle(recipe.title)
+            .navigationTitle(recipe.title.recipeDisplayTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { recipeOptionsToolbar }
             .sheet(isPresented: $showOriginalRecipe) {
@@ -484,7 +484,7 @@ struct UserRecipeDetailView: View {
 
                     // Title + meta
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(recipe.title)
+                        Text(recipe.title.recipeDisplayTitle)
                             .scaledFont(24, weight: .bold, design: .serif)
 
                             .foregroundStyle(session.themeTextColor)

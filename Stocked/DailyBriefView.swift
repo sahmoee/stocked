@@ -634,7 +634,7 @@ struct ExpiringItemsView: View {
                                     ForEach(savedUseUp) { r in
                                         NavigationLink(destination: UserRecipeDetailView(recipe: r).environment(session)) {
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text(r.title)
+                                                Text(r.title.recipeDisplayTitle)
                                                     .scaledFont(13, weight: .semibold)
                                                     .foregroundStyle(session.themeTextColor)
                                                     .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
@@ -690,7 +690,7 @@ struct ExpiringItemsView: View {
                                                 source: r.sourceName.isEmpty ? "Stocked." : r.sourceName)
                                         } label: {
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text(r.title)
+                                                Text(r.title.recipeDisplayTitle)
                                                     .scaledFont(13, weight: .semibold)
                                                     .foregroundStyle(session.themeTextColor)
                                                     .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)

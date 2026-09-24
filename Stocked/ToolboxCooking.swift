@@ -109,7 +109,7 @@ struct RecipeRouletteView: View {
                                 Text("Tonight, make")
                                     .scaledFont(12, weight: .semibold)
                                     .foregroundStyle(session.themeSecondaryText)
-                                Text(recipe.title)
+                                Text(recipe.title.recipeDisplayTitle)
                                     .scaledFont(21, weight: .bold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                     .multilineTextAlignment(.center)

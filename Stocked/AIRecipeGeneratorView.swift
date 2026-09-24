@@ -197,7 +197,7 @@ struct AIRecipeGeneratorView: View {
 
     private func resultCard(_ r: GeneratedRecipe) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(r.title)
+            Text(r.title.recipeDisplayTitle)
                 .font(.stockedSerif(22, weight: .bold))
                 .foregroundStyle(session.themeTextColor)
 

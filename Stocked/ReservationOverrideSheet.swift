@@ -138,7 +138,7 @@ struct ReservationOverrideSheet: View {
                                         Image(systemName: "calendar")
                                             .scaledFont(13)
                                             .foregroundStyle(Color.stockedAccentInk)
-                                        Text(meal.title.displayNormalized)
+                                        Text(meal.title.recipeDisplayTitle)
                                             .scaledFont(13.5, design: .serif)
                                             .foregroundStyle(session.themeTextColor)
                                             .fixedSize(horizontal: false, vertical: true)

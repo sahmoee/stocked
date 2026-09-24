@@ -6,6 +6,18 @@ nonisolated enum RecipeQuality {
 }
 @main struct RecipeImagePolicyChecks {
     static func main() {
+        let titleCases = [
+            ("  CHICKEN   parmesan ", "Chicken Parmesan"),
+            ("mac and CHEESE", "Mac and Cheese"),
+            ("turkey BLT club sandwich with jalapeno mayo", "Turkey BLT Club Sandwich with Jalapeno Mayo"),
+            ("bbq chicken", "BBQ Chicken"),
+            ("Grandma’s apple pie", "Grandma’s Apple Pie"),
+            ("", "")
+        ]
+        for (raw, expected) in titleCases {
+            precondition(raw.recipeDisplayTitle == expected, raw.recipeDisplayTitle)
+            precondition(expected.recipeDisplayTitle == expected)
+        }
         let stock = "https://food.fnr.sndimg.com/content/dam/images/food/editorial/homepage/fn-feature.jpg.rend.hgtvcom.1280.1280.suffix/1474463768097.webp"
         let variants = [stock, stock.replacingOccurrences(of: "1280.1280", with: "616.462"),
             "https://food.fnr.sndimg.com/content/dam/images/food/editorial/homepage/fn-feature.jpg?width=640",

@@ -1159,7 +1159,7 @@ struct CookingFlashcardView: View {
                                 .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
                                 .fixedSize(horizontal: false, vertical: true)
-                            Text(recipeTitle)
+                            Text(recipeTitle.recipeDisplayTitle)
                                 .scaledFont(20, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1904,7 +1904,7 @@ struct CookingFlashcardView: View {
                     Text("How was it?")
                         .scaledFont(26, weight: .bold, design: .serif)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).padding(.bottom, 6)
-                    Text(recipeTitle).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5)).padding(.bottom, 20)
+                    Text(recipeTitle.recipeDisplayTitle).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5)).padding(.bottom, 20)
 
                     HStack(spacing: 10) {
                         ForEach(1...5, id: \.self) { star in

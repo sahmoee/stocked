@@ -65,7 +65,7 @@ struct RecipeURLImportView: View {
                                 CachedAsyncImage(url: url.absoluteString, imageData: nil, height: 64)
                             }
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(r.title).stocked(.callout).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
+                                Text(r.title.recipeDisplayTitle).stocked(.callout).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                                 Text("\(r.ingredients.count) ingredients · \(r.source)")
                                     .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.5))
                             }

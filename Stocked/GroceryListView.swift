@@ -622,7 +622,7 @@ struct GroceryListView: View {
                                     StockedKitchenArtwork(asset: "home_widget_planning")
                                         .frame(width: 104, height: 92)
                                     VStack(alignment: .leading, spacing: 5) {
-                                        Text(meal.title)
+                                        Text(meal.title.recipeDisplayTitle)
                                             .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
                                             .foregroundStyle(text).fixedSize(horizontal: false, vertical: true)
                                         Text("· \(meal.ingredients.count) items")

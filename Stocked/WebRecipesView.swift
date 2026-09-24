@@ -537,7 +537,7 @@ CachedAsyncImage(url: recipe.imageURL.isEmpty ? nil : recipe.imageURL, imageData
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(recipe.title)
+                Text(recipe.title.recipeDisplayTitle)
                     .scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -642,7 +642,7 @@ struct WebRecipeDetailView: View {
 
                         // Title block
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(recipe.title)
+                            Text(recipe.title.recipeDisplayTitle)
                                 .scaledFont(22, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
 

@@ -113,7 +113,7 @@ struct RecipeMigrationView: View {
             Toggle(isOn: Binding(get: { review.candidates.first(where: { $0.id == candidate.id })?.selected ?? false }, set: { value in
                 if let index = review.candidates.firstIndex(where: { $0.id == candidate.id }) { review.candidates[index].selected = value }
             })) {
-                Text(candidate.recipe.title).font(.stocked(.headline))
+                Text(candidate.recipe.title.recipeDisplayTitle).font(.stocked(.headline))
             }.disabled(busy || candidate.duplicateReason != nil || candidate.requiredReview != nil || candidate.status == "Saved")
             Text("\(candidate.recipe.ingredients.count) ingredients · \(candidate.recipe.instructions.count) steps\(candidate.recipe.imageData == nil ? "" : " · photo included")")
                 .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)

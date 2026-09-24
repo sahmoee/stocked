@@ -705,7 +705,7 @@ struct MoodRecipeFinderView: View {
 
             // Title + meta
             VStack(alignment: .leading, spacing: 6) {
-                Text(r.title)
+                Text(r.title.recipeDisplayTitle)
                     .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 HStack(spacing: 16) {
@@ -796,15 +796,16 @@ struct MoodRecipeFinderView: View {
 
         fetchTask?.cancel()
         fetchTask = Task { @MainActor in
-            // 1 — Web (TheMealDB), as before.
-            if let web = await fetchFromMealDB(keyword: keyword) {
-                recipe = web; sourceNote = ""; isLoading = false; return
+            // Use the downloaded recipe index before waiting on a network round trip.
+            if let local = await fetchFromLocalDatabase(keywords: keywords) {
+                guard !Task.isCancelled else { return }
+                recipe = local; sourceNote = "From your recipe database"; isLoading = false; return
             }
             if Task.isCancelled { return }
 
-            // 2 — Bundled recipe database: try each mood keyword until something hits.
-            if let local = await fetchFromLocalDatabase(keywords: keywords) {
-                recipe = local; sourceNote = "From your recipe database"; isLoading = false; return
+            if let web = await fetchFromMealDB(keyword: keyword) {
+                guard !Task.isCancelled else { return }
+                recipe = web; sourceNote = ""; isLoading = false; return
             }
             if Task.isCancelled { return }
 

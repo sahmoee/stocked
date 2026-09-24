@@ -231,45 +231,45 @@ enum CookNowCompute {
         let revision = key(store: store, session: session)
         let generation = memoGeneration
 
-        // A disk hit avoids the expensive ingredient/substitution classification after
-        // relaunch. The key describes the actual inputs rather than transient revision
-        // counters, so an inventory, recipe, reservation or preference change is a miss.
-        await ReservationLedger.shared.refreshForPresentation(store: store)
-        guard !Task.isCancelled, generation == memoGeneration,
-              revision == key(store: store, session: session) else { return nil }
-        let persistentKey = await persistentKey(store: store, session: session)
-        if let hit = await diskCache.value(for: persistentKey) {
-            guard !Task.isCancelled, generation == memoGeneration,
-                  revision == key(store: store, session: session) else { return nil }
-            let restored = restoringCurrentRecipes(in: hit, store: store)
-            remember(restored, for: revision)
-            return restored
-        }
-
+        // Share the entire cold path, including content hashing and disk decoding.
+        // Each Cook option previously repeated this work before entering the pool.
         let result = await workPool.value(for: revision) {
             Task { @MainActor in
-                // Reservation matching belongs off-main too, before the immutable
-                // classification snapshot is taken. Concurrent callers share this work.
                 await ReservationLedger.shared.refreshForPresentation(store: store)
                 guard !Task.isCancelled, generation == memoGeneration,
                       revision == key(store: store, session: session) else { return nil }
+                if let hit = cached(store: store, session: session) { return hit }
+                let persistentKey = await persistentKey(store: store, session: session)
+                if let hit = await diskCache.value(for: persistentKey) {
+                    guard !Task.isCancelled, generation == memoGeneration,
+                          revision == key(store: store, session: session) else { return nil }
+                    let restored = restoringCurrentRecipes(in: hit, store: store)
+                    remember(restored, for: revision)
+                    return restored
+                }
                 let input = snapshot(store: store, session: session, refreshReservations: false)
                 let work = Task.detached(priority: .userInitiated) {
                     compute(input, cancellable: true)
                 }
-                return await withTaskCancellationHandler {
+                let result = await withTaskCancellationHandler {
                     await work.value
                 } onCancel: {
                     work.cancel()
                 }
+                guard let out = result, !Task.isCancelled, generation == memoGeneration,
+                      revision == key(store: store, session: session) else { return nil }
+                remember(out, for: revision)
+                // Rendering need not wait for JSON encoding and disk writes.
+                Task(priority: .utility) {
+                    guard generation == memoGeneration else { return }
+                    await diskCache.store(diskRepresentation(of: out), for: persistentKey)
+                }
+                return out
             }
         }
-        guard let out = result else { return nil }
-        guard generation == memoGeneration,
-              revision == key(store: store, session: session), !Task.isCancelled else { return nil }
-        remember(out, for: revision)
-        await diskCache.store(diskRepresentation(of: out), for: persistentKey)
-        return out
+        guard !Task.isCancelled, generation == memoGeneration,
+              revision == key(store: store, session: session) else { return nil }
+        return result
     }
 
     private static func remember(_ output: Output, for revision: String) {

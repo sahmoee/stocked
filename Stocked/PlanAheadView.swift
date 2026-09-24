@@ -134,7 +134,7 @@ struct PlanAheadView: View {
                         ToolboxCard {
                             HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(meal.title).font(.stocked(.headline)).strikethrough(meal.isSkipped)
+                                    Text(meal.title.recipeDisplayTitle).font(.stocked(.headline)).strikethrough(meal.isSkipped)
                                     Text("\(meal.mealType) · \(meal.servings) servings").font(.stocked(.footnote))
                                     Text(meal.timeZoneID).font(.stocked(.caption)).foregroundStyle(session.themeSecondaryText)
                                     if meal.movedToWeek { Label("Added to the active week", systemImage: "checkmark.circle").font(.stocked(.footnote)) }

@@ -41,7 +41,7 @@ struct KitchenStatsView: View {
                         Text("Most cooked").scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                         ForEach(topRecipes, id: \.title) { r in
                             HStack {
-                                Text(r.title).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.8))
+                                Text(r.title.recipeDisplayTitle).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.8))
                                 Spacer()
                                 Text("\(r.count)×").scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                             }

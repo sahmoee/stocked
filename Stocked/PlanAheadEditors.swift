@@ -382,7 +382,7 @@ private struct PlanSavedRecipePicker: View {
                         Button { choose(recipe) } label: {
                             ToolboxCard {
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text(recipe.title).font(.stocked(.headline))
+                                    Text(recipe.title.recipeDisplayTitle).font(.stocked(.headline))
                                     Text("\(recipe.servings) servings · \(recipe.ingredients.count) ingredients")
                                         .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                                 }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

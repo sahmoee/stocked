@@ -305,7 +305,7 @@ struct CookNowResultsView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(items.prefix(12)) { c in
                             CookRecipeCard(
-                                title: RecipeDisplayPolicy.cleanedTitle(c.recipe.title),
+                                title: c.recipe.title.recipeDisplayTitle,
                                 subtitle: rowSubtitle(c),
                                 matchPercent: matchPercent(c),
                                 imageURL: c.recipe.imageURL,

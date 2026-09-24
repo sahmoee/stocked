@@ -199,7 +199,7 @@ struct BatchCookPlannerView: View {
                 } else if let recipe = selected {
                     ToolboxCard {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(recipe.title)
+                            Text(recipe.title.recipeDisplayTitle)
                                 .scaledFont(17, weight: .bold)
                                 .foregroundStyle(session.themeTextColor)
                             HStack {
@@ -262,7 +262,7 @@ struct BatchCookPlannerView: View {
                             ToolboxCard {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(recipe.title)
+                                        Text(recipe.title.recipeDisplayTitle)
                                             .scaledFont(14, weight: .medium)
                                             .foregroundStyle(session.themeTextColor)
                                             .fixedSize(horizontal: false, vertical: true)

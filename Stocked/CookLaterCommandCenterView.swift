@@ -1281,7 +1281,7 @@ struct CookLaterCommandCenterView: View {
                 Color.stockedSuccessInk)
             }
           }
-          Text(meal.title).scaledFont(14, weight: .semibold).foregroundStyle(
+          Text(meal.title.recipeDisplayTitle).scaledFont(14, weight: .semibold).foregroundStyle(
             session.themeTextColor
           ).stockedAdaptiveLabel(maxLines: 3)
           Text(
@@ -1334,7 +1334,7 @@ struct CookLaterCommandCenterView: View {
                 AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: imageWidth)
                   .frame(width: imageWidth, height: imageWidth * 0.56).clipped().clipShape(
                     RoundedRectangle(cornerRadius: 11))
-                Text(recipe.title).scaledFont(12.5, weight: .semibold).foregroundStyle(
+                Text(recipe.title.recipeDisplayTitle).scaledFont(12.5, weight: .semibold).foregroundStyle(
                   session.themeTextColor
                 ).stockedAdaptiveLabel(maxLines: 3)
                 let match = store.stockMatch(for: recipe)
@@ -2174,7 +2174,7 @@ private struct CookLaterAddMealSourceSheet: View {
                     AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: 48).clipShape(
                       RoundedRectangle(cornerRadius: 10))
                     VStack(alignment: .leading, spacing: 2) {
-                      Text(recipe.title).scaledFont(13.5, weight: .semibold)
+                      Text(recipe.title.recipeDisplayTitle).scaledFont(13.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                       Text(
                         recipe.lastCooked.map {
@@ -2385,7 +2385,7 @@ private struct CookLaterCommandRecipePicker: View {
                 HStack(spacing: 11) {
                   UniformRecipeIcon(size: 52)
                   VStack(alignment: .leading, spacing: 3) {
-                    Text(recipe.title).scaledFont(14, weight: .semibold).foregroundStyle(
+                    Text(recipe.title.recipeDisplayTitle).scaledFont(14, weight: .semibold).foregroundStyle(
                       session.themeTextColor
                     ).stockedAdaptiveLabel(maxLines: 3)
                     let match = coverage[recipe.id].map { (have: $0.have, total: $0.total) }
@@ -2499,7 +2499,7 @@ private struct CookLaterWebRecipePicker: View {
                     AsyncFoodImage(name: recipe.title, url: recipe.imageURL, size: 52).clipShape(
                       RoundedRectangle(cornerRadius: 11))
                     VStack(alignment: .leading, spacing: 3) {
-                      Text(recipe.title).scaledFont(14, weight: .semibold).foregroundStyle(
+                      Text(recipe.title.recipeDisplayTitle).scaledFont(14, weight: .semibold).foregroundStyle(
                         session.themeTextColor
                       ).stockedAdaptiveLabel(maxLines: 3)
                       Text("\(recipe.sourceName) · \(recipe.ingredients.count) ingredients")
@@ -2577,7 +2577,7 @@ private struct CookLaterMealDetailSheet: View {
               .frame(maxWidth: .infinity).frame(height: 190).clipped().clipShape(
                 RoundedRectangle(cornerRadius: 18))
             VStack(alignment: .leading, spacing: 3) {
-              Text(meal.title).scaledFont(24, weight: .bold, design: .serif)
+              Text(meal.title.recipeDisplayTitle).scaledFont(24, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
               Text(
                 "\(CookLaterPlanningEngine.dayLabel(meal.dayIndex)), \(CookLaterPlanningEngine.dateLabel(meal.dayIndex)) · \(meal.mealType)"
@@ -3004,7 +3004,7 @@ private struct CookLaterMonthCalendarSheet: View {
                       VStack(alignment: .leading, spacing: 2) {
                         Text(meal.mealType).scaledFont(9.5, weight: .bold).foregroundStyle(
                           Color.stockedAccentInk)
-                        Text(meal.title).scaledFont(13.5, weight: .semibold)
+                        Text(meal.title.recipeDisplayTitle).scaledFont(13.5, weight: .semibold)
                           .foregroundStyle(session.themeTextColor)
                         Text("\(meal.ingredients.count) ingredients").scaledFont(10.5)
                           .foregroundStyle(session.themeSecondaryText)

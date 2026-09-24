@@ -525,7 +525,7 @@ struct RecipeVaultView: View {
                                     CachedAsyncImage(url: recipe.imageURL, imageData: nil, height: imageHeight, resolveName: recipe.title)
                                         .frame(width: cardWidth, height: imageHeight).clipped()
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(recipe.title)
+                                        Text(recipe.title.recipeDisplayTitle)
                                             .font(.stockedSerif(RecipeCardStyle.titleSize, weight: .semibold, relativeTo: .headline))
                                             .foregroundStyle(session.themeTextColor)
                                             .fixedSize(horizontal: false, vertical: true)
@@ -706,7 +706,7 @@ struct RecipeVaultView: View {
                                                          height: 80, resolveName: recipe.title)
                                             .frame(width: 128, height: 80)
                                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
-                                        Text(recipe.title)
+                                        Text(recipe.title.recipeDisplayTitle)
                                             .scaledFont(12.5, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                             .fixedSize(horizontal: false, vertical: true)
@@ -1352,7 +1352,7 @@ struct RecipeVaultView: View {
                         .scaledFont(10, weight: .bold)
                         .tracking(1.2)
                         .foregroundStyle(Color.stockedAccentInk)
-                    Text(recipe.title)
+                    Text(recipe.title.recipeDisplayTitle)
                         .scaledFont(19, weight: .bold, design: .serif)
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1404,7 +1404,7 @@ struct RecipeVaultView: View {
                                     .padding(6)
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(recipe.title)
+                                    Text(recipe.title.recipeDisplayTitle)
                                         .scaledFont(12.5, weight: .semibold)
                                         .foregroundStyle(session.themeTextColor)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -1638,7 +1638,7 @@ private struct RecipeSearchDropdown: View {
                             .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                             .frame(width: 22)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(entry.title)
+                            Text(entry.title.recipeDisplayTitle)
                                 .scaledFont(13, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -2144,7 +2144,7 @@ private struct RecipeMergeSheet: View {
 
     private func mergeOption(recipe: UserRecipe, keepLabel: String, action: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(recipe.title)
+            Text(recipe.title.recipeDisplayTitle)
                 .scaledFont(15, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("\(recipe.ingredients.count) ingredients · Made \(recipe.cookCount)×")
@@ -2250,7 +2250,7 @@ private struct PastMealRow: View {
             ZStack(alignment: .topTrailing) {
                 Rectangle().fill(Color.stockedGold)
                 VStack(alignment: .leading) {
-                    Text(meal.title)
+                    Text(meal.title.recipeDisplayTitle)
                         .scaledFont(13, design: .serif).foregroundStyle(Color.stockedWhite)
                         .padding(.leading, 12).padding(.top, 10).fixedSize(horizontal: false, vertical: true)
                     Spacer()
@@ -2296,7 +2296,7 @@ struct RecipePreviewCard: View {
             .clipped()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(recipe.title.displayNormalized)
+                Text(recipe.title.recipeDisplayTitle)
                     .scaledFont(17, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2380,7 +2380,7 @@ private struct RecipeCollectionReviewView: View {
                     ForEach(matches) { recipe in
                         HStack(alignment: .top, spacing: 10) {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(recipe.title).scaledFont(15, weight: .semibold)
+                                Text(recipe.title.recipeDisplayTitle).scaledFont(15, weight: .semibold)
                                 if let source = recipe.sourceName {
                                     Text(source).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                                 }
@@ -2438,7 +2438,7 @@ struct RecipeListView: View {
                                         .frame(width: 52, height: 52)
                                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(recipe.title)
+                                        Text(recipe.title.recipeDisplayTitle)
                                             .scaledFont(15, weight: .semibold)
                                             .foregroundStyle(session.themeTextColor)
                                             .fixedSize(horizontal: false, vertical: true)

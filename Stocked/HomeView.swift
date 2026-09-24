@@ -1747,7 +1747,7 @@ struct HomeView: View {
                     ForEach(picks, id: \.id) { r in
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill").scaledFont(13).foregroundStyle(Color.stockedSuccessInk)
-                            Text(r.title).scaledFont(14, weight: .medium).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
+                            Text(r.title.recipeDisplayTitle).scaledFont(14, weight: .medium).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                             Spacer()
                             Image(systemName: "chevron.right").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.3))
                         }

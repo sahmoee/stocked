@@ -59,3 +59,18 @@ nonisolated enum RecipeDisplayPolicy {
                 "coffee", "tea", "punch", "shake"].contains { text.contains($0) }
     }
 }
+
+/// Display-only: raw publisher/user titles remain unchanged for identity, editing and sync.
+nonisolated extension String {
+    var recipeDisplayTitle: String {
+        let words = split(whereSeparator: { $0.isWhitespace })
+        let small: Set<String> = ["a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to", "with"]
+        let acronyms: Set<String> = ["bbq", "blt", "diy", "heb", "pb", "pb&j", "usa"]
+        return words.enumerated().map { index, word in
+            let lower = word.lowercased()
+            if acronyms.contains(lower) { return lower.uppercased() }
+            if index > 0 && index < words.count - 1 && small.contains(lower) { return lower }
+            return lower.capitalized(with: Locale(identifier: "en_US_POSIX"))
+        }.joined(separator: " ")
+    }
+}

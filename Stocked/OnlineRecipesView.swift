@@ -968,7 +968,7 @@ struct OnlineRecipesView: View {
                                                 .scaledFont(11)
                                                 .foregroundStyle(Color.stockedAccentInk)
                                             VStack(alignment: .leading, spacing: 1) {
-                                                Text(entry.title)
+                                                Text(entry.title.recipeDisplayTitle)
                                                     .scaledFont(13, weight: .semibold, design: .serif)
                                                     .foregroundStyle(session.themeTextColor)
                                                     .fixedSize(horizontal: false, vertical: true)
@@ -1593,7 +1593,7 @@ struct OnlineRecipeCard: View {
                 .padding(6)
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text(recipe.title)
+                Text(recipe.title.recipeDisplayTitle)
                     .scaledFont(RecipeCardStyle.titleSize, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
 
@@ -1787,7 +1787,7 @@ struct OnlineRecipeDetailView: View {
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 20)
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(recipe.title)
+                            Text(recipe.title.recipeDisplayTitle)
                                 .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(24), weight: .bold, design: .serif))
                                 .foregroundStyle(session.themeTextColor)
                             Text([recipe.area, recipe.category].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -2015,7 +2015,7 @@ struct OnlineRecipeDetailView: View {
                 }
                 .stockedTrackedScrollScope()
             }
-            .navigationTitle(recipe.title)
+            .navigationTitle(recipe.title.recipeDisplayTitle)
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $goCooking) {
                 RecipeOverviewView(

@@ -641,7 +641,7 @@ struct CookRecipeCard: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).scaledFont(16, weight: .semibold, design: .serif)
+                    Text(title.recipeDisplayTitle).scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                     if !subtitle.isEmpty {
                         Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)

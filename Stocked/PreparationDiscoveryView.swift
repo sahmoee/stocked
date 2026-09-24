@@ -193,7 +193,7 @@ struct PreparationDiscoveryView: View {
                         Spacer()
                         readinessBadge(c)
                     }
-                    Text(c.recipe.title)
+                    Text(c.recipe.title.recipeDisplayTitle)
                         .scaledFont(16, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                         .fixedSize(horizontal: false, vertical: true)

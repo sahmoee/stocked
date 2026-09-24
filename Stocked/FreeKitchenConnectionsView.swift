@@ -220,7 +220,7 @@ private struct CalDAVConnectionView: View {
                         if value { chosen.insert(meal.id) } else { chosen.remove(meal.id) }; reviews = []; selectedWrites = []
                     })) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(meal.title).font(.stocked(.headline))
+                            Text(meal.title.recipeDisplayTitle).font(.stocked(.headline))
                             Text("\(meal.civilDate) · \(meal.mealType) · \(meal.servings) servings").font(.stocked(.footnote))
                         }
                     }.disabled(busy)
@@ -237,7 +237,7 @@ private struct CalDAVConnectionView: View {
                         if value { selectedWrites.insert(row.id) } else { selectedWrites.remove(row.id) }
                     })) {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(row.meal.title).font(.stocked(.headline))
+                            Text(row.meal.title.recipeDisplayTitle).font(.stocked(.headline))
                             Text(actionText(row.action)).font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                         }
                     }.disabled(busy || !row.mayPublish)

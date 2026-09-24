@@ -84,6 +84,13 @@ actor RecipeImageResolver {
         }
     }
 
+    /// An explicit retry must not reuse a remembered miss or broken resolved URL.
+    func clearCachedResolution(for title: String) {
+        loadCacheIfNeeded()
+        cache.removeValue(forKey: normalize(title))
+        persist()
+    }
+
     /// Resolve an image URL for a recipe title. Returns nil if every source struck out
     /// (caller should then render the emoji placeholder). `category` optionally biases the
     /// Foodish generic fallback (e.g. "dessert", "pasta", "rice").
@@ -106,17 +113,17 @@ actor RecipeImageResolver {
             return await persistResolvedArtwork(stored, recipeID: recipeID, title: title)
         }
 
+        // Cache hit (including a remembered genuine "nothing found" → "").
+        if let hit = cache[key] {
+            guard !hit.isEmpty, !RecipeDisplayPolicy.isKnownPublisherPlaceholder(hit) else { return nil }
+            return await persistResolvedArtwork(URL(string: hit), recipeID: recipeID, title: title)
+        }
+
         // Curated feed first: images.json from the stocked-recipes repo (zero API quota).
         if let curated = await RemoteImageFeed.shared.lookup(title: title),
            !RecipeDisplayPolicy.isKnownPublisherPlaceholder(curated), let u = URL(string: curated) {
             cache[key] = curated
             return await persistResolvedArtwork(u, recipeID: recipeID, title: title)
-        }
-
-        // Cache hit (including a remembered genuine "nothing found" → "").
-        if let hit = cache[key] {
-            guard !hit.isEmpty, !RecipeDisplayPolicy.isKnownPublisherPlaceholder(hit) else { return nil }
-            return await persistResolvedArtwork(URL(string: hit), recipeID: recipeID, title: title)
         }
 
         // Coalesce: if this title is already resolving, await that instead of duplicating work.

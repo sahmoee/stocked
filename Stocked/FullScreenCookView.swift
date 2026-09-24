@@ -40,7 +40,7 @@ struct FullScreenCookView: View {
                     .accessibilityLabel("Exit full screen")
 
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(recipeTitle)
+                        Text(recipeTitle.recipeDisplayTitle)
                             .scaledFont(14, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                             .fixedSize(horizontal: false, vertical: true)

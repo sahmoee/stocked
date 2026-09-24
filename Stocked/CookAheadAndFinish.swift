@@ -52,7 +52,7 @@ struct CookAheadStatusView: View {
 
     private func header(_ meal: PlannedMeal) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(meal.title)
+            Text(meal.title.recipeDisplayTitle)
                 .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             HStack(spacing: 6) {
@@ -236,7 +236,7 @@ struct FinishAndServeView: View {
                     Image(systemName: meal.cookAheadStatus.icon).scaledFont(17, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(meal.title)
+                    Text(meal.title.recipeDisplayTitle)
                         .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("\(meal.cookAheadStatus.label) · for \(dayLabel(meal.dayIndex)) \(meal.mealType.lowercased())")

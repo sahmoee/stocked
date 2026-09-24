@@ -224,7 +224,7 @@ struct SmartRecommendationView: View {
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(c.recipe.title)
+                Text(c.recipe.title.recipeDisplayTitle)
                     .scaledFont(22, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 if !c.recipe.description.isEmpty {

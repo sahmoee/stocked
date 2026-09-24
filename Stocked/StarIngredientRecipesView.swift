@@ -145,7 +145,7 @@ struct StarIngredientRecipesView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(r.entry.title)
+                    Text(r.entry.title.recipeDisplayTitle)
                         .scaledFont(14.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .fixedSize(horizontal: false, vertical: true)

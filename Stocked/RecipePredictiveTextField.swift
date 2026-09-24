@@ -79,7 +79,7 @@ struct RecipePredictiveTextField: View {
                                             .scaledFont(11)
                                             .foregroundStyle(session.accentColor)
                                         VStack(alignment: .leading, spacing: 1) {
-                                            Text(entry.title)
+                                            Text(entry.title.recipeDisplayTitle)
                                                 .scaledFont(13, weight: .semibold, design: .serif)
                                                 .foregroundStyle(session.themeTextColor)
                                                 .fixedSize(horizontal: false, vertical: true)

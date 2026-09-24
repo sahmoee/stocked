@@ -299,7 +299,7 @@ private struct ReadyToCoookRecipeRow: View {
         VStack(alignment: .leading, spacing: 5) {
             // Title + source
             HStack(spacing: 6) {
-                Text(recipe.title)
+                Text(recipe.title.recipeDisplayTitle)
                     .scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                     .fixedSize(horizontal: false, vertical: true)

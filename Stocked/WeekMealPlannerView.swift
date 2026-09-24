@@ -86,7 +86,7 @@ struct WeekMealPlannerView: View {
                     }.buttonStyle(.plain)
                     .a11yButton(meal.isCooked ? "Mark \(meal.title) not cooked" : "Mark \(meal.title) cooked")
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(meal.title).scaledFont(14, weight: .medium)
+                        Text(meal.title.recipeDisplayTitle).scaledFont(14, weight: .medium)
                             .foregroundStyle(session.themeTextColor)
                             .strikethrough(meal.isCooked)
                         Text(meal.mealType).scaledFont(11).foregroundStyle(session.themeSecondaryText)

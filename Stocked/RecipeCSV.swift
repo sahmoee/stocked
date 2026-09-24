@@ -502,7 +502,7 @@ struct RecipeCSVRemovalSheet: View {
                     Section("Not found — nothing to remove") {
                         ForEach(plan.unmatched) { m in
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(m.row.title)
+                                Text(m.row.title.recipeDisplayTitle)
                                     .scaledFont(14)
                                     .foregroundStyle(session.themeTextColor.opacity(0.55))
                                 Text("line \(m.row.lineNumber)")
@@ -529,7 +529,7 @@ struct RecipeCSVRemovalSheet: View {
                     .scaledFont(19)
                     .foregroundStyle(selected.contains(c.id) ? Color.stockedError : session.themeTextColor.opacity(0.3))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(c.title)
+                    Text(c.title.recipeDisplayTitle)
                         .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(c.library == .saved ? "Saved recipe · \(c.detail)" : c.detail)

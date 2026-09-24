@@ -65,6 +65,13 @@ struct GlobalSearchView: View {
             case .plannedMeal(let m):    return m.title
             }
         }
+        var displayTitle: String {
+            switch self {
+            case .userRecipe, .pastMeal, .cachedRecipe, .onlineRecipe, .plannedMeal:
+                return title.recipeDisplayTitle
+            default: return title
+            }
+        }
         var subtitle: String {
             switch self {
             case .inventoryItem(let i):  return "\(i.zone) · \(Int(i.effectiveLevel * 100))% stocked"
@@ -311,7 +318,7 @@ struct GlobalSearchView: View {
                     Image(systemName: r.icon).scaledFont(16).foregroundStyle(r.sourceTint)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(r.title).scaledFont(14, weight: .semibold, design: .serif)
+                    Text(r.displayTitle).scaledFont(14, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(r.subtitle).scaledFont(12)
                         .foregroundStyle(session.themeSecondaryText).fixedSize(horizontal: false, vertical: true)

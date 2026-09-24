@@ -210,7 +210,7 @@ extension MealPlannerView {
                                         renameText = meal.title
                                     } label: {
                                         HStack(spacing: 5) {
-                                            Text(meal.title.displayNormalized)
+                                            Text(meal.title.recipeDisplayTitle)
                                                 .scaledFont(14, design: .serif)
                                                 .foregroundStyle(session.themeTextColor)
                                             Image(systemName: "pencil")
@@ -218,7 +218,7 @@ extension MealPlannerView {
                                         }
                                     }.buttonStyle(.plain)
                                 } else {
-                                    Text(meal.title.displayNormalized)
+                                    Text(meal.title.recipeDisplayTitle)
                                         .scaledFont(14, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
                                 }
@@ -498,7 +498,7 @@ struct DayPlanCard: View {
                                     Text(meal.mealType)
                                         .scaledFont(10, weight: .semibold)
                                         .foregroundStyle(Color.stockedAccentInk)
-                                    Text(meal.title)
+                                    Text(meal.title.recipeDisplayTitle)
                                         .scaledFont(14, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
                                     Text("\(meal.servings) servings")

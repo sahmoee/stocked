@@ -161,3 +161,8 @@ then starts the shared cancellable classifier. The cache stores derived classifi
 duplicating private image bytes; saved recipe photos are rejoined by ID from `GuestDataStore`.
 Inventory, recipe, substitution, profile, reservation, household or Cook-session changes create a
 new key. Clear Cache removes these entries. The cache never owns or mutates kitchen records.
+
+Cook Now coalesces the full cold path (reservation refresh, stable-key hashing, disk lookup and
+classification) by the exact revision. Warm memory results remain immediate. Publish results before
+encoding/persisting their disposable cache entry. RecipeImageResolver checks warm title results before
+remote-feed work; CachedAsyncImage uses embedded photos before waiting for a publisher URL.

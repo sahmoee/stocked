@@ -544,7 +544,7 @@ struct RecipeFinderView: View {
         }
       }
       VStack(alignment: .leading, spacing: 6) {
-        Text(hit.recipe.title).font(
+        Text(hit.recipe.title.recipeDisplayTitle).font(
           .stockedSerif(RecipeCardStyle.titleSize, weight: .bold, relativeTo: .headline)
         ).fixedSize(horizontal: false, vertical: true)
         if let source = hit.recipe.sourceName, !source.isEmpty {

@@ -87,7 +87,7 @@ struct PlannedMealCookTransitionView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(meal.title)
+            Text(meal.title.recipeDisplayTitle)
                 .scaledFont(20, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text("Planned for \(dayLabel(meal.dayIndex)) · \(meal.mealType)")

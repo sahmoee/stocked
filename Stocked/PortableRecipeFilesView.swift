@@ -82,7 +82,7 @@ struct PortableRecipeFilesView: View {
                         ForEach(exportRecipes) { recipe in
                             HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(recipe.title).font(.stocked(.headline))
+                                    Text(recipe.title.recipeDisplayTitle).font(.stocked(.headline))
                                     Text(recipe.sourceName ?? "My recipe").font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                                 }
                                 Spacer()
@@ -138,7 +138,7 @@ struct PortableRecipeFilesView: View {
 
     private func importReview(_ draft: PortableRecipeFileDraft) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(draft.form.title).font(.stocked(.headline))
+            Text(draft.form.title.recipeDisplayTitle).font(.stocked(.headline))
             Text("\(draft.form.ingredients.count) ingredients · \(draft.form.steps.count) steps")
                 .font(.stocked(.body))
             if !draft.form.sourceURL.isEmpty { RecipeBrowserLink(url: draft.form.sourceURL) }

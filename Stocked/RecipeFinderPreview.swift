@@ -20,7 +20,7 @@ struct RecipeFinderPreview: View {
                     CachedAsyncImage(url: hit.recipe.imageURL ?? "", imageData: hit.recipe.imageData,
                                      height: 230, resolveName: hit.recipe.title, resolveCategory: hit.recipe.cuisine)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
-                    Text(hit.recipe.title).font(.stockedSerif(30, weight: .bold, relativeTo: .title))
+                    Text(hit.recipe.title.recipeDisplayTitle).font(.stockedSerif(30, weight: .bold, relativeTo: .title))
                     Label(hit.recipe.sourceName ?? "Original publisher", systemImage: "globe")
                         .font(.stocked(.headline)).foregroundStyle(session.themeSecondaryText)
                     RecipeCreditsView(recipe: hit.recipe)

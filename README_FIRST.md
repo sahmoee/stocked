@@ -4,6 +4,12 @@
 
 # Read me first
 
+Recipe photo failures now show an honest unavailable state with explicit retry; valid embedded photos
+are decoded before network lookups. Recipe display titles use shared title case without changing stored
+source titles. Cook Now shares hashing/cache lookup/classification across concurrent options and publishes
+results before disk persistence; mood lookup checks the downloaded index first. See
+`docs/RECIPE_PRESENTATION_PERFORMANCE_2026_09_24.md` for scope and verification.
+
 September 24: the approved pastel redesign uses `Brand/Stocked-Pastel-Mockup.png` as its reference.
 The complete pre-redesign code and mockup are preserved by annotated Git tag
 `restore/pre-pastel-2026-09-24` at `603931bf074d5a12010a505640ff0b13e1c74973`.

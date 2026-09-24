@@ -136,7 +136,7 @@ struct CookRightNowView: View {
 
                 // Bottom: title + "uses expiring" + cook button.
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(recipe.title)
+                    Text(recipe.title.recipeDisplayTitle)
                         .scaledFont(17, weight: .bold, design: .serif)
                         .foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
                     if !expiringUsed.isEmpty {

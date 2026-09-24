@@ -186,7 +186,7 @@ struct MealPrepView: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(meal.title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
+                    Text(meal.title.recipeDisplayTitle).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
                     HStack(spacing: 8) {
                         if meal.estimatedPrepMin > 0 {
                             Label("\(meal.estimatedPrepMin)m prep", systemImage: "clock")
@@ -307,7 +307,7 @@ struct MealPrepView: View {
                         Text("\(i + 1)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(meal.title)
+                        Text(meal.title.recipeDisplayTitle)
                             .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         HStack(spacing: 6) {

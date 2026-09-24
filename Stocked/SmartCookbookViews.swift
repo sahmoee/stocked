@@ -205,7 +205,7 @@ struct SmartCookbookResultsView: View {
                                 HStack(spacing: 12) {
                                     Image(systemName: "book.pages").foregroundStyle(session.accentColor)
                                     VStack(alignment: .leading, spacing: 5) {
-                                        Text(row.title).font(.stocked(.headline))
+                                        Text(row.title.recipeDisplayTitle).font(.stocked(.headline))
                                         Text(row.detail).font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                                     }
                                     Spacer()

@@ -47,6 +47,7 @@ private nonisolated struct CachedImageTaskID: Hashable, Sendable {
     let load: CachedImageLoadID
     let mayLoadVisibleImages: Bool
     let isOnline: Bool
+    var retry: Int = 0
 }
 
 // MARK: - ImageCache
@@ -729,6 +730,8 @@ actor ImageFetchLimiter {
     }
 
     static let shared = ImageFetchLimiter(maxConcurrent: 5)
+    // Local photos should not queue behind slow publisher downloads.
+    static let localDecodes = ImageFetchLimiter(maxConcurrent: 2)
     private let maxConcurrent: Int
     private var active = 0
     private var waiters: [Waiter] = []
@@ -828,6 +831,8 @@ struct CachedAsyncImage: View {
     @State private var isLoading   = false
     @State private var showPicker  = false
     @State private var appeared    = false   // #10 fade-in once the image is shown
+    @State private var loadGeneration = UUID()
+    @State private var retry = 0
     @State private var loadedImageID: CachedImageLoadID?
 
     private var loadID: CachedImageLoadID {
@@ -843,7 +848,8 @@ struct CachedAsyncImage: View {
         CachedImageTaskID(
             load: loadID,
             mayLoadVisibleImages: scrollActivity.mayLoadVisibleImages,
-            isOnline: connectivity.isOnline
+            isOnline: connectivity.isOnline,
+            retry: retry
         )
     }
 
@@ -870,13 +876,25 @@ struct CachedAsyncImage: View {
                         VStack(spacing: 6) {
                             Image(systemName: "fork.knife")
                                 .scaledFont(28).foregroundStyle(Color.stockedAccentInk)
-                            Text(isLoading
-                                 ? "Loading photo…"
-                                 : scrollActivity.shouldDeferExpensiveWork
-                                    ? "Photo paused"
-                                    : "Repairing photo…")
-                                .font(.stockedSans(12))
-                                .foregroundStyle(Color.primary.opacity(0.5))
+                            if height >= 100 {
+                                Text(scrollActivity.shouldDeferExpensiveWork ? "Photo paused" : "Photo unavailable")
+                                    .font(.stockedSans(12))
+                                    .foregroundStyle(session.themeSecondaryText)
+                                if !scrollActivity.shouldDeferExpensiveWork && connectivity.isOnline {
+                                    Button("Retry photo") {
+                                        Task {
+                                            if let name = resolveName {
+                                                await RecipeImageResolver.shared.clearCachedResolution(for: name)
+                                            }
+                                            retry += 1
+                                        }
+                                    }
+                                        .font(.stockedSans(12, weight: .semibold))
+                                        .frame(minHeight: 44)
+                                        .buttonStyle(.plain)
+                                        .foregroundStyle(session.accentColor)
+                                }
+                            }
                         }
                     }
                 }
@@ -892,9 +910,9 @@ struct CachedAsyncImage: View {
                 .stroke(session.themeContrastAccent.opacity(0.72), lineWidth: 0.75)
                 .allowsHitTesting(false)
         }
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(resolveName.map { "Photo for \($0)" } ?? "Recipe photo")
-        .accessibilityValue(loadedImage == nil ? "Photo is being loaded or repaired" : "Loaded")
+        .accessibilityValue(loadedImage != nil ? "Loaded" : isLoading ? "Loading photo" : "Photo unavailable")
         .sheet(isPresented: $showPicker) { PhotoPickerSheet { onUpdate?($0) } }
         .task(id: taskID) { await loadImage(activity: scrollActivity) }
     }
@@ -917,7 +935,8 @@ struct CachedAsyncImage: View {
                 loadedImageID = requestedID
                 return
             }
-        } else if let data = imageData,
+        }
+        if let data = imageData,
                   let signature = ImageDataSignature(data) {
             let targetHeight = max(height, 96)
             if let cached = ImageCache.shared.localImage(
@@ -948,26 +967,10 @@ struct CachedAsyncImage: View {
             return
         }
 
+        let generation = UUID()
+        loadGeneration = generation
         isLoading = true
-        defer { isLoading = false }
-
-        // A harvested recipe's URL points to the publisher's original hero image. Prefer
-        // it over the compact household-sync fallback so old and new recipes render at
-        // source quality. The embedded bytes remain the offline/failure fallback.
-        if let u = url, !u.isEmpty {
-            let img: UIImage?
-            if allowsRemoteAccess {
-                img = await ImageCache.shared.fetchImage(url: u, priority: .userInitiated)
-            } else {
-                img = await ImageCache.shared.cachedImage(for: u, priority: .utility)
-            }
-            if let img {
-                guard !Task.isCancelled, loadID == requestedID else { return }
-                loadedImage = img
-                loadedImageID = requestedID
-                return
-            }
-        }
+        defer { if loadGeneration == generation { isLoading = false } }
 
         // User-selected/local recipe photos have no remote original. Decode them once
         // off the main actor instead of repeatedly from SwiftUI's render path.
@@ -978,9 +981,9 @@ struct CachedAsyncImage: View {
                 loadedImageID = requestedID
                 return
             }
-            guard await ImageFetchLimiter.shared.acquire(priority: .userInitiated) else { return }
+            guard await ImageFetchLimiter.localDecodes.acquire(priority: .userInitiated) else { return }
             guard !Task.isCancelled else {
-                await ImageFetchLimiter.shared.release()
+                await ImageFetchLimiter.localDecodes.release()
                 return
             }
             let decodeTask = Task.detached(priority: .userInitiated) {
@@ -992,12 +995,28 @@ struct CachedAsyncImage: View {
             } onCancel: {
                 decodeTask.cancel()
             }
-            await ImageFetchLimiter.shared.release()
+            await ImageFetchLimiter.localDecodes.release()
             guard !Task.isCancelled else { return }
             if let decoded {
                 ImageCache.shared.storeLocal(decoded, for: signature, maxDimension: targetHeight)
                 guard loadID == requestedID else { return }
                 loadedImage = decoded
+                loadedImageID = requestedID
+                return
+            }
+        }
+
+        // No usable local photo: fetch the publisher original before resolving by title.
+        if let u = url, !u.isEmpty {
+            let img: UIImage?
+            if allowsRemoteAccess {
+                img = await ImageCache.shared.fetchImage(url: u, priority: .userInitiated)
+            } else {
+                img = await ImageCache.shared.cachedImage(for: u, priority: .utility)
+            }
+            if let img {
+                guard !Task.isCancelled, loadID == requestedID else { return }
+                loadedImage = img
                 loadedImageID = requestedID
                 return
             }

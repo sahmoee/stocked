@@ -207,7 +207,7 @@ struct SourceRecipesView: View {
                                     .frame(height: 110)
                                     .frame(maxWidth: .infinity)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
-                                Text(r.title)
+                                Text(r.title.recipeDisplayTitle)
                                     .scaledFont(13, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
                                     .fixedSize(horizontal: false, vertical: true)
