@@ -117,7 +117,7 @@ struct StarIngredientRecipesView: View {
                 ingredients: entry.ingredients,
                 steps:       entry.steps,
                 cookTime:    entry.cookTime,
-                prepTime:    entry.prepTime
+                prepTime:    entry.prepTime, imageURL: entry.imageURL
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in

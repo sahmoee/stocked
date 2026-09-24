@@ -54,24 +54,6 @@ final class SpeechReader {
     var isSpeaking: Bool { synth.isSpeaking }
 }
 
-// MARK: - Meal image helper (internet fetch or user photo)
-struct MealHeroImage: View {
-    let recipeName: String
-    let imageData:  Data?
-
-    var body: some View {
-        // Keep local photo decoding, disk reads, remote fetches, downsampling, and
-        // name-based image resolution off the render path. CachedAsyncImage reuses the
-        // shared memory/disk cache instead of resolving the same recipe on every visit.
-        CachedAsyncImage(
-            url: nil,
-            imageData: imageData,
-            height: 220,
-            resolveName: recipeName
-        )
-    }
-}
-
 // MARK: - Internet recipe data (fetched when no manual data)
 nonisolated struct InternetRecipeData: Codable, Sendable {
     var imageURL:  String  = ""
@@ -150,6 +132,8 @@ struct RecipeOverviewView: View {
     let steps:       [String]
     let cookTime:    String
     let prepTime:    String
+    let imageURL: String?
+    let imageData: Data?
 
     @Environment(AppSession.self) var session
     @Environment(\.stockedMotion) private var motion
@@ -172,10 +156,12 @@ struct RecipeOverviewView: View {
     @State private var inStockSubstituteByIngredient: [String: String] = [:]
 
     init(title: String, servings: Int, ingredients: [String] = [],
-         steps: [String] = [], cookTime: String = "", prepTime: String = "") {
+         steps: [String] = [], cookTime: String = "", prepTime: String = "",
+         imageURL: String? = nil, imageData: Data? = nil) {
         self.title = title; self.servings = servings
         self.ingredients = ingredients; self.steps = steps
         self.cookTime = cookTime; self.prepTime = prepTime
+        self.imageURL = imageURL; self.imageData = imageData
     }
 
     // Use internet data when nothing is manually supplied
@@ -208,7 +194,10 @@ struct RecipeOverviewView: View {
         if !prepTime.isEmpty { return prepTime }
         return internetData?.prepTime ?? "10–15 min"
     }
-    private var displayImageURL: String? { internetData?.imageURL }
+    private var displayImageURL: String? {
+        if let imageURL, !imageURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return imageURL }
+        return internetData?.imageURL
+    }
 
     // MARK: - Serving adjustment
     private var effectiveServings: Int {
@@ -356,7 +345,7 @@ struct RecipeOverviewView: View {
 
                 // ── Meal image (internet or user) ─────────────────────
                 ZStack {
-                    MealHeroImage(recipeName: title, imageData: nil)
+                    RecipeHeroImage(imageData: imageData, imageURL: displayImageURL, recipeName: title)
                         .frame(maxWidth: .infinity).frame(height: 220)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                     if isFetchingRecipe {
@@ -2087,7 +2076,8 @@ struct CookingFlashcardView: View {
                     line.amount.isEmpty ? line.name : "\(line.amount) \(line.name)"
                 },
                 steps:       recipe.steps,
-                cookTime:    recipe.cookTime
+                cookTime:    recipe.cookTime,
+                imageURL: recipe.imageURL, imageData: recipe.imageData
             )
         }
     }

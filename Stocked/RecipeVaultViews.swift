@@ -835,7 +835,7 @@ struct RecipeVaultView: View {
                     ingredients: entry.ingredients,
                     steps: entry.steps,
                     cookTime: entry.cookTime,
-                    prepTime: entry.prepTime
+                    prepTime: entry.prepTime, imageURL: entry.imageURL
                 ).environment(session)
             case .browseAll:
                 DiscoverBrowseAllView().environment(session)                  // #248

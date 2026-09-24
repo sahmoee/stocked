@@ -203,7 +203,8 @@ struct PreparationDiscoveryView: View {
     private func prepCard(_ c: ClassifiedRecipe) -> some View {
         Button { open(c.recipe) } label: {
             VStack(alignment: .leading, spacing: 0) {
-                MealHeroImage(recipeName: c.recipe.title, imageData: c.recipe.imageData)
+                RecipeHeroImage(imageData: c.recipe.imageData, imageURL: c.recipe.imageURL,
+                    recipeName: c.recipe.title, height: 130)
                     .frame(height: 130).clipped()
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                 VStack(alignment: .leading, spacing: 6) {

@@ -11,6 +11,8 @@ private struct ReadyRecipe: Identifiable {
     let missing: [String]
     let substitutions: [String]
     let substitutionsNeedReview: Bool
+    let imageURL: String?
+    let imageData: Data?
 }
 
 struct ReadyToCoookNowView: View {
@@ -89,7 +91,8 @@ struct ReadyToCoookNowView: View {
                 score: score,
                 missing: unresolved,
                 substitutions: substitutions,
-                substitutionsNeedReview: needsReview
+                substitutionsNeedReview: needsReview,
+                imageURL: classified.recipe.imageURL, imageData: classified.recipe.imageData
             )
         }.sorted {
             if $0.missing.count != $1.missing.count { return $0.missing.count < $1.missing.count }
@@ -272,7 +275,8 @@ private struct ReadyToCoookRecipeRow: View {
 
     var body: some View {
         NavigationLink(destination: RecipeOverviewView(
-            title: recipe.title, servings: 2, ingredients: recipe.ingredients)
+            title: recipe.title, servings: 2, ingredients: recipe.ingredients,
+            imageURL: recipe.imageURL, imageData: recipe.imageData)
         ) {
             HStack(spacing: 14) {
                 iconView

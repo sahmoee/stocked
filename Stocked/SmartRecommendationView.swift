@@ -220,7 +220,8 @@ struct SmartRecommendationView: View {
 
     private func recommendationCard(_ c: ClassifiedRecipe) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            MealHeroImage(recipeName: c.recipe.title, imageData: c.recipe.imageData)
+            RecipeHeroImage(imageData: c.recipe.imageData, imageURL: c.recipe.imageURL,
+                    recipeName: c.recipe.title, height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
 
             VStack(alignment: .leading, spacing: 8) {

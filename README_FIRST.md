@@ -4,6 +4,10 @@
 
 # Read me first
 
+Recipe cards and cooking overviews now forward their actual source image URLs and personal photo
+bytes through RecipeHeroImage. The old MealHeroImage wrapper discarded URLs and has been removed.
+See `docs/RECIPE_PRESENTATION_PERFORMANCE_2026_09_24.md` for the screenshot follow-up.
+
 Cook Now preparation discovery now shares recipe search’s paged catalogue and retains entrées as
 meal foundations. Add-on scopes no longer require the main ingredient; Mood respects known total
 time and household restrictions across fallbacks. See `docs/COOK_NOW_DISCOVERY_2026_09_24.md` for

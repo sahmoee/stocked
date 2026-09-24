@@ -44,3 +44,24 @@ checks passed for shared work, isolated cancellation, pre-cancellation, invalida
 last-reader cancellation. These checks are not device latency measurements.
 
 Release Xcode 27.0 (27A266a) generic iOS Debug build 329 passed, including strict deep code-signature verification. The app was installed and launched successfully on the paired iPhone 17 Pro Max after unlocking it to enable development services. Visual review through iPhone Mirroring remains pending; source checks and successful installation do not establish device photo recovery or measured latency improvements.
+
+
+## Follow-up: 6:02 PM screenshot
+
+The user supplied a dark-mode Meal Ideas screenshot showing unavailable photos for Creole Butter
+Wings, Grilled Chicken Wings Recipe and Harissa Grilled Chicken Wings. Source inspection found that
+PreparationDiscoveryView used MealHeroImage, which always passed `url: nil` and retained only
+embedded bytes. Downloaded catalogue records normally carry remote photo URLs, so these cards
+ignored those URLs and attempted unrelated title resolution. SmartRecommendationView used the
+same faulty wrapper; RecipeOverviewView also ignored its fetched photo URL.
+
+Removed MealHeroImage and routed all three consumers through RecipeHeroImage. Preparation cards
+pass their actual 130-point image height. RecipeOverviewView now accepts source URL and personal
+photo bytes, prefers those over title-fetched metadata, and receives them from recipe search,
+vault, web/online recipes, mood, ingredient discovery, Ready to Cook, Before You Start, user recipes
+and generated Surprise recipes. Existing callers without photo metadata retain the title fallback.
+ReadyRecipe’s temporary presentation model carries photos without altering persisted schemas.
+
+Native image policy checks passed. Publisher reachability and the exact screenshot recipes’ photos
+have not been visually confirmed; those titles were not found in the bundled database and appear
+to be downloaded catalogue records. Release Xcode 27.0 generic iOS build 334 passed, strict deep signing verification passed, and installation on the paired iPhone succeeded. App, widget, share extension and Watch bundle all carry build 334. Mirroring still reports Timed Out, so the screenshot recipes remain pending visual verification.

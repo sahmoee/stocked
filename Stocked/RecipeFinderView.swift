@@ -233,7 +233,7 @@ struct RecipeFinderView: View {
         RecipeOverviewView(
           title: entry.title, servings: Int(entry.servings) ?? 4,
           ingredients: entry.ingredients, steps: entry.steps, cookTime: entry.cookTime,
-          prepTime: entry.prepTime)
+          prepTime: entry.prepTime, imageURL: entry.imageURL)
       } else {
         UserRecipeDetailView(recipe: hit.recipe)
       }

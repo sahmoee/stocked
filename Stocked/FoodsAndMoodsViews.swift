@@ -645,7 +645,7 @@ struct MoodRecipeFinderView: View {
                     ingredients: r.ingredients,
                     steps:       r.steps,
                     cookTime:    r.cookTime,
-                    prepTime:    r.prepTime
+                    prepTime:    r.prepTime, imageURL: r.imageURL
                 )
             }
         }

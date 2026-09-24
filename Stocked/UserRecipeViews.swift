@@ -832,7 +832,9 @@ struct UserRecipeDetailView: View {
                     // Start Cooking
                     NavigationLink(destination: RecipeOverviewView(
                         title: recipe.title, servings: scaledServings,
-                        ingredients: recipe.ingredientNames)
+                        ingredients: recipe.ingredientNames, steps: recipe.instructions,
+                        cookTime: recipe.cookTime, prepTime: recipe.prepTime,
+                        imageURL: recipe.imageURL, imageData: recipe.imageData)
                     ) {
                         Text("Start Cooking")
                             .scaledFont(17, weight: .semibold, design: .serif)

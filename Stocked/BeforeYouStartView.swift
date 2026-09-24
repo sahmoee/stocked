@@ -301,7 +301,8 @@ struct BeforeYouStartView: View {
             RecipeOverviewView(title: recipe.title, servings: cookSession?.servings ?? recipe.servings,
                                ingredients: recipe.ingredients.map { $0.amount.isEmpty ? $0.name : "\($0.amount) \($0.name)" },
                                steps: recipe.instructions,
-                               cookTime: recipe.cookTime)
+                               cookTime: recipe.cookTime, prepTime: recipe.prepTime,
+                               imageURL: recipe.imageURL, imageData: recipe.imageData)
         } else {
             CookingFlashcardView(recipeTitle: anchor.displayNormalized,
                                  ingredients: pullItems.map { $0.displayNormalized },

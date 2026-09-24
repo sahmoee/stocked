@@ -2021,7 +2021,8 @@ struct OnlineRecipeDetailView: View {
                 RecipeOverviewView(
                     title: displayedRecipe.title,
                     servings: max(1, session.guestStore.cookingProfile.householdSize),
-                    ingredients: displayedRecipe.ingredientLines.map(\.ingredient)
+                    ingredients: displayedRecipe.ingredientLines.map(\.ingredient),
+                    imageURL: displayedRecipe.imageURL
                 )
             }
             .toolbarBackground(session.themeBgColor, for: .navigationBar)

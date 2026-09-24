@@ -719,7 +719,7 @@ struct WebRecipeDetailView: View {
                                     ingredients: recipe.ingredients,
                                     steps:       recipe.steps.map { $0.text },
                                     cookTime:    recipe.cookTime,
-                                    prepTime:    recipe.prepTime
+                                    prepTime:    recipe.prepTime, imageURL: recipe.imageURL
                                 ).environment(session)
                             }
 
