@@ -16,6 +16,9 @@ See `docs/PASTEL_REDESIGN_2026_09_24.md` for scope, recovery and verification ev
 Dark mode now selects separate evening kitchen, meal and produce artwork through KitchenArtworkCatalog.
 Legacy gold/sage foregrounds use adaptive ink tokens; fixed button fills retain contrasting ivory labels.
 See `docs/DARK_MODE_REVIEW_2026_09_24.md` for the device review and artwork prompts.
+The follow-up spacing review aligns recipe/inventory card footers, uses the full grocery column,
+compacts the grocery empty state and Kitchen Health summary, and combines inventory scan/edit controls.
+See `docs/SPACING_REVIEW_2026_09_24.md` for device coverage and validation.
 
 
 Home's Meals Ready widget first paints lightweight inventory metrics, then fills its meal count

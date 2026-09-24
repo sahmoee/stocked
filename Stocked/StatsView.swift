@@ -3,6 +3,7 @@ import SwiftUI
 
 struct StatsView: View {
     @Environment(AppSession.self) var session
+    @Environment(\.stockedLayout) private var layoutMetrics
     // #260 — Kitchen Goals entry point restored. StockGoalsSetupView (the "what does
     // 'stocked' mean to you?" quiz) existed but had no call sites, so stockGoalsConfigured
     // was never set and the health % always fell back to average fill. Tapping the ring
@@ -133,14 +134,15 @@ struct StatsView: View {
                     // Keep explanatory copy outside the ring. The value determines
                     // its natural size, so larger text never collides with a fixed circle.
                     Button { showKitchenGoals = true } label: {
-                        VStack(spacing: 12) {
-                            Text("Kitchen Health")
-                                .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        let healthLayout = layoutMetrics.isAccessibilityText || layoutMetrics.contentWidth < 350
+                            ? AnyLayout(VStackLayout(alignment: .center, spacing: 18))
+                            : AnyLayout(HStackLayout(alignment: .center, spacing: 24))
+                        healthLayout {
                             Text("\(store.stockPercent)%")
-                                .scaledFont(42, weight: .heavy, design: .serif)
+                                .scaledFont(34, weight: .heavy, design: .serif)
                                 .foregroundStyle(Color.stockedSuccessInk)
-                                .padding(32)
-                                .frame(minWidth: 180, minHeight: 180)
+                                .padding(24)
+                                .frame(minWidth: 132, minHeight: 132)
                                 .background {
                                     ZStack {
                                         Circle().stroke(Color.stockedWhite.opacity(0.10), lineWidth: 12)
@@ -150,17 +152,22 @@ struct StatsView: View {
                                             .rotationEffect(.degrees(-90))
                                     }
                                 }
-                            Text(healthLabel)
-                                .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(Color.stockedWhite.opacity(0.8))
-                            Text(store.stockGoalsConfigured && !store.stockStaples.isEmpty
-                                 ? "Anchored to your \(store.stockStaples.count) staples · tap to edit"
-                                 : "Average fill · tap to set goals")
-                                .scaledFont(10, weight: .medium)
-                                .foregroundStyle(Color.stockedWhite.opacity(0.6))
-                                .fixedSize(horizontal: false, vertical: true)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Kitchen Health")
+                                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                                Text(healthLabel)
+                                    .scaledFont(18, weight: .semibold, design: .serif)
+                                    .foregroundStyle(Color.stockedWhite.opacity(0.9))
+                                Text(store.stockGoalsConfigured && !store.stockStaples.isEmpty
+                                     ? "Anchored to your \(store.stockStaples.count) staples · tap to edit"
+                                     : "Average fill · tap to set goals")
+                                    .scaledFont(12, weight: .medium)
+                                    .foregroundStyle(Color.stockedWhite.opacity(0.7))
+                            }
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .multilineTextAlignment(.center)
+                        .padding(.vertical, 8)
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
                     }

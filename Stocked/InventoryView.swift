@@ -189,39 +189,20 @@ struct InventoryView: View {
                 )
                 .padding(.horizontal, 20).padding(.bottom, 8)
 
-                // Header row: Edit toggle (#9)
-                HStack {
-                    Spacer()
-                    Button(editMode ? "Done" : "Edit") {
-                        motion.animate(.selection, intent: .spatial) {
-                            editMode.toggle()
-                            if editMode {
-                                // Remember what was open, then expand every category so all
-                                // items are visible to select.
-                                preEditExpanded = expandedSubs
-                                for (subcat, _) in groupedItems(items, zone: selectedZone) {
-                                    expandedSubs.insert(subcat)
-                                }
-                            } else {
-                                selectedIDs.removeAll()
-                                // Restore the categories to how they were before editing.
-                                expandedSubs = preEditExpanded
-                            }
-                        }
-                    }
-                    .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(session.inventoryGold)
-                    .frame(minWidth: 44, minHeight: 44)
-                }
-                .padding(.horizontal, 24).padding(.bottom, 4)
-
                 // Bulk action bar — shown when items are selected
                 batchActionBar
 
                 // Scanner buttons row
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) { scannerActions }.fixedSize(horizontal: true, vertical: false)
-                    VStack(spacing: 10) { scannerActions }
+                    HStack(spacing: 10) {
+                        scannerActions
+                        Spacer(minLength: 0)
+                        inventoryEditButton
+                    }
+                    VStack(spacing: 10) {
+                        scannerActions
+                        inventoryEditButton.frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
                 .padding(.horizontal, 24).padding(.bottom, 16)
 
@@ -540,6 +521,29 @@ struct InventoryView: View {
             .background(Color.stockedGold.opacity(0.1))
             .transition(.move(edge: .top).combined(with: .opacity))
         }
+    }
+
+    private var inventoryEditButton: some View {
+        Button(editMode ? "Done" : "Edit") {
+            motion.animate(.selection, intent: .spatial) {
+                editMode.toggle()
+                if editMode {
+                    // Remember what was open, then expand every category so all
+                    // items are visible to select.
+                    preEditExpanded = expandedSubs
+                    for (subcat, _) in groupedItems(items, zone: selectedZone) {
+                        expandedSubs.insert(subcat)
+                    }
+                } else {
+                    selectedIDs.removeAll()
+                    // Restore the categories to how they were before editing.
+                    expandedSubs = preEditExpanded
+                }
+            }
+        }
+        .scaledFont(13, weight: .semibold)
+        .foregroundStyle(session.inventoryGold)
+        .frame(minWidth: 44, minHeight: 44)
     }
 
     @ViewBuilder private var scannerActions: some View {

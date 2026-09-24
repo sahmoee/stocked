@@ -372,6 +372,7 @@ struct RecipeVaultView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Text(subtitle).font(.stockedSans(10.5, relativeTo: .caption2)).foregroundStyle(session.themeSecondaryText).lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 6)
                 HStack {
                     if let detail { Text(detail).font(.stockedSans(10, weight: .semibold, relativeTo: .caption2)).foregroundStyle(session.accentColor).fixedSize(horizontal: false, vertical: true) }
                     Spacer()

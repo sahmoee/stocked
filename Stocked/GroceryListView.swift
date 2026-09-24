@@ -605,8 +605,10 @@ struct GroceryListView: View {
                         Text("Recipe ingredients will stay grouped here.")
                             .font(.stocked(.subheadline)).foregroundStyle(sub)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(session.themeCardColor,
                             in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else {
@@ -663,19 +665,24 @@ struct GroceryListView: View {
                 Text(loopMessage).font(.stocked(.caption)).foregroundStyle(session.accentColor)
             }
             if sections.isEmpty {
-                VStack(spacing: 12) {
+                let emptyLayout = layoutMetrics.isAccessibilityText || layoutMetrics.contentWidth < 350
+                    ? AnyLayout(VStackLayout(alignment: .center, spacing: 12))
+                    : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+                emptyLayout {
                     Image(systemName: showBought ? "checkmark.circle" : "cart.badge.plus")
                         .font(.stocked(.largeTitle))
                         .foregroundStyle(session.accentColor)
                     Text(showBought ? "Nothing in the cart yet" : "Your list is clear")
                         .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: layoutMetrics.isAccessibilityText ? .center : .leading)
                     Button("Add Item") { showQuickAdd = true }
                         .font(.stocked(.subheadline).weight(.semibold))
                         .foregroundStyle(session.accentColor)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(28)
+                .padding(18)
                 .background(session.themeCardColor,
                             in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             } else {

@@ -321,9 +321,12 @@ struct InventoryHubView: View {
                     .accessibilityHidden(true)
                 Text(title).font(.stockedSerif(13 * referenceScale, weight: .semibold, relativeTo: .headline))
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(alignment: .bottom, spacing: 2) {
-                    Text(detail).font(.stockedSerif(10.5 * referenceScale, relativeTo: .caption))
-                        .fixedSize(horizontal: false, vertical: true)
+                Text(detail.replacingOccurrences(of: "\n", with: " "))
+                    .font(.stockedSans(10.5 * referenceScale, relativeTo: .caption))
+                    .foregroundStyle(session.themeSecondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 6)
+                HStack {
                     Spacer(minLength: 0)
                     referenceArrow
                 }
