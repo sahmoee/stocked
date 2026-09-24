@@ -31,13 +31,18 @@ struct StockedThemeEnvironmentModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
+        let _ = session.appFont // Register live preference changes without overriding display roles.
         let themed = content
             .listStyle(.insetGrouped)
             .formStyle(.grouped)
             // AppSession is the live owner of the font-family preference. Reading it at this
             // shared boundary invalidates every page/sheet in place when the user changes it.
-            .fontDesign(session.appFont.design)
+            // A fontDesign environment override also overrides explicit serif display
+            // fonts. The shared constructors own the selected family and editorial roles.
+            .font(.stockedBody)
             .environment(\.defaultMinListRowHeight, layoutMetrics.listRowMinimumHeight)
+            .listRowBackground(session.themeCardColor)
+            .listSectionSeparatorTint(StockedPastel.border(session.isDarkMode))
             .textFieldStyle(StockedThemedTextFieldStyle())
             .controlSize(.large)
             .buttonBorderShape(.roundedRectangle(radius: layoutMetrics.controlCornerRadius))
@@ -445,8 +450,7 @@ struct StockedSearchField: View {
         .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
         .padding(.vertical, 2)
         .frame(minHeight: layoutMetrics.minimumControlHeight)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous))
+        .stockedPastelCard(radius: layoutMetrics.controlCornerRadius)
         .overlay {
             RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius, style: .continuous)
                 .strokeBorder(session.themeTextColor.opacity(0.12), lineWidth: 1)
@@ -489,8 +493,7 @@ struct StockedActionRow: View {
             .foregroundStyle(session.themeTextColor)
             .padding(layoutMetrics.surfaceContentPadding)
             .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius, style: .continuous))
+            .stockedPastelCard(radius: layoutMetrics.surfaceCornerRadius)
             .contentShape(RoundedRectangle(cornerRadius: layoutMetrics.surfaceCornerRadius, style: .continuous))
         }
         .buttonStyle(StockedWidgetButtonStyle())
@@ -532,7 +535,7 @@ struct SkeletonRow: View {
                 SkeletonView().frame(maxWidth: .infinity).frame(height: 14)
                 SkeletonView().frame(width: 140).frame(height: 10)
             }
-        }.padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        }.padding(14).stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 }
 struct SkeletonListView: View {

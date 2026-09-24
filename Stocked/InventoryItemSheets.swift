@@ -244,8 +244,7 @@ struct EditItemSheet: View {
                                 .foregroundStyle(session.themeTextColor)
                                 .tint(Color.stockedGold)
                                 .padding(.horizontal, 14).padding(.vertical, 11)
-                                .background(session.themeCardColor)
-                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         }
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Spot in \(zone)")
@@ -256,8 +255,7 @@ struct EditItemSheet: View {
                                 .foregroundStyle(session.themeTextColor)
                                 .tint(Color.stockedGold)
                                 .padding(.horizontal, 14).padding(.vertical, 11)
-                                .background(session.themeCardColor)
-                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         }
                     }
                     .padding(.horizontal, 20).padding(.bottom, 20)
@@ -361,7 +359,7 @@ struct EditItemSheet: View {
                             Image(systemName: "plus").frame(width: 44, height: 44)
                         }.buttonStyle(.plain).accessibilityLabel("Increase units per container")
                     }
-                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                    .stockedPastelCard(radius: StockedUI.cornerRadiusSm)
                     Button {
                         motion.animate(.selection, intent: .spatial) { hasCount = false }
                     } label: {
@@ -374,7 +372,7 @@ struct EditItemSheet: View {
                         Label("None", systemImage: "plus")
                             .scaledFont(13, weight: .semibold)
                             .padding(.horizontal, 12).frame(minHeight: 44)
-                            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                            .stockedPastelCard(radius: StockedUI.cornerRadiusSm)
                     }.buttonStyle(.plain).accessibilityLabel("Set units per container")
                 }
             }
@@ -402,7 +400,7 @@ struct EditItemSheet: View {
             }.buttonStyle(.plain).accessibilityLabel("Increase container quantity")
         }
         .foregroundStyle(session.themeTextColor)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusSm)
     }
 
     private var containerUnitControl: some View {
@@ -415,7 +413,7 @@ struct EditItemSheet: View {
             }
             .foregroundStyle(session.themeTextColor)
             .padding(.horizontal, 12).frame(minHeight: 44)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusSm)
         }.accessibilityLabel("Container unit, \(unit)")
     }
 

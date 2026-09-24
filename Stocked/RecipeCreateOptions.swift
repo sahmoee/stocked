@@ -120,8 +120,7 @@ struct RecipeCreateOptionsSheet: View {
                     .accessibilityHidden(true)
             }
             .padding(14)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         }
         .buttonStyle(.plain)
     }

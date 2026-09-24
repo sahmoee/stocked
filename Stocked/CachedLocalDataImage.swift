@@ -9,7 +9,7 @@ nonisolated enum KitchenArtworkCatalog {
     static let inventoryActions = ["inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference"]
     static func approvedAsset(for name: String) -> String {
         switch name {
-        case "cook_now_hero", "recipes_ready": return "home_widget_cooking"
+        case "cook_now_hero", "recipes_ready": return "pastel_ready_meal"
         case "cook_later_hero", "recipes_past": return "home_widget_planning"
         case "recipes_collection": return "recipes_hero"
         case "protein": return "kitchen_protein_reference"
@@ -42,6 +42,7 @@ struct StockedKitchenArtwork: View {
                 Color.clear
             }
         }
+        .saturation(resolvedAsset.hasPrefix("pastel_") ? 1 : 0.78)
         .task(id: "\(resolvedAsset):\(scrollActivity.mayLoadVisibleImages)") {
             guard scrollActivity.mayLoadVisibleImages else { return }
             var completedRetries = 0

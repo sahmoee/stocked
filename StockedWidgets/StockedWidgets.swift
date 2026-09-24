@@ -88,10 +88,10 @@ private struct WidgetFittedValue: View {
 
 // MARK: - Brand colors (kept local to the widget target)
 private extension Color {
-    static let wGold     = Color(red: 0.635, green: 0.447, blue: 0.098) // #A27219
-    static let wGreen    = Color(red: 0.118, green: 0.502, blue: 0.196) // #1E8032
-    static let wBg       = Color(red: 0.780, green: 0.671, blue: 0.506) // #C7AB81
-    static let wCharcoal = Color(red: 0.176, green: 0.173, blue: 0.165) // #2D2C2A
+    static let wGold     = Color(red: 0.573, green: 0.416, blue: 0.184) // Stocked pastel palette
+    static let wGreen    = Color(red: 0.337, green: 0.420, blue: 0.290) // Stocked pastel palette
+    static let wBg       = Color(red: 0.992, green: 0.969, blue: 0.937) // Stocked pastel palette
+    static let wCharcoal = Color(red: 0.263, green: 0.224, blue: 0.184) // Stocked pastel palette
 }
 
 private func stockTint(_ pct: Int) -> Color {

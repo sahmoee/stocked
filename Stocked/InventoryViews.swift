@@ -145,8 +145,7 @@ struct LiveInventoryItemCard: View {
             }
         }
         .padding(16)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedRadius.md))
+        .stockedPastelCard(radius: StockedRadius.md)
         .contextMenu {
             Button {
                 session.guestStore.updateInventoryLevel(id: item.id, level: min(1.0, item.level + 0.25))
@@ -247,8 +246,7 @@ struct ReceiptRow: View {
             }
         }
         .padding(14)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedRadius.md))
+        .stockedPastelCard(radius: StockedRadius.md)
         .padding(.horizontal, 4)
     }
 }
@@ -298,8 +296,7 @@ struct StashView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding(18)
-                            .background(session.themeCardColor)
-                            .clipShape(RoundedRectangle(cornerRadius: StockedRadius.lg))
+                            .stockedPastelCard(radius: StockedRadius.lg)
                         }
                         .buttonStyle(.plain)
                     }
@@ -328,8 +325,7 @@ struct StashView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .foregroundStyle(session.themeTextColor)
-                                .background(session.themeCardColor)
-                                .clipShape(RoundedRectangle(cornerRadius: StockedRadius.md))
+                                .stockedPastelCard(radius: StockedRadius.md)
                         }
                         Button { moveModal = nil } label: {
                             Text("Move It")

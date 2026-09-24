@@ -25,25 +25,25 @@ nonisolated enum RecipeCardStyle {
 // MARK: - Brand Colors
 nonisolated extension Color {
     // Core backgrounds
-    static let stockedBg        = Color(red: 0.780, green: 0.671, blue: 0.506) // #C7AB81 warm tan
+    static let stockedBg        = Color(red: 0.992, green: 0.969, blue: 0.937) // #FDF7EF warm ivory
     static let stockedDarkBg    = Color(red: 0.086, green: 0.078, blue: 0.063) // #161410 OLED dark
 
     // Charcoal — buttons, tab bar, cards on tan
-    static let stockedCharcoal  = Color(red: 0.176, green: 0.173, blue: 0.165) // #2D2C2A
+    static let stockedCharcoal  = Color(red: 0.263, green: 0.224, blue: 0.184) // #43392F warm cocoa
 
     // Gold — accent, active states, Find in Store, bolt
-    static let stockedGold      = Color(red: 0.635, green: 0.447, blue: 0.102) // #A27219
-    static let stockedGoldDark  = Color(red: 0.870, green: 0.680, blue: 0.290) // #DEAD4A brighter gold on dark (WCAG ~8:1 on dark surface, up from #CC9730 ~6.4:1)
+    static let stockedGold      = Color(red: 0.573, green: 0.416, blue: 0.184) // #926A2F functional honey
+    static let stockedGoldDark  = Color(red: 0.835, green: 0.702, blue: 0.420) // #D5B36B muted honey
     // Decorative gold is too faint for small labels on tan. Text/actions use a
     // deeper warm-gold shade; artwork, borders and brand illustrations keep their gold.
-    static let textAccentLight  = Color(red: 0.263, green: 0.165, blue: 0.031) // ~#432A08
+    static let textAccentLight  = Color(red: 0.502, green: 0.373, blue: 0.192) // #805F31 readable honey
 
     // Success
-    static let stockedGreen     = Color(red: 0.118, green: 0.502, blue: 0.196) // #1E8032
+    static let stockedGreen     = Color(red: 0.337, green: 0.420, blue: 0.290) // #566B4A sage ink
 
     // Text
-    static let stockedBlack     = Color(red: 0.102, green: 0.090, blue: 0.071) // #1A1712
-    static let stockedWhite     = Color(red: 0.961, green: 0.949, blue: 0.922) // #F5F2EB off-white
+    static let stockedBlack     = Color(red: 0.239, green: 0.196, blue: 0.157) // #3D3228 cocoa ink
+    static let stockedWhite     = Color(red: 1.000, green: 0.980, blue: 0.953) // #FFFAF3 ivory
 
     // Dark mode surface
     static let darkSurface      = Color(red: 0.129, green: 0.118, blue: 0.102) // #211E1A
@@ -62,19 +62,17 @@ nonisolated extension Color {
     static func appBg(_ dark: Bool)      -> Color { dark ? stockedDarkBg  : stockedBg      }
     static func appText(_ dark: Bool)    -> Color { dark ? darkLabel      : stockedBlack   }
     // Secondary/supporting text. Solid (not opacity-based) so contrast is predictable.
-    // Light mode ~#332F28 meets 4.5:1 on both tan canvas and its deeper card surface.
+    // Solid cocoa-gray supports readable body copy on every pastel surface.
     // Use session.themeSecondaryText instead of opacity-based body copy.
-    static let secondaryLight = Color(red: 0.200, green: 0.184, blue: 0.157) // ~#332F28
+    static let secondaryLight = Color(red: 0.388, green: 0.361, blue: 0.329) // #635C54 warm supporting text
     static let secondaryDark  = Color(red: 0.741, green: 0.722, blue: 0.690) // #BDB8B0
     static func appSecondary(_ dark: Bool) -> Color { dark ? secondaryDark : secondaryLight }
     static func appAccent(_ dark: Bool) -> Color { dark ? stockedGoldDark : textAccentLight }
     static func appSubtext(_ dark: Bool) -> Color { appSecondary(dark) }
     static func appButton(_ dark: Bool)  -> Color { dark ? Color(white: 0.22) : stockedCharcoal }
-    // Elevated surfaces deliberately move in the opposite direction from their page:
-    // a deeper warm-tan accent in light mode and a lighter warm-charcoal accent in dark.
-    // This keeps sheets, cards, controls, and grouped areas visibly separated everywhere
-    // without replacing Stocked's restrained earth-tone atmosphere with stark white/black.
-    static let lightSurface = Color(red: 0.690, green: 0.590, blue: 0.445) // #B09671
+    // Ivory reading cards on the warm cream canvas; dark mode retains warm depth.
+    // Pastel accents are separate fills so small text remains readable.
+    static let lightSurface = Color(red: 1.000, green: 0.984, blue: 0.965) // #FFFBF6 cream card
     static let darkElevatedSurface = Color(red: 0.176, green: 0.161, blue: 0.137) // #2D2923
     static func appSurface(_ dark: Bool) -> Color { dark ? darkElevatedSurface : lightSurface }
 
@@ -90,8 +88,8 @@ nonisolated extension Color {
     // contrast, and Reduce Transparency remain one coherent theme contract.
     static func widgetSurface(_ dark: Bool, increasedContrast: Bool, reduceTransparency: Bool) -> Color {
         if dark { return increasedContrast ? Color(red: 0.205, green: 0.188, blue: 0.158) : darkElevatedSurface }
-        if increasedContrast { return Color(red: 0.875, green: 0.804, blue: 0.690) }
-        return reduceTransparency ? Color(red: 0.820, green: 0.725, blue: 0.580) : stockedWhite.opacity(0.58)
+        if increasedContrast { return Color(red: 0.965, green: 0.937, blue: 0.894) }
+        return reduceTransparency ? Color(red: 1.000, green: 0.984, blue: 0.965) : stockedWhite.opacity(0.92)
     }
 
     static func widgetPrimaryText(_ dark: Bool) -> Color { appText(dark) }
@@ -175,9 +173,14 @@ extension Font {
         case .caption2: (11, .regular)
         default: (17, .regular)
         }
+        let typeDesign: Font.Design = switch style {
+        case .largeTitle, .title, .title2, .title3: .serif
+        default: .default
+        }
         return StockedType.font(
             size: specification.size,
             weight: specification.weight,
+            design: typeDesign,
             relativeTo: style
         )
     }
@@ -237,11 +240,11 @@ enum StockedType {
         design: Font.Design = .default,
         relativeTo style: Font.TextStyle? = nil
     ) -> Font {
-        // `design` remains in the compatibility signature so call sites do not churn. The user's
-        // single app-wide family deliberately wins over page-local serif/sans/mono choices.
-        _ = design
+        // The standard editorial theme pairs serif headings with clean sans body copy.
+        // Explicit Rounded/Monospace/System preferences still apply throughout the app.
+        let selection = appFontSelection()
         return .system(size: scaled(size, relativeTo: style), weight: weight,
-                       design: appFontSelection().design)
+                       design: selection == .serif ? design : selection.design)
     }
 
     static func scaled(_ size: CGFloat, relativeTo style: Font.TextStyle? = nil) -> CGFloat {

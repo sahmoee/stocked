@@ -766,8 +766,7 @@ struct HouseholdSyncSheet: View {
                         }
                     }
                     .padding(16)
-                    .background(session.themeCardColor)
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
 
                     // Sync status + leave — only shown once you're actually in a CloudKit household.
                     if HouseholdCloudKit.shared.state == .member
@@ -812,8 +811,7 @@ struct HouseholdSyncSheet: View {
                                 .foregroundStyle(session.themeSecondaryText)
                         }
                         .padding(14)
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
 
                         Button {
                             session.householdCode = ""
@@ -919,7 +917,7 @@ struct PreferredStorePopout: View {
                             Image(systemName: "chevron.right")
                         }
                         .padding(14)
-                        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 16))
+                        .stockedPastelCard(radius: 16)
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
@@ -1045,7 +1043,6 @@ struct HelpCenterSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 }

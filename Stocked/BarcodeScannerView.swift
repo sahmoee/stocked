@@ -305,7 +305,7 @@ struct BarcodeScannerView: View {
                     .scaledFont(14, design: .monospaced)
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).keyboardType(.numberPad)
             }
-            .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+            .padding(12).stockedPastelCard(radius: StockedUI.cornerRadiusMd).padding(.horizontal, 24)
 
             Button {
                 guard !manualBarcode.isEmpty else { return }
@@ -628,7 +628,7 @@ struct BarcodeConfirmSheet: View {
                     FoodPredictiveTextField(placeholder: "Name", text: $productName)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         .scaledFont(15)
-                        .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 11))
+                        .padding(12).stockedPastelCard(radius: 11)
                 }.padding(.horizontal, 24).padding(.bottom, 20)
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Storage Zone").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)

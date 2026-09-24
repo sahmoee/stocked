@@ -1990,7 +1990,7 @@ struct CookingFlashcardView: View {
                                 .padding(.bottom, 16)
                         }
                     }
-                    .padding(18).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(18).stockedPastelCard(radius: 16)
                     .padding(.horizontal, 20).padding(.bottom, 16)
 
                     TextField("Notes (optional)", text: $notes, axis: .vertical)

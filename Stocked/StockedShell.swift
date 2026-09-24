@@ -145,117 +145,69 @@ struct StockedShell<Content: View>: View {
     // MARK: Header
 
     private var headerBar: some View {
-        ZStack {
-            // Centered title button — tap area limited to the text (.fixedSize) so it
-            // doesn't swallow taps meant for the back button.
-            Group {
-                // #246 — mockup headers: each tab pins its OWN wordmark left ("Stocked.",
-                // "Cook.", "Inventory.") with no chevron. The brand period remains the single
-                // gold accent while the word continues to use the active theme text color.
-                // Centered mode (sub-screens) keeps "Stocked." + chevron.
-                // The header brand wordmark is ALWAYS "Stocked." on every screen — it
-                // never switches to the section name (Cook / Inventory / Recipes / …).
-                // `titleText` is kept only for the VoiceOver label so screen-reader users
-                // still hear which screen they're on.
-                let wordmark = StockedWordmark(
-                    size: StockedChrome.wordmarkSize,
-                    color: session.themeTextColor,
-                    dotColor: .stockedGold
-                )
-
-                let titleCore = Button { (titleTap ?? onTitleTap)?() } label: {
-                    HStack(spacing: 5) {
-                        wordmark
-                        Image(systemName: "chevron.down")
-                            .font(.stockedSystem(size: StockedChrome.wordmarkChevronSize, weight: .semibold))
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
-                    }
-                    .contentShape(Rectangle())
+        HStack(spacing: 10) {
+            if showBack {
+                Button { (stockedDismiss ?? { dismiss() })() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.stockedSystem(size: 19, weight: .medium))
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
-                .disabled(titleTap == nil && onTitleTap == nil)
-                .fixedSize()
-                .accessibilityLabel(titleText == "Stocked" ? "Stocked" : "Stocked, \(titleText)")
-                .coachmarkAnchor("shell.title")
-
-                titleCore
+                .a11yButton("Back", hint: "Returns to the previous screen")
             }
-
-            // Back button pinned left — only the chevron is tappable; the Spacer is inert
-            // so it never intercepts taps over the centered title.
-            if showBack {
-                HStack {
-                    Button { (stockedDismiss ?? { dismiss() })() } label: {
-                        Image(systemName: "chevron.left")
-                            .scaledFont(20, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                            .stockedGlassSurface(.control, cornerRadius: StockedRadius.pill)
-                    }
-                    .buttonStyle(.plain)
-                    .a11yButton("Back", hint: "Returns to the previous screen")
-                    Spacer().allowsHitTesting(false)
-                }
-                // #FB2 — nudged right, clear of the 28pt drawer edge catcher, so taps
-                // on the chevron never open the drawer.
-                .padding(.leading, 30)
+            Button { (titleTap ?? onTitleTap)?() } label: {
+                StockedWordmark(size: showBack ? 26 : StockedChrome.wordmarkSize,
+                               color: session.themeTextColor, dotColor: StockedPastel.honey)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
             }
-
-            // Trailing action pinned right (e.g. search) (#7).
-            if trailingIcon != nil || trailingIcon2 != nil {
-                StockedGlassGroup(spacing: 8) {
-                    HStack(spacing: 6) {
-                        Spacer().allowsHitTesting(false)
-                        if let trailingIcon, let onTrailing {
-                            Button { onTrailing() } label: {
-                                Image(systemName: trailingIcon)
-                                    .scaledFont(19, weight: .semibold)
-                                    .foregroundStyle(session.themeTextColor)
-                                    .frame(width: 44, height: 44)
-                                    .contentShape(Rectangle())
-                                    .stockedGlassSurface(.control, cornerRadius: StockedRadius.pill)
-                            }
-                            .buttonStyle(.plain)
-                            .a11yButton(trailingLabel.isEmpty ? "Action" : trailingLabel)
-                        }
-                        if let trailingIcon2, let onTrailing2 {
-                            Button { onTrailing2() } label: {
-                                Image(systemName: trailingIcon2)
-                                    .scaledFont(19, weight: .semibold)
-                                    .foregroundStyle(session.themeTextColor)
-                                    .frame(width: 44, height: 44)
-                                    .contentShape(Rectangle())
-                                    .stockedGlassSurface(.control, cornerRadius: StockedRadius.pill)
-                            }
-                            .buttonStyle(.plain)
-                            .a11yButton(trailingLabel2.isEmpty ? "Action" : trailingLabel2)
-                        }
-                    }
-                    .padding(.trailing, 12)
+            .buttonStyle(.plain)
+            .disabled(titleTap == nil && onTitleTap == nil)
+            .accessibilityLabel(titleText == "Stocked" ? "Stocked" : "Stocked, \(titleText)")
+            .coachmarkAnchor("shell.title")
+            Spacer(minLength: 0)
+            if let trailingIcon, let onTrailing {
+                headerAction(trailingIcon, label: trailingLabel, action: onTrailing)
+            }
+            if let trailingIcon2, let onTrailing2 {
+                headerAction(trailingIcon2, label: trailingLabel2, action: onTrailing2)
+            }
+            if !showBack && trailingIcon == nil {
+                headerAction("gearshape", label: "Settings") {
+                    NotificationCenter.default.post(name: .stockedOpenSettingsDrawer, object: nil)
                 }
             }
         }
-        // The VStack already respects the top safe area (only the background ignores
-        // it), so we just need a small gap below the status bar — NOT another full
-        // safeTopInset, which double-counted the inset and left a large empty band
-        // above the wordmark on every screen.
-        .frame(height: StockedChrome.headerHeight)
+        .foregroundStyle(session.themeTextColor)
+        .padding(.horizontal, layoutMetrics.horizontalPadding)
+        .frame(minHeight: StockedChrome.headerHeight)
         .padding(.top, StockedChrome.headerTopPadding)
         .padding(.bottom, StockedChrome.headerBottomPadding)
     }
+
+    private func headerAction(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.stockedSystem(size: 20, weight: .regular))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .a11yButton(label.isEmpty ? "Action" : label)
+    }
+
 }
 
 /// Stable app chrome geometry. Page content may adapt, but the brand header must not.
 enum StockedChrome {
-    static let navigationCornerRadius: CGFloat = 24
-    static let navigationInset: CGFloat = 8
-    static let navigationBottomInset: CGFloat = 4
-    static let wordmarkSize: CGFloat = 20
+    static let navigationCornerRadius: CGFloat = 0
+    static let navigationInset: CGFloat = 0
+    static let navigationBottomInset: CGFloat = 0
+    static let wordmarkSize: CGFloat = 40
     static let wordmarkChevronSize: CGFloat = 10
-    static let headerHeight: CGFloat = 44
-    static let headerTopPadding: CGFloat = 8
-    static let headerBottomPadding: CGFloat = 8
+    static let headerHeight: CGFloat = 56
+    static let headerTopPadding: CGFloat = 0
+    static let headerBottomPadding: CGFloat = 4
 }
 
 
@@ -300,4 +252,8 @@ private class PassthroughView: UIView {
         }
         .padding(.horizontal, 24)
     }
+}
+
+extension Notification.Name {
+    static let stockedOpenSettingsDrawer = Notification.Name("stockedOpenSettingsDrawer")
 }

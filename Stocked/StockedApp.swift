@@ -148,11 +148,8 @@ struct StockedApp: App {
 
     static func applyTextFieldAppearance(isDark: Bool) {
         // ONLY override text fields — never set UIView backgroundColor (causes blank screen)
-        let textColor = isDark
-            ? UIColor(red: 0.961, green: 0.949, blue: 0.922, alpha: 1)
-            : UIColor(red: 0.13,  green: 0.12,  blue: 0.10,  alpha: 1)
-        UITextField.appearance().textColor = textColor
-        UITextField.appearance().tintColor = UIColor(red: 0.635, green: 0.447, blue: 0.102, alpha: 1)
+        UITextField.appearance().textColor = UIColor(Color.appText(isDark))
+        UITextField.appearance().tintColor = UIColor(Color.appAccent(isDark))
         UITableView.appearance().backgroundColor = .clear
         UITableViewCell.appearance().backgroundColor = .clear
     }

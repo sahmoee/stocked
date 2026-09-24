@@ -120,14 +120,23 @@ struct HomeView: View {
     var body: some View {
         StockedShell {
             VStack(alignment: .leading, spacing: 0) {
-                referenceHero
-                    .padding(.bottom, usesReferencePhoneGeometry ? 10 : (isWideHomeCanvas ? 6 : 10))
-                    .onTapGesture {
-                        // A plain tap on the non-interactive hero is the safe,
-                        // discoverable way out without stealing taps from widget
-                        // menus, resize handles, or the Done button.
-                        if editMode { exitEditMode() }
-                    }
+                StockedPastelHome(metrics: kitchenMetrics,
+                    onExpiring: { goExpiringList = true },
+                    onRecipes: { switchTab(.recipes) })
+                    .padding(.bottom, 20)
+                HStack {
+                    Text("Your shortcuts")
+                        .font(.stockedSerif(22, weight: .semibold))
+                    Spacer()
+                    Button { activeHomeSheet = .widgetGallery } label: {
+                        Image(systemName: "plus").frame(width: 44, height: 44)
+                    }.accessibilityLabel("Add a Home widget")
+                    Button(editMode ? "Done" : "Edit") {
+                        if editMode { exitEditMode() } else { enterEditMode() }
+                    }.font(.stockedSans(13, weight: .medium)).frame(minHeight: 44)
+                }
+                .foregroundStyle(session.themeTextColor)
+                .padding(.bottom, 8)
                 if editMode {
                     HStack(spacing: 12) {
                         Menu {
@@ -237,76 +246,7 @@ struct HomeView: View {
         .coachmarks(page: .home, steps: HomeCoachmarks.steps)
     }
 
-    private var referenceHero: some View {
-        Group {
-            if usesReferencePhoneGeometry {
-                ZStack(alignment: .topLeading) {
-                    StockedGreeting()
-                        .offset(y: 1)
-
-                    referenceHeroCopy
-                        .frame(width: 210, alignment: .leading)
-                        .offset(y: 21)
-
-                    StockedKitchenArtwork(asset: "home_kitchen_still_life")
-                        .frame(width: 172, height: 120, alignment: .bottomTrailing)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .offset(x: 8, y: 15)
-                        .accessibilityHidden(true)
-                }
-                .frame(height: 124, alignment: .top)
-            } else {
-                VStack(alignment: .leading, spacing: isWideHomeCanvas ? 8 : 12) {
-                    StockedGreeting()
-                    referenceHeroCopy
-                    HStack(alignment: .bottom, spacing: isWideHomeCanvas ? 20 : 12) {
-                        referenceStockLevel
-                            .layoutPriority(1)
-                        referenceHeroArtwork
-                            .fixedSize()
-                    }
-                }
-            }
-        }
-        .coachmarkAnchor("home.greeting")
-    }
-
-    private var referenceHeroArtwork: some View {
-        StockedKitchenArtwork(asset: "home_kitchen_still_life")
-            .frame(
-                width: layoutMetrics.homeHeroArtworkWidth,
-                height: isWideHomeCanvas ? 170 : 190,
-                alignment: .bottom
-            )
-            .accessibilityHidden(true)
-    }
-
-    private var isWideHomeCanvas: Bool {
-        layoutMetrics.contentWidth >= 700
-    }
-
-    private var referenceHeroCopy: some View {
-        VStack(alignment: .leading, spacing: usesReferencePhoneGeometry ? 6 : 12) {
-            Text(kitchenMetrics.stockPercent >= 80 ? "Your kitchen is\nin good shape." : "Let’s refresh\nyour kitchen.")
-                .font(usesReferencePhoneGeometry
-                      ? .stockedSerif(29, weight: .bold, relativeTo: .title)
-                      : .stockedSerif(34, weight: .bold, relativeTo: .largeTitle))
-                .foregroundStyle(session.themeTextColor)
-                .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(usesReferencePhoneGeometry ? -5 : 0)
-
-                .fixedSize(horizontal: false, vertical: true)
-            Text(kitchenMetrics.stockPercent >= 80
-                 ? "Everything you need is already inside of your kitchen"
-                 : "A few smart updates will unlock more meals and keep the week moving.")
-                .font(usesReferencePhoneGeometry ? .stockedSans(11.5) : .stocked(.body))
-                .foregroundStyle(session.themeSecondaryText)
-
-                .lineSpacing(usesReferencePhoneGeometry ? 1 : 0)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    private var isWideHomeCanvas: Bool { layoutMetrics.contentWidth >= 700 }
 
     private var referenceStockLevel: some View {
         Button {
@@ -1344,8 +1284,7 @@ struct HomeView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusXL)
         .overlay {
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
                 .stroke(session.themeContrastAccent.opacity(0.30), lineWidth: 1.25)
@@ -1420,8 +1359,7 @@ struct HomeView: View {
                     }
                     .tint(Color.stockedGold)
                     .padding(14)
-                    .background(session.themeCardColor)
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+                    .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
                     .onChange(of: smartWidgetSuggestions) { _, value in
                         UserDefaults.standard.set(value, forKey: "stocked.smartWidgetSuggestions_v1")
                     }
@@ -1473,8 +1411,7 @@ struct HomeView: View {
                                         .foregroundStyle(Color.stockedGold)
                                 }
                                 .padding(16)
-                                .background(session.themeCardColor)
-                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+                                .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
                             }
                             .buttonStyle(.plain)
                         }
@@ -1933,7 +1870,7 @@ struct HomeView: View {
     }
 
     // MARK: - Daily Brief card (mockup)
-    // Charcoal card: header row, four stat rows, divider, kitchen-report footer.
+    // Matte cream card: header row, four stat rows, divider, kitchen-report footer.
     // Collapsible via the chevron in the header; tapping the stat body opens the
     // expanded Daily Brief, and the footer opens the kitchen report.
     private var dailyBriefCard: some View {
@@ -1945,7 +1882,7 @@ struct HomeView: View {
                 } label: {
                     Text("Daily Brief")
                         .scaledFont(17, weight: .bold, design: .serif)
-                        .foregroundStyle(Color.stockedWhite)
+                        .foregroundStyle(session.themeTextColor)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1956,7 +1893,7 @@ struct HomeView: View {
                 if !briefCollapsed {
                     Text("Updated just now")
                         .scaledFont(11)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.45))
+                        .foregroundStyle(session.themeSecondaryText)
                         .padding(.trailing, 10)
                 }
 
@@ -1968,7 +1905,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "chevron.down")
                         .scaledFont(13, weight: .semibold)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        .foregroundStyle(session.themeSecondaryText)
                         .rotationEffect(.degrees(briefCollapsed ? -90 : 0))
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
@@ -2003,7 +1940,7 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .a11yButton("Daily Brief", hint: "Opens your full daily brief")
 
-                Divider().background(Color.stockedWhite.opacity(0.12)).padding(.top, 6)
+                Divider().background(StockedPastel.border(dark)).padding(.top, 6)
 
                 Button {
                     NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.stats)
@@ -2011,11 +1948,11 @@ struct HomeView: View {
                     HStack {
                         Text("View full kitchen report")
                             .scaledFont(14, weight: .semibold)
-                            .foregroundStyle(Color.stockedWhite)
+                            .foregroundStyle(session.themeTextColor)
                         Spacer()
                         Image(systemName: "chevron.right")
                             .scaledFont(12, weight: .semibold)
-                            .foregroundStyle(Color.stockedWhite.opacity(0.45))
+                            .foregroundStyle(session.themeSecondaryText)
                     }
                     .padding(.top, 14)
                     .contentShape(Rectangle())
@@ -2025,14 +1962,13 @@ struct HomeView: View {
             }
         }
         .padding(homeWidgetContentPadding)
-        .background(Color.stockedCharcoal)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
     }
 
     private func briefRow(icon: String, value: String, label: String, badged: Bool = false) -> some View {
         HStack(spacing: 14) {
             ZStack {
-                Circle().fill(Color.stockedWhite.opacity(0.08)).frame(width: 38, height: 38)
+                Circle().fill(StockedPastel.oat(dark)).frame(width: 38, height: 38)
                 if badged {
                     Image(systemName: icon)
                         .scaledFont(15)
@@ -2047,10 +1983,10 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
                     .scaledFont(14.5, weight: .bold)
-                    .foregroundStyle(Color.stockedWhite)
+                    .foregroundStyle(session.themeTextColor)
                 Text(label)
                     .scaledFont(12)
-                    .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()

@@ -167,8 +167,7 @@ struct MealPlannerView: View {
                         }
                         .padding(.horizontal, 8)
                         .frame(minWidth: 52, minHeight: 44)
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                     }.buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20).padding(.bottom, 16)

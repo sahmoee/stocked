@@ -4,6 +4,17 @@
 
 # Read me first
 
+September 24: the approved pastel redesign uses `Brand/Stocked-Pastel-Mockup.png` as its reference.
+The complete pre-redesign code and mockup are preserved by annotated Git tag
+`restore/pre-pastel-2026-09-24` at `603931bf074d5a12010a505640ff0b13e1c74973`.
+Home now has the photographic kitchen hero, live kitchen summary, ready/expiring cards and recipe
+shortcut. The existing customizable widget board remains below the new composition. The four
+other tabs share the same editorial hero component. App-wide cards, forms, presentations, fields,
+chrome, widget colors and Watch accent follow the cream/honey/sage/cocoa palette. Default typography
+pairs serif headings with sans body while keeping explicit font preferences and Dynamic Type.
+See `docs/PASTEL_REDESIGN_2026_09_24.md` for scope, recovery and verification evidence.
+
+
 Home's Meals Ready widget first paints lightweight inventory metrics, then fills its meal count
 from the asynchronous Cook Now classification for the current recipe, inventory, plan, profile and
 discovery revision. A warm Cook Now snapshot also supplies the store's exact count without a second
@@ -95,9 +106,9 @@ matching `AppIcon-08` artwork. This repository owns the master. The iOS/iPadOS a
 StockedMac copy, and public website image are byte-derived consumers; regenerate every required
 size from this master and verify asset-catalog dimensions before publishing any icon change.
 
-The shared root tab bar uses a warm translucent gold selection with a gold outline and accent
-content. Selected tabs never receive an opaque charcoal or black backplate; all five tabs retain
-the same geometry, hit target, typography and glass navigation surface.
+The shared root tab bar now matches the pastel reference: full-width matte cream, a fine top
+divider, gold selected icon/label and quiet supporting labels. All five tabs retain equal geometry
+and accessible hit targets; selection has no outlined or opaque backplate.
 
 Search and input surfaces reuse StockedSearchField/StockedThemedTextFieldStyle and one control
 padding/type scale; compound fields must use plain embedded fields to avoid double padding.
@@ -454,16 +465,17 @@ The illustrated primary Scan control is the single receipt/barcode entry point i
 section; its menu branches to Receipt and Barcode. Do not add a second compact Scan control beside
 Add and Log. Its paired grocery-bag artwork uses the same approximate vertical footprint as the
 primary card while width-aware scaling keeps it from crowding the card on narrow canvases.
-Stock Level is pinned as a compact vertical card in the hero's left column, with the still-life
-artwork locked in the right column. It is never rendered below or on the right of that artwork;
-text growth expands the left card vertically without changing the two-column relationship.
+The September 24 Home reference replaces the old left-column Stock Level hero with the photographic
+still life and a Your kitchen summary card. Stock level remains live inside that summary. On iPad,
+the hero and summary share a row; accessibility sizes stack the content. The existing widget board
+and scan/add/log actions remain below the reference composition.
 
 All app typography routes through the one Stocked text scale without category caps, one-line
 truncation, or minimum-scale shrinking. The in-app preference and system Dynamic Type update every
 page, sheet, control label, QA surface, generated label, and widget together. Text containers,
 buttons, fields, list rows, sheets, and custom cards grow vertically at accessibility sizes; font
-size alone must not change grid columns, move paired buttons to another row, or swap control types.
-Only available width may change placement. New UI must use linked scalable font constructors,
+size and available width can reduce grid columns and stack paired feature cards to keep content
+readable. Standard-size phone layouts retain the reference geometry. New UI must use linked scalable font constructors,
 flexible minimum dimensions, and multi-line labels rather than raw fonts, fixed text heights, or
 ellipses.
 
@@ -472,8 +484,8 @@ boundaries. Fields grow with text and use the active theme surface; page-local p
 reserved for fields already hosted inside a custom themed input container.
 
 `GlassUI.swift` owns `StockedGlassKit`, `StockedGlassGroup`, and `stockedGlassSurface` using
-native iOS 26 Liquid Glass. Glass belongs to navigation and floating controls; content cards,
-forms, and reading canvases keep the semantic opaque theme. Reduce Transparency or Increase
+native iOS 26 Liquid Glass for floating navigation. The reference root tab bar is matte cream;
+ordinary controls use matte oat. Content cards, forms and reading canvases use semantic opaque fills. Reduce Transparency or Increase
 Contrast must select opaque surfaces and visible borders. Shared press scaling and interactive
 glass respect the existing motion policy. Home action glyphs and the stock gauge have no black
 icon backplates; retain their transparent rendering and existing watercolor assets. Supporting

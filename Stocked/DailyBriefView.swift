@@ -701,8 +701,7 @@ struct ExpiringItemsView: View {
                                             }
                                             .frame(width: 130, alignment: .leading)
                                             .padding(12)
-                                            .background(session.themeCardColor)
-                                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                                         }
                                         .buttonStyle(.plain)
                                         .a11yButton("Recipe: \(r.title)", hint: "Uses an item that's expiring soon")
@@ -882,8 +881,7 @@ struct ExpiringItemsView: View {
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 12)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         .padding(.horizontal, 16).padding(.bottom, 6)
     }
 }

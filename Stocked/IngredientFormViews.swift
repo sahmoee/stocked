@@ -152,7 +152,7 @@ struct IngredientPickerSheet: View {
                                     }
                                     .padding(12)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                                 }.buttonStyle(.plain)
                             }.padding(.horizontal, 20).padding(.bottom, 20)
                         }
@@ -317,7 +317,7 @@ struct IngredientDetailForm: View {
     private func formInput(_ ph: String, text: Binding<String>) -> some View {
         FoodPredictiveTextField(placeholder: ph, text: text)
             .scaledFont(14).foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
-            .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 20)
+            .padding(14).stockedPastelCard(radius: StockedUI.cornerRadiusMd).padding(.horizontal, 20)
     }
     private func nutriPill(_ label: String, _ val: String) -> some View {
         VStack(spacing: 1) {

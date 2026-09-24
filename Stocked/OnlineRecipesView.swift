@@ -1022,8 +1022,7 @@ struct OnlineRecipesView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
             .padding(.horizontal, 24).padding(.bottom, 12)
             .stockedAnimation(.selection, intent: .spatial, value: dbSuggestions.map(\.id))
 
@@ -1953,7 +1952,7 @@ struct OnlineRecipeDetailView: View {
                                 .ingredientQuickActions(measure: pair.measure, name: pair.ingredient)
                             }
                         }
-                        .padding(16).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(16).stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         .padding(.horizontal, 24)
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -1989,7 +1988,7 @@ struct OnlineRecipeDetailView: View {
                                 }
                             }
                         }
-                        .padding(16).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .padding(16).stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         .padding(.horizontal, 24)
 
                         // #251 — source attribution + link out to the original.

@@ -842,8 +842,7 @@ struct WebRecipeDetailView: View {
                     .scaledFont(14)
                     .foregroundStyle(session.themeSecondaryText)
                     .padding(16)
-                    .background(session.themeCardColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .stockedPastelCard(radius: 14)
             } else {
                 ForEach(recipe.steps) { step in
                     StepCard(step: step, themeColor: session.themeTextColor)
@@ -858,7 +857,7 @@ struct WebRecipeDetailView: View {
             if recipe.ingredients.isEmpty {
                 Text("Ingredients not available.")
                     .scaledFont(14).foregroundStyle(session.themeSecondaryText)
-                    .padding(16).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(16).stockedPastelCard(radius: 14)
             } else {
                 let inventoryLower = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
                 ForEach(Array(recipe.ingredients.enumerated()), id: \.offset) { _, ing in
@@ -903,8 +902,7 @@ struct WebRecipeDetailView: View {
                     WebRecipeFlowLayout(tags: recipe.tags)
                 }
                 .padding(14)
-                .background(session.themeCardColor)
-                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
             }
         }
     }
@@ -955,8 +953,7 @@ struct StepCard: View {
             }
         }
         .padding(14)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 }
 
@@ -971,8 +968,7 @@ struct StatPill: View {
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
     }
 }
 
@@ -987,8 +983,7 @@ struct InfoRow: View {
             Text(value).scaledFont(13, weight: .medium)
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 }
 
@@ -1111,8 +1106,7 @@ struct URLImportSheet: View {
                                            .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         .scaledFont(13)
                         .padding(12)
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
 

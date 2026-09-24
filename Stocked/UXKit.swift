@@ -269,9 +269,8 @@ private struct StockedCardModifier: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: max(radius, layout.surfaceCornerRadius), style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: max(radius, layout.surfaceCornerRadius), style: .continuous)
-                    .stroke((isDark ? Color.stockedWhite : Color.stockedCharcoal)
-                        .opacity(accessibilityContrast == .increased ? 0.72 : 0.30),
-                        lineWidth: accessibilityContrast == .increased ? 2 : 1.25)
+                    .stroke((accessibilityContrast == .increased ? Color.appSecondary(isDark) : StockedPastel.border(isDark)),
+                        lineWidth: accessibilityContrast == .increased ? 2 : 0.75)
             )
             .shadow(color: .black.opacity(isDark ? 0.30 : 0.06), radius: 8, y: 3)
     }

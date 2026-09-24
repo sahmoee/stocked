@@ -194,7 +194,7 @@ struct HouseholdCreateView: View {
                 .padding(.top, 4)
             }
             .padding(18)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.bottom, 20)
 
             Button("Done") { dismiss() }
@@ -233,7 +233,7 @@ struct HouseholdJoinView: View {
                     .foregroundStyle(session.themeTextColor)
                     .tracking(2)
                     .padding(.vertical, 14).padding(.horizontal, 16)
-                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+                    .stockedPastelCard(radius: 12)
                     .onChange(of: code) { _, newValue in
                         // Strip anything that isn't a code character (A to Z, 2 to 9) as the user
                         // types, so iOS smart quotes / autocorrect can't wrap or alter the code.
@@ -304,7 +304,7 @@ struct HouseholdMembersView: View {
                 }.buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
 
             // Household Settings links
             HStack { Text("Household Settings")
@@ -318,7 +318,7 @@ struct HouseholdMembersView: View {
                 NavigationLink { HouseholdSettingsView() } label: { settingRow("gearshape", "Household Settings") }.buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.bottom, 24)
         }
         .task {
@@ -427,7 +427,7 @@ struct HouseholdActivityView: View {
                     }
                 }
                 .padding(.horizontal, 14)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+                .stockedPastelCard(radius: HHStyle.cardCorner)
                 .padding(.bottom, 24)
             }
         }
@@ -540,7 +540,7 @@ struct HouseholdMemberProfileView: View {
                     }
                 }
                 .padding(14)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+                .stockedPastelCard(radius: HHStyle.cardCorner)
                 .padding(.bottom, 22)
             }
 
@@ -553,7 +553,7 @@ struct HouseholdMemberProfileView: View {
                 Divider(); prefRow("Allergies", member.allergies.isEmpty ? "Not set" : member.allergies.joined(separator: ", "))
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
 
             if canManageMembers && !member.isMe {
                 Button(role: .destructive) { confirmRemoval = true } label: {
@@ -672,7 +672,7 @@ struct HouseholdShareCodeView: View {
                 .scaledFont(30, weight: .bold, design: .monospaced).tracking(2)
                 .foregroundStyle(session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 20)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+                .stockedPastelCard(radius: 12)
             Text("Code expires in 7 days").scaledFont(11).foregroundStyle(session.themeSecondaryText)
                 .padding(.top, 6).padding(.bottom, 18)
 
@@ -686,7 +686,7 @@ struct HouseholdShareCodeView: View {
                 shareOption("doc.on.doc.fill", "Copy Code", session.themeTextColor.opacity(0.6))
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.bottom, 18)
 
             Button {
@@ -780,7 +780,7 @@ struct HouseholdSettingsView: View {
                 }.buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.top, 10).padding(.bottom, 18)
 
             // ── Sync status + manual Sync Now (sync plan Drop 3, worker-adapted) ──
@@ -828,7 +828,7 @@ struct HouseholdSettingsView: View {
                 .disabled(isSyncing)
             }
             .padding(14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.bottom, 18)
 
             // ── Conflict review entry (sync plan Drop 5) — shown only when conflicts exist ──
@@ -846,7 +846,7 @@ struct HouseholdSettingsView: View {
                         Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
                     }
                     .padding(14)
-                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+                    .stockedPastelCard(radius: HHStyle.cardCorner)
                 }.buttonStyle(.plain).padding(.bottom, 18)
             }
 
@@ -856,7 +856,7 @@ struct HouseholdSettingsView: View {
                 }.buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.bottom, 24)
         }
         .alert("Leave this household?", isPresented: $confirmLeave) {
@@ -931,7 +931,7 @@ struct HouseholdConflictReviewView: View {
                         }
                     }
                     .padding(14)
-                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+                    .stockedPastelCard(radius: HHStyle.cardCorner)
                     .padding(.bottom, 12)
                 }
             }
@@ -1003,7 +1003,7 @@ struct HouseholdNotificationsView: View {
             .padding(.top, 14).padding(.bottom, 8)
         VStack(spacing: 0) { content() }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
     }
     private func toggle(_ label: String, _ binding: Binding<Bool>) -> some View {
         Toggle(isOn: binding) {
@@ -1043,7 +1043,7 @@ struct HouseholdPendingInvitesView: View {
                     }
                 }
                 .padding(.horizontal, 14)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+                .stockedPastelCard(radius: HHStyle.cardCorner)
             }
             Text("Invite links and codes expire in 7 days.")
                 .scaledFont(11).foregroundStyle(session.themeSecondaryText)
@@ -1105,7 +1105,7 @@ struct HouseholdHelpView: View {
                 }
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.bottom, 24)
         }
     }
@@ -1128,7 +1128,7 @@ struct HouseholdNameEditView: View {
                 .scaledFont(17)
                 .foregroundStyle(session.themeTextColor)
                 .padding(.vertical, 14).padding(.horizontal, 16)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+                .stockedPastelCard(radius: 12)
                 .padding(.bottom, 18)
             Button {
                 // Persists locally AND syncs to every device (rides on the next push).
@@ -1157,7 +1157,7 @@ struct HouseholdMyNameEditView: View {
                 .scaledFont(17)
                 .foregroundStyle(session.themeTextColor)
                 .padding(.vertical, 14).padding(.horizontal, 16)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+                .stockedPastelCard(radius: 12)
                 .padding(.bottom, 18)
             Button {
                 household.setMyName(name, store: session.guestStore)
@@ -1193,7 +1193,7 @@ struct HouseholdSyncOptionsView: View {
                 toggleRow("Meal plans", "calendar", $mp) { household.syncMealPlans = $0 }
             }
             .padding(.horizontal, 14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: HHStyle.cardCorner))
+            .stockedPastelCard(radius: HHStyle.cardCorner)
             .padding(.bottom, 20)
         }
     }

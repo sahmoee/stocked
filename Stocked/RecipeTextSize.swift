@@ -280,7 +280,7 @@ struct StepTimerChip: View {
                 .foregroundStyle(session.accentColor)
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .frame(minHeight: 44)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                 .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
                     .strokeBorder(session.accentColor.opacity(timer?.isRunning == true ? 0.8 : 0.35), lineWidth: timer?.isRunning == true ? 2 : 1))
                 .contentShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

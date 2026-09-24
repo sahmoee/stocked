@@ -111,8 +111,7 @@ struct QuizEditView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .stockedPastelCard(radius: 14)
     }
 
     // MARK: - Section content views

@@ -51,6 +51,14 @@ final class LayoutVisualAuditTests: XCTestCase {
         for (label, typeSize) in [("standard", DynamicTypeSize.large), ("accessibility3", .accessibility3)] {
             let finder = RecipeFinderSession()
             let cooking = CookNowSession(householdSize: 2)
+            try await capture("pastel-home-\(label)", session: session, typeSize: typeSize,
+                              selectedTab: .home, view: AnyView(NavigationStack { HomeView() }))
+            try await capture("pastel-inventory-\(label)", session: session, typeSize: typeSize,
+                              selectedTab: .inventory, view: AnyView(NavigationStack { InventoryHubView() }))
+            try await capture("pastel-recipes-\(label)", session: session, typeSize: typeSize,
+                              selectedTab: .recipes, view: AnyView(NavigationStack { RecipeVaultView(finder: finder) }))
+            try await capture("pastel-grocery-\(label)", session: session, typeSize: typeSize,
+                              selectedTab: .grocery, view: AnyView(NavigationStack { GroceryListView() }))
             try await capture("start-with-something-\(label)", session: session, typeSize: typeSize,
                               selectedTab: .cook, scroll: true,
                               view: AnyView(NavigationStack { StartWithSomethingView().environment(cooking) }))

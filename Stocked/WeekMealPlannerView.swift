@@ -119,7 +119,7 @@ struct WeekMealPlannerView: View {
             }
         }
         .padding(14)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: Self.cardCorner))
+        .stockedPastelCard(radius: Self.cardCorner)
     }
 
     private func addMeal(_ day: Int) {

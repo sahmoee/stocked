@@ -85,7 +85,7 @@ struct SyncDiagnosticsView: View {
     private func card<C: View>(@ViewBuilder _ content: () -> C) -> some View {
         VStack(spacing: 0) { content() }
             .padding(14)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 20))
+            .stockedPastelCard(radius: 20)
     }
     private func row(_ label: String, _ value: String) -> some View {
         HStack {

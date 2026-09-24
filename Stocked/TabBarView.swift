@@ -17,8 +17,8 @@ enum StockedTab: String, CaseIterable {
         switch self {
         case .home:      return "house"
         case .cook:      return "frying.pan"        // fallback only; Cook draws the toque below
-        case .inventory: return "archivebox"
-        case .recipes:   return "fork.knife"
+        case .inventory: return "waterbottle"
+        case .recipes:   return "book"
         case .grocery:   return "cart"
         }
     }
@@ -26,12 +26,12 @@ enum StockedTab: String, CaseIterable {
         switch self {
         case .home:      return "house.fill"
         case .cook:      return "frying.pan.fill"
-        case .inventory: return "archivebox.fill"
-        case .recipes:   return "fork.knife"
+        case .inventory: return "waterbottle.fill"
+        case .recipes:   return "book"
         case .grocery:   return "cart.fill"
         }
     }
-    var label: String { rawValue }
+    var label: String { self == .grocery ? "Grocery" : rawValue }
 }
 
 // MARK: - Cook (chef's toque)
@@ -102,7 +102,10 @@ struct StockedTabBar: View {
             .padding(.top, layoutMetrics.tabBarTopPadding)
             .padding(.bottom, layoutMetrics.tabBarBottomPadding)
         }
-        .stockedGlassSurface(.navigation, cornerRadius: StockedChrome.navigationCornerRadius, interactive: false)
+        .background(session.themeBgColor.ignoresSafeArea(edges: .bottom))
+        .overlay(alignment: .top) {
+            Rectangle().fill(StockedPastel.border(session.isDarkMode)).frame(height: 0.6)
+        }
         .padding(.horizontal, StockedChrome.navigationInset)
         .padding(.bottom, StockedChrome.navigationBottomInset)
     }
@@ -149,8 +152,8 @@ struct StockedTabBar: View {
                 .foregroundStyle(foreground)
                 .accessibilityHidden(true)
 
-                Text(tab.rawValue)
-                    .font(.stockedSans(10,
+                Text(tab.label)
+                    .font(.stockedSans(11,
                                        weight: isActive ? .semibold : .regular,
                                        relativeTo: .caption2))
                     .foregroundStyle(foreground)
@@ -161,19 +164,6 @@ struct StockedTabBar: View {
             .padding(.horizontal, 3)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, minHeight: layoutMetrics.tabBarItemMinimumHeight)
-            .background {
-                if isActive {
-                    RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
-                                     style: .continuous)
-                        .fill((session.isDarkMode ? Color.stockedGoldDark : Color.stockedGold).opacity(0.10))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius,
-                                             style: .continuous)
-                                .stroke(session.isDarkMode ? Color.stockedGoldDark : Color.stockedGold,
-                                        lineWidth: 1)
-                        }
-                }
-            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

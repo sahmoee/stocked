@@ -286,7 +286,7 @@ private struct PlanEditorTextField: View {
             Text(label).font(.stocked(.headline))
             TextField(placeholder, text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
-                .padding(12).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+                .padding(12).stockedPastelCard(radius: 12)
                 .accessibilityLabel(label)
         }
     }
@@ -353,7 +353,7 @@ private struct PlanMealFields: View {
             TextField("One ingredient per line, including any amount", text: $ingredientsText, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(5...12).padding(12)
-                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+                .stockedPastelCard(radius: 12)
                 .accessibilityLabel("Ingredients, one per line")
             Text("Ingredients are optional for a meal idea. Saved recipes copy their current amounts; editing these lines leaves the recipe unchanged.")
                 .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)

@@ -352,7 +352,7 @@ private struct PlanningReviewView: View {
                                     }.font(.stocked(.footnote))
                                 }
                             }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                                .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+                                .stockedPastelCard(radius: 14)
                         }
                     }
                     if let error { Text(error).foregroundStyle(session.themeSecondaryText) }

@@ -395,8 +395,7 @@ struct CookSessionResumeCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
         .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
             .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1))
     }

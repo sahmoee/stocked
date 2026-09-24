@@ -741,8 +741,7 @@ struct CreateRecipeView: View {
             .padding(.top, 16)
             .padding(.bottom, 8)
         VStack(spacing: 0) { content() }
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
             .padding(.horizontal, 20)
     }
 

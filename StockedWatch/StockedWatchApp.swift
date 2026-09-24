@@ -9,7 +9,7 @@ import WatchConnectivity
         WindowGroup {
             NavigationStack { WatchKitchenHome() }
                 .environment(store).environment(timer)
-                .tint(Color(red: 0.84, green: 0.67, blue: 0.34))
+                .tint(Color(red: 0.835, green: 0.702, blue: 0.420))
                 .alert("Change needs attention", isPresented: Binding(get: { store.operationIssue != nil }, set: { if !$0 { store.operationIssue = nil } })) {
                     Button("OK", role: .cancel) { store.operationIssue = nil }
                 } message: { Text(store.operationIssue ?? "") }

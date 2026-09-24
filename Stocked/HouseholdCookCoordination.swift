@@ -184,8 +184,7 @@ struct HouseholdCookingCard: View {
             }
         }
         .padding(14)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
         .overlay(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
             .stroke(Color.stockedGold.opacity(0.35), lineWidth: 1))
     }

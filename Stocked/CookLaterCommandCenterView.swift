@@ -966,7 +966,7 @@ struct CookLaterCommandCenterView: View {
         .buttonStyle(.plain)
       }
       .padding(14)
-      .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+      .stockedPastelCard(radius: CookStyle.cardCorner)
       .overlay(
         RoundedRectangle(cornerRadius: CookStyle.cardCorner).stroke(
           presentation.tint.opacity(0.18), lineWidth: 1)
@@ -1018,7 +1018,7 @@ struct CookLaterCommandCenterView: View {
       }
     }
     .padding(14)
-    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+    .stockedPastelCard(radius: CookStyle.cardCorner)
     .overlay(
       RoundedRectangle(cornerRadius: CookStyle.cardCorner).stroke(
         Color.stockedGreen.opacity(0.22), lineWidth: 1)
@@ -1085,7 +1085,7 @@ struct CookLaterCommandCenterView: View {
         }
       }
       .padding(16)
-      .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+      .stockedPastelCard(radius: CookStyle.cardCorner)
     }
     .buttonStyle(.plain)
     .padding(.horizontal, commandHorizontalPadding)
@@ -1194,7 +1194,7 @@ struct CookLaterCommandCenterView: View {
       .padding(13)
       .frame(width: smartActionCardWidth, alignment: .leading)
       .frame(minHeight: 104, alignment: .leading)
-      .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+      .stockedPastelCard(radius: 14)
     }
     .buttonStyle(.plain)
   }
@@ -1253,7 +1253,7 @@ struct CookLaterCommandCenterView: View {
       }
     }
     .padding(14)
-    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+    .stockedPastelCard(radius: CookStyle.cardCorner)
     .overlay(
       RoundedRectangle(cornerRadius: CookStyle.cardCorner).stroke(
         day == selectedDay ? Color.stockedGold.opacity(0.32) : Color.clear, lineWidth: 1)
@@ -1347,7 +1347,7 @@ struct CookLaterCommandCenterView: View {
               }
               .padding(10)
               .frame(width: recipeIdeaCardWidth, alignment: .topLeading)
-              .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+              .stockedPastelCard(radius: 14)
             }
             .buttonStyle(.plain)
           }
@@ -1450,7 +1450,7 @@ struct CookLaterCommandCenterView: View {
       }
     }
     .padding(15)
-    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+    .stockedPastelCard(radius: CookStyle.cardCorner)
     .padding(.horizontal, commandHorizontalPadding)
   }
 
@@ -1526,7 +1526,7 @@ struct CookLaterCommandCenterView: View {
       }
     }
     .padding(13)
-    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+    .stockedPastelCard(radius: 14)
   }
 
   private func shoppingNeedSummary(_ need: CookLaterShoppingNeed) -> some View {
@@ -1608,7 +1608,7 @@ struct CookLaterCommandCenterView: View {
         }
       }
     }
-    .padding(14).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+    .padding(14).stockedPastelCard(radius: 14)
     .padding(.horizontal, commandHorizontalPadding)
   }
 
@@ -1673,7 +1673,7 @@ struct CookLaterCommandCenterView: View {
         }
       }
     }
-    .padding(13).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+    .padding(13).stockedPastelCard(radius: 14)
   }
 
   private func prepActionSummary(_ action: CookLaterPrepAction, done: Bool) -> some View {
@@ -1756,7 +1756,7 @@ struct CookLaterCommandCenterView: View {
       }
       Spacer()
     }
-    .padding(13).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+    .padding(13).stockedPastelCard(radius: 14)
   }
 
   // MARK: Actions
@@ -2231,7 +2231,7 @@ private struct CookLaterAddMealSourceSheet: View {
         Image(systemName: "chevron.right").scaledFont(10, weight: .bold).foregroundStyle(
           session.themeTextColor.opacity(0.28))
       }
-      .padding(12).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+      .padding(12).stockedPastelCard(radius: 14)
     }
     .buttonStyle(.plain)
   }
@@ -2727,7 +2727,7 @@ private struct CookLaterMealDetailSheet: View {
       Spacer()
       Text(check.state.title).scaledFont(9.5, weight: .bold).foregroundStyle(tint)
     }
-    .padding(11).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
+    .padding(11).stockedPastelCard(radius: 12)
   }
 }
 

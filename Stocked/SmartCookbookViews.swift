@@ -25,7 +25,7 @@ struct SmartCookbooksView: View {
                 if store.rules.isEmpty {
                     Text("Try ‘Quick favorites’: turn on Favorites and set cook time to 30 minutes or less.")
                         .font(.stocked(.body)).padding(18).frame(maxWidth: .infinity, alignment: .leading)
-                        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 16))
+                        .stockedPastelCard(radius: 16)
                 }
                 LazyVStack(spacing: 12) {
                     ForEach(store.rules.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }) { rule in
@@ -46,7 +46,7 @@ struct SmartCookbooksView: View {
                                 Spacer()
                                 Button("Delete", role: .destructive) { deleting = rule }.frame(minHeight: 44)
                             }.font(.stocked(.footnote)).disabled(!HouseholdSync.shared.can(.recipeEdit))
-                        }.padding(16).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 16))
+                        }.padding(16).stockedPastelCard(radius: 16)
                     }
                 }
                 Text("\(store.rules.count) saved cookbooks. New additions are limited to \(SmartCookbookRule.maximumRules). Deleting a cookbook keeps every recipe.")
@@ -211,7 +211,7 @@ struct SmartCookbookResultsView: View {
                                     Spacer()
                                     Image(systemName: "chevron.right").foregroundStyle(session.themeSecondaryText)
                                 }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).padding(16)
-                                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 16))
+                                    .stockedPastelCard(radius: 16)
                             }.buttonStyle(.plain)
                         }
                     }

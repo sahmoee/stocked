@@ -26,20 +26,12 @@ struct CookHubView: View {
     var body: some View {
         StockedShell(titleText: "Cook") {
             VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 9) {
-                    StockedGreeting()
-                    Text("What's on the menu tonight?")
-                        .scaledFont(32, weight: .bold, design: .serif)
-                        .foregroundStyle(session.themeTextColor)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text("Cook Now solves tonight. Cook Later plans it, shops for it, and gets the household ahead.")
-                        .scaledFont(14)
-                        .foregroundStyle(session.themeSecondaryText)
-                        .lineSpacing(5)
-                }
-                .padding(.horizontal, layoutMetrics.horizontalPadding).padding(.top, 8)
-                .coachmarkAnchor("cook.header")
+                StockedEditorialHero(eyebrow: "\(StockedFormatters.timeOfDayGreeting), \(session.effectiveName)",
+                    title: "What’s on the menu?",
+                    subtitle: "Good food starts with what you have. Cook something now, or plan the week ahead.",
+                    artwork: "pastel_ready_meal")
+                    .padding(.horizontal, layoutMetrics.horizontalPadding)
+                    .coachmarkAnchor("cook.header")
 
                 // RL-001 — a paused (or force-closed) cooking session surfaces
                 // here for one-tap resume straight to the exact saved step.
@@ -653,8 +645,7 @@ struct CookNowHomeView: View {
                     .accessibilityHidden(true)
             }
             .padding(14)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, CookStyle.screenHPad)

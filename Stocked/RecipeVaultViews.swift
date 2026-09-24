@@ -173,8 +173,7 @@ struct RecipeVaultView: View {
             Spacer(minLength: 0)
         }
         .padding(10)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         }
         .buttonStyle(.plain)
     }
@@ -199,8 +198,7 @@ struct RecipeVaultView: View {
                     .foregroundStyle(session.themeTextColor.opacity(0.35))
             }
             .padding(10)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         }
         .buttonStyle(.plain)
     }
@@ -266,9 +264,10 @@ struct RecipeVaultView: View {
     }
 
     private var referenceRecipeHero: some View {
-        HStack(alignment: .bottom, spacing: max(8, 12 / min(layoutMetrics.textScale, 1.5))) {
-            referenceRecipeHeroContent
-        }
+        StockedEditorialHero(eyebrow: "Your recipe book",
+            title: "Something delicious awaits.",
+            subtitle: "Recipes you love, meals you remember, and fresh ideas for tonight.",
+            artwork: "pastel_ready_meal")
     }
 
     private func openFinder(search: Bool) {
@@ -390,8 +389,7 @@ struct RecipeVaultView: View {
                 alignment: .topLeading
             )
             .padding(10)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .stockedPastelCard(radius: 13)
             .overlay(RoundedRectangle(cornerRadius: 13).stroke(session.themeTextColor.opacity(0.1), lineWidth: 1))
             .shadow(color: .black.opacity(0.07), radius: 6, y: 3)
         }.buttonStyle(.plain)
@@ -403,8 +401,7 @@ struct RecipeVaultView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.stockedCharcoal)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .stockedPastelCard(fill: StockedPastel.oat(session.isDarkMode), radius: 14)
         }
         .buttonStyle(.plain)
         .disabled(true)
@@ -436,11 +433,11 @@ struct RecipeVaultView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Create with Stocked AI")
                 .font(.stockedSerif(16, weight: .semibold, relativeTo: .headline))
-                .foregroundStyle(.white)
+                .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Coming Soon")
                 .font(.stockedSans(11, relativeTo: .caption))
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -451,7 +448,7 @@ struct RecipeVaultView: View {
             .foregroundStyle(Color.stockedCharcoal)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .background(session.accentColor)
+            .background(StockedPastel.honey)
             .clipShape(Capsule())
             .fixedSize(horizontal: true, vertical: true)
     }
@@ -535,8 +532,7 @@ struct RecipeVaultView: View {
                                             .font(.stockedSans(RecipeCardStyle.metadataSize, relativeTo: .caption)).foregroundStyle(session.themeSecondaryText)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }.padding(RecipeCardStyle.padding)
-                                }.frame(width: cardWidth).background(session.themeCardColor)
-                                    .clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(session.themeTextColor.opacity(0.16)))
+                                }.frame(width: cardWidth).stockedPastelCard(radius: 14).overlay(RoundedRectangle(cornerRadius: 14).stroke(session.themeTextColor.opacity(0.16)))
                             }
                             .buttonStyle(.plain)
                             .id(recipe.id)
@@ -612,8 +608,7 @@ struct RecipeVaultView: View {
             HStack(spacing: 7) { Image(systemName: icon); Text(title) }
                 .font(.stockedSans(12, weight: .medium, relativeTo: .caption)).foregroundStyle(session.themeTextColor)
                 .padding(.horizontal, 14).padding(.vertical, 12)
-                .background(session.themeCardColor)
-                .clipShape(RoundedRectangle(cornerRadius: 10)).overlay(RoundedRectangle(cornerRadius: 10).stroke(session.themeTextColor.opacity(0.13)))
+                .stockedPastelCard(radius: 10).overlay(RoundedRectangle(cornerRadius: 10).stroke(session.themeTextColor.opacity(0.13)))
                 .fixedSize(horizontal: true, vertical: true)
         }
         .buttonStyle(.plain)
@@ -769,8 +764,7 @@ struct RecipeVaultView: View {
                                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(session.themeCardColor)
-                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1424,8 +1418,7 @@ struct RecipeVaultView: View {
                                 .padding(8)
                                 .frame(width: 134, alignment: .leading)
                             }
-                            .background(session.themeCardColor)
-                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         }
                         .buttonStyle(.plain)
                         .id(recipe.id)
@@ -1665,8 +1658,7 @@ private struct RecipeSearchDropdown: View {
                 }
             }
         }
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         .shadow(color: .black.opacity(0.2), radius: 12, y: 6)
     }
 }
@@ -2165,8 +2157,7 @@ private struct RecipeMergeSheet: View {
             }.buttonStyle(.plain)
         }
         .padding(14)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 }
 
@@ -2348,8 +2339,7 @@ struct RecipePreviewCard: View {
             .padding(14)
         }
         .frame(width: 300)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd, style: .continuous))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         .overlay {
             RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd, style: .continuous)
                 .stroke(session.themeContrastAccent.opacity(0.34), lineWidth: 1.25)
@@ -2462,8 +2452,7 @@ struct RecipeListView: View {
                                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                                 }
                                 .padding(12)
-                                .background(session.themeCardColor)
-                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                             }
                             .buttonStyle(.plain)
                         }
@@ -2523,7 +2512,7 @@ struct CollectionsListView: View {
                 NavigationLink { SmartCookbooksView() } label: {
                     Label("Smart cookbooks · your saved recipe rules", systemImage: "books.vertical")
                         .font(.stocked(.headline)).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .padding(14).background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
+                        .padding(14).stockedPastelCard(radius: 14)
                 }.buttonStyle(.plain).foregroundStyle(session.themeTextColor)
                     .padding(.horizontal, 24).padding(.bottom, 16)
 
@@ -2554,8 +2543,7 @@ struct CollectionsListView: View {
                                         .foregroundStyle(session.themeTextColor.opacity(0.3))
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 12)
-                                .background(session.themeCardColor)
-                                .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                             }
                             .buttonStyle(.plain)
                         }

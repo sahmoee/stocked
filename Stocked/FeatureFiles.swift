@@ -50,7 +50,7 @@ struct RecipeURLImportView: View {
                             .stocked(.body).foregroundStyle(session.themeTextColor)
                             .keyboardType(.URL).autocorrectionDisabled()
                     }
-                    .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(14).stockedPastelCard(radius: 14)
                     .padding(.horizontal, 24)
 
                     Text("Paste any recipe URL — we'll extract the title, ingredients and steps automatically.")
@@ -82,7 +82,7 @@ struct RecipeURLImportView: View {
                                     .foregroundStyle(showSaved ? Color.stockedGreen : Color.stockedGold)
                             }.buttonStyle(.plain)
                         }
-                        .padding(14).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: 14))
+                        .padding(14).stockedPastelCard(radius: 14)
                         .padding(.horizontal, 24)
                     }
                     if showError { Text(errorMsg).stocked(.caption).foregroundStyle(.red).padding(.horizontal, 24) }
@@ -213,7 +213,7 @@ struct OCRConfirmationView: View {
                                 .strikethrough(!inc)
                                 Spacer()
                             }
-                            .padding(12).background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .padding(12).stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         }
                     }.padding(.horizontal, 20)
                 }

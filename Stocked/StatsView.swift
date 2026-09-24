@@ -322,7 +322,7 @@ struct StatsView: View {
             Text(label).stocked(.caption).foregroundStyle(text.opacity(0.5)).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(18)
-        .background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 
     private func parseDate(_ s: String) -> Date? {
@@ -409,8 +409,7 @@ struct StatsView: View {
                     }
                 }
             }
-            .padding(16).background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .padding(16).stockedPastelCard(radius: StockedUI.cornerRadiusMd)
             .padding(.horizontal, 20).padding(.bottom, 20)
         }
     }
@@ -481,7 +480,7 @@ struct StatsView: View {
                         }.buttonStyle(.plain)
                     }
                     .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(session.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                     .padding(.horizontal, 20)
                 }
             }

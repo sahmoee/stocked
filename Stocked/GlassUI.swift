@@ -37,7 +37,15 @@ private struct StockedGlassSurface: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        if reduceTransparency || contrast == .increased {
+        if case .control = role {
+            content
+                .background(tint ?? StockedPastel.oat(session.isDarkMode), in: shape)
+                .overlay {
+                    shape.strokeBorder(contrast == .increased ? session.themeSecondaryText : StockedPastel.border(session.isDarkMode),
+                                       lineWidth: contrast == .increased ? 1.5 : 0.65)
+                        .allowsHitTesting(false)
+                }
+        } else if reduceTransparency || contrast == .increased {
             content
                 .background(StockedGlassKit.opaqueSurface(for: role, dark: session.isDarkMode), in: shape)
                 .overlay {

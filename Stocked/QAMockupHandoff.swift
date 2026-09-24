@@ -56,20 +56,20 @@ nonisolated enum QAMockupHandoff {
 
     /// The visual brief. Pulled from `DesignTokens.swift` and `DesignSystem.swift`
     /// as literal hex and point sizes rather than adjectives, because "warm and
-    /// rustic" gets you a stock photo and "#C7AB81 background, #A27219 accent,
+    /// rustic" gets you a stock photo and "#FDF7EF background, muted honey accent,
     /// 22pt bold serif titles" gets you Stocked.
     private static let designBrief = """
     Stocked visual language — follow it exactly, do not invent a palette:
-    • Light background #C7AB81 (warm tan). Dark background #161410 (near-black).
-    • Cards/surfaces: off-white #F5F2EB on light; #2D2C2A charcoal on dark.
-    • Primary accent gold #A27219 on light, #DEAD4A on dark. Success #2E9E59,
-      warning #D98E2B, error #C0392B, info blue #3B82C4. Ink #1A1712.
+    • Light background #FDF7EF (warm ivory). Dark background #161410 (near-black).
+    • Cards/surfaces: cream #FFFBF6 on light; #2D2923 warm charcoal on dark.
+    • Functional gold #926A2F on light, muted honey #D5B36B on dark. Sage #566B4A,
+      warning #D98E2B, error #C0392B, info blue #3B82C4. Ink #3D3228.
     • Titles and headings are a SERIF face, bold — 28pt display, 22pt title,
       18pt headline. Body and labels are the default sans — 15pt body, 12pt
       caption, 11pt semibold label. That serif/sans split is the app's signature;
       an all-sans mockup reads as the wrong app.
-    • Corner radius is generous and consistent; cards sit on the tan with a soft
-      shadow, not a hard border. Generous vertical rhythm, no dense tables.
+    • Corner radius is generous and consistent; cards sit on ivory with a fine oat
+      border and a faint shadow. Sage and peach fills distinguish feature cards. Generous vertical rhythm, no dense tables.
     • iOS 26 conventions: large navigation title, a bottom tab bar, SF Symbols
       for iconography, right-aligned chevrons on rows, native sheet grabbers.
     • Portrait iPhone, no device bezel, no drop shadow around the canvas, no

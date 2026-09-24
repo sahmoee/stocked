@@ -4364,8 +4364,7 @@ struct AppVersionView: View {
                         }
                     }
                 }
-                .background(session.themeCardColor)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .stockedPastelCard(radius: 14)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
                 .transition(.opacity.combined(with: .move(edge: .top)))

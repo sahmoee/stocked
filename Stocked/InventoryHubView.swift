@@ -23,8 +23,8 @@ struct InventoryReferenceArtwork: View {
 
 // Shared editorial language for the Inventory landing and its destinations.
 extension AppSession {
-    var inventoryCanvas: Color { isDarkMode ? themeBgColor : Color(red: 0.89, green: 0.76, blue: 0.57) }
-    var inventoryGold: Color { isDarkMode ? .stockedGoldDark : Color(red: 0.57, green: 0.32, blue: 0.025) }
+    var inventoryCanvas: Color { themeBgColor }
+    var inventoryGold: Color { accentColor }
 }
 
 struct InventoryEditorialHeading: View {
@@ -45,7 +45,7 @@ struct InventoryEditorialHeading: View {
                     .font(.stockedSerif(28, weight: .bold, relativeTo: .title))
                     .foregroundStyle(session.themeTextColor)
                 Text(subtitle)
-                    .font(.stockedSerif(14, relativeTo: .body))
+                    .font(.stockedSans(14, relativeTo: .body))
                     .foregroundStyle(session.themeSecondaryText)
             }.fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -66,9 +66,7 @@ struct InventoryEditorialCard: ViewModifier {
     @Environment(AppSession.self) private var session
     func body(content: Content) -> some View {
         content.padding(16)
-            .background(session.isDarkMode ? session.themeCardColor : session.inventoryCanvas.opacity(0.5),
-                        in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(session.inventoryGold.opacity(0.25), lineWidth: 0.7))
+            .stockedPastelCard()
     }
 }
 
@@ -142,7 +140,7 @@ struct InventoryHubView: View {
     var body: some View {
         StockedShell(trailingIcon: "magnifyingglass", trailingLabel: "Search inventory",
                      onTrailing: { withAnimation { showSearchField.toggle() } },
-                     canvasColor: session.isDarkMode ? session.themeBgColor : Color(red: 0.89, green: 0.76, blue: 0.57)) {
+                     canvasColor: session.inventoryCanvas) {
             VStack(alignment: .leading, spacing: 10) {
                 referenceHero
 
@@ -235,41 +233,14 @@ struct InventoryHubView: View {
     // MARK: - Editorial inventory landing
 
     private var referenceScale: CGFloat { min(1.65, max(0.8, (layoutMetrics.contentWidth - 28) / 365)) }
-    private var referenceGold: Color { session.isDarkMode ? .stockedGoldDark : Color(red: 0.57, green: 0.32, blue: 0.025) }
+    private var referenceGold: Color { session.accentColor }
     private var referenceBorder: Color { referenceGold.opacity(session.isDarkMode ? 0.35 : 0.23) }
 
     private var referenceHero: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text("\(StockedFormatters.timeOfDayGreeting), \(session.effectiveName)")
-                .font(.stockedSerif(12, weight: .semibold, relativeTo: .subheadline))
-                .foregroundStyle(referenceGold)
-            // Allocate distinct bounds: an offset overlay let the plant paint over
-            // the heading. Text now wraps/grows while art owns the trailing column.
-            let narrow = min(layoutMetrics.contentWidth, layoutMetrics.readableContentWidth) < 350
-            let heroLayout = narrow
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
-                : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
-            heroLayout {
-                VStack(alignment: .leading, spacing: 9) {
-                    Text("Here’s everything in your kitchen.")
-                        .font(.stockedSerif(25 * referenceScale, weight: .bold, relativeTo: .largeTitle))
-                        .tracking(-0.3)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Browse, stay organized, and always know what you have.")
-                        .font(.stockedSerif(13 * referenceScale, relativeTo: .body))
-                        .foregroundStyle(session.themeSecondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                InventoryReferenceArtwork(cell: 0)
-                    .frame(width: min(138, 120 * referenceScale), height: min(154, 134 * referenceScale))
-                    .clipped()
-                    .accessibilityHidden(true)
-            }
-        }
-        .foregroundStyle(session.themeTextColor)
-        .padding(.horizontal, 9)
-        .padding(.top, 14)
+        StockedEditorialHero(eyebrow: "Your kitchen, at a glance",
+            title: "Good food, all in reach.",
+            subtitle: "Browse, stay organized, and know what you have.",
+            artwork: "pastel_fresh_produce")
     }
 
     private var referenceKitchen: some View {
@@ -301,9 +272,7 @@ struct InventoryHubView: View {
                 .padding(.horizontal, 16 * referenceScale)
                 .frame(maxWidth: .infinity)
             }
-            .background(session.themeBgColor.opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(referenceBorder, lineWidth: 0.6))
+            .stockedPastelCard(radius: 16)
             .coachmarkAnchor("inv.categories")
         }
     }
@@ -334,7 +303,7 @@ struct InventoryHubView: View {
     }
 
     private var referenceActions: some View {
-        let layout = layoutMetrics.contentWidth < 350
+        let layout = layoutMetrics.isAccessibilityText || layoutMetrics.contentWidth < 350
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
             : AnyLayout(StockedEqualHeightRow(spacing: 4))
         return layout {
@@ -362,7 +331,7 @@ struct InventoryHubView: View {
             .foregroundStyle(session.themeTextColor)
             .padding(10 * referenceScale)
             .frame(maxWidth: .infinity, minHeight: 143 * referenceScale, maxHeight: .infinity, alignment: .topLeading)
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(referenceBorder, lineWidth: 0.6))
+            .stockedPastelCard(radius: 16)
         }.buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
@@ -387,10 +356,10 @@ struct InventoryHubView: View {
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(referenceGold, in: Capsule())
         }
-        .foregroundStyle(Color.stockedWhite)
+        .foregroundStyle(session.themeTextColor)
         .padding(11)
         .frame(maxWidth: .infinity, minHeight: 49 * referenceScale)
-        .background(Color.stockedCharcoal, in: RoundedRectangle(cornerRadius: 15))
+        .stockedPastelCard(fill: StockedPastel.oat(session.isDarkMode), radius: 15)
         .accessibilityElement(children: .combine)
     }
 

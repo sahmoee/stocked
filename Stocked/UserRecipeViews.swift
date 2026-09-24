@@ -444,8 +444,7 @@ struct UserRecipeDetailView: View {
             .buttonStyle(.plain)
         }
         .padding(14)
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 
     private var detailContent: some View {
@@ -565,8 +564,7 @@ struct UserRecipeDetailView: View {
                                     .frame(width: 36, height: 36).contentShape(Rectangle())
                             }.buttonStyle(.plain)
                         }
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusSm)
 
                         if scaledServings != recipe.servings {
                             Button {
@@ -585,8 +583,7 @@ struct UserRecipeDetailView: View {
                     }
                     .padding(.horizontal, 24)
                     .padding(14)
-                    .background(session.themeCardColor)
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                     .padding(.horizontal, 24)
 
                     // ── Nutrition summary ─────────────────────────────────
@@ -618,8 +615,7 @@ struct UserRecipeDetailView: View {
                                     .padding(.horizontal, 12).padding(.bottom, 6)
                             }
                         }
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                         .padding(.horizontal, 24)
                     }
 
@@ -709,8 +705,7 @@ struct UserRecipeDetailView: View {
                             }
                         }
                         .padding(16)
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusMd).padding(.horizontal, 24)
                     }
 
                     // ── Instructions ──────────────────────────────────────
@@ -761,8 +756,7 @@ struct UserRecipeDetailView: View {
                             }
                         }
                         .padding(16)
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusMd).padding(.horizontal, 24)
                     }
 
                     // ── Notes ─────────────────────────────────────────────
@@ -799,8 +793,7 @@ struct UserRecipeDetailView: View {
                         }
                     }
                     .padding(16)
-                    .background(session.themeCardColor)
-                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)).padding(.horizontal, 24)
+                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd).padding(.horizontal, 24)
 
                     // Substitutions
                     RecipeSubstitutionsSection(
@@ -1006,8 +999,7 @@ struct RecipeSubstitutionsSection: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
             .padding(.horizontal, 24)
             // When scrollTarget changes, ensure expanded
             .onChange(of: scrollTarget) { _, newTarget in
@@ -1076,8 +1068,7 @@ struct RecipeKitchenTipsSection: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         .padding(.horizontal, 24)
         .onAppear {
             if tips.isEmpty { tips = CookingTipsDatabase.shared.randomTips(3) }

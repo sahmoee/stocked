@@ -115,6 +115,20 @@ def source_palette():
 
 
 class ContrastChecks(unittest.TestCase):
+    def test_pastel_feature_card_text(self):
+        """Check the actual feature fills, including their separate dark variants."""
+        source = SOURCE.with_name("PastelDesign.swift").read_text(encoding="utf-8")
+        tokens, _, _ = source_palette()
+        for fill in ("oat", "garden", "peach"):
+            branches = re.findall(RGB_PATTERN, function_body(source, fill))
+            self.assertEqual(len(branches), 2, f"Update contrast coverage for {fill}")
+            for dark, values in zip((True, False), branches):
+                background = tuple(float(value) for value in values)
+                for role in (("darkLabel", "secondaryDark", "stockedGoldDark") if dark
+                             else ("stockedBlack", "secondaryLight", "textAccentLight")):
+                    with self.subTest(fill=fill, dark=dark, role=role):
+                        self.assertGreaterEqual(contrast(tokens[role], background), 4.5)
+
     def test_reference_values_and_threshold(self):
         self.assertAlmostEqual(contrast((0, 0, 0), (1, 1, 1)), 21)
         self.assertEqual(contrast((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), 1)

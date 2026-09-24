@@ -45,8 +45,7 @@ struct CookHubIllustratedButton: View {
             .padding(.vertical, max(14, 10 * layoutMetrics.textScale))
             .frame(maxWidth: .infinity)
             .frame(minHeight: 182)
-            .background(session.themeCardColor)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .stockedPastelCard(fill: title == "Cook Now" ? StockedPastel.garden(session.isDarkMode) : StockedPastel.peach(session.isDarkMode), radius: 22)
             .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -85,7 +84,7 @@ struct CookHubIllustratedButton: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(secondaryDetail)
                 .scaledFont(13)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -544,7 +543,7 @@ struct CookCategoryCard: View {
                     .foregroundStyle(session.themeTextColor)
                 if !subtitle.isEmpty {
                     Text(subtitle).scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeSecondaryText)
                 }
             }
             Spacer()
@@ -553,7 +552,7 @@ struct CookCategoryCard: View {
         }
         .padding(.vertical, 14).padding(.horizontal, 16)
         .frame(maxWidth: .infinity, minHeight: cardHeight, alignment: .leading)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 }
 
@@ -587,7 +586,7 @@ struct CookIntelligenceCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
 
         if let action {
             Button(action: action) { content }.buttonStyle(.plain)
@@ -645,7 +644,7 @@ struct CookRecipeCard: View {
                     Text(title).scaledFont(16, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                     if !subtitle.isEmpty {
-                        Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
+                        Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 Spacer()
@@ -656,7 +655,7 @@ struct CookRecipeCard: View {
             }
             .padding(.vertical, 12).padding(.horizontal, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: CookStyle.cardCorner))
+            .stockedPastelCard(radius: CookStyle.cardCorner)
         }
         .buttonStyle(.plain)
     }
@@ -683,7 +682,7 @@ struct CookPlannerCard: View {
                     Text(title).scaledFont(15.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                     if !subtitle.isEmpty {
-                        Text(subtitle).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
+                        Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     }
                 }
                 Spacer()
@@ -697,7 +696,7 @@ struct CookPlannerCard: View {
             }
             .padding(.vertical, 12).padding(.horizontal, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         }
         .buttonStyle(.plain)
     }
@@ -724,7 +723,7 @@ struct CookPrepTaskCard: View {
             }
             .padding(.vertical, 11).padding(.horizontal, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
         }
         .buttonStyle(.plain)
     }
@@ -780,7 +779,7 @@ struct CookSearchBar: View {
             }
         }
         .padding(.vertical, 11).padding(.horizontal, 14)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+        .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
     }
 }
 
@@ -832,7 +831,7 @@ struct CookEmptyState: View {
                 .foregroundStyle(session.themeTextColor)
             if !message.isEmpty {
                 Text(message).scaledFont(13)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeSecondaryText)
                     .multilineTextAlignment(.center)
             }
             if let ctaTitle, let ctaAction {

@@ -6,7 +6,7 @@ import WidgetKit
 import SwiftUI
 
 private extension Color {
-    static let ctGold = Color(red: 0.635, green: 0.447, blue: 0.098) // #A27219
+    static let ctGold = Color(red: 0.835, green: 0.702, blue: 0.420) // muted honey on dark
 }
 
 struct CookTimerLiveActivity: Widget {

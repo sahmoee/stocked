@@ -50,7 +50,7 @@ struct KitchenStatsView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 20))
+                    .stockedPastelCard(radius: 20)
                 }
 
                 if log.isEmpty {
@@ -71,6 +71,6 @@ struct KitchenStatsView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 20))
+        .stockedPastelCard(radius: 20)
     }
 }

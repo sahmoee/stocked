@@ -8,7 +8,8 @@ final class AdaptiveUIFoundationTests: XCTestCase {
         for name in ["home_kitchen_still_life", "inventory_refrigerator_hero",
                      "home_widget_planning", "inventory_category_fridge", "home_widget_pantry",
                      "inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference",
-                     "kitchen_protein_reference", "kitchen_leftovers_reference"] {
+                     "kitchen_protein_reference", "kitchen_leftovers_reference",
+                     "pastel_kitchen_hero", "pastel_ready_meal", "pastel_fresh_produce"] {
             let original = UIImage(named: name)
             let prepared = await ImageCache.shared.prepareArtwork(named: name)
             XCTAssertNotNil(prepared, name)
@@ -24,7 +25,7 @@ final class AdaptiveUIFoundationTests: XCTestCase {
         XCTAssertEqual(KitchenArtworkCatalog.inventoryActions.count, 3)
         XCTAssertEqual(Set(KitchenArtworkCatalog.inventoryActions).count, 3)
         let aliases = [
-            "cook_now_hero": "home_widget_cooking", "recipes_ready": "home_widget_cooking",
+            "cook_now_hero": "pastel_ready_meal", "recipes_ready": "pastel_ready_meal",
             "cook_later_hero": "home_widget_planning", "recipes_past": "home_widget_planning",
             "recipes_collection": "recipes_hero", "protein": "kitchen_protein_reference",
             "vegetables": "inventory_category_produce", "expiring_soon": "inventory_expiring_reference",

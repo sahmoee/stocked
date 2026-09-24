@@ -731,8 +731,7 @@ struct MoodRecipeFinderView: View {
                         .scaledFont(12, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                         .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(session.themeCardColor)
-                        .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+                        .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
                 }
             }
             .padding(.horizontal, 24).padding(.bottom, 20)

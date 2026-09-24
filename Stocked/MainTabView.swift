@@ -279,6 +279,9 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stockedQuickAction)) { note in
             if let action = note.object as? DrawerQuickAction { performDrawerQuickAction(action) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .stockedOpenSettingsDrawer)) { _ in
+            motion.animate(.navigation, intent: .spatial) { showDrawer = true }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .stockedShowBrief)) { _ in
             motion.animate(.navigation, intent: .spatial) { showBrief = true }
         }

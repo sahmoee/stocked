@@ -498,27 +498,10 @@ struct GroceryListView: View {
     }
 
     private var groceryHero: some View {
-        HStack(alignment: .center, spacing: 4) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("\(toBuyCount) things for\nyour next trip.")
-                    .font(.stockedSerif(36, weight: .bold, relativeTo: .largeTitle))
-                    .foregroundStyle(text)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Organized for a quicker shop at \(session.preferredStore).")
-                    .font(.stocked(.body))
-                    .foregroundStyle(sub)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .layoutPriority(1)
-            Spacer(minLength: 0)
-            Image("home_grocery_bag")
-                .resizable()
-                .scaledToFit()
-                .frame(width: layoutMetrics.contentWidth >= 700 ? 260 : 165,
-                       height: layoutMetrics.contentWidth >= 700 ? 260 : 210,
-                       alignment: .bottomTrailing)
-                .accessibilityHidden(true)
-        }
+        StockedEditorialHero(eyebrow: "Your next grocery trip",
+            title: "\(toBuyCount) things for a well-stocked week.",
+            subtitle: "Organized for an easier shop at \(session.preferredStore).",
+            artwork: "pastel_fresh_produce")
     }
 
     private var toBuyCount: Int { store.groceryItems.filter { !$0.isChecked }.count }
@@ -956,8 +939,7 @@ struct GroceryListView: View {
                                 Spacer()
                             }
                             .padding(14)
-                            .background(session.themeCardColor)
-                            .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                             .padding(.horizontal, 20)
                             .padding(.top, 16)
                             .padding(.bottom, 4)
@@ -1015,8 +997,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(session.themeCardColor)
-                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
                                     .contentShape(Rectangle())
@@ -1069,8 +1050,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(session.themeCardColor)
-                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
                                     .contentShape(Rectangle())
@@ -1106,8 +1086,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(session.themeCardColor)
-                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
                                     .contentShape(Rectangle())
@@ -1141,8 +1120,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(Color.stockedGold)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .background(session.themeCardColor)
-                                    .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
+                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
                                     .padding(.horizontal, 24)
                                     .padding(.bottom, 8)
                                     .contentShape(Rectangle())
@@ -1387,8 +1365,7 @@ struct GroceryListView: View {
                 }
             }
         }
-        .background(session.themeCardColor)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .stockedPastelCard(radius: 22)
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(text.opacity(0.07), lineWidth: 1)
