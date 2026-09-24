@@ -385,7 +385,7 @@ struct MoodsCategoryView: View {
                 HStack(spacing: 8) {
                     Text("Moods")
                         .scaledFont(40, weight: .bold, design: .serif)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     Text("by")
                         .scaledFont(22, weight: .regular, design: .serif)
                         .foregroundStyle(session.themeTextColor)
@@ -403,18 +403,18 @@ struct MoodsCategoryView: View {
                                     Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
                                     Circle().stroke(Color.stockedGold, lineWidth: 3).frame(width: 72, height: 72)
                                     Image(systemName: cat.sfIcon)
-                                        .scaledFont(28).foregroundStyle(Color.stockedGold)
+                                        .scaledFont(28).foregroundStyle(Color.stockedAccentInk)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(cat.label)
                                         .scaledFont(22, weight: .regular, design: .serif)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                     Text(cat.description)
                                         .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .scaledFont(14).foregroundStyle(Color.stockedGold.opacity(0.4))
+                                    .scaledFont(14).foregroundStyle(Color.stockedAccentInk.opacity(0.4))
                             }
                             .padding(.horizontal, 20)
                             .contentShape(Rectangle())
@@ -537,12 +537,12 @@ struct MoodsSubOptionView: View {
                         Circle().fill(Color.stockedCharcoal).frame(width: 72, height: 72)
                         Circle().stroke(Color.stockedGold, lineWidth: 3).frame(width: 72, height: 72)
                         Image(systemName: iconsMap[category] ?? "sparkles")
-                            .scaledFont(28).foregroundStyle(Color.stockedGold)
+                            .scaledFont(28).foregroundStyle(Color.stockedAccentInk)
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         Text(category)
                             .scaledFont(24, weight: .regular, design: .serif)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                         Text("Tap a vibe — we'll find the recipe.")
                             .scaledFont(12)
                             .foregroundStyle(session.themeSecondaryText)
@@ -569,7 +569,7 @@ struct MoodsSubOptionView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(opt.label)
                                         .scaledFont(17, weight: .semibold, design: .serif)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                     Text(opt.description)
                                         .scaledFont(12)
                                         .foregroundStyle(Color.stockedWhite.opacity(0.55))
@@ -577,7 +577,7 @@ struct MoodsSubOptionView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .scaledFont(12).foregroundStyle(Color.stockedGold.opacity(0.5))
+                                    .scaledFont(12).foregroundStyle(Color.stockedAccentInk.opacity(0.5))
                             }
                             .padding(.horizontal, 20).padding(.vertical, 15)
                             .background(Color.stockedCharcoal)
@@ -693,7 +693,7 @@ struct MoodRecipeFinderView: View {
                 Text(emoji).scaledFont(18)
                 Text("\(category)  ›  \(subcategory)")
                     .scaledFont(12, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
             }
             .padding(.horizontal, 24).padding(.bottom, 12)
 
@@ -717,7 +717,7 @@ struct MoodRecipeFinderView: View {
                 if !sourceNote.isEmpty {
                     Label(sourceNote, systemImage: "sparkles")
                         .scaledFont(11, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
             .padding(.horizontal, 24).padding(.bottom, 16)
@@ -752,7 +752,7 @@ struct MoodRecipeFinderView: View {
                         Text("Try a Different Recipe")
                     }
                     .scaledFont(15, weight: .semibold, design: .serif)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .frame(maxWidth: .infinity).padding(.vertical, 16)
                     .background(Color.stockedGold.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -1007,7 +1007,7 @@ struct UnstockedOptionSheet: View {
                         Text("Add \(itemName) to Grocery List")
                     }
                     .scaledFont(14, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
                     .background(Color.stockedGold.opacity(0.1))

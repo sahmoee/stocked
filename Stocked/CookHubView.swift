@@ -545,7 +545,7 @@ struct CookNowHomeView: View {
         Button(action: action) {
             Text(title).fixedSize(horizontal: false, vertical: true)
         }
-        .stockedSecondary(accent: session.themeButtonColor)
+        .stockedSecondary(accent: session.themeTextColor)
     }
 
     // MARK: Ingredient chips

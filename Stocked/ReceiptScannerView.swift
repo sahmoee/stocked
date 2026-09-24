@@ -178,7 +178,7 @@ struct ReceiptScannerView: View {
                             if !detectedStore.isEmpty {
                                 Text(detectedStore)
                                     .scaledFont(11, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }
                         }
                         Spacer()
@@ -242,7 +242,7 @@ struct ReceiptScannerView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.viewfinder")
                         .scaledFont(54)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     Text("Point your camera at\na grocery receipt")
                         .scaledFont(16, design: .serif)
                         .foregroundStyle(Color.stockedWhite.opacity(0.85))
@@ -354,7 +354,7 @@ struct ReceiptScannerView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "wifi.exclamationmark")
                                 .scaledFont(14, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                             Text(errorMsg)
                                 .scaledFont(12)
                                 .foregroundStyle(session.themeTextColor)
@@ -387,7 +387,7 @@ struct ReceiptScannerView: View {
                             if !detectedStore.isEmpty {
                                 Text(detectedStore)
                                     .scaledFont(11, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }
                         }
                         Spacer()
@@ -509,7 +509,7 @@ struct ReceiptScannerView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(String(format: "$%.2f", total))
                         .scaledFont(15, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     Text("est. total")
                         .scaledFont(9)
                         .foregroundStyle(session.themeSecondaryText)
@@ -537,8 +537,8 @@ struct ReceiptScannerView: View {
         HStack(spacing: 7) {
             Image(systemName: group.symbol)
                 .scaledFont(12, weight: .bold)
-                .foregroundStyle(group == .needsReview ? Color.stockedGold
-                                 : group == .confident ? Color.stockedGreen
+                .foregroundStyle(group == .needsReview ? Color.stockedAccentInk
+                                 : group == .confident ? Color.stockedSuccessInk
                                  : session.themeTextColor.opacity(0.4))
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(group.title) · \(count)")
@@ -612,7 +612,7 @@ private struct ReviewRowView: View {
                 Button { onToggle() } label: {
                     Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                         .scaledFont(22)
-                        .foregroundStyle(item.isChecked ? Color.stockedGreen : Color.stockedCharcoal.opacity(0.25))
+                        .foregroundStyle(item.isChecked ? Color.stockedSuccessInk : Color.stockedCharcoal.opacity(0.25))
                 }.buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -675,7 +675,7 @@ private struct ReviewRowView: View {
                             } label: {
                                 Image(systemName: "minus")
                                     .scaledFont(10, weight: .bold)
-                                    .foregroundStyle(item.quantity > 1 ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.25))
+                                    .foregroundStyle(item.quantity > 1 ? session.themeTextColor : session.themeTextColor.opacity(0.25))
                                     .frame(width: 22, height: 20)
                             }
                             .buttonStyle(.plain)
@@ -692,7 +692,7 @@ private struct ReviewRowView: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .scaledFont(10, weight: .bold)
-                                    .foregroundStyle(Color.stockedCharcoal)
+                                    .foregroundStyle(session.themeTextColor)
                                     .frame(width: 22, height: 20)
                             }
                             .buttonStyle(.plain)
@@ -733,7 +733,7 @@ private struct ReviewRowView: View {
                             }
                             editing = false
                         }
-                        .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                         .buttonStyle(.plain)
                         Button("Cancel") { editing = false }
                             .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
@@ -749,7 +749,7 @@ private struct ReviewRowView: View {
                 } label: {
                     Text(item.zone)
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 10).padding(.vertical, 5)
                         .background(Color.stockedCharcoal.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -768,7 +768,7 @@ private struct ReviewRowView: View {
             if showSaveAbbrev {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .scaledFont(12).foregroundStyle(Color.stockedGold)
+                        .scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                     Text("Save \"\(item.rawText)\" → \"\(lastCorrected)\" as abbreviation?")
                         .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -781,7 +781,7 @@ private struct ReviewRowView: View {
                         )
                         withAnimation { showSaveAbbrev = false }
                     }
-                    .scaledFont(12, weight: .bold).foregroundStyle(Color.stockedGold)
+                    .scaledFont(12, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                     .buttonStyle(.plain)
                     Button("Skip") { withAnimation { showSaveAbbrev = false } }
                         .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
@@ -803,7 +803,7 @@ extension ReceiptScannerView {
         VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .scaledFont(60).foregroundStyle(Color.stockedGreen)
+                .scaledFont(60).foregroundStyle(Color.stockedSuccessInk)
             Text("Added \(addedCount) items!")
                 .scaledFont(24, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
@@ -849,7 +849,7 @@ extension ReceiptScannerView {
     // MARK: - Helpers
     private func tipRow(icon: String, text: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedAccentInk).frame(width: 24)
             Text(text).scaledFont(14).foregroundStyle(session.themeSecondaryText)
         }
     }
@@ -1485,7 +1485,7 @@ struct ReceiptArchiveSheet: View {
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button("Done") { dismiss() }
-                        .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
+                        .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 16)
 
@@ -1495,13 +1495,13 @@ struct ReceiptArchiveSheet: View {
                             .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                         Spacer()
                         Text(String(format: "$%.2f", totalSpend))
-                            .scaledFont(15, weight: .bold).foregroundStyle(Color.stockedGold)
+                            .scaledFont(15, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                     }
                     .padding(.horizontal, 24).padding(.bottom, 8)
                 }
                 if !reimportMsg.isEmpty {
                     Text(reimportMsg)
-                        .scaledFont(11).foregroundStyle(Color.stockedGold)
+                        .scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                         .padding(.bottom, 8)
                 }
 
@@ -1525,7 +1525,7 @@ struct ReceiptArchiveSheet: View {
                                             .fill(Color.stockedCharcoal.opacity(0.12))
                                             .frame(width: 44, height: 44)
                                         Image(systemName: "doc.text.fill")
-                                            .scaledFont(18).foregroundStyle(Color.stockedGold)
+                                            .scaledFont(18).foregroundStyle(Color.stockedAccentInk)
                                     }
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(entry.storeName.isEmpty ? "Receipt" : entry.storeName)
@@ -1539,7 +1539,7 @@ struct ReceiptArchiveSheet: View {
                                     VStack(alignment: .trailing, spacing: 4) {
                                         Text("\(entry.itemCount) items")
                                             .scaledFont(12, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                         if entry.totalSpend > 0 {
                                             Text(String(format: "$%.2f", entry.totalSpend))
                                                 .scaledFont(11, weight: .bold)

@@ -53,7 +53,7 @@ struct LiveInventoryItemCard: View {
     }()
 
     var batteryColor: Color {
-        displayLevel < 0.25 ? .red : (displayLevel < 0.5 ? Color.stockedGold : Color.stockedGreen)
+        displayLevel < 0.25 ? .red : (displayLevel < 0.5 ? Color.stockedAccentInk : Color.stockedSuccessInk)
     }
 
     var levelLabel: String {
@@ -72,7 +72,7 @@ struct LiveInventoryItemCard: View {
                     if item.hasStash {
                         Text("✦")
                             .scaledFont(13)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }
                 }
                 // Structured quantity display: "2 cases (24 cans each)"
@@ -229,7 +229,7 @@ struct ReceiptRow: View {
     var body: some View {
         HStack {
             Image(systemName: isConfirmed ? "checkmark.circle.fill" : "questionmark.circle.fill")
-                .foregroundStyle(isConfirmed ? Color.stockedGreen : Color.stockedGold)
+                .foregroundStyle(isConfirmed ? Color.stockedSuccessInk : Color.stockedAccentInk)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.resolved ?? item.raw)
                     .font(.stockedSans(15, weight: .semibold))
@@ -242,7 +242,7 @@ struct ReceiptRow: View {
             }
             Spacer()
             if !isConfirmed {
-                Image(systemName: "pencil").foregroundStyle(Color.stockedGold)
+                Image(systemName: "pencil").foregroundStyle(Color.stockedAccentInk)
             }
         }
         .padding(14)
@@ -288,7 +288,7 @@ struct StashView: View {
                             VStack(spacing: 8) {
                                 Text("✦")
                                     .scaledFont(22)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                                 Text(item.name)
                                     .font(.stockedSans(14, weight: .semibold))
                                     .foregroundStyle(session.themeTextColor)

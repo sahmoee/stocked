@@ -141,6 +141,9 @@ final class QAReporterPresenter {
         let host = UIHostingController(rootView: QAReportComposer(
             draft: draft,
             onClose: { [weak self] in self?.dismiss() }))
+        let dark = UserDefaults.standard.bool(forKey: DBKey.darkMode.rawValue)
+        host.overrideUserInterfaceStyle = dark ? .dark : .light
+        host.view.backgroundColor = UIColor(Color.appBg(dark))
         host.modalPresentationStyle = .pageSheet
         // Configured here rather than with `.presentationDetents` in the SwiftUI
         // body: those modifiers describe a sheet SwiftUI is presenting, and this
@@ -430,6 +433,7 @@ enum QAScreenshot {
 /// that was attached for you. Deliberately short: a form long enough to be a
 /// chore is a form people stop filling in by the third bug.
 struct QAReportComposer: View {
+    @AppStorage(DBKey.darkMode.rawValue) private var dark = false
     let draft: QAReportDraft
     /// Explicit rather than `@Environment(\.dismiss)`. This view is the root of a
     /// `UIHostingController` that UIKit presented, and the environment's dismiss
@@ -460,6 +464,8 @@ struct QAReportComposer: View {
                     form
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.appBg(dark))
             .navigationTitle(created == nil ? "Report an issue" : "Filed")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -475,6 +481,8 @@ struct QAReportComposer: View {
                 }
             }
         }
+        .preferredColorScheme(dark ? .dark : .light)
+        .tint(Color.appAccent(dark))
         // Detents and the grabber are set on the UIKit sheet presentation
         // controller in QAReporterPresenter — the SwiftUI modifiers only apply to
         // sheets SwiftUI presented, and this one is presented by UIKit.

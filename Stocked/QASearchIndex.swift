@@ -315,7 +315,7 @@ struct QASearchView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: hit.kind.symbol)
                 .font(.stocked(.caption))
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 3) {
                 Text(hit.title)

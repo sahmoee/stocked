@@ -60,12 +60,12 @@ struct QuizEditView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveAndDismiss() }
                         .scaledFont(15, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -95,7 +95,7 @@ struct QuizEditView: View {
                     Spacer()
                     Image(systemName: isOpen ? "chevron.up" : "chevron.down")
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .padding(14)
                 .contentShape(Rectangle())
@@ -187,7 +187,7 @@ struct QuizEditView: View {
                         }
                         Spacer()
                         if skillLevel == label {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGold)
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedAccentInk)
                         }
                     }
                     .padding(12)
@@ -205,7 +205,7 @@ struct QuizEditView: View {
             HStack {
                 Text("Meals per week").scaledFont(13, weight: .semibold).foregroundStyle(session.themeTextColor)
                 Spacer()
-                Text("\(weeklyMeals)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedGold)
+                Text("\(weeklyMeals)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedAccentInk)
             }
             Slider(value: Binding(get: { Double(weeklyMeals) }, set: { weeklyMeals = Int($0) }), in: 1...21, step: 1)
                 .tint(Color.stockedGold)
@@ -239,7 +239,7 @@ struct QuizEditView: View {
         Button(action: action) {
             Text(label)
                 .font(.stockedSystem(size: 12, weight: selected ? .bold : .medium, design: .serif))
-                .foregroundStyle(selected ? Color.stockedCharcoal : session.themeTextColor)
+                .foregroundStyle(selected ? Color.stockedWhite : session.themeTextColor)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)

@@ -105,7 +105,7 @@ struct InventoryUpdateReviewView: View {
         HStack(spacing: 10) {
             Image(systemName: icon(change.kind))
                 .scaledFont(14, weight: .semibold)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 1) {
                 Text(label(change))

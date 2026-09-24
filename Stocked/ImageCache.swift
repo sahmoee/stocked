@@ -801,7 +801,7 @@ struct UniformRecipeIcon: View {
             .overlay {
                 Image(systemName: "fork.knife")
                     .font(.stockedSystem(size: size * 0.36, weight: .semibold))
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: max(10, size * 0.21))
@@ -869,7 +869,7 @@ struct CachedAsyncImage: View {
                     } else {
                         VStack(spacing: 6) {
                             Image(systemName: "fork.knife")
-                                .scaledFont(28).foregroundStyle(Color.stockedGold)
+                                .scaledFont(28).foregroundStyle(Color.stockedAccentInk)
                             Text(isLoading
                                  ? "Loading photo…"
                                  : scrollActivity.shouldDeferExpensiveWork

@@ -10,7 +10,7 @@ struct KitchenArtworkAudit {
         let names = ["inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference",
                      "kitchen_protein_reference", "kitchen_leftovers_reference",
                      "inventory_kitchen_board_reference", "inventory_category_freezer", "inventory_category_pantry",
-                     "pastel_ready_meal", "pastel_fresh_produce"]
+                     "pastel_ready_meal", "pastel_fresh_produce", "pastel_ready_meal_dark", "pastel_fresh_produce_dark"]
         var checks = 0
         for name in names {
             let directory = root.appendingPathComponent("Stocked/Assets .xcassets/\(name).imageset")

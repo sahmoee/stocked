@@ -812,7 +812,7 @@ struct CookLaterCommandCenterView: View {
     .overlay(alignment: .bottom) {
       if let toast {
         HStack(spacing: 8) {
-          Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
+          Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedSuccessInk)
           Text(toast).scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedWhite)
         }
         .padding(.horizontal, 16).padding(.vertical, 11)
@@ -987,7 +987,7 @@ struct CookLaterCommandCenterView: View {
           Text("\(allocation.available) available")
             .scaledFont(11.5).foregroundStyle(session.themeSecondaryText)
           Text("\(allocation.planned) planned · \(allocation.unallocated) unallocated")
-            .scaledFont(11.5, weight: .semibold).foregroundStyle(Color.stockedGreen)
+            .scaledFont(11.5, weight: .semibold).foregroundStyle(Color.stockedSuccessInk)
         }
         Spacer()
       }
@@ -1219,7 +1219,7 @@ struct CookLaterCommandCenterView: View {
           Text(day == 0 ? "TODAY" : CookLaterPlanningEngine.dayLabel(day).uppercased())
             .scaledFont(10, weight: .bold).tracking(0.8)
             .foregroundStyle(
-              day == selectedDay ? Color.stockedGold : session.themeTextColor.opacity(0.45))
+              day == selectedDay ? Color.stockedAccentInk : session.themeTextColor.opacity(0.45))
           Text(CookLaterPlanningEngine.dateLabel(day))
             .scaledFont(15, weight: .bold, design: .serif).foregroundStyle(
               session.themeTextColor)
@@ -1231,7 +1231,7 @@ struct CookLaterCommandCenterView: View {
           }
         } label: {
           Label("Plan", systemImage: "plus")
-            .scaledFont(11.5, weight: .semibold).foregroundStyle(Color.stockedGold)
+            .scaledFont(11.5, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
         }
       }
       if meals.isEmpty {
@@ -1275,10 +1275,10 @@ struct CookLaterCommandCenterView: View {
         VStack(alignment: .leading, spacing: 3) {
           HStack(spacing: 6) {
             Text(meal.mealType).scaledFont(9.5, weight: .bold).tracking(0.5)
-              .foregroundStyle(Color.stockedGold)
+              .foregroundStyle(Color.stockedAccentInk)
             if meal.isCooked {
               Text("COOKED").scaledFont(8.5, weight: .bold).foregroundStyle(
-                Color.stockedGreen)
+                Color.stockedSuccessInk)
             }
           }
           Text(meal.title).scaledFont(14, weight: .semibold).foregroundStyle(
@@ -1289,13 +1289,13 @@ struct CookLaterCommandCenterView: View {
           )
           .scaledFont(10.5, weight: .medium)
           .foregroundStyle(
-            missing == 0 && low == 0 ? Color.stockedGreen : session.themeTextColor.opacity(0.48))
+            missing == 0 && low == 0 ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.48))
         }
         Spacer()
         Image(systemName: meal.isCooked ? "checkmark.circle.fill" : "chevron.right")
           .font(.stockedSystem(size: meal.isCooked ? 17 : 11, weight: .bold))
           .foregroundStyle(
-            meal.isCooked ? Color.stockedGreen : session.themeTextColor.opacity(0.28))
+            meal.isCooked ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.28))
       }
       .padding(9)
       .background(session.themeTextColor.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
@@ -1343,7 +1343,7 @@ struct CookLaterCommandCenterView: View {
                 )
                 .scaledFont(10).foregroundStyle(
                   match.total > 0 && match.have == match.total
-                    ? Color.stockedGreen : session.themeTextColor.opacity(0.45))
+                    ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.45))
               }
               .padding(10)
               .frame(width: recipeIdeaCardWidth, alignment: .topLeading)
@@ -1520,7 +1520,7 @@ struct CookLaterCommandCenterView: View {
             Image(systemName: "chevron.right").scaledFont(9, weight: .bold)
           }
           .foregroundStyle(
-            substitutions.contains(where: \.isAvailable) ? Color.stockedGreen : Color.stockedGold)
+            substitutions.contains(where: \.isAvailable) ? Color.stockedSuccessInk : Color.stockedAccentInk)
         }
         .buttonStyle(.plain)
       }
@@ -1590,7 +1590,7 @@ struct CookLaterCommandCenterView: View {
           systemName: conflictCount == 0 ? "checkmark.shield.fill" : "exclamationmark.triangle.fill"
         )
         .scaledFont(17, weight: .semibold).foregroundStyle(
-          conflictCount == 0 ? Color.stockedGreen : Color.orange)
+          conflictCount == 0 ? Color.stockedSuccessInk : Color.orange)
         VStack(alignment: .leading, spacing: 2) {
           Text(
             conflictCount == 0
@@ -1683,7 +1683,7 @@ struct CookLaterCommandCenterView: View {
           .frame(width: 42, height: 42)
         Image(systemName: done ? "checkmark" : action.systemImage).font(
           .system(size: 15, weight: .semibold)
-        ).foregroundStyle(done ? Color.stockedGreen : Color.stockedGold)
+        ).foregroundStyle(done ? Color.stockedSuccessInk : Color.stockedAccentInk)
       }
       VStack(alignment: .leading, spacing: 2) {
         Text(action.title).scaledFont(14, weight: .semibold).foregroundStyle(
@@ -1702,7 +1702,7 @@ struct CookLaterCommandCenterView: View {
     } label: {
       Text(done ? "Undo" : "Start")
         .scaledFont(11, weight: .semibold)
-        .foregroundStyle(done ? session.themeTextColor.opacity(0.5) : Color.stockedCharcoal)
+        .foregroundStyle(done ? session.themeSecondaryText : session.themeTextColor)
         .padding(.horizontal, 11)
         .padding(.vertical, 7)
         .background(
@@ -2201,7 +2201,7 @@ private struct CookLaterAddMealSourceSheet: View {
       }
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
       }
     }
@@ -2298,7 +2298,7 @@ private struct CookLaterCommandEditorSheet: View {
                   draft.ingredients.append(value)
                   ingredientText = ""
                 }
-                .scaledFont(12.5, weight: .semibold).foregroundStyle(Color.stockedGold)
+                .scaledFont(12.5, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
               }
               .padding(12).background(
                 session.themeCardColor, in: RoundedRectangle(cornerRadius: 12))
@@ -2316,14 +2316,14 @@ private struct CookLaterCommandEditorSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
         ToolbarItem(placement: .topBarTrailing) {
           Button("Save") {
             onSave(draft)
             dismiss()
           }
-          .fontWeight(.semibold).foregroundStyle(Color.stockedGold)
+          .fontWeight(.semibold).foregroundStyle(Color.stockedAccentInk)
           .disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
       }
@@ -2393,10 +2393,10 @@ private struct CookLaterCommandRecipePicker: View {
                     Text("\(match.have) of \(match.total) ingredients stocked")
                       .scaledFont(10.5).foregroundStyle(
                         match.total > 0 && match.have == match.total
-                          ? Color.stockedGreen : session.themeTextColor.opacity(0.46))
+                          ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.46))
                   }
                   Spacer()
-                  Image(systemName: "calendar.badge.plus").foregroundStyle(Color.stockedGold)
+                  Image(systemName: "calendar.badge.plus").foregroundStyle(Color.stockedAccentInk)
                 }
                 .padding(12).background(
                   session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
@@ -2412,7 +2412,7 @@ private struct CookLaterCommandRecipePicker: View {
       .searchable(text: $searchText, prompt: "Search recipes or ingredients")
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
       }
     }
@@ -2507,7 +2507,7 @@ private struct CookLaterWebRecipePicker: View {
                           session.themeTextColor.opacity(0.46))
                     }
                     Spacer()
-                    Image(systemName: "calendar.badge.plus").foregroundStyle(Color.stockedGold)
+                    Image(systemName: "calendar.badge.plus").foregroundStyle(Color.stockedAccentInk)
                   }
                   .padding(12).background(
                     session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
@@ -2525,7 +2525,7 @@ private struct CookLaterWebRecipePicker: View {
       .searchable(text: $searchText, prompt: "Search complete recipes")
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
       }
     }
@@ -2673,7 +2673,7 @@ private struct CookLaterMealDetailSheet: View {
       }
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Close") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Close") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
       }
     }
@@ -2776,7 +2776,7 @@ private struct CookLaterSubstitutionSheet: View {
                         systemName: have ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
                       )
                       .scaledFont(15, weight: .semibold).foregroundStyle(
-                        have ? Color.stockedGreen : Color.stockedGold)
+                        have ? Color.stockedSuccessInk : Color.stockedAccentInk)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                       Text(option.title).scaledFont(14, weight: .semibold).foregroundStyle(
@@ -2786,7 +2786,7 @@ private struct CookLaterSubstitutionSheet: View {
                       ).fixedSize(horizontal: false, vertical: true)
                       if have {
                         Text("You already have this!").scaledFont(10, weight: .bold)
-                          .foregroundStyle(Color.stockedGreen)
+                          .foregroundStyle(Color.stockedSuccessInk)
                       }
                     }
                     Spacer()
@@ -2810,7 +2810,7 @@ private struct CookLaterSubstitutionSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
       }
     }
@@ -2864,7 +2864,7 @@ private struct CookLaterCommandSuggestionsSheet: View {
                     )
                     .scaledFont(19).foregroundStyle(
                       selectedIDs.contains(suggestion.id)
-                        ? Color.stockedGreen : session.themeTextColor.opacity(0.28))
+                        ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.28))
                     VStack(alignment: .leading, spacing: 2) {
                       Text(suggestion.title).scaledFont(14, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
@@ -2902,7 +2902,7 @@ private struct CookLaterCommandSuggestionsSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
       }
     }
@@ -3003,7 +3003,7 @@ private struct CookLaterMonthCalendarSheet: View {
                         RoundedRectangle(cornerRadius: 10))
                       VStack(alignment: .leading, spacing: 2) {
                         Text(meal.mealType).scaledFont(9.5, weight: .bold).foregroundStyle(
-                          Color.stockedGold)
+                          Color.stockedAccentInk)
                         Text(meal.title).scaledFont(13.5, weight: .semibold)
                           .foregroundStyle(session.themeTextColor)
                         Text("\(meal.ingredients.count) ingredients").scaledFont(10.5)
@@ -3026,7 +3026,7 @@ private struct CookLaterMonthCalendarSheet: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarLeading) {
-          Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+          Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
         }
       }
     }

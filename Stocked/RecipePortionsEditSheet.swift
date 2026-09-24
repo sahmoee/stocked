@@ -56,7 +56,7 @@ struct RecipePortionsEditSheet: View {
                             Text("Add a pantry item")
                                 .scaledFont(14, weight: .semibold)
                         }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(Color.stockedGold.opacity(0.10))
@@ -99,7 +99,7 @@ struct RecipePortionsEditSheet: View {
                 Spacer(minLength: 6)
                 Text(match != nil ? "In stock" : "Missing")
                     .scaledFont(11, weight: .semibold)
-                    .foregroundStyle(match != nil ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(match != nil ? Color.stockedSuccessInk : Color.stockedAccentInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .fixedSize()
             }
@@ -116,7 +116,7 @@ struct RecipePortionsEditSheet: View {
                         store.updateInventoryLevel(id: item.id, level: max(0, item.level - 0.25))
                     } label: {
                         Image(systemName: "minus.circle")
-                            .scaledFont(18).foregroundStyle(Color.stockedGold)
+                            .scaledFont(18).foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
                     Text("\(Int((item.effectiveLevel * 100).rounded()))%")
                         .scaledFont(12, weight: .bold, design: .monospaced)
@@ -126,7 +126,7 @@ struct RecipePortionsEditSheet: View {
                         store.updateInventoryLevel(id: item.id, level: min(1, item.level + 0.25))
                     } label: {
                         Image(systemName: "plus.circle")
-                            .scaledFont(18).foregroundStyle(Color.stockedGold)
+                            .scaledFont(18).foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
                     Button {
                         let removed = item
@@ -158,7 +158,7 @@ struct RecipePortionsEditSheet: View {
                         Text(addedToList.contains(key) ? "Added to Grocery List" : "Add to Grocery List")
                             .scaledFont(12, weight: .semibold)
                     }
-                    .foregroundStyle(addedToList.contains(key) ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(addedToList.contains(key) ? Color.stockedSuccessInk : Color.stockedAccentInk)
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background((addedToList.contains(key) ? Color.stockedGreen : Color.stockedGold).opacity(0.10))
                     .clipShape(Capsule())

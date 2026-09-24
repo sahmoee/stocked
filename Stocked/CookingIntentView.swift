@@ -98,7 +98,7 @@ struct CookingIntentView: View {
                         } label: {
                             Text(level.title)
                                 .scaledFont(12.5, weight: .semibold)
-                                .foregroundStyle(selected ? Color.stockedCharcoal : session.themeTextColor)
+                                .foregroundStyle(selected ? Color.stockedWhite : session.themeTextColor)
                                 .padding(.horizontal, 12).padding(.vertical, 7)
                                 .background(selected ? Color.stockedGold : (dark ? Color.darkSurface : Color.stockedWhite.opacity(0.6)))
                                 .clipShape(Capsule())
@@ -121,7 +121,7 @@ struct CookingIntentView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10).fill(Color.stockedGold.opacity(0.14)).frame(width: 40, height: 40)
-                    Image(systemName: intent.icon).scaledFont(16, weight: .semibold).foregroundStyle(Color.stockedGold)
+                    Image(systemName: intent.icon).scaledFont(16, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(intent.title)

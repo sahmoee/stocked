@@ -259,7 +259,7 @@ struct CreateRecipeView: View {
                                             Image(systemName: "exclamationmark.triangle.fill").scaledFont(10)
                                             Text("Double-check this one").scaledFont(11, weight: .semibold)
                                         }
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(.horizontal, 16).padding(.bottom, 8)
                                     }
@@ -271,7 +271,7 @@ struct CreateRecipeView: View {
                             } label: {
                                 Label("Add Ingredient", systemImage: "plus.circle.fill")
                                     .scaledFont(15, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
                             }
@@ -290,7 +290,7 @@ struct CreateRecipeView: View {
                                 } label: {
                                     Label("Add missing to grocery list", systemImage: "cart.badge.plus")
                                         .scaledFont(15, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGreen)
+                                        .foregroundStyle(Color.stockedSuccessInk)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .padding(16)
                                 }
@@ -321,7 +321,7 @@ struct CreateRecipeView: View {
                                                 Image(systemName: "timer").scaledFont(10)
                                                 Text("\(timerLabel(secs)) timer").scaledFont(11, weight: .semibold)
                                             }
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .padding(.horizontal, 14).padding(.bottom, 8)
                                         }
                                     }
@@ -343,7 +343,7 @@ struct CreateRecipeView: View {
                             } label: {
                                 Label("Add Step", systemImage: "plus.circle.fill")
                                     .scaledFont(15, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)
                             }
@@ -782,7 +782,7 @@ struct CreateRecipeView: View {
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
                     Label(photoLabel, systemImage: "photo.on.rectangle")
                         .scaledFont(14, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 if imageData != nil {
                     Button(role: .destructive) {

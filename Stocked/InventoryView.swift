@@ -318,7 +318,7 @@ struct InventoryView: View {
         .overlay(alignment: .bottom) {
             if let toast = buildToast {
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedSuccessInk)
                     Text(toast).scaledFont(13, weight: .semibold).foregroundStyle(.white)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
@@ -690,7 +690,7 @@ struct InventoryView: View {
                             Button { activeSheet = .add } label: {
                                 Text("Or add items by hand")
                                     .scaledFont(13, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }
                             .buttonStyle(.plain)
                             .a11yButton("Add items by hand")
@@ -759,7 +759,7 @@ struct InventoryView: View {
                                 } label: {
                                     Text(preset.label)
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(splitPreset == preset ? Color.stockedGold : session.themeTextColor.opacity(0.5))
+                                        .foregroundStyle(splitPreset == preset ? Color.stockedAccentInk : session.themeTextColor.opacity(0.5))
                                         .padding(.horizontal, 12).padding(.vertical, 6)
                                         .background(
                                             Capsule().fill(splitPreset == preset
@@ -972,7 +972,7 @@ struct SubcategoryDisclosure: View {
                     Spacer()
                     Text("\(items.count)")
                         .scaledFont(11, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Capsule())
@@ -1003,7 +1003,7 @@ struct SubcategoryDisclosure: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: sel.wrappedValue.contains(item.id) ? "checkmark.circle.fill" : "circle")
                                         .scaledFont(20)
-                                        .foregroundStyle(sel.wrappedValue.contains(item.id) ? Color.stockedGold : session.themeTextColor.opacity(0.35))
+                                        .foregroundStyle(sel.wrappedValue.contains(item.id) ? Color.stockedAccentInk : session.themeTextColor.opacity(0.35))
                                         .padding(.leading, 12)
                                     InventoryItemRow(item: item)
                                         .allowsHitTesting(false)   // taps select, not open the row
@@ -1161,7 +1161,7 @@ struct InventoryItemRow: View {
         if item.isExpired { return .red }
         if item.isExpiringSoon { return .orange }
         return item.effectiveLevel < KitchenThresholds.lowFillLevel ? .red
-             : item.effectiveLevel < 0.5 ? Color.stockedGold : Color.stockedGreen
+             : item.effectiveLevel < 0.5 ? Color.stockedAccentInk : Color.stockedSuccessInk
     }
     // #241 — exact mockup quantity line: count when >1, otherwise the fill word.
     private var qtyLine: String {
@@ -1222,7 +1222,7 @@ struct InventoryItemRow: View {
                         if let who = item.addedBy, !who.isEmpty, who != session.userName {
                             Text("by \(who)")
                                 .scaledFont(10.5)
-                                .foregroundStyle(Color.stockedGold.opacity(0.8))
+                                .foregroundStyle(Color.stockedAccentInk.opacity(0.8))
                         }
                         // #B3 reserved — committed to an upcoming planned meal, so it looks
                         // free but is spoken for. Prevents planning two meals around one onion.
@@ -1232,7 +1232,7 @@ struct InventoryItemRow: View {
                                 Text("planned")
                             }
                             .scaledFont(10, weight: .semibold)
-                            .foregroundStyle(Color.stockedGreen)
+                            .foregroundStyle(Color.stockedSuccessInk)
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Color.stockedGreen.opacity(0.12))
                             .clipShape(Capsule())

@@ -252,7 +252,7 @@ struct KitchenTransferView: View {
                 }
                 Spacer()
                 Image(systemName: "refrigerator.fill")
-                    .scaledFont(28).foregroundStyle(Color.stockedGold)
+                    .scaledFont(28).foregroundStyle(Color.stockedAccentInk)
             }
 
             HStack(spacing: 0) {
@@ -269,7 +269,7 @@ struct KitchenTransferView: View {
 
     private func summaryPill(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).scaledFont(18, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
+            Text(value).scaledFont(18, weight: .bold, design: .serif).foregroundStyle(Color.stockedAccentInk)
             Text(label).scaledFont(11).foregroundStyle(Color.stockedWhite.opacity(0.55))
         }
         .frame(maxWidth: .infinity)
@@ -536,10 +536,10 @@ struct KitchenTransferView: View {
     private func statusBanner(_ message: String, isError: Bool) -> some View {
         HStack(spacing: 10) {
             Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                .foregroundStyle(isError ? .red : Color.stockedGreen)
+                .foregroundStyle(isError ? .red : Color.stockedSuccessInk)
             Text(message)
                 .scaledFont(13)
-                .foregroundStyle(isError ? .red : Color.stockedGreen)
+                .foregroundStyle(isError ? .red : Color.stockedSuccessInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
@@ -624,7 +624,7 @@ struct QRTransferSheet: View {
 
                 if !manager.statusMessage.isEmpty && !manager.statusMessage.contains("Generating") {
                     Text(manager.statusMessage)
-                        .scaledFont(13).foregroundStyle(Color.stockedGreen)
+                        .scaledFont(13).foregroundStyle(Color.stockedSuccessInk)
                         .padding(.top, 12)
                 }
                 if !manager.errorMessage.isEmpty {
@@ -703,7 +703,7 @@ struct TransferOptionsSheet: View {
 
                 if !manager.statusMessage.isEmpty {
                     Text(manager.statusMessage)
-                        .scaledFont(13).foregroundStyle(Color.stockedGreen).padding(.top, 16)
+                        .scaledFont(13).foregroundStyle(Color.stockedSuccessInk).padding(.top, 16)
                 }
                 if !manager.errorMessage.isEmpty {
                     Text(manager.errorMessage)

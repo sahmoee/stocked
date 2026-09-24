@@ -53,7 +53,7 @@ struct OnboardingQuiz: View {
             VStack(spacing: 6) {
                 Image(systemName: "arrowtriangle.up.fill")
                     .scaledFont(13)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
 
                 VStack(spacing: 10) {
                     Text("Tap your chef icon")
@@ -301,7 +301,7 @@ struct OnboardingQuiz: View {
         Button(action: action) {
             Text(label)
                 .font(.stockedSystem(size: 13, weight: selected ? .bold : .medium, design: .serif))
-                .foregroundStyle(selected ? Color.stockedCharcoal : session.themeTextColor)
+                .foregroundStyle(selected ? Color.stockedWhite : session.themeTextColor)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -488,7 +488,7 @@ struct OnboardingQuiz: View {
                             Spacer()
                             if skillLevel == label {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }
                         }
                         .padding(14)
@@ -513,7 +513,7 @@ struct OnboardingQuiz: View {
                     Text("Meals cooked per week").scaledFont(13, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
-                    Text("\(weeklyMeals)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedGold)
+                    Text("\(weeklyMeals)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                 }
                 Slider(value: Binding(get: { Double(weeklyMeals) }, set: { weeklyMeals = Int($0) }), in: 1...21, step: 1)
                     .tint(Color.stockedGold)
@@ -531,7 +531,7 @@ struct OnboardingQuiz: View {
                             Button { mealPrepDay = day } label: {
                                 Text(day)
                                     .font(.stockedSystem(size: 13, weight: mealPrepDay == day ? .bold : .medium, design: .serif))
-                                    .foregroundStyle(mealPrepDay == day ? Color.stockedCharcoal : session.themeTextColor)
+                                    .foregroundStyle(mealPrepDay == day ? Color.stockedWhite : session.themeTextColor)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 9)
@@ -544,7 +544,7 @@ struct OnboardingQuiz: View {
                         Button { mealPrepDay = "Any" } label: {
                             Text("Any day")
                                 .font(.stockedSystem(size: 13, weight: mealPrepDay == "Any" ? .bold : .medium, design: .serif))
-                                .foregroundStyle(mealPrepDay == "Any" ? Color.stockedCharcoal : session.themeTextColor)
+                                .foregroundStyle(mealPrepDay == "Any" ? Color.stockedWhite : session.themeTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 9)

@@ -151,7 +151,7 @@ struct QAUnlockGate<Content: View>: View {
                                 .frame(width: 72, height: 72)
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     }
                 }
             }

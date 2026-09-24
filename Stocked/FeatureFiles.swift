@@ -79,7 +79,7 @@ struct RecipeURLImportView: View {
                             } label: {
                                 Image(systemName: showSaved ? "checkmark.circle.fill" : "plus.circle.fill")
                                     .scaledFont(28)
-                                    .foregroundStyle(showSaved ? Color.stockedGreen : Color.stockedGold)
+                                    .foregroundStyle(showSaved ? Color.stockedSuccessInk : Color.stockedAccentInk)
                             }.buttonStyle(.plain)
                         }
                         .padding(14).stockedPastelCard(radius: 14)

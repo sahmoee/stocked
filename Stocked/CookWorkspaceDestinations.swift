@@ -88,7 +88,7 @@ struct UseSomethingUpView: View {
                                             .foregroundStyle(session.themeTextColor)
                                         Text((item.daysUntilExpiry ?? 0) <= 0 ? "Use today" : "\(item.daysUntilExpiry ?? 0)d left")
                                             .scaledFont(11, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)

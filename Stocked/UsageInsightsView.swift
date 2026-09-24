@@ -64,7 +64,7 @@ struct UsageInsightsView: View {
                             Spacer()
                             Text("\(stat.count)")
                                 .scaledFont(14, weight: .bold, design: .serif)
-                                .foregroundStyle(stat.count == 0 ? session.themeTextColor.opacity(0.3) : Color.stockedGold)
+                                .foregroundStyle(stat.count == 0 ? session.themeTextColor.opacity(0.3) : Color.stockedAccentInk)
                         }
                         .padding(.horizontal, 18).padding(.vertical, 11)
                         if idx < stats.count - 1 {
@@ -87,7 +87,7 @@ struct UsageInsightsView: View {
                             HStack {
                                 Text(pair.0).scaledFont(13.5).foregroundStyle(session.themeTextColor.opacity(0.85))
                                 Spacer()
-                                Text("\(pair.1)").scaledFont(13.5, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
+                                Text("\(pair.1)").scaledFont(13.5, weight: .bold, design: .serif).foregroundStyle(Color.stockedAccentInk)
                             }
                             .padding(.horizontal, 18).padding(.vertical, 9)
                             if idx < widgetBreakdown.count - 1 { Divider().opacity(0.3).padding(.leading, 18) }

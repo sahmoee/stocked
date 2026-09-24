@@ -197,7 +197,7 @@ struct MealPrepView: View {
                                 .scaledFont(10)
                         }
                         Text(meal.source).scaledFont(10, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }.foregroundStyle(session.themeTextColor.opacity(0.45))
                 }
                 Spacer()
@@ -230,7 +230,7 @@ struct MealPrepView: View {
                 HStack(spacing: 12) {
                     Image(systemName: inStock ? "checkmark.circle.fill" : "circle")
                         .scaledFont(18)
-                        .foregroundStyle(inStock ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(inStock ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ing.name).scaledFont(14).foregroundStyle(session.themeTextColor)
@@ -240,7 +240,7 @@ struct MealPrepView: View {
                     }
                     Spacer()
                     if inStock {
-                        Text("Stocked").scaledFont(10, weight: .bold).foregroundStyle(Color.stockedGreen)
+                        Text("Stocked").scaledFont(10, weight: .bold).foregroundStyle(Color.stockedSuccessInk)
                     }
                 }
                 .padding(.horizontal, 24).padding(.vertical, 9)
@@ -264,7 +264,7 @@ struct MealPrepView: View {
                 } label: {
                     Label("See Prep Order", systemImage: "list.number")
                         .scaledFont(15, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold).frame(maxWidth: .infinity)
+                        .foregroundStyle(Color.stockedAccentInk).frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(Color.stockedGold.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 14))
                 }.buttonStyle(.plain)
@@ -290,7 +290,7 @@ struct MealPrepView: View {
             // Total estimate
             HStack {
                 Label("Estimated total: ~\(totalMin) min", systemImage: "clock.fill")
-                    .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedGold)
+                    .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 Spacer()
             }.padding(.horizontal, 24).padding(.bottom, 16)
 
@@ -304,7 +304,7 @@ struct MealPrepView: View {
                     // Step number badge
                     ZStack {
                         Circle().fill(Color.stockedCharcoal).frame(width: 34, height: 34)
-                        Text("\(i + 1)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedGold)
+                        Text("\(i + 1)").scaledFont(14, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text(meal.title)

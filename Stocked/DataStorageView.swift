@@ -86,7 +86,7 @@ struct DataStorageView: View {
                         Spacer()
                         Text(cacheUsage.totalString)
                             .scaledFont(14, weight: .semibold)
-                            .foregroundStyle(cacheUsage.isLarge ? Color.stockedGold : session.themeSecondaryText)
+                            .foregroundStyle(cacheUsage.isLarge ? Color.stockedAccentInk : session.themeSecondaryText)
                     }
                     .listRowBackground(Color.clear)
 
@@ -99,7 +99,7 @@ struct DataStorageView: View {
                     if cacheUsage.isLarge {
                         Label("Cache is getting large. Deleting it frees space; Stocked will download needed content again.", systemImage: "exclamationmark.triangle")
                             .scaledFont(12)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .listRowBackground(Color.clear)
                     }
 
@@ -128,7 +128,7 @@ struct DataStorageView: View {
                         message = backupURL == nil ? "Couldn't create the backup file." : nil
                     } label: {
                         Label("Create Backup File", systemImage: "square.and.arrow.up")
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }
                     .listRowBackground(Color.clear)
 
@@ -160,7 +160,7 @@ struct DataStorageView: View {
                         Text(message)
                             .scaledFont(13)
                             .foregroundStyle(message.contains("ouldn't") || message.contains("rror")
-                                             ? Color.red : Color.stockedGreen)
+                                             ? Color.red : Color.stockedSuccessInk)
                             .listRowBackground(Color.clear)
                     }
                 }
@@ -172,7 +172,7 @@ struct DataStorageView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
             .task {
@@ -227,7 +227,7 @@ struct DataStorageView: View {
         let ok = migrated >= live && migrated >= 0
         Text(migrated < 0 ? "—" : "\(migrated)")
             .scaledFont(14, weight: .semibold)
-            .foregroundStyle(ok ? Color.stockedGreen : Color.stockedGold)
+            .foregroundStyle(ok ? Color.stockedSuccessInk : Color.stockedAccentInk)
     }
 
     private func drawerHeaderText(_ t: String) -> some View {

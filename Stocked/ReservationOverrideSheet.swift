@@ -84,7 +84,7 @@ struct ReservationOverrideSheet: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "calendar.badge.exclamationmark")
                                     .scaledFont(18)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                                 Text("Ready if plans change")
                                     .scaledFont(22, weight: .bold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
@@ -116,7 +116,7 @@ struct ReservationOverrideSheet: View {
                                         Spacer(minLength: 6)
                                         Text(claim.amountDisplay)
                                             .scaledFont(11.5, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                     .padding(.horizontal, 12).padding(.vertical, 9)
@@ -137,7 +137,7 @@ struct ReservationOverrideSheet: View {
                                     HStack(spacing: 10) {
                                         Image(systemName: "calendar")
                                             .scaledFont(13)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                         Text(meal.title.displayNormalized)
                                             .scaledFont(13.5, design: .serif)
                                             .foregroundStyle(session.themeTextColor)
@@ -176,7 +176,7 @@ struct ReservationOverrideSheet: View {
                             } label: {
                                 Label("Cook Anyway", systemImage: "flame.fill")
                                     .scaledFont(16, weight: .semibold, design: .serif)
-                                    .foregroundStyle(Color.stockedCharcoal)
+                                    .foregroundStyle(Color.stockedWhite)
                                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                                     .background(Color.stockedGold)
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -196,7 +196,7 @@ struct ReservationOverrideSheet: View {
                                 Label(addedToGrocery ? "Replacements Added to Grocery" : "Add Replacement to Grocery",
                                       systemImage: addedToGrocery ? "checkmark.circle.fill" : "cart.badge.plus")
                                     .scaledFont(14.5, weight: .semibold)
-                                    .foregroundStyle(addedToGrocery ? Color.stockedGreen : Color.stockedGold)
+                                    .foregroundStyle(addedToGrocery ? Color.stockedSuccessInk : Color.stockedAccentInk)
                                     .frame(maxWidth: .infinity).padding(.vertical, 13)
                                     .background((addedToGrocery ? Color.stockedGreen : Color.stockedGold).opacity(0.12))
                                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -223,7 +223,7 @@ struct ReservationOverrideSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Close") { dismiss() }
                         .scaledFont(15, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }

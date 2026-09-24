@@ -129,7 +129,7 @@ struct PurchaseDedupReviewView: View {
                 Image(systemName: (flag?.isStrong ?? false) ? "exclamationmark.triangle.fill"
                                                             : "exclamationmark.circle")
                     .scaledFont(14, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(displayLine(candidate))
                         .scaledFont(14, weight: .semibold)
@@ -192,7 +192,7 @@ struct PurchaseDedupReviewView: View {
             HStack(spacing: 7) {
                 Image(systemName: "checkmark.circle")
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(Color.stockedGreen)
+                    .foregroundStyle(Color.stockedSuccessInk)
                 Text("Also adding · \(clean.count)")
                     .scaledFont(13, weight: .bold)
                     .foregroundStyle(session.themeTextColor)

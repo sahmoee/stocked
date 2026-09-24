@@ -483,7 +483,7 @@ struct InventoryHubView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.stocked(.title2))
-                        .foregroundStyle(Color.stockedGreen)
+                        .foregroundStyle(Color.stockedSuccessInk)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Nothing needs attention")
                             .font(.stockedSerif(16, weight: .bold, relativeTo: .headline))
@@ -549,7 +549,7 @@ struct InventoryHubView: View {
                                         .font(.stockedSerif(18, weight: .bold, relativeTo: .headline))
                                     Text("\(card.1)")
                                         .font(.stockedSerif(29, weight: .semibold, relativeTo: .title2))
-                                        .foregroundStyle(Color.stockedGreen)
+                                        .foregroundStyle(Color.stockedSuccessInk)
                                 }
                                 Spacer(minLength: 0)
                             }
@@ -566,7 +566,7 @@ struct InventoryHubView: View {
                                     Spacer()
                                     Text("\(card.1)")
                                         .font(.stockedSerif(25, weight: .semibold, relativeTo: .title2))
-                                        .foregroundStyle(Color.stockedGreen)
+                                        .foregroundStyle(Color.stockedSuccessInk)
                                 }
                             }
                         }
@@ -627,7 +627,7 @@ struct InventoryHubView: View {
                 HStack(spacing: 10) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8).fill(Color.stockedGold.opacity(0.15)).frame(width: 34, height: 34)
-                        Image(systemName: "calendar.badge.clock").scaledFont(14).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "calendar.badge.clock").scaledFont(14).foregroundStyle(Color.stockedAccentInk)
                     }
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(snap.breakdowns.count) item\(snap.breakdowns.count == 1 ? "" : "s") reserved for planned meals")
@@ -663,7 +663,7 @@ struct InventoryHubView: View {
                     Circle().fill(Color.stockedGold.opacity(0.14)).frame(width: 76, height: 76)
                     Image(systemName: "refrigerator")
                         .scaledFont(32, weight: .medium)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .padding(.top, 8)
 
@@ -713,7 +713,7 @@ struct InventoryHubView: View {
                 Button { showAddItem = true } label: {
                     Text("Add an item by hand")
                         .scaledFont(14, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, 6)
@@ -924,7 +924,7 @@ struct InventoryHubView: View {
                 if !expiringItems.isEmpty {
                     Button("View All") { goExpiringList = true }
                         .scaledFont(13.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
 
@@ -1277,7 +1277,7 @@ struct CategoryItemsView: View {
                     } label: {
                         Image(systemName: viewMode.icon)
                             .scaledFont(14, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .padding(8)
                             .background(Color.stockedGold.opacity(0.12))
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -1361,7 +1361,7 @@ struct CategoryItemsView: View {
                 }
                 Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
                     .scaledFont(11.5, weight: .semibold)
-                    .foregroundStyle(item.level >= 0.33 ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(item.level >= 0.33 ? Color.stockedSuccessInk : Color.stockedAccentInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .fixedSize()
             }
@@ -1393,7 +1393,7 @@ struct CategoryItemsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Text(item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low")
                     .scaledFont(9.5, weight: .semibold)
-                    .foregroundStyle(item.level >= 0.33 ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(item.level >= 0.33 ? Color.stockedSuccessInk : Color.stockedAccentInk)
             }
         }
         .buttonStyle(.plain)

@@ -36,7 +36,7 @@ struct DatabasesView: View {
                                     // controls, not paragraphs. Preserve each complete
                                     // word and let the rail scroll at every text size.
                                     .fixedSize(horizontal: true, vertical: true)
-                                    .foregroundStyle(selectedTab == i ? Color.stockedCharcoal : Color.stockedWhite)
+                                    .foregroundStyle(Color.stockedWhite)
                                     .padding(.horizontal, 14).padding(.vertical, 9)
                                     .background(selectedTab == i ? Color.stockedGold : Color.stockedCharcoal.opacity(0.6))
                                     .clipShape(Capsule())
@@ -68,7 +68,7 @@ struct DatabasesView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { if let stockedDismiss { stockedDismiss() } else { dismiss() } }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -139,7 +139,7 @@ struct SubstitutionsDatabaseTab: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .scaledFont(22)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
                 .padding(.trailing, 16)
@@ -204,7 +204,7 @@ private struct UserSubstitutionRow: View {
                     .scaledFont(15, weight: .semibold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.right").scaledFont(10).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "arrow.right").scaledFont(10).foregroundStyle(Color.stockedAccentInk)
                     Text(entry.substitute)
                         .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     if !entry.notes.isEmpty {
@@ -216,7 +216,7 @@ private struct UserSubstitutionRow: View {
             Spacer()
             // Badge
             Text("Custom").scaledFont(9, weight: .bold)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
                 .padding(.horizontal, 6).padding(.vertical, 3)
                 .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
             // Delete
@@ -404,7 +404,7 @@ private struct SubstitutionDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -449,7 +449,7 @@ struct AbbreviationsDatabaseTab: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .scaledFont(24)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
                 .padding(.trailing, 20)
@@ -549,7 +549,7 @@ private struct AbbreviationRow: View {
 
             Button(action: onEdit) {
                 Image(systemName: "pencil").scaledFont(13)
-                    .foregroundStyle(entry.source == .builtIn ? session.themeTextColor.opacity(0.25) : Color.stockedGold)
+                    .foregroundStyle(entry.source == .builtIn ? session.themeTextColor.opacity(0.25) : Color.stockedAccentInk)
             }.buttonStyle(.plain).padding(.trailing, 8)
 
             if entry.source != .builtIn {
@@ -610,7 +610,7 @@ struct AddAbbreviationSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
                         .disabled(abbreviation.isEmpty || resolved.isEmpty)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
             .onAppear {
@@ -680,7 +680,7 @@ struct IngredientsDatabaseTab: View {
                         } label: {
                             Text(zone)
                                 .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(filterZone == zone ? Color.stockedCharcoal : Color.stockedWhite)
+                                .foregroundStyle(Color.stockedWhite)
                                 .padding(.horizontal, 12).padding(.vertical, 7)
                                 .background(filterZone == zone ? Color.stockedGold : Color.stockedCharcoal.opacity(0.5))
                                 .clipShape(Capsule())
@@ -743,7 +743,7 @@ private struct IngredientDBRow: View {
                     HStack(spacing: 6) {
                         Text(item.zone)
                             .scaledFont(11)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                         Text("·")
                             .foregroundStyle(session.themeTextColor.opacity(0.3))
                         Text("\(Int(item.effectiveLevel * 100))% stocked")
@@ -766,7 +766,7 @@ private struct IngredientDBRow: View {
                     }
                     showEdit = false
                 }
-                .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
+                .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                 .buttonStyle(.plain)
 
                 Button("Cancel") { showEdit = false }
@@ -779,7 +779,7 @@ private struct IngredientDBRow: View {
                     showEdit   = true
                 } label: {
                     Image(systemName: "pencil")
-                        .scaledFont(13).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                 }.buttonStyle(.plain)
             }
         }
@@ -850,7 +850,7 @@ struct TipsDatabaseTab: View {
         } label: {
             Text(label)
                 .scaledFont(12, weight: .semibold)
-                .foregroundStyle(isActive ? Color.stockedCharcoal : Color.stockedWhite)
+                .foregroundStyle(Color.stockedWhite)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(isActive ? Color.stockedGold : Color.stockedCharcoal.opacity(0.5))
                 .clipShape(Capsule())
@@ -875,7 +875,7 @@ private struct TipDBRow: View {
                             .foregroundStyle(session.themeTextColor)
                         Text(tip.category.rawValue)
                             .scaledFont(10)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")

@@ -127,7 +127,7 @@ struct NaturalQuantityField: View {
         VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 8) {
             Image(systemName: "wand.and.stars")
-                .scaledFont(13).foregroundStyle(Color.stockedGold)
+                .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
             TextField(placeholder, text: $raw)
                 .textFieldStyle(.plain)
                 .scaledFont(14)
@@ -137,7 +137,7 @@ struct NaturalQuantityField: View {
             if !raw.isEmpty {
                 Button { apply() } label: {
                     Image(systemName: "arrow.right.circle.fill")
-                        .scaledFont(18).foregroundStyle(Color.stockedGold)
+                        .scaledFont(18).foregroundStyle(Color.stockedAccentInk)
                 }.buttonStyle(.plain)
             }
         }

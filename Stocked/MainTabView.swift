@@ -952,7 +952,7 @@ private struct InProgressCookPill: View {
                     HStack(spacing: 8) {
                         Image(systemName: "flame.fill")
                             .scaledFont(13)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                         Text("Cooking: \(cook.title)")
                             .scaledFont(13, weight: .semibold, design: .serif)
                             .foregroundStyle(Color.stockedWhite)

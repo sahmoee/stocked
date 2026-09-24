@@ -7,6 +7,13 @@ import UIKit
 /// Only decorative navigation art is mapped here; publisher/product photos never enter this path.
 nonisolated enum KitchenArtworkCatalog {
     static let inventoryActions = ["inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference"]
+    static func approvedAsset(for name: String, dark: Bool) -> String {
+        let base = approvedAsset(for: name)
+        if dark && ["pastel_kitchen_hero", "pastel_ready_meal", "pastel_fresh_produce"].contains(base) {
+            return base + "_dark"
+        }
+        return base
+    }
     static func approvedAsset(for name: String) -> String {
         switch name {
         case "cook_now_hero", "recipes_ready": return "pastel_ready_meal"
@@ -25,11 +32,12 @@ nonisolated enum KitchenArtworkCatalog {
 /// are read during layout; bundle loading and display preparation happen off-main.
 struct StockedKitchenArtwork: View {
     let asset: String
+    @Environment(AppSession.self) private var session
     @Environment(\.stockedScrollActivity) private var scrollActivity
     @State private var image: UIImage?
     @State private var loadedAsset: String?
     @State private var failedAsset: String?
-    private var resolvedAsset: String { KitchenArtworkCatalog.approvedAsset(for: asset) }
+    private var resolvedAsset: String { KitchenArtworkCatalog.approvedAsset(for: asset, dark: session.isDarkMode) }
 
     var body: some View {
         Group {

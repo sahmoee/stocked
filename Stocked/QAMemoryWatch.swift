@@ -333,7 +333,7 @@ struct QAMemoryWatchView: View {
                     Label("Reset series", systemImage: "arrow.counterclockwise")
                 }
                 if !filed.isEmpty {
-                    Text(filed).font(.stocked(.caption)).foregroundStyle(Color.stockedGreen)
+                    Text(filed).font(.stocked(.caption)).foregroundStyle(Color.stockedSuccessInk)
                 }
             }
         }

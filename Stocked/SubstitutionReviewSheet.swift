@@ -55,7 +55,7 @@ struct SubstitutionReviewSheet: View {
                         if reviewRows.isEmpty {
                             VStack(spacing: 10) {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .scaledFont(38).foregroundStyle(Color.stockedGreen)
+                                    .scaledFont(38).foregroundStyle(Color.stockedSuccessInk)
                                 Text("All substitutions confirmed.")
                                     .scaledFont(15, weight: .semibold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
@@ -102,7 +102,7 @@ struct SubstitutionReviewSheet: View {
                     .foregroundStyle(session.themeTextColor.opacity(0.4))
                 Text("you have: \(row.suggestion.displayNormalized)")
                     .scaledFont(13.5, weight: .semibold)
-                    .foregroundStyle(Color.stockedGreen)
+                    .foregroundStyle(Color.stockedSuccessInk)
                 if !layoutMetrics.isAccessibilityText && !layoutMetrics.prefersVerticalControls { Spacer() }
             }
 
@@ -121,7 +121,7 @@ struct SubstitutionReviewSheet: View {
                 } label: {
                     Label("Use This Swap", systemImage: "checkmark")
                         .scaledFont(12.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedGreen)
+                        .foregroundStyle(Color.stockedSuccessInk)
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
                         .frame(minHeight: 44)
                         .background(Color.stockedGreen.opacity(0.12))
@@ -136,7 +136,7 @@ struct SubstitutionReviewSheet: View {
                     Label(addedToGrocery.contains(row.name.lowercased()) ? "Added" : "Add to Grocery",
                           systemImage: addedToGrocery.contains(row.name.lowercased()) ? "checkmark" : "cart.badge.plus")
                         .scaledFont(12.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .frame(maxWidth: .infinity).padding(.vertical, 9)
                         .frame(minHeight: 44)
                         .background(Color.stockedGold.opacity(0.12))

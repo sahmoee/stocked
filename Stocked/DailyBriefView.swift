@@ -623,7 +623,7 @@ struct ExpiringItemsView: View {
                         let savedUseUp = session.guestStore.recipesUsingExpiringItems(within: 3, limit: 3)
                         if !savedUseUp.isEmpty {
                             HStack(spacing: 6) {
-                                Image(systemName: "book.fill").scaledFont(12).foregroundStyle(Color.stockedGold)
+                                Image(systemName: "book.fill").scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                                 Text("From your collection")
                                     .scaledFont(12, weight: .bold).tracking(0.5)
                                     .foregroundStyle(session.themeSecondaryText)
@@ -641,7 +641,7 @@ struct ExpiringItemsView: View {
                                                 let match = session.guestStore.stockMatch(for: r)
                                                 if match.total > 0 {
                                                     Text("\(match.have)/\(match.total) in stock")
-                                                        .scaledFont(10).foregroundStyle(Color.stockedGreen)
+                                                        .scaledFont(10).foregroundStyle(Color.stockedSuccessInk)
                                                 }
                                             }
                                             .frame(width: 130, alignment: .leading)
@@ -668,7 +668,7 @@ struct ExpiringItemsView: View {
                         // Closing the loop: recipe ideas that use these expiring items.
                         if !useUpRecipes.isEmpty {
                             HStack(spacing: 6) {
-                                Image(systemName: "leaf.fill").scaledFont(12).foregroundStyle(Color.stockedGreen)
+                                Image(systemName: "leaf.fill").scaledFont(12).foregroundStyle(Color.stockedSuccessInk)
                                 Text("Cook these to use them up")
                                     .scaledFont(12, weight: .bold).tracking(0.5)
                                     .foregroundStyle(session.themeSecondaryText)
@@ -726,7 +726,7 @@ struct ExpiringItemsView: View {
                     if items.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
-                                .scaledFont(44).foregroundStyle(Color.stockedGold)
+                                .scaledFont(44).foregroundStyle(Color.stockedAccentInk)
                             Text(mode == .expiring ? "Nothing expiring soon!" : "All items well stocked!")
                                 .scaledFont(17, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)

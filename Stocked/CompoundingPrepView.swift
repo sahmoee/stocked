@@ -110,7 +110,7 @@ struct CompoundingPrepView: View {
                 if !layoutMetrics.isAccessibilityText && !layoutMetrics.prefersVerticalControls { Spacer() }
                 Text("\(opp.mealCount) more meal\(opp.mealCount == 1 ? "" : "s")")
                     .scaledFont(11, weight: .bold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
             }
@@ -134,7 +134,7 @@ struct CompoundingPrepView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text("Heads up: different meals may want different cuts - check before prepping one way.")
                 .scaledFont(11)
-                .foregroundStyle(Color.stockedGold.opacity(0.9))
+                .foregroundStyle(Color.stockedAccentInk.opacity(0.9))
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
@@ -143,7 +143,7 @@ struct CompoundingPrepView: View {
                 Label(isAccepted ? "Prepping extra" : "Prep extra now",
                       systemImage: isAccepted ? "checkmark.circle.fill" : "plus.circle")
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(isAccepted ? Color.stockedGreen : session.themeTextColor)
+                    .foregroundStyle(isAccepted ? Color.stockedSuccessInk : session.themeTextColor)
                     .frame(maxWidth: .infinity).padding(.vertical, 9)
                     .frame(minHeight: 44)
                     .background(isAccepted ? Color.stockedGreen.opacity(0.14) : Color.stockedGold.opacity(0.18))

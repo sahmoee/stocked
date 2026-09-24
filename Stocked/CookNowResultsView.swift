@@ -204,7 +204,7 @@ struct CookNowResultsView: View {
                             .scaledFont(12, weight: .bold)
                     }
                 }
-                .foregroundStyle(Color.stockedCharcoal)
+                .foregroundStyle(Color.stockedWhite)
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(Color.stockedGold)
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -272,7 +272,7 @@ struct CookNowResultsView: View {
                             Spacer()
                             Image(systemName: "chevron.down").scaledFont(11, weight: .semibold)
                         }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.vertical, 11).padding(.horizontal, 14)
                         .background(Color.stockedGold.opacity(0.1))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))

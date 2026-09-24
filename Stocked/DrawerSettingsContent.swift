@@ -285,7 +285,7 @@ struct SidebarContent: View {
         return Label(tab.label, systemImage: isSelected ? tab.iconFilled : tab.icon)
             .tag(tab)
             .scaledFont(16, weight: .semibold, design: .serif)
-            .foregroundStyle(isSelected ? Color.stockedGold : session.themeTextColor)
+            .foregroundStyle(isSelected ? Color.stockedAccentInk : session.themeTextColor)
             .listRowBackground(isSelected ? AnyView(Color.stockedCharcoal.clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))) : AnyView(Color.clear))
             .padding(.vertical, 4)
     }
@@ -486,10 +486,10 @@ struct DrawerContent: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? tab.iconFilled : tab.icon)
-                    .scaledFont(18).foregroundStyle(isSelected ? Color.stockedGold : session.themeTextColor.opacity(0.7)).frame(width: 26)
+                    .scaledFont(18).foregroundStyle(isSelected ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7)).frame(width: 26)
                 Text(tab.label)
                     .font(.stockedSystem(size: 16, weight: isSelected ? .bold : .semibold, design: .serif))
-                    .foregroundStyle(isSelected ? Color.stockedGold : session.themeTextColor)
+                    .foregroundStyle(isSelected ? Color.stockedAccentInk : session.themeTextColor)
                 Spacer()
                 if isSelected { Circle().fill(Color.stockedGold).frame(width: 6, height: 6) }
             }
@@ -782,7 +782,7 @@ struct HouseholdSyncSheet: View {
                                 } else {
                                     Image(systemName: "checkmark.icloud")
                                         .scaledFont(14)
-                                        .foregroundStyle(session.isDarkMode ? Color.stockedSuccess : Color.stockedGreen)
+                                        .foregroundStyle(session.isDarkMode ? Color.stockedSuccess : Color.stockedSuccessInk)
                                         .accessibilityHidden(true)
                                     Text(sync.lastSyncedAt == nil
                                          ? "Not synced yet"

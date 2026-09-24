@@ -46,7 +46,7 @@ struct HandsOffOpportunityView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Image(systemName: "timer").scaledFont(22, weight: .semibold).foregroundStyle(Color.stockedGold)
+                Image(systemName: "timer").scaledFont(22, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(anchor.displayNormalized) is cooking")
                         .scaledFont(19, weight: .bold, design: .serif)
@@ -179,7 +179,7 @@ struct HandsOffOpportunityView: View {
                                         HStack(spacing: 10) {
                                             Image(systemName: picked ? "checkmark.circle.fill" : "plus.circle")
                                                 .scaledFont(17)
-                                                .foregroundStyle(picked ? Color.stockedGreen : Color.stockedGold)
+                                                .foregroundStyle(picked ? Color.stockedSuccessInk : Color.stockedAccentInk)
                                             Text(side).scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                                             Spacer()
                                         }

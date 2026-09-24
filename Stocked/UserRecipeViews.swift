@@ -401,7 +401,7 @@ struct UserRecipeDetailView: View {
             HStack(spacing: 8) {
                 Image(systemName: c.readiness.isReadyNow ? "checkmark.circle.fill" : "circle.dashed")
                     .scaledFont(15, weight: .semibold)
-                    .foregroundStyle(c.readiness.isReadyNow ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(c.readiness.isReadyNow ? Color.stockedSuccessInk : Color.stockedAccentInk)
                 Text(c.groupedSummary.isEmpty ? c.readiness.statusLabel : c.groupedSummary)
                     .scaledFont(13.5, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
@@ -420,7 +420,7 @@ struct UserRecipeDetailView: View {
                     } label: {
                         Label("Add Missing to Grocery", systemImage: "cart.badge.plus")
                             .scaledFont(12, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }
                     .buttonStyle(.plain)
                 }
@@ -436,7 +436,7 @@ struct UserRecipeDetailView: View {
                      ? "Review \(c.reviewCount) Substitution\(c.reviewCount == 1 ? "" : "s")"
                      : "Check Ingredients")
                     .scaledFont(13.5, weight: .semibold)
-                    .foregroundStyle(session.isDarkMode ? Color.stockedGold : Color.stockedCharcoal)
+                    .foregroundStyle(session.isDarkMode ? Color.stockedAccentInk : Color.stockedCharcoal)
                     .frame(maxWidth: .infinity).padding(.vertical, 10)
                     .background((session.isDarkMode ? Color.stockedGold : Color.stockedCharcoal).opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -493,7 +493,7 @@ struct UserRecipeDetailView: View {
                         if let history = cookHistoryLabel {
                             HStack(spacing: 6) {
                                 Image(systemName: "clock.arrow.circlepath")
-                                    .scaledFont(11).foregroundStyle(Color.stockedGold)
+                                    .scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                                 Text(history)
                                     .scaledFont(12)
                                     .foregroundStyle(session.themeSecondaryText)
@@ -506,7 +506,7 @@ struct UserRecipeDetailView: View {
                         if costEst.isUseful {
                             HStack(spacing: 6) {
                                 Image(systemName: "dollarsign.circle")
-                                    .scaledFont(11).foregroundStyle(Color.stockedGreen)
+                                    .scaledFont(11).foregroundStyle(Color.stockedSuccessInk)
                                 Text("~\(costEst.display) est. · priced \(costEst.pricedCount) of \(costEst.totalCount) ingredients from your receipts")
                                     .scaledFont(12)
                                     .foregroundStyle(session.themeSecondaryText)
@@ -519,7 +519,7 @@ struct UserRecipeDetailView: View {
                                 ForEach(1...5, id: \.self) { i in
                                     Image(systemName: Double(i) <= avg ? "star.fill"
                                           : (Double(i) - 0.5 <= avg ? "star.leadinghalf.filled" : "star"))
-                                        .scaledFont(11).foregroundStyle(Color.stockedGold)
+                                        .scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                                 }
                                 Text(String(format: "%.1f", avg))
                                     .scaledFont(12, weight: .semibold)
@@ -557,7 +557,7 @@ struct UserRecipeDetailView: View {
                             }.buttonStyle(.plain)
                             Text("\(scaledServings)")
                                 .scaledFont(18, weight: .bold, design: .serif)
-                                .foregroundStyle(Color.stockedGold).frame(minWidth: 32)
+                                .foregroundStyle(Color.stockedAccentInk).frame(minWidth: 32)
                             Button { scaledServings += 1 } label: {
                                 Image(systemName: "plus").scaledFont(13, weight: .semibold)
                                     .foregroundStyle(session.themeTextColor)
@@ -629,6 +629,7 @@ struct UserRecipeDetailView: View {
                                     Label("Ingredients", systemImage: ingredientsExpanded ? "chevron.down" : "chevron.right")
                                         .scaledFont(16, weight: .bold, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
                                 .buttonStyle(.plain)
                                 .a11yButton(ingredientsExpanded ? "Collapse ingredients" : "Expand ingredients")
@@ -641,7 +642,7 @@ struct UserRecipeDetailView: View {
                                             Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
                                                 .scaledFont(10.5, weight: .semibold)
                                         }
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                         .padding(.horizontal, 7).padding(.vertical, 4)
                                         .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
                                     }
@@ -657,7 +658,7 @@ struct UserRecipeDetailView: View {
                                 } label: {
                                     Label("Add Missing to List", systemImage: "cart.badge.plus")
                                         .scaledFont(11, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                 }
                                 .buttonStyle(.plain)
                                 .alert("Added to Grocery List", isPresented: $showGroceryPushAlert) {
@@ -691,14 +692,14 @@ struct UserRecipeDetailView: View {
                                                     .scaledFont(9, weight: .semibold)
                                                 Image(systemName: "arrow.left.arrow.right.circle").scaledFont(9)
                                             }
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                             .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
                                         }.buttonStyle(.plain)
                                             .a11yButton("Choose or add a substitution for \(ing.name)")
                                     }
                                     if let brand = ing.brand {
-                                        Text(brand).scaledFont(11).foregroundStyle(Color.stockedGold).padding(.leading, 16)
+                                        Text(brand).scaledFont(11).foregroundStyle(Color.stockedAccentInk).padding(.leading, 16)
                                     }
                                 }
                             }
@@ -737,7 +738,7 @@ struct UserRecipeDetailView: View {
                                             Text(aiFixing ? "Fixing…" : "Fix with AI")
                                                 .scaledFont(12, weight: .semibold)
                                         }
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                         .padding(.horizontal, 9).padding(.vertical, 4)
                                         .background(Color.stockedGold.opacity(0.12))
                                         .clipShape(Capsule())
@@ -776,7 +777,7 @@ struct UserRecipeDetailView: View {
                                 showNotesEdit.toggle()
                             }
                             .scaledFont(13, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .buttonStyle(.plain)
                         }
                         if showNotesEdit {
@@ -882,7 +883,7 @@ struct UserRecipeDetailView: View {
 
     private func metaBadge(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).scaledFont(11).foregroundStyle(Color.stockedGold)
+            Image(systemName: icon).scaledFont(11).foregroundStyle(Color.stockedAccentInk)
             Text(text).scaledFont(12).foregroundStyle(session.themeSecondaryText)
         }
     }
@@ -931,13 +932,13 @@ struct RecipeSubstitutionsSection: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.left.arrow.right")
-                            .scaledFont(13).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                         Text("Substitutions")
                             .scaledFont(16, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("\(entries.count)")
                             .scaledFont(11, weight: .bold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Color.stockedGold.opacity(0.14))
                             .clipShape(Capsule())
@@ -960,13 +961,13 @@ struct RecipeSubstitutionsSection: View {
                                         .frame(width: 5, height: 5)
                                     Text(item.entry.displayName)
                                         .scaledFont(13, weight: .bold, design: .serif)
-                                        .foregroundStyle(isHighlighted ? Color.stockedGold : session.themeTextColor)
+                                        .foregroundStyle(isHighlighted ? Color.stockedAccentInk : session.themeTextColor)
                                 }
                                 ForEach(item.entry.substitutions) { sub in
                                     HStack(alignment: .top, spacing: 10) {
                                         Text("→")
                                             .scaledFont(12)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .frame(width: 14)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(sub.substitute)
@@ -1033,7 +1034,7 @@ struct RecipeKitchenTipsSection: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "lightbulb.fill")
-                        .scaledFont(13).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                     Text("Kitchen Tips")
                         .scaledFont(16, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)

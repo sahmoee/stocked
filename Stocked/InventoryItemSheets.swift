@@ -96,7 +96,7 @@ struct EditItemSheet: View {
                             Button { commitName() } label: {
                                 Image(systemName: "checkmark.circle.fill")
                                     .scaledFont(22)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }.buttonStyle(.plain)
                             .a11yButton("Save name")
                         }
@@ -111,7 +111,7 @@ struct EditItemSheet: View {
                             } label: {
                                 Image(systemName: "square.and.pencil")
                                     .scaledFont(16, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }.buttonStyle(.plain)
                             .a11yButton("Edit name", hint: "Rename this item")
                         }
@@ -193,7 +193,7 @@ struct EditItemSheet: View {
                             Spacer()
                             Text("\(Int(level*100))%")
                                 .scaledFont(12, weight: .bold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                         }
                         Slider(value: $level, in: 0...1.0, step: 0.05).tint(session.inventoryGold)
                             .accessibilityLabel("Fill level")
@@ -209,12 +209,12 @@ struct EditItemSheet: View {
                             Spacer()
                             Text(par > 0 ? "\(par) in stock" : "Off")
                                 .scaledFont(12, weight: .bold)
-                                .foregroundStyle(par > 0 ? Color.stockedGold : session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(par > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.4))
                         }
                         HStack(spacing: 16) {
                             Button { if par > 0 { motion.animate(.selection, intent: .spatial) { par -= 1 } } } label: {
                                 Image(systemName: "minus.circle.fill").scaledFont(26)
-                                    .foregroundStyle(par > 0 ? Color.stockedGold : session.themeTextColor.opacity(0.25))
+                                    .foregroundStyle(par > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.25))
                             }.buttonStyle(.plain).disabled(par == 0)
                             Text(par > 0 ? "\(par)" : "—")
                                 .scaledFont(18, weight: .bold)
@@ -222,7 +222,7 @@ struct EditItemSheet: View {
                                 .frame(minWidth: 28)
                             Button { motion.animate(.selection, intent: .spatial) { par += 1 } } label: {
                                 Image(systemName: "plus.circle.fill").scaledFont(26)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }.buttonStyle(.plain)
                             Spacer()
                             Text(par > 0 ? "Auto-added to your list when you drop below \(par)." : "Set a minimum to auto-reorder this item.")
@@ -749,9 +749,9 @@ struct AddItemSheet: View {
                 if showNameError {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.circle.fill")
-                            .scaledFont(11).foregroundStyle(Color.stockedGold)
+                            .scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                         Text("Give the item a name to continue")
-                            .scaledFont(12).foregroundStyle(Color.stockedGold)
+                            .scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
                     .accessibilityElement(children: .combine)
@@ -795,7 +795,7 @@ struct AddItemSheet: View {
                     }.buttonStyle(.plain)
                     Text("\(quantity)")
                         .scaledFont(22, weight: .bold, design: .serif)
-                        .foregroundStyle(Color.stockedGold).frame(minWidth: 50)
+                        .foregroundStyle(Color.stockedAccentInk).frame(minWidth: 50)
                     Button { motion.animate(.selection, intent: .spatial) { quantity += 1 } } label: {
                         Image(systemName: "plus")
                             .scaledFont(16, weight: .semibold)
@@ -874,7 +874,7 @@ struct AddItemSheet: View {
                             Image(systemName: "minus.circle").scaledFont(18).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }.buttonStyle(.plain)
                         Text("\(Int(totalUnits))")
-                            .scaledFont(18, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold).frame(minWidth: 34)
+                            .scaledFont(18, weight: .bold, design: .serif).foregroundStyle(Color.stockedAccentInk).frame(minWidth: 34)
                         Button { totalUnits += 1 } label: {
                             Image(systemName: "plus.circle").scaledFont(18).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }.buttonStyle(.plain)
@@ -1106,7 +1106,7 @@ struct AddItemSheet: View {
     // MARK: - Shared components
     private var summaryRow: some View {
         HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGold)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedAccentInk)
             VStack(alignment: .leading, spacing: 1) {
                 Text(itemName.isEmpty ? "Item" : itemName)
                     .scaledFont(14, weight: .semibold, design: .serif)
@@ -1342,7 +1342,7 @@ struct IngredientBrowserSheet: View {
             Spacer()
             if recentlyAdded.contains(entry.name) {
                 Label("Added!", systemImage: "checkmark.circle.fill")
-                    .scaledFont(11, weight: .bold).foregroundStyle(Color.stockedGreen)
+                    .scaledFont(11, weight: .bold).foregroundStyle(Color.stockedSuccessInk)
             } else {
                 Button {
                     detailEntry = entry; detailQty = 1
@@ -1412,7 +1412,7 @@ struct ExpiryDateRow: View {
                     } label: {
                         Text(m.rawValue)
                             .scaledFont(13, weight: .semibold)
-                            .foregroundStyle(mode == m ? Color.stockedCharcoal : Color.stockedCharcoal.opacity(0.5))
+                            .foregroundStyle(mode == m ? Color.stockedWhite : session.themeSecondaryText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(mode == m ? Color.stockedGold : Color.clear)
@@ -1427,7 +1427,7 @@ struct ExpiryDateRow: View {
             HStack(spacing: 12) {
                 Image(systemName: "calendar")
                     .scaledFont(15)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .frame(width: 22)
                 Text(mode.rawValue)
                     .scaledFont(14)
@@ -1524,7 +1524,7 @@ struct ItemDetailPopup: View {
                         // ── LIVE PREVIEW ──────────────────────────────────────
                         HStack {
                             Image(systemName: "eye")
-                                .scaledFont(11).foregroundStyle(Color.stockedGold)
+                                .scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                             Text(previewText)
                                 .scaledFont(13, design: .serif)
                                 .foregroundStyle(session.themeSecondaryText)
@@ -1590,7 +1590,7 @@ struct ItemDetailPopup: View {
 
                     Text("\(qty)")
                         .scaledFont(22, weight: .bold, design: .serif)
-                        .foregroundStyle(Color.stockedGold).frame(minWidth: 40)
+                        .foregroundStyle(Color.stockedAccentInk).frame(minWidth: 40)
 
                     Button {
                         motion.animate(.selection, intent: .spatial) { qty += 1 }
@@ -1637,7 +1637,7 @@ struct ItemDetailPopup: View {
                         .foregroundStyle(session.themeSecondaryText)
                     Text("optional")
                         .scaledFont(10)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     Spacer()
                     Image(systemName: showSizeDetails ? "chevron.up" : "chevron.down")
                         .scaledFont(11)
@@ -1778,7 +1778,7 @@ struct IngredientPairingsSheet: View {
                                 HStack(spacing: 14) {
                                     Image(systemName: pair.inStock ? "checkmark.circle.fill" : "circle.dashed")
                                         .scaledFont(20)
-                                        .foregroundStyle(pair.inStock ? Color.stockedGold : session.themeTextColor.opacity(0.3))
+                                        .foregroundStyle(pair.inStock ? Color.stockedAccentInk : session.themeTextColor.opacity(0.3))
                                     Text(pair.name)
                                         .scaledFont(15, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
@@ -1786,7 +1786,7 @@ struct IngredientPairingsSheet: View {
                                     if pair.inStock {
                                         Text("In stock")
                                             .scaledFont(11, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                     }
                                 }
                                 .padding(14)

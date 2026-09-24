@@ -621,11 +621,11 @@ struct StockedEmptyState: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Quick tips")
                         .scaledFont(11, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.bottom, 2)
                     ForEach(tips, id: \.self) { tip in
                         HStack(alignment: .top, spacing: 8) {
-                            Text("·").foregroundStyle(Color.stockedGold)
+                            Text("·").foregroundStyle(Color.stockedAccentInk)
                             Text(tip)
                                 .scaledFont(13)
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite.opacity(0.6) : Color.stockedCharcoal.opacity(0.6))
@@ -661,7 +661,7 @@ struct CelebrationOverlay: View {
                 Text(message).stocked(.body).foregroundStyle(_dsSession.themeTextColor.opacity(0.6)).multilineTextAlignment(.center).padding(.horizontal, 32)
                 Button("Continue") { dismiss() }.padding(.horizontal, 40).stockedPrimary()
             }
-            .padding(32).background(Color.stockedBg).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
+            .padding(32).background(_dsSession.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
             .padding(.horizontal, 32).scaleEffect(scale).opacity(opacity)
         }
         .onAppear {
@@ -923,7 +923,7 @@ extension View {
                     )
                 }
                 .scaledFont(15, weight: .semibold)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
             }
         }
     }

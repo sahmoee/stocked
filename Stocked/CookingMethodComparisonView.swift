@@ -96,7 +96,7 @@ struct CookingMethodComparisonView: View {
                                 Text(eq.rawValue).scaledFont(12, weight: .semibold).fixedSize(horizontal: false, vertical: true)
                                 Image(systemName: avail.isUsable ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .scaledFont(10)
-                                    .foregroundStyle(avail.isUsable ? Color.stockedGreen : Color.stockedError.opacity(0.8))
+                                    .foregroundStyle(avail.isUsable ? Color.stockedSuccessInk : Color.stockedError.opacity(0.8))
                             }
                             .foregroundStyle(session.themeTextColor)
                             .padding(.horizontal, 10).padding(.vertical, 7)
@@ -138,7 +138,7 @@ struct CookingMethodComparisonView: View {
                 if method.isCombined {
                     Text("2-step")
                         .scaledFont(9.5, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
                 }
@@ -160,7 +160,7 @@ struct CookingMethodComparisonView: View {
                 let blocking = method.blockingEquipment(usable: usable).map { $0.rawValue }.joined(separator: ", ")
                 Label(blocking.isEmpty ? "Equipment not available" : "Needs: \(blocking)", systemImage: "exclamationmark.triangle.fill")
                     .scaledFont(11.5, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
             }
 
             if isOpen {
@@ -180,7 +180,7 @@ struct CookingMethodComparisonView: View {
                 } label: {
                     Text(isOpen ? "Less" : "Details")
                 }
-                .stockedSecondary(accent: session.themeButtonColor)
+                .stockedSecondary(accent: session.themeTextColor)
 
                 Button { choose(method) } label: {
                     Text(available ? "Use This Method" : "Use Anyway")

@@ -180,7 +180,7 @@ struct BarcodeScannerView: View {
                     Spacer()
                     Button("Done") { activeSheet = .bulkSummary }
                         .scaledFont(14, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .padding(.horizontal, 20).padding(.vertical, 14)
                 .background(Color.stockedCharcoal)
@@ -224,7 +224,7 @@ struct BarcodeScannerView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 18).fill(Color.stockedCharcoal).frame(height: 200)
                 VStack(spacing: 14) {
-                    Image(systemName: "camera.fill").scaledFont(44).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "camera.fill").scaledFont(44).foregroundStyle(Color.stockedAccentInk)
                     Text("Camera Access Needed")
                         .scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                     Text("To scan barcodes, allow camera access.")
@@ -269,7 +269,7 @@ struct BarcodeScannerView: View {
                 }
             } label: {
                 Text("Open Settings")
-                    .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
+                    .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
             }
         }
     }
@@ -279,7 +279,7 @@ struct BarcodeScannerView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 18).fill(Color.stockedCharcoal).frame(height: 200)
             VStack(spacing: 12) {
-                Image(systemName: "barcode.viewfinder").scaledFont(46).foregroundStyle(Color.stockedGold)
+                Image(systemName: "barcode.viewfinder").scaledFont(46).foregroundStyle(Color.stockedAccentInk)
                 Text("Camera unavailable").scaledFont(14, design: .serif).foregroundStyle(Color.stockedWhite.opacity(0.7))
             }
         }
@@ -542,7 +542,7 @@ struct BarcodeConfirmSheet: View {
                     VStack(spacing: 6) {
                         if !p.brand.isEmpty {
                             HStack(spacing: 6) {
-                                Image(systemName: "building.2").scaledFont(11).foregroundStyle(Color.stockedGold)
+                                Image(systemName: "building.2").scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                                 Text(p.brand).scaledFont(12, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                                 Spacer()
                                 if let qty = p.quantity {
@@ -638,7 +638,7 @@ struct BarcodeConfirmSheet: View {
                     HStack {
                         Text("Starting Amount").scaledFont(11, weight: .semibold).foregroundStyle(session.themeSecondaryText)
                         Spacer()
-                        Text("\(Int(level*100))%").scaledFont(11, weight: .bold).foregroundStyle(Color.stockedGold)
+                        Text("\(Int(level*100))%").scaledFont(11, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                     }
                     Slider(value: $level, in: 0.1...1.0, step: 0.1).tint(Color.stockedCharcoal)
                 }.padding(.horizontal, 24).padding(.bottom, 14)
@@ -651,7 +651,7 @@ struct BarcodeConfirmSheet: View {
                         Spacer()
                         Stepper("", value: $scanQuantity, in: 1...999).labelsHidden()
                         Text("\(scanQuantity)\(scanContainer.isEmpty ? "" : " \(scanContainer)")")
-                            .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                     }
                     NaturalQuantityField(placeholder: "e.g. 6 cans of 8 oz") { parsed in
                         scanQuantity = max(1, Int(parsed.count.rounded()))
@@ -681,7 +681,7 @@ struct BarcodeConfirmSheet: View {
                             Text("Already have \(existing.quantity) — mark 1 used")
                         }
                         .scaledFont(13, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -699,7 +699,7 @@ struct BarcodeConfirmSheet: View {
                              : "Expires \(Self.shortDate.string(from: scannedExpiry!))")
                     }
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(scannedExpiry == nil ? session.themeTextColor.opacity(0.6) : Color.stockedGold)
+                    .foregroundStyle(scannedExpiry == nil ? session.themeTextColor.opacity(0.6) : Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 24).padding(.bottom, 16)
@@ -779,14 +779,14 @@ struct BulkScanSummaryView: View {
                             HStack(spacing: 12) {
                                 Text("\(i + 1)")
                                     .scaledFont(12, weight: .bold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                                     .frame(width: 24)
                                 Text(name)
                                     .scaledFont(15, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }
                             .listRowBackground(Color.clear)
                         }
@@ -812,7 +812,7 @@ struct BulkScanSummaryView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { onDone(); dismiss() }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }

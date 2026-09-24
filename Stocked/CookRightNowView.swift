@@ -142,7 +142,7 @@ struct CookRightNowView: View {
                     if !expiringUsed.isEmpty {
                         HStack(spacing: 5) {
                             Image(systemName: "leaf.fill").scaledFont(10, weight: .bold)
-                                .foregroundStyle(Color.stockedGreen)
+                                .foregroundStyle(Color.stockedSuccessInk)
                             Text("Uses \(expiringUsed.prefix(3).joined(separator: ", "))")
                                 .scaledFont(12, weight: .semibold)
                                 .foregroundStyle(.white.opacity(0.92))
@@ -158,7 +158,7 @@ struct CookRightNowView: View {
                         Spacer()
                         Text("Cook")
                             .scaledFont(12.5, weight: .bold)
-                            .foregroundStyle(Color.stockedCharcoal)
+                            .foregroundStyle(Color.stockedWhite)
                             .padding(.horizontal, 14).padding(.vertical, 6)
                             .background(Color.stockedGold).clipShape(Capsule())
                             .onTapGesture { openRecipe = recipe; goRecipe = true }

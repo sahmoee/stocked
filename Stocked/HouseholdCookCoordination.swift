@@ -146,7 +146,7 @@ struct HouseholdCookingCard: View {
                             : AnyLayout(HStackLayout())) {
                 Label("Cooking together", systemImage: "person.2.fill")
                     .scaledFont(12, weight: .bold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                 if !stacksControls { Spacer() }
                 Text(presence.status == .paused ? "Paused" : presence.progressLabel)
                     .scaledFont(11)
@@ -174,7 +174,7 @@ struct HouseholdCookingCard: View {
                         if !stacksControls { Spacer() }
                         if let claimant { Text(claimant).scaledFont(11) }
                     }
-                    .foregroundStyle(claimant == nil ? session.themeTextColor : Color.stockedGold)
+                    .foregroundStyle(claimant == nil ? session.themeTextColor : Color.stockedAccentInk)
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
                 }

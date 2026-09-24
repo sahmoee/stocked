@@ -186,7 +186,7 @@ struct CookHeroCard: View {
                 if let emoji { Text(emoji).scaledFont(26) }
                 else {
                     Image(systemName: icon).scaledFont(22, weight: .semibold)
-                        .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedGold)
+                        .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedAccentInk)
                 }
             }
             VStack(alignment: .leading, spacing: 4) {
@@ -292,7 +292,7 @@ struct CookActionCard: View {
                 if let emoji { Text(emoji).scaledFont(22) }
                 else {
                     Image(systemName: icon).scaledFont(19, weight: .semibold)
-                        .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedGold)
+                        .foregroundStyle(textOnDark ? Color.stockedWhite : Color.stockedAccentInk)
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
@@ -395,7 +395,7 @@ struct CookIllustratedRow: View {
                     Circle().fill(Color.stockedGold).frame(width: 7, height: 7)
                     Text("In pantry")
                         .scaledFont(10, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             } else if showCartGlyph {
                 Image(systemName: "cart.badge.plus")
@@ -432,7 +432,7 @@ struct CookIllustratedRow: View {
                 } else {
                     Image(systemName: fallbackIcon)
                         .font(.stockedSystem(size: artSize * 0.30, weight: .semibold))
-                        .foregroundStyle(onDark ? Color.stockedWhite : Color.stockedGold)
+                        .foregroundStyle(onDark ? Color.stockedWhite : Color.stockedAccentInk)
                 }
             }
             .frame(width: artSize, height: artSize)
@@ -535,7 +535,7 @@ struct CookCategoryCard: View {
                 if let emoji { Text(emoji).scaledFont(20) }
                 else {
                     Image(systemName: icon).scaledFont(18, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -630,7 +630,7 @@ struct CookRecipeCard: View {
                         .overlay {
                             Image(systemName: "fork.knife")
                                 .scaledFont(24, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                         }
                         .overlay {
                             RoundedRectangle(cornerRadius: 14)
@@ -650,7 +650,7 @@ struct CookRecipeCard: View {
                 Spacer()
                 if let matchPercent {
                     Text("\(matchPercent)%").scaledFont(13, weight: .bold)
-                        .foregroundStyle(Color.stockedGreen)
+                        .foregroundStyle(Color.stockedSuccessInk)
                 }
             }
             .padding(.vertical, 12).padding(.horizontal, 14)
@@ -677,7 +677,7 @@ struct CookPlannerCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     if !mealType.isEmpty {
                         Text(mealType.uppercased()).scaledFont(10, weight: .bold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }
                     Text(title).scaledFont(15.5, weight: .semibold)
                         .foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
@@ -688,7 +688,7 @@ struct CookPlannerCard: View {
                 Spacer()
                 if isCooked {
                     Image(systemName: "checkmark.circle.fill").scaledFont(18)
-                        .foregroundStyle(Color.stockedGreen)
+                        .foregroundStyle(Color.stockedSuccessInk)
                 } else {
                     Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
                         .foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -715,7 +715,7 @@ struct CookPrepTaskCard: View {
             HStack(spacing: 12) {
                 Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
                     .scaledFont(20)
-                    .foregroundStyle(isDone ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(isDone ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
                 Text(title).scaledFont(15)
                     .foregroundStyle(session.themeTextColor)
                     .strikethrough(isDone, color: session.themeTextColor.opacity(0.4))

@@ -66,7 +66,7 @@ struct BeforeYouStartView: View {
             if let method {
                 Text("\(method.name) · \(anchor.displayNormalized)")
                     .scaledFont(13.5, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
             }
             Text("Get everything ready before any heat. Check items off as you go.")
                 .scaledFont(13)
@@ -104,7 +104,7 @@ struct BeforeYouStartView: View {
                     .foregroundStyle(session.themeTextColor)
                 Text(owned ? avail.label : "Not in your equipment list")
                     .scaledFont(11)
-                    .foregroundStyle(avail.isUsable && owned ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(avail.isUsable && owned ? Color.stockedSuccessInk : Color.stockedAccentInk)
             }
             Spacer()
             Menu {
@@ -120,7 +120,7 @@ struct BeforeYouStartView: View {
                 Image(systemName: avail.isUsable && owned ? "checkmark.circle.fill" : "exclamationmark.circle")
                     .scaledFont(18)
                     .frame(minWidth: 44, minHeight: 44)
-                    .foregroundStyle(avail.isUsable && owned ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(avail.isUsable && owned ? Color.stockedSuccessInk : Color.stockedAccentInk)
             }
         }
         .padding(12)
@@ -163,7 +163,7 @@ struct BeforeYouStartView: View {
             HStack(spacing: 10) {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .scaledFont(17)
-                    .foregroundStyle(done ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(done ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
                 Text(name.displayNormalized)
                     .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
@@ -174,14 +174,14 @@ struct BeforeYouStartView: View {
                         .scaledFont(10.5)
                         .foregroundStyle(session.themeSecondaryText)
                     if match.isExpiringSoonOrExpired {
-                        Image(systemName: "clock.fill").scaledFont(9).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "clock.fill").scaledFont(9).foregroundStyle(Color.stockedAccentInk)
                     }
                 } else {
                     let subs = store.inStockSubstitutes(for: name)
                     if let sub = subs.first {
                         Text("sub: \(sub.displayNormalized)")
                             .scaledFont(10.5, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     } else {
                         Text("not logged")
                             .scaledFont(10.5)
@@ -234,7 +234,7 @@ struct BeforeYouStartView: View {
             HStack(spacing: 10) {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .scaledFont(17)
-                    .foregroundStyle(done ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(done ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
                 Text(task)
                     .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor)
@@ -265,7 +265,7 @@ struct BeforeYouStartView: View {
                 bodyText("None of these are required — the entrée alone is a complete cook.")
                 ForEach(optionalDecisions, id: \.self) { d in
                     HStack(spacing: 8) {
-                        Image(systemName: "circle.dotted").scaledFont(13).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "circle.dotted").scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                         Text(d).scaledFont(12.5).foregroundStyle(session.themeSecondaryText)
                         Spacer(minLength: 0)
                     }
@@ -324,7 +324,7 @@ struct BeforeYouStartView: View {
     private func sectionCard<Content: View>(title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: icon).scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
+                Image(systemName: icon).scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 Text(title).scaledFont(15, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
             }
             content()

@@ -299,7 +299,7 @@ struct HomeView: View {
                 .foregroundStyle(session.themeTextColor)
             Text(stockLabel)
                 .font(.stockedSystem(size: isWideHomeCanvas ? 14 : 11, weight: .semibold))
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -347,7 +347,7 @@ struct HomeView: View {
                 Spacer()
                 Button("Edit widgets") { enterEditMode() }
                     .font(.stockedSystem(size: usesReferencePhoneGeometry ? 9 : 15, weight: .semibold))
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
             }
             .frame(minHeight: usesReferencePhoneGeometry ? 20 : nil)
             .padding(.bottom, usesReferencePhoneGeometry ? 6 : 10)
@@ -465,7 +465,7 @@ struct HomeView: View {
                     )
                     .overlay(Image(systemName: "chevron.right")
                         .font(.stockedSystem(size: usesReferencePhoneGeometry ? 11 : 15, weight: .semibold))
-                        .foregroundStyle(Color.stockedGold))
+                        .foregroundStyle(Color.stockedAccentInk))
             }
             .foregroundStyle(Color.stockedWhite)
             .padding(.horizontal, usesReferencePhoneGeometry ? 14 : layoutMetrics.homeWidgetContentPadding)
@@ -529,10 +529,10 @@ struct HomeView: View {
                 Spacer()
                 Button("View All") { goExpiringList = true }
                     .font(.stockedSystem(size: usesReferencePhoneGeometry ? 11 : 15, weight: .semibold))
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                 Image(systemName: "chevron.right")
                     .font(.stockedSystem(size: usesReferencePhoneGeometry ? 9 : 12, weight: .bold))
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
             }
             .frame(height: usesReferencePhoneGeometry ? 20 : nil)
             Button { goExpiringList = true } label: {
@@ -568,7 +568,7 @@ struct HomeView: View {
                     if expiringCount == 0 {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.stockedSystem(size: usesReferencePhoneGeometry ? 15 : 21, weight: .semibold))
-                            .foregroundStyle(Color.stockedGreen)
+                            .foregroundStyle(Color.stockedSuccessInk)
                             .frame(
                                 width: adaptiveWidgetSquareSide(usesReferencePhoneGeometry ? 24 : 30),
                                 height: adaptiveWidgetSquareSide(usesReferencePhoneGeometry ? 24 : 30)
@@ -603,11 +603,11 @@ struct HomeView: View {
                 HStack {
                     Text("Kitchen Snapshot")
                         .font(.stockedSystem(size: usesReferencePhoneGeometry ? 11 : 17, weight: .semibold))
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.stockedSystem(size: usesReferencePhoneGeometry ? 10 : 15, weight: .semibold))
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 HStack(spacing: usesReferencePhoneGeometry ? 6 : 12) {
                     if usesReferencePhoneGeometry {
@@ -648,7 +648,7 @@ struct HomeView: View {
                     .frame(width: iconSide, height: iconSide)
                     .overlay(Image(systemName: icon)
                         .font(.stockedSystem(size: usesReferencePhoneGeometry ? 13 : 17))
-                        .foregroundStyle(Color.stockedGold))
+                        .foregroundStyle(Color.stockedAccentInk))
                 fittedWidgetValue(value, preferredSize: usesReferencePhoneGeometry ? 19 : 28)
                     .foregroundStyle(Color.stockedWhite)
             }
@@ -660,7 +660,7 @@ struct HomeView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(status)
                 .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8.5 : 12, weight: .semibold))
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
                 .fixedSize(horizontal: false, vertical: true)
 
                 .fixedSize(horizontal: false, vertical: true)
@@ -1214,7 +1214,7 @@ struct HomeView: View {
             HStack(spacing: 10) {
                 Image(systemName: "plus.circle.fill")
                     .scaledFont(20, weight: .semibold)
-                    .foregroundStyle(removedWidgets.isEmpty ? session.themeTextColor.opacity(0.3) : Color.stockedGold)
+                    .foregroundStyle(removedWidgets.isEmpty ? session.themeTextColor.opacity(0.3) : Color.stockedAccentInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(removedWidgets.isEmpty ? "All widgets added" : "Add widgets")
                         .scaledFont(15, weight: .bold, design: .serif)
@@ -1247,7 +1247,7 @@ struct HomeView: View {
             HStack(spacing: 10) {
                 Image(systemName: "sparkles")
                     .scaledFont(18, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                 Text("Let's stock your kitchen")
                     .scaledFont(18, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
@@ -1385,7 +1385,7 @@ struct HomeView: View {
                                             if smartWidgetSuggestions && recommendedWidgets.contains(widget) {
                                                 Text("Suggested")
                                                     .scaledFont(10, weight: .bold)
-                                                    .foregroundStyle(Color.stockedGold)
+                                                    .foregroundStyle(Color.stockedAccentInk)
                                             }
                                         }
                                         Text(widget.blurb)
@@ -1408,7 +1408,7 @@ struct HomeView: View {
                                     Spacer()
                                     Image(systemName: "plus.circle.fill")
                                         .scaledFont(22)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                 }
                                 .padding(16)
                                 .stockedPastelCard(radius: StockedUI.cornerRadiusLg)
@@ -1425,7 +1425,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { activeHomeSheet = nil }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -1739,14 +1739,14 @@ struct HomeView: View {
                         NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
                     }
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .buttonStyle(.plain)
                 }
             } else {
                 VStack(spacing: 8) {
                     ForEach(picks, id: \.id) { r in
                         HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill").scaledFont(13).foregroundStyle(Color.stockedGreen)
+                            Image(systemName: "checkmark.circle.fill").scaledFont(13).foregroundStyle(Color.stockedSuccessInk)
                             Text(r.title).scaledFont(14, weight: .medium).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                             Spacer()
                             Image(systemName: "chevron.right").scaledFont(11, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -1773,7 +1773,7 @@ struct HomeView: View {
                 Button("Add your first grocery item") {
                     NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.grocery)
                 }
-                .scaledFont(13.5, weight: .semibold).foregroundStyle(Color.stockedGold).buttonStyle(.plain)
+                .scaledFont(13.5, weight: .semibold).foregroundStyle(Color.stockedAccentInk).buttonStyle(.plain)
             } else {
                 ForEach(items, id: \.id) { item in
                     Button {
@@ -1783,7 +1783,7 @@ struct HomeView: View {
                         }
                     } label: {
                         HStack(spacing: 9) {
-                            Image(systemName: "square").scaledFont(16).foregroundStyle(Color.stockedGold)
+                            Image(systemName: "square").scaledFont(16).foregroundStyle(Color.stockedAccentInk)
                             Text(item.name.displayNormalized).scaledFont(13.5, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
                                 .stockedAdaptiveLabel(maxLines: 2, alignment: .leading)
@@ -1973,11 +1973,11 @@ struct HomeView: View {
                     Image(systemName: icon)
                         .scaledFont(15)
                         .symbolRenderingMode(.palette)
-                        .foregroundStyle(Color.stockedGold, Color.stockedError)
+                        .foregroundStyle(Color.stockedAccentInk, Color.stockedError)
                 } else {
                     Image(systemName: icon)
                         .scaledFont(15)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
             VStack(alignment: .leading, spacing: 1) {
@@ -2086,7 +2086,7 @@ struct HomeView: View {
                         NotificationCenter.default.post(name: .stockedQuickAction, object: DrawerQuickAction.addItems)
                     }
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .buttonStyle(.plain)
                 }
             } else {
@@ -2149,14 +2149,14 @@ struct HomeView: View {
                     goExpiringList = true
                 } label: {
                     Text("View All").scaledFont(12.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }.buttonStyle(.plain)
             }
             let items = store.urgentItems.prefix(3)
             if items.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle").scaledFont(13)
-                        .foregroundStyle(Color.stockedGreen)
+                        .foregroundStyle(Color.stockedSuccessInk)
                     Text("Nothing expiring soon — you're in good shape")
                         .scaledFont(13.5)
                         .foregroundStyle(session.themeSecondaryText)

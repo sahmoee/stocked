@@ -44,7 +44,7 @@ struct DietaryProfileView: View {
                         HStack(alignment: .center, spacing: 12) {
                             Image(systemName: "tag.fill")
                                 .scaledFont(18, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                                 .frame(width: 34, height: 34)
                                 .background(Color.stockedGold.opacity(0.12), in: Circle())
                             VStack(alignment: .leading, spacing: 3) {
@@ -114,7 +114,7 @@ struct DietaryProfileView: View {
                                 customAllergen = ""
                             } label: {
                                 Image(systemName: "plus.circle.fill")
-                                    .scaledFont(24).foregroundStyle(Color.stockedGold)
+                                    .scaledFont(24).foregroundStyle(Color.stockedAccentInk)
                             }
                             .buttonStyle(.plain)
                             .a11yButton("Add allergen")
@@ -206,7 +206,7 @@ struct BrandPreferencesEditorView: View {
                     if profile.isPrivateLabel {
                         Text("STORE BRAND")
                             .scaledFont(8.5, weight: .bold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

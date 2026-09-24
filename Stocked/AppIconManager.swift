@@ -133,7 +133,7 @@ struct AppIconPickerView: View {
                     if selected == key {
                         Image(systemName: "checkmark.circle.fill")
                             .scaledFont(18)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .background(Circle().fill(Color.white).frame(width: 16, height: 16))
                             .offset(x: 4, y: 4)
                     }

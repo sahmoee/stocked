@@ -60,7 +60,7 @@ struct CookAheadStatusView: View {
                 Text(meal.cookAheadStatus.label)
                     .scaledFont(13, weight: .semibold)
             }
-            .foregroundStyle(Color.stockedGold)
+            .foregroundStyle(Color.stockedAccentInk)
             Text("Still planned for \(dayLabel(meal.dayIndex)) · \(meal.mealType). Cooking early only changes the cook time.")
                 .scaledFont(12.5)
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
@@ -104,7 +104,7 @@ struct CookAheadStatusView: View {
                         .foregroundStyle(session.themeTextColor)
                     ForEach(tips, id: \.self) { tip in
                         HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "checkmark.circle").scaledFont(12).foregroundStyle(Color.stockedGold).padding(.top, 1)
+                            Image(systemName: "checkmark.circle").scaledFont(12).foregroundStyle(Color.stockedAccentInk).padding(.top, 1)
                             Text(tip).scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                             Spacer(minLength: 0)
@@ -161,7 +161,7 @@ struct CookAheadStatusView: View {
             } else {
                 Text("Served — enjoy!")
                     .scaledFont(14, weight: .semibold)
-                    .foregroundStyle(Color.stockedGreen)
+                    .foregroundStyle(Color.stockedSuccessInk)
                     .frame(maxWidth: .infinity)
             }
         }
@@ -233,7 +233,7 @@ struct FinishAndServeView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10).fill(Color.stockedGold.opacity(0.14)).frame(width: 42, height: 42)
-                    Image(systemName: meal.cookAheadStatus.icon).scaledFont(17, weight: .semibold).foregroundStyle(Color.stockedGold)
+                    Image(systemName: meal.cookAheadStatus.icon).scaledFont(17, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(meal.title)

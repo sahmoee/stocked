@@ -43,7 +43,7 @@ struct KitchenStatsView: View {
                             HStack {
                                 Text(r.title).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.8))
                                 Spacer()
-                                Text("\(r.count)×").scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
+                                Text("\(r.count)×").scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                             }
                             .padding(.vertical, 4)
                         }

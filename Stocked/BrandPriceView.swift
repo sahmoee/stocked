@@ -33,7 +33,7 @@ struct BrandPriceView: View {
                     if let price = p.price, !price.isEmpty {
                         Text(price)
                             .font(.stockedSystem(size: compact ? 11 : 12.5, weight: .bold))
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .padding(.horizontal, 7).padding(.vertical, 2)
                             .background(
                                 Capsule().fill(Color.stockedGold.opacity(0.14))

@@ -25,7 +25,7 @@ struct IngredientFormRow: View {
                         }
                     }
                     if let brand = ingredient.brand {
-                        Text(brand).scaledFont(11).foregroundStyle(Color.stockedGold)
+                        Text(brand).scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                     }
                 }
                 Spacer()
@@ -163,7 +163,7 @@ struct IngredientPickerSheet: View {
                                     HStack(spacing: 6) {
                                         Image(systemName: "chevron.left").scaledFont(13)
                                         Text(selectedCat ?? "").scaledFont(14, weight: .semibold)
-                                    }.foregroundStyle(Color.stockedGold)
+                                    }.foregroundStyle(Color.stockedAccentInk)
                                 }.buttonStyle(.plain)
                                 Spacer()
                             }.padding(.horizontal, 20).padding(.bottom, 8)
@@ -184,11 +184,11 @@ struct IngredientPickerSheet: View {
                                                 let brands = BrandDatabase.allBrandNames(for: entry.name)
                                                 if !brands.isEmpty {
                                                     Text(brands.prefix(3).joined(separator: ", "))
-                                                        .scaledFont(10).foregroundStyle(Color.stockedGold)
+                                                        .scaledFont(10).foregroundStyle(Color.stockedAccentInk)
                                                 }
                                             }
                                             Spacer()
-                                            Image(systemName: "plus.circle.fill").scaledFont(20).foregroundStyle(Color.stockedGold)
+                                            Image(systemName: "plus.circle.fill").scaledFont(20).foregroundStyle(Color.stockedAccentInk)
                                         }
                                         .padding(.horizontal, 20).padding(.vertical, 12)
                                         .background(Color.clear).contentShape(Rectangle())
@@ -204,7 +204,7 @@ struct IngredientPickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }

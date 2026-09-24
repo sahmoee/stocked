@@ -147,7 +147,7 @@ struct InventorySpatialView: View {
                                 .frame(width: 52, height: 52)
                             Text("+\(realItems.count - 8)")
                                 .scaledFont(14, weight: .bold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                         }
                         Text("more").scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.4))
                     }

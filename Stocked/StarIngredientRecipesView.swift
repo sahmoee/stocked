@@ -75,7 +75,7 @@ struct StarIngredientRecipesView: View {
                             Image(systemName: "arrow.clockwise").scaledFont(11, weight: .bold)
                             Text("Refresh").scaledFont(12, weight: .semibold)
                         }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Capsule())

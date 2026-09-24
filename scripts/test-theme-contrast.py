@@ -129,6 +129,18 @@ class ContrastChecks(unittest.TestCase):
                     with self.subTest(fill=fill, dark=dark, role=role):
                         self.assertGreaterEqual(contrast(tokens[role], background), 4.5)
 
+    def test_adaptive_legacy_ink_on_dark_cards(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        tokens, _, dark_surfaces = source_palette()
+        for name in ("stockedAccentInk", "stockedSuccessInk"):
+            body = source.split("static let " + name + " =", 1)[1].split("})", 1)[0]
+            match = re.search(r"UIColor\(red: ([\d.]+), green: ([\d.]+), blue: ([\d.]+), alpha: 1\)", body)
+            ink = rgb(match)
+            for surface, background in dark_surfaces.items():
+                with self.subTest(ink=name, surface=surface):
+                    self.assertGreaterEqual(contrast(ink, background), 4.5)
+        self.assertGreaterEqual(contrast(tokens["stockedWhite"], tokens["stockedGold"]), 4.5)
+
     def test_reference_values_and_threshold(self):
         self.assertAlmostEqual(contrast((0, 0, 0), (1, 1, 1)), 21)
         self.assertEqual(contrast((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)), 1)

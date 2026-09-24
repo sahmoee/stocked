@@ -1211,7 +1211,7 @@ struct ReconcileSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: change.wrappedValue.isConfirmed ? "checkmark.circle.fill" : "circle")
                     .scaledFont(22)
-                    .foregroundStyle(change.wrappedValue.isConfirmed ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(change.wrappedValue.isConfirmed ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(change.wrappedValue.effectText)
                         .scaledFont(15, weight: .semibold, design: .serif)

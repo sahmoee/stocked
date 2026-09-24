@@ -66,7 +66,7 @@ struct SourcesBrowserView: View {
                 Button { showManage = true } label: {
                     Label("Add or Manage Sources", systemImage: "plus.circle")
                         .scaledFont(13.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
@@ -124,7 +124,7 @@ struct SourcesBrowserView: View {
                                 .scaledFont(9, weight: .bold)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
                                 .background(Capsule().fill(Color.stockedGold.opacity(0.2)))
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                         }
                     }
                     Text(src.specialty)
@@ -136,7 +136,7 @@ struct SourcesBrowserView: View {
                 if src.recipeCount > 0 {
                     Text("\(src.recipeCount)")
                         .scaledFont(12, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 Image(systemName: "chevron.right")
                     .scaledFont(12, weight: .semibold)

@@ -163,7 +163,6 @@ struct StockedPastelHome: View {
             ZStack(alignment: .topLeading) {
                 StockedKitchenArtwork(asset: "pastel_kitchen_hero")
                     .aspectRatio(1.5, contentMode: .fit)
-                    .overlay(dark ? Color.stockedDarkBg.opacity(0.15) : Color.clear)
                     if !layout.isAccessibilityText {
                         greeting
                             .frame(maxWidth: min(300, layout.contentWidth * 0.62), alignment: .leading)
@@ -183,9 +182,9 @@ struct StockedPastelHome: View {
                 .tracking(-0.7)
             Text("A well-stocked kitchen\nmakes good days easier.")
                 .font(.stockedSans(14, relativeTo: .body))
-                .foregroundStyle(layout.isAccessibilityText ? session.themeSecondaryText : Color.secondaryLight)
+                .foregroundStyle(session.themeSecondaryText)
         }
-        .foregroundStyle(layout.isAccessibilityText ? session.themeTextColor : Color.stockedBlack)
+        .foregroundStyle(session.themeTextColor)
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityLabel("\(StockedFormatters.timeOfDayGreeting), \(session.effectiveName). A well-stocked kitchen makes good days easier.")
     }
@@ -237,7 +236,7 @@ struct StockedPastelHome: View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.stockedSystem(size: 21, weight: .medium))
-                .foregroundStyle(dark ? StockedPastel.sage : Color.stockedGreen)
+                .foregroundStyle(dark ? StockedPastel.sage : Color.stockedSuccessInk)
                 .frame(width: 39, height: 39)
                 .background(StockedPastel.garden(dark), in: Circle())
             Text("\(count)").font(.stockedSans(14, weight: .medium))

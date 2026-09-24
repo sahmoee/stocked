@@ -130,7 +130,7 @@ struct PrepChecklistView: View {
                 if tasks.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "checkmark.seal.fill")
-                            .scaledFont(38).foregroundStyle(Color.stockedGreen)
+                            .scaledFont(38).foregroundStyle(Color.stockedSuccessInk)
                         Text("No prep needed — jump straight in.")
                             .scaledFont(15, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
@@ -191,7 +191,7 @@ struct PrepChecklistView: View {
             HStack(spacing: 10) {
                 Image(systemName: isDone(t) ? "checkmark.circle.fill" : "circle")
                     .scaledFont(18)
-                    .foregroundStyle(isDone(t) ? Color.stockedGreen : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(isDone(t) ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(t.title)
                         .scaledFont(14, weight: .semibold)
@@ -207,7 +207,7 @@ struct PrepChecklistView: View {
                 if t.isGetAhead {
                     Text("Get ahead")
                         .scaledFont(10, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Capsule())

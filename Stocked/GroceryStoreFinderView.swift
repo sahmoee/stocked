@@ -262,7 +262,7 @@ struct GroceryStoreFinderView: View {
                 Spacer()
                 Button { withAnimation { showMap.toggle() } } label: {
                     Image(systemName: showMap ? "list.bullet" : "map.fill")
-                        .scaledFont(16).foregroundStyle(Color.stockedGold)
+                        .scaledFont(16).foregroundStyle(Color.stockedAccentInk)
                 }
             }
             .padding(.horizontal, 24).padding(.bottom, 12)
@@ -354,7 +354,7 @@ struct GroceryStoreFinderView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle().fill(Color.stockedCharcoal).frame(width: 42, height: 42)
-                        Image(systemName: "storefront.fill").scaledFont(16).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "storefront.fill").scaledFont(16).foregroundStyle(Color.stockedAccentInk)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(store.name).scaledFont(14, weight: .semibold, design: .serif)
@@ -368,12 +368,12 @@ struct GroceryStoreFinderView: View {
                         }
                         if store.hasLiveCatalog {
                             Label("Live price, availability, images & aisle data", systemImage: "checkmark.seal.fill")
-                                .scaledFont(9.5, weight: .semibold).foregroundStyle(Color.stockedGold)
+                                .scaledFont(9.5, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     Spacer()
-                    Text(store.distance).scaledFont(11, weight: .semibold).foregroundStyle(Color.stockedGold)
+                    Text(store.distance).scaledFont(11, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }
                 .padding(.horizontal, 24).padding(.vertical, 11)
             }
@@ -390,7 +390,7 @@ struct GroceryStoreFinderView: View {
                         Image(systemName: showAllStores ? "chevron.up" : "chevron.down")
                             .scaledFont(11, weight: .semibold)
                     }
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .padding(.horizontal, 24).padding(.vertical, 12)
                 }
                 .buttonStyle(.plain)

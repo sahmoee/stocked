@@ -27,7 +27,7 @@ struct QuickGrocerySheet: View {
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).scaledFont(15).foregroundStyle(session.themeTextColor).onSubmit { addItem() }
                     Button { addItem() } label: {
                         Image(systemName: "plus.circle.fill").scaledFont(24)
-                            .foregroundStyle(newItem.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
+                            .foregroundStyle(newItem.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
                     }.disabled(newItem.isEmpty)
                 }
                 .padding(12).stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -36,7 +36,7 @@ struct QuickGrocerySheet: View {
                     VStack(spacing: 0) {
                         if needed.isEmpty {
                             VStack(spacing: 10) {
-                                Image(systemName: "checkmark.circle.fill").scaledFont(36).foregroundStyle(Color.stockedGold)
+                                Image(systemName: "checkmark.circle.fill").scaledFont(36).foregroundStyle(Color.stockedAccentInk)
                                 Text("All items in stock!").scaledFont(15, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.55))
                             }.frame(maxWidth: .infinity).padding(.vertical, 24)
                         } else { ForEach(needed) { groceryRow($0) } }
@@ -60,7 +60,7 @@ struct QuickGrocerySheet: View {
         HStack(spacing: 12) {
             Button { store.toggleGrocery(id: item.id) } label: {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
-                    .scaledFont(22).foregroundStyle(item.isChecked ? Color.stockedGold : Color.stockedCharcoal.opacity(0.4))
+                    .scaledFont(22).foregroundStyle(item.isChecked ? Color.stockedAccentInk : Color.stockedCharcoal.opacity(0.4))
             }.buttonStyle(.plain)
             Text(item.name).scaledFont(15).foregroundStyle(item.isChecked ? session.themeTextColor.opacity(0.35) : session.themeTextColor).strikethrough(item.isChecked)
             Spacer()
@@ -97,7 +97,7 @@ struct FontPickerSheet: View {
                 StockedEqualHeightGrid(items: AppFont.allCases, id: \.self, columns: 4, spacing: 8) { f in
                         Button { motion.animate(.selection, intent: .spatial) { selectedFont = f } } label: {
                             Text(f.rawValue).font(.stockedSystem(size: 13, weight: .semibold, design: f.design))
-                                .foregroundStyle(selectedFont == f ? Color.stockedCharcoal : session.themeTextColor)
+                                .foregroundStyle(selectedFont == f ? Color.stockedWhite : session.themeTextColor)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 8).padding(.vertical, 10)

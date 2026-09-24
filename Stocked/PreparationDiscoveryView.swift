@@ -187,7 +187,7 @@ struct PreparationDiscoveryView: View {
                     HStack(spacing: 6) {
                         Text(roleBadge(c.recipe))
                             .scaledFont(9.5, weight: .bold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                             .padding(.horizontal, 7).padding(.vertical, 3)
                             .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
                         Spacer()

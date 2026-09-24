@@ -625,7 +625,7 @@ struct GroceryListView: View {
                                             .foregroundStyle(text).fixedSize(horizontal: false, vertical: true)
                                         Text("· \(meal.ingredients.count) items")
                                             .font(.stocked(.caption).weight(.semibold))
-                                            .foregroundStyle(Color.stockedGreen)
+                                            .foregroundStyle(Color.stockedSuccessInk)
                                     }
                                 }
                                 .padding(12)
@@ -902,7 +902,7 @@ struct GroceryListView: View {
                 if !loopMessage.isEmpty {
                     Text(loopMessage)
                         .scaledFont(11)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 24).padding(.bottom, 8)
                         .transition(.opacity)
                 }
@@ -926,7 +926,7 @@ struct GroceryListView: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "cart.badge.plus")
                                     .scaledFont(22)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Your list is clear")
                                         .scaledFont(15, weight: .semibold, design: .serif)
@@ -950,7 +950,7 @@ struct GroceryListView: View {
                                     .scaledFont(14).foregroundStyle(sub)
                                 Button("Add \"\(searchText)\" to list") { addItem() }
                                     .scaledFont(14, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                             }
                             .frame(maxWidth: .infinity).padding(.top, 40)
                         } else {
@@ -989,12 +989,12 @@ struct GroceryListView: View {
                                             if let deal = store.bestPrice(for: inv.name) {
                                                 Text("Cheapest at \(deal.store) · $\(String(format: "%.2f", deal.price))")
                                                     .scaledFont(11)
-                                                    .foregroundStyle(Color.stockedGreen)
+                                                    .foregroundStyle(Color.stockedSuccessInk)
                                             }
                                         }
                                         Spacer()
                                         Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
                                     .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -1030,24 +1030,24 @@ struct GroceryListView: View {
                                     HStack {
                                         Image(systemName: "gauge.with.needle")
                                             .scaledFont(16)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .frame(width: 28)
                                         VStack(alignment: .leading, spacing: 10) {
                                             Text(inv.name).scaledFont(14).foregroundStyle(text)
                                             if let ro = store.predictedRunOut(for: inv) {
                                                 Text("At your usual pace, gone by \(ro.formatted(.dateTime.weekday(.wide)))")
                                                     .scaledFont(11)
-                                                    .foregroundStyle(Color.stockedGold)
+                                                    .foregroundStyle(Color.stockedAccentInk)
                                             }
                                             if let deal = store.bestPrice(for: inv.name) {
                                                 Text("Cheapest at \(deal.store) · $\(String(format: "%.2f", deal.price))")
                                                     .scaledFont(11)
-                                                    .foregroundStyle(Color.stockedGreen)
+                                                    .foregroundStyle(Color.stockedSuccessInk)
                                             }
                                         }
                                         Spacer()
                                         Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
                                     .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -1078,12 +1078,12 @@ struct GroceryListView: View {
                                     HStack {
                                         Image(systemName: "clock.arrow.circlepath")
                                             .scaledFont(16)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .frame(width: 28)
                                         Text(name.displayNormalized).scaledFont(14).foregroundStyle(text)
                                         Spacer()
                                         Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
                                     .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -1112,12 +1112,12 @@ struct GroceryListView: View {
                                     HStack {
                                         Image(systemName: "arrow.counterclockwise.circle")
                                             .scaledFont(16)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .frame(width: 28)
                                         Text(name).scaledFont(14).foregroundStyle(text)
                                         Spacer()
                                         Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
                                     .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -1285,7 +1285,7 @@ struct GroceryListView: View {
                             .foregroundStyle(text)
                         Text("\(done) of \(total)")
                             .font(.stocked(.subheadline).weight(.semibold))
-                            .foregroundStyle(done == total && total > 0 ? Color.stockedGreen : sub)
+                            .foregroundStyle(done == total && total > 0 ? Color.stockedSuccessInk : sub)
                     }
                     Spacer()
                     Image(systemName: isOpen ? "chevron.up" : "chevron.right")
@@ -1394,7 +1394,7 @@ struct GroceryListView: View {
             HStack(spacing: 12) {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                     .font(.stocked(.title2))
-                    .foregroundStyle(item.isChecked ? (dark ? Color.stockedSuccess : Color.stockedGreen) : sub)
+                    .foregroundStyle(item.isChecked ? (dark ? Color.stockedSuccess : Color.stockedSuccessInk) : sub)
                     .frame(minWidth: 32, minHeight: 44)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
@@ -1509,9 +1509,9 @@ struct GroceryListView: View {
                                 if !item.assignedTo.isEmpty {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
                                     Image(systemName: "person.fill").scaledFont(7)
-                                        .foregroundStyle(Color.stockedGreen)
+                                        .foregroundStyle(Color.stockedSuccessInk)
                                     Text(item.assignedTo).scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGreen)
+                                        .foregroundStyle(Color.stockedSuccessInk)
                                 } else if !item.addedByName.isEmpty {
                                     Text("·").scaledFont(8).foregroundStyle(sub)
                                     Text("by \(item.addedByName)").scaledFont(12, weight: .semibold)

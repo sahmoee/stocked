@@ -45,7 +45,7 @@ struct RefreshKitchenView: View {
                 } else if remaining.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.seal.fill")
-                            .scaledFont(44).foregroundStyle(Color.stockedGreen)
+                            .scaledFont(44).foregroundStyle(Color.stockedSuccessInk)
                         Text(handled.isEmpty ? "Everything checks out!" : "All caught up!")
                             .scaledFont(17, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
@@ -132,7 +132,7 @@ struct RefreshKitchenView: View {
                     } else if item.isExpiringSoon {
                         Text("Expiring soon · \(item.zone)")
                             .scaledFont(11.5)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }
                 }
                 Spacer()

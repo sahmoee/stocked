@@ -298,7 +298,7 @@ private struct CoachmarkOverlay: View {
                 Spacer()
                 Button(stepNumber == stepCount ? "Got it" : "Next") { onNext() }
                     .scaledFont(14, weight: .bold)
-                    .foregroundStyle(Color.stockedCharcoal)
+                    .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 18).padding(.vertical, 8)
                     .background(Color.stockedGold)
                     .clipShape(Capsule())

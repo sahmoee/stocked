@@ -59,7 +59,7 @@ struct HouseholdSyncProgress: View {
         switch stage {
         case .done:
             Image(systemName: "checkmark.circle.fill")
-                .scaledFont(44).foregroundStyle(Color.stockedGreen)
+                .scaledFont(44).foregroundStyle(Color.stockedSuccessInk)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
                 .scaledFont(44).foregroundStyle(.red.opacity(0.8))

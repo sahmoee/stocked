@@ -13,6 +13,9 @@ other tabs share the same editorial hero component. App-wide cards, forms, prese
 chrome, widget colors and Watch accent follow the cream/honey/sage/cocoa palette. Default typography
 pairs serif headings with sans body while keeping explicit font preferences and Dynamic Type.
 See `docs/PASTEL_REDESIGN_2026_09_24.md` for scope, recovery and verification evidence.
+Dark mode now selects separate evening kitchen, meal and produce artwork through KitchenArtworkCatalog.
+Legacy gold/sage foregrounds use adaptive ink tokens; fixed button fills retain contrasting ivory labels.
+See `docs/DARK_MODE_REVIEW_2026_09_24.md` for the device review and artwork prompts.
 
 
 Home's Meals Ready widget first paints lightweight inventory metrics, then fills its meal count

@@ -73,7 +73,7 @@ struct RecipeSubstitutionPickerSheet: View {
                                                     if isInKitchen(option) {
                                                         Text("In kitchen")
                                                             .scaledFont(9.5, weight: .bold)
-                                                            .foregroundStyle(Color.stockedGreen)
+                                                            .foregroundStyle(Color.stockedSuccessInk)
                                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                                             .background(Color.stockedGreen.opacity(0.13))
                                                             .clipShape(Capsule())

@@ -37,9 +37,21 @@ nonisolated extension Color {
     // Decorative gold is too faint for small labels on tan. Text/actions use a
     // deeper warm-gold shade; artwork, borders and brand illustrations keep their gold.
     static let textAccentLight  = Color(red: 0.502, green: 0.373, blue: 0.192) // #805F31 readable honey
+    /// Foreground-only accent for legacy screens without an AppSession color role.
+    /// Keep fixed brand fills separate so white-on-gold buttons retain their contrast.
+    static let stockedAccentInk = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.835, green: 0.702, blue: 0.420, alpha: 1)
+            : UIColor(red: 0.502, green: 0.373, blue: 0.192, alpha: 1)
+    })
 
     // Success
     static let stockedGreen     = Color(red: 0.337, green: 0.420, blue: 0.290) // #566B4A sage ink
+    static let stockedSuccessInk = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.694, green: 0.784, blue: 0.627, alpha: 1)
+            : UIColor(red: 0.337, green: 0.420, blue: 0.290, alpha: 1)
+    })
 
     // Text
     static let stockedBlack     = Color(red: 0.239, green: 0.196, blue: 0.157) // #3D3228 cocoa ink

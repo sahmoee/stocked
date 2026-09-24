@@ -212,7 +212,7 @@ struct SmartRecommendationView: View {
             }
         }
         .scaledFont(13, weight: .semibold)
-        .foregroundStyle(Color.stockedGold)
+        .foregroundStyle(Color.stockedAccentInk)
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
     }
 
@@ -269,7 +269,7 @@ struct SmartRecommendationView: View {
                 Image(systemName: "plus.circle").scaledFont(14)
             }.buttonStyle(.plain)
         }
-        .foregroundStyle(Color.stockedGold)
+        .foregroundStyle(Color.stockedAccentInk)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Serves \(cookSession?.servings ?? 1). Adjustable for this session.")
     }
@@ -327,7 +327,7 @@ struct SmartRecommendationView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "sparkle")
                                 .scaledFont(9)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                             Text(r)
                                 .scaledFont(12.5)
                                 .foregroundStyle(session.themeSecondaryText)

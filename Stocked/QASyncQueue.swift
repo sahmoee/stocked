@@ -183,7 +183,7 @@ struct QASyncQueueView: View {
             Section {
                 Text(queue.summary)
                     .scaledFont(13)
-                    .foregroundStyle(queue.failures.isEmpty ? Color.stockedGreen : Color.stockedWarning)
+                    .foregroundStyle(queue.failures.isEmpty ? Color.stockedSuccessInk : Color.stockedWarning)
             } header: {
                 Text("Status")
             } footer: {
@@ -197,7 +197,7 @@ struct QASyncQueueView: View {
                             Image(systemName: h.allFailed ? "xmark.circle.fill"
                                   : (h.successes == h.attempts ? "checkmark.circle.fill" : "exclamationmark.circle.fill"))
                                 .foregroundStyle(h.allFailed ? .red
-                                                 : (h.successes == h.attempts ? Color.stockedGreen : Color.stockedWarning))
+                                                 : (h.successes == h.attempts ? Color.stockedSuccessInk : Color.stockedWarning))
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack {
                                     Text(h.destination).scaledFont(13, weight: .medium)
@@ -250,7 +250,7 @@ struct QASyncQueueView: View {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: a.ok ? "checkmark" : "xmark")
                                 .scaledFont(10, weight: .bold)
-                                .foregroundStyle(a.ok ? Color.stockedGreen : .red)
+                                .foregroundStyle(a.ok ? Color.stockedSuccessInk : .red)
                                 .frame(width: 14)
                             Text(a.line)
                                 .scaledFont(11, design: .monospaced)

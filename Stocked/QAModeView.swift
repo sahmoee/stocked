@@ -897,7 +897,7 @@ struct QAModeView: View {
                     if sweep.hasRun {
                         Text(sweep.issues.isEmpty ? "clean" : "\(sweep.issues.count)")
                             .font(.stocked(.caption).monospacedDigit())
-                            .foregroundStyle(sweep.issues.isEmpty ? Color.stockedGreen : Color.stockedWarning)
+                            .foregroundStyle(sweep.issues.isEmpty ? Color.stockedSuccessInk : Color.stockedWarning)
                     } else {
                         Text("not run").font(.stocked(.caption)).foregroundStyle(.secondary)
                     }
@@ -915,7 +915,7 @@ struct QAModeView: View {
                     } else {
                         Text("\(syncQueue.failures.count) failed")
                             .font(.stocked(.caption).monospacedDigit())
-                            .foregroundStyle(syncQueue.failures.isEmpty ? Color.stockedGreen : .red)
+                            .foregroundStyle(syncQueue.failures.isEmpty ? Color.stockedSuccessInk : .red)
                     }
                 }
             }

@@ -78,7 +78,7 @@ struct DailyBriefNotificationSettingsView: View {
 
                 if scheduled {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedSuccessInk)
                         Text("Reminder preference saved for \(DailyBriefNotificationManager.shared.timeLabel)")
                             .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                     }
@@ -280,7 +280,7 @@ struct DailyBriefNotificationSettingsView: View {
 
         case .authorized, .provisional, .ephemeral:
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedSuccessInk)
                 Text("Notifications are allowed. Focus settings and notification summaries can affect delivery.")
                     .scaledFont(12).foregroundStyle(session.themeSecondaryText)
                 Spacer()

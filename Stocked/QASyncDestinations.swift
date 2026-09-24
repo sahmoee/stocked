@@ -924,7 +924,7 @@ struct QASyncSettingsView: View {
                 }
                 if QACPanelSettings.isConfigured {
                     Label("Configured", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(Color.stockedGreen)
+                        .foregroundStyle(Color.stockedSuccessInk)
                         .font(.stocked(.caption))
                 }
             } header: {

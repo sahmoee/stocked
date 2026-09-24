@@ -39,7 +39,7 @@ struct AIInventoryScanView: View {
                             for i in updates.indices { updates[i].isConfirmed = target }
                         }
                         .scaledFont(13, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     }
                     .padding(.horizontal, 20).padding(.bottom, 12)
 
@@ -94,7 +94,7 @@ struct AIInventoryScanView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: u.isConfirmed ? "checkmark.circle.fill" : "circle")
                     .scaledFont(20)
-                    .foregroundStyle(u.isConfirmed ? Color.stockedGold : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(u.isConfirmed ? Color.stockedAccentInk : session.themeTextColor.opacity(0.3))
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {

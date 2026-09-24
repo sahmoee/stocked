@@ -61,7 +61,7 @@ struct CookingSessionSummaryView: View {
             HStack(spacing: 10) {
                 Image(systemName: completion.isSuccessful ? "checkmark.seal.fill" : "pause.circle.fill")
                     .scaledFont(26)
-                    .foregroundStyle(completion.isSuccessful ? Color.stockedGreen : Color.stockedGold)
+                    .foregroundStyle(completion.isSuccessful ? Color.stockedSuccessInk : Color.stockedAccentInk)
                 Text(completion.isSuccessful ? "Done" : "Paused")
                     .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
@@ -71,7 +71,7 @@ struct CookingSessionSummaryView: View {
                 .foregroundStyle(session.themeSecondaryText)
             Text(completion.summaryLabel)
                 .scaledFont(12.5, weight: .semibold)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
                 .padding(.horizontal, 10).padding(.vertical, 4)
                 .background(Color.stockedGold.opacity(0.12))
                 .clipShape(Capsule())
@@ -106,7 +106,7 @@ struct CookingSessionSummaryView: View {
                 .foregroundStyle(session.themeSecondaryText)
             ForEach(sides, id: \.self) { s in
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").scaledFont(14).foregroundStyle(Color.stockedGreen)
+                    Image(systemName: "checkmark.circle.fill").scaledFont(14).foregroundStyle(Color.stockedSuccessInk)
                     Text(s).scaledFont(14).foregroundStyle(session.themeTextColor)
                 }
             }
@@ -130,7 +130,7 @@ struct CookingSessionSummaryView: View {
 
     private func actionRow(_ icon: String, _ title: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 24)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedAccentInk).frame(width: 24)
             Text(title).scaledFont(14.5, weight: .semibold).foregroundStyle(session.themeTextColor)
             Spacer()
             Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))

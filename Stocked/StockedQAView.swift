@@ -786,7 +786,7 @@ struct StockedQAHomeView: View {
                 Spacer()
                 Text(gate.remainingText)
                     .font(.stocked(.caption).monospaced())
-                    .foregroundStyle(gate.isUnlocked ? Color.stockedGreen : .secondary)
+                    .foregroundStyle(gate.isUnlocked ? Color.stockedSuccessInk : .secondary)
             }
             if gate.isUnlocked {
                 Button(role: .destructive) { gate.lock() } label: {
@@ -843,7 +843,7 @@ struct StockedQAHomeView: View {
                                          : "HOLD — \(sign.openBlockers) open blocker\(sign.openBlockers == 1 ? "" : "s")",
                   systemImage: sign.openBlockers == 0 ? "checkmark.seal.fill" : "xmark.seal.fill")
                 .scaledFont(13, weight: .semibold)
-                .foregroundStyle(sign.openBlockers == 0 ? Color.stockedGreen : .red)
+                .foregroundStyle(sign.openBlockers == 0 ? Color.stockedSuccessInk : .red)
         }
         .padding(.vertical, 4)
     }
@@ -862,9 +862,9 @@ struct StockedQAHomeView: View {
             Text("\(section.number). \(section.title)")
                 .scaledFont(14, weight: .medium)
             HStack(spacing: 10) {
-                Label("\(prog.pass)", systemImage: "checkmark.circle").foregroundStyle(Color.stockedGreen)
+                Label("\(prog.pass)", systemImage: "checkmark.circle").foregroundStyle(Color.stockedSuccessInk)
                 if prog.fail > 0 { Label("\(prog.fail)", systemImage: "xmark.circle").foregroundStyle(.red) }
-                if prog.blocked > 0 { Label("\(prog.blocked)", systemImage: "minus.circle").foregroundStyle(Color.stockedGold) }
+                if prog.blocked > 0 { Label("\(prog.blocked)", systemImage: "minus.circle").foregroundStyle(Color.stockedAccentInk) }
                 Text("of \(prog.total)").foregroundStyle(.secondary)
                 if blockers > 0 {
                     Text("\(blockers) blocker\(blockers == 1 ? "" : "s")")
@@ -951,7 +951,7 @@ struct StockedQASectionView: View {
             filterBar
 
             if !justFiled.isEmpty {
-                Text(justFiled).font(.stocked(.caption)).foregroundStyle(Color.stockedGreen)
+                Text(justFiled).font(.stocked(.caption)).foregroundStyle(Color.stockedSuccessInk)
             }
 
             if visibleItems.isEmpty {
@@ -959,7 +959,7 @@ struct StockedQASectionView: View {
                       : "Nothing here matches \"\(filter.title)\".",
                       systemImage: "checkmark.circle")
                     .font(.stocked(.caption))
-                    .foregroundStyle(Color.stockedGreen)
+                    .foregroundStyle(Color.stockedSuccessInk)
             }
 
             ForEach(visibleItems) { item in
@@ -1039,7 +1039,7 @@ struct StockedQASectionView: View {
                 } label: {
                     Label("Jump to next untested — \(next.ticket)", systemImage: "arrow.down.to.line")
                         .scaledFont(11, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
             }
@@ -1096,12 +1096,12 @@ struct StockedQASectionView: View {
                     noteEditing = item
                 } label: {
                     Image(systemName: state.note.isEmpty ? "note.text" : "note.text.badge.plus")
-                        .foregroundStyle(state.note.isEmpty ? .gray : Color.stockedGold)
+                        .foregroundStyle(state.note.isEmpty ? .gray : Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
             }
             if !state.note.isEmpty {
-                Text(state.note).font(.stocked(.caption)).foregroundStyle(Color.stockedGold)
+                Text(state.note).font(.stocked(.caption)).foregroundStyle(Color.stockedAccentInk)
             }
             if let number = state.ticketNumber {
                 Label(number, systemImage: "ticket")

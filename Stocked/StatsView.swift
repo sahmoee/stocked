@@ -138,7 +138,7 @@ struct StatsView: View {
                                 .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
                             Text("\(store.stockPercent)%")
                                 .scaledFont(42, weight: .heavy, design: .serif)
-                                .foregroundStyle(Color.stockedGreen)
+                                .foregroundStyle(Color.stockedSuccessInk)
                                 .padding(32)
                                 .frame(minWidth: 180, minHeight: 180)
                                 .background {
@@ -146,7 +146,7 @@ struct StatsView: View {
                                         Circle().stroke(Color.stockedWhite.opacity(0.10), lineWidth: 12)
                                         Circle()
                                             .trim(from: 0, to: CGFloat(store.stockPercent) / 100)
-                                            .stroke(Color.stockedGreen, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                                            .stroke(Color.stockedSuccessInk, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                                             .rotationEffect(.degrees(-90))
                                     }
                                 }
@@ -186,7 +186,7 @@ struct StatsView: View {
                                             .frame(width: 104, alignment: .leading)
                                         ZStack(alignment: .leading) {
                                             Capsule().fill(Color.stockedWhite.opacity(0.10)).frame(height: 7)
-                                            GeometryFreeBar(fraction: Double(comp.percent) / 100, color: Color.stockedGreen)
+                                            GeometryFreeBar(fraction: Double(comp.percent) / 100, color: Color.stockedSuccessInk)
                                         }
                                         Text("\(comp.percent)%")
                                             .scaledFont(12, weight: .bold).monospacedDigit()
@@ -214,7 +214,7 @@ struct StatsView: View {
                                         .frame(width: 64, alignment: .leading)
                                     ZStack(alignment: .leading) {
                                         Capsule().fill(Color.stockedWhite.opacity(0.10)).frame(height: 7)
-                                        GeometryFreeBar(fraction: Double(pct) / 100, color: Color.stockedGreen)
+                                        GeometryFreeBar(fraction: Double(pct) / 100, color: Color.stockedSuccessInk)
                                     }
                                     Text("\(pct)%")
                                         .scaledFont(12, weight: .bold).monospacedDigit()
@@ -229,8 +229,8 @@ struct StatsView: View {
                     HStack(spacing: 12) {
                         reportPanel("Meal Readiness") {
                             HStack(spacing: 0) {
-                                reportStat("\(mealsReady)", "Meals\nReady", Color.stockedGreen)
-                                reportStat("\(mealsPlanned)", "Meals\nPlanned", Color.stockedGold)
+                                reportStat("\(mealsReady)", "Meals\nReady", Color.stockedSuccessInk)
+                                reportStat("\(mealsPlanned)", "Meals\nPlanned", Color.stockedGoldDark)
                                 reportStat("\(store.userRecipes.count)", "Recipes\nSaved", Color.stockedInfo)
                             }
                         }
@@ -238,8 +238,8 @@ struct StatsView: View {
                     reportPanel("Expiration Overview") {
                         HStack(spacing: 0) {
                             reportStat("\(expiringToday)", "Expiring\nToday", .orange)
-                            reportStat("\(expiringWeek)", "Expiring\nThis Week", Color.stockedGold)
-                            reportStat("\(freshItems)", "Fresh\nItems", Color.stockedGreen)
+                            reportStat("\(expiringWeek)", "Expiring\nThis Week", Color.stockedGoldDark)
+                            reportStat("\(freshItems)", "Fresh\nItems", Color.stockedSuccessInk)
                         }
                     }
                     // Shopping readiness (mockup: includes next grocery run)
@@ -247,7 +247,7 @@ struct StatsView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 12) {
                                 Image(systemName: "cart").scaledFont(18)
-                                    .foregroundStyle(toBuyCount == 0 ? Color.stockedGreen : Color.stockedGold)
+                                    .foregroundStyle(toBuyCount == 0 ? Color.stockedSuccessInk : Color.stockedAccentInk)
                                 Text(toBuyCount == 0 ? "0 items to buy — you're all set!" : "\(toBuyCount) item\(toBuyCount == 1 ? "" : "s") to buy")
                                     .scaledFont(14, weight: .semibold)
                                     .foregroundStyle(Color.stockedWhite.opacity(0.9))
@@ -260,8 +260,8 @@ struct StatsView: View {
                     }
                     reportPanel("This Week Activity") {
                         HStack(spacing: 0) {
-                            reportStat("\(addedThisWeek)", "Items\nAdded", Color.stockedGreen)
-                            reportStat("\(usedThisWeek)", "Items\nUsed", Color.stockedGold)
+                            reportStat("\(addedThisWeek)", "Items\nAdded", Color.stockedSuccessInk)
+                            reportStat("\(usedThisWeek)", "Items\nUsed", Color.stockedGoldDark)
                             reportStat("\(expiredThisWeek)", "Items\nExpired", .red)
                         }
                     }
@@ -271,9 +271,9 @@ struct StatsView: View {
                     reportPanel("Saved This Month") {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 0) {
-                                reportStat("\(usedThisMonthCount)", "Used, not\nwasted", Color.stockedGreen)
-                                reportStat("\(savedRatePercent)%", "Use-it\nrate", Color.stockedGold)
-                                reportStat(money(wastedValueThisMonthTotal), "Waste\ncost", wastedValueThisMonthTotal > 0 ? .orange : Color.stockedGreen)
+                                reportStat("\(usedThisMonthCount)", "Used, not\nwasted", Color.stockedSuccessInk)
+                                reportStat("\(savedRatePercent)%", "Use-it\nrate", Color.stockedGoldDark)
+                                reportStat(money(wastedValueThisMonthTotal), "Waste\ncost", wastedValueThisMonthTotal > 0 ? .orange : Color.stockedSuccessInk)
                             }
                             Text(savedCoachingLine)
                                 .scaledFont(10.5)
@@ -284,8 +284,8 @@ struct StatsView: View {
                     if !store.priceHistory.isEmpty {
                         reportPanel("Spending") {
                             HStack(spacing: 0) {
-                                reportStat(money(spendThisWeek), "This\nWeek", Color.stockedGold)
-                                reportStat(money(spendThisMonth), "This\nMonth", Color.stockedGreen)
+                                reportStat(money(spendThisWeek), "This\nWeek", Color.stockedGoldDark)
+                                reportStat(money(spendThisMonth), "This\nMonth", Color.stockedSuccessInk)
                                 reportStat(money(spendAllTime), "All\nTime", Color.stockedInfo)
                             }
                         }
@@ -295,8 +295,8 @@ struct StatsView: View {
                         reportPanel("This Week Nutrition") {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 0) {
-                                    reportStat("\(n.cal)", "Calories\n(per serv.)", Color.stockedGold)
-                                    reportStat("\(n.protein)g", "Protein", Color.stockedGreen)
+                                    reportStat("\(n.cal)", "Calories\n(per serv.)", Color.stockedGoldDark)
+                                    reportStat("\(n.protein)g", "Protein", Color.stockedSuccessInk)
                                     reportStat("\(n.carbs)g", "Carbs", Color.stockedInfo)
                                     reportStat("\(n.fat)g", "Fat", .orange)
                                 }
@@ -396,7 +396,7 @@ struct StatsView: View {
                 }
                 // #6 — weekly spend at a glance, next to the monthly number.
                 Text("\(money(spendThisWeek)) in the last 7 days")
-                    .stocked(.caption).foregroundStyle(Color.stockedGold)
+                    .stocked(.caption).foregroundStyle(Color.stockedAccentInk)
                 if spendByStore.isEmpty {
                     Text("No purchases logged this month yet.").stocked(.caption).foregroundStyle(text.opacity(0.4))
                 } else {
@@ -404,7 +404,7 @@ struct StatsView: View {
                         HStack {
                             Text(name).stocked(.body).foregroundStyle(text.opacity(0.8))
                             Spacer()
-                            Text(money(amt)).stocked(.body).foregroundStyle(Color.stockedGold)
+                            Text(money(amt)).stocked(.body).foregroundStyle(Color.stockedAccentInk)
                         }
                     }
                 }
@@ -420,7 +420,7 @@ struct StatsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 16) {
                 Image(systemName: empty ? "leaf.fill" : "trash.fill")
-                    .scaledFont(30).foregroundStyle(empty ? Color.stockedGreen : .orange)
+                    .scaledFont(30).foregroundStyle(empty ? Color.stockedSuccessInk : .orange)
                 VStack(alignment: .leading, spacing: 2) {
                     if empty {
                         Text("Nothing wasted this month").stocked(.headline).foregroundStyle(text)
@@ -447,7 +447,7 @@ struct StatsView: View {
             if let (name, count) = topWasted, count >= 2 {
                 Divider()
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "lightbulb.fill").scaledFont(13).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "lightbulb.fill").scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                     Text("You've tossed \(name.capitalized) \(count)× — try buying a smaller amount, or freeze half when you get it home.")
                         .stocked(.caption).foregroundStyle(text.opacity(0.65))
                         .fixedSize(horizontal: false, vertical: true)
@@ -476,7 +476,7 @@ struct StatsView: View {
                         }
                         Spacer()
                         Button { store.addToGroceryIfMissing(item.name, recommended: true) } label: {
-                            Label("Add", systemImage: "cart.badge.plus").stocked(.caption).foregroundStyle(Color.stockedGold)
+                            Label("Add", systemImage: "cart.badge.plus").stocked(.caption).foregroundStyle(Color.stockedAccentInk)
                         }.buttonStyle(.plain)
                     }
                     .padding(.horizontal, 16).padding(.vertical, 10)

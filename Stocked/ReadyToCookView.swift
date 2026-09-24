@@ -188,7 +188,7 @@ private struct ReadyToCoookContent: View {
                           systemImage: "sparkles")
                         .scaledFont(12, weight: .bold)
                 }
-                .stockedSecondary(accent: session.themeButtonColor)
+                .stockedSecondary(accent: session.themeTextColor)
                 .disabled(isGeneratingRecipe)
             }
             .padding(.horizontal, 24).padding(.bottom, 10)
@@ -241,7 +241,7 @@ private struct ReadyToCookThumb: View {
                 .overlay {
                     Image(systemName: "fork.knife")
                         .scaledFont(21, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
@@ -250,7 +250,7 @@ private struct ReadyToCookThumb: View {
             if isReady {
                 Image(systemName: "checkmark.circle.fill")
                     .scaledFont(16)
-                    .foregroundStyle(Color.stockedGreen)
+                    .foregroundStyle(Color.stockedSuccessInk)
                     .background(Circle().fill(session.themeCardColor).frame(width: 16, height: 16))
                     .padding(3)
             }
@@ -305,7 +305,7 @@ private struct ReadyToCoookRecipeRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Text(recipe.source)
                     .scaledFont(9, weight: .bold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .padding(.horizontal, 5).padding(.vertical, 2)
                     .background(Color.stockedGold.opacity(0.12))
                     .clipShape(Capsule())
@@ -349,7 +349,7 @@ private struct ReadyToCoookRecipeRow: View {
                     Label(addedToList == nil ? "Add \(recipe.missing.count) to list" : "Added ✓",
                           systemImage: addedToList == nil ? "cart.badge.plus" : "checkmark")
                         .scaledFont(10, weight: .bold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 2)
@@ -358,7 +358,7 @@ private struct ReadyToCoookRecipeRow: View {
                 Text((recipe.substitutionsNeedReview ? "Review swap: " : "Using swap: ")
                      + recipe.substitutions.prefix(2).joined(separator: ", "))
                     .scaledFont(10, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -369,7 +369,7 @@ private struct ReadyToCoookRecipeRow: View {
             if recipe.substitutionsNeedReview {
                 Text("Review Swap")
                     .scaledFont(9, weight: .bold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Color.stockedGold.opacity(0.14))
                     .clipShape(Capsule())

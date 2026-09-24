@@ -295,7 +295,7 @@ struct SocialImportSheet: View {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text("\(idx + 1)")
                                 .scaledFont(12, weight: .bold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                             Text(step)
                                 .scaledFont(14)
                                 .foregroundStyle(session.themeTextColor.opacity(0.85))
@@ -387,7 +387,7 @@ struct SocialImportSheet: View {
                     } label: {
                         Label("Draft It with AI (labeled)", systemImage: "sparkles")
                             .scaledFont(14, weight: .medium)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
                 }
             }
@@ -485,7 +485,7 @@ struct SocialImportSheet: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
                 .scaledFont(14, weight: .semibold)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
             Text(text)
                 .scaledFont(12.5)
                 .foregroundStyle(session.themeSecondaryText)

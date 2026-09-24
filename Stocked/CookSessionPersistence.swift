@@ -345,11 +345,11 @@ struct CookSessionResumeCard: View {
                             : AnyLayout(HStackLayout(spacing: 8))) {
                 Image(systemName: snapshot.status == .paused ? "pause.circle.fill" : "flame.fill")
                     .scaledFont(14, weight: .semibold)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                 Text(snapshot.status == .paused ? "Paused cooking session" : "Cooking in progress")
                     .scaledFont(12, weight: .bold)
                     .kerning(0.6)
-                    .foregroundStyle(Color.stockedGold)
+                    .foregroundStyle(Color.stockedAccentInk)
                 if !stacksControls { Spacer() }
                 Text(snapshot.pausedAgoLabel)
                     .scaledFont(11)
@@ -370,7 +370,7 @@ struct CookSessionResumeCard: View {
                         Text("Resume Cooking")
                             .scaledFont(13.5, weight: .semibold, design: .serif)
                     }
-                    .foregroundStyle(Color.stockedCharcoal)
+                    .foregroundStyle(Color.stockedWhite)
                     .padding(.horizontal, 16).padding(.vertical, 9)
                     .frame(minHeight: 44)
                     .background(Color.stockedGold)

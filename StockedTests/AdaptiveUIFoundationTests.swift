@@ -9,7 +9,8 @@ final class AdaptiveUIFoundationTests: XCTestCase {
                      "home_widget_planning", "inventory_category_fridge", "home_widget_pantry",
                      "inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference",
                      "kitchen_protein_reference", "kitchen_leftovers_reference",
-                     "pastel_kitchen_hero", "pastel_ready_meal", "pastel_fresh_produce"] {
+                     "pastel_kitchen_hero", "pastel_ready_meal", "pastel_fresh_produce",
+                     "pastel_kitchen_hero_dark", "pastel_ready_meal_dark", "pastel_fresh_produce_dark"] {
             let original = UIImage(named: name)
             let prepared = await ImageCache.shared.prepareArtwork(named: name)
             XCTAssertNotNil(prepared, name)
@@ -37,7 +38,11 @@ final class AdaptiveUIFoundationTests: XCTestCase {
         }
         for name in ["publisher-recipe-photo", "user-photo", "home_kitchen_still_life"] {
             XCTAssertEqual(KitchenArtworkCatalog.approvedAsset(for: name), name)
+            XCTAssertEqual(KitchenArtworkCatalog.approvedAsset(for: name, dark: true), name)
         }
+        XCTAssertEqual(KitchenArtworkCatalog.approvedAsset(for: "cook_now_hero", dark: true), "pastel_ready_meal_dark")
+        XCTAssertEqual(KitchenArtworkCatalog.approvedAsset(for: "pastel_kitchen_hero", dark: true), "pastel_kitchen_hero_dark")
+        XCTAssertEqual(KitchenArtworkCatalog.approvedAsset(for: "pastel_fresh_produce", dark: false), "pastel_fresh_produce")
     }
 
     func testConcurrentArtworkRequestsShareOnePreparedImage() async {

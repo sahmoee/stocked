@@ -160,7 +160,7 @@ struct MealPlannerView: View {
                         VStack(spacing: 3) {
                             Image(systemName: isCalendarView ? "list.bullet" : "calendar")
                                 .scaledFont(18)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                             Text(isCalendarView ? "List" : "Calendar")
                                 .scaledFont(9, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor.opacity(0.45))
@@ -238,7 +238,7 @@ struct MealPlannerView: View {
         .overlay(alignment: .bottom) {
             if let toast = savedRecipeToast {
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGreen)
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedSuccessInk)
                     Text(toast).scaledFont(13, weight: .semibold).foregroundStyle(.white)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 10)
@@ -396,7 +396,7 @@ struct MealPlannerView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Cancel") { activeSheet = nil }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }

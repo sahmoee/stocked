@@ -69,7 +69,7 @@ struct WeekMealPlannerView: View {
                 Spacer()
                 Button { addingDay = (addingDay == day ? nil : day); newTitle = "" } label: {
                     Image(systemName: addingDay == day ? "xmark" : "plus")
-                        .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedGold)
+                        .scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }.buttonStyle(.plain)
                 .a11yButton(addingDay == day ? "Cancel adding meal" : "Add a meal to \(weekdayNames[day])")
             }
@@ -82,7 +82,7 @@ struct WeekMealPlannerView: View {
                 HStack(spacing: 10) {
                     Button { toggleCooked(meal) } label: {
                         Image(systemName: meal.isCooked ? "checkmark.circle.fill" : "circle")
-                            .scaledFont(18).foregroundStyle(meal.isCooked ? Color.stockedGold : session.themeTextColor.opacity(0.3))
+                            .scaledFont(18).foregroundStyle(meal.isCooked ? Color.stockedAccentInk : session.themeTextColor.opacity(0.3))
                     }.buttonStyle(.plain)
                     .a11yButton(meal.isCooked ? "Mark \(meal.title) not cooked" : "Mark \(meal.title) cooked")
                     VStack(alignment: .leading, spacing: 1) {

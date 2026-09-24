@@ -96,7 +96,7 @@ struct KitchenWrappedView: View {
                 .foregroundStyle(primaryText)
             Text("Wrapped")
                 .scaledFont(40, weight: .heavy, design: .serif)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
             Text(mealsCooked > 0
                  ? "Here's what your kitchen got up to."
                  : "Cook your first meal and your story starts here.")
@@ -191,7 +191,7 @@ struct KitchenWrappedView: View {
                 .foregroundStyle(.white.opacity(0.6))
             Text("~\(money(Double(moneySaved)))")
                 .scaledFont(46, weight: .heavy, design: .serif)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
             Text("cooking at home instead of ordering out\(totalSpend > 0 ? " · \(money(totalSpend)) tracked in groceries" : "")")
                 .scaledFont(12)
                 .foregroundStyle(.white.opacity(0.65))

@@ -169,7 +169,7 @@ struct EditableProfileAvatar: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .scaledFont(15)
-                .foregroundStyle(tint == .primary ? Color.stockedGold : tint)
+                .foregroundStyle(tint == .primary ? Color.stockedAccentInk : tint)
                 .frame(width: 22)
             Text(title)
                 .scaledFont(14.5, weight: .medium)

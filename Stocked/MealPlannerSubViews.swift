@@ -133,7 +133,7 @@ extension MealPlannerView {
                         if isFuture && !mealsForDay.isEmpty {
                             Text("SCHEDULED")
                                 .scaledFont(9, weight: .bold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                                 .padding(.horizontal, 7).padding(.vertical, 3)
                                 .background(Color.stockedGold.opacity(0.12))
                                 .clipShape(Capsule())
@@ -186,18 +186,18 @@ extension MealPlannerView {
                                 HStack(spacing: 6) {
                                     Text(meal.mealType.uppercased())
                                         .scaledFont(9, weight: .bold)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                     if meal.isBuilding {
                                         Text("Building")
                                             .scaledFont(9, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGreen)
+                                            .foregroundStyle(Color.stockedSuccessInk)
                                             .padding(.horizontal, 5).padding(.vertical, 2)
                                             .background(Color.stockedGreen.opacity(0.12))
                                             .clipShape(Capsule())
                                     } else if isFuture {
                                         Text("Scheduled")
                                             .scaledFont(9, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                            .foregroundStyle(Color.stockedAccentInk.opacity(0.7))
                                             .padding(.horizontal, 5).padding(.vertical, 2)
                                             .background(Color.stockedGold.opacity(0.10))
                                             .clipShape(Capsule())
@@ -233,7 +233,7 @@ extension MealPlannerView {
                                     Button { saveBuildingMealAsRecipe(meal) } label: {
                                         Text("Save")
                                             .scaledFont(11, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGreen)
+                                            .foregroundStyle(Color.stockedSuccessInk)
                                             .padding(.horizontal, 9).padding(.vertical, 5)
                                             .overlay(Capsule().stroke(Color.stockedGreen, lineWidth: 1))
                                     }.buttonStyle(.plain)
@@ -241,7 +241,7 @@ extension MealPlannerView {
                                 Button { preppingMeal = meal; navigateToPrep = true } label: {
                                     Text("Prep")
                                         .scaledFont(11, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                         .padding(.horizontal, 9).padding(.vertical, 5)
                                         .overlay(Capsule().stroke(Color.stockedGold, lineWidth: 1))
                                 }.buttonStyle(.plain)
@@ -326,7 +326,7 @@ extension MealPlannerView {
                         HStack(spacing: 8) {
                             ForEach(missingIngredients.prefix(8), id: \.self) { ing in
                                 Text(ing).scaledFont(12, weight: .semibold)
-                                    .foregroundStyle(Color.stockedGold)
+                                    .foregroundStyle(Color.stockedAccentInk)
                                     .padding(.horizontal, 12).padding(.vertical, 10)
                                     .background(Color.stockedGold.opacity(0.10))
                                     .clipShape(Capsule())
@@ -350,7 +350,7 @@ extension MealPlannerView {
             } label: {
                 Label("Build Grocery List", systemImage: "cart.badge.plus")
                     .scaledFont(16, weight: .semibold, design: .serif)
-                    .foregroundStyle(Color.stockedCharcoal)
+                    .foregroundStyle(session.themeTextColor)
                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                     .background(Color.stockedGold.opacity(0.18))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -377,7 +377,7 @@ extension MealPlannerView {
 
     private func summaryBadge(value: String, label: String) -> some View {
         VStack(spacing: 3) {
-            Text(value).scaledFont(22, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
+            Text(value).scaledFont(22, weight: .bold, design: .serif).foregroundStyle(Color.stockedAccentInk)
             Text(label).scaledFont(10).foregroundStyle(session.themeSecondaryText)
         }.frame(maxWidth: .infinity)
     }
@@ -480,7 +480,7 @@ struct DayPlanCard: View {
                     }
                     if !meals.isEmpty {
                         Text("\(meals.count) meal\(meals.count == 1 ? "" : "s")")
-                            .scaledFont(12).foregroundStyle(Color.stockedGold)
+                            .scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                     }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
@@ -497,7 +497,7 @@ struct DayPlanCard: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text(meal.mealType)
                                         .scaledFont(10, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                     Text(meal.title)
                                         .scaledFont(14, design: .serif)
                                         .foregroundStyle(session.themeTextColor)
@@ -510,7 +510,7 @@ struct DayPlanCard: View {
                                     Button { onPrepNow(meal) } label: {
                                         Text("Prep")
                                             .scaledFont(11, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                             .padding(.horizontal, 9).padding(.vertical, 5)
                                             .overlay(Capsule().stroke(Color.stockedGold, lineWidth: 1))
                                     }.buttonStyle(.plain)
@@ -545,7 +545,7 @@ struct DayPlanCard: View {
                             Button { onAddMeal(type) } label: {
                                 Label(type, systemImage: "plus.circle")
                                     .scaledFont(12, weight: .semibold)
-                                    .foregroundStyle(has ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
+                                    .foregroundStyle(has ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
                                     .padding(.horizontal, 10).padding(.vertical, 11)
                                     .background(has ? Color.stockedCharcoal.opacity(0.06) : Color.stockedGold.opacity(0.12))
                                     .clipShape(Capsule())
@@ -622,7 +622,7 @@ struct RecipePickerSheet: View {
                                 guard !n.isEmpty else { return }
                                 onSelect(n, []); dismiss()
                             } label: {
-                                Image(systemName: "plus.circle.fill").scaledFont(26).foregroundStyle(custom.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedGold)
+                                Image(systemName: "plus.circle.fill").scaledFont(26).foregroundStyle(custom.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
                             }.disabled(custom.isEmpty)
                         }
                         .padding(12).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -663,7 +663,7 @@ struct RecipePickerSheet: View {
                     }
                 }
                 Spacer()
-                Image(systemName: "plus.circle").scaledFont(18).foregroundStyle(Color.stockedGold)
+                Image(systemName: "plus.circle").scaledFont(18).foregroundStyle(Color.stockedAccentInk)
             }
             .padding(.horizontal, 24).padding(.vertical, 12).contentShape(Rectangle())
         }.buttonStyle(.plain)
@@ -753,7 +753,7 @@ struct PrepNowView: View {
                 if daysUntil >= 1 {
                     HStack(spacing: 10) {
                         Image(systemName: showReminder ? "bell.fill" : "bell")
-                            .scaledFont(14).foregroundStyle(Color.stockedGold)
+                            .scaledFont(14).foregroundStyle(Color.stockedAccentInk)
                         Text(showReminder ? "Prep reminder set!" : "Set a reminder to start prepping")
                             .scaledFont(13).foregroundStyle(session.themeTextColor)
                         Spacer()
@@ -767,7 +767,7 @@ struct PrepNowView: View {
                 // Progress
                 HStack {
                     Text("\(completed.count) of \(prepTasks.count) tasks done")
-                        .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedGold)
+                        .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                     Spacer()
                     ProgressView(value: prepTasks.isEmpty ? 0 : Double(completed.count) / Double(prepTasks.count))
                         .tint(Color.stockedGold).frame(width: 100)
@@ -786,11 +786,11 @@ struct PrepNowView: View {
                                         .frame(width: 36, height: 36)
                                     Image(systemName: completed.contains(i) ? "checkmark" : prepTasks[i].icon)
                                         .scaledFont(14, weight: .semibold)
-                                        .foregroundStyle(completed.contains(i) ? Color.stockedWhite : Color.stockedCharcoal)
+                                        .foregroundStyle(completed.contains(i) ? Color.stockedWhite : session.themeTextColor)
                                 }
                                 Text(prepTasks[i].task)
                                     .scaledFont(14, design: .serif)
-                                    .foregroundStyle(completed.contains(i) ? Color.stockedCharcoal.opacity(0.35) : Color.stockedCharcoal)
+                                    .foregroundStyle(completed.contains(i) ? session.themeSecondaryText : session.themeTextColor)
                                     .strikethrough(completed.contains(i))
                                     .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
                                 Spacer()
@@ -805,7 +805,7 @@ struct PrepNowView: View {
                 if completed.count == prepTasks.count {
                     VStack(spacing: 8) {
                         Text("✅ All prepped and ready!")
-                            .scaledFont(20, weight: .bold, design: .serif).foregroundStyle(Color.stockedGold)
+                            .scaledFont(20, weight: .bold, design: .serif).foregroundStyle(Color.stockedAccentInk)
                         Text("Store covered items in the fridge. Come back to cook when you're ready.")
                             .scaledFont(13).foregroundStyle(session.themeSecondaryText).multilineTextAlignment(.center)
                     }
@@ -850,7 +850,7 @@ struct PlanConflictRow: View {
                 Button(action: onAddToGrocery) {
                     Label("Add to Grocery", systemImage: "cart.badge.plus")
                         .scaledFont(10.5, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 8).padding(.vertical, 5)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Capsule())

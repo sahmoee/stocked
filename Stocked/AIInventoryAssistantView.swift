@@ -95,7 +95,7 @@ struct AIInventoryAssistantView: View {
                             ProgressView().scaleEffect(0.8).tint(Color.stockedGold)
                         } else {
                             Image(systemName: "wand.and.stars")
-                                .scaledFont(16).foregroundStyle(Color.stockedGold)
+                                .scaledFont(16).foregroundStyle(Color.stockedAccentInk)
                         }
                     }
                     VStack(alignment: .leading, spacing: 3) {
@@ -181,7 +181,7 @@ struct AIInventoryAssistantView: View {
             ForEach(examples, id: \.self) { ex in
                 Button { request = ex } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "text.bubble").scaledFont(12).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "text.bubble").scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                         Text(ex).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                         Spacer(minLength: 0)
                     }

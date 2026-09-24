@@ -175,7 +175,7 @@ struct HouseholdPaywallView: View {
             ScrollView {
                 VStack(spacing: 22) {
                     Image(systemName: "person.2.badge.key.fill")
-                        .scaledFont(52).foregroundStyle(Color.stockedGold)
+                        .scaledFont(52).foregroundStyle(Color.stockedAccentInk)
                         .padding(.top, 20)
                     Text("Household Sync")
                         .scaledFont(26, weight: .bold, design: .serif)
@@ -238,7 +238,7 @@ struct HouseholdPaywallView: View {
                         Task { await premium.restorePurchases()
                             if premium.isHouseholdSyncUnlocked { dismiss(); onUnlocked() } }
                     }
-                    .scaledFont(13).foregroundStyle(Color.stockedGold)
+                    .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
 
                     // Real localized price from StoreKit once the product loads.
                     Text(premium.displayPrice.isEmpty
@@ -263,7 +263,7 @@ struct HouseholdPaywallView: View {
 
     private func benefitRow(_ icon: String, _ text: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGreen).frame(width: 24)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedSuccessInk).frame(width: 24)
             Text(text).scaledFont(14).foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()

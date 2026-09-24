@@ -8,11 +8,11 @@ import SwiftUI
         Color.stockedBg.ignoresSafeArea()
         VStack(spacing: 12) {
             Image(systemName: "arrow.triangle.2.circlepath")
-                .scaledFont(36).foregroundStyle(Color.stockedGold)
+                .scaledFont(36).foregroundStyle(Color.stockedAccentInk)
             Text("DailyBriefOverlay").scaledFont(18, weight: .bold, design: .serif)
                 .foregroundStyle(.primary)
             Text("Merged into QuickAccessMenu.swift")
-                .scaledFont(13).foregroundStyle(Color.stockedCharcoal.opacity(0.5))
+                .scaledFont(13).foregroundStyle(.secondary)
         }
     }
 }

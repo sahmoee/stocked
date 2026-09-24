@@ -875,7 +875,7 @@ struct OnlineRecipesView: View {
                 } else {
                     Button { loader.forceRefresh(profile: session.guestStore.cookingProfile) } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
-                            .scaledFont(12).foregroundStyle(Color.stockedGold)
+                            .scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
                 }
             }
@@ -897,13 +897,13 @@ struct OnlineRecipesView: View {
                 Button { showProfileEditor = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "leaf.circle.fill").scaledFont(12)
-                            .foregroundStyle(Color.stockedGreen)
+                            .foregroundStyle(Color.stockedSuccessInk)
                         Text("Filtered for your dietary profile")
                             .scaledFont(11.5, weight: .semibold)
                             .foregroundStyle(session.themeSecondaryText)
                         Text("Edit")
                             .scaledFont(11.5, weight: .bold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                         Spacer()
                     }
                     .padding(.horizontal, 24).padding(.bottom, 8)
@@ -952,10 +952,10 @@ struct OnlineRecipesView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 4) {
                             Image(systemName: "book.closed.fill")
-                                .scaledFont(10).foregroundStyle(Color.stockedGold.opacity(0.7))
+                                .scaledFont(10).foregroundStyle(Color.stockedAccentInk.opacity(0.7))
                             Text("Matching Recipes")
                                 .scaledFont(10, weight: .semibold, design: .serif)
-                                .foregroundStyle(Color.stockedGold.opacity(0.7))
+                                .foregroundStyle(Color.stockedAccentInk.opacity(0.7))
                         }
                         .padding(.horizontal, 10)
 
@@ -966,7 +966,7 @@ struct OnlineRecipesView: View {
                                         HStack(spacing: 6) {
                                             Image(systemName: "fork.knife")
                                                 .scaledFont(11)
-                                                .foregroundStyle(Color.stockedGold)
+                                                .foregroundStyle(Color.stockedAccentInk)
                                             VStack(alignment: .leading, spacing: 1) {
                                                 Text(entry.title)
                                                     .scaledFont(13, weight: .semibold, design: .serif)
@@ -1098,7 +1098,7 @@ struct OnlineRecipesView: View {
                             }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                                 .scaledFont(16)
                         }
                         .buttonStyle(.plain)
@@ -1122,7 +1122,7 @@ struct OnlineRecipesView: View {
                 Spacer()
                 if activeFilterCount > 0 {
                     Button("Clear all") { clearFilters() }
-                        .scaledFont(12, weight: .semibold).foregroundStyle(Color.stockedGold)
+                        .scaledFont(12, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }
             }
             .padding(.horizontal, 24).padding(.bottom, 10)
@@ -1145,7 +1145,7 @@ struct OnlineRecipesView: View {
 
             if !liveResults.isEmpty {
                 HStack(spacing: 6) {
-                    Image(systemName: "wifi").scaledFont(11).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "wifi").scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                     Text("Online results for \"\(searchText)\"  · \(liveResults.count) recipes")
                         .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                     Spacer()
@@ -1154,7 +1154,7 @@ struct OnlineRecipesView: View {
                         searchText = ""
                         dbSuggestions = []
                     } label: {
-                        Text("Clear").scaledFont(11).foregroundStyle(Color.stockedGold)
+                        Text("Clear").scaledFont(11).foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
                 }
                 .padding(.horizontal, 24).padding(.bottom, 6)
@@ -1534,7 +1534,7 @@ private struct BrowseFilterSheet: View {
                 }
             }
             .navigationTitle("Browse Filters")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk) } }
         }
     }
 }
@@ -1829,7 +1829,7 @@ struct OnlineRecipeDetailView: View {
                                     ForEach(detailSnapshot.dietLabels, id: \.self) { label in
                                         Text(label)
                                             .scaledFont(11, weight: .semibold)
-                                            .foregroundStyle(Color.stockedGreen)
+                                            .foregroundStyle(Color.stockedSuccessInk)
                                             .padding(.horizontal, 9).padding(.vertical, 4)
                                             .background(Color.stockedGreen.opacity(0.12))
                                             .clipShape(Capsule())
@@ -1885,7 +1885,7 @@ struct OnlineRecipeDetailView: View {
                                     Text(addedIngredients ? "Added to grocery list!" : "Add missing ingredients to list")
                                         .scaledFont(14, weight: .semibold)
                                 }
-                                .foregroundStyle(addedIngredients ? Color.stockedGreen : Color.stockedWhite)
+                                .foregroundStyle(addedIngredients ? Color.stockedSuccessInk : Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
                                 .background(addedIngredients ? Color.stockedGreen.opacity(0.12) : Color.stockedCharcoal)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -1909,7 +1909,7 @@ struct OnlineRecipeDetailView: View {
                                     Text(addedToCalendar ? "Planned in Cook Later" : "Plan in Cook Later")
                                         .scaledFont(14, weight: .semibold)
                                 }
-                                .foregroundStyle(addedToCalendar ? Color.stockedGold : Color.stockedCharcoal)
+                                .foregroundStyle(addedToCalendar ? Color.stockedAccentInk : session.themeTextColor)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
                                 .background(Color.stockedGold.opacity(addedToCalendar ? 0.18 : 0.10))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -1931,7 +1931,7 @@ struct OnlineRecipeDetailView: View {
                                             Text(aiFixingIngredients ? "Fixing…" : "Fix ingredients")
                                                 .scaledFont(11.5, weight: .semibold)
                                         }
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                         .padding(.horizontal, 9).padding(.vertical, 5)
                                         .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
                                     }
@@ -2001,7 +2001,7 @@ struct OnlineRecipeDetailView: View {
                                     Spacer()
                                     Text("View source")
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(Color.stockedGold)
+                                        .foregroundStyle(Color.stockedAccentInk)
                                 }
                             }
                             .foregroundStyle(session.themeSecondaryText)
@@ -2034,7 +2034,7 @@ struct OnlineRecipeDetailView: View {
                     Button { toggleSaveToCollection() } label: {
                         Image(systemName: savedRecipeID != nil ? "heart.fill" : "heart")
                             .scaledFont(17, weight: .semibold)
-                            .foregroundStyle(savedRecipeID != nil ? Color.stockedGold : session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(savedRecipeID != nil ? Color.stockedAccentInk : session.themeTextColor.opacity(0.6))
                     }
                     .accessibilityLabel(savedRecipeID != nil ? "Remove from My Collection" : "Save to My Collection")
                 }
@@ -2051,7 +2051,7 @@ struct OnlineRecipeDetailView: View {
                     .accessibilityLabel("Recommendation feedback")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
             .overlay(alignment: .bottom) {

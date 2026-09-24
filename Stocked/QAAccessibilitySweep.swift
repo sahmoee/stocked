@@ -292,7 +292,7 @@ struct QAAccessibilitySweepView: View {
                 if sweep.hasRun {
                     Text(sweep.summary)
                         .font(.stocked(.caption))
-                        .foregroundStyle(sweep.issues.isEmpty ? Color.stockedGreen : Color.stockedWarning)
+                        .foregroundStyle(sweep.issues.isEmpty ? Color.stockedSuccessInk : Color.stockedWarning)
                 }
             } header: {
                 Text("Run")
@@ -336,7 +336,7 @@ struct QAAccessibilitySweepView: View {
                         Label("Share findings", systemImage: "square.and.arrow.up")
                     }
                     if !filed.isEmpty {
-                        Text(filed).font(.stocked(.caption)).foregroundStyle(Color.stockedGreen)
+                        Text(filed).font(.stocked(.caption)).foregroundStyle(Color.stockedSuccessInk)
                     }
                 } footer: {
                     Text("Filed as minor. These are worth fixing and none of them stop a release — filing them as blockers is how a team learns to ignore accessibility tickets.")

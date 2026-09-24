@@ -81,7 +81,7 @@ struct EditProfileView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -101,7 +101,7 @@ struct EditProfileView: View {
                     Button("Save") {
                         session.displayName = nameInput.trimmingCharacters(in: .whitespaces)
                         editingName = false
-                    }.foregroundStyle(Color.stockedGold).scaledFont(14, weight: .bold)
+                    }.foregroundStyle(Color.stockedAccentInk).scaledFont(14, weight: .bold)
                 }
                 .padding(.horizontal, 24)
             } else {
@@ -186,7 +186,7 @@ private struct FlowChips: View {
             Button { onTap(opt) } label: {
                 Text(opt)
                     .scaledFont(13, weight: .medium)
-                    .foregroundStyle(isSelected(opt) ? Color.stockedCharcoal : session.themeTextColor.opacity(0.7))
+                    .foregroundStyle(isSelected(opt) ? Color.stockedWhite : session.themeSecondaryText)
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .frame(minHeight: 44)
                     .background(isSelected(opt) ? Color.stockedGold : (session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5)))

@@ -92,7 +92,7 @@ struct PlannedMealCookTransitionView: View {
                 .foregroundStyle(session.themeTextColor)
             Text("Planned for \(dayLabel(meal.dayIndex)) · \(meal.mealType)")
                 .scaledFont(12.5, weight: .semibold)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
         }
     }
 
@@ -106,7 +106,7 @@ struct PlannedMealCookTransitionView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(primary ? Color.stockedGold.opacity(0.2) : Color.stockedGold.opacity(0.1))
                         .frame(width: 40, height: 40)
-                    Image(systemName: icon).scaledFont(16, weight: .semibold).foregroundStyle(Color.stockedGold)
+                    Image(systemName: icon).scaledFont(16, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)

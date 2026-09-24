@@ -99,7 +99,7 @@ struct StockGoalsSetupView: View {
                 .foregroundStyle(primaryText.opacity(0.7))
             Label("Takes about 30 seconds", systemImage: "clock")
                 .scaledFont(13, weight: .medium)
-                .foregroundStyle(Color.stockedGreen)
+                .foregroundStyle(Color.stockedSuccessInk)
                 .padding(.top, 4)
         }
     }
@@ -110,7 +110,7 @@ struct StockGoalsSetupView: View {
             Text("\(cat.icon)  \(cat.rawValue.uppercased())")
                 .scaledFont(13, weight: .bold)
                 .tracking(1)
-                .foregroundStyle(Color.stockedGreen)
+                .foregroundStyle(Color.stockedSuccessInk)
             Text("Which of these do you keep stocked?")
                 .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(primaryText)
@@ -139,7 +139,7 @@ struct StockGoalsSetupView: View {
             }
             Text("\(selected.count) staple\(selected.count == 1 ? "" : "s") selected")
                 .scaledFont(14, weight: .semibold)
-                .foregroundStyle(Color.stockedGreen)
+                .foregroundStyle(Color.stockedSuccessInk)
                 .padding(.top, 4)
         }
     }

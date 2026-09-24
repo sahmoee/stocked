@@ -45,7 +45,7 @@ struct RecipeFinderPreview: View {
                     if let importError { Text(importError).font(.stocked(.body)).foregroundStyle(session.themeSecondaryText) }
                     Button { showBrowser = true } label: {
                         Label("View Original Recipe", systemImage: "safari")
-                    }.stockedSecondary(accent: session.themeButtonColor)
+                    }.stockedSecondary(accent: session.themeTextColor)
                         .disabled(RecipeBrowserPolicy.url(hit.recipe.sourceURL ?? "") == nil)
                     Button(action: prepareImport) {
                         Label("Import to STOCKED", systemImage: "square.and.arrow.down")

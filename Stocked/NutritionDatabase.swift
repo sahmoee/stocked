@@ -238,7 +238,7 @@ struct RecipeNutritionSummary: View {
                 Button { motion.animate(.standard, intent: .spatial) { expanded.toggle() } } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "chart.bar.fill")
-                            .scaledFont(13).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                         Text("Estimated Nutrition")
                             .scaledFont(13, weight: .semibold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
@@ -294,7 +294,7 @@ struct RecipeNutritionSummary: View {
         VStack(spacing: 2) {
             Text(value + unit)
                 .scaledFont(14, weight: .bold, design: .rounded)
-                .foregroundStyle(highlighted ? Color.stockedGold : session.themeTextColor)
+                .foregroundStyle(highlighted ? Color.stockedAccentInk : session.themeTextColor)
             Text(label).scaledFont(9, weight: .semibold)
                 .foregroundStyle(session.themeTextColor.opacity(0.4))
         }.frame(maxWidth: .infinity).padding(.vertical, 4)

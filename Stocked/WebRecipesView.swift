@@ -134,12 +134,12 @@ struct WebRecipesView: View {
                             manager.forceRefreshAll(query: searchText)
                         } label: {
                             Label("Refresh", systemImage: "arrow.clockwise")
-                                .scaledFont(12).foregroundStyle(Color.stockedGold)
+                                .scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                         }.buttonStyle(.plain)
                     }
                     Button { activeSheet = .importURL } label: {
                         Image(systemName: "link.badge.plus")
-                            .scaledFont(14).foregroundStyle(Color.stockedGold)
+                            .scaledFont(14).foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
                 }
             }
@@ -692,7 +692,7 @@ struct WebRecipeDetailView: View {
                                     Text(addedIngredients ? "Added to grocery list!" : "Add missing ingredients to list")
                                         .scaledFont(14, weight: .semibold)
                                 }
-                                .foregroundStyle(addedIngredients ? Color.stockedGreen : Color.stockedWhite)
+                                .foregroundStyle(addedIngredients ? Color.stockedSuccessInk : Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
                                 .background(addedIngredients ? Color.stockedGreen.opacity(0.12) : Color.stockedCharcoal)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -738,7 +738,7 @@ struct WebRecipeDetailView: View {
                                     Text(addedToCalendar ? "Planned in Cook Later" : "Plan in Cook Later")
                                         .scaledFont(14, weight: .semibold)
                                 }
-                                .foregroundStyle(addedToCalendar ? Color.stockedGold : session.themeTextColor)
+                                .foregroundStyle(addedToCalendar ? Color.stockedAccentInk : session.themeTextColor)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
                                 .background(Color.stockedGold.opacity(addedToCalendar ? 0.18 : 0.10))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -768,7 +768,7 @@ struct WebRecipeDetailView: View {
                                     Text(savedToCollection ? "Saved to My Collection!" : "Save to My Collection")
                                         .scaledFont(14, weight: .semibold)
                                 }
-                                .foregroundStyle(savedToCollection ? Color.stockedGreen : Color.stockedWhite)
+                                .foregroundStyle(savedToCollection ? Color.stockedSuccessInk : Color.stockedWhite)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
                                 .background(savedToCollection ? Color.stockedGreen.opacity(0.12) : Color.stockedGold)
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
@@ -789,7 +789,7 @@ struct WebRecipeDetailView: View {
                                     VStack(spacing: 4) {
                                         Text(tab.rawValue)
                                             .font(.stockedSystem(size: 13, weight: activeTab == tab ? .semibold : .regular))
-                                            .foregroundStyle(activeTab == tab ? Color.stockedGold : session.themeTextColor.opacity(0.5))
+                                            .foregroundStyle(activeTab == tab ? Color.stockedAccentInk : session.themeTextColor.opacity(0.5))
                                         Rectangle()
                                             .fill(activeTab == tab ? Color.stockedGold : Color.clear)
                                             .frame(height: 2)
@@ -820,7 +820,7 @@ struct WebRecipeDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -864,7 +864,7 @@ struct WebRecipeDetailView: View {
                     let haveIt = inventoryLower.contains { $0.contains(ing.lowercased()) || ing.lowercased().contains($0) }
                     HStack(spacing: 12) {
                         Image(systemName: haveIt ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(haveIt ? Color.stockedGreen : Color.stockedGold.opacity(0.6))
+                            .foregroundStyle(haveIt ? Color.stockedSuccessInk : Color.stockedAccentInk.opacity(0.6))
                             .scaledFont(16)
                         Text(ing)
                             .scaledFont(14)
@@ -944,7 +944,7 @@ struct StepCard: View {
                 if let name = step.name, !name.isEmpty {
                     Text(name)
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
                 Text(step.text)
                     .scaledFont(14)
@@ -1007,7 +1007,7 @@ struct TagView: View {
             .scaledFont(11)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(Color.stockedGold.opacity(0.12))
-            .foregroundStyle(Color.stockedGold)
+            .foregroundStyle(Color.stockedAccentInk)
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
     }
 }
@@ -1028,14 +1028,14 @@ struct SourcePickerSheet: View {
                     Button("All Sources") {
                         selected = nil; dismiss()
                     }
-                    .foregroundStyle(selected == nil ? Color.stockedGold : session.themeTextColor)
+                    .foregroundStyle(selected == nil ? Color.stockedAccentInk : session.themeTextColor)
 
                     Button {
                         onManageSources()
                     } label: {
                         Label("Add or Manage Sources", systemImage: "plus.circle")
                             .scaledFont(14, weight: .semibold)
-                            .foregroundStyle(Color.stockedGold)
+                            .foregroundStyle(Color.stockedAccentInk)
                     }
 
                     if sources.isEmpty {
@@ -1060,7 +1060,7 @@ struct SourcePickerSheet: View {
                                             }
                                             Spacer()
                                             if selected?.domain == src.domain {
-                                                Image(systemName: "checkmark").foregroundStyle(Color.stockedGold)
+                                                Image(systemName: "checkmark").foregroundStyle(Color.stockedAccentInk)
                                             }
                                         }
                                     }
@@ -1077,7 +1077,7 @@ struct SourcePickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -1143,7 +1143,7 @@ struct URLImportSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Cancel") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }

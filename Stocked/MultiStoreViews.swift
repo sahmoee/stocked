@@ -81,7 +81,7 @@ struct MultiStoreSegmentFooter: View {
                      : "Move \(itemCount) from \(storeName) to Pantry")
                     .scaledFont(12.5, weight: .semibold, design: .serif)
             }
-            .foregroundStyle(isComplete ? Color.stockedGreen : Color.stockedGold)
+            .foregroundStyle(isComplete ? Color.stockedSuccessInk : Color.stockedAccentInk)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .contentShape(Rectangle())

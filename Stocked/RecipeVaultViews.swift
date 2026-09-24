@@ -627,7 +627,7 @@ struct RecipeVaultView: View {
         Spacer(minLength: 8)
         Button(action: action) {
             HStack(spacing: 5) { Text(actionTitle); Image(systemName: "chevron.right") }
-                .font(.stockedSans(13, weight: .bold, relativeTo: .footnote)).foregroundStyle(Color.stockedGold)
+                .font(.stockedSans(13, weight: .bold, relativeTo: .footnote)).foregroundStyle(Color.stockedAccentInk)
                 .fixedSize(horizontal: true, vertical: true)
         }.buttonStyle(.plain)
     }
@@ -692,7 +692,7 @@ struct RecipeVaultView: View {
                         Spacer()
                         Button { navTarget = .saved } label: {
                             Text("View All").scaledFont(12.5, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                         }.buttonStyle(.plain)
                     }
                     .padding(.horizontal, 24).padding(.bottom, 8)
@@ -1219,7 +1219,7 @@ struct RecipeVaultView: View {
                             Image(systemName: "arrow.clockwise").scaledFont(10, weight: .bold)
                             Text("Refresh").scaledFont(12, weight: .semibold)
                         }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                         .padding(.horizontal, 10).padding(.vertical, 6)
                         .background(Color.stockedGold.opacity(0.12))
                         .clipShape(Capsule())
@@ -1275,7 +1275,7 @@ struct RecipeVaultView: View {
                         Spacer()
                         Button { navTarget = .drinks } label: {
                             Text("View All").scaledFont(12.5, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                         }.buttonStyle(.plain)
                     }
                     .padding(.horizontal, 24).padding(.bottom, 8)
@@ -1350,7 +1350,7 @@ struct RecipeVaultView: View {
                     Text("FROM THE WEB")
                         .scaledFont(10, weight: .bold)
                         .tracking(1.2)
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                     Text(recipe.title)
                         .scaledFont(19, weight: .bold, design: .serif)
                         .foregroundStyle(.white)
@@ -1634,7 +1634,7 @@ private struct RecipeSearchDropdown: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "book.fill")
-                            .scaledFont(13).foregroundStyle(Color.stockedGold)
+                            .scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                             .frame(width: 22)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.title)
@@ -1693,7 +1693,7 @@ private struct RecipeBrowseOnlineSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { showBrowseOnline = false }
-                        .foregroundStyle(Color.stockedGold)
+                        .foregroundStyle(Color.stockedAccentInk)
                 }
             }
         }
@@ -1954,17 +1954,17 @@ private struct RecipeMyCollectionView: View {
                 Button { motion.animate(.standard, intent: .spatial) { cookableSort.toggle() } } label: {
                     Label("Cookable", systemImage: cookableSort ? "flame.fill" : "flame")
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(cookableSort ? Color.stockedGreen : session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(cookableSort ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.5))
                 }.buttonStyle(.plain)
                 // Browse online
                 Button { showBrowse = true } label: {
                     Label("Browse", systemImage: "safari")
-                        .scaledFont(12, weight: .semibold).foregroundStyle(Color.stockedGold)
+                        .scaledFont(12, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                 }.buttonStyle(.plain)
                 // Create
                 Button { showCreate = true } label: {
                     Image(systemName: "plus.circle.fill")
-                        .scaledFont(18).foregroundStyle(Color.stockedGold)
+                        .scaledFont(18).foregroundStyle(Color.stockedAccentInk)
                 }.buttonStyle(.plain).padding(.leading, 4)
             }.padding(.horizontal, 24).padding(.bottom, 12)
 
@@ -2007,7 +2007,7 @@ private struct RecipeMyCollectionView: View {
                                     if entry.stockTotal > 0 {
                                         Text("\(entry.stockHave)/\(entry.stockTotal) in stock")
                                             .scaledFont(9, weight: .bold)
-                                            .foregroundStyle(entry.stockHave == entry.stockTotal ? Color.stockedGreen : session.themeTextColor.opacity(0.6))
+                                            .foregroundStyle(entry.stockHave == entry.stockTotal ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.6))
                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                             .background(.ultraThinMaterial, in: Capsule())
                                     }
@@ -2312,7 +2312,7 @@ struct RecipePreviewCard: View {
 
                 if !recipe.cookTime.isEmpty {
                     HStack(spacing: 5) {
-                        Image(systemName: "clock").scaledFont(12).foregroundStyle(Color.stockedGold)
+                        Image(systemName: "clock").scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                         Text(recipe.cookTime).scaledFont(12).foregroundStyle(session.themeSecondaryText)
                     }
                 }

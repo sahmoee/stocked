@@ -19,7 +19,7 @@ struct SuccessView: View {
                         Circle().stroke(Color.stockedGreen, lineWidth: 3).frame(width: 90, height: 90)
                         Image(systemName: "checkmark")
                             .scaledFont(40, weight: .medium)
-                            .foregroundStyle(Color.stockedGreen)
+                            .foregroundStyle(Color.stockedSuccessInk)
                     }
                 }
                 .scaleEffect(scale)

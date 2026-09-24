@@ -164,7 +164,7 @@ struct RecipeSourcesManagerView: View {
                         } label: {
                             Label("Add Source", systemImage: "plus.circle.fill")
                                 .scaledFont(14, weight: .semibold)
-                                .foregroundStyle(Color.stockedGold)
+                                .foregroundStyle(Color.stockedAccentInk)
                         }
                         .disabled(domain.trimmingCharacters(in: .whitespaces).isEmpty)
                     } header: {
@@ -191,7 +191,7 @@ struct RecipeSourcesManagerView: View {
                                         }
                                         Spacer()
                                         Image(systemName: "plus.circle")
-                                            .foregroundStyle(Color.stockedGold)
+                                            .foregroundStyle(Color.stockedAccentInk)
                                     }
                                 }
                             }
@@ -233,7 +233,7 @@ struct RecipeSourcesManagerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedGold)
+                    Button("Done") { dismiss() }.foregroundStyle(Color.stockedAccentInk)
                 }
             }
             .alert("Couldn't add that source", isPresented: $showAddError) {

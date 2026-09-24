@@ -29,7 +29,7 @@ struct PantryAuditView: View {
                     if auditItems.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "checkmark.seal.fill")
-                                .scaledFont(44).foregroundStyle(Color.stockedGreen)
+                                .scaledFont(44).foregroundStyle(Color.stockedSuccessInk)
                             Text(handled.isEmpty ? "Everything's confirmed!" : "All caught up!")
                                 .scaledFont(17, weight: .semibold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)

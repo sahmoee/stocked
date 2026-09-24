@@ -53,7 +53,7 @@ struct EditPreferencesView: View {
                 Section {
                     Button { showKitchenGoals = true } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: "checklist").scaledFont(14).foregroundStyle(Color.stockedGreen)
+                            Image(systemName: "checklist").scaledFont(14).foregroundStyle(Color.stockedSuccessInk)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Kitchen Goals")
                                     .scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
@@ -84,7 +84,7 @@ struct EditPreferencesView: View {
                             Text(cuisine).scaledFont(14, design: .serif).foregroundStyle(session.themeTextColor)
                             Spacer()
                             if cuisinePrefs.contains(cuisine) {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedGold)
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.stockedAccentInk)
                             }
                         }
                         .contentShape(Rectangle())
@@ -115,7 +115,7 @@ struct EditPreferencesView: View {
                     session.guestStore.cookingProfile = p
                     dismiss()
                 }
-                .foregroundStyle(Color.stockedGold).fontWeight(.bold)
+                .foregroundStyle(Color.stockedAccentInk).fontWeight(.bold)
             }
         }
         .onAppear {

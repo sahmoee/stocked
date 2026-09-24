@@ -212,7 +212,7 @@ struct AIRecipeGeneratorView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     ForEach(r.ingredients) { ing in
                         HStack(alignment: .top, spacing: 8) {
-                            Text("•").foregroundStyle(Color.stockedGold)
+                            Text("•").foregroundStyle(Color.stockedAccentInk)
                             Text(ing.amount.isEmpty ? ing.name : "\(ing.amount) \(ing.name)")
                                 .scaledFont(14)
                                 .foregroundStyle(session.themeTextColor.opacity(0.85))
@@ -336,7 +336,7 @@ struct AIRecipeGeneratorView: View {
     private func sectionTitle(_ s: String) -> some View {
         Text(s)
             .scaledFont(13, weight: .bold)
-            .foregroundStyle(Color.stockedGold)
+            .foregroundStyle(Color.stockedAccentInk)
             .padding(.top, 4)
     }
 

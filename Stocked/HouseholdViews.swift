@@ -108,7 +108,7 @@ struct HouseholdHomeView: View {
         HStack(spacing: 14) {
             Image(systemName: icon)
                 .scaledFont(18)
-                .foregroundStyle(Color.stockedGold)
+                .foregroundStyle(Color.stockedAccentInk)
                 .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
@@ -136,7 +136,7 @@ struct HouseholdCreateView: View {
                 // Pre-create prompt.
                 VStack(spacing: 18) {
                     Image(systemName: "house.circle")
-                        .scaledFont(52).foregroundStyle(Color.stockedGold)
+                        .scaledFont(52).foregroundStyle(Color.stockedAccentInk)
                         .padding(.top, 30)
                     Text("Create your household")
                         .scaledFont(20, weight: .bold, design: .serif)
@@ -161,7 +161,7 @@ struct HouseholdCreateView: View {
     private var successContent: some View {
         VStack(spacing: 0) {
             Image(systemName: "checkmark.circle.fill")
-                .scaledFont(56).foregroundStyle(Color.stockedGreen)
+                .scaledFont(56).foregroundStyle(Color.stockedSuccessInk)
                 .padding(.top, 24).padding(.bottom, 14)
             Text("Household created!")
                 .scaledFont(20, weight: .bold, design: .serif)
@@ -293,7 +293,7 @@ struct HouseholdMembersView: View {
                 NavigationLink { HouseholdShareCodeView() } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "person.badge.plus")
-                            .scaledFont(17).foregroundStyle(Color.stockedGold).frame(width: 40, height: 40)
+                            .scaledFont(17).foregroundStyle(Color.stockedAccentInk).frame(width: 40, height: 40)
                             .background(Color.stockedGold.opacity(0.12), in: Circle())
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Add Member").scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
@@ -358,7 +358,7 @@ struct HouseholdMembersView: View {
             }
             Spacer()
             if m.isMe {
-                Text("You").scaledFont(11, weight: .semibold).foregroundStyle(Color.stockedGold)
+                Text("You").scaledFont(11, weight: .semibold).foregroundStyle(Color.stockedAccentInk)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(Color.stockedGold.opacity(0.12), in: Capsule())
             } else {
@@ -375,7 +375,7 @@ struct HouseholdMembersView: View {
 
     private func settingRow(_ icon: String, _ title: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedGold).frame(width: 26)
+            Image(systemName: icon).scaledFont(16).foregroundStyle(Color.stockedAccentInk).frame(width: 26)
             Text(title).scaledFont(15).foregroundStyle(session.themeTextColor)
             Spacer()
             Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -790,7 +790,7 @@ struct HouseholdSettingsView: View {
                 HStack(spacing: 8) {
                     Image(systemName: statusIcon)
                         .scaledFont(14, weight: .semibold)
-                        .foregroundStyle(statusIsHealthy ? Color.stockedGold : Color.stockedError)
+                        .foregroundStyle(statusIsHealthy ? Color.stockedAccentInk : Color.stockedError)
                     Text(statusLine)
                         .scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                     Spacer()
@@ -905,7 +905,7 @@ struct HouseholdConflictReviewView: View {
         HHScreen("Review Changes") {
             if household.pendingConflicts.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill").scaledFont(34).foregroundStyle(Color.stockedGold)
+                    Image(systemName: "checkmark.circle.fill").scaledFont(34).foregroundStyle(Color.stockedAccentInk)
                     Text("All caught up").scaledFont(18, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Text("There are no changes to review.").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
                 }.padding(.vertical, 24)
@@ -1037,7 +1037,7 @@ struct HouseholdPendingInvitesView: View {
                             }
                             Spacer()
                             Text(inv.isExpired ? "Expired" : "Pending").scaledFont(12, weight: .medium)
-                                .foregroundStyle(inv.isExpired ? Color.stockedError : Color.stockedGold)
+                                .foregroundStyle(inv.isExpired ? Color.stockedError : Color.stockedAccentInk)
                         }.padding(.vertical, 10)
                         if inv.id != invites.last?.id { Divider() }
                     }
@@ -1070,7 +1070,7 @@ struct HouseholdWhatsNewView: View {
     }
     private func feature(_ icon: String, _ title: String, _ subtitle: String) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: icon).scaledFont(18).foregroundStyle(Color.stockedGold).frame(width: 26)
+            Image(systemName: icon).scaledFont(18).foregroundStyle(Color.stockedAccentInk).frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
                 Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
@@ -1200,7 +1200,7 @@ struct HouseholdSyncOptionsView: View {
 
     private func toggleRow(_ title: String, _ icon: String, _ binding: Binding<Bool>, _ persist: @escaping (Bool) -> Void) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).scaledFont(15).foregroundStyle(Color.stockedGold).frame(width: 26)
+            Image(systemName: icon).scaledFont(15).foregroundStyle(Color.stockedAccentInk).frame(width: 26)
             Text(title).scaledFont(15, weight: .semibold).foregroundStyle(session.themeTextColor)
             Spacer()
             Toggle("", isOn: binding).labelsHidden().tint(Color.stockedGold)
