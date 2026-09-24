@@ -279,7 +279,8 @@ enum FinderService {
   nonisolated static func query(
     filters: FinderFilters, saved: [UserRecipe], history: [LocalPastMeal],
     inventory: [LocalInventoryItem], allergens: [String], limit: Int,
-    onProgress: (@Sendable (FinderResponse) async -> Void)? = nil
+    onProgress: (@Sendable (FinderResponse) async -> Void)? = nil,
+    acceptsRecipe: (@Sendable (UserRecipe) -> Bool)? = nil
   ) async throws -> FinderResponse {
     var hits: [FinderHit] = []
     var count = 0
@@ -293,6 +294,7 @@ enum FinderService {
     let cuisineCounts = Dictionary(grouping: saved, by: { FinderQuery.normalize($0.cuisine) })
       .mapValues { $0.reduce(0) { $0 + $1.cookCount } }
     func consume(_ recipe: UserRecipe, entry: RecipeDatabaseEntry?) {
+      guard acceptsRecipe?(recipe) ?? true else { return }
       guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(recipe.imageURL ?? "") else { return }
       let key = FinderWebPolicy.recipeIdentity(sourceURL: recipe.sourceURL, id: recipe.id)
       guard seen.insert(key).inserted else { return }

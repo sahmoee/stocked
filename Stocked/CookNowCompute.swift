@@ -497,6 +497,19 @@ enum CookNowCompute {
         return out
     }
 
+    /// Classify a bounded discovery window with the same constraints as every Cook tier.
+    static func classifyYielding(recipes: [UserRecipe], store: GuestDataStore,
+                                session: CookNowSession?) async -> Output? {
+        let revision = key(store: store, session: session)
+        await ReservationLedger.shared.refreshForPresentation(store: store)
+        guard !Task.isCancelled else { return nil }
+        let input = snapshot(store: store, session: session, recipes: recipes, refreshReservations: false)
+        let worker = Task.detached(priority: .userInitiated) { compute(input, cancellable: true) }
+        let result = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+        guard !Task.isCancelled, revision == key(store: store, session: session) else { return nil }
+        return result
+    }
+
     /// The classification for one specific recipe under the current snapshot.
     ///
     /// PERF: this used to call `run(...)` — the entire catalog — to answer a
@@ -529,6 +542,7 @@ enum CookNowCompute {
             recipes: [recipe],
             inStockNames: inStock,
             allergens: (store.cookingProfile.allergens + family.activeAllergens).filter { !$0.isEmpty },
+            dislikes: family.profiles.filter(\.isPresent).flatMap(\.dislikes),
             confirmedSubstitutions: session?.confirmedSubstitutionKeys ?? [],
             overrides: session?.overridesSnapshotForEngine ?? [:]
         )

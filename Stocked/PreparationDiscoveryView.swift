@@ -29,6 +29,7 @@ struct PreparationDiscoveryView: View {
 
     @State private var results: [ClassifiedRecipe] = []
     @State private var isLoading = true
+    @State private var searchUnavailable = false
     @State private var goMethod = false
     @State private var goRecipe = false
     @State private var chosen: UserRecipe? = nil
@@ -71,23 +72,51 @@ struct PreparationDiscoveryView: View {
         .onChange(of: store.recipeRevision)    { _, _ in recompute() }
         .onChange(of: anchor) { _, _ in recompute() }
         .onChange(of: intent) { _, _ in recompute() }
+        .onChange(of: cookSession?.addScope) { _, _ in recompute() }
+        .onChange(of: RecipeDatabaseManager.shared.catalogueRevision) { _, _ in recompute() }
+        .onChange(of: RecipeDatabaseManager.shared.recipesVersion) { _, _ in recompute() }
     }
 
     private func recompute() {
         classificationTask?.cancel()
         isLoading = true
+        let currentAnchor = anchor, currentIntent = intent, scope = cookSession?.addScope
+        searchUnavailable = false
         classificationTask = Task {
+            defer { if !Task.isCancelled { isLoading = false } }
             guard let snapshot = await CookNowCompute.runYielding(store: store, session: cookSession),
                   !Task.isCancelled else { return }
-            let currentAnchor = anchor, currentIntent = intent
             let expiring = Set(store.inventoryItems.filter { $0.effectiveLevel > 0 && $0.isExpiringSoonOrExpired }.map { $0.name.lowercased() })
+            let saved = snapshot.classified.map(\.recipe)
+            let inventory = store.inventoryItems
+            let allergens = store.cookingProfile.allergens + FamilyProfileStore.shared.activeAllergens
+            let dislikes = FamilyProfileStore.shared.profiles.filter(\.isPresent).flatMap(\.dislikes)
             let worker = Task.detached(priority: .userInitiated) {
-                Self.selectResults(snapshot: snapshot, anchor: currentAnchor, intent: currentIntent, expiring: expiring)
+                try await FinderService.query(filters: FinderFilters(), saved: saved, history: [],
+                    inventory: inventory, allergens: allergens, limit: 80,
+                    acceptsRecipe: { recipe in
+                        guard RecipeDisplayPolicy.isPresentable(title: recipe.title, imageURL: recipe.imageURL,
+                            imageData: recipe.imageData, ingredients: recipe.ingredients.count,
+                            steps: recipe.instructions.count, sourceURL: recipe.sourceURL) else { return false }
+                        guard !dislikes.contains(where: { dislike in
+                            recipe.ingredients.contains { KitchenAvailability.nameMatches($0.name, dislike) }
+                        }) else { return false }
+                        return PreparationDiscoveryPolicy.accepts(title: recipe.title, ingredients: recipe.ingredients.map(\.name),
+                            explicitRole: recipe.dishRole, anchor: currentAnchor, intent: currentIntent, scope: scope)
+                    })
             }
-            let selected = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
-            guard !Task.isCancelled else { return }
-            results = selected
-            isLoading = false
+            do {
+                let found = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+                guard !Task.isCancelled else { return }
+                searchUnavailable = found.catalogueUnavailable
+                guard let classified = await CookNowCompute.classifyYielding(recipes: found.hits.map(\.recipe), store: store, session: cookSession),
+                      !Task.isCancelled else { return }
+                results = Self.selectResults(snapshot: classified, anchor: currentAnchor, intent: currentIntent, scope: scope, expiring: expiring)
+            } catch {
+                guard !Task.isCancelled else { return }
+                searchUnavailable = true
+                results = Self.selectResults(snapshot: snapshot, anchor: currentAnchor, intent: currentIntent, scope: scope, expiring: expiring)
+            }
         }
     }
 
@@ -96,27 +125,29 @@ struct PreparationDiscoveryView: View {
     // MARK: Filtering by intent + dish role
 
     nonisolated private static func selectResults(snapshot: CookNowCompute.Output, anchor: String,
-                                                  intent: CookIntent, expiring: Set<String>) -> [ClassifiedRecipe] {
+                                                  intent: CookIntent, scope: AddSomethingScope?, expiring: Set<String>) -> [ClassifiedRecipe] {
         var pool = snapshot.classified.filter { $0.readiness != .excluded }
 
-        // Anchor scoping: prep must use the anchor when we have one.
-        if !anchor.isEmpty {
-            pool = pool.filter { c in c.recipe.ingredients.contains { looseContains($0.name, anchor) } || looseContains(c.recipe.title, anchor) }
-        }
-
-        switch intent {
-        case .buildFullMeal:
-            pool = pool.filter { role($0.recipe) == .fullMeal || role($0.recipe) == .unspecified }
-        case .addSomething:
-            // Keep it light: sides and components only.
-            pool = pool.filter { role($0.recipe) == .side || role($0.recipe) == .component }
-        case .justMakeThis, .trySomethingNew, .useWhatIHave, .useItUp, .alreadyKnowPlan:
-            // Standalone preparations lead; full meals still allowed but sink.
-            break
+        pool = pool.filter {
+            PreparationDiscoveryPolicy.accepts(title: $0.recipe.title, ingredients: $0.recipe.ingredients.map(\.name),
+                explicitRole: $0.recipe.dishRole, anchor: anchor, intent: intent, scope: scope)
         }
 
         // Ordering by intent.
         switch intent {
+        case .addSomething:
+            pool.sort { a, b in
+                let ar = PreparationDiscoveryPolicy.additionRank(title: a.recipe.title, scope: scope,
+                    usesExpiring: usesExpiring(a, expiring))
+                let br = PreparationDiscoveryPolicy.additionRank(title: b.recipe.title, scope: scope,
+                    usesExpiring: usesExpiring(b, expiring))
+                return ar == br ? a.readiness < b.readiness : ar < br
+            }
+        case .buildFullMeal:
+            pool.sort { a, b in
+                let aMeal = role(a.recipe) == .fullMeal, bMeal = role(b.recipe) == .fullMeal
+                return aMeal == bMeal ? a.readiness < b.readiness : aMeal
+            }
         case .useWhatIHave:
             pool.sort { $0.readiness < $1.readiness }
         case .useItUp:
@@ -141,15 +172,7 @@ struct PreparationDiscoveryView: View {
 
     /// Dish role, with a heuristic fallback for legacy recipes (unspecified).
     nonisolated private static func role(_ r: UserRecipe) -> DishRole {
-        if r.dishRole != .unspecified { return r.dishRole }
-        let t = r.title.lowercased()
-        let sideWords = ["salad", "rice", "potato", "vegetable", "slaw", "bread", "roll", "side"]
-        let sauceWords = ["sauce", "dressing", "marinade", "glaze", "dip", "gravy"]
-        let mealWords = ["bowl", "tacos", "stir-fry", "stir fry", "sandwich", "wrap", "soup", "stew", "casserole", "pasta"]
-        if sauceWords.contains(where: { t.contains($0) }) { return .component }
-        if mealWords.contains(where: { t.contains($0) }) { return .fullMeal }
-        if sideWords.contains(where: { t.contains($0) }) { return .side }
-        return .entree
+        PreparationDiscoveryPolicy.role(title: r.title, explicit: r.dishRole)
     }
 
     nonisolated private static func usesExpiring(_ c: ClassifiedRecipe, _ expiring: Set<String>) -> Bool {
@@ -200,7 +223,7 @@ struct PreparationDiscoveryView: View {
                     HStack(spacing: 12) {
                         if !c.recipe.cookTime.isEmpty { metaLabel("clock", c.recipe.cookTime) }
                         if !c.recipe.difficulty.isEmpty { metaLabel("flame", c.recipe.difficulty) }
-                        if Self.role(c.recipe).isStandalone { metaLabel("checkmark.circle", "no sides needed") }
+                        if intent != .buildFullMeal && Self.role(c.recipe).isStandalone { metaLabel("checkmark.circle", "no sides needed") }
                     }
                     .scaledFont(11.5)
                     .foregroundStyle(session.themeTextColor.opacity(0.55))
@@ -248,7 +271,7 @@ struct PreparationDiscoveryView: View {
             Text(anchor.isEmpty ? "Nothing matches yet" : "No \(anchor.displayNormalized) preparations yet")
                 .scaledFont(16, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
-            Text("Try a different intent, or start with another item.")
+            Text(searchUnavailable ? "Some recipe sources couldn’t be loaded. Try again." : "No matching recipes in the downloaded library. Try another ingredient or intent.")
                 .scaledFont(13)
                 .foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center)
@@ -302,7 +325,7 @@ struct PreparationDiscoveryView: View {
         switch intent {
         case .justMakeThis:    return "Standalone preparations. Cook one and stop — no sides required."
         case .addSomething:    return "Low-effort sides and components that keep the star simple."
-        case .buildFullMeal:   return "Complete meal structures around your anchor."
+        case .buildFullMeal:   return "Choose a main or a complete dish to build your meal around."
         case .trySomethingNew: return "Preparations outside your usual rotation."
         case .useWhatIHave:    return "Ranked by what you can cook right now."
         case .useItUp:         return "Prioritizing what's expiring or already open."

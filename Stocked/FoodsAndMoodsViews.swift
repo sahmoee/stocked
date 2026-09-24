@@ -709,8 +709,8 @@ struct MoodRecipeFinderView: View {
                     .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 HStack(spacing: 16) {
-                    Label(r.prepTime, systemImage: "clock").scaledFont(12)
-                    Label(r.cookTime, systemImage: "flame").scaledFont(12)
+                    Label(r.prepTime.isEmpty ? "Prep time unknown" : r.prepTime, systemImage: "clock").scaledFont(12)
+                    Label(r.cookTime.isEmpty ? "Cook time unknown" : r.cookTime, systemImage: "flame").scaledFont(12)
                     Label("\(servings) servings", systemImage: "person.2").scaledFont(12)
                 }
                 .foregroundStyle(session.themeTextColor.opacity(0.55))
@@ -810,7 +810,8 @@ struct MoodRecipeFinderView: View {
             if Task.isCancelled { return }
 
             // 3 — AI: generate a recipe matched to the mood answers.
-            if let ai = await fetchFromAI(keyword: keyword) {
+            if let ai = await fetchFromAI(keyword: keyword), accepts(ai) {
+                guard !Task.isCancelled else { return }
                 recipe = ai; sourceNote = "Created by AI for your mood"; isLoading = false; return
             }
             if Task.isCancelled { return }
@@ -831,9 +832,8 @@ struct MoodRecipeFinderView: View {
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(encoded)") else { return nil }
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let json  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let meals = json["meals"] as? [[String: Any]],
-              let m = meals.randomElement() else { return nil }
-
+              let meals = json["meals"] as? [[String: Any]] else { return nil }
+        for m in meals.shuffled() {
         let title    = m["strMeal"]      as? String ?? keyword.capitalized
         let imageURL = m["strMealThumb"] as? String ?? ""
         let raw = m["strInstructions"] as? String ?? ""
@@ -848,27 +848,25 @@ struct MoodRecipeFinderView: View {
             let meas = (m["strMeasure\(i)"]    as? String ?? "").trimmingCharacters(in: .whitespaces)
             if !ing.isEmpty { ings.append(meas.isEmpty ? ing : "\(meas) \(ing)") }
         }
-        guard !ings.isEmpty || !steps.isEmpty else { return nil }
-        return FetchedMoodRecipe(title: title, imageURL: imageURL, ingredients: ings,
-                                 steps: Array(steps), cookTime: "30 min", prepTime: "15 min")
+        let candidate = FetchedMoodRecipe(title: title, imageURL: imageURL, ingredients: ings,
+                                 steps: Array(steps), cookTime: "", prepTime: "")
+        if accepts(candidate) { return candidate }
+        }
+        return nil
     }
 
     // Layer 2 — bundled 98k-recipe sqlite. Tries keywords in random order; prefers entries
     // that actually have steps so the overview screen isn't empty.
     private func fetchFromLocalDatabase(keywords: [String]) async -> FetchedMoodRecipe? {
-        guard await RecipeStore.shared.isAvailable() else { return nil }
         for keyword in keywords.shuffled() {
-            let hits = await RecipeStore.shared.search(keyword, limit: 6)
-            if let pick = hits.filter({ !$0.steps.isEmpty && !$0.ingredients.isEmpty }).randomElement()
-                        ?? hits.randomElement() {
-                return FetchedMoodRecipe(
-                    title: pick.title,
-                    imageURL: pick.imageURL,
-                    ingredients: pick.ingredients,
-                    steps: pick.steps,
-                    cookTime: pick.cookTime.isEmpty ? "30 min" : pick.cookTime,
-                    prepTime: pick.prepTime.isEmpty ? "15 min" : pick.prepTime
-                )
+            let local = await RecipeDatabase.shared.search(keyword, limit: 30)
+            let corpus = await RecipeDatabaseManager.shared.corpusSearch(keyword, limit: 30)
+            guard !Task.isCancelled else { return nil }
+            for pick in (local + corpus).shuffled() {
+                let candidate = FetchedMoodRecipe(title: pick.title, imageURL: pick.imageURL,
+                    ingredients: pick.ingredients, steps: pick.steps,
+                    cookTime: pick.cookTime, prepTime: pick.prepTime)
+                if accepts(candidate) { return candidate }
             }
         }
         return nil
@@ -901,27 +899,33 @@ struct MoodRecipeFinderView: View {
             imageURL: "",
             ingredients: ings,
             steps: g.steps,
-            cookTime: g.cookTime.isEmpty ? "30 min" : g.cookTime,
-            prepTime: "15 min"
+            cookTime: g.cookTime,
+            prepTime: ""
         )
     }
 
     // Layer 4 — starter + saved recipes: keyword match first, otherwise any starter.
     private func fetchFromStarterCatalog(keywords: [String]) -> FetchedMoodRecipe? {
-        let catalog = session.guestStore.cookCatalog
-        guard !catalog.isEmpty else { return nil }
-        let pick = catalog.first(where: { r in
-            keywords.contains { FuzzyMatch.matches($0, r.title) }
-        }) ?? catalog.randomElement()
-        guard let r = pick else { return nil }
-        return FetchedMoodRecipe(
-            title: r.title,
-            imageURL: r.imageURL ?? "",
-            ingredients: r.ingredients.map { $0.amount.isEmpty ? $0.name : "\($0.amount) \($0.name)" },
-            steps: r.instructions,
-            cookTime: r.cookTime.isEmpty ? "30 min" : r.cookTime,
-            prepTime: r.prepTime.isEmpty ? "15 min" : r.prepTime
-        )
+        let catalog = session.guestStore.cookCatalog.filter { recipe in
+            keywords.contains { FuzzyMatch.matches($0, recipe.title) }
+        }
+        for r in catalog.shuffled() {
+            let candidate = FetchedMoodRecipe(title: r.title, imageURL: r.imageURL ?? "",
+                ingredients: r.ingredients.map { $0.amount.isEmpty ? $0.name : "\($0.amount) \($0.name)" },
+                steps: r.instructions, cookTime: r.cookTime, prepTime: r.prepTime)
+            if accepts(candidate) { return candidate }
+        }
+        return nil
+    }
+
+    private func accepts(_ recipe: FetchedMoodRecipe) -> Bool {
+        let family = FamilyProfileStore.shared
+        let rules = DietaryGuard.Rules(allergens: session.guestStore.cookingProfile.allergens + family.activeAllergens,
+            dislikes: family.profiles.filter(\.isPresent).flatMap(\.dislikes))
+        return !recipe.ingredients.isEmpty && !recipe.steps.isEmpty
+            && DietaryGuard.allergenHits(ingredientLines: recipe.ingredients, title: recipe.title, rules: rules).isEmpty
+            && DietaryGuard.dislikeHits(ingredientLines: recipe.ingredients, title: recipe.title, rules: rules).isEmpty
+            && CookDiscoveryTimePolicy.accepts(prep: recipe.prepTime, cook: recipe.cookTime, budget: timeBudget)
     }
 }
 

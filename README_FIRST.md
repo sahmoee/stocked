@@ -4,6 +4,11 @@
 
 # Read me first
 
+Cook Now preparation discovery now shares recipe search’s paged catalogue and retains entrées as
+meal foundations. Add-on scopes no longer require the main ingredient; Mood respects known total
+time and household restrictions across fallbacks. See `docs/COOK_NOW_DISCOVERY_2026_09_24.md` for
+regression coverage and the outstanding device acceptance matrix.
+
 Recipe photo failures now show an honest unavailable state with explicit retry; valid embedded photos
 are decoded before network lookups. Recipe display titles use shared title case without changing stored
 source titles. Cook Now shares hashing/cache lookup/classification across concurrent options and publishes

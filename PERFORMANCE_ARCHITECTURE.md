@@ -166,3 +166,8 @@ Cook Now coalesces the full cold path (reservation refresh, stable-key hashing, 
 classification) by the exact revision. Warm memory results remain immediate. Publish results before
 encoding/persisting their disposable cache entry. RecipeImageResolver checks warm title results before
 remote-feed work; CachedAsyncImage uses embedded photos before waiting for a publisher URL.
+
+Cook preparation discovery reuses FinderService keyset-paged catalogue reads and applies its intent
+predicate before the bounded 80-result window. Full models are not accumulated for the corpus.
+The bounded candidates pass through asynchronous CookNowCompute with the current household/session
+constraints. Query and classification cancellation are propagated when leaving or changing inputs.
