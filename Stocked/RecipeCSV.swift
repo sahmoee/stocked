@@ -490,7 +490,7 @@ struct RecipeCSVRemovalSheet: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("\"\(m.row.title)\" matches \(m.candidates.count) recipes")
                                     .scaledFont(12, weight: .semibold)
-                                    .foregroundStyle(Color.stockedWarning)
+                                    .foregroundStyle(Color.stockedWarningInk)
                                 ForEach(m.candidates) { c in candidateRow(c, matchedByID: false) }
                             }
                             .padding(.vertical, 4)
@@ -581,7 +581,7 @@ struct RecipeCSVRemovalSheet: View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.circle")
                 .scaledFont(38)
-                .foregroundStyle(Color.stockedSuccess)
+                .foregroundStyle(Color.stockedSuccessInk)
             Text("Nothing to remove")
                 .scaledFont(18, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
@@ -599,7 +599,7 @@ struct RecipeCSVRemovalSheet: View {
         VStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .scaledFont(34)
-                .foregroundStyle(Color.stockedWarning)
+                .foregroundStyle(Color.stockedWarningInk)
             Text(message)
                 .scaledFont(14)
                 .multilineTextAlignment(.center)

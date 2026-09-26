@@ -97,7 +97,7 @@ struct FoodPredictiveTextField: View {
                 }
                 .stockedHorizontalSnap()
                 .padding(.top, 8)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
         .stockedAnimation(.selection, intent: .spatial, value: visibleSuggestions.map(\.searchKey))

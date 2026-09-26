@@ -86,7 +86,7 @@ private struct GrocyConnectionView: View {
                 })) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(value.row.name).font(.stocked(.headline))
-                        Text("\(value.row.kind == .inventory ? "Inventory" : "Shopping") · Grocy: \(value.row.remoteAmount) \(value.row.unit)")
+                        Text("\(value.row.kind == .inventory ? "Kitchen" : "Shopping") · Grocy: \(value.row.remoteAmount) \(value.row.unit)")
                             .font(.stocked(.footnote)).foregroundStyle(session.themeSecondaryText)
                     }
                 }.disabled(busy || reasons[value.id] != nil)

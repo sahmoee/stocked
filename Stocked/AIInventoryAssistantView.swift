@@ -47,7 +47,7 @@ struct AIInventoryAssistantView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         field
                         if let err = parser.lastError {
-                            Text(err).scaledFont(13).foregroundStyle(.orange)
+                            Text(err).scaledFont(13).foregroundStyle(Color.stockedWarningInk)
                         }
                         if noChanges {
                             Text("Couldn't find anything to change from that. Try naming an item you have.")
@@ -120,7 +120,7 @@ struct AIInventoryAssistantView: View {
             .disabled(scanner.isScanning || !AIInventoryScanner.isAvailable)
 
             if let err = scanner.lastError {
-                Text(err).scaledFont(12.5).foregroundStyle(.orange)
+                Text(err).scaledFont(12.5).foregroundStyle(Color.stockedWarningInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if scanClean {

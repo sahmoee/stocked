@@ -83,7 +83,7 @@ struct BarcodeScannerView: View {
                 divRow
                 manualSection
                 if !scanError.isEmpty {
-                    Text(scanError).scaledFont(13).foregroundStyle(.red).padding(.top, 8)
+                    Text(scanError).scaledFont(13).foregroundStyle(Color.stockedErrorInk).padding(.top, 8)
                 }
                 if isLooking {
                     HStack(spacing: 8) {
@@ -463,7 +463,8 @@ struct BarcodeScannerView: View {
     private func fallback(_ code: String) {
         isLooking = false
         resolvedProduct = nil
-        resolvedName = code.isEmpty ? "Unknown Item" : "Item #\(code)"
+        // Leave the name empty: "Item #0123…" looked like a real product and got saved as-is.
+        resolvedName = ""
         activeSheet = .confirm
     }
 
@@ -518,6 +519,23 @@ struct BarcodeConfirmSheet: View {
     @State private var scanContainer: String = ""
     @State private var deducted = false
 
+    /// No product data and no name: the lookup failed and the user must name it.
+    private var isUnrecognized: Bool { product == nil && initialNameWasEmpty }
+    private let initialNameWasEmpty: Bool
+
+    init(productName: String, barcode: String, product: OpenFoodProduct? = nil,
+         zone: Binding<String>, level: Binding<Double>, zones: [String],
+         onAdd: @escaping (String, String, Double, String?, Date?, Int, String) -> Void) {
+        _productName = State(initialValue: productName)
+        self.barcode = barcode
+        self.product = product
+        _zone = zone
+        _level = level
+        self.zones = zones
+        self.onAdd = onAdd
+        self.initialNameWasEmpty = productName.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     // #9 barcode re-scan to deduct: the matching item already in the pantry, if any.
     private var existingItem: LocalInventoryItem? {
         let n = productName.trimmingCharacters(in: .whitespaces).lowercased()
@@ -533,7 +551,14 @@ struct BarcodeConfirmSheet: View {
             ScrollView {
             VStack(spacing: 0) {
                 Capsule().fill(Color.stockedCharcoal.opacity(0.2)).frame(width: 40, height: 4).padding(.top, 12).padding(.bottom, 22)
-                Text("Found Item").scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor).padding(.bottom, 4)
+                Text(isUnrecognized ? "We don't recognize this barcode" : "Found Item")
+                    .scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
+                    .multilineTextAlignment(.center).padding(.bottom, 4)
+                if isUnrecognized {
+                    Text("Type what it is below and we'll remember it for next time.")
+                        .scaledFont(13).foregroundStyle(session.themeSecondaryText)
+                        .multilineTextAlignment(.center).padding(.horizontal, 24).padding(.bottom, 8)
+                }
                 if !barcode.isEmpty {
                     Text(barcode).scaledFont(10, design: .monospaced).foregroundStyle(session.themeSecondaryText).padding(.bottom, 8)
                 }
@@ -718,7 +743,10 @@ struct BarcodeConfirmSheet: View {
                 } label: {
                     Text("Add to \(zone)").scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 15).background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
-                }.padding(.horizontal, 24)
+                }
+                .disabled(productName.trimmingCharacters(in: .whitespaces).isEmpty)
+                .opacity(productName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
+                .padding(.horizontal, 24)
             }
             .padding(.bottom, 20)
             }

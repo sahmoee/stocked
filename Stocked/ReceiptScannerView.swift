@@ -703,7 +703,7 @@ private struct ReviewRowView: View {
                         if item.confidence < 60 {
                             Text("Uncertain — tap to correct")
                                 .scaledFont(10, weight: .semibold)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(Color.stockedWarningInk)
                         }
                     }
                 }
@@ -790,7 +790,7 @@ private struct ReviewRowView: View {
                 .padding(.horizontal, 14).padding(.vertical, 10)
                 .background(Color.stockedGold.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
     }
@@ -1164,7 +1164,10 @@ extension ReceiptScannerView {
                     self.applyParsed(items, from: data)
                 } else { self.runOCROnImage(image) }
             } catch {
-                self.errorMsg = error.localizedDescription
+                // Plain language instead of a raw URLError; the on-device scan still runs.
+                self.errorMsg = (error as? URLError) != nil
+                    ? "Couldn't reach smart reading (offline?) — here's a basic scan instead."
+                    : "Smart reading didn't work for this receipt — here's a basic scan instead."
                 self.runOCROnImage(image)
             }
         }

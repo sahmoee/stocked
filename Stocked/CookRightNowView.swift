@@ -52,7 +52,7 @@ struct CookRightNowView: View {
                                         if let d = item.daysUntilExpiry {
                                             Text(d <= 0 ? "today" : "\(d)d")
                                                 .scaledFont(11, weight: .bold)
-                                                .foregroundStyle(Color.stockedError)
+                                                .foregroundStyle(Color.stockedErrorInk)
                                         }
                                     }
                                     .foregroundStyle(session.themeTextColor.opacity(0.8))

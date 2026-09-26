@@ -384,15 +384,17 @@ struct MainTabView: View {
     }
 
     // Hardware-keyboard shortcuts (iPad with keyboard / Mac): ⌘N new item, ⌘F search,
-    // ⌘1–4 switch tabs. Rendered as zero-size hidden buttons so they register globally.
+    // ⌘1–5 switch tabs in tab-bar order. Titled so the ⌘-hold shortcut overlay lists them
+    // (it showed blank rows before). Rendered as zero-size hidden buttons so they register globally.
     private var keyboardShortcuts: some View {
         Group {
-            Button("") { showAddItems = true }.keyboardShortcut("n", modifiers: .command)
-            Button("") { showSearch = true }.keyboardShortcut("f", modifiers: .command)
-            Button("") { navigate(to: .home) }.keyboardShortcut("1", modifiers: .command)
-            Button("") { navigate(to: .inventory) }.keyboardShortcut("2", modifiers: .command)
-            Button("") { navigate(to: .recipes) }.keyboardShortcut("3", modifiers: .command)
-            Button("") { navigate(to: .grocery) }.keyboardShortcut("4", modifiers: .command)
+            Button("Add Item") { showAddItems = true }.keyboardShortcut("n", modifiers: .command)
+            Button("Search") { showSearch = true }.keyboardShortcut("f", modifiers: .command)
+            Button("Home") { navigate(to: .home) }.keyboardShortcut("1", modifiers: .command)
+            Button("Cook") { navigate(to: .cook) }.keyboardShortcut("2", modifiers: .command)
+            Button("Kitchen") { navigate(to: .inventory) }.keyboardShortcut("3", modifiers: .command)
+            Button("Recipes") { navigate(to: .recipes) }.keyboardShortcut("4", modifiers: .command)
+            Button("Grocery") { navigate(to: .grocery) }.keyboardShortcut("5", modifiers: .command)
         }
         .opacity(0)
         .frame(width: 0, height: 0)
@@ -519,7 +521,7 @@ struct MainTabView: View {
                         // The bar's internal geometry remains owned by StockedTabBar.
                         .padding(.bottom, max(0, safeBottomInset - 22))
                         .background(session.themeBgColor.ignoresSafeArea(edges: .bottom))
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
                 }
             }
             .ignoresSafeArea(edges: .bottom)
@@ -640,6 +642,7 @@ struct MainTabView: View {
             Color.black.opacity(0.45)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onTapGesture {
+                    guard !OverlayDismissGuard.shared.intercept() else { return }
                     motion.animate(.navigation, intent: .spatial) {
                         isPresented.wrappedValue = false
                     }
@@ -680,6 +683,7 @@ struct MainTabView: View {
                             let projected = value.predictedEndTranslation
                             if projected.height > 100,
                                abs(projected.width) < max(80, abs(projected.height) * 0.7) {
+                                guard !OverlayDismissGuard.shared.intercept() else { return }
                                 motion.animate(.navigation, intent: .spatial) {
                                     isPresented.wrappedValue = false
                                 }
@@ -689,7 +693,7 @@ struct MainTabView: View {
                 // No bottom padding needed — global nav is below in VStack
         }
         .zIndex(500)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - Tab Content
@@ -969,7 +973,7 @@ private struct InProgressCookPill: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, bottomInset)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
             } else {
                 Color.clear.frame(width: 0, height: 0)
             }

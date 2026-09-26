@@ -55,18 +55,11 @@ func announceAccessibilityStatus(_ message: String) {
 
 // MARK: - Reduce Motion
 
-/// A motion-aware animation: returns the given animation normally, or nil (instant) when
-/// the user has Reduce Motion enabled. Use as `.animation(.stockedMotion(.spring()), value:)`
-/// or via the `motionAware` helper below.
-extension Animation {
-    static func stockedMotion(_ base: Animation) -> Animation? {
-        UIAccessibility.isReduceMotionEnabled ? nil : base
-    }
-}
-
-extension View {
-    /// Apply an animation that automatically disables itself under Reduce Motion.
-    func motionAware<V: Equatable>(_ base: Animation, value: V) -> some View {
-        self.animation(UIAccessibility.isReduceMotionEnabled ? nil : base, value: value)
+/// Slide transition that becomes a cross-fade under Reduce Motion. All `.move(edge:)`
+/// transitions route through this, so screens stop sliding for people who asked them not to.
+/// (Replaces two unused helpers, `Animation.stockedMotion` and `motionAware`.)
+extension AnyTransition {
+    @MainActor static func stockedMove(edge: Edge) -> AnyTransition {
+        UIAccessibility.isReduceMotionEnabled ? .opacity : .move(edge: edge)
     }
 }

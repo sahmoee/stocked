@@ -245,7 +245,7 @@ nonisolated struct RecipeMigrationCandidate: Identifiable, Sendable {
         let snapshot = store.userRecipes.filter { saved[$0.id] != nil }
         task = Task {
             let current = await Task.detached(priority: .utility) {
-                Dictionary(uniqueKeysWithValues: snapshot.compactMap { recipe in Self.fingerprint(recipe).map { (recipe.id, $0) } })
+                Dictionary(lastWins: snapshot.compactMap { recipe in Self.fingerprint(recipe).map { (recipe.id, $0) } })
             }.value
             let eligible = RecipeMigrationSafety.unchangedAdditionIDs(saved: saved, current: current)
             var removed = 0

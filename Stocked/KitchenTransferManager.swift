@@ -17,6 +17,7 @@ nonisolated struct KitchenPreferences: Codable, Sendable {
     var appTheme: String          = ""
     var appFont: String           = ""
     var isDarkMode: Bool          = false
+    var lightTheme: String?       = nil // Additive; older backups retain the current selection.
     // Behavior / shopping
     var preferredStore: String    = ""
     var autoAddMissingToGrocery: Bool = true
@@ -932,7 +933,6 @@ class KitchenTransferManager {
         return true
     }
 
-
     // MARK: Native .stocked / .json
     func previewBackup(_ data: Data) throws -> KitchenBackupPreview {
         try requirePermissionOrThrow(.backupRestore)
@@ -960,17 +960,21 @@ class KitchenTransferManager {
 
     private func restoreValidatedSnapshot(_ snapshot: KitchenSnapshot, into store: GuestDataStore,
                                           selection: KitchenRestoreSelection) throws -> KitchenRestoreReceipt {
-        let rollbackPackage = try makeBackupData(store: store)
-        let journal = KitchenRestoreRollbackJournal(createdAt: Date(), package: rollbackPackage)
-        let journalData = try JSONEncoder().encode(journal)
-        try LocalDatabase.shared.saveDataDurably(journalData, key: DBKey.kitchenRestoreRollback.rawValue)
+        // Merges only add records, so they must not replace the undo point from the last
+        // full restore (a shared link would otherwise erase the user's only way back).
+        if !selection.merge {
+            let rollbackPackage = try makeBackupData(store: store)
+            let journal = KitchenRestoreRollbackJournal(createdAt: Date(), package: rollbackPackage)
+            let journalData = try JSONEncoder().encode(journal)
+            try LocalDatabase.shared.saveDataDurably(journalData, key: DBKey.kitchenRestoreRollback.rawValue)
+        }
 
         try apply(snapshot, into: store, selection: selection)
         let allCounts = Self.counts(in: snapshot)
         return KitchenRestoreReceipt(
             restoredAt: Date(), sections: selection.sections,
             counts: allCounts.filter { selection.sections.contains($0.key) },
-            merged: selection.merge, rollbackAvailable: true
+            merged: selection.merge, rollbackAvailable: !selection.merge
         )
     }
 
@@ -1047,9 +1051,13 @@ class KitchenTransferManager {
     private func apply(_ snapshot: KitchenSnapshot, into store: GuestDataStore,
                        selection: KitchenRestoreSelection) throws {
         try StockedPhoneWatchBridge.shared.invalidateKitchen()
-        let wasApplyingRemote = store.isApplyingHouseholdRemote
-        store.isApplyingHouseholdRemote = true
-        defer { store.isApplyingHouseholdRemote = wasApplyingRemote }
+        // A user-initiated restore is a LOCAL change: it must stamp timestamps, record
+        // deletion tombstones, respect member permissions and push to the household, or the
+        // next household pull silently undoes it. Only the per-item activity feed is muted
+        // so a restore doesn't post hundreds of "added" events.
+        let wasSuppressed = HouseholdSync.shared.activitySuppressed
+        HouseholdSync.shared.activitySuppressed = true
+        defer { HouseholdSync.shared.activitySuppressed = wasSuppressed }
 
         if selection.sections.contains(.profile), !selection.merge || store.displayName.isEmpty {
             store.displayName = snapshot.displayName
@@ -1092,10 +1100,11 @@ class KitchenTransferManager {
                 store.plannedMeals += meals.filter { !existing.contains($0.id) }
             } else { store.plannedMeals = meals }
         }
-        if selection.sections.contains(.preferences), let preferences = snapshot.preferences {
+        // Merges (shared links, merge imports) never change settings or feature data.
+        if !selection.merge, selection.sections.contains(.preferences), let preferences = snapshot.preferences {
             session?.applyPreferences(preferences)
         }
-        if selection.sections.contains(.features), let features = snapshot.features {
+        if !selection.merge, selection.sections.contains(.features), let features = snapshot.features {
             FeatureSync.shared.restoreBackupSnapshot(features, merge: selection.merge)
         }
         store.flushPendingSaves()

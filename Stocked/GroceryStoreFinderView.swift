@@ -306,14 +306,14 @@ struct GroceryStoreFinderView: View {
 
             if finder.locationDenied {
                 Text("Location denied in Settings. Use a zip code instead.")
-                    .scaledFont(11).foregroundStyle(.red)
+                    .scaledFont(11).foregroundStyle(Color.stockedErrorInk)
                     .padding(.horizontal, 24).padding(.bottom, 8)
             }
 
             if finder.isSearching {
                 HStack { Spacer(); ProgressView().tint(Color.stockedCharcoal); Spacer() }.padding(.top, 24)
             } else if let err = finder.error {
-                Text(err).scaledFont(12).foregroundStyle(.red).padding(.horizontal, 24)
+                Text(err).scaledFont(12).foregroundStyle(Color.stockedErrorInk).padding(.horizontal, 24)
             } else if showMap && !finder.stores.isEmpty {
                 Map(position: .constant(.region(finder.region))) {
                     ForEach(finder.stores) { store in

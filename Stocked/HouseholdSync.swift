@@ -958,6 +958,7 @@ final class HouseholdSync {
     func logActivity(_ kind: HouseholdActivity.Kind, itemName: String) async {
         guard PrivacyControlCenter.shared.allowHouseholdActivity,
               let code = joinCode, state == .owner || state == .member else { return }
+        cachedActivityAt = nil   // our own new event must show up on the next feed read
         // RL-008: each event carries a stable eventId + its ORIGINAL timestamp, so a replay
         // of a request whose response was lost merges as the same event, never a duplicate,
         // and an offline edit keeps its true time in the feed after reconnect.
@@ -1002,19 +1003,33 @@ final class HouseholdSync {
 
     /// #3 Fire-and-forget activity emit for use from store didSets. No-op outside a household.
     /// Coalesced lightly: only emits when in a household and not applying a remote snapshot.
+    /// Set while applying bulk local changes (e.g. a backup restore) to avoid flooding the feed.
+    var activitySuppressed = false
+
     func emitActivity(_ kind: HouseholdActivity.Kind, itemName: String) {
-        guard PrivacyControlCenter.shared.allowHouseholdActivity,
+        guard !activitySuppressed, PrivacyControlCenter.shared.allowHouseholdActivity,
               state == .owner || state == .member else { return }
         Task { await logActivity(kind, itemName: itemName) }
     }
 
     func fetchActivity(limit: Int = 50) async -> [HouseholdActivity] {
         guard let code = joinCode, state == .owner || state == .member else { return [] }
+        // The Daily Brief asks for activity on every open; reuse a recent pull's feed rather
+        // than downloading the whole household document each time.
+        if let at = cachedActivityAt, Date().timeIntervalSince(at) < 120 {
+            return Array(cachedActivity.prefix(limit))
+        }
         guard let resp = await post("/household/pull", ["code": code]),
               let hh = resp["household"] as? [String: Any],
               let raw = hh["activity"] as? [[String: Any]] else { return [] }
-        return raw.compactMap { parseActivity($0) }.prefix(limit).map { $0 }
+        let parsed = raw.compactMap { parseActivity($0) }
+        cachedActivity = parsed
+        cachedActivityAt = Date()
+        if let mapped = members(from: hh) { rememberMembers(mapped) }
+        return Array(parsed.prefix(limit))
     }
+    @ObservationIgnored private var cachedActivity: [HouseholdActivity] = []
+    @ObservationIgnored private var cachedActivityAt: Date?
 
     private func members(from household: [String: Any]) -> [HouseholdMember]? {
         guard let raw = household["members"] as? [[String: Any]] else { return nil }
@@ -1060,7 +1075,26 @@ final class HouseholdSync {
             return solo
         }
         refreshMyAccessRole(from: mapped)
+        rememberMembers(mapped)
         return mapped
+    }
+
+    // Roster cache: every pull already carries the member list, so screens that only need
+    // names (Grocery assignment) read this instead of downloading the whole household again.
+    @ObservationIgnored private var cachedRoster: [HouseholdMember] = []
+    @ObservationIgnored private var cachedRosterAt: Date?
+
+    private func rememberMembers(_ members: [HouseholdMember]) {
+        cachedRoster = members
+        cachedRosterAt = Date()
+    }
+
+    /// Members from the last successful pull (≤ 10 minutes old), else a fresh fetch.
+    func cachedMembers(maxAge: TimeInterval = 600) async -> [HouseholdMember] {
+        if let at = cachedRosterAt, !cachedRoster.isEmpty, Date().timeIntervalSince(at) < maxAge {
+            return cachedRoster
+        }
+        return await fetchMembers()
     }
 
     /// Privileged action: set a member's access level and optional custom label. The client gate
@@ -1512,7 +1546,11 @@ final class HouseholdSync {
     /// Returns how many items were added so the sync prompt can report progress.
     @discardableResult
     private func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) async -> (inv: Int, gro: Int) {
-        if let members = members(from: hh) { refreshMyAccessRole(from: members) }
+        if let members = members(from: hh) { refreshMyAccessRole(from: members); rememberMembers(members) }
+        if let raw = hh["activity"] as? [[String: Any]] {
+            cachedActivity = raw.compactMap { parseActivity($0) }
+            cachedActivityAt = Date()
+        }
         guard let store else { return (0, 0) }
         // Suppress the store's own household push while we write remote data in, so applying a
         // pulled snapshot doesn't immediately echo back out as another push (sync loop).
@@ -1629,7 +1667,7 @@ final class HouseholdSync {
             let orderedRows = (preferredIDs + remainingIDs).compactMap { byID[$0] }
             let merged = GuestDataStore.consolidatedInventory(orderedRows)
             if merged != store.inventoryItems {
-                let previous = Dictionary(uniqueKeysWithValues: store.inventoryItems.map { ($0.id, $0.updatedAt) })
+                let previous = Dictionary(lastWins: store.inventoryItems.map { ($0.id, $0.updatedAt) })
                 store.inventoryItems = merged
                 let changed = merged.filter { previous[$0.id] != $0.updatedAt }.map(\.id)
                 RetailEnrichmentMaintenance.enqueueInventoryItems(ids: changed, store: store)

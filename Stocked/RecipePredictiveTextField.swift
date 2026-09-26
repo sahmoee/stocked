@@ -123,7 +123,7 @@ struct RecipePredictiveTextField: View {
                         }
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
 
             // ── Ingredient suggestion chips (ingredient mode only) ────
@@ -169,7 +169,7 @@ struct RecipePredictiveTextField: View {
                     }
                 }
                 .padding(.top, 8)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
         .stockedAnimation(.selection, intent: .spatial, value: recipeSuggestions.map(\.id))
@@ -270,6 +270,6 @@ struct RecipeFormAutofillBanner: View {
                 .stroke(Color.stockedGold.opacity(0.4), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.stockedMove(edge: .top).combined(with: .opacity))
     }
 }

@@ -721,9 +721,9 @@ extension GuestDataStore {
         let before = inventoryItems
         let prepared = batch.canonicalized(against: before, brandPreferences: brandPreferences,
                                            retailerID: retailerID)
-        let beforeByID = Dictionary(uniqueKeysWithValues: before.map { ($0.id, $0) })
+        let beforeByID = Dictionary(lastWins: before.map { ($0.id, $0) })
         let applied = applyProposedChanges(prepared.changes)
-        let afterByID = Dictionary(uniqueKeysWithValues: inventoryItems.map { ($0.id, $0) })
+        let afterByID = Dictionary(lastWins: inventoryItems.map { ($0.id, $0) })
         let changedIDs = Set(beforeByID.keys).union(afterByID.keys).filter {
             beforeByID[$0] != afterByID[$0]
         }
@@ -735,7 +735,7 @@ extension GuestDataStore {
                     changedIDs.contains(item.id)
                         ? InventoryUndoPriorEntry(originalIndex: index, item: item) : nil
                 }
-                let postItems = Dictionary(uniqueKeysWithValues: changedIDs.compactMap { id in
+                let postItems = Dictionary(lastWins: changedIDs.compactMap { id in
                     afterByID[id].map { (id, $0) }
                 })
                 let undoDelta = InventoryBatchUndoDelta(addedIDs: addedIDs,
@@ -1221,7 +1221,7 @@ struct ReconcileSheet: View {
                     if let issue = change.wrappedValue.reviewIssues.first {
                         Label(issue.message, systemImage: "exclamationmark.triangle.fill")
                             .scaledFont(11, weight: .medium)
-                            .foregroundStyle(Color.stockedWarning)
+                            .foregroundStyle(Color.stockedWarningInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     let alternativeCount = change.wrappedValue.fieldAlternatives.values
@@ -1307,7 +1307,7 @@ struct QuickUpdateSheet: View {
                     .stockedInputSurface()
 
                     if let err = parser.lastError {
-                        Text(err).scaledFont(13).foregroundStyle(.red)
+                        Text(err).scaledFont(13).foregroundStyle(Color.stockedErrorInk)
                     }
                     if noChangesNote {
                         Text("I couldn't find anything to change from that. Try naming specific items.")

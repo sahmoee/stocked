@@ -67,6 +67,7 @@ struct RecipeVaultView: View {
     private struct RecipeHubStats {
         var favorites = 0, cooked = 0, saved = 0, cuisines = 0
         var recents: [UserRecipe] = []
+        var topCuisines: [(String, Int)] = []
     }
     private func recomputeHubStats() {
         let recipes = session.guestStore.userRecipes.filter(\.belongsToMyCollection)
@@ -80,8 +81,12 @@ struct RecipeVaultView: View {
         let recents = session.recentlyViewedRecipeIDs.compactMap { id in
             recipes.first(where: { $0.id == id })
         }
+        let top = RecipeFacets.counts(for: RecipeFacets.availableCuisines(in: recipes), in: recipes)
+            .sorted { $0.1 > $1.1 }
+            .prefix(4)
         hubStats = RecipeHubStats(favorites: fav, cooked: cooked, saved: recipes.count,
-                                  cuisines: cuisineSet.count, recents: recents)
+                                  cuisines: cuisineSet.count, recents: recents,
+                                  topCuisines: Array(top))
     }
     /// Cheap change signal for the hub stats: hashes only the fields the counts depend
     /// on (NOT imageData — a full [UserRecipe] Equatable compare would diff image blobs
@@ -92,6 +97,7 @@ struct RecipeVaultView: View {
             hasher.combine(r.id); hasher.combine(r.collectionSavedByUser); hasher.combine(r.notes)
             hasher.combine(r.isFavorited)
             hasher.combine(r.cookCount); hasher.combine(r.cuisine)
+            hasher.combine(r.title); hasher.combine(r.tags)   // resolved cuisine uses both
         }
         hasher.combine(session.recentlyViewedRecipeIDs)
         return hasher.finalize()
@@ -114,6 +120,7 @@ struct RecipeVaultView: View {
         case cuisineBrowse               // online recipes by cuisine (the Categories card)
         case online(OnlineRecipe)        // a tapped online/Discover recipe
         case sources                     // browse every recipe source
+        case readyToCook                 // kitchen-matched results (same screen as Home/Cook)
         case sourceRecipes(String)       // recipes from one source
         case drinks                      // the Drinks section
         var id: String {
@@ -127,6 +134,7 @@ struct RecipeVaultView: View {
             case .dbRecipe(let e):     return "dbRecipe-\(e.id)"
             case .browseAll:           return "browseAll"
             case .finder:              return "finder"
+            case .readyToCook:         return "readyToCook"
             case .cuisineBrowse:       return "cuisineBrowse"
             case .online(let r):       return "online-\(r.id)"
             case .sources:             return "sources"
@@ -350,7 +358,8 @@ struct RecipeVaultView: View {
             case 1:
                 referenceDestinationCard(image: "recipes_ready", title: "Ready to Cook",
                     subtitle: "Recipes that match your kitchen.", detail: nil) {
-                    navTarget = .browseAll
+                    // Was the unmatched web browser; this card promises kitchen matches.
+                    navTarget = .readyToCook
                 }
             default:
                 referenceDestinationCard(image: "recipes_past", title: "Past Meals",
@@ -732,12 +741,8 @@ struct RecipeVaultView: View {
                 }
 
                 // ── #244 — Top Categories (mockup) ──────────────────────
-                let collectionRecipes = session.guestStore.userRecipes.filter(\.belongsToMyCollection)
-                let cuisineCounts: [(String, Int)] = RecipeFacets.availableCuisines(in: collectionRecipes)
-                    .map { ($0, RecipeFacets.count(cuisine: $0, in: collectionRecipes)) }
-                    .sorted { $0.1 > $1.1 }
-                    .prefix(4)
-                    .map { ($0.0, $0.1) }
+                // Computed with the other hub stats when recipes change, not on every render.
+                let cuisineCounts: [(String, Int)] = hubStats.topCuisines
                 if !cuisineCounts.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Top Categories")
@@ -839,6 +844,8 @@ struct RecipeVaultView: View {
                 ).environment(session)
             case .browseAll:
                 DiscoverBrowseAllView().environment(session)                  // #248
+            case .readyToCook:
+                CookNowResultsView(focus: .readyFirst).environment(session)
             case .finder:
                 RecipeFinderView(model: finder).environment(session)
             case .cuisineBrowse:
@@ -1948,7 +1955,7 @@ private struct RecipeMyCollectionView: View {
                     } label: {
                         Label("\(dups.count) duplicate\(dups.count == 1 ? "" : "s")", systemImage: "arrow.triangle.merge")
                             .scaledFont(11, weight: .semibold)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.stockedWarningInk)
                     }.buttonStyle(.plain)
                 }
                 // #2 — sort by what you can cook right now
@@ -2015,7 +2022,7 @@ private struct RecipeMyCollectionView: View {
                                     if !entry.allergenConflicts.isEmpty {
                                         Label(entry.allergenConflicts.joined(separator: ", "), systemImage: "exclamationmark.triangle.fill")
                                             .scaledFont(9, weight: .bold)
-                                            .foregroundStyle(.orange)
+                                            .foregroundStyle(Color.stockedWarningInk)
                                             .fixedSize(horizontal: false, vertical: true)
                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                             .background(.ultraThinMaterial, in: Capsule())
@@ -2491,8 +2498,7 @@ struct CollectionsListView: View {
 
     private var cuisines: [(String, Int)] {
         let recipes = session.guestStore.userRecipes.filter(\.belongsToMyCollection)
-        return RecipeFacets.availableCuisines(in: recipes)
-            .map { ($0, RecipeFacets.count(cuisine: $0, in: recipes)) }
+        return RecipeFacets.counts(for: RecipeFacets.availableCuisines(in: recipes), in: recipes)
             .sorted { $0.1 > $1.1 }
     }
 

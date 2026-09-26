@@ -30,7 +30,7 @@ nonisolated struct GrocyReviewChoice: Identifiable, Equatable {
                 result[row.id] = prior == row.fingerprint ? "Already imported. No additional stock will be added."
                     : "Changed in Grocy since import. Check the existing item in Stocked and adjust it manually."
             } else if let count = (row.kind == .inventory ? inventoryNames : groceryNames)[KitchenConnectionPolicy.nameKey(row.name)] {
-                result[row.id] = "Already in \(row.kind == .inventory ? "Inventory" : "Grocery List") with \(count) containers. Compare and edit the existing item there."
+                result[row.id] = "Already in \(row.kind == .inventory ? "your Kitchen" : "Grocery List") with \(count) containers. Compare and edit the existing item there."
             }
         }
         return result

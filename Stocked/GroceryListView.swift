@@ -26,7 +26,7 @@ struct StockedUndoToast: View {
         .padding(.horizontal, 20).padding(.vertical, 14)
         .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
         .shadow(color: .black.opacity(0.2), radius: 12, y: 4).padding(.horizontal, 24)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
         .task {
                 try? await Task.sleep(nanoseconds: UInt64(StockedUI.undoToastDuration * 1_000_000_000))
                 withAnimation { isShowing = false }
@@ -65,6 +65,8 @@ struct GroceryListView: View {
     @State private var expandedSection: String? = nil
     @State private var undoItem:    LocalGroceryItem? = nil
     @State private var showUndo     = false
+    @State private var addFieldText = ""
+    @FocusState private var addFieldFocused: Bool
     @State private var batchMode    = false
     @State private var selectedIDs  = Set<UUID>()
     // #2 perf: cache the grouped sections so the 4+ filter passes only run when the
@@ -160,19 +162,6 @@ struct GroceryListView: View {
     private var store: GuestDataStore { session.guestStore }
     private var dark: Bool   { session.isDarkMode }
 
-    /// True if any Low Stock / Running Out / Usuals suggestions are available to show. Drives
-    /// whether the empty list shows the big empty-state or a compact header (so suggestions lead).
-    private var hasSuggestions: Bool {
-        let low = store.inventoryItems.contains { inv in
-            KitchenAvailability.isRunningLow(inv) &&
-            !store.groceryItems.contains { $0.name.lowercased() == inv.name.lowercased() }
-        }
-        if low { return true }
-        let runningOut = store.itemsRunningOutSoon(within: KitchenThresholds.expiringSoonDays)
-            .contains { $0.effectiveLevel >= KitchenThresholds.lowFillLevel }
-        if runningOut { return true }
-        return !GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map { $0.name }, limit: 8).isEmpty
-    }
     private var text: Color  { session.themeTextColor }
     private var sub:  Color  { session.themeSecondaryText }
 
@@ -320,7 +309,7 @@ struct GroceryListView: View {
             commitPantryTransfer(candidates: candidates, resolutions: [:])
         } else {
             grocerySheet = .purchaseReview(PurchaseDupReviewContext(
-                title: "Move to Pantry", candidates: candidates, flags: flags))
+                title: "Add to Kitchen", candidates: candidates, flags: flags))
         }
     }
 
@@ -347,7 +336,9 @@ struct GroceryListView: View {
                                                     storeName: cand.store.isEmpty ? nil : cand.store,
                                                     origin: .groceryTransfer)
             case .keepBoth:
-                var inv = LocalInventoryItem(name: g.name, level: 1.0, zone: "Pantry",
+                // Milk belongs in the fridge and peas in the freezer, not everything in Pantry.
+                var inv = LocalInventoryItem(name: g.name, level: 1.0,
+                                             zone: ReceiptDatabase.shared.guessZone(for: g.name),
                                              quantity: max(1, g.quantity))
                 inv.purchaseDate     = Date()
                 inv.addedBy          = who
@@ -370,7 +361,7 @@ struct GroceryListView: View {
             store.applyProposalBatch(
                 InventoryProposalBatch(
                     origin: .groceryTransfer,
-                    title: "Move groceries to pantry",
+                    title: "Add groceries to kitchen",
                     changes: additions,
                     mergePolicy: .storeCompatible
                 ),
@@ -387,8 +378,8 @@ struct GroceryListView: View {
         let segments = PurchaseImportLog.shared.storeSegments(forTrip: tripID)
         let segmentNote = segments.count > 1 ? " (\(segments.joined(separator: " + ")))" : ""
         loopMessage = moved == 0
-            ? "Nothing new to move — duplicates skipped"
-            : "Moved \(moved) item\(moved == 1 ? "" : "s") into your pantry\(segmentNote)"
+            ? "Nothing new to add — duplicates skipped"
+            : "Added \(moved) item\(moved == 1 ? "" : "s") to your kitchen\(segmentNote)"
         HapticManager.success()
     }
 
@@ -448,10 +439,15 @@ struct GroceryListView: View {
         }
         .onAppear { rebuildSections() }
         .task {
+            // Uses the roster cached by the last household pull; only fetches when it is stale.
             let sync = HouseholdSync.shared
             if sync.state == .owner || sync.state == .member {
-                householdMemberNames = await sync.fetchMembers().map(\.name).filter { !$0.isEmpty }
+                householdMemberNames = await sync.cachedMembers().map(\.name).filter { !$0.isEmpty }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockedFocusGroceryAdd)) { _ in
+            showBought = false
+            addFieldFocused = true
         }
         .onChange(of: store.groceryRevision) { _, _ in rebuildSections() }
         .onChange(of: searchText) { _, _ in rebuildSections() }
@@ -474,7 +470,7 @@ struct GroceryListView: View {
             Button("Share List") { prepareShare() }
             Button("Scan a List") { grocerySheet = .scanList }
             if store.groceryItems.contains(where: { $0.isChecked }) {
-                Button("Move Bought Items to Inventory") {
+                Button("Add Bought Items to Kitchen") {
                     beginPantryTransfer(store.groceryItems.filter(\.isChecked))
                 }
             }
@@ -661,6 +657,7 @@ struct GroceryListView: View {
                 }
                 .buttonStyle(.plain)
             }
+            if !showBought { groceryAddField }
             if !loopMessage.isEmpty {
                 Text(loopMessage).font(.stocked(.caption)).foregroundStyle(session.accentColor)
             }
@@ -676,7 +673,7 @@ struct GroceryListView: View {
                         .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: layoutMetrics.isAccessibilityText ? .center : .leading)
-                    Button("Add Item") { showQuickAdd = true }
+                    Button("Add Item") { addFieldFocused = true }
                         .font(.stocked(.subheadline).weight(.semibold))
                         .foregroundStyle(session.accentColor)
                         .frame(minWidth: 44, minHeight: 44)
@@ -690,6 +687,85 @@ struct GroceryListView: View {
                     ForEach(sections) { sectionCard($0) }
                 }
             }
+        }
+    }
+
+    /// Always-visible add field: one tap + type + return, instead of Organize → Add Item → alert.
+    @ViewBuilder
+    private var groceryAddField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "plus.circle.fill")
+                .font(.stocked(.title3))
+                .foregroundStyle(session.accentColor)
+                .accessibilityHidden(true)
+            TextField("Add item…", text: $addFieldText)
+                .font(.stocked(.body))
+                .foregroundStyle(text)
+                .focused($addFieldFocused)
+                .submitLabel(.done)
+                .textInputAutocapitalization(.words)
+                .onSubmit { commitAddField(keepFocus: true) }
+            if !addFieldText.trimmingCharacters(in: .whitespaces).isEmpty {
+                Button("Add") { commitAddField(keepFocus: true) }
+                    .font(.stocked(.subheadline).weight(.semibold))
+                    .foregroundStyle(session.accentColor)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 48)
+        .background(session.themeCardColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .contain)
+        if addFieldFocused, !addFieldSuggestions.isEmpty {
+            // One-tap adds from the user's usual purchases, filtered by what they're typing.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(addFieldSuggestions, id: \.self) { name in
+                        Button {
+                            store.addGroceryItem(name: name)
+                            HapticManager.success()
+                            addFieldText = ""
+                        } label: {
+                            Text(name.displayNormalized)
+                                .font(.stocked(.subheadline))
+                                .foregroundStyle(text)
+                                .padding(.horizontal, 12)
+                                .frame(minHeight: 36)
+                                .background(session.themeCardColor, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .frame(minHeight: 44)
+                        .accessibilityLabel("Add \(name.displayNormalized)")
+                    }
+                }
+            }
+        }
+    }
+
+    private var addFieldSuggestions: [String] {
+        let typed = addFieldText.trimmingCharacters(in: .whitespaces)
+        let usuals = GroceryUsuals.shared.suggestions(excluding: store.groceryItems.map(\.name), limit: 20)
+        let matches = typed.isEmpty ? usuals : usuals.filter { $0.searchMatches(typed) }
+        return Array(matches.prefix(6))
+    }
+
+    private func commitAddField(keepFocus: Bool) {
+        let name = addFieldText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { addFieldFocused = false; return }
+        store.addGroceryItem(name: name)
+        HapticManager.success()
+        addFieldText = ""
+        addFieldFocused = keepFocus
+    }
+
+    /// Removes a row with an Undo toast that puts it back in the same position.
+    private func removeWithUndo(_ item: LocalGroceryItem) {
+        guard let index = store.groceryItems.firstIndex(where: { $0.id == item.id }) else { return }
+        withAnimation { _ = store.groceryItems.remove(at: index) }
+        HapticManager.warning()
+        ToastCenter.shared.undo("Removed \(GroceryNameParser.parse(item.name).name.displayNormalized)") {
+            guard !store.groceryItems.contains(where: { $0.id == item.id }) else { return }
+            withAnimation { store.groceryItems.insert(item, at: min(index, store.groceryItems.count)) }
         }
     }
 
@@ -749,510 +825,8 @@ struct GroceryListView: View {
         grocerySheet = .share
     }
 
-    private var legacyPresentation: some View {
-        StockedShell(scrollDisabled: true,
-                     titleText: "Grocery List",
-                     trailingIcon: "ellipsis", trailingLabel: "More",
-                     onTrailing: { showMoreDialog = true }) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Undo toast
-                if showUndo, let item = undoItem {
-                    StockedUndoToast(message: "Item removed", onUndo: {
-                        withAnimation { store.groceryItems.insert(item, at: 0) }
-                        HapticManager.success()
-                    }, isShowing: $showUndo).padding(.horizontal, 4).padding(.bottom, 8)
-                }
-
-
-                // ── To Buy / Bought (#235 mockup) ───────────────────────
-                HStack(spacing: 0) {
-                    segmentButton("To Buy", count: store.groceryItems.filter { !$0.isChecked }.count, active: !showBought) {
-                        withAnimation(.easeInOut(duration: 0.18)) { showBought = false }
-                    }
-                    segmentButton("Bought", count: store.groceryItems.filter { $0.isChecked }.count, active: showBought) {
-                        withAnimation(.easeInOut(duration: 0.18)) { showBought = true }
-                    }
-                    // #E2 — only meaningful in a household with assignments in play.
-                    if store.groceryItems.contains(where: { !$0.assignedTo.isEmpty }) {
-                        segmentButton("Mine", count: store.groceryItems.filter {
-                            !$0.isChecked && ($0.assignedTo.isEmpty || $0.assignedTo.caseInsensitiveCompare(session.userName) == .orderedSame)
-                        }.count, active: showMineOnly) {
-                            withAnimation(.easeInOut(duration: 0.18)) { showMineOnly.toggle(); rebuildSections() }
-                        }
-                    }
-                }
-                .padding(4)
-                .background(session.themeCardColor)
-                .clipShape(Capsule())
-                .padding(.horizontal, 24).padding(.bottom, 12)
-                .coachmarkAnchor("grocery.segments")
-
-                if recipeFilters.count > 1 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(recipeFilters, id: \.self) { recipe in
-                                Button {
-                                    selectedRecipe = recipe
-                                    rebuildSections()
-                                } label: {
-                                    Text(recipe).scaledFont(12, weight: .semibold).fixedSize(horizontal: false, vertical: true)
-                                        .foregroundStyle(selectedRecipe == recipe ? Color.stockedWhite : text.opacity(0.7))
-                                        .padding(.horizontal, 12).padding(.vertical, 8)
-                                        .background(selectedRecipe == recipe ? Color.stockedCharcoal : Color.clear)
-                                        .clipShape(Capsule())
-                                }.buttonStyle(.plain)
-                            }
-                        }
-                        .stockedScrollTargetLayout()
-                        .padding(.horizontal, 24)
-                    }
-                    .stockedHorizontalSnap()
-                    .padding(.bottom, 10)
-                    .accessibilityLabel("Filter grocery list by recipe")
-                }
-
-                // Store and department filters compose with recipe, household, search,
-                // and To Buy/Bought filters. Only stores that own at least one current
-                // row are offered, so this stays useful instead of becoming a directory.
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        Menu {
-                            ForEach(storeFilters, id: \.self) { storeName in
-                                Button {
-                                    selectedStore = storeName
-                                    rebuildSections()
-                                } label: {
-                                    Label(storeName, systemImage: selectedStore == storeName ? "checkmark" : "storefront")
-                                }
-                            }
-                        } label: {
-                            filterPill(icon: "storefront", title: selectedStore)
-                        }
-
-                        Menu {
-                            Button {
-                                selectedAisle = nil
-                                rebuildSections()
-                            } label: {
-                                Label("All Aisles", systemImage: selectedAisle == nil ? "checkmark" : "square.grid.2x2")
-                            }
-                            ForEach(GroceryAisle.allCases, id: \.self) { aisle in
-                                Button {
-                                    selectedAisle = aisle
-                                    rebuildSections()
-                                } label: {
-                                    Label(aisle.rawValue, systemImage: selectedAisle == aisle ? "checkmark" : "square.grid.2x2")
-                                }
-                            }
-                        } label: {
-                            filterPill(icon: "square.grid.2x2", title: selectedAisle?.rawValue ?? "All Aisles")
-                        }
-
-                        if selectedStore != "All Stores" || selectedAisle != nil {
-                            Button {
-                                selectedStore = "All Stores"
-                                selectedAisle = nil
-                                rebuildSections()
-                            } label: {
-                                filterPill(icon: "xmark", title: "Clear")
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Clear store and aisle filters")
-                        }
-                    }
-                    .stockedScrollTargetLayout()
-                    .padding(.horizontal, 24)
-                }
-                .stockedHorizontalSnap()
-                .padding(.bottom, 10)
-                .accessibilityLabel("Filter grocery list by store or aisle")
-
-                // ── #245 — stacked title + Sort pill (mockup) ───────────
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(showBought ? "Bought" : "To Buy")
-                            .scaledFont(24, weight: .bold, design: .serif)
-                            .foregroundStyle(text)
-                        let n = store.groceryItems.filter { $0.isChecked == showBought }.count
-                        Text("\(n) item\(n == 1 ? "" : "s")")
-                            .scaledFont(13).foregroundStyle(sub)
-                    }
-                    Spacer()
-                    Menu {
-                        Button { sortAZ = false } label: {
-                            Label("Category", systemImage: sortAZ ? "circle" : "checkmark")
-                        }
-                        Button { sortAZ = true } label: {
-                            Label("Name (A–Z)", systemImage: sortAZ ? "checkmark" : "circle")
-                        }
-                        Divider()
-                        // RL-010 — optional store-organized view; unified list stays default.
-                        Button { groupByStore.toggle() } label: {
-                            Label("Group by Store", systemImage: groupByStore ? "checkmark" : "storefront")
-                        }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Text(groupByStore ? "By Store" : "Sort: \(sortAZ ? "Name" : "Category")")
-                                .scaledFont(12, weight: .semibold)
-                            Image(systemName: "chevron.down")
-                                .scaledFont(12, weight: .semibold)
-                        }
-                        .foregroundStyle(text.opacity(0.75))
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(session.themeCardColor)
-                        .clipShape(Capsule())
-                    }
-                }
-                .padding(.horizontal, 24).padding(.bottom, 10)
-
-
-                if !loopMessage.isEmpty {
-                    Text(loopMessage)
-                        .scaledFont(11)
-                        .foregroundStyle(Color.stockedAccentInk)
-                        .padding(.horizontal, 24).padding(.bottom, 8)
-                        .transition(.opacity)
-                }
-
-                // ── SCROLLABLE LIST ──────────────────────────────────
-                ScrollView(showsIndicators: false) {
-                Color.clear.frame(height: 1) // anchor for refreshable
-                    VStack(alignment: .leading, spacing: 0) {
-
-                        // Recipe sections
-                        if sections.isEmpty && store.groceryItems.isEmpty && !hasSuggestions {
-                            // Truly nothing — full empty state.
-                            StockedEmptyState(
-                                icon: "🛒",
-                                title: "List is empty",
-                                subtitle: "Add items above, or plan a meal — ingredients will show up here automatically."
-                            ).padding(.top, 24)
-                        } else if sections.isEmpty && store.groceryItems.isEmpty && hasSuggestions {
-                            // Empty list but we have suggestions — compact header so the
-                            // suggestions below become the focus instead of a big "empty" block.
-                            HStack(spacing: 12) {
-                                Image(systemName: "cart.badge.plus")
-                                    .scaledFont(22)
-                                    .foregroundStyle(Color.stockedAccentInk)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Your list is clear")
-                                        .scaledFont(15, weight: .semibold, design: .serif)
-                                        .foregroundStyle(session.themeTextColor)
-                                    Text("Add an item below, or tap a suggestion to restock.")
-                                        .scaledFont(12)
-                                        .foregroundStyle(session.themeSecondaryText)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                                Spacer()
-                            }
-                            .padding(14)
-                            .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 16)
-                            .padding(.bottom, 4)
-                        } else if sections.isEmpty && !searchText.isEmpty {
-                            VStack(spacing: 10) {
-                                Text("🔍").scaledFont(36)
-                                Text("No results for \"\(searchText)\"")
-                                    .scaledFont(14).foregroundStyle(sub)
-                                Button("Add \"\(searchText)\" to list") { addItem() }
-                                    .scaledFont(14, weight: .semibold)
-                                    .foregroundStyle(Color.stockedAccentInk)
-                            }
-                            .frame(maxWidth: .infinity).padding(.top, 40)
-                        } else {
-                            ForEach(sections) { section in
-                                sectionCard(section)
-                                    .padding(.horizontal, 20)
-                                    .padding(.bottom, 12)
-                                    .springIn(delay: Double(sections.firstIndex(where: { $0.id == section.id }) ?? 0) * 0.06)
-                            }
-                        }
-
-                        // Low stock suggestions (not yet added)
-                        let lowNotInList = store.inventoryItems.filter { inv in
-                            KitchenAvailability.isRunningLow(inv) &&
-                            !store.groceryItems.contains { $0.name.lowercased() == inv.name.lowercased() }
-                        }
-                        if !lowNotInList.isEmpty {
-                            sectionLabel("🔴 Low Stock — Tap to Add")
-                            ForEach(lowNotInList) { inv in
-                                Button {
-                                    withAnimation {
-                                        store.addToGroceryIfMissing(inv.name, recommended: true)
-                                    }
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "exclamationmark.circle")
-                                            .scaledFont(16)
-                                            .foregroundStyle(inv.effectiveLevel == 0 ? Color.red : text)
-                                            .frame(width: 28)
-                                        VStack(alignment: .leading, spacing: 10) {
-                                            Text(inv.name).scaledFont(14).foregroundStyle(text)
-                                            Text("\(inv.zone) · \(Int(inv.effectiveLevel * 100))% left")
-                                                .scaledFont(11)
-                                                .foregroundStyle(inv.effectiveLevel == 0 ? Color.red : text)
-                                            // #7 — where it's been cheapest lately
-                                            if let deal = store.bestPrice(for: inv.name) {
-                                                Text("Cheapest at \(deal.store) · $\(String(format: "%.2f", deal.price))")
-                                                    .scaledFont(11)
-                                                    .foregroundStyle(Color.stockedSuccessInk)
-                                            }
-                                        }
-                                        Spacer()
-                                        Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedAccentInk)
-                                    }
-                                    .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
-                                    .padding(.horizontal, 24)
-                                    .padding(.bottom, 8)
-                                    .contentShape(Rectangle())
-                                }.buttonStyle(.plain)
-                                .swipeToDelete(confirmTitle: "Remove \(inv.name) from your kitchen?") {
-                                    let removed = inv
-                                    store.removeInventoryItem(id: inv.id)
-                                    ToastCenter.shared.undo("Deleted \(inv.name.displayNormalized)") {
-                                        store.restoreInventoryItems([removed])
-                                    }
-                                }
-                            }
-                        }
-
-                        // #5 — velocity reorder: not low YET, but the learned usage rate says
-                        // they'll run out within days. itemsRunningOutSoon already excludes
-                        // anything on the list; filter out <25% too so rows never double up
-                        // with the Low Stock section above.
-                        let runningOut = store.itemsRunningOutSoon(within: 4)
-                            .filter { $0.effectiveLevel >= 0.25 }
-                        if !runningOut.isEmpty {
-                            sectionLabel("📉 Running Out Soon — Tap to Add")
-                            ForEach(runningOut) { inv in
-                                Button {
-                                    withAnimation {
-                                        store.addToGroceryIfMissing(inv.name, recommended: true)
-                                    }
-                                    HapticManager.light()
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "gauge.with.needle")
-                                            .scaledFont(16)
-                                            .foregroundStyle(Color.stockedAccentInk)
-                                            .frame(width: 28)
-                                        VStack(alignment: .leading, spacing: 10) {
-                                            Text(inv.name).scaledFont(14).foregroundStyle(text)
-                                            if let ro = store.predictedRunOut(for: inv) {
-                                                Text("At your usual pace, gone by \(ro.formatted(.dateTime.weekday(.wide)))")
-                                                    .scaledFont(11)
-                                                    .foregroundStyle(Color.stockedAccentInk)
-                                            }
-                                            if let deal = store.bestPrice(for: inv.name) {
-                                                Text("Cheapest at \(deal.store) · $\(String(format: "%.2f", deal.price))")
-                                                    .scaledFont(11)
-                                                    .foregroundStyle(Color.stockedSuccessInk)
-                                            }
-                                        }
-                                        Spacer()
-                                        Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedAccentInk)
-                                    }
-                                    .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
-                                    .padding(.horizontal, 24)
-                                    .padding(.bottom, 8)
-                                    .contentShape(Rectangle())
-                                }.buttonStyle(.plain)
-                                .swipeToDelete(confirmTitle: "Remove \(inv.name) from your kitchen?") {
-                                    let removed = inv
-                                    store.removeInventoryItem(id: inv.id)
-                                    ToastCenter.shared.undo("Deleted \(inv.name.displayNormalized)") {
-                                        store.restoreInventoryItems([removed])
-                                    }
-                                }
-                            }
-                        }
-
-                        // #A4 — predicted restocks: staples due based on YOUR burn rate
-                        // (learned from the consumption log), not just current levels.
-                        let predicted = cachedPredicted
-                        if !predicted.isEmpty {
-                            sectionLabel("🔮 Probably Running Low — Tap to Add")
-                            ForEach(predicted, id: \.self) { name in
-                                Button {
-                                    withAnimation { store.addGroceryItem(name: name) }
-                                    HapticManager.light()
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "clock.arrow.circlepath")
-                                            .scaledFont(16)
-                                            .foregroundStyle(Color.stockedAccentInk)
-                                            .frame(width: 28)
-                                        Text(name.displayNormalized).scaledFont(14).foregroundStyle(text)
-                                        Spacer()
-                                        Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedAccentInk)
-                                    }
-                                    .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
-                                    .padding(.horizontal, 24)
-                                    .padding(.bottom, 8)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .a11yButton("Add \(name.displayNormalized), likely running low")
-                            }
-                        }
-
-                        // Your usuals — frequently added items not currently on the list.
-                        let usuals = GroceryUsuals.shared.suggestions(
-                            excluding: store.groceryItems.map { $0.name }, limit: 8)
-                        if !usuals.isEmpty {
-                            sectionLabel("⭐ Your Usuals — Tap to Add")
-                            ForEach(usuals, id: \.self) { name in
-                                Button {
-                                    withAnimation {
-                                        store.addGroceryItem(name: name)
-                                    }
-                                    GroceryUsuals.shared.record(name)
-                                    HapticManager.light()
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "arrow.counterclockwise.circle")
-                                            .scaledFont(16)
-                                            .foregroundStyle(Color.stockedAccentInk)
-                                            .frame(width: 28)
-                                        Text(name).scaledFont(14).foregroundStyle(text)
-                                        Spacer()
-                                        Text("Add").scaledFont(13, weight: .semibold)
-                                            .foregroundStyle(Color.stockedAccentInk)
-                                    }
-                                    .padding(.horizontal, 14).padding(.vertical, 11)
-                                    .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
-                                    .padding(.horizontal, 24)
-                                    .padding(.bottom, 8)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .a11yButton("Add \(name) to list", hint: "One of your frequently bought items")
-                            }
-                        }
-
-                        // Nearby grocery discovery belongs directly in the Grocery tab. The
-                        // embedded variant reuses this scroll view instead of nesting another one.
-                        GroceryStoreFinderView(embedded: true)
-                            .padding(.top, 20)
-                    }
-                    .padding(.bottom, 12)
-                }
-            }
-        }
-        .sheet(item: $grocerySheet) { sheet in
-            switch sheet {
-            case .storePicker: quickStorePickerSheet
-            case .share:       ShareSheet(items: [shareText])
-            case .scanList:
-                // #16 — scan a handwritten/printed list; each line becomes a grocery item.
-                HandwrittenListScanner { lines in
-                    var n = 0
-                    for line in lines {
-                        let name = line.trimmingCharacters(in: .whitespaces)
-                        guard name.count >= 2,
-                              !store.groceryItems.contains(where: { $0.name.lowercased() == name.lowercased() })
-                        else { continue }
-                        store.groceryItems.append(LocalGroceryItem(name: name, isChecked: false))
-                        n += 1
-                    }
-                    loopMessage = "Added \(n) item\(n == 1 ? "" : "s") from your list"
-                    grocerySheet = nil
-                }.environment(session)
-            case .cookLater(let context):
-                NavigationStack {
-                    CookLaterWorkspaceView(context: context).environment(session)
-                }
-            case .purchaseReview(let context):
-                // RL-007 — Merge / Keep Both / Skip for flagged duplicates, then commit.
-                PurchaseDedupReviewView(context: context,
-                                        onCommit: { resolutions in
-                                            grocerySheet = nil
-                                            commitPantryTransfer(candidates: context.candidates,
-                                                                 resolutions: resolutions)
-                                        },
-                                        onCancel: { grocerySheet = nil })
-                    .environment(session)
-            }
-        }
-        .onAppear { rebuildSections() }
-        .task {
-            // #E2 — load the household roster for assignments (no-op when solo).
-            let sync = HouseholdSync.shared
-            if sync.state == .owner || sync.state == .member {
-                let members = await sync.fetchMembers()
-                householdMemberNames = members.map(\.name).filter { !$0.isEmpty }
-            }
-        }
-        .onChange(of: store.groceryRevision) { _, _ in rebuildSections() }
-        .onChange(of: searchText) { _, _ in rebuildSections() }
-        .onChange(of: showBought) { _, _ in rebuildSections() }   // #235 — segment filter
-        .onChange(of: showMineOnly) { _, _ in rebuildSections() } // #E2 — Mine filter
-        .onChange(of: sortAZ) { _, _ in rebuildSections() }        // #245 — sort pill
-        .onChange(of: groupByStore) { _, _ in rebuildSections() }  // RL-010 — store grouping
-        .onChange(of: selectedStore) { _, _ in rebuildSections() }
-        .onChange(of: selectedAisle) { _, _ in rebuildSections() }
-        .onChange(of: session.preferredStore) { _, _ in preferredStoreDidChange() }
-        // #245 — header ··· hosts the relocated chrome (store / share / scan / move).
-        .confirmationDialog("Grocery List", isPresented: $showMoreDialog, titleVisibility: .visible) {
-            Button("Shopping at \(session.preferredStore) — change store") { grocerySheet = .storePicker }
-            Button("Share List") {
-                let items = store.groceryItems.filter { !$0.isChecked }
-                let lines = items.map { "• \($0.name)\($0.recipeSource.isEmpty ? "" : " (\($0.recipeSource))")" }
-                shareText = lines.isEmpty ? "No items on the list." : "My Grocery List:\n\n" + lines.joined(separator: "\n")
-                grocerySheet = .share
-            }
-            Button("Scan a List") { grocerySheet = .scanList }
-            if store.groceryItems.contains(where: { $0.isChecked }) {
-                Button("Move Checked → Pantry") {
-                    // RL-007 — routed through the dedupe-aware transfer so a trip that was
-                    // already receipt-scanned (or double-tapped) can't land twice.
-                    beginPantryTransfer(store.groceryItems.filter { $0.isChecked })
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        // #235 — mockup's pinned "+ Add Item" button (To Buy only).
-        .overlay(alignment: .bottom) {
-            if !showBought {
-                Button { showQuickAdd = true } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus").scaledFont(15, weight: .bold)
-                        Text("Add Item").scaledFont(15, weight: .bold, design: .serif)
-                    }
-                    .foregroundStyle(Color.stockedWhite)
-                    .padding(.horizontal, 26).padding(.vertical, 14)
-                    .background(Color.stockedCharcoal)
-                    .clipShape(Capsule())
-                    .shadow(color: .black.opacity(0.25), radius: 10, y: 3)
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 14)
-                .coachmarkAnchor("grocery.add")
-            }
-        }
-        .alert("Add Item", isPresented: $showQuickAdd) {
-            TextField("Item name", text: $quickAddName)
-            Button("Add") {
-                let name = quickAddName.trimmingCharacters(in: .whitespaces)
-                if !name.isEmpty {
-                    store.addGroceryItem(name: name)
-                    HapticManager.success()
-                }
-                quickAddName = ""
-            }
-            Button("Cancel", role: .cancel) { quickAddName = "" }
-        } message: {
-            Text("Add something to your grocery list.")
-        }
-        .coachmarks(page: .grocery, steps: GroceryCoachmarks.steps)
-    }
+    // The pre-editorial Grocery layout (~500 lines, never rendered since `body` switched to
+    // editorialPresentation) was removed; it only cost compile time.
 
     // MARK: - Receipt Reconciliation
     // Called by ReceiptScannerView after a successful scan via Notification
@@ -1350,7 +924,7 @@ struct GroceryListView: View {
                     } label: {
                         Label("Clear \(done) checked", systemImage: "trash")
                             .scaledFont(12, weight: .semibold)
-                            .foregroundStyle(Color.stockedError)
+                            .foregroundStyle(Color.stockedErrorInk)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .contentShape(Rectangle())
@@ -1393,6 +967,13 @@ struct GroceryListView: View {
                     store.groceryItems[index].isChecked.toggle()
                     if store.groceryItems[index].isChecked {
                         GroceryUsuals.shared.record(store.groceryItems[index].name)
+                        // A mis-tap hides the row in Bought; offer a one-tap way back.
+                        let id = item.id
+                        ToastCenter.shared.undo("Checked off \(GroceryNameParser.parse(item.name).name.displayNormalized)") {
+                            if let i = store.groceryItems.firstIndex(where: { $0.id == id }) {
+                                withAnimation { store.groceryItems[i].isChecked = false }
+                            }
+                        }
                     }
                     HapticManager.light()
                 }
@@ -1436,9 +1017,7 @@ struct GroceryListView: View {
                         openInStore(item.name)
                     }
                     Button("Remove", systemImage: "trash", role: .destructive) {
-                        undoItem = item
-                        store.groceryItems.removeAll { $0.id == item.id }
-                        showUndo = true
+                        removeWithUndo(item)
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -1453,221 +1032,6 @@ struct GroceryListView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(item.isChecked ? "Uncheck" : "Check") \(parsed.name.displayNormalized), quantity \(item.quantity)")
-    }
-
-    // MARK: - Individual row — full cell tappable
-    private func groceryRow(_ item: LocalGroceryItem) -> some View {
-        let parsed = GroceryNameParser.parse(item.name)
-        let size = item.sizeText.isEmpty ? parsed.sizeText : item.sizeText
-        let displayName = size.isEmpty
-            ? parsed.name.displayNormalized
-            : "\(parsed.name.displayNormalized) (\(size))"
-
-        return HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 7) {
-                Button {
-                    motion.animate(.selection, intent: .spatial) {
-                        if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
-                            store.groceryItems[idx].isChecked.toggle()
-                            HapticManager.light()
-                            if store.groceryItems[idx].isChecked {
-                                GroceryUsuals.shared.record(store.groceryItems[idx].name)
-                            }
-                        }
-                    }
-                } label: {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: item.isChecked ? "checkmark.square.fill" : "square")
-                            .scaledFont(20)
-                            .foregroundStyle(item.isChecked ? session.themeContrastAccent : sub)
-                            .frame(width: 26, height: 28, alignment: .center)
-                            .a11yDecorative()
-
-                        Text(ImageFallbackService.emoji(for: item.name))
-                            .scaledFont(17)
-                            .frame(width: 24, height: 28, alignment: .center)
-
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(displayName)
-                                .scaledFont(16, weight: .medium)
-                                .foregroundStyle(item.isChecked ? sub : text)
-                                .strikethrough(item.isChecked)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            StockedFlowLayout(spacing: 4, lineSpacing: 4) {
-                                if !item.recipeSource.isEmpty {
-                                    Image(systemName: "fork.knife").scaledFont(8)
-                                    Text(item.recipeSource).scaledFont(12, weight: .semibold)
-                                } else if item.isRecommended {
-                                    Image(systemName: "arrow.2.circlepath").scaledFont(8)
-                                    Text("Auto-added").scaledFont(12, weight: .semibold)
-                                } else {
-                                    Image(systemName: "hand.point.right").scaledFont(8)
-                                    Text("Manual").scaledFont(12, weight: .semibold)
-                                }
-                                if StockedDatabase.shared.hasSubstitution(for: item.name) {
-                                    Text("·").scaledFont(8).foregroundStyle(sub)
-                                    Image(systemName: "arrow.left.arrow.right").scaledFont(7)
-                                        .foregroundStyle(session.themeContrastAccent)
-                                    Text("Sub available").scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(session.themeContrastAccent)
-                                }
-                                if !item.assignedTo.isEmpty {
-                                    Text("·").scaledFont(8).foregroundStyle(sub)
-                                    Image(systemName: "person.fill").scaledFont(7)
-                                        .foregroundStyle(Color.stockedSuccessInk)
-                                    Text(item.assignedTo).scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(Color.stockedSuccessInk)
-                                } else if !item.addedByName.isEmpty {
-                                    Text("·").scaledFont(8).foregroundStyle(sub)
-                                    Text("by \(item.addedByName)").scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(session.themeContrastAccent)
-                                }
-                            }
-                            .foregroundStyle(sub)
-                            .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(item.isChecked ? "Uncheck" : "Check") \(displayName)")
-
-                // Flexible inset yields to large text and the 44-point quantity controls.
-                HStack(spacing: 7) {
-                    Color.clear.frame(minWidth: 0, maxWidth: 60, minHeight: 1, maxHeight: 1)
-                        .layoutPriority(-1)
-                    Text("Qty")
-                        .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(sub)
-                    Button {
-                        if item.quantity > 1 {
-                            store.updateGroceryQty(id: item.id, qty: item.quantity - 1)
-                        }
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .scaledFont(22)
-                            .foregroundStyle(session.themeContrastAccent)
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Decrease quantity")
-                    .disabled(item.quantity <= 1)
-
-                    Text("\(item.quantity)")
-                        .scaledFont(15, weight: .bold)
-                        .foregroundStyle(text)
-                        .frame(minWidth: 18)
-
-                    Button {
-                        store.updateGroceryQty(id: item.id, qty: item.quantity + 1)
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .scaledFont(22)
-                            .foregroundStyle(session.themeContrastAccent)
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Increase quantity")
-                    Spacer(minLength: 0)
-                }
-            }
-            .layoutPriority(1)
-
-            VStack(spacing: 8) {
-                Button {
-                    grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
-                } label: {
-                    Image(systemName: "calendar.badge.plus")
-                        .scaledFont(16)
-                        .foregroundStyle(session.themeContrastAccent)
-                        .frame(width: 44, height: 44)
-                        .background(Color.stockedGreen.opacity(0.12))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(item.recipeSource.isEmpty ? "Plan with this item" : "View planned meal")
-
-                Button { openInStore(item.name) } label: {
-                    Image(systemName: "cart.fill")
-                        .scaledFont(16)
-                        .foregroundStyle(session.themeContrastAccent)
-                        .frame(width: 44, height: 44)
-                        .background(Color.stockedGold.opacity(0.12))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Find in store")
-
-                Button {
-                    undoItem = item
-                    withAnimation { store.groceryItems.removeAll { $0.id == item.id } }
-                    motion.animate(.standard, intent: .spatial) { showUndo = true }
-                    HapticManager.warning()
-                } label: {
-                    Image(systemName: "xmark")
-                        .scaledFont(16)
-                        .foregroundStyle(sub)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Remove item")
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .contentShape(Rectangle())
-        // #E2 assignable items — long-press to ask a household member to grab it.
-        // Members come from the household roster; solo users just see Unassign/me.
-        .contextMenu {
-            Button {
-                grocerySheet = .cookLater(.grocery(name: item.name, recipeSource: item.recipeSource))
-            } label: {
-                Label(item.recipeSource.isEmpty ? "Plan with this item" : "View planned meal", systemImage: "calendar.badge.plus")
-            }
-            // RL-010 — assign/move this row to a store. Just a side-table write, so the
-            // item is never recreated: checked state and provenance survive the move.
-            Menu {
-                MultiStorePickerMenu(
-                    currentStore: resolvedStore(for: item),
-                    isExplicit: MultiStoreAssignments.shared.explicitStore(for: item.id) != nil,
-                    extras: Array(Set(store.itemStoreHistory.values)).sorted(),
-                    onSelect: { name in
-                        MultiStoreAssignments.shared.assign(name, to: item.id)
-                        rebuildSections()
-                        HapticManager.select()
-                    })
-            } label: {
-                Label("Store: \(resolvedStore(for: item))", systemImage: "storefront")
-            }
-            if HouseholdSync.shared.state == .owner || HouseholdSync.shared.state == .member {
-                Menu {
-                    ForEach(assignableMembers, id: \.self) { name in
-                        Button {
-                            if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
-                                store.groceryItems[idx].assignedTo = name
-                            }
-                        } label: { Label(name, systemImage: "person") }
-                    }
-                    if !item.assignedTo.isEmpty {
-                        Button(role: .destructive) {
-                            if let idx = store.groceryItems.firstIndex(where: { $0.id == item.id }) {
-                                store.groceryItems[idx].assignedTo = ""
-                            }
-                        } label: { Label("Unassign", systemImage: "person.slash") }
-                    }
-                } label: { Label("Assign to…", systemImage: "person.badge.plus") }
-            }
-        }
-        .swipeToDelete {
-            undoItem = item
-            withAnimation { store.groceryItems.removeAll { $0.id == item.id } }
-            motion.animate(.standard, intent: .spatial) { showUndo = true }
-            HapticManager.warning()
-        }
     }
 
     // MARK: - Store URL handoff engine
@@ -1692,10 +1056,6 @@ struct GroceryListView: View {
         ]
         let url = urlMap[session.preferredStore] ?? "https://www.google.com/search?q=\(enc)+grocery"
         if let u = URL(string: url) { UIApplication.shared.open(u) }
-    }
-
-    private func sectionLabel(_ t: String) -> some View {
-        SectionHeader(text: t)
     }
 
     // MARK: - Quick Store Picker Sheet
@@ -1820,4 +1180,10 @@ struct HandwrittenListScanner: View {
             }
         }
     }
+}
+
+
+extension Notification.Name {
+    /// Opens the Grocery tab's add field with the keyboard up (Home "Add Grocery Item").
+    static let stockedFocusGroceryAdd = Notification.Name("stockedFocusGroceryAdd")
 }

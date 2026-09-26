@@ -158,7 +158,7 @@ struct StockedToastOverlay: View {
                 .shadow(color: .black.opacity(0.28), radius: 12, y: 5)
                 .padding(.horizontal, 24)
                 .padding(.bottom, bottomInset)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isModal)
             }
@@ -340,5 +340,16 @@ extension View {
     /// chip/filter rails retain multi-item flicking through `stockedHorizontalSnap`.
     func stockedCardRailSnap() -> some View {
         modifier(StockedCardRailBehaviorModifier())
+    }
+}
+
+// MARK: - Icon-only buttons (accessibility)
+extension View {
+    /// For icon-only buttons: a 44-pt hit area without changing the visual layout, plus a
+    /// spoken name ("minus circle, button" told VoiceOver users nothing about the action).
+    func stockedIconButton(_ label: LocalizedStringKey) -> some View {
+        self.frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            .accessibilityLabel(Text(label))
     }
 }

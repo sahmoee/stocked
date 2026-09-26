@@ -153,7 +153,7 @@ struct AIRecipeGeneratorView: View {
             if let errorText {
                 Text(errorText)
                     .scaledFont(13)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.stockedWarningInk)
                     .padding(.top, 2)
             }
 

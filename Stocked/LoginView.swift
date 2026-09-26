@@ -107,7 +107,7 @@ struct LoginView: View {
                     .opacity(animateIn ? 1 : 0)
 
                 if let err = appleError {
-                    Text(err).scaledFont(12).foregroundStyle(.red)
+                    Text(err).scaledFont(12).foregroundStyle(Color.stockedErrorInk)
                         .padding(.top, 8).multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }

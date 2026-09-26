@@ -199,7 +199,7 @@ struct HouseholdCreateView: View {
 
             Button("Done") { dismiss() }
                 .scaledFont(15, weight: .semibold)
-                .foregroundStyle(Color.stockedError)
+                .foregroundStyle(Color.stockedErrorInk)
                 .padding(.bottom, 24)
         }
         .sheet(isPresented: $showShare) { ShareSheet(items: shareItems) }
@@ -258,7 +258,7 @@ struct HouseholdJoinView: View {
             .disabled(joining || code.trimmingCharacters(in: .whitespaces).count < 4)
 
             if let message {
-                Text(message).scaledFont(12).foregroundStyle(Color.stockedError).padding(.top, 12)
+                Text(message).scaledFont(12).foregroundStyle(Color.stockedErrorInk).padding(.top, 12)
             }
         }
     }
@@ -558,7 +558,7 @@ struct HouseholdMemberProfileView: View {
             if canManageMembers && !member.isMe {
                 Button(role: .destructive) { confirmRemoval = true } label: {
                     Text(removing ? "Removing…" : "Remove from Household")
-                        .scaledFont(14, weight: .medium).foregroundStyle(Color.stockedError)
+                        .scaledFont(14, weight: .medium).foregroundStyle(Color.stockedErrorInk)
                 }
                 .disabled(removing)
                 .padding(.top, 20)
@@ -697,7 +697,7 @@ struct HouseholdShareCodeView: View {
                 }
             } label: {
                 Text(regenerating ? "Regenerating…" : "Regenerate Code")
-                    .scaledFont(14, weight: .medium).foregroundStyle(Color.stockedError)
+                    .scaledFont(14, weight: .medium).foregroundStyle(Color.stockedErrorInk)
             }
             .disabled(regenerating || household.state != .owner)
             .padding(.bottom, 24)
@@ -836,7 +836,7 @@ struct HouseholdSettingsView: View {
                 NavigationLink { HouseholdConflictReviewView() } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedError)
+                            .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedErrorInk)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Review Household Changes").scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                             Text("\(household.pendingConflicts.count) change\(household.pendingConflicts.count == 1 ? "" : "s") need your review")
@@ -877,7 +877,7 @@ struct HouseholdSettingsView: View {
     private func destructiveRow(_ title: String, _ subtitle: String) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedError)
+                Text(title).scaledFont(14, weight: .semibold).foregroundStyle(Color.stockedErrorInk)
                 Text(subtitle).scaledFont(12).foregroundStyle(session.themeSecondaryText)
             }
             Spacer()
@@ -894,7 +894,7 @@ struct HouseholdConflictReviewView: View {
 
     private func typeLabel(_ t: HouseholdEntityType) -> String {
         switch t {
-        case .inventoryItem: return "Inventory"
+        case .inventoryItem: return "Kitchen"
         case .groceryItem:   return "Grocery"
         case .userRecipe, .generatedRecipe: return "Recipe"
         default: return "Item"
@@ -1184,7 +1184,7 @@ struct HouseholdSyncOptionsView: View {
                 .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                 .padding(.top, 12).padding(.bottom, 16)
             VStack(spacing: 0) {
-                toggleRow("Inventory", "shippingbox.fill", $inv) { household.syncInventory = $0 }
+                toggleRow("Kitchen items", "shippingbox.fill", $inv) { household.syncInventory = $0 }
                 Divider()
                 toggleRow("Grocery list", "cart.fill", $gro) { household.syncGrocery = $0 }
                 Divider()

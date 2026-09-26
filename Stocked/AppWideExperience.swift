@@ -368,7 +368,7 @@ struct AppExperienceCenterView: View {
                 Section("Continue setup") {
                     if SetupMilestone.allCases.allSatisfy({ setupIsComplete($0) }) {
                         Label("Setup complete", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(Color.stockedSuccess)
+                            .foregroundStyle(Color.stockedSuccessInk)
                     }
                     ForEach(SetupMilestone.allCases) { milestone in
                         setupRow(milestone)

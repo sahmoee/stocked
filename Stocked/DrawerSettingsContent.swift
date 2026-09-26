@@ -703,7 +703,7 @@ struct HouseholdSyncSheet: View {
                         .buttonStyle(.plain)
                         .disabled(ckBusy)
                         if let err = HouseholdCloudKit.shared.lastError {
-                            Text(err).scaledFont(11).foregroundStyle(Color.stockedError)
+                            Text(err).scaledFont(11).foregroundStyle(Color.stockedErrorInk)
                                 .multilineTextAlignment(.center)
                         }
 
@@ -819,7 +819,7 @@ struct HouseholdSyncSheet: View {
                             HouseholdCloudKit.shared.leaveHousehold()
                         } label: {
                             Text("Leave Household")
-                                .scaledFont(13).foregroundStyle(Color.stockedError)
+                                .scaledFont(13).foregroundStyle(Color.stockedErrorInk)
                         }.buttonStyle(.plain)
                     }
                 }

@@ -282,7 +282,13 @@ enum RecipeSourceRegistry {
 
     /// Nonisolated snapshot of user domains so `source(for:)` (used off the main actor in the
     /// import pipeline) can still resolve custom sources. Refreshed whenever the store changes.
-    nonisolated(unsafe) static var customSnapshot: [RecipeSource] = []
+    /// Lock-protected: written on the main actor by CustomRecipeSourceStore, read off-main by
+    /// the import pipeline. A plain `nonisolated(unsafe)` array here was a real data race.
+    private nonisolated static let customLock = OSAllocatedUnfairLock<[RecipeSource]>(initialState: [])
+    nonisolated static var customSnapshot: [RecipeSource] {
+        get { customLock.withLockUnchecked { $0 } }
+        set { customLock.withLockUnchecked { $0 = newValue } }
+    }
 
     nonisolated static func source(for domain: String) -> RecipeSource? {
         let host = domain.lowercased().replacingOccurrences(of: "www.", with: "")

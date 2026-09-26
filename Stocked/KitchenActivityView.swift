@@ -93,7 +93,7 @@ struct KitchenActivityView: View {
 
                 if conflicts.hasRecentUnreviewed {
                     Text("\(conflicts.unreviewed.count) of your edits were replaced by another device — see the banner on Home to review.")
-                        .scaledFont(12).foregroundStyle(.orange)
+                        .scaledFont(12).foregroundStyle(Color.stockedWarningInk)
                 }
             }
         }

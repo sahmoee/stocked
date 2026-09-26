@@ -254,7 +254,7 @@ nonisolated enum RecipeSourcesPlus {
         req.setValue(key, forHTTPHeaderField: "x-rapidapi-key")
         req.setValue("tasty.p.rapidapi.com", forHTTPHeaderField: "x-rapidapi-host")
 
-        guard let (data, http) = try? await URLSession.shared.data(for: req),
+        guard let (data, http) = try? await URLSession.stocked.data(for: req),
               (http as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let results = json["results"] as? [[String: Any]] else { return [] }

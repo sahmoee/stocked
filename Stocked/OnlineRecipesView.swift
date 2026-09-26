@@ -1019,7 +1019,7 @@ struct OnlineRecipesView: View {
                         .stockedHorizontalSnap()
                         .contentMargins(.horizontal, 10, for: .scrollContent)
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity.combined(with: .stockedMove(edge: .top)))
                 }
             }
             .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -1453,7 +1453,7 @@ struct OnlineRecipesView: View {
             defer { Task { @MainActor in isSearching = false } }
             let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
             guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(enc)"),
-                  let (data, _) = try? await URLSession.shared.data(from: url),
+                  let (data, _) = try? await URLSession.stocked.data(from: url),
                   !Task.isCancelled else { return }
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let meals = json["meals"] as? [[String: Any]] else {
@@ -1615,7 +1615,7 @@ struct OnlineRecipeCard: View {
                         Text("Contains: \(hits.joined(separator: ", "))")
                             .scaledFont(9.5, weight: .semibold).fixedSize(horizontal: false, vertical: true)
                     }
-                    .foregroundStyle(Color.stockedError)
+                    .foregroundStyle(Color.stockedErrorInk)
                 }
 
                 HStack(spacing: 4) {
@@ -1843,10 +1843,10 @@ struct OnlineRecipeDetailView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .scaledFont(11, weight: .bold)
-                                        .foregroundStyle(Color.stockedError)
+                                        .foregroundStyle(Color.stockedErrorInk)
                                     Text("Contains: \(allergenHits.joined(separator: ", "))")
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(Color.stockedError)
+                                        .foregroundStyle(Color.stockedErrorInk)
                                 }
                                 .padding(.horizontal, 10).padding(.vertical, 6)
                                 .background(Color.stockedError.opacity(0.10))
@@ -2064,7 +2064,7 @@ struct OnlineRecipeDetailView: View {
                         .background(Color.stockedCharcoal.opacity(0.94))
                         .clipShape(Capsule())
                         .padding(.bottom, 18)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
                 }
             }
             .onAppear {

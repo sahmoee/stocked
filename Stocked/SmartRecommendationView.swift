@@ -253,7 +253,7 @@ struct SmartRecommendationView: View {
         }
         .padding(.horizontal, CookStyle.screenHPad)
         .id(c.recipe.id)   // animate card swap on Try Another
-        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
+        .transition(.asymmetric(insertion: .stockedMove(edge: .trailing).combined(with: .opacity),
                                 removal: .opacity))
     }
 

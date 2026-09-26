@@ -93,7 +93,7 @@ struct MealPrepView: View {
                     .padding(.horizontal, 20).padding(.vertical, 12)
                     .background(Color.stockedGreen).clipShape(RoundedRectangle(cornerRadius: 24))
                     .padding(.bottom, 100)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
             }
         }
         // Refresh Quick Picks from the recipe database every time the screen appears, so the

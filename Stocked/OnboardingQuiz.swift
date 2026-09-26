@@ -593,14 +593,14 @@ struct OnboardingQuiz: View {
     private var finishCard: some View {
         VStack(spacing: 16) {
             Text("🎉").scaledFont(64).padding(.top, 8)
-            Text("Your kitchen is ready!")
+            Text("Now let's add what you have")
                 .scaledFont(22, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
                 .multilineTextAlignment(.center)
-            Text("We've set everything up based on your preferences. Update them anytime in Settings.")
-                .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.55))
+            Text("Your preferences are saved. Next, stock a few staples or scan a receipt — Home shows both options — so Stocked can suggest meals you can actually make.")
+                .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center).padding(.horizontal, 22)
-            continueButton(label: "Start Cooking 🍳") {
+            continueButton(label: "Stock My Kitchen") {
                 completeOnboarding()
             }
         }

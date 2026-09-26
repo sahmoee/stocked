@@ -384,7 +384,7 @@ struct GroceryTemplatesView: View {
                                             .scaledFont(13, weight: .semibold)
                                             .padding(.horizontal, 12).padding(.vertical, 7)
                                             .background(Capsule().fill(Color.red.opacity(0.12)))
-                                            .foregroundStyle(.red)
+                                            .foregroundStyle(Color.stockedErrorInk)
                                     }
                                     .buttonStyle(.plain)
                                 }

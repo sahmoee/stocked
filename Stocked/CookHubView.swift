@@ -147,6 +147,9 @@ struct CookNowHomeView: View {
 
     // Classified snapshot — computed off the render path, never in body.
     @State private var snapshot = CookNowCompute.Output.empty
+    /// False until the first classification finishes, so the screen shows "Checking your
+    /// kitchen…" instead of flashing "We couldn't find a match yet." on every visit.
+    @State private var hasComputed = false
 
     // Navigation
     @State private var goBuildFood  = false
@@ -191,12 +194,16 @@ struct CookNowHomeView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
 
+                if !hasComputed {
+                    checkingKitchenState
+                } else {
                 switch snapshot.emphasis {
                 case .emptyInventory:      emptyInventoryState
                 case .readyAndAlmost:      readinessDashboard(lead: .ready)
                 case .almostOnly:          readinessDashboard(lead: .almost)
                 case .morePossibilitiesOnly: buildTowardState
                 case .noMatches:           noMatchesState
+                }
                 }
 
                 if snapshot.emphasis == .readyAndAlmost || snapshot.emphasis == .almostOnly {
@@ -300,7 +307,7 @@ struct CookNowHomeView: View {
         classificationTask?.cancel()
         classificationTask = Task {
             if let result = await CookNowCompute.runYielding(store: store, session: cookSession),
-               !Task.isCancelled { snapshot = result }
+               !Task.isCancelled { snapshot = result; hasComputed = true }
         }
     }
 
@@ -514,6 +521,30 @@ struct CookNowHomeView: View {
         .padding(.horizontal, CookStyle.screenHPad)
     }
 
+    private var checkingKitchenState: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Checking your kitchen…")
+                    .scaledFont(15, weight: .semibold, design: .serif)
+                    .foregroundStyle(session.themeTextColor)
+            }
+            ForEach(0..<2, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(session.themeTextColor.opacity(0.06))
+                    .frame(height: 86)
+            }
+        }
+        .padding(.horizontal, CookStyle.screenHPad)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Checking your kitchen for recipes you can make")
+        // Safety net: never spin forever if a classification pass was superseded.
+        .task {
+            try? await Task.sleep(for: .seconds(4))
+            if !Task.isCancelled { hasComputed = true }
+        }
+    }
+
     private var noMatchesState: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
@@ -663,8 +694,6 @@ struct CookNowHomeView: View {
             // Broadest entry: begin with any item and decide what to do with it.
             pathwayRow(emoji: "🧑\u{200d}🍳", asset: "cook_row_ingredient", title: "Start With Something",
                        subtitle: "Pick an ingredient and choose what to do — from one item to a full meal.") { goStartWith = true }
-            pathwayRow(emoji: "🥩", asset: "cook_row_build_food", title: "Build Around Food",
-                       subtitle: "Use what you have or what you love.") { goBuildFood = true }
             pathwayRow(emoji: "⏳", asset: "cook_row_expiring", title: "Expiring Soon",
                        subtitle: "Cook around what needs to go first.") { goExpiringSoon = true }
             pathwayRow(emoji: "🙂", asset: "cook_row_mood", title: "Match My Mood",
@@ -680,13 +709,11 @@ struct CookNowHomeView: View {
     /// Secondary workspace entry points — browse makeable, use-it-up, finish & serve.
     private var workspaceHubSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("More ways in")
+            // "Makeable Now", "Use Something Up" and "Build Around Food" duplicated the ready
+            // list above, Expiring Soon and Start With Something; one route per job.
+            Text("Cooked ahead?")
                 .scaledFont(15, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
-            pathwayRow(emoji: "✅", asset: "cook_row_makeable_now", title: "Makeable Now",
-                       subtitle: "Browse entrées, sides, and meals you can make right now.") { goMakeableNow = true }
-            pathwayRow(emoji: "⏳", asset: "cook_row_use_something_up", title: "Use Something Up",
-                       subtitle: "Cook around what's expiring or already open.") { goUseItUp = true }
             pathwayRow(emoji: "🍽️", asset: "cook_row_finish_serve", title: "Finish & Serve",
                        subtitle: "Reheat and finish anything you cooked ahead.") { goFinishServe = true }
         }

@@ -830,7 +830,7 @@ struct MoodRecipeFinderView: View {
     private func fetchFromMealDB(keyword: String) async -> FetchedMoodRecipe? {
         let encoded = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? keyword
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/search.php?s=\(encoded)") else { return nil }
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
+        guard let (data, _) = try? await URLSession.stocked.data(from: url),
               let json  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let meals = json["meals"] as? [[String: Any]] else { return nil }
         for m in meals.shuffled() {

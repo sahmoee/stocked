@@ -174,7 +174,7 @@ struct RecipeURLImportSheet: View {
                     }
 
                     if let error {
-                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedErrorInk)
                     }
                 }
                 .padding(20)
@@ -300,7 +300,7 @@ struct RecipeScreenshotImportSheet: View {
 
                     if working { ProgressView().tint(session.accentColor) }
                     if let error {
-                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedErrorInk)
                             .multilineTextAlignment(.center)
                     }
                     Text("Tip: the clearer the screenshot, the better the result. You can fix anything on the next screen.")
@@ -381,7 +381,7 @@ struct RecipeManualTextSheet: View {
                     .stockedInputSurface()
 
                     if let error {
-                        Text(error).scaledFont(13).foregroundStyle(Color.stockedError)
+                        Text(error).scaledFont(13).foregroundStyle(Color.stockedErrorInk)
                     }
                 }
                 .padding(20)

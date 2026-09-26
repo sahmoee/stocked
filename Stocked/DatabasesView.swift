@@ -889,7 +889,7 @@ private struct TipDBRow: View {
                         .foregroundStyle(session.themeSecondaryText)
                         .lineSpacing(3)
                         .padding(.horizontal, 58).padding(.bottom, 14)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity.combined(with: .stockedMove(edge: .top)))
                 }
             }
             .contentShape(Rectangle())

@@ -220,7 +220,7 @@ struct SubstitutionRow: View {
                     Image(systemName: "leaf.fill").scaledFont(10).foregroundStyle(.green)
                 }
                 if substitution.glutenFree == true {
-                    Text("GF").scaledFont(9, weight: .bold).foregroundStyle(.orange)
+                    Text("GF").scaledFont(9, weight: .bold).foregroundStyle(Color.stockedWarningInk)
                 }
             }
             if !substitution.detail.isEmpty {

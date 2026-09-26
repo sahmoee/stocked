@@ -118,6 +118,7 @@ struct RecipePortionsEditSheet: View {
                         Image(systemName: "minus.circle")
                             .scaledFont(18).foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
+                    .stockedIconButton("Decrease \(item.name.displayNormalized)")
                     Text("\(Int((item.effectiveLevel * 100).rounded()))%")
                         .scaledFont(12, weight: .bold, design: .monospaced)
                         .foregroundStyle(session.themeTextColor)
@@ -128,6 +129,7 @@ struct RecipePortionsEditSheet: View {
                         Image(systemName: "plus.circle")
                             .scaledFont(18).foregroundStyle(Color.stockedAccentInk)
                     }.buttonStyle(.plain)
+                    .stockedIconButton("Increase \(item.name.displayNormalized)")
                     Button {
                         let removed = item
                         store.removeInventoryItem(id: item.id)

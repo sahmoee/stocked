@@ -102,6 +102,10 @@ struct StockedApp: App {
                 StockedFeatureStores.flushAll()          // #6 — same for the feature stores
                 WidgetBridge.refresh(store: session.guestStore)   // keep widgets current
             }
+            // Hold a background task until LocalDatabase's coalesced writes are on disk.
+            if phase == .background {
+                PersistenceLifecycle.shared.flushForBackground {}
+            }
             // #19 — handle Siri-shortcut launch intents when we come to the foreground.
             if phase == .active {
                 StockedPhoneWatchBridge.shared.consumeHandoff()
@@ -199,6 +203,23 @@ struct RootView: View {
             .zIndex(1500)
             .allowsHitTesting(true)
 
+            Color.clear
+                .alert("Import kitchen data from a link?",
+                       isPresented: Binding(get: { session.pendingImportURL != nil },
+                                            set: { if !$0 { session.pendingImportURL = nil } })) {
+                    Button("Import") {
+                        if let url = session.pendingImportURL {
+                            let added = session.transferManager.importFromDeepLink(url, into: session.guestStore, merge: true)
+                            if added { ToastCenter.shared.success("Imported from the shared link") }
+                        }
+                        session.pendingImportURL = nil
+                    }
+                    Button("Cancel", role: .cancel) { session.pendingImportURL = nil }
+                } message: {
+                    Text("Items from this link are added to your kitchen. Your settings are not changed. Only import links you trust.")
+                }
+                .allowsHitTesting(false)
+
             QATapTracker().zIndex(2400)
             QAIssueReporter().zIndex(2450)
             QAHUD().zIndex(2350)
@@ -212,7 +233,6 @@ struct RootView: View {
             HouseholdSyncProgress()
                 .environment(session)
                 .zIndex(2000)
-
         }
         // FR-01 FIX (point 4): consent prompt for restoring an existing iCloud backup after
         // Sign in with Apple. Nothing is pulled from iCloud unless the user taps Restore.
@@ -261,6 +281,7 @@ struct RootView: View {
         }
         // No .animation(value:) — causes CATransaction fence timeout on iPad
         // when splashDone + quizCompleted + isLoggedIn all change together.
+        .environment(\.stockedLightTheme, session.lightTheme)
         .preferredColorScheme(session.isDarkMode ? .dark : .light)
         .task(id: session.guestStore.hasCompletedInitialHydration) {
             guard session.guestStore.hasCompletedInitialHydration else { return }
@@ -351,7 +372,8 @@ struct RootView: View {
                     NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
                 default:
                     // #13 widget nav hosts handled above; anything else is an import payload.
-                    mgr.importFromDeepLink(url, into: session.guestStore, merge: true)
+                    // Links can come from any web page, so ask before merging anything.
+                    session.pendingImportURL = url
                 }
             } else if url.isFileURL {
                 _ = mgr.importFromURL(url, into: session.guestStore, merge: true)

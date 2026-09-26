@@ -999,7 +999,7 @@ struct RecipeSubstitutionsSection: View {
                         }
                     }
                     .padding(.horizontal, 8).padding(.bottom, 12)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity.combined(with: .stockedMove(edge: .top)))
                 }
             }
             .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -1068,7 +1068,7 @@ struct RecipeKitchenTipsSection: View {
                     }
                 }
                 .padding(.horizontal, 8).padding(.bottom, 12)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
         .stockedPastelCard(radius: StockedUI.cornerRadiusMd)

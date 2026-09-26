@@ -1074,7 +1074,7 @@ struct QAModeView: View {
                 .padding(.horizontal, 14).padding(.vertical, 9)
                 .background(.ultraThinMaterial, in: Capsule())
                 .padding(.bottom, 24)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
         }
     }
 

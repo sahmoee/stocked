@@ -101,7 +101,7 @@ struct UsageInsightsView: View {
                 Button(role: .destructive) { showResetConfirm = true } label: {
                     Text("Reset usage data")
                         .scaledFont(14, weight: .semibold)
-                        .foregroundStyle(Color.stockedError)
+                        .foregroundStyle(Color.stockedErrorInk)
                 }
                 .padding(.horizontal, 24).padding(.top, 4)
 

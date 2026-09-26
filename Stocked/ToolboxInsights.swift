@@ -21,7 +21,7 @@ struct PantryValueView: View {
                 if snapshot.expiredValue > 0 {
                     ToolboxCard {
                         HStack {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.stockedWarningInk)
                             Text("\(ToolboxFormatters.dollars(snapshot.expiredValue)) of that is expired")
                                 .scaledFont(14, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
@@ -142,7 +142,7 @@ struct WasteInsightsView: View {
                                     Spacer()
                                     Text("\(entry.count)×")
                                         .scaledFont(13, weight: .bold, design: .rounded)
-                                        .foregroundStyle(.orange)
+                                        .foregroundStyle(Color.stockedWarningInk)
                                 }
                             }
                         }
@@ -219,7 +219,7 @@ struct WeeklyReviewView: View {
                 if session.cookStreak > 0 {
                     ToolboxCard {
                         HStack {
-                            Image(systemName: "flame.fill").foregroundStyle(.orange)
+                            Image(systemName: "flame.fill").foregroundStyle(Color.stockedWarningInk)
                             Text("You're on a \(session.cookStreak)-day cooking streak")
                                 .scaledFont(14, weight: .semibold)
                                 .foregroundStyle(session.themeTextColor)

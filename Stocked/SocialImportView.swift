@@ -175,7 +175,7 @@ struct SocialImportSheet: View {
         VStack(spacing: 16) {
             Image(systemName: "checkmark.circle")
                 .scaledFont(34)
-                .foregroundStyle(Color.stockedSuccess)
+                .foregroundStyle(Color.stockedSuccessInk)
             Text("Already imported")
                 .scaledFont(18, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)

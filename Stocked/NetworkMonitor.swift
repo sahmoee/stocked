@@ -97,7 +97,7 @@ struct OfflineBanner: View {
                 .padding(.vertical, 6)
                 .padding(.horizontal, 14)
                 .background(session.themeTextColor.opacity(0.08))
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.stockedMove(edge: .top).combined(with: .opacity))
             }
             // RL-008: pending-sync strip rides directly under the offline banner, so it
             // appears everywhere the banner does (StockedShell) with no extra wiring. It

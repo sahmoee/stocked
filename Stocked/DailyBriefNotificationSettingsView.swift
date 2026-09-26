@@ -260,7 +260,7 @@ struct DailyBriefNotificationSettingsView: View {
         case .denied:
             HStack(spacing: 10) {
                 Image(systemName: "bell.slash.fill")
-                    .foregroundStyle(Color.red)
+                    .foregroundStyle(Color.stockedErrorInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Notifications are turned off")
                         .scaledFont(14, weight: .semibold, design: .serif)

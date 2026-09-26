@@ -31,7 +31,15 @@ enum StockedTab: String, CaseIterable {
         case .grocery:   return "cart.fill"
         }
     }
-    var label: String { self == .grocery ? "Grocery" : rawValue }
+    /// Display name. rawValue stays "Inventory" for stored state; users see "Kitchen" —
+    /// the one word used everywhere for what they own ("Pantry" is only a storage zone).
+    var label: String {
+        switch self {
+        case .grocery:   return "Grocery"
+        case .inventory: return "Kitchen"
+        default:         return rawValue
+        }
+    }
 }
 
 // MARK: - Cook (chef's toque)
@@ -169,11 +177,11 @@ struct StockedTabBar: View {
         .buttonStyle(.plain)
         // #6 — VoiceOver: the icons (esp. the custom chef hat) have no inherent label.
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(tab.rawValue)
+        .accessibilityLabel(tab.label)
         .accessibilityValue(isActive ? "Selected" : "")
         .accessibilityHint(isActive
-            ? "Returns to the \(tab.rawValue) tab root"
-            : "Opens the \(tab.rawValue) tab")
+            ? "Returns to the \(tab.label) tab root"
+            : "Opens the \(tab.label) tab")
         .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 }

@@ -481,6 +481,7 @@ struct QAReportComposer: View {
                 }
             }
         }
+        .environment(\.stockedLightTheme, StockedLightTheme(rawValue: UserDefaults.standard.string(forKey: StockedLightTheme.defaultsKey) ?? "") ?? .pastel)
         .preferredColorScheme(dark ? .dark : .light)
         .tint(Color.appAccent(dark))
         // Detents and the grabber are set on the UIKit sheet presentation
@@ -1035,7 +1036,7 @@ struct QATicketDetailView: View {
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(.ultraThinMaterial, in: Capsule())
                             .padding(.bottom, 24)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
                     }
                 }
                 .animation(.snappy, value: copied)

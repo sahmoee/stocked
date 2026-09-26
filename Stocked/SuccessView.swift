@@ -25,10 +25,11 @@ struct SuccessView: View {
                 .scaleEffect(scale)
                 .onAppear {
                     motion.animate(.settle, intent: .decorative) { scale = 1 }
-                    Task {
-                        try? await Task.sleep(nanoseconds: 1200000000)
-                        withAnimation { session.isLoggedIn = true }
-                    }
+                }
+                .task {
+                    // Cancelled automatically if the view disappears first.
+                    do { try await Task.sleep(nanoseconds: 1_200_000_000) } catch { return }
+                    withAnimation { session.isLoggedIn = true }
                 }
                 Spacer()
             }

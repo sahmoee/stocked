@@ -17,6 +17,7 @@
 // Worker-side routes are specified in the StockedQA repo's WORKER_QA_SPEC.md.
 
 import SwiftUI
+import SowensKit
 import UIKit
 
 // MARK: - Model
@@ -754,6 +755,11 @@ struct StockedQAHomeView: View {
                 }
             }
 
+            #if DEBUG
+            Section("Developer diagnostics") {
+                NavigationLink("Network activity") { SowensNetworkConsole() }
+            }
+            #endif
             Section("Sections") {
                 ForEach(StockedQAChecklist.sections) { section in
                     NavigationLink {
@@ -863,7 +869,7 @@ struct StockedQAHomeView: View {
                 .scaledFont(14, weight: .medium)
             HStack(spacing: 10) {
                 Label("\(prog.pass)", systemImage: "checkmark.circle").foregroundStyle(Color.stockedSuccessInk)
-                if prog.fail > 0 { Label("\(prog.fail)", systemImage: "xmark.circle").foregroundStyle(.red) }
+                if prog.fail > 0 { Label("\(prog.fail)", systemImage: "xmark.circle").foregroundStyle(Color.stockedErrorInk) }
                 if prog.blocked > 0 { Label("\(prog.blocked)", systemImage: "minus.circle").foregroundStyle(Color.stockedAccentInk) }
                 Text("of \(prog.total)").foregroundStyle(.secondary)
                 if blockers > 0 {
@@ -871,7 +877,7 @@ struct StockedQAHomeView: View {
                         .scaledFont(9, weight: .bold)
                         .padding(.horizontal, 5).padding(.vertical, 2)
                         .background(Capsule().fill(Color.red.opacity(0.15)))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.stockedErrorInk)
                 }
             }
             .font(.stocked(.caption))
@@ -976,7 +982,7 @@ struct StockedQASectionView: View {
                 ShareLink(item: exportText()) { Image(systemName: "square.and.arrow.up") }
             }
             ToolbarItem(placement: .topBarLeading) {
-                Button("Reset") { store.reset(section) }.foregroundStyle(.red)
+                Button("Reset") { store.reset(section) }.foregroundStyle(Color.stockedErrorInk)
             }
         }
         .alert("Note on failure", isPresented: Binding(get: { noteEditing != nil },
@@ -1082,7 +1088,7 @@ struct StockedQASectionView: View {
                                 .scaledFont(9, weight: .bold)
                                 .padding(.horizontal, 5).padding(.vertical, 2)
                                 .background(Capsule().fill(Color.red.opacity(0.15)))
-                                .foregroundStyle(.red)
+                                .foregroundStyle(Color.stockedErrorInk)
                         }
                     }
                     Text(item.text)
@@ -1106,7 +1112,7 @@ struct StockedQASectionView: View {
             if let number = state.ticketNumber {
                 Label(number, systemImage: "ticket")
                     .scaledFont(10, weight: .semibold, design: .monospaced)
-                    .foregroundStyle(Color.stockedInfo)
+                    .foregroundStyle(Color.stockedInfoInk)
             }
         }
         .padding(.vertical, 2)

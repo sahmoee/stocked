@@ -103,7 +103,7 @@ struct CookCompletionSheet: View {
                         ForEach(proposals) { change in
                             HStack {
                                 Image(systemName: "minus.circle")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.stockedWarningInk)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(change.displayName).stockedFont(.rowTitle)
                                     Text(change.effectText).stockedFont(.caption)

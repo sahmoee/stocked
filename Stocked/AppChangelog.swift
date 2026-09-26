@@ -38,12 +38,39 @@ struct StockedChangelog {
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
+                // -- 4.30 (build 90) -- Safer saving, faster adding, clearer screens --
+                ChangelogVersion(
+                    version: "4.30",
+                    buildDate: "Build 90 \u{00B7} September 26, 2026",
+                    headline: "What's new in Stocked",
+                    isLatest: true,
+                    entries: [
+                        ChangelogEntry(icon: "externaldrive.badge.checkmark", color: Color.stockedGreen,
+                                       title: "Your changes are saved more safely",
+                                       detail: "Stocked finishes saving when you leave the app, never lets launch overwrite your kitchen, and tells you if your phone is too full to save instead of losing changes quietly. Restoring a backup now updates everyone in your household, and links can't import anything without asking you first."),
+                        ChangelogEntry(icon: "plus.circle", color: Color.stockedGold,
+                                       title: "Add an item in one step",
+                                       detail: "Type the name, pick where it lives and tap Add. Size and expiry are optional extras, Stocked shows an estimated best-by date, and closing the sheet never throws away what you typed without asking."),
+                        ChangelogEntry(icon: "cart", color: Color.stockedGreen,
+                                       title: "A quicker grocery list",
+                                       detail: "Type straight into the list, tap your usual items to add them, and undo a removal or a mis-tapped check. Bought items now go to the right place in your kitchen instead of all landing in the pantry."),
+                        ChangelogEntry(icon: "frying.pan", color: Color.stockedGold,
+                                       title: "One place to cook with what you have",
+                                       detail: "Every \u{201C}cook with what you have\u{201D} button now opens the same list of recipes you can make. Cook Now shows that it's checking your kitchen instead of briefly saying nothing matches, and its options are simpler."),
+                        ChangelogEntry(icon: "sparkles", color: Color.stockedInfo,
+                                       title: "Clearer and easier to find",
+                                       detail: "The Inventory tab is now called Kitchen. Search and Settings are always in the top corner, the Stocked title shows it opens your Daily Brief, new kitchens get a one-tap staples starter, and unknown barcodes ask you to name the item."),
+                        ChangelogEntry(icon: "accessibility", color: Color.stockedInfo,
+                                       title: "Easier to read and use",
+                                       detail: "Warning and error text is easier to read in every theme, more buttons have spoken names and bigger tap areas, slides turn into fades when Reduce Motion is on, and busy screens scroll more smoothly with less memory used by photos.")
+                    ]),
+
                 // -- 4.29 (build 89) -- Two retired recipe sources cleared out --
                 ChangelogVersion(
                     version: "4.29",
                     buildDate: "Build 89 \u{00B7} August 1, 2026",
                     headline: "What's new in Stocked",
-                    isLatest: true,
+                    isLatest: false,
                     entries: [
                         ChangelogEntry(icon: "trash.slash.circle", color: Color.stockedError,
                                        title: "Two old recipe sources are gone",
@@ -4278,8 +4305,8 @@ struct StockedChangelog {
         versions.first?.buildDate ?? ""
     }
 
-    /// Build number shown in Settings — update with each new build
-    static let currentBuildNumber: Int = 72
+    /// Build number shown in Settings — read from the bundle (was a stale literal, 72).
+    static var currentBuildNumber: Int { BuildConfig.buildNumber }
 }
 
 // MARK: - Changelog Sheet View
@@ -4288,14 +4315,16 @@ struct AppVersionView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
     @Environment(\.stockedMotion) private var motion
-    @State private var expandedVersion: String? = nil
+    // Keyed by entry identity, not the version string: several version strings appear
+    // twice in the history, and tapping one used to expand both.
+    @State private var expandedVersion: UUID? = nil
 
     var body: some View {
         StockedSheet(title: "What's New") {
             VStack(spacing: 0) {
                 Text("Stocked. v\(StockedChangelog.currentVersion) · \(StockedChangelog.currentBuildDate)")
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeSecondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 24).padding(.top, 4).padding(.bottom, 10)
                 Divider().padding(.horizontal, 24)
@@ -4316,13 +4345,13 @@ struct AppVersionView: View {
 
     // MARK: - Version section (collapsible)
     private func versionSection(_ ver: ChangelogVersion) -> some View {
-        let isExpanded = expandedVersion == ver.version
+        let isExpanded = expandedVersion == ver.id
 
         return VStack(alignment: .leading, spacing: 0) {
             // Version header row — tappable to expand/collapse
             Button {
                 motion.animate(.standard, intent: .spatial) {
-                    expandedVersion = isExpanded ? nil : ver.version
+                    expandedVersion = isExpanded ? nil : ver.id
                 }
             } label: {
                 HStack(spacing: 12) {
@@ -4367,7 +4396,7 @@ struct AppVersionView: View {
                 .stockedPastelCard(radius: 14)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
 
             Divider().padding(.horizontal, 16)

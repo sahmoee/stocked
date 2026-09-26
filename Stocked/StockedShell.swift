@@ -156,14 +156,24 @@ struct StockedShell<Content: View>: View {
                 .a11yButton("Back", hint: "Returns to the previous screen")
             }
             Button { (titleTap ?? onTitleTap)?() } label: {
-                StockedWordmark(size: showBack ? 26 : StockedChrome.wordmarkSize,
-                               color: session.themeTextColor, dotColor: StockedPastel.honey)
-                    .minimumScaleFactor(0.7)
-                    .lineLimit(1)
+                HStack(alignment: .center, spacing: 4) {
+                    StockedWordmark(size: showBack ? 26 : StockedChrome.wordmarkSize,
+                                   color: session.themeTextColor, dotColor: StockedPastel.honey)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                    // Visible affordance: the wordmark opens the Daily Brief.
+                    if titleTap != nil || onTitleTap != nil {
+                        Image(systemName: "chevron.down")
+                            .font(.stockedSystem(size: StockedChrome.wordmarkChevronSize, weight: .bold))
+                            .foregroundStyle(session.themeSecondaryText)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
             .buttonStyle(.plain)
             .disabled(titleTap == nil && onTitleTap == nil)
             .accessibilityLabel(titleText == "Stocked" ? "Stocked" : "Stocked, \(titleText)")
+            .accessibilityHint(titleTap != nil || onTitleTap != nil ? "Opens your Daily Brief" : "")
             .coachmarkAnchor("shell.title")
             Spacer(minLength: 0)
             if let trailingIcon, let onTrailing {
@@ -172,7 +182,14 @@ struct StockedShell<Content: View>: View {
             if let trailingIcon2, let onTrailing2 {
                 headerAction(trailingIcon2, label: trailingLabel2, action: onTrailing2)
             }
-            if !showBack && trailingIcon == nil {
+            // Consistent root header: app-wide search and Settings are always in the same place,
+            // even on tabs that add their own action (Inventory previously lost the gear).
+            if !showBack {
+                if trailingIcon != "magnifyingglass" {
+                    headerAction("magnifyingglass", label: "Search everything") {
+                        NotificationCenter.default.post(name: .stockedOpenSearch, object: nil)
+                    }
+                }
                 headerAction("gearshape", label: "Settings") {
                     NotificationCenter.default.post(name: .stockedOpenSettingsDrawer, object: nil)
                 }

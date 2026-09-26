@@ -648,7 +648,7 @@ nonisolated struct InterHubSearchResult: Identifiable, Sendable, Equatable {
         }}
         var results: [InterHubSearchResult] = []
         results += store.inventoryItems.filter { $0.name.lowercased().contains(query) }.map {
-            .init(title: $0.name, subtitle: "Inventory", symbol: "archivebox", route: .inventoryItem($0.id))
+            .init(title: $0.name, subtitle: "Kitchen", symbol: "archivebox", route: .inventoryItem($0.id))
         }
         results += store.groceryItems.filter { $0.name.lowercased().contains(query) }.map {
             .init(title: $0.name, subtitle: "Grocery list", symbol: "cart", route: .groceryItem($0.id))

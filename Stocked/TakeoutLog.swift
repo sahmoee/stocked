@@ -207,7 +207,7 @@ struct TakeoutLogView: View {
                                     Text(f.place).scaledFont(14)
                                     Spacer()
                                     Text(String(repeating: "★", count: Int(f.rating.rounded())))
-                                        .scaledFont(12).foregroundStyle(.orange)
+                                        .scaledFont(12).foregroundStyle(Color.stockedWarningInk)
                                     Text("×\(f.visits)").scaledFont(11).foregroundStyle(.secondary)
                                 }
                             }
@@ -277,7 +277,7 @@ private struct AddTakeoutSheet: View {
                                 entry.rating = star; HapticManager.light()
                             } label: {
                                 Image(systemName: star <= entry.rating ? "star.fill" : "star")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.stockedWarningInk)
                             }.buttonStyle(.plain)
                         }
                     }

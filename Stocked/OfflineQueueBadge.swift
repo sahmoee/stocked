@@ -75,7 +75,7 @@ struct PendingSyncBadge: View {
                 .padding(.vertical, 5)
                 .padding(.horizontal, 14)
                 .background(Color.stockedGold.opacity(0.14))
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.stockedMove(edge: .top).combined(with: .opacity))
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Pending changes will sync automatically")
                 .onTapGesture {

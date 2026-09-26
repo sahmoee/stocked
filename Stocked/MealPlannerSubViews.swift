@@ -89,7 +89,7 @@ extension MealPlannerView {
             // Day detail panel — shown when a day is tapped
             if let selDay = selectedCalendarDay {
                 calendarDayDetail(dayOffset: selDay)
-                    .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity),
+                    .transition(.asymmetric(insertion: .stockedMove(edge: .top).combined(with: .opacity),
                                             removal: .opacity))
             }
         }
@@ -473,7 +473,7 @@ struct DayPlanCard: View {
                             Image(systemName: "exclamationmark.triangle.fill").scaledFont(9)
                             Text("\(dayConflictCount)").scaledFont(11, weight: .bold)
                         }
-                        .foregroundStyle(Color.stockedError)
+                        .foregroundStyle(Color.stockedErrorInk)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Color.stockedError.opacity(0.10))
                         .clipShape(Capsule())
@@ -738,9 +738,9 @@ struct PrepNowView: View {
                 // Timing fail-safe warning
                 if let advice = prepAdvice {
                     HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "clock.badge.exclamationmark").scaledFont(16).foregroundStyle(.orange)
+                        Image(systemName: "clock.badge.exclamationmark").scaledFont(16).foregroundStyle(Color.stockedWarningInk)
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Prep Timing Advice").scaledFont(13, weight: .bold).foregroundStyle(.orange)
+                            Text("Prep Timing Advice").scaledFont(13, weight: .bold).foregroundStyle(Color.stockedWarningInk)
                             Text(advice).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -833,7 +833,7 @@ struct PlanConflictRow: View {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .scaledFont(11)
-                    .foregroundStyle(Color.stockedError)
+                    .foregroundStyle(Color.stockedErrorInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Short \(conflict.missingDisplay)")
                         .scaledFont(12, weight: .semibold)

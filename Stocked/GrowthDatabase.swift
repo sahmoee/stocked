@@ -107,11 +107,34 @@ nonisolated final class GrowthDatabase: @unchecked Sendable {
     /// `oldValue`, so derive the small delta before entering SQLite and retain ordinal ordering.
     func applyDelta<Element>(current: [Element], previous: [Element], collection: Collection)
     where Element: Codable & Identifiable & Equatable & Sendable, Element.ID == UUID {
-        let oldByID = Dictionary(uniqueKeysWithValues: previous.enumerated().map {
+        let oldByID = Dictionary(lastWins: previous.enumerated().map {
             ($0.element.id, (ordinal: $0.offset, value: $0.element))
         })
         let currentIDs = Set(current.map(\.id))
         let removed = previous.compactMap { currentIDs.contains($0.id) ? nil : $0.id }
+
+        // Fast path for append-only histories trimmed from the front (the consumption log is
+        // capped with `suffix(1000)`): survivors keep their relative order, so their stored
+        // ordinals are still correct. Only new rows (appended after the current maximum) and
+        // rows whose value changed are written — instead of renumbering all 1,000 rows.
+        let survivorsBefore = previous.lazy.filter { currentIDs.contains($0.id) }.map(\.id)
+        let survivorsNow = current.lazy.filter { oldByID[$0.id] != nil }.map(\.id)
+        let firstNewIndex = current.firstIndex { oldByID[$0.id] == nil } ?? current.endIndex
+        let appendedOnly = current[firstNewIndex...].allSatisfy { oldByID[$0.id] == nil }
+        if appendedOnly, Array(survivorsBefore) == Array(survivorsNow) {
+            let updated = current[..<firstNewIndex].filter { value in
+                guard let old = oldByID[value.id] else { return false }
+                return old.value != value
+            }
+            let appended = Array(current[firstNewIndex...])
+            guard !removed.isEmpty || !updated.isEmpty || !appended.isEmpty else { return }
+            queue.async { [weak self] in
+                self?.applyAppendDeltaOnQueue(updated: updated, appended: appended,
+                                              removed: removed, collection: collection)
+            }
+            return
+        }
+
         let changed = current.enumerated().compactMap { ordinal, value -> (Int, Element)? in
             guard let old = oldByID[value.id] else { return (ordinal, value) }
             return old.ordinal == ordinal && old.value == value ? nil : (ordinal, value)
@@ -119,6 +142,68 @@ nonisolated final class GrowthDatabase: @unchecked Sendable {
         guard !removed.isEmpty || !changed.isEmpty else { return }
         queue.async { [weak self] in
             self?.applyDeltaOnQueue(changed: changed, removed: removed, collection: collection)
+        }
+    }
+
+    private func applyAppendDeltaOnQueue<Element>(updated: [Element], appended: [Element],
+                                                  removed: [UUID], collection: Collection)
+    where Element: Encodable & Identifiable, Element.ID == UUID {
+        openIfNeeded()
+        guard let db else { return }
+        sqlite3_exec(db, "BEGIN IMMEDIATE;", nil, nil, nil)
+        defer { sqlite3_exec(db, "COMMIT;", nil, nil, nil) }
+        if !removed.isEmpty {
+            var statement: OpaquePointer?
+            if sqlite3_prepare_v2(db, "DELETE FROM growth_records WHERE collection = ? AND id = ?;",
+                                  -1, &statement, nil) == SQLITE_OK {
+                for id in removed {
+                    sqlite3_reset(statement)
+                    sqlite3_clear_bindings(statement)
+                    sqlite3_bind_text(statement, 1, collection.rawValue, -1, STOCKED_SQLITE_TRANSIENT)
+                    sqlite3_bind_text(statement, 2, id.uuidString.lowercased(), -1, STOCKED_SQLITE_TRANSIENT)
+                    sqlite3_step(statement)
+                }
+            }
+            sqlite3_finalize(statement)
+        }
+        let encoder = JSONEncoder()
+        if !updated.isEmpty {
+            var statement: OpaquePointer?
+            if sqlite3_prepare_v2(db, "UPDATE growth_records SET payload = ? WHERE collection = ? AND id = ?;",
+                                  -1, &statement, nil) == SQLITE_OK {
+                for value in updated {
+                    guard let data = try? encoder.encode(value) else { continue }
+                    sqlite3_reset(statement)
+                    sqlite3_clear_bindings(statement)
+                    _ = data.withUnsafeBytes { raw in
+                        sqlite3_bind_blob(statement, 1, raw.baseAddress, Int32(data.count), STOCKED_SQLITE_TRANSIENT)
+                    }
+                    sqlite3_bind_text(statement, 2, collection.rawValue, -1, STOCKED_SQLITE_TRANSIENT)
+                    sqlite3_bind_text(statement, 3, value.id.uuidString.lowercased(), -1, STOCKED_SQLITE_TRANSIENT)
+                    sqlite3_step(statement)
+                }
+            }
+            sqlite3_finalize(statement)
+        }
+        guard !appended.isEmpty else { return }
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, """
+            INSERT INTO growth_records(collection, id, payload, ordinal)
+            VALUES(?, ?, ?, COALESCE((SELECT MAX(ordinal) FROM growth_records WHERE collection = ?), -1) + 1)
+            ON CONFLICT(collection, id) DO UPDATE SET payload = excluded.payload;
+            """, -1, &statement, nil) == SQLITE_OK else { return }
+        defer { sqlite3_finalize(statement) }
+        for value in appended {
+            guard let data = try? encoder.encode(value) else { continue }
+            sqlite3_reset(statement)
+            sqlite3_clear_bindings(statement)
+            sqlite3_bind_text(statement, 1, collection.rawValue, -1, STOCKED_SQLITE_TRANSIENT)
+            sqlite3_bind_text(statement, 2, value.id.uuidString.lowercased(), -1, STOCKED_SQLITE_TRANSIENT)
+            _ = data.withUnsafeBytes { raw in
+                sqlite3_bind_blob(statement, 3, raw.baseAddress, Int32(data.count), STOCKED_SQLITE_TRANSIENT)
+            }
+            sqlite3_bind_text(statement, 4, collection.rawValue, -1, STOCKED_SQLITE_TRANSIENT)
+            sqlite3_step(statement)
         }
     }
 

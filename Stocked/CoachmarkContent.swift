@@ -98,33 +98,22 @@ enum CookCoachmarks {
 }
 
 enum HomeCoachmarks {
+    // Five steps, and every spotlight targets an anchor that is on screen in the default
+    // layout (the old tour pointed at widgets that aren't there, a menu icon that doesn't
+    // exist, and a QA-only feature).
     static let steps: [CoachmarkStep] = [
         .spotlight("home.greeting",
                    title: "Welcome to your kitchen",
-                   body: "This is your Home dashboard. At a glance it shows what is happening across your pantry, meals, and shopping.",
+                   body: "Home shows what's ready to cook, what's expiring and how stocked you are — all from what you've added.",
                    pad: 18),
-        .spotlight("home.widget.actionCenter",
-                   title: "Action Center",
-                   body: "Jump straight into the things you do most: scan a receipt, scan a barcode, add an item by hand, or tell the app what changed."),
-        .spotlight("home.widget.useItSoon",
-                   title: "Use It Soon",
-                   body: "Items that are close to expiring show up here so you can cook them before they go to waste."),
-        // (The "Daily Brief" widget spotlight was removed: the Daily Brief card isn't in the
-        // default Home layout — default widgets are Stock Level, Action Center, Use It Soon and
-        // Tip of the Day — so it spotlighted nothing and floated as a stray card. The Brief is
-        // fully covered by the next step, which opens it from the title.)
         .spotlight("shell.title",
                    title: "Open your Daily Brief",
-                   body: "Tap the Stocked title at the top of the screen any time to open your full Daily Brief: a quick rundown of what's expiring, what's low, and what's worth cooking today."),
+                   body: "Tap the Stocked title (look for the small arrow) any time for a quick rundown of what's expiring, what's low, and what's worth cooking today."),
+        .card(title: "Search and settings, always in the corner",
+              body: "The magnifying glass searches your whole kitchen, recipes and tools. The gear opens the menu with your profile, settings and the Kitchen Toolbox."),
         .card(title: "Make it yours",
-              body: "Touch and hold with one finger on Home to enter widget editing. Drag any widget to reorder it, drop it on the X to remove it, or tap the page background to finish."),
-        .card(title: "Find everything in the menu",
-              body: "Swipe from the left edge, or tap the menu icon, to open the side menu. Your profile, settings, tools, and help all live there — plus the Kitchen Toolbox, dozens of extra tools in one place."),
-        .card(title: "Make the menu yours",
-              body: "In the side menu, press and hold any row under Kitchen Tools or Insights and drag to reorder. Pull down on any screen to refresh it."),
+              body: "Tap Edit next to Your shortcuts to add, remove or reorder Home widgets."),
         .card(title: "Size the whole app for you",
-              body: "Settings lets you choose the app font, seven app-wide text sizes, and a separate recipe reading size. Pages, sheets, cards, buttons, and text grow or wrap without cutting labels off."),
-        .card(title: "Report an issue in QA mode",
-              body: "When QA mode is enabled, short-press with two fingers anywhere—or shake the device—to capture the current screen and open a QA ticket with diagnostics attached."),
+              body: "Settings lets you choose the app font, text size, and a separate recipe reading size."),
     ]
 }

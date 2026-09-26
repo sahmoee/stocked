@@ -62,9 +62,11 @@ struct QuickGrocerySheet: View {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                     .scaledFont(22).foregroundStyle(item.isChecked ? Color.stockedAccentInk : Color.stockedCharcoal.opacity(0.4))
             }.buttonStyle(.plain)
+            .stockedIconButton(item.isChecked ? "Uncheck \(item.name)" : "Check off \(item.name)")
             Text(item.name).scaledFont(15).foregroundStyle(item.isChecked ? session.themeTextColor.opacity(0.35) : session.themeTextColor).strikethrough(item.isChecked)
             Spacer()
-            Button { store.removeGrocery(id: item.id) } label: { Image(systemName: "xmark").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.2)) }.buttonStyle(.plain)
+            Button { store.removeGrocery(id: item.id) } label: { Image(systemName: "xmark").scaledFont(14).foregroundStyle(session.themeSecondaryText) }.buttonStyle(.plain)
+                .stockedIconButton("Remove \(item.name)")
         }
         .padding(.horizontal, 24).padding(.vertical, 10).contentShape(Rectangle())
     }

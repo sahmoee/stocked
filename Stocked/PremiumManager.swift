@@ -205,7 +205,7 @@ struct HouseholdPaywallView: View {
                         .padding(.horizontal, 12)
 
                     if let errorText {
-                        Text(errorText).scaledFont(12).foregroundStyle(.red)
+                        Text(errorText).scaledFont(12).foregroundStyle(Color.stockedErrorInk)
                     }
 
                     Button {

@@ -680,7 +680,7 @@ struct RecipeOverviewView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .scaledFont(13).foregroundStyle(.orange)
+                        .scaledFont(13).foregroundStyle(Color.stockedWarningInk)
                     Text("Portions check")
                         .scaledFont(14, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                 }
@@ -1127,7 +1127,7 @@ struct CookingFlashcardView: View {
                         HStack(alignment: .top, spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .scaledFont(12)
-                                .foregroundStyle(Color.orange)
+                                .foregroundStyle(Color.stockedWarningInk)
                             Text(failure)
                                 .scaledFont(11)
                                 .foregroundStyle(session.themeTextColor.opacity(0.7))
@@ -1289,6 +1289,7 @@ struct CookingFlashcardView: View {
                                 Image(systemName: "chevron.left.circle.fill").scaledFont(32)
                                     .foregroundStyle(currentCard == 0 ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
                             }.disabled(currentCard == 0).buttonStyle(.plain)
+                            .stockedIconButton("Previous step")
                             Spacer()
                             Button {
                                 motion.animate(.selection, intent: .spatial) {
@@ -1299,6 +1300,7 @@ struct CookingFlashcardView: View {
                                 Image(systemName: "chevron.right.circle.fill").scaledFont(32)
                                     .foregroundStyle(currentCard == steps.count - 1 ? Color.stockedAccentInk.opacity(0.4) : Color.stockedAccentInk)
                             }.disabled(currentCard == steps.count - 1 && allDone).buttonStyle(.plain)
+                            .stockedIconButton("Mark step done and go to the next step")
                         }.padding(.horizontal, 40).padding(.top, 8).padding(.bottom, 16)
 
                     } else {
@@ -1960,7 +1962,7 @@ struct CookingFlashcardView: View {
                             // #FB — storage guideline so the leftover gets stored safely.
                             HStack(alignment: .top, spacing: 7) {
                                 Image(systemName: "info.circle.fill")
-                                    .scaledFont(11).foregroundStyle(Color.stockedInfo)
+                                    .scaledFont(11).foregroundStyle(Color.stockedInfoInk)
                                 Text(leftoverZone == "Freezer"
                                      ? "Storage guideline: freeze within 2 hours of cooking. Best quality within 2–3 months. Label with today's date."
                                      : "Storage guideline: refrigerate within 2 hours of cooking. Eat within 3–4 days. Reheat to 165°F.")

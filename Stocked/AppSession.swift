@@ -2,6 +2,7 @@
 // settings value types now live in GuestDataStore.swift and AppSettingsTypes.swift (#8/#9 split).
 import SwiftUI
 import Combine
+import WidgetKit
 import os
 @preconcurrency import UserNotifications
 
@@ -30,6 +31,8 @@ class AppSession {
     // the app from scratch, and the consumer checks this once the main UI appears — rather
     // than needing to catch a notification at the exact launch instant.
     var pendingSharedRecipe: Bool = false
+    /// A stocked://import link waiting for the user to confirm (never imported silently).
+    var pendingImportURL: URL?
 
     // Set by the drawer's "Import Recipe" button; consumed once by RecipeVaultView
     // when the Recipes tab appears, to open the URL import sheet. Uses the same
@@ -67,7 +70,14 @@ class AppSession {
     }()
 
     // MARK: - Theme stored properties (computed color vars + methods are in ThemeEngine.swift)
-    // Only light/dark is supported now; theme colors derive from isDarkMode in ThemeEngine.
+    // Light palette and dark appearance are independent; absent palette defaults to Pastel.
+    var lightTheme: StockedLightTheme {
+        didSet {
+            UserDefaults.standard.set(lightTheme.rawValue, forKey: StockedLightTheme.defaultsKey)
+            UserDefaults(suiteName: "group.com.sowens.Stocked")?.set(lightTheme.rawValue, forKey: StockedLightTheme.defaultsKey)
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
     var isDarkMode: Bool {
         didSet {
             UserDefaults.standard.set(isDarkMode, forKey: DBKey.darkMode.rawValue)
@@ -213,7 +223,6 @@ class AppSession {
         didSet { UserDefaults.standard.set(unitSystem.rawValue, forKey: DBKey.unitSystem.rawValue) }
     }
 
-
     let guestStore = GuestDataStore()
 
     // MARK: - Recipe/grocery facade (#7)
@@ -221,10 +230,10 @@ class AppSession {
     // `session.renameUserRecipe(…)` and never have to know which object owns the method —
     // the confusion that caused a rename to be called on the wrong type. Additive: the
     // GuestDataStore methods (and `session.guestStore.…`) still work unchanged.
-    func addUserRecipe(_ r: UserRecipe)            { guestStore.addUserRecipe(r) }
-    func updateUserRecipe(_ r: UserRecipe)         { guestStore.updateUserRecipe(r) }
-    func renameUserRecipe(id: UUID, name: String)  { guestStore.renameUserRecipe(id: id, name: name) }
-    func deleteUserRecipe(id: UUID)                { guestStore.deleteUserRecipe(id: id) }
+    func addUserRecipe(_ r: UserRecipe) { guestStore.addUserRecipe(r) }
+    func updateUserRecipe(_ r: UserRecipe) { guestStore.updateUserRecipe(r) }
+    func renameUserRecipe(id: UUID, name: String) { guestStore.renameUserRecipe(id: id, name: name) }
+    func deleteUserRecipe(id: UUID) { guestStore.deleteUserRecipe(id: id) }
     @discardableResult
     func addRecipeIngredientsToGrocery(_ ingredients: [RecipeIngredient], recipeName: String) -> Int {
         guestStore.addRecipeIngredientsToGrocery(ingredients, recipeName: recipeName)
@@ -252,6 +261,7 @@ class AppSession {
             appTheme: appTheme.rawValue,
             appFont: appFont.rawValue,
             isDarkMode: isDarkMode,
+            lightTheme: lightTheme.rawValue,
             preferredStore: preferredStore,
             autoAddMissingToGrocery: autoAddMissingToGrocery,
             notificationsEnabled: notificationsEnabled,
@@ -269,6 +279,7 @@ class AppSession {
         if let t = AppTheme(rawValue: p.appTheme) { appTheme = t }
         if let f = AppFont(rawValue: p.appFont) { appFont = f }
         isDarkMode = p.isDarkMode
+        if let saved = p.lightTheme { lightTheme = StockedLightTheme(rawValue: saved) ?? .pastel }
         if !p.preferredStore.isEmpty { preferredStore = p.preferredStore }
         autoAddMissingToGrocery = p.autoAddMissingToGrocery
         notificationsEnabled = p.notificationsEnabled
@@ -279,7 +290,6 @@ class AppSession {
         cookStreak = max(cookStreak, p.cookStreak)
         longestStreak = max(longestStreak, p.longestStreak)
     }
-
 
     // Call from RatingView.finishMeal() every time a meal is logged
     func recordCookToday() {
@@ -350,6 +360,7 @@ class AppSession {
         AppleProfileVault.migrateFromUserDefaultsIfNeeded()
 
         let ud = UserDefaults.standard
+        self.lightTheme = StockedLightTheme(rawValue: ud.string(forKey: StockedLightTheme.defaultsKey) ?? "") ?? .pastel
         self.isDarkMode           = ud.bool(forKey: DBKey.darkMode.rawValue)
         let savedFontV            = ud.object(forKey: DBKey.fontVerticalOffset.rawValue)
         self.fontVerticalOffset   = savedFontV != nil ? ud.double(forKey: DBKey.fontVerticalOffset.rawValue) : 0
@@ -541,6 +552,7 @@ class AppSession {
 
             // Reset all AppSession preferences to factory defaults
             isDarkMode           = false
+            lightTheme           = .pastel
             preferredStore       = "Kroger"
             appleUserID          = ""
             cookStreak           = 0

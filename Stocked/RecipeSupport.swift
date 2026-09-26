@@ -376,6 +376,13 @@ enum RecipeFacets {
         }
     }
 
+    /// Counts for several cuisines in ONE pass over the recipes (count(cuisine:) rebuilds the
+    /// whole table per call, which made "Top Categories" O(cuisines × recipes) per render).
+    nonisolated static func counts(for cuisines: [String], in recipes: [UserRecipe]) -> [(String, Int)] {
+        let table = cuisineCounts(in: recipes)
+        return cuisines.map { ($0, table[RecipeTaxonomy.canonicalCuisine($0)] ?? 0) }
+    }
+
     nonisolated static func count(cuisine: String, in recipes: [UserRecipe]) -> Int {
         cuisineCounts(in: recipes)[RecipeTaxonomy.canonicalCuisine(cuisine)] ?? 0
     }

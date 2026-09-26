@@ -59,6 +59,9 @@ class GuestDataStore {
     @ObservationIgnored private let mutationScheduler = StoreMutationScheduler()
     @ObservationIgnored private let persistenceScheduler = StorePersistenceScheduler()
     private(set) var hasCompletedInitialHydration = false
+    /// Siri/widget queue drains requested before hydration run once hydration finishes, so
+    /// they mutate the loaded collections instead of the empty launch placeholders.
+    @ObservationIgnored private var drainAfterHydration = false
 
     /// Coalesce rapid mutations into one widget reload without escaping actor-isolated store
     /// state into a DispatchWorkItem closure.
@@ -290,20 +293,21 @@ class GuestDataStore {
         return changed
     }
 
-    // Recipe stamping. UserRecipe/GeneratedRecipe aren't Equatable, so we detect a real change
-    // by encoding each (with updatedAt zeroed) and comparing the bytes. imageData is part of the
+    // Recipe stamping. UserRecipe/GeneratedRecipe are Equatable; a real change is detected by
+    // comparing copies with the stamp fields blanked. imageData is part of the
     // struct but is NOT sent to the household (see HouseholdSync recipe dicts); a local-only
     // image change still stamps, which is harmless.
     private func stampChanged(_ items: inout [UserRecipe], against old: [UserRecipe]) -> [UUID] {
         let now = Date().timeIntervalSince1970 * 1000
         let writerID = HouseholdSync.shared.memberId
-        let enc = JSONEncoder()
         let oldByID = Dictionary(keepingLastValues: old.map { ($0.id, $0) })
-        func bytes(_ r: UserRecipe) -> Data? { var x = r; x.updatedAt = 0; x.lastWriterID = ""; return try? enc.encode(x) }
+        // PERF: compare with the synthesized Equatable (stamp fields blanked) instead of JSON-
+        // encoding every recipe — including its inline photo — twice on each change.
+        func unstamped(_ r: UserRecipe) -> UserRecipe { var x = r; x.updatedAt = 0; x.lastWriterID = ""; return x }
         var changed: [UUID] = []
         for i in items.indices {
             if let prev = oldByID[items[i].id] {
-                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
+                if unstamped(items[i]) != unstamped(prev) { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
             } else {
                 items[i].updatedAt = now; items[i].lastWriterID = writerID
                 changed.append(items[i].id)
@@ -314,13 +318,14 @@ class GuestDataStore {
     private func stampChanged(_ items: inout [GeneratedRecipe], against old: [GeneratedRecipe]) -> [UUID] {
         let now = Date().timeIntervalSince1970 * 1000
         let writerID = HouseholdSync.shared.memberId
-        let enc = JSONEncoder()
         let oldByID = Dictionary(keepingLastValues: old.map { ($0.id, $0) })
-        func bytes(_ r: GeneratedRecipe) -> Data? { var x = r; x.updatedAt = 0; x.lastWriterID = ""; return try? enc.encode(x) }
+        // PERF: compare with the synthesized Equatable (stamp fields blanked) instead of JSON-
+        // encoding every recipe — including its inline photo — twice on each change.
+        func unstamped(_ r: GeneratedRecipe) -> GeneratedRecipe { var x = r; x.updatedAt = 0; x.lastWriterID = ""; return x }
         var changed: [UUID] = []
         for i in items.indices {
             if let prev = oldByID[items[i].id] {
-                if bytes(items[i]) != bytes(prev) { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
+                if unstamped(items[i]) != unstamped(prev) { items[i].updatedAt = now; items[i].lastWriterID = writerID; changed.append(items[i].id) }
             } else {
                 items[i].updatedAt = now; items[i].lastWriterID = writerID
                 changed.append(items[i].id)
@@ -549,7 +554,9 @@ class GuestDataStore {
     private func saveDebounced<T: Encodable>(_ key: String, _ value: T) {
         // LAG FIX: while load() hydrates from disk there is nothing new to persist —
         // scheduling a save here would re-encode every collection we just decoded.
-        if isLoadingFromDisk { return }
+        // DATA-LOSS FIX: before the first hydration completes the in-memory collections are
+        // empty placeholders. Persisting them would overwrite the saved file with a partial array.
+        if isLoadingFromDisk || !hasCompletedInitialHydration { return }
         persistenceScheduler.schedule(key: key) { [weak self] in self?.save(key, value: value) }
     }
     private func loadDecoded<T: Decodable>(_ key: String, as type: T.Type) -> T? {
@@ -587,6 +594,8 @@ class GuestDataStore {
     }
 
     private func applyInitialSnapshot(_ snapshot: GuestDataDiskSnapshot) {
+        // Drop anything scheduled against the empty launch placeholders.
+        persistenceScheduler.cancel()
         isLoadingFromDisk = true
         defer {
             isLoadingFromDisk = false
@@ -595,6 +604,10 @@ class GuestDataStore {
             groceryRevision &+= 1
             recipeRevision &+= 1
             planRevision &+= 1
+            if drainAfterHydration {
+                drainAfterHydration = false
+                drainPendingUsedItems()
+            }
         }
         let migratedInventory = DBMigrations.migrateInventory(snapshot.inventory.filter {
             !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
@@ -632,6 +645,43 @@ class GuestDataStore {
         // independent SQLite rows and no longer rewrite an ever-growing history document.
         GrowthDatabase.shared.reconcile(priceHistory, collection: .priceHistory)
         GrowthDatabase.shared.reconcile(consumptionLog, collection: .consumptionLog)
+        shrinkOversizedPhotosIfNeeded()
+    }
+
+    /// One-time (and self-limiting) pass that downscales camera-original photos saved by
+    /// older builds. Encoding happens off-main; only changed rows are swapped back in. Photos
+    /// are local-only, so the swap is applied without stamping household changes.
+    private func shrinkOversizedPhotosIfNeeded() {
+        let threshold = StoredPhoto.migrationThresholdBytes
+        let recipePhotos = userRecipes.compactMap { r -> (UUID, Data)? in
+            guard let d = r.imageData, d.count > threshold else { return nil }; return (r.id, d)
+        }
+        let itemPhotos = inventoryItems.compactMap { i -> (UUID, Data)? in
+            guard let d = i.imageData, d.count > threshold else { return nil }; return (i.id, d)
+        }
+        guard !recipePhotos.isEmpty || !itemPhotos.isEmpty else { return }
+        Task { [weak self] in
+            let (recipes, items) = await Task.detached(priority: .utility) {
+                (Dictionary(recipePhotos.map { ($0.0, StoredPhoto.prepared($0.1)) }, uniquingKeysWith: { a, _ in a }),
+                 Dictionary(itemPhotos.map { ($0.0, StoredPhoto.prepared($0.1)) }, uniquingKeysWith: { a, _ in a }))
+            }.value
+            guard let self else { return }
+            let wasRemote = self.isApplyingHouseholdRemote
+            self.isApplyingHouseholdRemote = true
+            defer { self.isApplyingHouseholdRemote = wasRemote }
+            if !recipes.isEmpty {
+                self.userRecipes = self.userRecipes.map { r in
+                    guard let small = recipes[r.id] else { return r }
+                    var copy = r; copy.imageData = small; return copy
+                }
+            }
+            if !items.isEmpty {
+                self.inventoryItems = self.inventoryItems.map { i in
+                    guard let small = items[i.id] else { return i }
+                    var copy = i; copy.imageData = small; return copy
+                }
+            }
+        }
     }
 
     // MARK: - Retention (#8)
@@ -1321,6 +1371,9 @@ class GuestDataStore {
     static let pendingAddKey  = "stocked.pendingAddItems"
 
     func drainPendingUsedItems() {
+        // The Siri queue must apply to hydrated data; otherwise the loaded inventory
+        // would replace these additions a moment later.
+        guard hasCompletedInitialHydration else { drainAfterHydration = true; return }
         let ud = UserDefaults.standard
         // Adds first, then depletions — "add milk, used the old milk" resolves sanely.
         if let adds = ud.stringArray(forKey: Self.pendingAddKey), !adds.isEmpty {
@@ -1329,7 +1382,9 @@ class GuestDataStore {
             for raw in adds {
                 let name = raw.trimmingCharacters(in: .whitespaces)
                 guard !name.isEmpty else { continue }
-                addInventoryItem(LocalInventoryItem(name: name.displayNormalized))
+                // Put Siri adds where they belong (milk → Fridge, peas → Freezer) instead of the default zone.
+                addInventoryItem(LocalInventoryItem(name: name.displayNormalized,
+                                                    zone: ReceiptDatabase.shared.guessZone(for: name)))
                 addedNames.append(name.displayNormalized)
             }
             if !addedNames.isEmpty {
@@ -1898,7 +1953,7 @@ class GuestDataStore {
         guard !checked.isEmpty else { return 0 }
         let who = UserDefaults.standard.string(forKey: "householdMemberName_v1") ?? ""
         for g in checked {
-            var inv = LocalInventoryItem(name: g.name, level: 1.0, zone: "Pantry",
+            var inv = LocalInventoryItem(name: g.name, level: 1.0, zone: ReceiptDatabase.shared.guessZone(for: g.name),
                                          quantity: max(1, g.quantity))
             inv.purchaseDate = Date()
             inv.addedBy = who
@@ -2337,19 +2392,33 @@ class GuestDataStore {
         return catalogReady + generatedReady
     }
     var urgentItems: [LocalInventoryItem] {
-        inventoryItems.filter {
-            ($0.effectiveLevel < KitchenThresholds.lowFillLevel && ($0.zone == "Fridge" || $0.zone == "Freezer")) || $0.isExpiringSoon
+        // effectiveLevel involves a Calendar lookup; compute it once per item, not per comparison.
+        inventoryItems.compactMap { item -> (LocalInventoryItem, Double)? in
+            let level = item.effectiveLevel
+            let urgent = (level < KitchenThresholds.lowFillLevel && (item.zone == "Fridge" || item.zone == "Freezer")) || item.isExpiringSoon
+            return urgent ? (item, level) : nil
         }
-        .sorted { $0.effectiveLevel < $1.effectiveLevel }.prefix(5).map { $0 }
+        .sorted { $0.1 < $1.1 }.prefix(5).map(\.0)
+    }
+
+    /// The single item expiring soonest (for "Use tonight: …") — one pass, no full sort.
+    var soonestExpiringItem: LocalInventoryItem? {
+        inventoryItems.lazy
+            .filter { $0.isExpiringSoon() }
+            .map { ($0, $0.daysUntilExpiry ?? 999) }
+            .min { $0.1 < $1.1 }?.0
     }
 
     // MARK: - #3 Single source of truth for counts
 
     /// Canonical "expiring soon" list — every screen's expiring count/preview comes from here.
     var expiringSoonItems: [LocalInventoryItem] {
+        // Days-to-expiry (a Calendar lookup) computed once per item, not per comparison.
         inventoryItems
             .filter { $0.isExpiringSoon() }
-            .sorted { ($0.daysUntilExpiry ?? 999) < ($1.daysUntilExpiry ?? 999) }
+            .map { ($0, $0.daysUntilExpiry ?? 999) }
+            .sorted { $0.1 < $1.1 }
+            .map(\.0)
     }
     /// Canonical "running low" list (fill-level lows + below-par), deduped.
     var lowStockItems: [LocalInventoryItem] {

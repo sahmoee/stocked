@@ -199,8 +199,11 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
                 let data = try JSONEncoder().encode(encodable)
                 try data.write(to: url, options: .atomic)
             }
+            Task { @MainActor in PersistenceLifecycle.shared.recordWrite(succeeded: true) }
         } catch {
             Log.data.error("Disk write failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            // Surface repeated failures (usually a full disk) instead of losing data silently.
+            Task { @MainActor in PersistenceLifecycle.shared.recordWrite(succeeded: false) }
         }
     }
 

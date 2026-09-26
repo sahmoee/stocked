@@ -260,7 +260,7 @@ struct SettingsPageView: View {
                     content()
                 }
                 .padding(16)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
         .background(

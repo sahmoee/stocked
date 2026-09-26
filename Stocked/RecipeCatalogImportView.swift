@@ -79,7 +79,7 @@ struct RecipeCatalogImportView: View {
                 if phase == .failed {
                     Section {
                         Label(statusLine, systemImage: "xmark.circle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.stockedErrorInk)
                     }
                 }
 

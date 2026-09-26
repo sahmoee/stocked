@@ -245,7 +245,7 @@ struct MealPlannerView: View {
                 .background(Color.stockedCharcoal).clipShape(Capsule())
                 .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
                 .padding(.bottom, 130)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
             }
         }
         .sheet(item: $activeSheet) { sheet in

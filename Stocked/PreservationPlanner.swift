@@ -156,7 +156,7 @@ struct PreservationPlannerView: View {
                                 Text("At risk")
                                 Spacer()
                                 Text(totalAtRisk, format: .currency(code: Locale.current.currency?.identifier ?? "USD"))
-                                    .scaledFont(15, weight: .bold).foregroundStyle(.orange)
+                                    .scaledFont(15, weight: .bold).foregroundStyle(Color.stockedWarningInk)
                             }
                         }
                     }
@@ -181,7 +181,7 @@ struct PreservationPlannerView: View {
                             HStack {
                                 Text(item.name)
                                 Spacer()
-                                Text(expiryLabel(item)).foregroundStyle(.orange)
+                                Text(expiryLabel(item)).foregroundStyle(Color.stockedWarningInk)
                             }
                         }
                     }

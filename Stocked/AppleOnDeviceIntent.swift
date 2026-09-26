@@ -320,7 +320,7 @@ private enum FoundationModelsIntent {
         _ result: Result,
         candidates: [OnDeviceInventorySnapshotItem]
     ) -> [OnDeviceInventoryEdit] {
-        let byID = Dictionary(uniqueKeysWithValues: candidates.map { ($0.id, $0) })
+        let byID = Dictionary(lastWins: candidates.map { ($0.id, $0) })
 
         return result.edits.compactMap { edit -> OnDeviceInventoryEdit? in
             guard let action = OnDeviceInventoryEdit.Action(rawValue: edit.action.trimmingCharacters(in: .whitespaces))

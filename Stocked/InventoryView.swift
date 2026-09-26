@@ -92,11 +92,25 @@ struct InventoryView: View {
         }
     }
 
+    /// Memoised filtered/sorted list. The body reads `items` several times per render and
+    /// re-renders on every keystroke and scroll-collapse toggle; recompute only when the
+    /// inventory, zone, sort or search actually changed.
+    @State private var itemsCache = InventoryListCache()
+
     var items: [LocalInventoryItem] {
+        let key = InventoryListCache.Key(revision: session.guestStore.inventoryRevision, zone: selectedZone,
+                                         sort: invSort.rawValue,
+                                         query: invSearch.trimmingCharacters(in: .whitespaces))
+        if let cached = itemsCache.value(for: key) { return cached }
+        let result = computeItems(query: key.query)
+        itemsCache.store(result, for: key)
+        return result
+    }
+
+    private func computeItems(query q: String) -> [LocalInventoryItem] {
         let all = session.guestStore.inventoryItems
         var filtered = selectedZone == "All" ? all : all.filter { $0.zone == selectedZone }
         // #16/#9 — accent- and case-insensitive search across name + brand + category.
-        let q = invSearch.trimmingCharacters(in: .whitespaces)
         if !q.isEmpty {
             filtered = filtered.filter {
                 $0.name.searchMatches(q)
@@ -106,18 +120,20 @@ struct InventoryView: View {
         }
         // #5/#6 — sort by the chosen mode (default = use-first / soonest expiry).
         switch invSort {
-        case .useFirst:  return filtered.sorted { ($0.daysUntilExpiry ?? 999) < ($1.daysUntilExpiry ?? 999) }
+        case .useFirst:
+            // Compute each item's days-to-expiry once (a Calendar lookup) instead of per comparison.
+            return filtered.map { ($0, $0.daysUntilExpiry ?? 999) }
+                .sorted { $0.1 < $1.1 }
+                .map(\.0)
         case .name:      return filtered.sorted { $0.name.lowercased() < $1.name.lowercased() }
         case .quantity:  return filtered.sorted { $0.quantity > $1.quantity }
         case .lowFirst:  return filtered.sorted { $0.effectiveLevel < $1.effectiveLevel }
         case .recent:    return filtered.sorted { ($0.purchaseDate ?? .distantPast) > ($1.purchaseDate ?? .distantPast) }
         case .needsCheck:
             // Stale items first (most overdue at top), then everything else by expiry.
-            return filtered.sorted {
-                let a = GuestDataStore.staleness(of: $0) ?? -1
-                let b = GuestDataStore.staleness(of: $1) ?? -1
-                return a > b
-            }
+            return filtered.map { ($0, GuestDataStore.staleness(of: $0) ?? -1) }
+                .sorted { $0.1 > $1.1 }
+                .map(\.0)
         }
     }
 
@@ -306,7 +322,7 @@ struct InventoryView: View {
                 .background(Color.stockedCharcoal).clipShape(Capsule())
                 .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
                 .padding(.bottom, 130)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
@@ -439,11 +455,12 @@ struct InventoryView: View {
                         HapticManager.select()
                     } label: {
                         Label("Qty −1", systemImage: "minus.circle")
-                            .scaledFont(11, weight: .bold)
+                            .scaledFont(13, weight: .bold)
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .padding(.horizontal, 10).padding(.vertical, 9)
                             .background(Color.stockedCharcoal).clipShape(Capsule())
                     }.buttonStyle(.plain)
+                    .frame(minHeight: 44).contentShape(Rectangle())
                     Button {
                         for id in selectedIDs {
                             if let i = session.guestStore.inventoryItems.firstIndex(where: { $0.id == id }) {
@@ -453,11 +470,12 @@ struct InventoryView: View {
                         HapticManager.select()
                     } label: {
                         Label("Qty +1", systemImage: "plus.circle")
-                            .scaledFont(11, weight: .bold)
+                            .scaledFont(13, weight: .bold)
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .padding(.horizontal, 10).padding(.vertical, 9)
                             .background(Color.stockedCharcoal).clipShape(Capsule())
                     }.buttonStyle(.plain)
+                    .frame(minHeight: 44).contentShape(Rectangle())
                     // Add selected to grocery list
                     Button {
                         for id in selectedIDs {
@@ -468,11 +486,12 @@ struct InventoryView: View {
                         exitEditMode()
                     } label: {
                         Label("To list", systemImage: "cart.badge.plus")
-                            .scaledFont(11, weight: .bold)
+                            .scaledFont(13, weight: .bold)
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .padding(.horizontal, 10).padding(.vertical, 9)
                             .background(Color.stockedGreen).clipShape(Capsule())
                     }.buttonStyle(.plain)
+                    .frame(minHeight: 44).contentShape(Rectangle())
                     // Delete selected
                     Button {
                         let ids = selectedIDs
@@ -489,11 +508,12 @@ struct InventoryView: View {
                         }
                     } label: {
                         Label("Delete", systemImage: "trash")
-                            .scaledFont(11, weight: .bold)
+                            .scaledFont(13, weight: .bold)
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 8).padding(.vertical, 5)
-                            .background(Color.red.opacity(0.85)).clipShape(Capsule())
+                            .padding(.horizontal, 10).padding(.vertical, 9)
+                            .background(Color.stockedError).clipShape(Capsule())
                     }.buttonStyle(.plain)
+                    .frame(minHeight: 44).contentShape(Rectangle())
                 }
                 // Move-to-zone row
                 HStack(spacing: 8) {
@@ -519,7 +539,7 @@ struct InventoryView: View {
             }
             .padding(.horizontal, 24).padding(.vertical, 8)
             .background(Color.stockedGold.opacity(0.1))
-            .transition(.move(edge: .top).combined(with: .opacity))
+            .transition(.stockedMove(edge: .top).combined(with: .opacity))
         }
     }
 
@@ -568,7 +588,7 @@ struct InventoryView: View {
         StockedSearchField(text: $invSearch, prompt: "Search items", focus: $inventorySearchFocused,
                            onSubmit: { inventorySearchFocused = false })
         .padding(.horizontal, 24).padding(.bottom, 12)
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(.opacity.combined(with: .stockedMove(edge: .top)))
     }
 
     @ViewBuilder private var searchSortExportBar: some View {
@@ -1024,7 +1044,7 @@ struct SubcategoryDisclosure: View {
                         }
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
     }
@@ -1119,7 +1139,7 @@ private struct WeeklyPlanCell: View {
             ZStack {
                 Circle().fill(isTargeted ? session.accentColor : day.dotColor)
                     .frame(width: 30, height: 30)
-                if isTargeted { Image(systemName: "plus").scaledFont(11, weight: .bold).foregroundStyle(.white) }
+                if isTargeted { Image(systemName: "plus").scaledFont(11, weight: .bold).foregroundStyle(session.isDarkMode ? Color.stockedDarkBg : Color.stockedWhite) }
                 else if day.expiryCount > 0 { Text("\(day.expiryCount)").scaledFont(11, weight: .bold).foregroundStyle(.white) }
             }
             Text(day.dayNum)
@@ -1217,7 +1237,7 @@ struct InventoryItemRow: View {
                         if GuestDataStore.isStale(item) {
                             Text("Still have this?")
                                 .scaledFont(10, weight: .semibold)
-                                .foregroundStyle(Color.orange)
+                                .foregroundStyle(Color.stockedWarningInk)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
                                 .background(Color.orange.opacity(0.12))
                                 .clipShape(Capsule())
@@ -1335,4 +1355,19 @@ struct InventoryItemRow: View {
             }
         }
     }
+}
+
+
+/// Reference-typed memo for InventoryView.items (mutated during body without invalidating it).
+final class InventoryListCache {
+    struct Key: Equatable {
+        let revision: Int
+        let zone: String
+        let sort: String
+        let query: String
+    }
+    private var key: Key?
+    private var cached: [LocalInventoryItem] = []
+    func value(for key: Key) -> [LocalInventoryItem]? { self.key == key ? cached : nil }
+    func store(_ value: [LocalInventoryItem], for key: Key) { self.key = key; cached = value }
 }

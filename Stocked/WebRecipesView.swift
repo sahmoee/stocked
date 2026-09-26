@@ -1111,7 +1111,7 @@ struct URLImportSheet: View {
                         .textInputAutocapitalization(.never)
 
                     if let err = errorMsg {
-                        Text(err).scaledFont(12).foregroundStyle(.red)
+                        Text(err).scaledFont(12).foregroundStyle(Color.stockedErrorInk)
                     }
 
                     Button {

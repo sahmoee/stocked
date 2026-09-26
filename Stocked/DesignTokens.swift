@@ -22,40 +22,79 @@ nonisolated enum RecipeCardStyle {
     }
 }
 
+// MARK: - Selectable light palette
+nonisolated enum StockedLightTheme: String, CaseIterable, Codable, Sendable {
+    case pastel = "Pastel"
+    case tan = "Tan"
+    static let defaultsKey = "stocked.lightTheme"
+}
+
+nonisolated struct StockedLightThemeTrait: UITraitDefinition {
+    static let defaultValue = StockedLightTheme.pastel
+    static let affectsColorAppearance = true
+}
+
+nonisolated struct StockedLightThemeKey: UITraitBridgedEnvironmentKey {
+    static let defaultValue = StockedLightTheme.pastel
+    static func read(from traitCollection: UITraitCollection) -> StockedLightTheme {
+        traitCollection[StockedLightThemeTrait.self]
+    }
+    static func write(to mutableTraits: inout any UIMutableTraits, value: StockedLightTheme) {
+        mutableTraits[StockedLightThemeTrait.self] = value
+    }
+}
+
+extension EnvironmentValues {
+    var stockedLightTheme: StockedLightTheme {
+        get { self[StockedLightThemeKey.self] }
+        set { self[StockedLightThemeKey.self] = newValue }
+    }
+}
+
+nonisolated extension Color {
+    /// UIKit trait bridging updates legacy colors, SwiftUI surfaces and presented controls together.
+    static func stockedPalette(pastel: UIColor, tan: UIColor) -> Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle != .dark && traits[StockedLightThemeTrait.self] == .tan
+                ? tan.resolvedColor(with: traits) : pastel.resolvedColor(with: traits)
+        })
+    }
+}
+
 // MARK: - Brand Colors
 nonisolated extension Color {
     // Core backgrounds
-    static let stockedBg        = Color(red: 0.992, green: 0.969, blue: 0.937) // #FDF7EF warm ivory
+    static let stockedBg        = stockedPalette(pastel: UIColor(red: 0.992, green: 0.969, blue: 0.937, alpha: 1), tan: UIColor(red: 0.780, green: 0.671, blue: 0.506, alpha: 1))
     static let stockedDarkBg    = Color(red: 0.086, green: 0.078, blue: 0.063) // #161410 OLED dark
 
     // Charcoal — buttons, tab bar, cards on tan
-    static let stockedCharcoal  = Color(red: 0.263, green: 0.224, blue: 0.184) // #43392F warm cocoa
+    static let stockedCharcoal  = stockedPalette(pastel: UIColor(red: 0.263, green: 0.224, blue: 0.184, alpha: 1), tan: UIColor(red: 0.176, green: 0.173, blue: 0.165, alpha: 1))
 
     // Gold — accent, active states, Find in Store, bolt
-    static let stockedGold      = Color(red: 0.573, green: 0.416, blue: 0.184) // #926A2F functional honey
-    static let stockedGoldDark  = Color(red: 0.835, green: 0.702, blue: 0.420) // #D5B36B muted honey
+    static let stockedGold      = stockedPalette(pastel: UIColor(red: 0.573, green: 0.416, blue: 0.184, alpha: 1), tan: UIColor(red: 0.561, green: 0.392, blue: 0.075, alpha: 1))
+    static let stockedGoldDark  = stockedPalette(pastel: UIColor(red: 0.835, green: 0.702, blue: 0.420, alpha: 1), tan: UIColor(red: 0.870, green: 0.680, blue: 0.290, alpha: 1))
     // Decorative gold is too faint for small labels on tan. Text/actions use a
     // deeper warm-gold shade; artwork, borders and brand illustrations keep their gold.
-    static let textAccentLight  = Color(red: 0.502, green: 0.373, blue: 0.192) // #805F31 readable honey
+    static let textAccentLight  = stockedPalette(pastel: UIColor(red: 0.502, green: 0.373, blue: 0.192, alpha: 1), tan: UIColor(red: 0.263, green: 0.165, blue: 0.031, alpha: 1))
     /// Foreground-only accent for legacy screens without an AppSession color role.
     /// Keep fixed brand fills separate so white-on-gold buttons retain their contrast.
     static let stockedAccentInk = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.835, green: 0.702, blue: 0.420, alpha: 1)
-            : UIColor(red: 0.502, green: 0.373, blue: 0.192, alpha: 1)
+            : (traits[StockedLightThemeTrait.self] == .tan ? UIColor(red: 0.263, green: 0.165, blue: 0.031, alpha: 1) : UIColor(red: 0.502, green: 0.373, blue: 0.192, alpha: 1))
     })
 
     // Success
-    static let stockedGreen     = Color(red: 0.337, green: 0.420, blue: 0.290) // #566B4A sage ink
+    static let stockedGreen     = stockedPalette(pastel: UIColor(red: 0.337, green: 0.420, blue: 0.290, alpha: 1), tan: UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1))
     static let stockedSuccessInk = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.694, green: 0.784, blue: 0.627, alpha: 1)
-            : UIColor(red: 0.337, green: 0.420, blue: 0.290, alpha: 1)
+            : (traits[StockedLightThemeTrait.self] == .tan ? UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1) : UIColor(red: 0.337, green: 0.420, blue: 0.290, alpha: 1))
     })
 
     // Text
-    static let stockedBlack     = Color(red: 0.239, green: 0.196, blue: 0.157) // #3D3228 cocoa ink
-    static let stockedWhite     = Color(red: 1.000, green: 0.980, blue: 0.953) // #FFFAF3 ivory
+    static let stockedBlack     = stockedPalette(pastel: UIColor(red: 0.239, green: 0.196, blue: 0.157, alpha: 1), tan: UIColor(red: 0.102, green: 0.090, blue: 0.071, alpha: 1))
+    static let stockedWhite     = stockedPalette(pastel: UIColor(red: 1.000, green: 0.980, blue: 0.953, alpha: 1), tan: UIColor(red: 0.961, green: 0.949, blue: 0.922, alpha: 1))
 
     // Dark mode surface
     static let darkSurface      = Color(red: 0.129, green: 0.118, blue: 0.102) // #211E1A
@@ -70,13 +109,29 @@ nonisolated extension Color {
     static let stockedWarning   = Color(red: 0.851, green: 0.557, blue: 0.169) // #D98E2B caution amber
     static let stockedError     = Color(red: 0.753, green: 0.224, blue: 0.169) // #C0392B error/offline red
 
+    // Text-safe status inks (≥ 4.5:1 on the pastel canvas, the tan canvas and dark mode).
+    // The fixed accents above stay for fills and icons; use these whenever the status
+    // color IS the text, where the fixed accents measured 1.2–3.4:1.
+    static let stockedErrorInk   = stockedStatusInk(pastel: (0.631, 0.165, 0.122), tan: (0.478, 0.102, 0.071), dark: (0.941, 0.541, 0.494))
+    static let stockedWarningInk = stockedStatusInk(pastel: (0.541, 0.353, 0.043), tan: (0.369, 0.227, 0.016), dark: (0.949, 0.706, 0.369))
+    static let stockedInfoInk    = stockedStatusInk(pastel: (0.122, 0.373, 0.604), tan: (0.090, 0.247, 0.400), dark: (0.549, 0.722, 0.902))
+
+    static func stockedStatusInk(pastel: (Double, Double, Double), tan: (Double, Double, Double),
+                                 dark: (Double, Double, Double)) -> Color {
+        Color(uiColor: UIColor { traits in
+            let c = traits.userInterfaceStyle == .dark ? dark
+                : (traits[StockedLightThemeTrait.self] == .tan ? tan : pastel)
+            return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
+    }
+
     // Adaptive helpers
     static func appBg(_ dark: Bool)      -> Color { dark ? stockedDarkBg  : stockedBg      }
     static func appText(_ dark: Bool)    -> Color { dark ? darkLabel      : stockedBlack   }
     // Secondary/supporting text. Solid (not opacity-based) so contrast is predictable.
     // Solid cocoa-gray supports readable body copy on every pastel surface.
     // Use session.themeSecondaryText instead of opacity-based body copy.
-    static let secondaryLight = Color(red: 0.388, green: 0.361, blue: 0.329) // #635C54 warm supporting text
+    static let secondaryLight = stockedPalette(pastel: UIColor(red: 0.388, green: 0.361, blue: 0.329, alpha: 1), tan: UIColor(red: 0.200, green: 0.184, blue: 0.157, alpha: 1))
     static let secondaryDark  = Color(red: 0.741, green: 0.722, blue: 0.690) // #BDB8B0
     static func appSecondary(_ dark: Bool) -> Color { dark ? secondaryDark : secondaryLight }
     static func appAccent(_ dark: Bool) -> Color { dark ? stockedGoldDark : textAccentLight }
@@ -84,7 +139,7 @@ nonisolated extension Color {
     static func appButton(_ dark: Bool)  -> Color { dark ? Color(white: 0.22) : stockedCharcoal }
     // Ivory reading cards on the warm cream canvas; dark mode retains warm depth.
     // Pastel accents are separate fills so small text remains readable.
-    static let lightSurface = Color(red: 1.000, green: 0.984, blue: 0.965) // #FFFBF6 cream card
+    static let lightSurface = stockedPalette(pastel: UIColor(red: 1.000, green: 0.984, blue: 0.965, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
     static let darkElevatedSurface = Color(red: 0.176, green: 0.161, blue: 0.137) // #2D2923
     static func appSurface(_ dark: Bool) -> Color { dark ? darkElevatedSurface : lightSurface }
 
@@ -100,8 +155,10 @@ nonisolated extension Color {
     // contrast, and Reduce Transparency remain one coherent theme contract.
     static func widgetSurface(_ dark: Bool, increasedContrast: Bool, reduceTransparency: Bool) -> Color {
         if dark { return increasedContrast ? Color(red: 0.205, green: 0.188, blue: 0.158) : darkElevatedSurface }
-        if increasedContrast { return Color(red: 0.965, green: 0.937, blue: 0.894) }
-        return reduceTransparency ? Color(red: 1.000, green: 0.984, blue: 0.965) : stockedWhite.opacity(0.92)
+        if increasedContrast { return stockedPalette(pastel: UIColor(red: 0.965, green: 0.937, blue: 0.894, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1)) }
+        return reduceTransparency ? lightSurface : stockedPalette(
+            pastel: UIColor(red: 1.000, green: 0.980, blue: 0.953, alpha: 0.92),
+            tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 0.96))
     }
 
     static func widgetPrimaryText(_ dark: Bool) -> Color { appText(dark) }
@@ -295,7 +352,6 @@ enum StockedType {
         default:          return .body
         }
     }
-
 }
 
 // MARK: - Page background helper

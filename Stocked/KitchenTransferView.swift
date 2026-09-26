@@ -629,7 +629,7 @@ struct QRTransferSheet: View {
                 }
                 if !manager.errorMessage.isEmpty {
                     Text(manager.errorMessage)
-                        .scaledFont(13).foregroundStyle(.red)
+                        .scaledFont(13).foregroundStyle(Color.stockedErrorInk)
                         .padding(.top, 8)
                 }
 
@@ -707,7 +707,7 @@ struct TransferOptionsSheet: View {
                 }
                 if !manager.errorMessage.isEmpty {
                     Text(manager.errorMessage)
-                        .scaledFont(13).foregroundStyle(.red).padding(.top, 8)
+                        .scaledFont(13).foregroundStyle(Color.stockedErrorInk).padding(.top, 8)
                 }
 
             }

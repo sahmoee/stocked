@@ -85,7 +85,7 @@ struct RecipeURLImportView: View {
                         .padding(14).stockedPastelCard(radius: 14)
                         .padding(.horizontal, 24)
                     }
-                    if showError { Text(errorMsg).stocked(.caption).foregroundStyle(.red).padding(.horizontal, 24) }
+                    if showError { Text(errorMsg).stocked(.caption).foregroundStyle(Color.stockedErrorInk).padding(.horizontal, 24) }
                 }
                 Button("Import Recipe") { Task { await doImport() } }
                     .disabled(urlText.isEmpty || loading)

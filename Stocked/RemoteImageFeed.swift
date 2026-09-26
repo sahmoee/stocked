@@ -45,7 +45,7 @@ final class RemoteImageFeed {
         guard stale, fetchTask == nil, let url = URL(string: Self.feedURL) else { return }
         fetchTask = Task { [weak self] in
             defer { Task { @MainActor in self?.fetchTask = nil } }
-            guard let (data, resp) = try? await URLSession.shared.data(from: url),
+            guard let (data, resp) = try? await URLSession.stocked.data(from: url),
                   let http = resp as? HTTPURLResponse, http.statusCode == 200,
                   let raw = try? JSONDecoder().decode([String: String].self, from: data) else { return }
             var normalized: [String: String] = [:]

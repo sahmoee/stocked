@@ -69,6 +69,9 @@ struct HomeView: View {
     @State private var activeHomeSheet: HomeScreenSheet? = nil
     @State private var activeActionMenu: HomeActionMenu? = nil
     @State private var goExpiringList   = false
+    @State private var goReadyToCook    = false   // single "cook with what I have" destination
+    @State private var goLowStock       = false
+    @State private var goCookedMeals    = false
     // #250 — Daily Brief collapse state, remembered across launches.
     private let briefCollapsedKey = "stocked.homeBriefCollapsed"
     @State private var briefCollapsed = UserDefaults.standard.bool(forKey: "stocked.homeBriefCollapsed")
@@ -120,9 +123,14 @@ struct HomeView: View {
     var body: some View {
         StockedShell {
             VStack(alignment: .leading, spacing: 0) {
+                // First run: an empty kitchen gets one clear next step instead of zeros.
+                if store.hasCompletedInitialHydration && store.inventoryItems.isEmpty {
+                    gettingStartedCard
+                        .padding(.bottom, 20)
+                }
                 StockedPastelHome(metrics: kitchenMetrics,
                     onExpiring: { goExpiringList = true },
-                    onRecipes: { switchTab(.recipes) })
+                    onRecipes: { goReadyToCook = true })
                     .padding(.bottom, 20)
                 HStack {
                     Text("Your shortcuts")
@@ -186,6 +194,12 @@ struct HomeView: View {
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal, homeHorizontalPadding)
             .navigationDestination(isPresented: $goExpiringList) { ExpiringSoonListView() }
+            .navigationDestination(isPresented: $goReadyToCook) { CookNowResultsView(focus: .readyFirst) }
+            .navigationDestination(isPresented: $goLowStock) { LowStockReportView().stockedScreen() }
+            .navigationDestination(isPresented: $goCookedMeals) {
+                RecipeListView(title: "Cooked",
+                               recipes: store.userRecipes.filter { $0.cookCount > 0 }).environment(session)
+            }
             .task(id: metricsRevision) {
                 // Let the first frame render before deriving recipe/inventory metrics.
                 // Large restored kitchens previously repeated these passes many times
@@ -408,14 +422,20 @@ struct HomeView: View {
         case .add:
             Button("Add Inventory Item") { postQuick(.addItems) }
             Button("Quick Add or Update") { activeHomeSheet = .quickUpdate }
-            Button("Add Grocery Item") { switchTab(.grocery) }
+            Button("Add Grocery Item") {
+                switchTab(.grocery)
+                // Land on the list with the add field focused, not just the tab.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(350))
+                    NotificationCenter.default.post(name: .stockedFocusGroceryAdd, object: nil)
+                }
+            }
             Button("Add Recipe") {
                 session.pendingRecipeImport = true
                 switchTab(.recipes)
             }
         case .log:
-            Button("Past Meals") { switchTab(.recipes) }
-            Button("Log Cooked Meal") { switchTab(.cook) }
+            Button("Past Meals") { goCookedMeals = true }
             Button("Log Items Used Recently") { activeHomeSheet = .quickUpdate }
         }
         Button("Cancel", role: .cancel) {}
@@ -1095,8 +1115,8 @@ struct HomeView: View {
                 goExpiringList = true
             }
         case .lowStock:
-            statWidget(.lowStock, value: "\(lowStockCount)", sub: lowStockCount == 1 ? "running low" : "running low", tint: .stockedGold) {
-                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.inventory)
+            statWidget(.lowStock, value: "\(lowStockCount)", sub: "running low", tint: .stockedGold) {
+                goLowStock = true
             }
         case .totalItems:
             statWidget(.totalItems, value: "\(store.inventoryItems.count)", sub: "items tracked", tint: .stockedGreen) {
@@ -1104,9 +1124,7 @@ struct HomeView: View {
             }
         // ── #253 action shortcuts ──
         case .cookNow:
-            actionWidget(.cookNow, tint: .stockedGold) {
-                NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.cook)
-            }
+            actionWidget(.cookNow, tint: .stockedGold) { goReadyToCook = true }
         case .discover:
             actionWidget(.discover, tint: .stockedInfo) {
                 NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)
@@ -1173,7 +1191,7 @@ struct HomeView: View {
             Text("Drag here to remove")
                 .scaledFont(15, weight: .bold, design: .serif)
         }
-        .foregroundStyle(Color.stockedError)
+        .foregroundStyle(Color.stockedErrorInk)
         .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight)
         .padding(.vertical, 8)
         .background(Color.stockedError.opacity(0.10))
@@ -1927,7 +1945,7 @@ struct HomeView: View {
                                  label: kitchenMetrics.stockStatusSentence)
                         briefRow(icon: "clock.badge.exclamationmark",
                                  value: "\(expiringCount) item\(expiringCount == 1 ? "" : "s") expiring soon",
-                                 label: store.expiringSoonItems.first.map { "Use tonight: \($0.name.displayNormalized)" } ?? "Nothing urgent",
+                                 label: store.soonestExpiringItem.map { "Use tonight: \($0.name.displayNormalized)" } ?? "Nothing urgent",
                                  badged: expiringCount > 0)
                         briefRow(icon: "cart",
                                  value: store.groceryRunDays == 0 ? "Grocery run today"
@@ -2022,7 +2040,9 @@ struct HomeView: View {
 
     // MARK: - What's New (mockup)
     private struct NewsRow: Identifiable {
-        let id = UUID(); let icon: String; let text: String; let when: Date
+        let icon: String; let text: String; let when: Date
+        // Stable identity: a fresh UUID per render made SwiftUI rebuild every row.
+        var id: String { "\(icon)|\(text)|\(when.timeIntervalSince1970)" }
     }
     private var newsRows: [NewsRow] {
         var rows: [NewsRow] = []
@@ -2055,9 +2075,11 @@ struct HomeView: View {
         }
         return Array(rows.sorted { $0.when > $1.when }.prefix(3))
     }
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated; return f
+    }()
     private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
-        return f.localizedString(for: date, relativeTo: Date())
+        Self.relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
     private var whatsNewSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -2644,15 +2666,15 @@ enum HomeWidget: String, CaseIterable, Hashable, Codable {
         }
     }
 
-    // The first screen answers the three decisions users open Stocked for: what must be
-    // used, what can be cooked, and what needs restocking. Everything else stays available
-    // in the gallery. Existing customized boards are never reset.
-    static let defaultLayout: [HomeWidget] = [.useItSoon, .cookNow, .lowStock, .stockLevel]
+    // The fixed hero above the board already answers "what must be used", "what can be
+    // cooked" and "how stocked am I", so the default board adds what the hero doesn't show:
+    // the shopping list and the week's plan. Existing customized boards are never reset.
+    static let defaultLayout: [HomeWidget] = [.groceryCount, .plannedMeals]
 
     /// Widgets already expressed by the fixed master-mockup Home composition. They
     /// remain in the persisted model for compatibility but must not be duplicated
     /// underneath the matching reference sections.
-    static let referenceRepresented: Set<HomeWidget> = Set(defaultLayout)
+    static let referenceRepresented: Set<HomeWidget> = [.useItSoon, .cookNow, .lowStock, .stockLevel]
 
     private static let layoutKey = "stocked.homeWidgetLayout_v3"
     private static let footprintKey = "stocked.homeWidgetFootprints_v1"

@@ -129,7 +129,7 @@ final class ReceiptLearningIndex {
         var map = storeScoped
         map["\(store.lowercased())|\(key)"] = resolved
         // Bound it — receipts generate a lot of one-off lines and this lives in UserDefaults.
-        if map.count > 500 { map = Dictionary(uniqueKeysWithValues: Array(map).suffix(400)) }
+        if map.count > 500 { map = Dictionary(lastWins: Array(map).suffix(400)) }
         storeScoped = map
         builtCount = -1   // force a rebuild so the new entry applies to the rest of this receipt
     }

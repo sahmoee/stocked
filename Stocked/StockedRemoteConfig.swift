@@ -240,6 +240,6 @@ struct RemoteConfigBanner: View {
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 14))
         .padding(.horizontal, 16)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.stockedMove(edge: .top).combined(with: .opacity))
     }
 }

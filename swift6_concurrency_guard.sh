@@ -72,10 +72,21 @@ fi
 # CookNowCompute is an @MainActor namespace; its bounded LRU is actor-protected rather
 # than shared nonisolated state. Keep that explicit, narrow exception visible here.
 stored_static_vars=$(grep -RInE --include='*.swift' '^[[:space:]]*(public[[:space:]]+|private[[:space:]]+|fileprivate[[:space:]]+|internal[[:space:]]+|package[[:space:]]+)?(nonisolated[[:space:]]+)?static[[:space:]]+var[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[^\{]*=' "${existing_dirs[@]}" 2>/dev/null \
-  | grep -vE '/CookNowCompute\.swift:.*private static var memo:' || true)
+  | grep -vE '/CookNowCompute\.swift:.*private static var memo(Generation)?:' || true)
 if [ -n "$stored_static_vars" ]; then
   echo "SWIFT 6 CONCURRENCY GUARD FAILED: stored static var found"
   echo "$stored_static_vars"
+  echo
+  fail=1
+fi
+
+# `nonisolated(unsafe)` static vars bypass isolation checking entirely. Only the audited
+# lock-free flag below is allowed; wrap anything else in OSAllocatedUnfairLock.
+unsafe_statics=$(grep -RInE --include='*.swift' 'nonisolated\(unsafe\)[^\n]*static[[:space:]]+var|static[[:space:]]+nonisolated\(unsafe\)[[:space:]]+var' "${existing_dirs[@]}" 2>/dev/null \
+  | grep -vE '/ConnectivityMonitor\.swift:.*isOnlineFlag' || true)
+if [ -n "$unsafe_statics" ]; then
+  echo "SWIFT 6 CONCURRENCY GUARD FAILED: nonisolated(unsafe) static var found"
+  echo "$unsafe_statics"
   echo
   fail=1
 fi

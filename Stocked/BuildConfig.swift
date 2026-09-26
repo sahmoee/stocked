@@ -36,12 +36,12 @@ nonisolated enum BuildConfig {
     static var buildTag: String     { "Stocked_Build\(buildNumber)_v\(version)" }
 
     // Fallbacks (keep in sync with Build Settings when you cut a release).
-    private static let fallbackBuildNumber = 89
-    private static let fallbackVersion     = "4.29"
+    private static let fallbackBuildNumber = 90
+    private static let fallbackVersion     = "4.30"
 
-    static let changeCount   = 3
-    static let buildName     = "Build 89 - Two old recipe sources are gone for good. Early versions of Stocked padded the recipe library out with a bulk food dataset and a small curated feed, and neither was ever much use: the dataset recipes were terse, oddly worded and often missing an image, and the curated feed was a handful of entries that never grew. Both are now removed from your library and blocked from ever being added back, on the phone and on the Mac. It happens by itself the next time each app opens, nothing is asked of you, and it runs every launch rather than just once, so a recipe arriving from another device still on an older version is cleared out too rather than quietly refilling your library. Recipes you wrote yourself, recipes you saved from anywhere else, and anything you harvested from a website are all untouched \u{2014} only these two sources are affected, and only by their source, never by what a recipe is called or what is in it. A recipe you typed by hand and happened to tag with one of these words is safe. Removals are recorded properly as removals, so a recipe cleared out on one device stays cleared out everywhere in your household instead of coming back at the next sync."
-    static let buildDate     = "August 2026"
+    static let changeCount   = 6
+    static let buildName     = "Build 90 - Safer saving, a faster one-step Add Item, a quicker grocery list with undo, honest loading and error messages, one clear place to cook with what you have, and clearer text, buttons and motion for accessibility."
+    static let buildDate     = "September 2026"
 
     // MARK: - Environment detection
     nonisolated enum Environment: Sendable { case debug, staging, release }

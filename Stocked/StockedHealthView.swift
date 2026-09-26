@@ -82,7 +82,7 @@ struct StockedHealthView: View {
                         tint: w.latencyMs > 2000 ? .orange : session.themeTextColor)
                     if w.statusCode > 0 { row("HTTP", "\(w.statusCode)") }
                     if !w.error.isEmpty {
-                        Text(w.error).stockedFont(.caption).foregroundStyle(.red)
+                        Text(w.error).stockedFont(.caption).foregroundStyle(Color.stockedErrorInk)
                     }
                 } else {
                     row("Status", checking ? "Checking…" : "Not checked yet")

@@ -819,7 +819,7 @@ struct CookLaterCommandCenterView: View {
         .background(Color.stockedCharcoal, in: Capsule())
         .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
         .padding(.bottom, 24)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
       }
     }
     .task(id: readinessRevision) {
@@ -1545,7 +1545,7 @@ struct CookLaterCommandCenterView: View {
         if !need.sizeText.isEmpty {
           Text("Short by about \(need.sizeText)")
             .font(.stockedSans(10.5, weight: .medium, relativeTo: .caption2))
-            .foregroundStyle(Color.stockedError)
+            .foregroundStyle(Color.stockedErrorInk)
             .stockedAdaptiveLabel(maxLines: 2)
         }
       }
@@ -2280,11 +2280,17 @@ private struct CookLaterCommandEditorSheet: View {
                   Text(ingredient).scaledFont(12.5).foregroundStyle(session.themeTextColor)
                   Spacer()
                   Button {
-                    draft.ingredients.remove(at: index)
+                    // A fast double tap can fire after the list shrank; remove by position only
+                    // when the row still holds this ingredient (was an index-out-of-range crash).
+                    if draft.ingredients.indices.contains(index), draft.ingredients[index] == ingredient {
+                      draft.ingredients.remove(at: index)
+                    }
                   } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(
-                      session.themeTextColor.opacity(0.28))
+                      session.themeSecondaryText)
+                      .frame(minWidth: 44, minHeight: 44)
                   }
+                  .accessibilityLabel("Remove \(ingredient)")
                 }
                 .padding(11).background(
                   session.themeCardColor, in: RoundedRectangle(cornerRadius: 11))
@@ -2621,7 +2627,7 @@ private struct CookLaterMealDetailSheet: View {
             if !conflicts.isEmpty {
               VStack(alignment: .leading, spacing: 7) {
                 Label("Planning Impact", systemImage: "exclamationmark.triangle.fill")
-                  .scaledFont(13, weight: .semibold).foregroundStyle(Color.orange)
+                  .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedWarningInk)
                 ForEach(conflicts) { check in
                   Text(
                     "You also planned \(check.competingMeals.joined(separator: ", ")) with \(check.name.displayNormalized)."
@@ -2751,7 +2757,7 @@ private struct CookLaterSubstitutionSheet: View {
                 .system(size: 20, weight: .bold, design: .serif)
               ).foregroundStyle(session.themeTextColor)
               Text("Missing · \(need.shortageReason)").scaledFont(11.5, weight: .semibold)
-                .foregroundStyle(Color.stockedError)
+                .foregroundStyle(Color.stockedErrorInk)
             }
             Text("Find a substitute").scaledFont(15.5, weight: .bold, design: .serif)
               .foregroundStyle(session.themeTextColor)

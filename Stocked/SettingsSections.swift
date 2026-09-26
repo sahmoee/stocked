@@ -27,6 +27,11 @@ struct PreferencesSectionView: View {
                     set: { session.isDarkMode = $0 }
                 ))
 
+                segmentedRow(dark: dark, icon: "paintpalette", title: "Light Theme", selection: Binding(
+                    get: { session.lightTheme },
+                    set: { session.lightTheme = $0 }
+                ), options: StockedLightTheme.allCases) { $0.rawValue }
+
                 segmentedRow(dark: dark, icon: "textformat", title: "App Font", selection: Binding(
                     get: { session.appFont },
                     set: { session.appFont = $0 }
@@ -188,12 +193,12 @@ struct DataStorageSectionView: View {
         if !session.transferManager.errorMessage.isEmpty {
             Label(session.transferManager.errorMessage, systemImage: "exclamationmark.triangle.fill")
                 .font(.stockedSans(12, weight: .semibold))
-                .foregroundStyle(Color.stockedError)
+                .foregroundStyle(Color.stockedErrorInk)
                 .fixedSize(horizontal: false, vertical: true)
         } else if !session.transferManager.statusMessage.isEmpty {
             Label(session.transferManager.statusMessage, systemImage: "checkmark.circle.fill")
                 .font(.stockedSans(12, weight: .semibold))
-                .foregroundStyle(Color.stockedSuccess)
+                .foregroundStyle(Color.stockedSuccessInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

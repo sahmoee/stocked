@@ -104,8 +104,8 @@ struct FullScreenCookView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(maxWidth: .infinity, minHeight: bounds.size.height)
                                 .id(currentCard)
-                                .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
-                                                        removal: .move(edge: .leading).combined(with: .opacity)))
+                                .transition(.asymmetric(insertion: .stockedMove(edge: .trailing).combined(with: .opacity),
+                                                        removal: .stockedMove(edge: .leading).combined(with: .opacity)))
                                 .offset(x: dragOffset.width)
                                 .gesture(DragGesture()
                                     .onChanged { dragOffset = $0.translation }

@@ -277,7 +277,7 @@ struct EventDetailView: View {
                         Spacer()
                         if !g.allergies.isEmpty {
                             Text(g.allergies.joined(separator: ", "))
-                                .scaledFont(11).foregroundStyle(.orange)
+                                .scaledFont(11).foregroundStyle(Color.stockedWarningInk)
                         } else if g.diet != "None" {
                             Text(g.diet).scaledFont(11).foregroundStyle(.secondary)
                         }
@@ -299,13 +299,13 @@ struct EventDetailView: View {
                     ForEach(conflicts) { c in
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(c.guest) can't eat \(c.dish)")
-                                .scaledFont(13, weight: .semibold).foregroundStyle(.red)
+                                .scaledFont(13, weight: .semibold).foregroundStyle(Color.stockedErrorInk)
                             Text("contains \(c.ingredient)").scaledFont(12).foregroundStyle(.secondary)
                         }
                     }
                 } header: {
                     Label("Check before serving", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Color.stockedErrorInk)
                 }
             }
 

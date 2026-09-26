@@ -216,6 +216,7 @@ struct EditItemSheet: View {
                                 Image(systemName: "minus.circle.fill").scaledFont(26)
                                     .foregroundStyle(par > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.25))
                             }.buttonStyle(.plain).disabled(par == 0)
+                            .stockedIconButton("Lower minimum stock")
                             Text(par > 0 ? "\(par)" : "—")
                                 .scaledFont(18, weight: .bold)
                                 .foregroundStyle(session.themeTextColor)
@@ -224,6 +225,7 @@ struct EditItemSheet: View {
                                 Image(systemName: "plus.circle.fill").scaledFont(26)
                                     .foregroundStyle(Color.stockedAccentInk)
                             }.buttonStyle(.plain)
+                            .stockedIconButton("Raise minimum stock")
                             Spacer()
                             Text(par > 0 ? "Auto-added to your list when you drop below \(par)." : "Set a minimum to auto-reorder this item.")
                                 .scaledFont(11)
@@ -488,7 +490,7 @@ struct EditItemSheet: View {
                 dismiss()
             } label: {
                 Text("Remove Item")
-                    .scaledFont(14).foregroundStyle(.red)
+                    .scaledFont(14).foregroundStyle(Color.stockedErrorInk)
                     .frame(minHeight: 44)
             }
             .disabled(!HouseholdSync.shared.myCanRemove)
@@ -500,7 +502,11 @@ struct EditItemSheet: View {
 struct AddItemSheet: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    // Opened from Home / the drawer / ⌘N this sheet lives in MainTabView's overlay, where
+    // the system dismiss is a no-op. Prefer the overlay's close (same fix as the scanners).
+    @Environment(\.stockedDismiss) var stockedDismiss
     @Environment(\.stockedMotion) private var motion
+    private func close() { if let stockedDismiss { stockedDismiss() } else { dismiss() } }
 
     var defaultZone: String = "Fridge"
 
@@ -540,6 +546,8 @@ struct AddItemSheet: View {
     // Duplicate detection
     @State private var duplicateItem: LocalInventoryItem? = nil
     @State private var showDuplicateAlert = false
+    /// True when the duplicate alert came from the one-step "Add" button (save on confirm).
+    @State private var quickAddPending = false
     // UPC fallback — name provided by user after failed barcode scan
     var upcFallbackName: String? = nil
 
@@ -566,7 +574,7 @@ struct AddItemSheet: View {
                     Text("Your household access level doesn't allow adding items. Ask the household owner if you need to add things.")
                         .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
                         .multilineTextAlignment(.center).padding(.horizontal, 40)
-                    Button { dismiss() } label: {
+                    Button { close() } label: {
                         Text("Close").scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                             .frame(maxWidth: .infinity).padding(.vertical, 12)
                             .background(Color.stockedGold, in: RoundedRectangle(cornerRadius: 10))
@@ -590,7 +598,7 @@ struct AddItemSheet: View {
                         .foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button {
-                        if !name.isEmpty { confirmDiscard = true } else { dismiss() }
+                        if !name.isEmpty { confirmDiscard = true } else { close() }
                     } label: {
                         Image(systemName: "xmark")
                             .scaledFont(16, weight: .semibold)
@@ -671,7 +679,7 @@ struct AddItemSheet: View {
         .stockedPresentationSurface(width: .form, canvasColor: session.inventoryCanvas)
         .interactiveDismissDisabled(!name.isEmpty)
         .confirmationDialog("Discard this item?", isPresented: $confirmDiscard, titleVisibility: .visible) {
-            Button("Discard draft", role: .destructive) { dismiss() }
+            Button("Discard draft", role: .destructive) { close() }
             Button("Keep editing", role: .cancel) { }
         }
         .dismissKeyboardOnTap()
@@ -686,12 +694,19 @@ struct AddItemSheet: View {
                 // the Add Item sheet too so the user lands back on their pantry.
                 BarcodeScannerView { name, _ in
                     activeAddSheet = nil
-                    if !name.isEmpty { dismiss() }
+                    if !name.isEmpty { close() }
                 }
                 .environment(session)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: step)
+        // Overlay tap/swipe must not silently throw away a half-filled item.
+        .onChange(of: name.isEmpty, initial: true) { _, empty in
+            OverlayDismissGuard.shared.interceptor = empty ? nil : { [confirm = $confirmDiscard] in
+                confirm.wrappedValue = true
+            }
+        }
+        .onDisappear { OverlayDismissGuard.shared.interceptor = nil }
     }
 
     private var stepLabel: String {
@@ -753,7 +768,7 @@ struct AddItemSheet: View {
                         Text("Give the item a name to continue")
                             .scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                     }
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity.combined(with: .stockedMove(edge: .top)))
                     .accessibilityElement(children: .combine)
                 }
             }.padding(.horizontal, 20)
@@ -891,30 +906,39 @@ struct AddItemSheet: View {
                 }
             }.padding(.horizontal, 20)
 
-            continueButton(enabled: !itemName.trimmingCharacters(in: .whitespaces).isEmpty) {
-                let name = itemName.trimmingCharacters(in: .whitespaces).lowercased()
-                // Duplicate check. The old logic used naive substring containment in BOTH
-                // directions, so "milk" matched "Eggo Buttermilk Waffles" (buttermilk contains
-                // milk) — a false positive. Now we match on canonical equality, or a whole-word
-                // match, so a short name only collides with an item that actually shares that
-                // word as a word, not as an incidental substring of a longer product name.
-                let canonName = IngredientMatcher.canonical(name)
-                let newWords = Set(name.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init))
-                if let match = session.guestStore.inventoryItems.first(where: {
-                    let existing = $0.name.lowercased()
-                    if existing == name { return true }
-                    if IngredientMatcher.canonical(existing) == canonName { return true }
-                    let existingWords = Set(existing.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init))
-                    return !newWords.isEmpty && newWords == existingWords
-                }) {
+            // One step for the common case: name + zone → Add. Size and expiry are optional
+            // extras behind "More details" instead of two mandatory Continue screens.
+            addButton(enabled: !name.isEmpty) {
+                if let match = findDuplicate() {
                     duplicateItem = match
+                    quickAddPending = true
+                    showDuplicateAlert = true
+                } else {
+                    saveItem()
+                }
+            }
+            .padding(.horizontal, 20)
+            Button {
+                if let match = findDuplicate() {
+                    duplicateItem = match
+                    quickAddPending = false
                     showDuplicateAlert = true
                 } else {
                     withAnimation { step = 2 }
                 }
+            } label: {
+                Text("More details (size, expiry)")
+                    .scaledFont(15, weight: .semibold, design: .serif)
+                    .foregroundStyle(name.isEmpty ? session.themeSecondaryText : session.themeTextColor)
+                    .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .alert("Already in Pantry", isPresented: $showDuplicateAlert, presenting: duplicateItem) { match in
-                Button("Add Anyway") { withAnimation { step = 2 } }
+            .buttonStyle(.plain)
+            .disabled(name.isEmpty)
+            .padding(.horizontal, 20)
+            .alert("Already in your kitchen", isPresented: $showDuplicateAlert, presenting: duplicateItem) { match in
+                Button("Add Anyway") {
+                    if quickAddPending { saveItem() } else { withAnimation { step = 2 } }
+                }
                 Button("Cancel", role: .cancel) {}
             } message: { match in
                 Text("\"\(match.name)\" is already in your \(match.zone). Add another or cancel to update that item instead.")
@@ -992,7 +1016,7 @@ struct AddItemSheet: View {
                         }
                     }
                     .padding(.horizontal, 2)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity.combined(with: .stockedMove(edge: .top)))
                 }
             }.padding(.horizontal, 20)
 
@@ -1020,6 +1044,11 @@ struct AddItemSheet: View {
                 Text("EXPIRES ON (optional)")
                     .scaledFont(10, weight: .bold).tracking(1)
                     .foregroundStyle(session.themeSecondaryText)
+                if !hasExpiry, let estimate = estimatedExpiry {
+                    Text("Best by ~\(estimate.formatted(.dateTime.month(.abbreviated).day())) (estimated — Stocked tracks this for you)")
+                        .scaledFont(12)
+                        .foregroundStyle(session.themeSecondaryText)
+                }
                 ExpiryDateRow(hasExpiry: $hasExpiry, expiryDate: $expiryDate)
                     .padding(14)
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
@@ -1028,6 +1057,7 @@ struct AddItemSheet: View {
                         // Smart default: when expiry is switched on, pre-fill a sensible date
                         // based on where the item is stored, so the user confirms vs. types (#10).
                         guard on else { return }
+                        if let estimate = estimatedExpiry { expiryDate = estimate; return }
                         let days: TimeInterval
                         switch zone {
                         case "Freezer": days = 90
@@ -1046,61 +1076,86 @@ struct AddItemSheet: View {
             HStack(spacing: 12) {
                 backButton
 
-                // Gold "Add to Zone" button
-                Button {
-                    let name = itemName.trimmingCharacters(in: .whitespaces)
-                    guard !name.isEmpty else { return }
-                    // Derive the fill level from the current-amount control if used ("6 of 12" → 0.5).
-                    let derivedLevel = (hasAmount && totalUnits > 0) ? max(0.0, min(1.0, currentUnits / totalUnits)) : 1.0
-                    var item = LocalInventoryItem(
-                        name: name, level: derivedLevel, zone: zone,
-                        quantity: quantity,
-                        containerType: containerType.isEmpty ? "item" : containerType,
-                        sizeAmount: hasAmount ? totalUnits : Double(sizeAmount),
-                        sizeUnit: sizeUnit.isEmpty ? nil : sizeUnit
-                    )
-                    item.expirationDate   = hasExpiry ? expiryDate : nil
-                    item.storePurchasedAt = session.preferredStore
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    let proposal = InventoryProposalBatch.reviewableAdd(
-                        item: item,
-                        origin: .manual,
-                        sourceID: "manual-add",
-                        badge: .userAdded,
-                        reason: "Added manually"
-                    )
-                    session.guestStore.applyProposalBatch(
-                        InventoryProposalBatch(
-                            origin: .manual,
-                            title: "Add \(name)",
-                            changes: [proposal],
-                            mergePolicy: .storeCompatible
-                        ),
-                        brandPreferences: session.guestStore.cookingProfile.brandPreferences,
-                        retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
-                    )
-                    UsageMetrics.shared.record(.itemAddedManual)
-                    // Crowd DB — opt-in anonymized report of item facts (fire and forget).
-                    let rn = name, rc = zone, ru = sizeUnit, rct = item.containerType, rq = Double(quantity)
-                    Task { await CrowdDB.report(items: [(name: rn, category: rc, unit: ru, container: rct, quantity: rq)]) }
-                    ToastCenter.shared.success("Added \(name) to \(zone)")
-                    dismiss()
-                } label: {
-                    Text("Add to \(zone)")
-                        .scaledFont(16, weight: .bold, design: .serif)
-                        .foregroundStyle(name.isEmpty ? Color.stockedWhite.opacity(0.5) : Color.stockedWhite)
-                        .frame(maxWidth: .infinity).padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
-                                .fill(itemName.trimmingCharacters(in: .whitespaces).isEmpty
-                                    ? Color.stockedGold.opacity(0.4)
-                                    : Color.stockedGold)
-                        )
-                }
-                .disabled(itemName.trimmingCharacters(in: .whitespaces).isEmpty)
-                .buttonStyle(.plain)
+                addButton(enabled: !name.isEmpty) { saveItem() }
             }.padding(.horizontal, 20)
         }
+    }
+
+    /// Canonical-name / whole-word duplicate check (was inline in the step-1 Continue button).
+    private func findDuplicate() -> LocalInventoryItem? {
+        let name = itemName.trimmingCharacters(in: .whitespaces).lowercased()
+        let canonName = IngredientMatcher.canonical(name)
+        let newWords = Set(name.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init))
+        return session.guestStore.inventoryItems.first(where: {
+            let existing = $0.name.lowercased()
+            if existing == name { return true }
+            if IngredientMatcher.canonical(existing) == canonName { return true }
+            let existingWords = Set(existing.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init))
+            return !newWords.isEmpty && newWords == existingWords
+        })
+    }
+
+    /// Estimated best-by shown when the user hasn't set an expiry themselves.
+    private var estimatedExpiry: Date? {
+        guard !name.isEmpty else { return nil }
+        let category = StorageCategory(rawValue: zone) ?? .fridge
+        return ShelfLifeEstimator.estimate(name: name, zone: category).date
+    }
+
+    private func saveItem() {
+        let name = itemName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        // Derive the fill level from the current-amount control if used ("6 of 12" → 0.5).
+        let derivedLevel = (hasAmount && totalUnits > 0) ? max(0.0, min(1.0, currentUnits / totalUnits)) : 1.0
+        var item = LocalInventoryItem(
+            name: name, level: derivedLevel, zone: zone,
+            quantity: quantity,
+            containerType: containerType.isEmpty ? "item" : containerType,
+            sizeAmount: hasAmount ? totalUnits : Double(sizeAmount),
+            sizeUnit: sizeUnit.isEmpty ? nil : sizeUnit
+        )
+        item.expirationDate   = hasExpiry ? expiryDate : nil
+        item.storePurchasedAt = session.preferredStore
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let proposal = InventoryProposalBatch.reviewableAdd(
+            item: item,
+            origin: .manual,
+            sourceID: "manual-add",
+            badge: .userAdded,
+            reason: "Added manually"
+        )
+        session.guestStore.applyProposalBatch(
+            InventoryProposalBatch(
+                origin: .manual,
+                title: "Add \(name)",
+                changes: [proposal],
+                mergePolicy: .storeCompatible
+            ),
+            brandPreferences: session.guestStore.cookingProfile.brandPreferences,
+            retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
+        )
+        UsageMetrics.shared.record(.itemAddedManual)
+        // Crowd DB — opt-in anonymized report of item facts (fire and forget).
+        let rn = name, rc = zone, ru = sizeUnit, rct = item.containerType, rq = Double(quantity)
+        Task { await CrowdDB.report(items: [(name: rn, category: rc, unit: ru, container: rct, quantity: rq)]) }
+        ToastCenter.shared.success("Added \(name) to \(zone)")
+        close()
+    }
+
+    /// Gold "Add to <zone>" button shared by step 1 and step 3.
+    private func addButton(enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text("Add to \(zone)")
+                .scaledFont(16, weight: .bold, design: .serif)
+                .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.5))
+                .frame(maxWidth: .infinity).padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
+                        .fill(enabled ? Color.stockedGold : Color.stockedGold.opacity(0.4))
+                )
+        }
+        .disabled(!enabled)
+        .buttonStyle(.plain)
     }
 
     // MARK: - Shared components
@@ -1686,7 +1741,7 @@ struct ItemDetailPopup: View {
                         }
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
         .padding(.horizontal, 20)
@@ -1722,7 +1777,7 @@ struct ItemPhotoPicker: UIViewControllerRepresentable {
             provider.loadObject(ofClass: UIImage.self) { image, _ in
                 // Compress here (off-main) so only Sendable `Data` — never the non-Sendable
                 // UIImage — crosses into the @MainActor task.
-                let data = (image as? UIImage)?.jpegData(compressionQuality: 0.5)
+                let data = (image as? UIImage)?.jpegData(compressionQuality: 0.8).map { StoredPhoto.prepared($0) }
                 Task { @MainActor in self.parent.imageData = data }
             }
         }

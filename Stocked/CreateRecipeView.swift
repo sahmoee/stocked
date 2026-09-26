@@ -148,7 +148,7 @@ struct CreateRecipeView: View {
                                     }
                                     .padding(.horizontal, 16)
                                     .padding(.bottom, 12)
-                                    .transition(.move(edge: .top).combined(with: .opacity))
+                                    .transition(.stockedMove(edge: .top).combined(with: .opacity))
                                 }
 
                                 if isStructuring {
@@ -801,7 +801,9 @@ struct CreateRecipeView: View {
         .onChange(of: selectedPhoto) { _, item in
             Task {
                 if let data = try? await item?.loadTransferable(type: Data.self) {
-                    await MainActor.run { withAnimation { imageData = data } }
+                    // Store a downscaled JPEG, not the camera original (memory + save cost).
+                    let prepared = await StoredPhoto.preparedAsync(data)
+                    await MainActor.run { withAnimation { imageData = prepared } }
                 }
             }
         }

@@ -107,7 +107,7 @@ struct SyncConflictBanner: View {
             Button { showDetail = true } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "arrow.triangle.2.circlepath.circle")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.stockedWarningInk)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(log.unreviewed.count) change\(log.unreviewed.count == 1 ? "" : "s") replaced by sync")
                             .stockedFont(.rowTitle)

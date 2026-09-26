@@ -871,7 +871,7 @@ struct CookErrorState: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill").scaledFont(34)
-                .foregroundStyle(Color.stockedWarning)
+                .foregroundStyle(Color.stockedWarningInk)
             Text(message).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                 .multilineTextAlignment(.center)
             Button(action: retry) {

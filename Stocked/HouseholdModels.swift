@@ -49,7 +49,7 @@ nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable 
         var target: String {
             switch self {
             case .groceryAdded, .groceryRemoved, .groceryChecked: return "Grocery List"
-            case .inventoryAdded, .inventoryUpdated, .inventoryRemoved: return "Inventory"
+            case .inventoryAdded, .inventoryUpdated, .inventoryRemoved: return "Kitchen"
             case .recipeAdded, .recipeUpdated, .recipeImported: return "Recipe"
             default: return ""
             }
@@ -59,7 +59,7 @@ nonisolated struct HouseholdActivity: Identifiable, Codable, Hashable, Sendable 
     nonisolated enum Category: String, CaseIterable, Sendable { case all, lists, inventory, recipes
         var label: String {
             switch self { case .all: return "All"; case .lists: return "Lists"
-            case .inventory: return "Inventory"; case .recipes: return "Recipes" }
+            case .inventory: return "Kitchen"; case .recipes: return "Recipes" }
         }
     }
 

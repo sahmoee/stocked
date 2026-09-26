@@ -95,7 +95,7 @@ nonisolated enum KitchenMigration {
             guard contents.entryCount <= maximumEntries - entries else { throw MigrationError.tooManyRecipes }
             entries += contents.entryCount
             for file in files { try charge(file.data.count) }
-            let siblings = Dictionary(uniqueKeysWithValues: files.map { ($0.name, $0.data) })
+            let siblings = Dictionary(lastWins: files.map { ($0.name, $0.data) })
             for file in files {
                 try Task.checkCancellation()
                 if file.name.hasPrefix("__MACOSX/") || file.name.split(separator: "/").last?.hasPrefix(".") == true { continue }

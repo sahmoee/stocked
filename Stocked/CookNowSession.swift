@@ -380,6 +380,16 @@ final class CookNowSession {
         let work = DispatchWorkItem { CookNowSession.persist(snap) }
         saveWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+        // If the app is backgrounded inside the 0.5 s window, write the cook state right away.
+        PersistenceLifecycle.shared.registerPendingFlush(self) { [weak self] in self?.flushPendingSave() }
+    }
+
+    /// Writes a pending debounced save immediately (lifecycle boundaries).
+    func flushPendingSave() {
+        guard let work = saveWorkItem, !work.isCancelled else { return }
+        work.cancel()
+        saveWorkItem = nil
+        Self.persist(snapshot)
     }
 
     private static func persist(_ snap: CookNowSessionSnapshot) {

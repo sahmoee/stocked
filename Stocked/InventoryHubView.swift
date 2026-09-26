@@ -149,6 +149,10 @@ struct InventoryHubView: View {
                 if showSearchField && !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
                     searchResults
                 } else {
+                    // Empty kitchen: lead with the one-tap staples seed instead of "0 items".
+                    if session.guestStore.hasCompletedInitialHydration && allItems.isEmpty {
+                        emptyKitchenCard
+                    }
                     referenceKitchen
                     referenceActions
                     referenceAI
@@ -195,7 +199,7 @@ struct InventoryHubView: View {
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .background(Capsule().fill(Color.stockedCharcoal))
                     .padding(.bottom, 124)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.stockedMove(edge: .bottom).combined(with: .opacity))
                     .task {
                         try? await Task.sleep(nanoseconds: 1_600_000_000)
                         withAnimation { planToast = nil }
@@ -256,16 +260,17 @@ struct InventoryHubView: View {
                         .foregroundStyle(referenceGold)
                 }.buttonStyle(.plain).frame(minHeight: 44)
             }.padding(.horizontal, 9)
+            let zoneCounts = hubZoneCounts
             HStack(spacing: 0) {
                 InventoryReferenceArtwork(cell: 1)
                     .frame(maxWidth: .infinity, minHeight: 282 * referenceScale, alignment: .center)
                     .accessibilityHidden(true)
                 VStack(spacing: 0) {
-                    referenceZoneRow("Fridge", count: allItems.filter { $0.zone == "Fridge" }.count) { referenceZone = "Fridge" }
+                    referenceZoneRow("Fridge", count: zoneCounts["Fridge", default: 0]) { referenceZone = "Fridge" }
                     Divider().overlay(referenceBorder)
-                    referenceZoneRow("Freezer", count: allItems.filter { $0.zone == "Freezer" }.count) { referenceZone = "Freezer" }
+                    referenceZoneRow("Freezer", count: zoneCounts["Freezer", default: 0]) { referenceZone = "Freezer" }
                     Divider().overlay(referenceBorder)
-                    referenceZoneRow("Pantry", count: allItems.filter { $0.zone == "Pantry" }.count) { referenceZone = "Pantry" }
+                    referenceZoneRow("Pantry", count: zoneCounts["Pantry", default: 0]) { referenceZone = "Pantry" }
                     Divider().overlay(referenceBorder)
                     referenceZoneRow("Leftovers", count: LeftoversStore.shared.entries.count) { showLeftovers = true }
                 }
@@ -306,9 +311,14 @@ struct InventoryHubView: View {
         let layout = layoutMetrics.isAccessibilityText || layoutMetrics.contentWidth < 350
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
             : AnyLayout(StockedEqualHeightRow(spacing: 4))
+        // Cached store metrics (one pass per inventory revision) instead of filtering and
+        // sorting the whole inventory several times on every render.
+        let metrics = session.guestStore.lightweightMetrics
+        let expiringCount = metrics.expiringSoonCount
+        let lowCount = metrics.lowStockCount
         return layout {
-            referenceAction("Expiring Soon", detail: expiringItems.count == 1 ? "1 item needs\nattention." : "\(expiringItems.count) items need\nattention.", cell: 2) { goExpiringList = true }
-            referenceAction("Running Low", detail: allItems.filter(\.isLow).count == 1 ? "1 item is\nrunning low." : "\(allItems.filter(\.isLow).count) items are\nrunning low.", cell: 3) { showLowStock = true }
+            referenceAction("Expiring Soon", detail: expiringCount == 1 ? "1 item needs\nattention." : "\(expiringCount) items need\nattention.", cell: 2) { goExpiringList = true }
+            referenceAction("Running Low", detail: lowCount == 1 ? "1 item is\nrunning low." : "\(lowCount) items are\nrunning low.", cell: 3) { showLowStock = true }
             referenceAction("Add Items", detail: "Quickly add items\nto your inventory.", cell: 4) { showAddItem = true }
         }.coachmarkAnchor("inv.expiring")
     }
@@ -515,11 +525,12 @@ struct InventoryHubView: View {
     }
 
     private var editorialKitchenSection: some View {
+        let zoneCounts = hubZoneCounts
         let cards: [(String, Int, String, MockCategory?)] = [
-            ("Fridge", allItems.filter { $0.zone == "Fridge" }.count, "inventory_category_fridge", nil),
-            ("Pantry", allItems.filter { $0.zone == "Pantry" || $0.zone == "Staples" }.count, "inventory_category_pantry", .pantry),
-            ("Freezer", allItems.filter { $0.zone == "Freezer" }.count, "inventory_category_freezer", .frozen),
-            ("Produce", allItems.filter { MockCategory.classify($0) == .produce }.count, "inventory_category_produce", .produce)
+            ("Fridge", zoneCounts["Fridge", default: 0], "inventory_category_fridge", nil),
+            ("Pantry", zoneCounts["Pantry", default: 0] + zoneCounts["Staples", default: 0], "inventory_category_pantry", .pantry),
+            ("Freezer", zoneCounts["Freezer", default: 0], "inventory_category_freezer", .frozen),
+            ("Produce", zoneCounts["__produce", default: 0], "inventory_category_produce", .produce)
         ]
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
@@ -598,7 +609,7 @@ struct InventoryHubView: View {
     private var addInventoryButton: some View {
         VStack(spacing: 10) {
             Button { showAddItem = true } label: {
-                Label("Add to Inventory", systemImage: "plus")
+                Label("Add to Kitchen", systemImage: "plus")
                     .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
                     .foregroundStyle(Color.selectedTabForeground(session.isDarkMode))
                     .frame(maxWidth: .infinity)
@@ -915,6 +926,20 @@ struct InventoryHubView: View {
     // ── Expiring Soon preview ────────────────────────────────────────
 
     private var expiringItems: [LocalInventoryItem] { session.guestStore.expiringSoonItems }
+
+    /// Per-zone counts (plus produce) in one pass, memoised by inventory revision.
+    @State private var zoneCountCache = HubZoneCountCache()
+    private var hubZoneCounts: [String: Int] {
+        let revision = session.guestStore.inventoryRevision
+        if let cached = zoneCountCache.value(for: revision) { return cached }
+        var counts: [String: Int] = [:]
+        for item in allItems {
+            counts[item.zone, default: 0] += 1
+            if MockCategory.classify(item) == .produce { counts["__produce", default: 0] += 1 }
+        }
+        zoneCountCache.store(counts, for: revision)
+        return counts
+    }
 
     private var expiringSoonSection: some View {
         let preview = Array(expiringItems.prefix(3))
@@ -1460,4 +1485,13 @@ private struct GeometryProxyFreeBar: View {
             }
             .clipShape(Capsule())
     }
+}
+
+
+/// Memo for InventoryHubView zone counts; a class so the body can fill it without re-rendering.
+final class HubZoneCountCache {
+    private var revision: Int?
+    private var counts: [String: Int] = [:]
+    func value(for revision: Int) -> [String: Int]? { self.revision == revision ? counts : nil }
+    func store(_ counts: [String: Int], for revision: Int) { self.revision = revision; self.counts = counts }
 }

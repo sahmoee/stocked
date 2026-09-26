@@ -108,7 +108,7 @@ struct QuizEditView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 14)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity.combined(with: .stockedMove(edge: .top)))
             }
         }
         .stockedPastelCard(radius: 14)
