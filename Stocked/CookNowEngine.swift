@@ -150,10 +150,10 @@ nonisolated struct ClassifiedRecipe: Identifiable, Codable, Sendable, Equatable 
     /// Kitchen Check confirms it, so it belongs in the same five-item ceiling.
     var unresolvedCount: Int { missingCount + unconfirmedCount }
     /// Eligible to appear as a Cook Now choice: ready, one substitution review away,
-    /// or no more than five unresolved required ingredients after substitutions.
+    /// or no more than two unresolved required ingredients after substitutions.
     var isActionableCookNowOption: Bool {
         readiness != .excluded && (readiness.isReadyNow || readiness == .swapNeedsReview
-            || (unresolvedCount > 0 && unresolvedCount <= 5))
+            || (unresolvedCount > 0 && unresolvedCount <= 2))
     }
 
     /// The unresolved required ingredient names, for grocery + missing-item UI.
@@ -179,14 +179,19 @@ nonisolated struct ClassifiedRecipe: Identifiable, Codable, Sendable, Equatable 
 /// The aggregate numbers the Direction B dashboard renders. All derived from
 /// real classification — never hardcoded.
 nonisolated struct CookNowMetrics: Codable, Sendable, Equatable {
+    // Backward-compat key keeps disk-cached Outputs readable after the 1-2 threshold tightening.
+    enum CodingKeys: String, CodingKey {
+        case exactReady, readyWithSwaps, almostReady, morePossibilities
+        case readyWithinTwo = "readyWithinFive"
+    }
     var exactReady: Int = 0            // recipes at .exact
     var readyWithSwaps: Int = 0        // recipes at .readyWithSwap
-    var readyWithinFive: Int = 0       // recipes with 1–5 unresolved after substitutions
+    var readyWithinTwo: Int = 0        // recipes with 1–2 unresolved after substitutions
     var almostReady: Int = 0           // recipes missing 6+
     var morePossibilities: Int = 0     // retained for compatibility; same 6+ population
 
     /// Product rule: ready means no more than five unresolved ingredients after swaps.
-    var readyNowTotal: Int { exactReady + readyWithSwaps + readyWithinFive }
+    var readyNowTotal: Int { exactReady + readyWithSwaps + readyWithinTwo }
 
     /// Breakdown line, e.g. "8 exact · 4 with substitutions". Empty when there
     /// is nothing to break down.
@@ -195,7 +200,7 @@ nonisolated struct CookNowMetrics: Codable, Sendable, Equatable {
         var parts: [String] = []
         if exactReady > 0 { parts.append("\(exactReady) exact") }
         if readyWithSwaps > 0 { parts.append("\(readyWithSwaps) with substitutions") }
-        if readyWithinFive > 0 { parts.append("\(readyWithinFive) need 1–5 items") }
+        if readyWithinTwo > 0 { parts.append("\(readyWithinTwo) need 1–2 items") }
         return parts.joined(separator: " · ")
     }
 
@@ -427,10 +432,10 @@ nonisolated struct CookNowEngine: Sendable {
             switch c.readiness {
             case .exact:            m.exactReady += 1
             case .readyWithSwap:    m.readyWithSwaps += 1
-            case .missingOne, .missingTwo: m.readyWithinFive += 1
+            case .missingOne, .missingTwo: m.readyWithinTwo += 1
             case .missingMany:
-                if c.unresolvedCount <= 5 { m.readyWithinFive += 1 }
-                else { m.almostReady += 1; m.morePossibilities += 1 }
+                if c.unresolvedCount >= 6 { m.almostReady += 1 }
+                m.morePossibilities += 1
             case .swapNeedsReview: m.readyWithSwaps += 1
             case .excluded: break
             }

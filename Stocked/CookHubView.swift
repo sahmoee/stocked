@@ -199,7 +199,7 @@ struct CookNowHomeView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
 
-                if !hasComputed || (snapshot.emphasis == .noMatches && (isClassifying || !catalogWarm)) {
+                if !hasComputed || (snapshot.emphasis == .noMatches && isClassifying) {
                     checkingKitchenState
                 } else {
                 switch snapshot.emphasis {

@@ -55,6 +55,8 @@ struct RecipeVaultView: View {
     // lands on the card the user opened instead of resetting every rail to its start.
     @State private var recipeRailPositions: [String: String] = [:]
     @State private var recipeRailActivities: [String: StockedScrollActivity] = [:]
+    @AppStorage("stocked.aiRecipesNotified") private var aiRecipesNotified = false
+    @State private var showAIRecipesNotifyAlert = false
     @State private var prefetchScope = UUID().uuidString
     // #248 — Discover (online recipes below the hub)
     @State private var onlineLoader = OnlineRecipesLoader.shared
@@ -406,7 +408,10 @@ struct RecipeVaultView: View {
     }
 
     private var referenceAICard: some View {
-        Button { createRoute = .ai } label: {
+        Button {
+            aiRecipesNotified = true
+            showAIRecipesNotifyAlert = true
+        } label: {
             referenceAIHorizontalContent
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
@@ -414,8 +419,12 @@ struct RecipeVaultView: View {
             .stockedPastelCard(fill: StockedPastel.oat(session.isDarkMode), radius: 14)
         }
         .buttonStyle(.plain)
-        .disabled(true)
-        .a11yButton("Create with Stocked AI, Coming Soon")
+        .a11yButton(aiRecipesNotified ? "Create with Stocked AI, you're on the list" : "Create with Stocked AI, notify me")
+        .alert("You're on the list!", isPresented: $showAIRecipesNotifyAlert) {
+            Button("Got it", role: .cancel) {}
+        } message: {
+            Text("We'll let you know when Stocked AI can turn your ideas into recipes.")
+        }
         .coachmarkAnchor("recipes.createAI")
     }
 
@@ -453,7 +462,7 @@ struct RecipeVaultView: View {
     }
 
     private var referenceAIAction: some View {
-        Text("Coming Soon")
+        Text(aiRecipesNotified ? "You're in!" : "Notify me")
             .font(.stockedSans(11, weight: .bold, relativeTo: .caption))
             .foregroundStyle(Color.stockedCharcoal)
             .padding(.horizontal, 12)
@@ -677,8 +686,10 @@ struct RecipeVaultView: View {
                         .coachmarkAnchor("recipes.categories")
                     hubActionCard(icon: "sparkles", tint: Color.stockedGold,
                                   label: "Create with AI",
-                                  subtitle: "Coming Soon") { createRoute = .ai }
-                        .disabled(true)
+                                  subtitle: aiRecipesNotified ? "You're in!" : "Notify me") {
+                            aiRecipesNotified = true
+                            showAIRecipesNotifyAlert = true
+                        }
                         .coachmarkAnchor("recipes.createAI")
                     hubActionCard(icon: "globe", tint: Color.stockedInfo,
                                   label: "Sources",

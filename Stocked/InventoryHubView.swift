@@ -99,6 +99,8 @@ struct InventoryHubView: View {
     @State private var seeding = false
     @State private var showAddItem = false
     @State private var showAIAssistant = false
+    @AppStorage("stocked.aiKitchenNotified") private var aiKitchenNotified = false
+    @State private var showAIKitchenNotifyAlert = false
     // Weekly plan strip (mirrors the full Inventory list) — tap opens the day's planner.
     @State private var plannerDayIndex: Int? = nil
     @State private var planToast: String? = nil
@@ -270,7 +272,7 @@ struct InventoryHubView: View {
                     Divider().overlay(referenceBorder)
                     referenceZoneRow("Freezer", count: zoneCounts["Freezer", default: 0]) { referenceZone = "Freezer" }
                     Divider().overlay(referenceBorder)
-                    referenceZoneRow("Pantry", count: zoneCounts["Pantry", default: 0]) { referenceZone = "Pantry" }
+                    referenceZoneRow("Pantry", count: zoneCounts["Pantry", default: 0] + zoneCounts["Staples", default: 0]) { referenceZone = "Pantry" }
                     Divider().overlay(referenceBorder)
                     referenceZoneRow("Leftovers", count: LeftoversStore.shared.entries.count) { showLeftovers = true }
                 }
@@ -353,27 +355,40 @@ struct InventoryHubView: View {
     }
 
     private var referenceAI: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.stocked(.title2))
-                .foregroundStyle(referenceGold)
-                .frame(width: 34, height: 34)
-                .overlay(Circle().stroke(referenceGold, lineWidth: 1))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Organize with Stocked AI").font(.stockedSerif(14 * referenceScale, weight: .semibold, relativeTo: .headline))
-                Text("Sort and tidy your kitchen for you.").font(.stockedSerif(11 * referenceScale, relativeTo: .caption))
+        Button {
+            aiKitchenNotified = true
+            showAIKitchenNotifyAlert = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.stocked(.title2))
+                    .foregroundStyle(referenceGold)
+                    .frame(width: 34, height: 34)
+                    .overlay(Circle().stroke(referenceGold, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Organize with Stocked AI").font(.stockedSerif(14 * referenceScale, weight: .semibold, relativeTo: .headline))
+                    Text("Sort and tidy your kitchen for you.").font(.stockedSerif(11 * referenceScale, relativeTo: .caption))
+                }
+                Spacer(minLength: 0)
+                Text(aiKitchenNotified ? "You're in!" : "Notify me")
+                    .font(.stockedSerif(12 * referenceScale, weight: .semibold, relativeTo: .subheadline))
+                    .foregroundStyle(session.isDarkMode ? Color.stockedCharcoal : .stockedWhite)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(referenceGold, in: Capsule())
             }
-            Spacer(minLength: 0)
-            Text("Coming Soon").font(.stockedSerif(12 * referenceScale, weight: .semibold, relativeTo: .subheadline))
-                .foregroundStyle(session.isDarkMode ? Color.stockedCharcoal : .stockedWhite)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(referenceGold, in: Capsule())
+            .foregroundStyle(session.themeTextColor)
+            .padding(11)
+            .frame(maxWidth: .infinity, minHeight: 49 * referenceScale)
+            .stockedPastelCard(fill: StockedPastel.oat(session.isDarkMode), radius: 15)
         }
-        .foregroundStyle(session.themeTextColor)
-        .padding(11)
-        .frame(maxWidth: .infinity, minHeight: 49 * referenceScale)
-        .stockedPastelCard(fill: StockedPastel.oat(session.isDarkMode), radius: 15)
+        .buttonStyle(.plain)
+        .alert("You're on the list!", isPresented: $showAIKitchenNotifyAlert) {
+            Button("Got it", role: .cancel) {}
+        } message: {
+            Text("We'll let you know when Stocked AI is ready to organize your kitchen.")
+        }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(aiKitchenNotified ? "Organize with Stocked AI, you're on the list" : "Organize with Stocked AI, notify me")
     }
 
     @ViewBuilder
