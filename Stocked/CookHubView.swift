@@ -150,6 +150,11 @@ struct CookNowHomeView: View {
     /// False until the first classification finishes, so the screen shows "Checking your
     /// kitchen…" instead of flashing "We couldn't find a match yet." on every visit.
     @State private var hasComputed = false
+    /// A classification pass is running. While it is, an empty result is not trusted.
+    @State private var isClassifying = false
+    /// The Discover catalog has been warmed from cache. Before that only starter meals are
+    /// scored, so a "no matches" result on a stocked kitchen would be a false negative.
+    @State private var catalogWarm = false
 
     // Navigation
     @State private var goBuildFood  = false
@@ -194,7 +199,7 @@ struct CookNowHomeView: View {
                     .padding(.horizontal, CookStyle.screenHPad)
                 }
 
-                if !hasComputed {
+                if !hasComputed || (snapshot.emphasis == .noMatches && (isClassifying || !catalogWarm)) {
                     checkingKitchenState
                 } else {
                 switch snapshot.emphasis {
@@ -288,6 +293,7 @@ struct CookNowHomeView: View {
         // it lands.
         Task {
             await OnlineRecipesLoader.shared.warmFromCacheIfNeeded()
+            catalogWarm = true
             recompute()
             // QA mode: re-check invariants once the real catalog is loaded.
             QABackgroundRunner.shared.runSoon()
@@ -305,9 +311,11 @@ struct CookNowHomeView: View {
 
     private func recompute() {
         classificationTask?.cancel()
+        isClassifying = true
         classificationTask = Task {
             if let result = await CookNowCompute.runYielding(store: store, session: cookSession),
                !Task.isCancelled { snapshot = result; hasComputed = true }
+            if !Task.isCancelled { isClassifying = false }
         }
     }
 
@@ -400,23 +408,23 @@ struct CookNowHomeView: View {
                 metricsLayout {
                     if lead == .ready {
                         metricColumn(count: snapshot.metrics.readyNowTotal,
-                                     title: "meals ready now",
+                                     title: "meals within reach",
                                      sub: snapshot.metrics.readyBreakdown,
                                      cta: "See meals",
                                      enabled: snapshot.metrics.readyNowTotal > 0) { goReadyList = true }
                         metricColumn(count: snapshot.metrics.almostReady,
-                                     title: "meals almost ready",
+                                     title: "need a bigger shop",
                                      sub: snapshot.metrics.almostReady > 0 ? "Missing 6 or more items" : "",
                                      cta: "See meals",
                                      enabled: snapshot.metrics.almostReady > 0) { goAlmostList = true }
                     } else {
                         metricColumn(count: snapshot.metrics.almostReady,
-                                     title: "meals almost ready",
+                                     title: "need a bigger shop",
                                      sub: "Missing 6 or more items",
                                      cta: "See meals",
                                      enabled: true) { goAlmostList = true }
                         metricColumn(count: snapshot.metrics.readyNowTotal,
-                                     title: "meals ready now",
+                                     title: "meals within reach",
                                      sub: "",
                                      cta: "See meals",
                                      enabled: false) { }
@@ -538,10 +546,17 @@ struct CookNowHomeView: View {
         .padding(.horizontal, CookStyle.screenHPad)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Checking your kitchen for recipes you can make")
-        // Safety net: never spin forever if a classification pass was superseded.
+        // Safety net: never spin forever if a classification pass was superseded, but do not
+        // show "We couldn't find a match yet." while the first real pass is still running
+        // (a large library takes longer than a few seconds on a cold launch).
         .task {
-            try? await Task.sleep(for: .seconds(4))
-            if !Task.isCancelled { hasComputed = true }
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
+                if !isClassifying && catalogWarm { break }
+            }
+            hasComputed = true
+            catalogWarm = true
         }
     }
 

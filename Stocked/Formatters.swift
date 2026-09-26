@@ -67,9 +67,9 @@ nonisolated enum StockedFormatters {
     /// property in six different views.
     static var timeOfDayGreeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12:  return "Good Morning"
-        case 12..<17: return "Good Afternoon"
-        default:      return "Good Evening"
+        case 5..<12:  return "Good morning"
+        case 12..<17: return "Good afternoon"
+        default:      return "Good evening"
         }
     }
 

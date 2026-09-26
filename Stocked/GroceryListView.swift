@@ -495,7 +495,7 @@ struct GroceryListView: View {
 
     private var groceryHero: some View {
         StockedEditorialHero(eyebrow: "Your next grocery trip",
-            title: "\(toBuyCount) things for a well-stocked week.",
+            title: toBuyCount == 0 ? "Nothing to buy yet." : toBuyCount == 1 ? "1 thing for a well-stocked week." : "\(toBuyCount) things for a well-stocked week.",
             subtitle: "Organized for an easier shop at \(session.preferredStore).",
             artwork: "pastel_fresh_produce")
     }
@@ -511,7 +511,7 @@ struct GroceryListView: View {
                 VStack(alignment: .leading, spacing: 10) { shoppingTripIdentity; shoppingTripFacts }
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("\(boughtCount) of \(store.groceryItems.count) in cart")
+                Text(store.groceryItems.isEmpty ? "Add items to plan your trip" : "\(boughtCount) of \(store.groceryItems.count) in cart")
                     .font(.stocked(.subheadline))
                     .foregroundStyle(text)
                 GeometryReader { proxy in
@@ -534,6 +534,8 @@ struct GroceryListView: View {
                 Text("Start Shopping")
             }
             .stockedPrimary(fg: Color.selectedTabForeground(dark))
+            .disabled(toBuyCount == 0)
+            .opacity(toBuyCount == 0 ? 0.5 : 1)
         }
         .padding(20)
         .background(session.themeCardColor,
@@ -576,8 +578,10 @@ struct GroceryListView: View {
 
     private var shoppingTripFacts: some View {
         HStack(spacing: 18) {
-            Label("\(toBuyCount) items", systemImage: "bag")
-            Label("About \(estimatedTripMinutes) min", systemImage: "clock")
+            Label(toBuyCount == 1 ? "1 item" : "\(toBuyCount) items", systemImage: "bag")
+            if toBuyCount > 0 {
+                Label("About \(estimatedTripMinutes) min", systemImage: "clock")
+            }
         }
         .font(.stocked(.subheadline))
         .foregroundStyle(text)
@@ -673,10 +677,12 @@ struct GroceryListView: View {
                         .font(.stockedSerif(19, weight: .bold, relativeTo: .headline))
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: layoutMetrics.isAccessibilityText ? .center : .leading)
-                    Button("Add Item") { addFieldFocused = true }
-                        .font(.stocked(.subheadline).weight(.semibold))
-                        .foregroundStyle(session.accentColor)
-                        .frame(minWidth: 44, minHeight: 44)
+                    if showBought {
+                        Button("Add Item") { addFieldFocused = true }
+                            .font(.stocked(.subheadline).weight(.semibold))
+                            .foregroundStyle(session.accentColor)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(18)
@@ -699,6 +705,7 @@ struct GroceryListView: View {
                 .foregroundStyle(session.accentColor)
                 .accessibilityHidden(true)
             TextField("Add item…", text: $addFieldText)
+                .textFieldStyle(.plain)
                 .font(.stocked(.body))
                 .foregroundStyle(text)
                 .focused($addFieldFocused)

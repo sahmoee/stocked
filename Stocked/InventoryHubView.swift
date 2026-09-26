@@ -254,7 +254,7 @@ struct InventoryHubView: View {
                 Spacer(minLength: 4)
                 Button { goAllInventory = true } label: {
                     HStack(spacing: 7) {
-                        Text("View All Inventory")
+                        Text("View all")
                         Image(systemName: "chevron.right")
                     }.font(.stockedSerif(12 * referenceScale, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(referenceGold)
@@ -317,9 +317,9 @@ struct InventoryHubView: View {
         let expiringCount = metrics.expiringSoonCount
         let lowCount = metrics.lowStockCount
         return layout {
-            referenceAction("Expiring Soon", detail: expiringCount == 1 ? "1 item needs\nattention." : "\(expiringCount) items need\nattention.", cell: 2) { goExpiringList = true }
-            referenceAction("Running Low", detail: lowCount == 1 ? "1 item is\nrunning low." : "\(lowCount) items are\nrunning low.", cell: 3) { showLowStock = true }
-            referenceAction("Add Items", detail: "Quickly add items\nto your inventory.", cell: 4) { showAddItem = true }
+            referenceAction("Expiring Soon", detail: expiringCount == 0 ? "Nothing needs\nattention." : expiringCount == 1 ? "1 item needs\nattention." : "\(expiringCount) items need\nattention.", cell: 2) { goExpiringList = true }
+            referenceAction("Running Low", detail: lowCount == 0 ? "Nothing is\nrunning low." : lowCount == 1 ? "1 item is\nrunning low." : "\(lowCount) items are\nrunning low.", cell: 3) { showLowStock = true }
+            referenceAction("Add Items", detail: "Add what you\njust bought.", cell: 4) { showAddItem = true }
         }.coachmarkAnchor("inv.expiring")
     }
 
@@ -361,7 +361,7 @@ struct InventoryHubView: View {
                 .overlay(Circle().stroke(referenceGold, lineWidth: 1))
             VStack(alignment: .leading, spacing: 3) {
                 Text("Organize with Stocked AI").font(.stockedSerif(14 * referenceScale, weight: .semibold, relativeTo: .headline))
-                Text("Coming Soon").font(.stockedSerif(11 * referenceScale, relativeTo: .caption))
+                Text("Sort and tidy your kitchen for you.").font(.stockedSerif(11 * referenceScale, relativeTo: .caption))
             }
             Spacer(minLength: 0)
             Text("Coming Soon").font(.stockedSerif(12 * referenceScale, weight: .semibold, relativeTo: .subheadline))

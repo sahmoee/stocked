@@ -112,12 +112,12 @@ struct StockedPastelHome: View {
                 NavigationLink {
                     CookNowResultsView(focus: .readyFirst)
                 } label: {
-                    featureCard(title: "Ready to cook", detail: "\(metrics.mealsReady) meals you can make\nwith what you have.",
+                    featureCard(title: "Ready to cook", detail: readyDetail,
                                 artwork: "pastel_ready_meal", fill: StockedPastel.garden(dark))
                 }
                 .buttonStyle(StockedWidgetButtonStyle())
                 Button(action: onExpiring) {
-                    featureCard(title: "Expiring soon", detail: "\(metrics.expiringSoonCount) items to use up\nin the next few days.",
+                    featureCard(title: "Expiring soon", detail: expiringDetail,
                                 artwork: "pastel_fresh_produce", fill: StockedPastel.peach(dark))
                 }
                 .buttonStyle(StockedWidgetButtonStyle())
@@ -285,6 +285,22 @@ struct StockedPastelHome: View {
             .accessibilityHidden(true)
     }
 
+    private var readyDetail: String {
+        switch metrics.mealsReady {
+        case 0:  return "Nothing fully ready yet.\nSee what's close."
+        case 1:  return "1 meal you can make\nwith what you have."
+        default: return "\(metrics.mealsReady) meals you can make\nwith what you have."
+        }
+    }
+
+    private var expiringDetail: String {
+        switch metrics.expiringSoonCount {
+        case 0:  return "Nothing expiring\nin the next few days."
+        case 1:  return "1 item to use up\nin the next few days."
+        default: return "\(metrics.expiringSoonCount) items to use up\nin the next few days."
+        }
+    }
+
     private func featureCard(title: String, detail: String, artwork: String, fill: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .top, spacing: 2) {
@@ -295,6 +311,9 @@ struct StockedPastelHome: View {
             }
             Text(detail).font(.stockedSans(11.5)).foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
+            // The artwork is drawn 1.35x from its bottom-trailing corner, so it grows ~12pt
+            // above its frame; reserve that room so it never sits on the caption.
+            Spacer(minLength: 14)
             StockedKitchenArtwork(asset: artwork)
                 .frame(maxWidth: .infinity)
                 .frame(height: layout.isAccessibilityText || layout.contentWidth >= 760 ? 110 : 65, alignment: .bottomTrailing)

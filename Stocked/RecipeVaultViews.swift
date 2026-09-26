@@ -445,7 +445,7 @@ struct RecipeVaultView: View {
                 .font(.stockedSerif(16, weight: .semibold, relativeTo: .headline))
                 .foregroundStyle(session.themeTextColor)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Coming Soon")
+            Text("Turn an idea into a recipe.")
                 .font(.stockedSans(11, relativeTo: .caption))
                 .foregroundStyle(session.themeSecondaryText)
                 .fixedSize(horizontal: false, vertical: true)
