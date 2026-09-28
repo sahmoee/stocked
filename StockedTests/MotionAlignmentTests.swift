@@ -228,7 +228,8 @@ final class MotionAlignmentTests: XCTestCase {
     // MARK: Motion accessibility and magnetic resizing
 
     func testMotionHelperMatchesSystemReduceMotionPreference() {
-        let animation = Animation.stockedMotion(.spring(response: 0.3, dampingFraction: 0.8))
+        let motion = StockedMotionPolicy(reduceMotion: UIAccessibility.isReduceMotionEnabled)
+        let animation = motion.animation(.standard, intent: .spatial)
         if UIAccessibility.isReduceMotionEnabled {
             XCTAssertNil(animation)
         } else {
