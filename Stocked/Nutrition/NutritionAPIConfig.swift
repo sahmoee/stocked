@@ -57,16 +57,12 @@ nonisolated enum NutritionAPIError: Error, LocalizedError {
 }
 
 /// Builds a URLSession carrying Stocked's User-Agent and JSON Accept headers.
-/// copyWithUA() is fileprivate to RecipeSourcesPlus.swift, so clients build their own here.
+/// Uses the shared copyWithUA() helper from RecipeSourcesPlus.swift.
 nonisolated enum NutritionAPISession {
     static func make() -> URLSession {
         let config = URLSessionConfiguration.default
-        config.httpAdditionalHeaders = [
-            "User-Agent": "Stocked/1.0 (iOS; nutrition-api-client)",
-            "Accept": "application/json"
-        ]
         config.timeoutIntervalForRequest = 20
         config.waitsForConnectivity = true
-        return URLSession(configuration: config)
+        return config.copyWithUA(userAgent: "Stocked/1.0 (iOS; nutrition-api-client)")
     }
 }

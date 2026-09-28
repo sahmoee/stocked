@@ -370,10 +370,12 @@ nonisolated enum RecipeSourcesPlus {
 }
 
 // Shared: a browser-like User-Agent so community APIs don't reject the request.
-nonisolated private extension URLSessionConfiguration {
-    func copyWithUA() -> URLSession {
+// Internal (not private) so every recipe/drink/feed client builds its session the
+// same way instead of re-implementing these headers.
+nonisolated extension URLSessionConfiguration {
+    func copyWithUA(userAgent: String = "Stocked/1.0 (iOS; recipe app) URLSession") -> URLSession {
         httpAdditionalHeaders = [
-            "User-Agent": "Stocked/1.0 (iOS; recipe app) URLSession",
+            "User-Agent": userAgent,
             "Accept": "application/json"
         ]
         return URLSession(configuration: self)
