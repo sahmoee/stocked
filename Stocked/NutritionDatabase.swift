@@ -170,6 +170,9 @@ nonisolated struct NutritionDatabase {
 actor RecipeNutritionSummaryCache {
     static let shared = RecipeNutritionSummaryCache()
     private var cache: [String: NutritionFacts] = [:]
+    /// Keys in insertion order so eviction drops the oldest entry, not an
+    /// arbitrary one (Dictionary key order is unspecified).
+    private var insertionOrder: [String] = []
 
     func totals(ingredients: [String], servings: Int) -> NutritionFacts {
         let key = ingredients.joined(separator: "|").lowercased() + "#" + String(max(1, servings))
@@ -202,7 +205,10 @@ actor RecipeNutritionSummaryCache {
             vitaminD: 0, calcium: 0, iron: 0, potassium: 0
         )
         cache[key] = result
-        if cache.count > 100, let first = cache.keys.first { cache.removeValue(forKey: first) }
+        insertionOrder.append(key)
+        while cache.count > 100, !insertionOrder.isEmpty {
+            cache.removeValue(forKey: insertionOrder.removeFirst())
+        }
         return result
     }
 }

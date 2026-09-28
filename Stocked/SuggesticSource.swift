@@ -26,11 +26,7 @@ nonisolated enum SuggesticSource {
     private static let session: URLSession = {
         let c = URLSessionConfiguration.default
         c.timeoutIntervalForRequest = BuildConfig.networkTimeout
-        c.httpAdditionalHeaders = [
-            "User-Agent": "Stocked/1.0 (iOS; recipe-source)",
-            "Accept": "application/json"
-        ]
-        return URLSession(configuration: c)
+        return c.copyWithUA(userAgent: "Stocked/1.0 (iOS; recipe-source)")
     }()
 
     /// Fetches recipes for a search term, optionally constrained to a diet. Cached.

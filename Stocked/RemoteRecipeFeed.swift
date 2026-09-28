@@ -20,7 +20,7 @@ nonisolated enum RemoteRecipeFeed {
     private static let session: URLSession = {
         let c = URLSessionConfiguration.default
         c.timeoutIntervalForRequest = 15; c.timeoutIntervalForResource = 30
-        return URLSession(configuration: c)
+        return c.copyWithUA()
     }()
 
     /// Reads { refreshHours, maxRecipes } from feed_config.json next to recipes.json.

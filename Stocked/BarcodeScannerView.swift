@@ -448,7 +448,12 @@ struct BarcodeScannerView: View {
     }
 
     private func lookupUPCItemDB(_ upc: String) async -> String? {
-        guard let url = URL(string: "https://api.upcitemdb.com/prod/trial/lookup?upc=\(upc)") else { return nil }
+        // Percent-encode the scanned value; also escape &, + and = so a malformed code
+        // can't inject extra query parameters.
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "&+=")
+        guard let encodedUPC = upc.addingPercentEncoding(withAllowedCharacters: allowed),
+              let url = URL(string: "https://api.upcitemdb.com/prod/trial/lookup?upc=\(encodedUPC)") else { return nil }
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.timeoutInterval = 5

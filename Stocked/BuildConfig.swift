@@ -85,11 +85,19 @@ nonisolated enum BuildConfig {
     /// Shared secret sent to the Worker as the `X-Stocked-Key` header so the public endpoint
     /// rejects drive-by callers. Injected via xcconfig STOCKED_WORKER_KEY → Info.plist
     /// StockedWorkerKey. Must match the Worker's STOCKED_SHARED_KEY secret. Never hardcode.
+    ///
+    /// SECURITY NOTE: this value ships inside every app binary's Info.plist, so anyone who
+    /// downloads the app can extract it. Treat `X-Stocked-Key` as a rate-limiting speed bump
+    /// against casual/drive-by traffic, NOT as a real secret or proof that a request came from
+    /// a genuine Stocked install. Do not gate anything sensitive (user data, paid quota,
+    /// admin routes) on it alone; real client attestation needs App Attest / DeviceCheck
+    /// verified server-side by the Worker.
     static var stockedWorkerKey: String {
         bundleString("StockedWorkerKey") ?? ""
     }
     /// Applies the Worker auth header to a request, if a key is configured. Centralizes the
-    /// header name so all Worker callers stay consistent.
+    /// header name so all Worker callers stay consistent. See the security note on
+    /// `stockedWorkerKey`: this header is a speed bump, not authentication.
     static func authorizeWorkerRequest(_ request: inout URLRequest) {
         let key = stockedWorkerKey
         if !key.isEmpty { request.setValue(key, forHTTPHeaderField: "X-Stocked-Key") }
