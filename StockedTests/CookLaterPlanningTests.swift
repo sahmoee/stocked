@@ -165,4 +165,35 @@ final class CookLaterPlanningTests: XCTestCase {
     XCTAssertTrue(actions.contains { $0.id.hasPrefix("chop-") })
   }
 
+  func testReadinessIsZeroWithNoUpcomingMeals() {
+    XCTAssertEqual(
+      CookLaterReadinessScore.percent(
+        upcomingMealCount: 0, stockedMealCount: 0, shoppingNeedCount: 5, outstandingPrepCount: 5),
+      0)
+  }
+
+  func testReadinessIsFullWhenEverythingIsStockedAndDone() {
+    XCTAssertEqual(
+      CookLaterReadinessScore.percent(
+        upcomingMealCount: 4, stockedMealCount: 4, shoppingNeedCount: 0, outstandingPrepCount: 0),
+      100)
+  }
+
+  func testReadinessClampsAtZeroWhenPenaltiesExceedBaseline() {
+    // 0 stocked + 0.45 baseline - 0.35 (capped shopping) - 0.2 (capped prep) < 0 → clamped.
+    XCTAssertEqual(
+      CookLaterReadinessScore.percent(
+        upcomingMealCount: 3, stockedMealCount: 0, shoppingNeedCount: 50, outstandingPrepCount: 50),
+      0)
+  }
+
+  func testReadinessDropsAsShoppingAndPrepWorkGrows() {
+    let clear = CookLaterReadinessScore.percent(
+      upcomingMealCount: 4, stockedMealCount: 1, shoppingNeedCount: 0, outstandingPrepCount: 0)
+    let busy = CookLaterReadinessScore.percent(
+      upcomingMealCount: 4, stockedMealCount: 1, shoppingNeedCount: 4, outstandingPrepCount: 3)
+    XCTAssertLessThan(busy, clear)
+    XCTAssertTrue((0...100).contains(busy))
+  }
+
 }

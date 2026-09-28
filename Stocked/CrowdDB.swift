@@ -38,7 +38,7 @@ nonisolated enum CrowdDB {
     private static let session: URLSession = {
         let c = URLSessionConfiguration.default
         c.timeoutIntervalForRequest = 10
-        return URLSession(configuration: c)
+        return c.copyWithUA()
     }()
 
     // MARK: Report (opt-out; anonymized)

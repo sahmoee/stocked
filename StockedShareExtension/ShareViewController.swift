@@ -44,10 +44,17 @@ final class ShareViewController: UIViewController {
             complete(); return
         }
 
+        // Provider callbacks write from background queues while the timeout below may read
+        // on main, so every access goes through `lock`.
         final class SharedPayload: @unchecked Sendable {
+            let lock = NSLock()
             var url: String?
             var text: String?
             var image: Data?
+
+            func snapshot() -> (url: String?, text: String?, image: Data?) {
+                lock.withLock { (url: url, text: text, image: image) }
+            }
         }
         let payload = SharedPayload()
         let group = DispatchGroup()
@@ -57,7 +64,9 @@ final class ShareViewController: UIViewController {
             if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { data, _ in
-                    if let url = data as? URL { payload.url = url.absoluteString }
+                    if let url = data as? URL {
+                        payload.lock.withLock { payload.url = url.absoluteString }
+                    }
                     group.leave()
                 }
             }
@@ -65,7 +74,9 @@ final class ShareViewController: UIViewController {
             else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { data, _ in
-                    if let s = data as? String { payload.text = s }
+                    if let s = data as? String {
+                        payload.lock.withLock { payload.text = s }
+                    }
                     group.leave()
                 }
             }
@@ -73,16 +84,38 @@ final class ShareViewController: UIViewController {
             else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { data, _ in
-                    if let url = data as? URL, let d = try? Data(contentsOf: url) { payload.image = d }
-                    else if let img = data as? UIImage { payload.image = img.jpegData(compressionQuality: 0.85) }
+                    var loaded: Data?
+                    if let url = data as? URL, let d = try? Data(contentsOf: url) { loaded = d }
+                    else if let img = data as? UIImage { loaded = img.jpegData(compressionQuality: 0.85) }
+                    if let loaded {
+                        payload.lock.withLock { payload.image = loaded }
+                    }
                     group.leave()
                 }
             }
         }
 
         group.notify(queue: .main) { [weak self] in
-            self?.persistAndOpen(url: payload.url, text: payload.text, image: payload.image)
+            let p = payload.snapshot()
+            self?.proceedWithSharedContent(url: p.url, text: p.text, image: p.image)
         }
+        // Safety net: if a provider never calls back, the group never finishes and the
+        // extension would hang forever. After a timeout, hand off whatever partial payload
+        // has arrived. proceedWithSharedContent runs at most once, so whichever fires
+        // second is a no-op.
+        DispatchQueue.main.asyncAfter(deadline: .now() + itemLoadTimeout) { [weak self] in
+            let p = payload.snapshot()
+            self?.proceedWithSharedContent(url: p.url, text: p.text, image: p.image)
+        }
+    }
+
+    /// Upper bound on how long we wait for item providers before proceeding anyway.
+    private let itemLoadTimeout: TimeInterval = 5
+    private var didProceedWithSharedContent = false
+    private func proceedWithSharedContent(url: String?, text: String?, image: Data?) {
+        guard !didProceedWithSharedContent else { return }
+        didProceedWithSharedContent = true
+        persistAndOpen(url: url, text: text, image: image)
     }
 
     private func persistAndOpen(url: String?, text: String?, image: Data?) {
