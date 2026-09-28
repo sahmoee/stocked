@@ -696,12 +696,12 @@ struct CookLaterCommandCenterView: View {
   private var stockedMealCount: Int { readinessSnapshot.stockedMealCount }
   private var conflictCount: Int { readinessSnapshot.conflictCount }
   private var readinessPercent: Int {
-    guard !upcomingMeals.isEmpty else { return 0 }
-    let stockedWeight = Double(stockedMealCount) / Double(upcomingMeals.count)
-    let shoppingPenalty = min(0.35, Double(shoppingNeeds.count) * 0.035)
-    let prepPenalty = min(
-      0.2, Double(prepActions.filter { !completedPrepKeys.contains($0.id) }.count) * 0.02)
-    return Int(max(0, min(1, stockedWeight + 0.45 - shoppingPenalty - prepPenalty)) * 100)
+    CookLaterReadinessScore.percent(
+      upcomingMealCount: upcomingMeals.count,
+      stockedMealCount: stockedMealCount,
+      shoppingNeedCount: shoppingNeeds.count,
+      outstandingPrepCount: prepActions.filter { !completedPrepKeys.contains($0.id) }.count
+    )
   }
 
   var body: some View {
