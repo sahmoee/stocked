@@ -601,6 +601,9 @@ nonisolated struct UserRecipeDetailMetrics: Sendable {
 actor UserRecipeMetricsCache {
     static let shared = UserRecipeMetricsCache()
     private var cache: [String: UserRecipeDetailMetrics] = [:]
+    /// Keys in insertion order so eviction drops the oldest entry, not an
+    /// arbitrary one (Dictionary key order is unspecified).
+    private var insertionOrder: [String] = []
 
     func metrics(recipe: UserRecipe, pastMeals: [LocalPastMeal],
                  priceHistory: [PriceRecord]) -> UserRecipeDetailMetrics {
@@ -625,7 +628,10 @@ actor UserRecipeMetricsCache {
             fat: recipe.ingredients.compactMap { $0.nutrition?.totalFat }.reduce(0, +) / servingCount
         )
         cache[key] = result
-        if cache.count > 80 { cache.removeValue(forKey: cache.keys.first!) }
+        insertionOrder.append(key)
+        while cache.count > 80, !insertionOrder.isEmpty {
+            cache.removeValue(forKey: insertionOrder.removeFirst())
+        }
         return result
     }
 }
