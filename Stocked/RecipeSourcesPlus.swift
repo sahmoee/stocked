@@ -24,9 +24,22 @@ nonisolated enum RecipeSourcesPlus {
     static func mealDBByIngredient(_ ingredient: String, limit: Int = 6) async -> [OnlineRecipe] {
         let enc = ingredient.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ingredient
         guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?i=\(enc)") else { return [] }
-        guard let (data, _) = try? await session.data(from: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let meals = json["meals"] as? [[String: Any]] else { return [] }
+        let data: Data
+        do {
+            data = try await session.data(from: url).0
+        } catch {
+            Log.net.notice("TheMealDB ingredient filter request failed: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+        let json: [String: Any]?
+        do {
+            json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        } catch {
+            Log.net.notice("TheMealDB ingredient filter returned invalid JSON: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+        // "meals" is null when nothing matches — a normal empty result, not an error.
+        guard let meals = json?["meals"] as? [[String: Any]] else { return [] }
         // filter.php returns only id/title/thumb — hydrate a bounded sample via lookup.
         var out: [OnlineRecipe] = []
         for m in meals.shuffled().prefix(limit) {

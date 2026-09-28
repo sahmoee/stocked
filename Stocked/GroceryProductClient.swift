@@ -59,20 +59,33 @@ actor GroceryProductClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         BuildConfig.authorizeWorkerRequest(&request)
 
-        guard let (data, resp) = try? await URLSession.shared.data(for: request),
-              let http = resp as? HTTPURLResponse else { return [] }
+        let fetched: (Data, URLResponse)
+        do {
+            fetched = try await URLSession.shared.data(for: request)
+        } catch {
+            Log.net.notice("Grocery product search request failed: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+        let (data, resp) = fetched
+        guard let http = resp as? HTTPURLResponse else { return [] }
         if http.statusCode == 501 {
             Log.net.notice("RapidAPI grocery provider is not configured on the Worker")
             return []
         }
         guard (200..<300).contains(http.statusCode) else { return [] }
 
-        let products = (try? JSONDecoder().decode(Envelope.self, from: data).products.map {
-            GroceryProduct(name: $0.name, brand: $0.brand,
-                           price: $0.regularPrice.map { String(format: "$%.2f", $0) },
-                           imageURL: $0.imageURL, productURL: $0.productURL,
-                           store: $0.store ?? (store == .amazon ? "Amazon" : "Walmart"))
-        }) ?? []
+        let products: [GroceryProduct]
+        do {
+            products = try JSONDecoder().decode(Envelope.self, from: data).products.map {
+                GroceryProduct(name: $0.name, brand: $0.brand,
+                               price: $0.regularPrice.map { String(format: "$%.2f", $0) },
+                               imageURL: $0.imageURL, productURL: $0.productURL,
+                               store: $0.store ?? (store == .amazon ? "Amazon" : "Walmart"))
+            }
+        } catch {
+            Log.net.notice("Grocery product response failed to decode: \(error.localizedDescription, privacy: .public)")
+            products = []
+        }
         await cache.store(products, for: cacheKey, ttl: ttl)
         return products
     }
