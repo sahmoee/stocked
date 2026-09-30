@@ -58,7 +58,7 @@ struct SocialImportSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
             .task {
@@ -130,7 +130,7 @@ struct SocialImportSheet: View {
                 ProgressView().tint(Color.stockedGold)
                 Text(status)
                     .scaledFont(14)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 80)
@@ -154,7 +154,7 @@ struct SocialImportSheet: View {
                     .foregroundStyle(session.themeTextColor)
                 Text(message)
                     .scaledFont(13.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .multilineTextAlignment(.center)
                 Button { dismiss() } label: {
                     Text("Done")
@@ -181,7 +181,7 @@ struct SocialImportSheet: View {
                 .foregroundStyle(session.themeTextColor)
             Text("This link is already saved as “\(existing.title)” in My Recipes.")
                 .scaledFont(14)
-                .foregroundStyle(session.themeTextColor.opacity(0.65))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .multilineTextAlignment(.center)
 
             VStack(spacing: 10) {
@@ -203,7 +203,7 @@ struct SocialImportSheet: View {
                 } label: {
                     Text("Import Again Anyway")
                         .scaledFont(14, weight: .medium)
-                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
             }
             .padding(.top, 8)
@@ -238,7 +238,7 @@ struct SocialImportSheet: View {
                 } icon: {
                     Image(systemName: platform.iconSystemName).scaledFont(11)
                 }
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
 
             if content.looksLikeMultipleRecipes {
@@ -317,7 +317,7 @@ struct SocialImportSheet: View {
                 Button { openInForm(content: content, recipe: recipe, aiAssisted: false) } label: {
                     Text("Edit Before Saving")
                         .scaledFont(14, weight: .medium)
-                        .foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
             }
             .padding(.top, 6)
@@ -344,13 +344,13 @@ struct SocialImportSheet: View {
         VStack(spacing: 16) {
             Image(systemName: "text.magnifyingglass")
                 .scaledFont(34)
-                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
             Text("Not enough to build a recipe")
                 .scaledFont(18, weight: .semibold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             Text(explanation)
                 .scaledFont(14)
-                .foregroundStyle(session.themeTextColor.opacity(0.65))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .multilineTextAlignment(.center)
 
             VStack(spacing: 10) {

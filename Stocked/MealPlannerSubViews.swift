@@ -214,7 +214,7 @@ extension MealPlannerView {
                                                 .scaledFont(14, design: .serif)
                                                 .foregroundStyle(session.themeTextColor)
                                             Image(systemName: "pencil")
-                                                .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                                .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.7))
                                         }
                                     }.buttonStyle(.plain)
                                 } else {
@@ -255,7 +255,7 @@ extension MealPlannerView {
                                 Button { withAnimation { plannedMeals.removeAll { $0.id == meal.id } } } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .scaledFont(18)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }.buttonStyle(.plain)
                             }
                         }
@@ -483,7 +483,7 @@ struct DayPlanCard: View {
                             .scaledFont(12).foregroundStyle(Color.stockedAccentInk)
                     }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(14).contentShape(Rectangle())
             }.buttonStyle(.plain)
@@ -524,7 +524,7 @@ struct DayPlanCard: View {
                                     Button { onRemoveMeal(meal) } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .scaledFont(18)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.25))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }.buttonStyle(.plain)
                                 }
                             }
@@ -545,7 +545,7 @@ struct DayPlanCard: View {
                             Button { onAddMeal(type) } label: {
                                 Label(type, systemImage: "plus.circle")
                                     .scaledFont(12, weight: .semibold)
-                                    .foregroundStyle(has ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
+                                    .foregroundStyle(has ? Color.stockedCharcoal.opacity(0.7) : Color.stockedAccentInk)
                                     .padding(.horizontal, 10).padding(.vertical, 11)
                                     .background(has ? Color.stockedCharcoal.opacity(0.06) : Color.stockedGold.opacity(0.12))
                                     .clipShape(Capsule())
@@ -858,7 +858,7 @@ struct PlanConflictRow: View {
                 Button(action: onRelease) {
                     Label("Release", systemImage: "arrow.uturn.backward")
                         .scaledFont(10.5, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.horizontal, 8).padding(.vertical, 5)
                         .background(session.themeTextColor.opacity(0.06))
                         .clipShape(Capsule())
@@ -945,7 +945,7 @@ struct MissingIngredientsSheet: View {
                                     }
                                     Text(item)
                                         .scaledFont(15, design: .serif)
-                                        .foregroundStyle(isSelected ? session.themeTextColor : session.themeTextColor.opacity(0.4))
+                                        .foregroundStyle(isSelected ? session.themeTextColor : session.themeTextColor.opacity(0.7))
                                         .strikethrough(!isSelected, color: session.themeTextColor.opacity(0.3))
                                     Spacer()
                                 }
@@ -970,13 +970,13 @@ struct MissingIngredientsSheet: View {
                     } label: {
                         Text(selectedItems.count == missingItems.count ? "Deselect All" : "Select All")
                             .scaledFont(13, weight: .medium)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .buttonStyle(.plain)
                     Spacer()
                     Text("\(selectedItems.count) of \(missingItems.count) selected")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
@@ -1004,7 +1004,7 @@ struct MissingIngredientsSheet: View {
                     Button(action: onDismiss) {
                         Text("Skip for now")
                             .scaledFont(14)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .buttonStyle(.plain)
                 }

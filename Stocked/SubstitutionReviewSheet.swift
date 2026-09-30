@@ -99,7 +99,7 @@ struct SubstitutionReviewSheet: View {
                     .foregroundStyle(session.themeTextColor)
                 Image(systemName: "arrow.right")
                     .scaledFont(11, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                 Text("you have: \(row.suggestion.displayNormalized)")
                     .scaledFont(13.5, weight: .semibold)
                     .foregroundStyle(Color.stockedSuccessInk)

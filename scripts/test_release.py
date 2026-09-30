@@ -1,0 +1,46 @@
+import importlib.util
+import pathlib
+import plistlib
+import tempfile
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location("release", pathlib.Path(__file__).with_name("release.py"))
+release = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(release)
+
+class ReleaseChecks(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.temp.name)
+        self.app = self.root / "Products/Applications/Fixture.app"
+        self.info = {"CFBundleVersion": "34", "CFBundleShortVersionString": "1.0", "CFBundleIdentifier": "fixture.app", "DTXcodeBuild": "27A266a", "DTPlatformName": "iphoneos"}
+        self.write(self.app)
+    def tearDown(self): self.temp.cleanup()
+    def write(self, path, changes=None, mac=False):
+        path = path / ("Contents" if mac else "")
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "Info.plist").write_bytes(plistlib.dumps(self.info | (changes or {})))
+    @patch.object(release.subprocess, "run")
+    def testValidArchiveChecksSignature(self, run):
+        release.validate_archive(self.root, ["27A266a"])
+        run.assert_called_once()
+    def testEmbeddedVersionMismatch(self):
+        self.write(self.app / "PlugIns/Widget.appex", {"CFBundleVersion": "33"})
+        with self.assertRaisesRegex(ValueError, "build numbers"): release.validate_archive(self.root, ["27A266a"])
+    def testUnapprovedToolchain(self):
+        with self.assertRaisesRegex(ValueError, "unapproved"): release.validate_archive(self.root, ["27A999"])
+    def testSimulatorRejected(self):
+        self.write(self.app, {"DTPlatformName": "iphonesimulator"})
+        with self.assertRaisesRegex(ValueError, "Simulator"): release.validate_archive(self.root, ["27A266a"])
+    def testMissingVersionRejected(self):
+        self.write(self.app, {"CFBundleVersion": ""})
+        with self.assertRaisesRegex(ValueError, "Missing"): release.validate_archive(self.root, ["27A266a"])
+    @patch.object(release.subprocess, "run")
+    def testMacBundleLayout(self, run):
+        (self.app / "Info.plist").unlink()
+        self.write(self.app, {"DTPlatformName": "macosx"}, mac=True)
+        release.validate_archive(self.root, ["27A266a"])
+        run.assert_called_once()
+
+if __name__ == "__main__": unittest.main()

@@ -790,7 +790,7 @@ struct OnlineRecipesView: View {
                 for excluded in parsedQuery.exclude where allText.contains(excluded) {
                     return false
                 }
-                if let cuisine = parsedQuery.cuisine, !allText.contains(cuisine) { return false }
+                if let cuisine = parsedQuery.cuisine?.lowercased(), !allText.contains(cuisine) { return false }
                 if let meal = parsedQuery.mealType, !allText.contains(meal) { return false }
                 return basic
             }
@@ -941,7 +941,7 @@ struct OnlineRecipesView: View {
                             liveResults = []
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                     }
                 }
@@ -1164,7 +1164,7 @@ struct OnlineRecipesView: View {
             if let err = loader.error, loader.recipes.isEmpty, liveResults.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "wifi.slash").scaledFont(32)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text(err).scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center)
                     Button { loader.forceRefresh(profile: session.guestStore.cookingProfile) } label: {
@@ -1624,7 +1624,7 @@ struct OnlineRecipeCard: View {
                             .scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                     if !recipe.area.isEmpty && !recipe.category.isEmpty {
-                        Text("·").scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Text("·").scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     if !recipe.category.isEmpty {
                         Text(recipe.category)
@@ -2035,7 +2035,7 @@ struct OnlineRecipeDetailView: View {
                     Button { toggleSaveToCollection() } label: {
                         Image(systemName: savedRecipeID != nil ? "heart.fill" : "heart")
                             .scaledFont(17, weight: .semibold)
-                            .foregroundStyle(savedRecipeID != nil ? Color.stockedAccentInk : session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(savedRecipeID != nil ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                     }
                     .accessibilityLabel(savedRecipeID != nil ? "Remove from My Collection" : "Save to My Collection")
                 }

@@ -75,7 +75,7 @@ nonisolated enum MakeabilityEngine {
         case .almost:
             result = classified.filter {
                 $0.readiness == .missingOne || $0.readiness == .missingTwo ||
-                ($0.readiness != .excluded && $0.unresolvedCount >= 6)
+                ($0.readiness != .excluded && $0.unresolvedCount >= 3)
             }
         case .withSubstitution:
             result = classified.filter { $0.readiness == .readyWithSwap || $0.readiness == .swapNeedsReview }

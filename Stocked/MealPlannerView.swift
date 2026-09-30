@@ -163,7 +163,7 @@ struct MealPlannerView: View {
                                 .foregroundStyle(Color.stockedAccentInk)
                             Text(isCalendarView ? "List" : "Calendar")
                                 .scaledFont(9, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         .padding(.horizontal, 8)
                         .frame(minWidth: 52, minHeight: 44)
@@ -382,7 +382,7 @@ struct MealPlannerView: View {
                                     .foregroundStyle(session.themeTextColor)
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.3))
+                                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                             .padding(.vertical, 4)
                         }

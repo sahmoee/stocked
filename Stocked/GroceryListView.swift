@@ -446,13 +446,17 @@ struct GroceryListView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .stockedFocusGroceryAdd)) { _ in
-            showBought = false
-            addFieldFocused = true
+            focusAddField()
         }
         .onChange(of: store.groceryRevision) { _, _ in rebuildSections() }
         .onChange(of: searchText) { _, _ in rebuildSections() }
         .onChange(of: showBought) { _, _ in rebuildSections() }
         .onChange(of: showMineOnly) { _, _ in rebuildSections() }
+        .onChange(of: selectedRecipe) { _, _ in rebuildSections() }
+        .onChange(of: recipeFilters) { _, filters in
+            // The recipe's last item was bought or removed: fall back to the whole list.
+            if !filters.contains(selectedRecipe) { selectedRecipe = "All Recipes" }
+        }
         .onChange(of: sortAZ) { _, _ in rebuildSections() }
         .onChange(of: groupByStore) { _, _ in rebuildSections() }
         .onChange(of: selectedStore) { _, _ in rebuildSections() }
@@ -645,11 +649,33 @@ struct GroceryListView: View {
         }
     }
 
+    /// Shop one recipe at a time: shows only the items a recipe added (or the ones
+    /// typed by hand). Appears once the list holds items from two or more sources.
+    private var recipeFilterMenu: some View {
+        Menu {
+            Picker("Recipe", selection: $selectedRecipe) {
+                ForEach(recipeFilters, id: \.self) { name in
+                    Label(name, systemImage: name == "All Recipes" ? "list.bullet"
+                          : name == "Manual Items" ? "pencil" : "fork.knife").tag(name)
+                }
+            }
+        } label: {
+            filterPill(icon: selectedRecipe == "All Recipes" ? "fork.knife" : "line.3.horizontal.decrease.circle.fill",
+                       title: selectedRecipe == "All Recipes" ? "Recipe" : selectedRecipe)
+                .lineLimit(1)
+                .frame(maxWidth: 180)
+                .frame(minHeight: 44)
+        }
+        .accessibilityLabel("Filter by recipe")
+        .accessibilityValue(selectedRecipe)
+    }
+
     private var editorialListSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 editorialSectionTitle(showBought ? "Bought" : "Your List")
                 Spacer()
+                if recipeFilters.count > 2 || selectedRecipe != "All Recipes" { recipeFilterMenu }
                 Button { showMoreDialog = true } label: {
                     Label("Organize", systemImage: "line.3.horizontal.decrease")
                         .font(.stocked(.subheadline).weight(.semibold))
@@ -678,7 +704,7 @@ struct GroceryListView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: layoutMetrics.isAccessibilityText ? .center : .leading)
                     if showBought {
-                        Button("Add Item") { addFieldFocused = true }
+                        Button("Add Item") { focusAddField() }
                             .font(.stocked(.subheadline).weight(.semibold))
                             .foregroundStyle(session.accentColor)
                             .frame(minWidth: 44, minHeight: 44)
@@ -693,6 +719,18 @@ struct GroceryListView: View {
                     ForEach(sections) { sectionCard($0) }
                 }
             }
+        }
+    }
+
+    /// The add field only exists on the To Buy list. Switching from Bought inserts it
+    /// on the next layout pass, so focus is requested after that pass; setting it in
+    /// the same transaction targets a field that isn't in the hierarchy yet.
+    private func focusAddField() {
+        guard showBought else { addFieldFocused = true; return }
+        showBought = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(60))
+            addFieldFocused = true
         }
     }
 

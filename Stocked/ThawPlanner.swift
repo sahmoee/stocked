@@ -117,12 +117,12 @@ struct ThawPlannerView: View {
             if frozen.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "snowflake").scaledFont(34)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("Nothing in the freezer").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Items stored in the Freezer zone show up here with thaw timing.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 40)
+                        .foregroundStyle(session.themeTextColor.opacity(0.7)).padding(.horizontal, 40)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
@@ -146,10 +146,10 @@ struct ThawPlannerView: View {
                                 }
                                 if let meal = plan.forMeal {
                                     Text("for \(meal)").scaledFont(12)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }
                                 Text("Take out \(takeOutLabel(plan.estimate.takeOutAt))")
-                                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                                 Button {
                                     schedule(plan)
                                 } label: {

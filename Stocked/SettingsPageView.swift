@@ -151,7 +151,7 @@ struct SettingsPageView: View {
             Button("Delete Account", role: .destructive) { session.deleteAccount() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
+            Text("This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. Copies held by our sync service can be removed through the deletion request in Help & Support. This cannot be undone.")
         }
         .alert(session.accountType == .guest ? "Exit Guest Mode?" : "Log Out?", isPresented: $showLogoutConfirm) {
             if session.accountType == .guest {

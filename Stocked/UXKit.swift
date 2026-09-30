@@ -229,7 +229,7 @@ struct StepIndicator: View {
             }
             Text("Step \(current) of \(total)")
                 .scaledFont(11, weight: .semibold)
-                .foregroundStyle(dim.opacity(0.55))
+                .foregroundStyle(dim.opacity(0.7))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Step \(current) of \(total)")

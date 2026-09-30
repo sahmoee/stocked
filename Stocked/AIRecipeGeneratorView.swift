@@ -79,13 +79,13 @@ struct AIRecipeGeneratorView: View {
                     .foregroundStyle(session.themeTextColor)
                 Text(result == nil ? "Describe it and we'll build the recipe." : "Review, then save it to your vault.")
                     .scaledFont(12.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             Spacer()
             Button { close() } label: {
                 Image(systemName: "xmark")
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .frame(width: 44, height: 44)
                     .background((session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.08))
                     .clipShape(Circle())
@@ -145,7 +145,7 @@ struct AIRecipeGeneratorView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Use expiring inventory").scaledFont(14, weight: .semibold).foregroundStyle(ink)
                     Text("Prioritize up to five safe items that need using soon")
-                        .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
             .tint(Color.stockedGold)
@@ -184,7 +184,7 @@ struct AIRecipeGeneratorView: View {
             if !RecipeGeneratorAI.isAvailable {
                 Text("AI recipes need an internet connection and the recipe service set up.")
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
         }
     }
@@ -330,7 +330,7 @@ struct AIRecipeGeneratorView: View {
     private func fieldLabel(_ s: String) -> some View {
         Text(s)
             .scaledFont(12.5, weight: .semibold)
-            .foregroundStyle(session.themeTextColor.opacity(0.5))
+            .foregroundStyle(session.themeTextColor.opacity(0.7))
     }
 
     private func sectionTitle(_ s: String) -> some View {
@@ -361,7 +361,7 @@ struct AIRecipeGeneratorView: View {
                     } label: {
                         Text(opt)
                             .scaledFont(13, weight: .semibold)
-                            .foregroundStyle(isOn ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(isOn ? Color.stockedWhite : session.themeTextColor.opacity(0.7))
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(Capsule().fill(isOn ? Color.stockedGold : fieldBg))
                     }
@@ -380,7 +380,7 @@ struct AIRecipeGeneratorView: View {
             Image(systemName: icon).scaledFont(11)
             Text(text).scaledFont(12, weight: .medium)
         }
-        .foregroundStyle(session.themeTextColor.opacity(0.6))
+        .foregroundStyle(session.themeTextColor.opacity(0.7))
     }
 }
 

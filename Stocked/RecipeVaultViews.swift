@@ -205,7 +205,7 @@ struct RecipeVaultView: View {
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").scaledFont(12, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.35))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(10)
             .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -778,7 +778,7 @@ struct RecipeVaultView: View {
                                             .foregroundStyle(session.themeSecondaryText)
                                         Image(systemName: "chevron.right")
                                             .scaledFont(12, weight: .semibold)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }
                                     .padding(.horizontal, 14).padding(.vertical, 11)
                                     .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -1973,7 +1973,7 @@ private struct RecipeMyCollectionView: View {
                 Button { motion.animate(.standard, intent: .spatial) { cookableSort.toggle() } } label: {
                     Label("Cookable", systemImage: cookableSort ? "flame.fill" : "flame")
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(cookableSort ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(cookableSort ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
                 // Browse online
                 Button { showBrowse = true } label: {
@@ -2026,7 +2026,7 @@ private struct RecipeMyCollectionView: View {
                                     if entry.stockTotal > 0 {
                                         Text("\(entry.stockHave)/\(entry.stockTotal) in stock")
                                             .scaledFont(9, weight: .bold)
-                                            .foregroundStyle(entry.stockHave == entry.stockTotal ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.6))
+                                            .foregroundStyle(entry.stockHave == entry.stockTotal ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                                             .padding(.horizontal, 6).padding(.vertical, 3)
                                             .background(.ultraThinMaterial, in: Capsule())
                                     }
@@ -2263,7 +2263,7 @@ private struct PastMealRow: View {
             ZStack {
                 Rectangle().fill(session.themeCardColor).frame(width: 80, height: 72)
                 Image(systemName: "fork.knife").scaledFont(20)
-                    .foregroundStyle(session.themeTextColor.opacity(0.25))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             ZStack(alignment: .topTrailing) {
                 Rectangle().fill(Color.stockedGold)
@@ -2468,7 +2468,7 @@ struct RecipeListView: View {
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }
                                 .padding(12)
                                 .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -2558,7 +2558,7 @@ struct CollectionsListView: View {
                                         .foregroundStyle(session.themeSecondaryText)
                                     Image(systemName: "chevron.right")
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 12)
                                 .stockedPastelCard(radius: StockedUI.cornerRadiusMd)

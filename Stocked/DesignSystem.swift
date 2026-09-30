@@ -608,7 +608,7 @@ struct StockedEmptyState: View {
                 .padding(.bottom, 8)
             Text(subtitle)
                 .stocked(.body)
-                .foregroundStyle(session.isDarkMode ? Color.stockedWhite.opacity(0.5) : Color.stockedCharcoal.opacity(0.5))
+                .foregroundStyle(session.isDarkMode ? Color.stockedWhite.opacity(0.7) : Color.stockedCharcoal.opacity(0.5))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
                 .padding(.bottom, 24)
@@ -628,7 +628,7 @@ struct StockedEmptyState: View {
                             Text("·").foregroundStyle(Color.stockedAccentInk)
                             Text(tip)
                                 .scaledFont(13)
-                                .foregroundStyle(session.isDarkMode ? Color.stockedWhite.opacity(0.6) : Color.stockedCharcoal.opacity(0.6))
+                                .foregroundStyle(session.isDarkMode ? Color.stockedWhite.opacity(0.7) : Color.stockedCharcoal.opacity(0.6))
                         }
                     }
                 }
@@ -655,10 +655,11 @@ struct CelebrationOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { dismiss() }
+            .accessibilityAddTraits(.isButton)
             VStack(spacing: 20) {
                 Text(emoji).scaledFont(80).scaleEffect(scale)
                 Text(title).stocked(.title).foregroundStyle(_dsSession.themeTextColor).multilineTextAlignment(.center)
-                Text(message).stocked(.body).foregroundStyle(_dsSession.themeTextColor.opacity(0.6)).multilineTextAlignment(.center).padding(.horizontal, 32)
+                Text(message).stocked(.body).foregroundStyle(_dsSession.themeTextColor.opacity(0.7)).multilineTextAlignment(.center).padding(.horizontal, 32)
                 Button("Continue") { dismiss() }.padding(.horizontal, 40).stockedPrimary()
             }
             .padding(32).background(_dsSession.themeCardColor).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
@@ -885,7 +886,7 @@ struct SectionHeader: View {
         Text(text)
             .scaledFont(10.5, weight: .bold)
             .tracking(1)
-            .foregroundStyle(session.themeTextColor.opacity(0.4))
+            .foregroundStyle(session.themeTextColor.opacity(0.7))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(padded ? EdgeInsets(top: 10,
                                          leading: layoutMetrics.horizontalPadding,
@@ -1111,6 +1112,7 @@ struct StockedTopShell<Content: View>: View {
                             .scaledFont(20, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
                     }.buttonStyle(.plain)
+                        .accessibilityLabel("Back")
                 } else {
                     Color.clear.frame(width: 24)
                 }
@@ -1128,7 +1130,7 @@ struct StockedTopShell<Content: View>: View {
             if !subtitle.isEmpty {
                 Text(subtitle)
                     .scaledFont(18, weight: .regular, design: .serif)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.bottom, 14)
             }
 

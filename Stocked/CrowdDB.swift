@@ -6,7 +6,7 @@
 // deploy the merged worker once and every install uses it automatically.
 //
 // This is the cross-user layer that makes the app smarter for everyone (CloudKit handles each
-// user's own private data). Contribution is ON by default and can be turned off in Settings
+// user's own private data). Contribution is OFF by default (opt-in) and can be turned on in Settings
 // ("Improve Stocked for everyone", UserDefaults key "crowdShareEnabled"). Only anonymized item
 // facts are ever sent — NEVER account, name, email, device id, or location. In return every user
 // gets: suggested unit/container/quantity, item-name autocomplete, and ingredient pairings.
@@ -29,10 +29,10 @@ nonisolated enum CrowdDB {
     static var baseURL: String { BuildConfig.receiptWorkerURL }
     static var key: String { BuildConfig.stockedWorkerKey }
 
-    /// True unless the user explicitly turned contribution OFF. Default ON (opt-out) so the
-    /// shared database improves for everyone while staying fully anonymized.
+    /// True only if the user explicitly turned contribution ON. Default OFF (opt-in): sharing
+    /// needs affirmative consent even though the facts are anonymized.
     static var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: "crowdShareEnabled") as? Bool ?? true
+        UserDefaults.standard.object(forKey: "crowdShareEnabled") as? Bool ?? false
     }
 
     private static let session: URLSession = {

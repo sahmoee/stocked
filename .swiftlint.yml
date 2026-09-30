@@ -1,0 +1,9 @@
+only_rules:
+  - force_cast
+  - duplicate_imports
+  - trailing_whitespace
+  - vertical_whitespace
+  - opening_brace
+excluded:
+  - .build
+  - Pods

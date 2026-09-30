@@ -404,7 +404,7 @@ struct CookNowHomeView: View {
 
                 let metricsLayout = layoutMetrics.isAccessibilityText || layoutMetrics.prefersVerticalControls
                     ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
-                    : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+                    : AnyLayout(StockedEqualHeightRow(spacing: 16))
                 metricsLayout {
                     if lead == .ready {
                         metricColumn(count: snapshot.metrics.readyNowTotal,
@@ -414,13 +414,13 @@ struct CookNowHomeView: View {
                                      enabled: snapshot.metrics.readyNowTotal > 0) { goReadyList = true }
                         metricColumn(count: snapshot.metrics.almostReady,
                                      title: "need a bigger shop",
-                                     sub: snapshot.metrics.almostReady > 0 ? "Missing 6 or more items" : "",
+                                     sub: snapshot.metrics.almostReady > 0 ? "Missing 3 or more items" : "",
                                      cta: "See meals",
                                      enabled: snapshot.metrics.almostReady > 0) { goAlmostList = true }
                     } else {
                         metricColumn(count: snapshot.metrics.almostReady,
                                      title: "need a bigger shop",
-                                     sub: "Missing 6 or more items",
+                                     sub: "Missing 3 or more items",
                                      cta: "See meals",
                                      enabled: true) { goAlmostList = true }
                         metricColumn(count: snapshot.metrics.readyNowTotal,
@@ -466,6 +466,7 @@ struct CookNowHomeView: View {
                     .foregroundStyle(Color.stockedGoldDark)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            Spacer(minLength: 8)
             if enabled {
                 Button(action: action) {
                     Text(cta)
@@ -480,8 +481,8 @@ struct CookNowHomeView: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("\(title): \(count). \(sub)")
     }
 

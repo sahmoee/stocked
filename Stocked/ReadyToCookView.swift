@@ -199,7 +199,7 @@ private struct ReadyToCoookContent: View {
             if let generationMessage {
                 Text(generationMessage)
                     .scaledFont(11, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.horizontal, 24)
                     .padding(.bottom, 8)
             }
@@ -284,7 +284,7 @@ private struct ReadyToCoookRecipeRow: View {
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(14)
             .background(rowBackground)
@@ -334,7 +334,7 @@ private struct ReadyToCoookRecipeRow: View {
                 let extra = recipe.missing.count > 2 ? " +\(recipe.missing.count - 2)" : ""
                 Text("Need: \(shown)\(extra)")
                     .scaledFont(10)
-                    .foregroundStyle(session.themeTextColor.opacity(0.38))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
                 // #3 — one-tap add missing ingredients to grocery.
                 Button {
@@ -387,7 +387,7 @@ private struct ReadyToCoookRecipeRow: View {
             } else {
                 Text("Missing \(recipe.missing.count)")
                     .scaledFont(9, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Color.stockedCharcoal.opacity(0.1))
                     .clipShape(Capsule())

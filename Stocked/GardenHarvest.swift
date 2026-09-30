@@ -30,7 +30,7 @@ nonisolated struct HarvestEntry: Codable, Identifiable, Hashable, Sendable, Hous
 }
 
 nonisolated struct CropTotal: Identifiable, Sendable {
-    var id: String { crop }
+    var id: String { "\(crop.lowercased())|\(unit)" }
     let crop: String
     let amount: Double
     let unit: String
@@ -43,17 +43,44 @@ nonisolated struct CropTotal: Identifiable, Sendable {
 
 nonisolated enum HarvestMath {
 
+    /// One total per crop and unit family. Weights are converted into the first entry's
+    /// unit (2 lb + 16 oz = 3 lb); counts such as "each" or "bunch" never add to weights.
     static func totals(_ entries: [HarvestEntry]) -> [CropTotal] {
         Dictionary(grouping: entries) { $0.crop.lowercased() }
-            .map { _, list in
-                CropTotal(crop: list[0].crop,
-                          amount: list.reduce(0) { $0 + $1.amount },
-                          unit: list[0].unit,
-                          value: list.reduce(0) { $0 + $1.value },
-                          harvests: list.count,
-                          lastHarvest: list.map(\.date).max() ?? Date())
+            .flatMap { _, list -> [CropTotal] in
+                var buckets: [(unit: String, entries: [HarvestEntry], amount: Double)] = []
+                for entry in list.sorted(by: { $0.date < $1.date }) {
+                    if let i = buckets.firstIndex(where: { $0.unit.caseInsensitiveCompare(entry.unit) == .orderedSame }) {
+                        buckets[i].entries.append(entry); buckets[i].amount += entry.amount
+                    } else if let i = buckets.firstIndex(where: { UnitMath.convertible($0.unit, entry.unit) }),
+                              let converted = UnitMath.convert(entry.amount, from: entry.unit, to: buckets[i].unit) {
+                        buckets[i].entries.append(entry); buckets[i].amount += converted
+                    } else {
+                        buckets.append((entry.unit, [entry], entry.amount))
+                    }
+                }
+                return buckets.map { bucket in
+                    CropTotal(crop: bucket.entries[0].crop,
+                              amount: bucket.amount,
+                              unit: bucket.unit,
+                              value: bucket.entries.reduce(0) { $0 + $1.value },
+                              harvests: bucket.entries.count,
+                              lastHarvest: bucket.entries.map(\.date).max() ?? Date())
+                }
             }
             .sorted { $0.value == $1.value ? $0.amount > $1.amount : $0.value > $1.value }
+    }
+
+    /// Locale-tolerant amount parsing: "1,5" and "1.5" both read as one and a half.
+    static func parseAmount(_ text: String) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        if let value = Double(trimmed) { return value }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = .current
+        if let number = formatter.number(from: trimmed) { return number.doubleValue }
+        return Double(trimmed.replacingOccurrences(of: ",", with: "."))
     }
 
     static func inSeason(_ entries: [HarvestEntry], year: Int? = nil) -> [HarvestEntry] {
@@ -151,12 +178,12 @@ struct GardenHarvestView: View {
             if store.entries.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "leaf.circle").scaledFont(34)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("No harvests logged").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Log what you pick and it goes straight into your pantry with a realistic shelf life — plus you get a running total of what the garden actually produced this year.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
+                        .foregroundStyle(session.themeTextColor.opacity(0.7)).padding(.horizontal, 36)
                     Button { showAdd = true } label: {
                         Text("Log a harvest").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
@@ -291,7 +318,7 @@ private struct AddHarvestSheet: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") { save() }
                         .font(.stocked(.body).bold())
-                        .disabled(crop.trimmingCharacters(in: .whitespaces).isEmpty || (Double(amountText) ?? 0) <= 0)
+                        .disabled(crop.trimmingCharacters(in: .whitespaces).isEmpty || (HarvestMath.parseAmount(amountText) ?? 0) <= 0)
                 }
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
             }
@@ -301,19 +328,21 @@ private struct AddHarvestSheet: View {
 
     private func save() {
         let name = crop.trimmingCharacters(in: .whitespaces)
-        let amount = Double(amountText) ?? 0
+        let amount = HarvestMath.parseAmount(amountText) ?? 0
         store.add(HarvestEntry(crop: name, amount: amount, unit: unit, date: date,
-                               valuePerUnit: Double(valueText) ?? 0))
+                               valuePerUnit: HarvestMath.parseAmount(valueText) ?? 0))
         if addToPantry {
             var item = LocalInventoryItem(name: name)
-            item.quantity = max(1, Int(amount.rounded()))
+            // One harvest is one container holding `amount` of `unit`; quantity counts
+            // containers, so 3 lb was previously stored as three 3 lb items (9 lb).
+            item.quantity = 1
             item.sizeAmount = amount
             item.sizeUnit = unit
             item.storageCategory = .fridge
             item.purchaseDate = date
             item.expirationDate = Calendar.current.date(byAdding: .day,
                                                         value: HarvestMath.freshDays(for: name), to: date)
-            session.guestStore.inventoryItems.append(item)
+            session.guestStore.addInventoryItem(item)
         }
         HapticManager.success()
         dismiss()

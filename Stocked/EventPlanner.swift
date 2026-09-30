@@ -174,12 +174,12 @@ struct EventPlannerView: View {
             if store.events.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "party.popper").scaledFont(34)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("No events planned").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Plan a dinner party or holiday meal — Stocked scales every dish to the headcount, checks it against your guests' allergies, and builds one shopping list.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
+                        .foregroundStyle(session.themeTextColor.opacity(0.7)).padding(.horizontal, 36)
                     Button { showNew = true } label: {
                         Text("Plan an event").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
@@ -338,21 +338,53 @@ struct EventDetailView: View {
         .navigationTitle(event.name)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showAddDish) {
-            AddEventDishSheet { dish in var e = event; e.dishes.append(dish); store.update(e) }
+            AddEventDishSheet(recipes: session.guestStore.userRecipes) { dish in var e = event; e.dishes.append(dish); store.update(e) }
         }
     }
 }
 
 private struct AddEventDishSheet: View {
     @Environment(\.dismiss) private var dismiss
+    /// Saved recipes, so a host can pull in a dish they already cook instead of retyping it.
+    var recipes: [UserRecipe] = []
     let onAdd: (EventDish) -> Void
     @State private var title = ""
     @State private var servings = 4
     @State private var ingredientsText = ""
 
+    private var sortedRecipes: [UserRecipe] {
+        recipes.filter { !$0.ingredients.isEmpty }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private func fill(from recipe: UserRecipe) {
+        title = recipe.title.recipeDisplayTitle
+        servings = min(50, max(1, recipe.servings))
+        ingredientsText = recipe.ingredients.map { ingredient in
+            [ingredient.amount, ingredient.name]
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }.joined(separator: "\n")
+        HapticManager.light()
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                if !sortedRecipes.isEmpty {
+                    Section {
+                        Menu {
+                            ForEach(sortedRecipes) { recipe in
+                                Button(recipe.title.recipeDisplayTitle) { fill(from: recipe) }
+                            }
+                        } label: {
+                            Label("Use one of my recipes", systemImage: "book")
+                        }
+                    } footer: {
+                        Text("Fills in the name, servings and ingredients. You can still edit them.")
+                    }
+                }
                 TextField("Dish name", text: $title)
                 Stepper("Recipe serves \(servings)", value: $servings, in: 1...50)
                 Section {

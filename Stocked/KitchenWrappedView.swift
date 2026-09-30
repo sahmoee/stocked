@@ -101,7 +101,7 @@ struct KitchenWrappedView: View {
                  ? "Here's what your kitchen got up to."
                  : "Cook your first meal and your story starts here.")
                 .scaledFont(14)
-                .foregroundStyle(primaryText.opacity(0.6))
+                .foregroundStyle(primaryText.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -131,7 +131,7 @@ struct KitchenWrappedView: View {
                 .contentTransition(.numericText())
             Text(label)
                 .scaledFont(12, weight: .medium)
-                .foregroundStyle(primaryText.opacity(0.55))
+                .foregroundStyle(primaryText.opacity(0.7))
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -188,18 +188,18 @@ struct KitchenWrappedView: View {
         VStack(spacing: 6) {
             Text("YOU SAVED ABOUT")
                 .scaledFont(11, weight: .bold).tracking(1.5)
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.white.opacity(0.7))
             Text("~\(money(Double(moneySaved)))")
                 .scaledFont(46, weight: .heavy, design: .serif)
                 .foregroundStyle(Color.stockedAccentInk)
             Text("cooking at home instead of ordering out\(totalSpend > 0 ? " · \(money(totalSpend)) tracked in groceries" : "")")
                 .scaledFont(12)
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
             if wastedValue > 0 {
                 Text("Heads up: about \(money(wastedValue)) went to waste — room to save more next season.")
                     .scaledFont(11)
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
                     .padding(.top, 4)
             }
@@ -218,7 +218,7 @@ struct KitchenWrappedView: View {
                  ? "Here's to many more good meals."
                  : "Your kitchen story is just getting started.")
                 .scaledFont(14, design: .serif)
-                .foregroundStyle(primaryText.opacity(0.6))
+                .foregroundStyle(primaryText.opacity(0.7))
                 .multilineTextAlignment(.center)
             Button { dismiss() } label: {
                 Text("Done")

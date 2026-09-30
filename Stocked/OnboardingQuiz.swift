@@ -49,6 +49,7 @@ struct OnboardingQuiz: View {
                 .onTapGesture {
                     motion.animate(.selection, intent: .opacity) { showChefPrompt = false }
                 }
+                .accessibilityAddTraits(.isButton)
 
             VStack(spacing: 6) {
                 Image(systemName: "arrowtriangle.up.fill")
@@ -90,7 +91,8 @@ struct OnboardingQuiz: View {
             // Scrim
             Color.black.opacity(0.45)
                 .ignoresSafeArea()
-                .onTapGesture {} // absorb taps
+                .onTapGesture {}
+                .accessibilityAddTraits(.isButton) // absorb taps
 
             VStack(spacing: 20) {
                 // Card
@@ -120,7 +122,7 @@ struct OnboardingQuiz: View {
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .scaledFont(22)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }.buttonStyle(.plain)
                             }
                         }
@@ -273,7 +275,7 @@ struct OnboardingQuiz: View {
                 .multilineTextAlignment(.center)
             Text(subtitle)
                 .scaledFont(14)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 22)
@@ -284,7 +286,7 @@ struct OnboardingQuiz: View {
         Button(action: action) {
             Text(label)
                 .scaledFont(16, weight: .semibold, design: .serif)
-                .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.4))
+                .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.7))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
                 .background(
@@ -366,7 +368,7 @@ struct OnboardingQuiz: View {
                         .multilineTextAlignment(.center)
                     Text("A few quick questions and we'll personalise everything — recipes, reminders, grocery lists — around *your* life.")
                         .scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 22)
@@ -483,7 +485,7 @@ struct OnboardingQuiz: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(label).scaledFont(14, weight: .semibold, design: .serif)
                                     .foregroundStyle(session.themeTextColor)
-                                Text(desc).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                Text(desc).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                             Spacer()
                             if skillLevel == label {
@@ -523,7 +525,7 @@ struct OnboardingQuiz: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Grocery day").scaledFont(13, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.horizontal, 22)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {

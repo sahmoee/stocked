@@ -70,7 +70,7 @@ struct PendingSyncBadge: View {
                             .foregroundStyle(Color.stockedError.opacity(0.85))
                     }
                 }
-                .foregroundStyle(session.themeTextColor.opacity(0.65))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 5)
                 .padding(.horizontal, 14)
@@ -82,6 +82,7 @@ struct PendingSyncBadge: View {
                     // Manual nudge — harmless: requests are coalesced and rate-limited.
                     center.requestSync(reason: "badge-tap")
                 }
+                .accessibilityAddTraits(.isButton)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: shouldShow)

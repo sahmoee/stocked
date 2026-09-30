@@ -72,7 +72,7 @@ struct PlannedMealCookTransitionView: View {
                         }
                         Text("However you cook it, the meal keeps its place on your plan until you serve it.")
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                             .padding(.top, 4)
@@ -114,7 +114,7 @@ struct PlannedMealCookTransitionView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text(subtitle)
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)

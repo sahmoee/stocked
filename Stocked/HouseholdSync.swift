@@ -150,6 +150,7 @@ final class HouseholdSync {
                  operation: HouseholdOperationType,
                  changedFields: Set<String> = ["*"]) {
         guard state == .owner || state == .member else { return }
+        idlePullStreak = 0
         pendingOps = HouseholdOperationJournal.retaining(pendingOps, replacingWith: [
             .init(entityID: entityID, entityType: entityType, operationType: operation)
         ])
@@ -605,8 +606,9 @@ final class HouseholdSync {
         guard let code = joinCode, state == .owner || state == .member else { return }
         // #1 changed-since: send the last updatedAt we applied; the server returns a tiny
         // "unchanged" reply when nothing is new, so frequent polling stays cheap.
+        // The route marker is transient. Persisting the whole operation queue plus status on every
+        // poll cost two disk writes per pull; markPullSucceeded/failure paths persist once.
         syncStatus.activeRoute = .workerPull
-        persistQueue()
         let pullBody: [String: Any] = [
             "code": code, "since": lastAppliedUpdatedAt,
             "sinceRevision": syncStatus.checkpoint.serverRevision,
@@ -622,9 +624,11 @@ final class HouseholdSync {
             return
         }
         if (resp["unchanged"] as? Bool) == true {
+            idlePullStreak = min(idlePullStreak + 1, 1_000)
             advanceCheckpoint(response: resp, household: nil)
             markPullSucceeded(route: .workerPull); return
         }
+        idlePullStreak = 0
         guard let hh = resp["household"] as? [String: Any] else {
             syncStatus.lastError = "The household server returned an incomplete pull response."
             syncStatus.consecutiveFailureCount += 1
@@ -670,7 +674,8 @@ final class HouseholdSync {
         }
         pollTask = Task { @MainActor [weak self, weak store] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: everySeconds * 1_000_000_000)
+                let pause = self?.adaptivePollSeconds(base: everySeconds) ?? everySeconds
+                try? await Task.sleep(nanoseconds: pause * 1_000_000_000)
                 guard let self, let store else { return }
                 guard self.state == .owner || self.state == .member else { continue }
                 // Pending local ops → push (which also pulls the merged state back).
@@ -689,6 +694,16 @@ final class HouseholdSync {
             }
         }
     }
+    /// Consecutive pulls that found nothing new. Quiet households poll less often; any change,
+    /// local edit or foreground return snaps back to the base cadence. Polling remains the
+    /// fallback for live notices and never stops.
+    @ObservationIgnored private var idlePullStreak = 0
+    private func adaptivePollSeconds(base: UInt64) -> UInt64 {
+        guard pendingOps.isEmpty, idlePullStreak >= 5 else { return base }
+        let ceiling: UInt64 = HouseholdDeliveryService.shared.isConnected ? 30 : 12
+        let scaled = idlePullStreak >= 10 ? base * 3 : base * 2
+        return min(max(base, scaled), max(base, ceiling))
+    }
     func stopAutoSync() {
         HouseholdDeliveryService.shared.stop()
         pollTask?.cancel(); pollTask = nil
@@ -700,6 +715,7 @@ final class HouseholdSync {
     func syncOnForeground() {
         guard let store = pollStore, state == .owner || state == .member else { return }
         fgTask?.cancel()
+        idlePullStreak = 0
         fgTask = Task { [weak self, weak store] in
             guard let self, let store else { return }
             await self.pullNow(into: store)

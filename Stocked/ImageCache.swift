@@ -1,3 +1,4 @@
+import SowensKit
 // ImageCache.swift
 // • Memory + disk two-layer cache (unchanged, already solid)
 // • Image prefetch queue — pre-loads next N images in scroll direction (#8)
@@ -471,7 +472,7 @@ final class ImageCache: @unchecked Sendable {
 
         let result: UIImage?
         do {
-            let (data, response) = try await URLSession.shared.data(for: ImageCache.imageRequest(for: url))
+            let (data, response) = try await URLSession.shared.sowensData(for: ImageCache.imageRequest(for: url))
             guard !Task.isCancelled,
                   let http = response as? HTTPURLResponse,
                   (200...299).contains(http.statusCode),

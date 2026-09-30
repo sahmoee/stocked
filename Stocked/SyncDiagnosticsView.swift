@@ -75,7 +75,7 @@ struct SyncDiagnosticsView: View {
                 }
 
                 Text("These details help diagnose household sync. Nothing here is shared.")
-                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.top, 4)
             }
             .padding(.horizontal, 20).padding(.top, 8)

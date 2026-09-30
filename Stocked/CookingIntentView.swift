@@ -134,7 +134,7 @@ struct CookingIntentView: View {
                 }
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right").scaledFont(12, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -189,7 +189,7 @@ struct CookingIntentView: View {
                                             .foregroundStyle(session.themeTextColor)
                                         Spacer()
                                         Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }
                                     .padding(13)
                                     .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.5))

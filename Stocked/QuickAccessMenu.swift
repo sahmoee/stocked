@@ -18,7 +18,7 @@ struct QuickGrocerySheet: View {
             VStack(spacing: 0) {
                 HStack {
                     Text("\(needed.count) item\(needed.count == 1 ? "" : "s") needed")
-                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                     Spacer()
                 }.padding(.horizontal, 24).padding(.vertical, 12)
                 HStack(spacing: 10) {
@@ -27,7 +27,7 @@ struct QuickGrocerySheet: View {
                     .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).scaledFont(15).foregroundStyle(session.themeTextColor).onSubmit { addItem() }
                     Button { addItem() } label: {
                         Image(systemName: "plus.circle.fill").scaledFont(24)
-                            .foregroundStyle(newItem.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
+                            .foregroundStyle(newItem.isEmpty ? Color.stockedCharcoal.opacity(0.7) : Color.stockedAccentInk)
                     }.disabled(newItem.isEmpty)
                 }
                 .padding(12).stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -37,12 +37,12 @@ struct QuickGrocerySheet: View {
                         if needed.isEmpty {
                             VStack(spacing: 10) {
                                 Image(systemName: "checkmark.circle.fill").scaledFont(36).foregroundStyle(Color.stockedAccentInk)
-                                Text("All items in stock!").scaledFont(15, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                Text("All items in stock!").scaledFont(15, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.7))
                             }.frame(maxWidth: .infinity).padding(.vertical, 24)
                         } else { ForEach(needed) { groceryRow($0) } }
                         if !done.isEmpty {
                             Text("Done (\(done.count))").scaledFont(11, weight: .bold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 4)
                             ForEach(done) { groceryRow($0) }
@@ -60,10 +60,10 @@ struct QuickGrocerySheet: View {
         HStack(spacing: 12) {
             Button { store.toggleGrocery(id: item.id) } label: {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
-                    .scaledFont(22).foregroundStyle(item.isChecked ? Color.stockedAccentInk : Color.stockedCharcoal.opacity(0.4))
+                    .scaledFont(22).foregroundStyle(item.isChecked ? Color.stockedAccentInk : Color.stockedCharcoal.opacity(0.7))
             }.buttonStyle(.plain)
             .stockedIconButton(item.isChecked ? "Uncheck \(item.name)" : "Check off \(item.name)")
-            Text(item.name).scaledFont(15).foregroundStyle(item.isChecked ? session.themeTextColor.opacity(0.35) : session.themeTextColor).strikethrough(item.isChecked)
+            Text(item.name).scaledFont(15).foregroundStyle(item.isChecked ? session.themeTextColor.opacity(0.7) : session.themeTextColor).strikethrough(item.isChecked)
             Spacer()
             Button { store.removeGrocery(id: item.id) } label: { Image(systemName: "xmark").scaledFont(14).foregroundStyle(session.themeSecondaryText) }.buttonStyle(.plain)
                 .stockedIconButton("Remove \(item.name)")
@@ -113,7 +113,7 @@ struct FontPickerSheet: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(fontFamilies, id: \.category) { group in
                             Text(group.category.uppercased()).scaledFont(10, weight: .bold).tracking(1)
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 4)
                             ForEach(group.fonts, id: \.name) { entry in
                                 HStack {
@@ -123,7 +123,7 @@ struct FontPickerSheet: View {
                                               : .custom(entry.uiName, size: StockedType.scaled(16)))
                                         .foregroundStyle(session.themeTextColor)
                                     Spacer()
-                                    Text(entry.name).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    Text(entry.name).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }
                                 .padding(.horizontal, 24).padding(.vertical, 11)
                                 .contentShape(Rectangle())
@@ -134,6 +134,7 @@ struct FontPickerSheet: View {
                                     else { selectedFont = .system }
                                     dismiss()
                                 }
+                                .accessibilityAddTraits(.isButton)
                                 Divider().padding(.horizontal, 24)
                             }
                         }

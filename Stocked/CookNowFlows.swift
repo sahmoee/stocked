@@ -41,7 +41,7 @@ struct BuildAroundFoodView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("Pick a category and we'll show you what's in your kitchen.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
@@ -105,7 +105,7 @@ struct MatchMyMoodFlowView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("Your answers help us find the perfect recipes for you.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.top, 4)

@@ -74,7 +74,7 @@ struct AppIconPickerView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Choose an icon for Stocked. It updates on your Home Screen right away.")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.horizontal, 20).padding(.top, 8)
 
                     if !AppIconManager.isSupported {
@@ -140,7 +140,7 @@ struct AppIconPickerView: View {
                 }
                 Text(label)
                     .scaledFont(10)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
         }
         .buttonStyle(.plain)

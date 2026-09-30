@@ -286,7 +286,7 @@ struct ReceiptScannerView: View {
                     }
                     .padding(.horizontal, 20)
                     Text("Camera scanning requires a physical iPhone with iOS 16+")
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center).padding(.horizontal, 20)
                 }
 
@@ -322,7 +322,7 @@ struct ReceiptScannerView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("Claude is reading your receipt")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Spacer()
                 }
             } else if lineItems.isEmpty {
@@ -330,13 +330,13 @@ struct ReceiptScannerView: View {
                     Spacer()
                     Image(systemName: "doc.text.magnifyingglass")
                         .scaledFont(48)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("No food items found")
                         .scaledFont(18, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text("Try scanning again with better lighting")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Button { phase = .instructions } label: {
                         Text("Try Again")
                             .scaledFont(15, weight: .semibold)
@@ -418,12 +418,12 @@ struct ReceiptScannerView: View {
                         } label: {
                             Label("Bulk Edit", systemImage: "arrow.up.arrow.down.circle")
                                 .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         Button { phase = .instructions } label: {
                             Text("Scan Again")
                                 .scaledFont(13)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         .padding(.leading, 8)
                     }
@@ -472,7 +472,7 @@ struct ReceiptScannerView: View {
                     } label: {
                         Label("Scan another page", systemImage: "plus.viewfinder")
                             .scaledFont(13, weight: .semibold)
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .buttonStyle(.plain)
                     .padding(.bottom, 22)
@@ -612,7 +612,7 @@ private struct ReviewRowView: View {
                 Button { onToggle() } label: {
                     Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                         .scaledFont(22)
-                        .foregroundStyle(item.isChecked ? Color.stockedSuccessInk : Color.stockedCharcoal.opacity(0.25))
+                        .foregroundStyle(item.isChecked ? Color.stockedSuccessInk : Color.stockedCharcoal.opacity(0.7))
                 }.buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -645,7 +645,7 @@ private struct ReviewRowView: View {
                         if item.rawText.uppercased() != item.resolved.uppercased() {
                             Text("Was: \(item.rawText)")
                                 .scaledFont(10)
-                                .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                     }
                     HStack(spacing: 6) {
@@ -675,7 +675,7 @@ private struct ReviewRowView: View {
                             } label: {
                                 Image(systemName: "minus")
                                     .scaledFont(10, weight: .bold)
-                                    .foregroundStyle(item.quantity > 1 ? session.themeTextColor : session.themeTextColor.opacity(0.25))
+                                    .foregroundStyle(item.quantity > 1 ? session.themeTextColor : session.themeTextColor.opacity(0.7))
                                     .frame(width: 22, height: 20)
                             }
                             .buttonStyle(.plain)
@@ -718,7 +718,7 @@ private struct ReviewRowView: View {
                     } label: {
                         Image(systemName: "pencil.circle")
                             .scaledFont(18)
-                            .foregroundStyle(session.themeTextColor.opacity(0.3))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }.buttonStyle(.plain)
                 } else {
                     HStack(spacing: 8) {
@@ -736,7 +736,7 @@ private struct ReviewRowView: View {
                         .scaledFont(13, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                         .buttonStyle(.plain)
                         Button("Cancel") { editing = false }
-                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                             .buttonStyle(.plain)
                     }
                 }
@@ -762,6 +762,7 @@ private struct ReviewRowView: View {
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
             .contentShape(Rectangle())
             .onTapGesture { if !editing { onToggle() } }
+            .accessibilityAddTraits(.isButton)
             .stockedAnimation(.selection, intent: .spatial, value: item.isChecked)
 
             // ── Auto-learn abbreviation prompt ──────────────────────
@@ -784,7 +785,7 @@ private struct ReviewRowView: View {
                     .scaledFont(12, weight: .bold).foregroundStyle(Color.stockedAccentInk)
                     .buttonStyle(.plain)
                     Button("Skip") { withAnimation { showSaveAbbrev = false } }
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -820,6 +821,7 @@ extension ReceiptScannerView {
                 lineItems = []
                 capturedText = ""
                 detectedStore = ""
+                isAddingAnotherPage = false
                 phase = .scanning
             } label: {
                 HStack(spacing: 8) {
@@ -1064,7 +1066,8 @@ extension ReceiptScannerView {
         guard let cgImage = image.cgImage else { return }
         phase = .review
         isProcessing = true
-        lineItems = []
+        // Another page of the same receipt keeps the items already reviewed.
+        if !isAddingAnotherPage { lineItems = [] }
         DispatchQueue.global(qos: .userInitiated).async {
             let request = VNRecognizeTextRequest { req, _ in
                 let strings = (req.results as? [VNRecognizedTextObservation])?
@@ -1143,7 +1146,8 @@ extension ReceiptScannerView {
 
     /// PRIMARY — send the receipt photo to Claude via the Worker.
     func parseReceipt(image: UIImage) {
-        phase = .review; isProcessing = true; lineItems = []; errorMsg = ""
+        phase = .review; isProcessing = true; errorMsg = ""
+        if !isAddingAnotherPage { lineItems = [] }
         guard ConnectivityMonitor.isOnlineFlag else { runOCROnImage(image); return }
         guard let jpeg = Self.downscaledJPEG(image, maxDimension: 1600, quality: 0.7),
               StockedWorkerClient.isConfigured else { runOCROnImage(image); return }
@@ -1182,7 +1186,7 @@ extension ReceiptScannerView {
         let corrections = learnedCorrectionsPayload()
         if !corrections.isEmpty { payload["corrections"] = corrections }
         guard StockedWorkerClient.isConfigured else {
-            isProcessing = false; lineItems = fallbackParse(receiptText); return
+            isProcessing = false; setParsed(fallbackParse(receiptText)); return
         }
         Task { @MainActor in
             do {
@@ -1193,11 +1197,11 @@ extension ReceiptScannerView {
                 if let items = self.decodeItems(from: data), !items.isEmpty {
                     self.applyParsed(items, from: data)
                 } else {
-                    self.lineItems = fallbackParse(receiptText); self.isProcessing = false
+                    self.setParsed(fallbackParse(receiptText)); self.isProcessing = false
                 }
             } catch {
                 self.errorMsg = "Smart reading was unavailable — showing a basic scan instead."
-                self.lineItems = fallbackParse(receiptText)
+                self.setParsed(fallbackParse(receiptText))
                 self.isProcessing = false
             }
         }
@@ -1206,17 +1210,7 @@ extension ReceiptScannerView {
     /// Apply parsed items; #4 multi-photo appends instead of replacing; also reads
     /// store + date (#5) from the AI response meta if present.
     private func applyParsed(_ items: [ReceiptLineItem], from data: Data) {
-        if isAddingAnotherPage {
-            // #4 — merge into existing list, de-duping by resolved name.
-            var combined = lineItems
-            for it in items where !combined.contains(where: { $0.resolved.lowercased() == it.resolved.lowercased() }) {
-                combined.append(it)
-            }
-            lineItems = combined
-            isAddingAnotherPage = false
-        } else {
-            lineItems = items
-        }
+        setParsed(items)
         // #5 — pull store/date from the response's meta object if the model returned one.
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let content = json["content"] as? [[String: Any]],
@@ -1226,6 +1220,18 @@ extension ReceiptScannerView {
         }
         if detectedStore.isEmpty { detectedStore = detectStoreName(from: capturedText) }
         isProcessing = false
+    }
+
+    /// Every parse path (photo, OCR text, offline fallback) lands here, so a second
+    /// page of a long receipt is appended to the reviewed list instead of replacing it.
+    private func setParsed(_ items: [ReceiptLineItem]) {
+        guard isAddingAnotherPage else { lineItems = items; return }
+        var combined = lineItems
+        for it in items where !combined.contains(where: { $0.resolved.lowercased() == it.resolved.lowercased() }) {
+            combined.append(it)
+        }
+        lineItems = combined
+        isAddingAnotherPage = false
     }
 
     /// Shared decoder: Anthropic response → [ReceiptLineItem] (brand/price/qty aware).

@@ -1,21 +1,22 @@
+import SowensKit
 import SwiftUI
 
-/// The approved September 24 reference: matte ivory, honey, sage and soft peach.
+/// Pastel is the default; Tan preserves the warm original-color variant.
 /// Decorative fills never double as small-text colors.
 enum StockedPastel {
-    static let honey = Color(red: 0.824, green: 0.686, blue: 0.416)
-    static let sage = Color(red: 0.565, green: 0.635, blue: 0.502)
+    static let honey = Color.stockedPalette(pastel: UIColor(red: 0.824, green: 0.686, blue: 0.416, alpha: 1), tan: UIColor(red: 0.870, green: 0.680, blue: 0.290, alpha: 1))
+    static let sage = Color.stockedPalette(pastel: UIColor(red: 0.565, green: 0.635, blue: 0.502, alpha: 1), tan: UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1))
     static func oat(_ dark: Bool) -> Color {
-        dark ? Color(red: 0.24, green: 0.21, blue: 0.17) : Color(red: 0.945, green: 0.894, blue: 0.812)
+        dark ? Color.stockedPalette(pastel: UIColor(red: 0.24, green: 0.21, blue: 0.17, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.945, green: 0.894, blue: 0.812, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
     }
     static func garden(_ dark: Bool) -> Color {
-        dark ? Color(red: 0.18, green: 0.22, blue: 0.16) : Color(red: 0.914, green: 0.925, blue: 0.863)
+        dark ? Color.stockedPalette(pastel: UIColor(red: 0.18, green: 0.22, blue: 0.16, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.914, green: 0.925, blue: 0.863, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
     }
     static func peach(_ dark: Bool) -> Color {
-        dark ? Color(red: 0.26, green: 0.20, blue: 0.16) : Color(red: 0.980, green: 0.918, blue: 0.839)
+        dark ? Color.stockedPalette(pastel: UIColor(red: 0.26, green: 0.20, blue: 0.16, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.980, green: 0.918, blue: 0.839, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
     }
     static func border(_ dark: Bool) -> Color {
-        dark ? Color(red: 0.35, green: 0.32, blue: 0.27) : Color(red: 0.866, green: 0.827, blue: 0.765)
+        dark ? Color(red: 0.35, green: 0.32, blue: 0.27) : Color.stockedPalette(pastel: UIColor(red: 0.866, green: 0.827, blue: 0.765, alpha: 1), tan: UIColor(red: 0.651, green: 0.545, blue: 0.392, alpha: 1))
     }
 }
 
@@ -26,15 +27,10 @@ private struct StockedPastelCardModifier: ViewModifier {
     var radius: CGFloat
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
-            .background(fill ?? session.themeCardColor, in: shape)
-            .clipShape(shape)
-            .overlay {
-                shape.strokeBorder(contrast == .increased ? session.themeSecondaryText : StockedPastel.border(session.isDarkMode),
-                                   lineWidth: contrast == .increased ? 1.5 : 0.65)
-                    .allowsHitTesting(false)
-            }
+            .sowensSurface(fill: fill ?? session.themeCardColor,
+                           border: contrast == .increased ? session.themeSecondaryText : StockedPastel.border(session.isDarkMode),
+                           radius: radius, lineWidth: contrast == .increased ? 1.5 : 0.65, clipsContent: true)
             .shadow(color: Color.stockedCharcoal.opacity(session.isDarkMode ? 0.14 : 0.035), radius: 3, y: 2)
     }
 }
@@ -76,7 +72,7 @@ struct StockedEditorialHero: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
             StockedKitchenArtwork(asset: artwork)
-                .saturation(0.72)
+                .saturation(session.lightTheme == .tan ? 1 : 0.72)
                 .frame(width: layout.isAccessibilityText ? 100 : min(150, layout.contentWidth * 0.32), height: 138)
                 .accessibilityHidden(true)
         }

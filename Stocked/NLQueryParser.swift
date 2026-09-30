@@ -39,6 +39,14 @@ nonisolated struct NLQueryParser {
     nonisolated static func parse(_ raw: String, knownIngredients: [String]) -> ParsedQuery {
         let text = raw.trimmingCharacters(in: .whitespaces).lowercased()
         var q    = ParsedQuery()
+        // Words already turned into a structured filter. They must not also become
+        // required keywords: "no dairy" would otherwise both require and ban "dairy",
+        // and "under 30 min" would require the literal words "under" and "min".
+        var consumed = Set<String>()
+        func consume(_ phrase: String) {
+            phrase.components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }.forEach { consumed.insert($0) }
+        }
 
         // ── Time constraints ────────────────────────────────────────────
         let timePatterns: [(pattern: String, minutes: Int)] = [
@@ -48,7 +56,7 @@ nonisolated struct NLQueryParser {
             ("under 45 min", 45), ("under an hour", 60), ("under 1 hour", 60),
         ]
         for (pattern, mins) in timePatterns {
-            if text.contains(pattern) { q.maxMinutes = min(q.maxMinutes ?? 999, mins) }
+            if text.contains(pattern) { q.maxMinutes = min(q.maxMinutes ?? 999, mins); consume(pattern) }
         }
 
         // ── Exclusions ──────────────────────────────────────────────────
@@ -64,14 +72,17 @@ nonisolated struct NLQueryParser {
             (["no nuts","nut free","nut-free"], nutWords),
         ]
         for (triggers, excludes) in exclusionMap {
-            if triggers.contains(where: { text.contains($0) }) {
+            let matched = triggers.filter { text.contains($0) }
+            if !matched.isEmpty {
                 q.exclude.append(contentsOf: excludes)
+                matched.forEach(consume)
             }
         }
 
         // ── Meal types ──────────────────────────────────────────────────
         let mealTypes = ["breakfast","lunch","dinner","dessert","snack","brunch","appetizer"]
         q.mealType = mealTypes.first { text.contains($0) }
+        if let meal = q.mealType { consume(meal) }
 
         // ── Cuisines ────────────────────────────────────────────────────
         let words = text.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
@@ -82,9 +93,13 @@ nonisolated struct NLQueryParser {
                 cuisineCandidates.append(words[start..<(start + width)].joined(separator: " "))
             }
         }
-        q.cuisine = cuisineCandidates
-            .map { RecipeTaxonomy.canonicalCuisine($0) }
-            .first { $0 != "Other" }
+        for candidate in cuisineCandidates {
+            let canonical = RecipeTaxonomy.canonicalCuisine(candidate)
+            guard canonical != "Other" else { continue }
+            q.cuisine = canonical
+            consume(candidate)
+            break
+        }
 
         // ── Ingredient extraction using NaturalLanguage ─────────────────
         let tagger = NLTagger(tagSchemes: [.lexicalClass])
@@ -100,12 +115,16 @@ nonisolated struct NLQueryParser {
             return true
         }
 
+        // An excluded food ("no chicken") is never also a required ingredient.
+        q.ingredients.removeAll { consumed.contains($0) || q.exclude.contains($0) }
+
         // ── Fallback keywords (remove stop words) ───────────────────────
         let stopWords = Set(["something","anything","make","cook","with","and","or","for",
                              "the","a","an","some","any","what","can","i","want","need",
                              "quick","fast","easy","simple","no","not","without","free"])
         q.keywords = text.components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty && !stopWords.contains($0) && $0.count > 2 }
+            .map { $0.trimmingCharacters(in: CharacterSet.alphanumerics.inverted) }
+            .filter { !$0.isEmpty && !stopWords.contains($0) && !consumed.contains($0) && $0.count > 2 }
 
         return q
     }
@@ -124,7 +143,8 @@ nonisolated struct NLQueryParser {
             if mins > maxMins { return false }
         }
         // Cuisine filter
-        if let cuisine = query.cuisine {
+        if let cuisine = query.cuisine?.lowercased() {
+            // canonicalCuisine returns display case ("Italian"); compare lowercased.
             if !entry.cuisine.lowercased().contains(cuisine) &&
                !entry.category.lowercased().contains(cuisine) &&
                !entry.tags.contains(where: { $0.lowercased().contains(cuisine) }) { return false }

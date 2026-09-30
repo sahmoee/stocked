@@ -85,15 +85,25 @@ nonisolated enum NetworkRetryPolicy {
             guard secs.isFinite, secs >= 0, secs <= 31_536_000 else { return nil }
             return secs
         }
-        // HTTP-date form.
+        // HTTP-date form. The formatter is built once; DateFormatter construction is expensive
+        // and this runs on every 429/503 response.
+        if let date = httpDate(value) {
+            return max(date.timeIntervalSince(now), 0)
+        }
+        return nil
+    }
+
+    private static let httpDateLock = NSLock()
+    private static let httpDateFormatter: DateFormatter = {
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "en_US_POSIX")
         fmt.timeZone = TimeZone(secondsFromGMT: 0)
         fmt.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
-        if let date = fmt.date(from: value) {
-            return max(date.timeIntervalSince(now), 0)
-        }
-        return nil
+        return fmt
+    }()
+    private static func httpDate(_ value: String) -> Date? {
+        httpDateLock.lock(); defer { httpDateLock.unlock() }
+        return httpDateFormatter.date(from: value)
     }
 
     static func isTransient(_ error: Error) -> Bool {

@@ -830,7 +830,7 @@ struct InventoryHubView: View {
                     Spacer()
                     Image(systemName: "chevron.right")
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(.horizontal, 18).padding(.vertical, 14)
             }
@@ -927,7 +927,7 @@ struct InventoryHubView: View {
                 Spacer()
                 Image(systemName: "chevron.right")
                     .scaledFont(12, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(.horizontal, 18).padding(.vertical, 16)
             .background(
@@ -974,7 +974,7 @@ struct InventoryHubView: View {
             if preview.isEmpty {
                 Text("Nothing expiring in the next few days. Your kitchen's in good shape.")
                     .scaledFont(13.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.vertical, 4)
             } else {
                 VStack(spacing: 0) {
@@ -1085,7 +1085,7 @@ private struct ExpiringPreviewRow: View {
                 Spacer()
                 Text(expiryText)
                     .scaledFont(12.5, weight: .medium)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(.horizontal, 14).padding(.vertical, 13)
         }

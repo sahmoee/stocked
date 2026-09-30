@@ -64,7 +64,7 @@ struct UsageInsightsView: View {
                             Spacer()
                             Text("\(stat.count)")
                                 .scaledFont(14, weight: .bold, design: .serif)
-                                .foregroundStyle(stat.count == 0 ? session.themeTextColor.opacity(0.3) : Color.stockedAccentInk)
+                                .foregroundStyle(stat.count == 0 ? session.themeTextColor.opacity(0.7) : Color.stockedAccentInk)
                         }
                         .padding(.horizontal, 18).padding(.vertical, 11)
                         if idx < stats.count - 1 {

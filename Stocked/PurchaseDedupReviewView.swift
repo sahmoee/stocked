@@ -97,7 +97,7 @@ struct PurchaseDedupReviewView: View {
                         Button { onCancel() } label: {
                             Text("Cancel — don't import yet")
                                 .scaledFont(13.5, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         .buttonStyle(.plain)
                         .padding(.vertical, 4)

@@ -117,7 +117,7 @@ struct KitchenCheckView: View {
                     Toggle(isOn: stageBinding(r, current)) {
                         Text("Also update my inventory")
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .toggleStyle(.switch)
                     .tint(Color.stockedGold)
@@ -257,7 +257,7 @@ struct KitchenCheckView: View {
         VStack(spacing: 10) {
             Text(c.groupedSummary.isEmpty ? "All set" : c.groupedSummary)
                 .scaledFont(12.5, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.65))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
 
             Button {
                 finish()
@@ -277,7 +277,7 @@ struct KitchenCheckView: View {
             if c.unconfirmedCount > 0 {
                 Text("Resolve the \"not sure\" items to fully confirm your kitchen — or continue anyway.")
                     .scaledFont(11.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .multilineTextAlignment(.center)
             }
         }

@@ -200,7 +200,7 @@ struct HouseholdPaywallView: View {
 
                     Text("Only the household owner needs to buy this. Once you do, everyone you invite gets Household Sync at no extra cost.")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 12)
 
@@ -244,7 +244,7 @@ struct HouseholdPaywallView: View {
                     Text(premium.displayPrice.isEmpty
                          ? "Pricing shown at checkout."
                          : "\(premium.displayPrice) · one-time purchase")
-                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.bottom, 24)
                 }
                 .padding(20)
@@ -255,7 +255,7 @@ struct HouseholdPaywallView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Button("Close") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
         }

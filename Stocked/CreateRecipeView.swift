@@ -156,7 +156,7 @@ struct CreateRecipeView: View {
                                         ProgressView().controlSize(.small)
                                         Text("Tidying up the import…")
                                             .scaledFont(12)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }
                                     .padding(.horizontal, 16).padding(.bottom, 10)
                                 }
@@ -165,7 +165,7 @@ struct CreateRecipeView: View {
                                     Button { showOriginal = true } label: {
                                         Label("Show original text", systemImage: "doc.plaintext")
                                             .scaledFont(12, weight: .semibold)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }
                                     .buttonStyle(.plain)
                                     .padding(.horizontal, 16).padding(.bottom, 10)
@@ -228,7 +228,7 @@ struct CreateRecipeView: View {
                                         Button { difficulty = d } label: {
                                             Text(d)
                                                 .scaledFont(13, weight: .semibold)
-                                                .foregroundStyle(difficulty == d ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
+                                                .foregroundStyle(difficulty == d ? Color.stockedWhite : session.themeTextColor.opacity(0.7))
                                                 .padding(.horizontal, 14).padding(.vertical, 9)
                                                 .background(difficulty == d ? Color.stockedGold : Color.stockedWhite.opacity(0.35))
                                                 .clipShape(Capsule())
@@ -298,7 +298,7 @@ struct CreateRecipeView: View {
                                 if let msg = groceryPushMsg {
                                     Text(msg)
                                         .scaledFont(12)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                         .padding(.horizontal, 16).padding(.bottom, 12)
                                 }
                             }
@@ -768,10 +768,10 @@ struct CreateRecipeView: View {
                     VStack(spacing: 8) {
                         Image(systemName: "photo.badge.plus")
                             .scaledFont(34)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                         Text("Add a photo")
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
             }

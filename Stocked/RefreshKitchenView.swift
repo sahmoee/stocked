@@ -51,7 +51,7 @@ struct RefreshKitchenView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text("Tonight's matches are as accurate as your kitchen can make them.")
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 30)
                     }
@@ -128,7 +128,7 @@ struct RefreshKitchenView: View {
                     if let days = GuestDataStore.staleness(of: item) {
                         Text("Last seen \(days) day\(days == 1 ? "" : "s") ago · \(item.zone)")
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     } else if item.isExpiringSoon {
                         Text("Expiring soon · \(item.zone)")
                             .scaledFont(11.5)

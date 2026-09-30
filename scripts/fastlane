@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+script_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$script_root"
+if command -v brew >/dev/null 2>&1; then
+    ruby_prefix=$(brew --prefix ruby)
+    PATH="$ruby_prefix/bin:$PATH"
+    export PATH
+fi
+exec bundle exec fastlane "$@"

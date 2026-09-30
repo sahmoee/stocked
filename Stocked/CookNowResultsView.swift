@@ -4,10 +4,10 @@
 // "See meals" / "See All Options" / "More Possibilities". One list, real
 // classification, honest sections:
 //
-//   Ready now         — five or fewer unresolved after in-stock substitutions
+//   Ready now         — two or fewer unresolved after in-stock substitutions
 //   Swaps to review   — one confirmation away from ready
-//   Almost ready      — missing 6+ items after substitutions (fewest first)
-//   More possibilities— missing 6+ (closest first), collapsed by default
+//   Almost ready      — missing 3+ items after substitutions (fewest first)
+//   More possibilities— missing 3+ (closest first), collapsed by default
 //                       unless the caller focuses it
 //
 // Rows reuse CookRecipeCard and show the tier-appropriate status subtitle
@@ -217,7 +217,7 @@ struct CookNowResultsView: View {
             if let generationMessage {
                 Text(generationMessage)
                     .scaledFont(11, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
         }
         .padding(.horizontal, CookStyle.screenHPad)
@@ -253,7 +253,7 @@ struct CookNowResultsView: View {
 
     private var almostSection: some View {
         tierSection(title: "Almost ready",
-                    subtitle: "Missing 6 or more items after substitutions",
+                    subtitle: "Missing 3 or more items after substitutions",
                     items: snapshot.almostReady)
     }
 

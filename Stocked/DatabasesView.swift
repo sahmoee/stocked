@@ -324,10 +324,11 @@ private struct SubstitutionDBRow: View {
                     Button(action: onTap) {
                         Image(systemName: "info.circle")
                             .scaledFont(14)
-                            .foregroundStyle(session.themeTextColor.opacity(0.3))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }.buttonStyle(.plain)
+                        .accessibilityLabel("More information")
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(.horizontal, 20).padding(.vertical, 14)
                 .contentShape(Rectangle())
@@ -533,7 +534,7 @@ private struct AbbreviationRow: View {
                         .foregroundStyle(session.themeTextColor)
                     Image(systemName: "arrow.right")
                         .scaledFont(10)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text(entry.resolved)
                         .scaledFont(14)
                         .foregroundStyle(session.themeTextColor)
@@ -549,14 +550,16 @@ private struct AbbreviationRow: View {
 
             Button(action: onEdit) {
                 Image(systemName: "pencil").scaledFont(13)
-                    .foregroundStyle(entry.source == .builtIn ? session.themeTextColor.opacity(0.25) : Color.stockedAccentInk)
+                    .foregroundStyle(entry.source == .builtIn ? session.themeTextColor.opacity(0.7) : Color.stockedAccentInk)
             }.buttonStyle(.plain).padding(.trailing, 8)
+                .accessibilityLabel("Edit")
 
             if entry.source != .builtIn {
                 Button(action: onDelete) {
                     Image(systemName: "trash").scaledFont(13)
-                        .foregroundStyle(.red.opacity(0.6))
+                        .foregroundStyle(.red.opacity(0.7))
                 }.buttonStyle(.plain).padding(.trailing, 16)
+                    .accessibilityLabel("Delete")
             } else {
                 Color.clear.frame(width: 14 + 16) // keep alignment consistent
             }
@@ -734,7 +737,7 @@ private struct IngredientDBRow: View {
                             .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                         TextField("Zone", text: $editedZone)
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 } else {
                     Text(item.name)
@@ -745,7 +748,7 @@ private struct IngredientDBRow: View {
                             .scaledFont(11)
                             .foregroundStyle(Color.stockedAccentInk)
                         Text("·")
-                            .foregroundStyle(session.themeTextColor.opacity(0.3))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                         Text("\(Int(item.effectiveLevel * 100))% stocked")
                             .scaledFont(11)
                             .foregroundStyle(session.themeSecondaryText)
@@ -770,7 +773,7 @@ private struct IngredientDBRow: View {
                 .buttonStyle(.plain)
 
                 Button("Cancel") { showEdit = false }
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .buttonStyle(.plain)
             } else {
                 Button {
@@ -879,7 +882,7 @@ private struct TipDBRow: View {
                     }
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(.horizontal, 20).padding(.vertical, 14)
 

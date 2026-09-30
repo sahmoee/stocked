@@ -55,7 +55,7 @@ nonisolated extension Color {
     /// UIKit trait bridging updates legacy colors, SwiftUI surfaces and presented controls together.
     static func stockedPalette(pastel: UIColor, tan: UIColor) -> Color {
         Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle != .dark && traits[StockedLightThemeTrait.self] == .tan
+            traits[StockedLightThemeTrait.self] == .tan
                 ? tan.resolvedColor(with: traits) : pastel.resolvedColor(with: traits)
         })
     }

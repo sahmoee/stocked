@@ -60,7 +60,7 @@ struct DietaryProfileView: View {
                             Spacer(minLength: 6)
                             Image(systemName: "chevron.right")
                                 .scaledFont(12, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         .padding(14)
                         .background(session.themeCardColor,

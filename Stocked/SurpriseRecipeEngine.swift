@@ -589,7 +589,7 @@ nonisolated private func proteinCookTime(_ protein: String) -> String {
                 .foregroundStyle(.primary)
             Text("Generates recipes locally.\nNo network required.")
                 .scaledFont(14)
-                .foregroundStyle(Color.primary.opacity(0.5))
+                .foregroundStyle(Color.primary.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
         .padding(40)

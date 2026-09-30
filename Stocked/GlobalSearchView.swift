@@ -4,6 +4,9 @@ import SwiftUI
 struct GlobalSearchView: View {
     @Environment(AppSession.self) var session
     @State private var query = ""
+    /// Per-device recent searches (up to 8), separated by U+001F. A convenience only:
+    /// never synced, never part of backups.
+    @AppStorage("globalSearch.recent_v1") private var recentRaw = ""
     @State private var search = GlobalSearchController()
     @Environment(\.stockedLayout) private var layoutMetrics
     @FocusState private var focused: Bool
@@ -186,6 +189,7 @@ struct GlobalSearchView: View {
                 // Search bar
                 HStack(spacing: 12) {
                     StockedSearchField(text: $query, prompt: "Search your kitchen…", focus: $focused)
+                        .onSubmit { recordRecent(query) }
                     if search.isSearchingLocal || search.isSearchingOnline {
                         ProgressView().tint(session.accentColor)
                             .accessibilityLabel("Searching")
@@ -219,6 +223,10 @@ struct GlobalSearchView: View {
                             .foregroundStyle(session.themeSecondaryText)
                         Spacer()
                     }.padding(.horizontal, 20).padding(.bottom, 4)
+                }
+
+                if query.isEmpty && !recentSearches.isEmpty {
+                    recentSearchesSection
                 }
 
                 if allResults.isEmpty && !query.isEmpty {
@@ -302,7 +310,52 @@ struct GlobalSearchView: View {
         NotificationCenter.default.post(name: .stockedSwitchTab, object: tab)
     }
 
+    private var recentSearches: [String] {
+        recentRaw.split(separator: "\u{1F}").map(String.init).filter { !$0.isEmpty }
+    }
+
+    private func recordRecent(_ raw: String) {
+        let term = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard term.count >= 2 else { return }
+        var list = recentSearches.filter { $0.caseInsensitiveCompare(term) != .orderedSame }
+        list.insert(String(term.prefix(60)), at: 0)
+        recentRaw = list.prefix(8).joined(separator: "\u{1F}")
+    }
+
+    private var recentSearchesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("RECENT")
+                    .scaledFont(10, weight: .bold)
+                    .foregroundStyle(session.accentColor)
+                Spacer()
+                Button("Clear") { recentRaw = "" }
+                    .scaledFont(12, weight: .semibold)
+                    .foregroundStyle(session.themeSecondaryText)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Clear recent searches")
+            }
+            StockedFlowLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(recentSearches, id: \.self) { term in
+                    Button { query = term } label: {
+                        Label(term, systemImage: "clock.arrow.circlepath")
+                            .scaledFont(13, weight: .medium)
+                            .lineLimit(1)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .foregroundStyle(session.themeTextColor)
+                            .background(session.themeTextColor.opacity(0.06), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Search again for \(term)")
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
+    }
+
     private func handleSelect(_ r: SearchResult) {
+        recordRecent(query)
         // Track open for popularity ranking (#19)
         if case .cachedRecipe(let recipe) = r {
             Task { await RecipeDatabaseManager.shared.recordOpen(id: recipe.id) }
@@ -330,8 +383,11 @@ struct GlobalSearchView: View {
                     .background(r.sourceTint.opacity(0.12)).clipShape(Capsule())
             }
             .padding(.horizontal, 20).padding(.vertical, 11).contentShape(Rectangle())
+            .accessibilityAddTraits(.isButton)
             .onTapGesture {
                 focused = false
+                // Popularity ranking (#19) and recent searches; this was never called before.
+                handleSelect(r)
                 switch r {
                 case .onlineRecipe(let recipe):
                     selectedOnline = recipe

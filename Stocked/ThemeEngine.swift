@@ -1,6 +1,6 @@
 // ThemeEngine.swift — Computed color properties for AppSession.
 // Custom 6-channel theming has been removed: the app now supports ONLY the standard
-// light and dark appearance. These vars keep their original names (775+ call sites use
+// Pastel/Tan light palettes and dark appearance. These vars keep their original names (775+ call sites use
 // them) but resolve from the light/dark design tokens, so every surface follows the
 // system-style light/dark palette and the user's isDarkMode choice.
 import SwiftUI

@@ -139,7 +139,7 @@ struct FamilyProfilesView: View {
     private func row(_ p: EaterProfile) -> some View {
         HStack(spacing: 12) {
             Image(systemName: p.isPresent ? "person.fill" : "person")
-                .foregroundStyle(p.isPresent ? session.accentColor : session.themeTextColor.opacity(0.3))
+                .foregroundStyle(p.isPresent ? session.accentColor : session.themeTextColor.opacity(0.7))
             VStack(alignment: .leading, spacing: 2) {
                 Text(p.name.isEmpty ? "Unnamed" : p.name).scaledFont(15, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
@@ -147,12 +147,12 @@ struct FamilyProfilesView: View {
                               p.allergies.isEmpty ? nil : "avoids \(p.allergies.joined(separator: ", "))"]
                     .compactMap { $0 }.joined(separator: " · ")
                 if !detail.isEmpty {
-                    Text(detail).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    Text(detail).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
             Spacer()
             Text("×\(p.portionMultiplier == p.portionMultiplier.rounded() ? String(Int(p.portionMultiplier)) : String(format: "%.1f", p.portionMultiplier))")
-                .scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.45))
+                .scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.7))
         }
     }
 }

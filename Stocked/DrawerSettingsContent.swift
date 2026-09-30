@@ -139,7 +139,7 @@ struct SettingsContent: View {
             Button("Delete Account", role: .destructive) { session.deleteAccount() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone.")
+            Text("This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. Copies held by our sync service can be removed through the deletion request in Help & Support. This cannot be undone.")
         }
     }
 
@@ -338,7 +338,7 @@ struct DrawerContent: View {
                     motion.animate(.navigation, intent: .spatial) { showDrawer = false }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .scaledFont(22).foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .scaledFont(22).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
             }
             .padding(.horizontal, 22).padding(.top, 56).padding(.bottom, 16)
@@ -540,7 +540,7 @@ struct DrawerContent: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon).scaledFont(16)
-                    .foregroundStyle(session.themeTextColor.opacity(0.65)).frame(width: 26)
+                    .foregroundStyle(session.themeTextColor.opacity(0.7)).frame(width: 26)
                 Text(title).scaledFont(15, weight: .medium, design: .serif).foregroundStyle(session.themeTextColor)
                 Spacer()
             }.padding(.vertical, 8).padding(.horizontal, 14)

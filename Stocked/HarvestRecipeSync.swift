@@ -23,6 +23,7 @@
 // simply doesn't see yet — never an error surfaced in the kitchen.
 
 import Foundation
+import CryptoKit
 import os
 import Observation
 
@@ -44,6 +45,9 @@ final class HarvestRecipeSync {
     private let cursorKey = "harvestRecipeSyncCursor_v2"
     private let completedKey = "harvestRecipeCatalogueCompleted_v2"
     private let cachedCountKey = "harvestRecipeCatalogueCachedCount_v1"
+    /// SHA-256 of the last first-page body that was fully ingested. An identical body is not
+    /// re-written to the catalogue or re-announced; the cursor/completion bookkeeping still runs.
+    private let firstPageDigestKey = "harvestRecipeFirstPageDigest_v1"
     var catalogueCount: Int
     var refreshingCatalogue = false
     var catalogueError = false
@@ -278,6 +282,10 @@ final class HarvestRecipeSync {
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
 
             let base = StockedUnifiedWorker.baseURLString
+            let pageDigest: String? = cursor == nil
+                ? SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() : nil
+            let firstPageUnchanged = pageDigest != nil && catalogueCount > 0
+                && UserDefaults.standard.string(forKey: firstPageDigestKey) == pageDigest
             let (imports, next) = try await Task.detached(priority: .utility) {
                 let decoded = try JSONDecoder().decode(HarvestWireResponse.self, from: data)
                 let next = try RecipeCataloguePaging.next(current: cursor, complete: decoded.complete, next: decoded.nextCursor)
@@ -291,9 +299,12 @@ final class HarvestRecipeSync {
             try Task.checkCancellation()
             // Commit EVERY public row to the durable catalogue before the small
             // in-memory discovery snapshot can evict it, and before checkpointing.
-            try await RecipeDatabaseManager.shared.ingestCataloguePage(entries)
+            if !firstPageUnchanged {
+                try await RecipeDatabaseManager.shared.ingestCataloguePage(entries)
+                if let pageDigest { UserDefaults.standard.set(pageDigest, forKey: firstPageDigestKey) }
+            }
 
-            if !entries.isEmpty, cursor == nil {
+            if !entries.isEmpty, cursor == nil, !firstPageUnchanged {
                 // Keep a small warm first page for existing rails. Do not cycle the
                 // complete corpus through the bounded snapshot, evict useful rows, or
                 // repeatedly announce historical catalogue pages as household imports.

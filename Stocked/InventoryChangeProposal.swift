@@ -1150,7 +1150,7 @@ struct ReconcileSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(subtitle)
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 20).padding(.top, 8)
 
@@ -1169,7 +1169,7 @@ struct ReconcileSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -1211,13 +1211,13 @@ struct ReconcileSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: change.wrappedValue.isConfirmed ? "checkmark.circle.fill" : "circle")
                     .scaledFont(22)
-                    .foregroundStyle(change.wrappedValue.isConfirmed ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(change.wrappedValue.isConfirmed ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(change.wrappedValue.effectText)
                         .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(change.wrappedValue.reason)
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                     if let issue = change.wrappedValue.reviewIssues.first {
                         Label(issue.message, systemImage: "exclamationmark.triangle.fill")
                             .scaledFont(11, weight: .medium)
@@ -1229,13 +1229,13 @@ struct ReconcileSheet: View {
                     if alternativeCount > 0 {
                         Text("\(alternativeCount) alternate source \(alternativeCount == 1 ? "value" : "values") available")
                             .scaledFont(10)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 6) {
                     Image(systemName: change.wrappedValue.iconName)
-                        .scaledFont(16).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .scaledFont(16).foregroundStyle(session.themeTextColor.opacity(0.7))
                     if let badge = change.wrappedValue.sourceBadge {
                         SourceBadgeView(badge: badge)
                     }
@@ -1253,9 +1253,9 @@ struct ReconcileSheet: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.circle")
-                .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.3))
+                .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.7))
             Text("Nothing to update")
-                .scaledFont(16, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.6))
+                .scaledFont(16, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.7))
         }
         .frame(maxWidth: .infinity).padding(.top, 60)
     }
@@ -1291,7 +1291,7 @@ struct QuickUpdateSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Tell me what you bought, used, or ran out of — in your own words. I'll suggest the changes and you confirm them.")
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.65))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
 
                     // Input
@@ -1311,13 +1311,13 @@ struct QuickUpdateSheet: View {
                     }
                     if noChangesNote {
                         Text("I couldn't find anything to change from that. Try naming specific items.")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
 
                     // Examples
                     VStack(alignment: .leading, spacing: 8) {
                         Text("TRY").scaledFont(10, weight: .bold).tracking(1)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                         ForEach(examples, id: \.self) { ex in
                             Button { text = ex; focused = false } label: {
                                 HStack(spacing: 8) {
@@ -1340,7 +1340,7 @@ struct QuickUpdateSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Button("Cancel") { dismiss() }.foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
             .safeAreaInset(edge: .bottom) {

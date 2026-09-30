@@ -121,7 +121,7 @@ struct ReorderSoonView: View {
     private func empty(_ title: String, _ msg: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "arrow.clockwise.circle")
-                .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
+                .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.7))
             Text(title).scaledFont(16, weight: .semibold).foregroundStyle(session.themeTextColor)
             Text(msg).scaledFont(13).multilineTextAlignment(.center)
                 .foregroundStyle(session.themeSecondaryText).padding(.horizontal, 20)

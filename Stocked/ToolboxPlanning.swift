@@ -273,7 +273,7 @@ struct BatchCookPlannerView: View {
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(session.themeSecondaryText.opacity(0.6))
+                                        .foregroundStyle(session.themeSecondaryText.opacity(0.7))
                                 }
                             }
                         }

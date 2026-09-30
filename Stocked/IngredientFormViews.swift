@@ -31,11 +31,12 @@ struct IngredientFormRow: View {
                 Spacer()
                 Button { withAnimation { expanded.toggle() } } label: {
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
                 Button(action: onDelete) {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.red.opacity(0.5))
                 }.buttonStyle(.plain)
+                    .accessibilityLabel("Clear")
             }.padding(14).contentShape(Rectangle())
 
             if expanded {

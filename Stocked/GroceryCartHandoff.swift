@@ -125,7 +125,7 @@ struct GroceryCartHandoffView: View {
                 if items.isEmpty {
                     Spacer()
                     Text("Nothing on the list to shop for.")
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                     Spacer()
                 } else {
                     List {
@@ -141,7 +141,7 @@ struct GroceryCartHandoffView: View {
                                         Spacer()
                                         Image(systemName: "arrow.up.right.square")
                                             .scaledFont(12)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }
                                 }.buttonStyle(.plain)
                             }

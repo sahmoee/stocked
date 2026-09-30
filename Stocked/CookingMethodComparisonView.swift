@@ -154,7 +154,7 @@ struct CookingMethodComparisonView: View {
                 if method.goodForCookAhead { stat("calendar", "cook ahead") }
             }
             .scaledFont(11.5)
-            .foregroundStyle(session.themeTextColor.opacity(0.6))
+            .foregroundStyle(session.themeTextColor.opacity(0.7))
 
             if !available {
                 let blocking = method.blockingEquipment(usable: usable).map { $0.rawValue }.joined(separator: ", ")

@@ -494,11 +494,15 @@ final class FeatureSync {
                                                    remoteWriterID: r.lastWriterID,
                                                    localUpdatedAt: mine.updatedAt,
                                                    localWriterID: mine.lastWriterID) {
-                    SyncConflictLog.shared.record(entityType: entityType,
-                                                  entityName: name(mine),
-                                                  replaced: name(mine),
-                                                  winning: name(r),
-                                                  writer: r.lastWriterID)
+                    // Decide on content, not on the label: most household edits change an
+                    // amount, note or list while the name stays the same.
+                    if let lost = Self.conflictSummary(mine: mine, theirs: r) {
+                        SyncConflictLog.shared.record(entityType: entityType,
+                                                      entityName: name(mine),
+                                                      replaced: lost.replaced,
+                                                      winning: lost.winning,
+                                                      writer: r.lastWriterID)
+                    }
                     byID[r.id] = r
                 }
             } else {
@@ -510,6 +514,34 @@ final class FeatureSync {
         var out: [T] = local.compactMap { byID.removeValue(forKey: $0.id) }
         out.append(contentsOf: byID.values.sorted { $0.updatedAt < $1.updatedAt })
         return out
+    }
+
+    /// The fields that differ between a discarded local value and the winning remote one,
+    /// ignoring sync bookkeeping. Nil when nothing a person would notice was lost.
+    nonisolated static func conflictSummary<T: HouseholdSyncable>(mine: T, theirs: T) -> (replaced: String, winning: String)? {
+        func fields(_ value: T) -> [String: Any]? {
+            guard let data = try? JSONEncoder().encode(value),
+                  var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+            dict["updatedAt"] = nil; dict["lastWriterID"] = nil
+            return dict
+        }
+        guard let a = fields(mine), let b = fields(theirs) else { return nil }
+        let changed = Set(a.keys).union(b.keys).filter { key in
+            switch (a[key], b[key]) {
+            case (nil, nil): return false
+            case let (l?, r?): return !(l as AnyObject).isEqual(r)
+            default: return true
+            }
+        }.sorted()
+        guard !changed.isEmpty else { return nil }
+        func describe(_ dict: [String: Any]) -> String {
+            changed.prefix(4).map { key -> String in
+                let raw = dict[key].map { String(describing: $0) } ?? "—"
+                let flat = raw.replacingOccurrences(of: "\n", with: " ")
+                return "\(key): \(flat.count > 48 ? String(flat.prefix(47)) + "…" : flat)"
+            }.joined(separator: " · ") + (changed.count > 4 ? " · +\(changed.count - 4) more" : "")
+        }
+        return (describe(a), describe(b))
     }
 
     /// StoreLayout is keyed by store name, not UUID — it gets its own tiny merge.

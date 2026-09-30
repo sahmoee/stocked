@@ -95,14 +95,42 @@ nonisolated enum CookNowPrepDeriver {
         }
     }
 
-    /// "sliced" → "Slice", "minced" → "Mince", "finely chopped" → "Finely chop".
-    private static func prepVerb(from prep: String) -> String {
-        var p = prep.lowercased()
-        if p.hasSuffix("ed"), p.count > 3 {
-            p = String(p.dropLast(1))                    // "sliced" → "slice", "diced" → "dice"
-            if p.hasSuffix("pp") { p = String(p.dropLast(1)) }   // "chopped" → "chop"
-        }
+    /// "sliced" → "Slice", "minced" → "Mince", "finely chopped" → "Finely chop",
+    /// "shredded" → "Shred", "peeled" → "Peel". Only the last word of a
+    /// past-participle note is converted; other notes are kept as written.
+    static func prepVerb(from prep: String) -> String {
+        var words = prep.lowercased().split(separator: " ").map(String.init)
+        guard let last = words.last else { return prep }
+        words[words.count - 1] = baseForm(of: last)
+        let p = words.joined(separator: " ")
         return p.prefix(1).uppercased() + p.dropFirst()
+    }
+
+    /// Past participle → base verb for kitchen prep words.
+    static func baseForm(of word: String) -> String {
+        let irregular: [String: String] = [
+            "torn": "tear", "cut": "cut", "shelled": "shell", "pressed": "press",
+            "pureed": "purée", "puréed": "purée", "sauteed": "sauté", "sautéed": "sauté",
+            "quartered": "quarter", "softened": "soften", "peeled": "peel", "cooled": "cool",
+            "drained": "drain", "rinsed": "rinse", "squeezed": "squeeze", "measured": "measure",
+            "cored": "core", "scored": "score", "divided": "divide", "julienned": "julienne",
+            "beaten": "beat", "grilled": "grill", "rolled": "roll", "chilled": "chill"
+        ]
+        if let known = irregular[word] { return known }
+        guard word.hasSuffix("ed"), word.count > 4 else { return word }
+        var stem = String(word.dropLast(2))                          // "chopped" → "chopp"
+        let chars = Array(stem)
+        if chars.count >= 2, chars[chars.count - 1] == chars[chars.count - 2],
+           "bdgmnprt".contains(chars[chars.count - 1]) {
+            stem.removeLast()                                        // "chopp" → "chop", "shredd" → "shred"
+            return stem
+        }
+        // Silent-e verbs: "slic" → "slice", "cub" → "cube", "grat" → "grate", "halv" → "halve".
+        let silentE = stem.hasSuffix("at") || stem.hasSuffix("iz") || stem.hasSuffix("ub")
+            || stem.hasSuffix("bl") || stem.hasSuffix("gl") || stem.hasSuffix("dl") || stem.hasSuffix("tl")
+            || stem.hasSuffix("dg") || stem.hasSuffix("ic")
+            || "cvz".contains(stem.last ?? " ")
+        return silentE ? stem + "e" : stem
     }
 }
 
@@ -124,7 +152,7 @@ struct PrepChecklistView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Knock these out before step 1 and the cook goes smoothly.")
                     .scaledFont(13.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
 
                 if tasks.isEmpty {
@@ -137,6 +165,8 @@ struct PrepChecklistView: View {
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 40)
                 } else {
+                    prepToolbar
+                        .padding(.horizontal, CookStyle.screenHPad)
                     VStack(spacing: 8) {
                         ForEach(tasks) { task in
                             row(task)
@@ -147,7 +177,7 @@ struct PrepChecklistView: View {
                     if tasks.contains(where: { $0.isProteinHandling }) {
                         Text("Raw meat and seafood prep is listed last.")
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .padding(.horizontal, CookStyle.screenHPad)
                     }
                 }
@@ -172,6 +202,44 @@ struct PrepChecklistView: View {
 
     private var doneCount: Int { tasks.filter { isDone($0) }.count }
 
+    /// Progress, "mark all", and a shareable prep list so a helper can take tasks.
+    private var prepToolbar: some View {
+        HStack(spacing: 12) {
+            Text("\(doneCount) of \(tasks.count) done")
+                .scaledFont(12.5, weight: .semibold)
+                .monospacedDigit()
+                .foregroundStyle(session.themeSecondaryText)
+                .accessibilityLabel("\(doneCount) of \(tasks.count) prep tasks done")
+            Spacer(minLength: 8)
+            Button(doneCount == tasks.count ? "Clear all" : "Mark all done") { setAll(doneCount != tasks.count) }
+                .scaledFont(12.5, weight: .semibold)
+                .foregroundStyle(Color.stockedAccentInk)
+                .frame(minHeight: 44)
+            ShareLink(item: shareText, subject: Text("Prep for \(recipe.title.recipeDisplayTitle)")) {
+                Image(systemName: "square.and.arrow.up")
+                    .scaledFont(14, weight: .semibold)
+                    .foregroundStyle(Color.stockedAccentInk)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .accessibilityLabel("Share prep list")
+        }
+    }
+
+    private var shareText: String {
+        let lines = tasks.map { task in
+            "\(isDone(task) ? "☑︎" : "☐") \(task.title)" + (task.detail.isEmpty ? "" : " — \(task.detail)")
+        }
+        return (["Prep for \(recipe.title.recipeDisplayTitle)"] + lines).joined(separator: "\n")
+    }
+
+    private func setAll(_ done: Bool) {
+        for task in tasks where isDone(task) != done {
+            if let cs = cookSession { cs.setPrepDone(task.id, done: done) }
+            else if done { localDone.insert(task.id) } else { localDone.remove(task.id) }
+        }
+        HapticManager.success()
+    }
+
     private func isDone(_ t: CookPrepTask) -> Bool {
         cookSession?.isPrepDone(t.id) ?? localDone.contains(t.id)
     }
@@ -191,7 +259,7 @@ struct PrepChecklistView: View {
             HStack(spacing: 10) {
                 Image(systemName: isDone(t) ? "checkmark.circle.fill" : "circle")
                     .scaledFont(18)
-                    .foregroundStyle(isDone(t) ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(isDone(t) ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(t.title)
                         .scaledFont(14, weight: .semibold)
@@ -200,7 +268,7 @@ struct PrepChecklistView: View {
                     if !t.detail.isEmpty {
                         Text(t.detail)
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
                 Spacer()

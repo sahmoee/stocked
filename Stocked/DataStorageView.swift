@@ -65,7 +65,7 @@ struct DataStorageView: View {
                                 .foregroundStyle(session.themeSecondaryText)
                             Image(systemName: "arrow.right")
                                 .scaledFont(10)
-                                .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                             migratedBadge(for: row.key, live: row.live)
                         }
                         .scaledFont(14)

@@ -48,13 +48,13 @@ enum CookNowCompute {
         var metrics = CookNowMetrics()
         var emphasis: CookNowMetrics.Emphasis = .noMatches
 
-        /// Recipes in Ready Now: five or fewer unresolved after substitutions.
+        /// Recipes in Ready Now: two or fewer unresolved after substitutions.
         var readyNow: [ClassifiedRecipe] = []
         /// Recipes with an in-stock substitution awaiting review (also Ready Now).
         var needsReview: [ClassifiedRecipe] = []
-        /// Almost Ready: six or more unresolved after substitutions, closest first.
+        /// Almost Ready: three or more unresolved after substitutions, closest first.
         var almostReady: [ClassifiedRecipe] = []
-        /// Compatibility alias for the six-plus population.
+        /// Compatibility alias for the three-plus population.
         var morePossibilities: [ClassifiedRecipe] = []
 
         /// True when every tier is empty — one cheap check instead of touching
@@ -77,7 +77,7 @@ enum CookNowCompute {
                 return !$0.usesReservedIngredients && $1.usesReservedIngredients
             }
             needsReview = classified.filter { $0.readiness == .swapNeedsReview }
-            almostReady = classified.filter { $0.readiness != .excluded && $0.unresolvedCount >= 6 }
+            almostReady = classified.filter { $0.readiness != .excluded && $0.unresolvedCount >= 3 }
                 .sorted { $0.unresolvedCount < $1.unresolvedCount }
             morePossibilities = CookNowEngine.morePossibilities(in: classified)
         }
@@ -321,7 +321,7 @@ enum CookNowCompute {
         let reserved = ReservationLedger.shared.snapshot.reservedNames
         let sessionKey = sessionComponent(session)
         return await Task.detached(priority: .utility) {
-            var parts = ["cook-now-output-v1", scope]
+            var parts = ["cook-now-output-v2", scope]
             parts += inventory.sorted { $0.id.uuidString < $1.id.uuidString }.map {
             "i|\($0.id)|\($0.updatedAt)|\($0.name.lowercased())|\($0.quantity)|\($0.level)|\($0.quantityUsed ?? -1)|\($0.expirationDate?.timeIntervalSince1970 ?? -1)"
             }

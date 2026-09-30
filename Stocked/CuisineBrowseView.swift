@@ -63,7 +63,7 @@ struct CuisineBrowseView: View {
                 .foregroundStyle(session.themeSecondaryText)
             Image(systemName: "chevron.right")
                 .scaledFont(13, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
         }
         .padding(.vertical, 12).padding(.horizontal, 16)
         .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.18))
@@ -157,15 +157,15 @@ struct CuisineRecipesView: View {
                     VStack(spacing: 14) {
                         ProgressView().tint(Color.stockedGold)
                         Text("Finding \(area) recipes…")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .frame(maxWidth: .infinity).padding(.top, 60)
                 } else if recipes.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "wifi.exclamationmark")
-                            .scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.7))
                         Text("Couldn't load \(area) recipes right now.")
-                            .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity).padding(.top, 60).padding(.horizontal, 32)

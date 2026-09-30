@@ -247,7 +247,7 @@ struct FoodsSubOptionView: View {
                             .foregroundStyle(Color.stockedWhite)
                         Text(headline)
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -269,7 +269,7 @@ struct FoodsSubOptionView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "hand.tap")
                                 .scaledFont(11)
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                             Text("Dimmed items aren't in your pantry — you can still select them to plan ahead or shop for ingredients.")
                                 .scaledFont(11)
                                 .foregroundStyle(session.themeSecondaryText)
@@ -414,7 +414,7 @@ struct MoodsCategoryView: View {
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .scaledFont(14).foregroundStyle(Color.stockedAccentInk.opacity(0.4))
+                                    .scaledFont(14).foregroundStyle(Color.stockedAccentInk.opacity(0.7))
                             }
                             .padding(.horizontal, 20)
                             .contentShape(Rectangle())
@@ -572,12 +572,12 @@ struct MoodsSubOptionView: View {
                                         .foregroundStyle(Color.stockedAccentInk)
                                     Text(opt.description)
                                         .scaledFont(12)
-                                        .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .scaledFont(12).foregroundStyle(Color.stockedAccentInk.opacity(0.5))
+                                    .scaledFont(12).foregroundStyle(Color.stockedAccentInk.opacity(0.7))
                             }
                             .padding(.horizontal, 20).padding(.vertical, 15)
                             .background(Color.stockedCharcoal)
@@ -675,7 +675,7 @@ struct MoodRecipeFinderView: View {
                     .multilineTextAlignment(.center)
                 Text("Checking the web, your database, and AI for the perfect match")
                     .scaledFont(13)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .multilineTextAlignment(.center)
             }
             ProgressView().tint(Color.stockedGold).scaleEffect(1.4)
@@ -713,7 +713,7 @@ struct MoodRecipeFinderView: View {
                     Label(r.cookTime.isEmpty ? "Cook time unknown" : r.cookTime, systemImage: "flame").scaledFont(12)
                     Label("\(servings) servings", systemImage: "person.2").scaledFont(12)
                 }
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 if !sourceNote.isEmpty {
                     Label(sourceNote, systemImage: "sparkles")
                         .scaledFont(11, weight: .semibold)
@@ -768,7 +768,7 @@ struct MoodRecipeFinderView: View {
             Spacer()
             Image(systemName: "wifi.slash").scaledFont(44).foregroundStyle(session.themeTextColor.opacity(0.25))
             Text("Couldn't find a recipe right now.")
-                .scaledFont(17, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.6))
+                .scaledFont(17, design: .serif).foregroundStyle(session.themeTextColor.opacity(0.7))
             Button { fetchRecipe() } label: {
                 Label("Try Again", systemImage: "arrow.clockwise")
                     .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)

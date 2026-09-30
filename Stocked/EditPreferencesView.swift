@@ -92,6 +92,7 @@ struct EditPreferencesView: View {
                             if cuisinePrefs.contains(cuisine) { cuisinePrefs.removeAll { $0 == cuisine } }
                             else { cuisinePrefs.append(cuisine) }
                         }
+                        .accessibilityAddTraits(.isButton)
                         .listRowBackground(Color.clear)
                     }
                 } header: {

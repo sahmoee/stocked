@@ -30,7 +30,7 @@ struct AIInventoryScanView: View {
                                 .foregroundStyle(session.themeTextColor)
                             Text("\(updates.count) suggestion\(updates.count == 1 ? "" : "s") — uncheck anything you don't want. Nutrition and expiry values are AI estimates.")
                                 .scaledFont(12)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer()
@@ -74,7 +74,7 @@ struct AIInventoryScanView: View {
                     Button { dismiss() } label: {
                         Text("Cancel")
                             .scaledFont(14)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.plain)
@@ -94,7 +94,7 @@ struct AIInventoryScanView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: u.isConfirmed ? "checkmark.circle.fill" : "circle")
                     .scaledFont(20)
-                    .foregroundStyle(u.isConfirmed ? Color.stockedAccentInk : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(u.isConfirmed ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {
@@ -119,7 +119,7 @@ struct AIInventoryScanView: View {
                     if !u.reason.isEmpty {
                         Text(u.reason)
                             .scaledFont(11.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                     }

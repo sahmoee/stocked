@@ -1,0 +1,4 @@
+--swiftversion 5.10
+--rules trailingSpace,consecutiveBlankLines,blankLinesAtEndOfScope,linebreakAtEndOfFile
+--linebreaks lf
+--exclude **/.build,**/checkouts,**/Pods

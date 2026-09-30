@@ -74,7 +74,7 @@ struct UseSomethingUpView: View {
                 if expiring.isEmpty {
                     Text("Nothing's expiring soon — your kitchen's in good shape.")
                         .scaledFont(13.5)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.horizontal, CookStyle.screenHPad)
                 } else {
                     VStack(spacing: 8) {
@@ -92,7 +92,7 @@ struct UseSomethingUpView: View {
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right").scaledFont(11, weight: .semibold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }
                                 .padding(13)
                                 .background(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.5))

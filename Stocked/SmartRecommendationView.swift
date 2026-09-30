@@ -245,7 +245,7 @@ struct SmartRecommendationView: View {
                     }
                 }
                 .scaledFont(12.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.65))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
 
                 readinessLine(c)
             }
@@ -429,7 +429,7 @@ struct SmartRecommendationView: View {
             ProgressView()
             Text("Finding the best recipe for you…")
                 .scaledFont(13)
-                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
         }
         .frame(maxWidth: .infinity).padding(.vertical, 60)
     }

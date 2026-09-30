@@ -28,6 +28,10 @@ final class SpoonacularCache {
     }
 
     private var entries: [String: Entry] = [:]
+    // Writes are coalesced: a burst of lookups/stores rewrites the JSON file once, not per call.
+    private var persistTask: Task<Void, Never>?
+    private var persistDirty = false
+    private var cachedSizeBytes: Int?
 
     private init() { load() }
 
@@ -83,12 +87,16 @@ final class SpoonacularCache {
     func has(_ key: String) -> Bool { cachedData(forKey: key) != nil }
 
     var sizeBytes: Int {
-        (try? JSONEncoder().encode(entries).count) ?? 0
+        if let cachedSizeBytes { return cachedSizeBytes }
+        let size = entries.values.reduce(0) { $0 + $1.json.count + 48 }
+        cachedSizeBytes = size
+        return size
     }
 
     /// Drop everything (e.g. a manual refresh).
     func clear() {
         entries.removeAll()
+        persistTask?.cancel(); persistTask = nil; persistDirty = false; cachedSizeBytes = nil
         LocalDatabase.shared.delete(key: storageKey)
         UserDefaults.standard.removeObject(forKey: legacyStoreKey)
     }
@@ -112,6 +120,22 @@ final class SpoonacularCache {
     }
 
     private func persist() {
+        cachedSizeBytes = nil
+        persistDirty = true
+        guard persistTask == nil else { return }
+        persistTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled, let self else { return }
+            self.persistTask = nil
+            self.flushPending()
+        }
+    }
+
+    /// Writes any coalesced changes now. Call when the app leaves the foreground.
+    func flushPending() {
+        persistTask?.cancel(); persistTask = nil
+        guard persistDirty else { return }
+        persistDirty = false
         LocalDatabase.shared.save(entries, key: storageKey)
     }
 }

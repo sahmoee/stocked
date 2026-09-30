@@ -25,7 +25,7 @@ struct LiveInventoryZoneView: View {
                         .foregroundStyle(session.themeSecondaryText)
                     Text("Tap \"+ Manual\" below to get started")
                         .font(.stockedSans(12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
@@ -89,7 +89,7 @@ struct LiveInventoryItemCard: View {
                    runOut.timeIntervalSinceNow < 86_400 * 6 {
                     Text(runOut < Date() ? "Likely out" : "Runs out ~\(Self.runOutFormatter.string(from: runOut))")
                         .font(.stockedSans(11))
-                        .foregroundStyle(runOut.timeIntervalSinceNow < 86_400 * 2 ? .red : session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(runOut.timeIntervalSinceNow < 86_400 * 2 ? .red : session.themeTextColor.opacity(0.7))
                 }
             }
             Spacer()
@@ -237,7 +237,7 @@ struct ReceiptRow: View {
                 if !isConfirmed {
                     Text("Raw: \(item.raw)")
                         .font(.stockedSans(12))
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
             Spacer()
@@ -310,6 +310,7 @@ struct StashView: View {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .onTapGesture { moveModal = nil }
+                    .accessibilityAddTraits(.isButton)
 
                 VStack(spacing: 20) {
                     Text("Move to Active?")

@@ -227,7 +227,7 @@ struct PreparationDiscoveryView: View {
                         if intent != .buildFullMeal && Self.role(c.recipe).isStandalone { metaLabel("checkmark.circle", "no sides needed") }
                     }
                     .scaledFont(11.5)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(.top, 10)
             }

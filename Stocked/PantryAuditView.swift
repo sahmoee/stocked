@@ -35,7 +35,7 @@ struct PantryAuditView: View {
                                 .foregroundStyle(session.themeTextColor)
                             Text("Your inventory matches your real kitchen. Recipe matches and grocery suggestions are as accurate as they can be.")
                                 .scaledFont(13)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 30)
                         }

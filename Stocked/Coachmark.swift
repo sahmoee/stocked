@@ -97,7 +97,14 @@ enum CoachmarkStore {
     /// Reset all page flags (used by a future replay-from-settings action).
     static func resetAll() {
         for p in CoachmarkPage.allCases { UserDefaults.standard.removeObject(forKey: p.seenKey) }
+        // Pages that are already alive re-arm, so the tour shows on their next appearance.
+        NotificationCenter.default.post(name: .coachmarksReset, object: nil)
     }
+}
+
+extension Notification.Name {
+    /// Posted by `CoachmarkStore.resetAll()` ("Replay app tips" in Settings).
+    static let coachmarksReset = Notification.Name("stocked.coachmarksReset")
 }
 
 // MARK: - Page attachment modifier
@@ -139,6 +146,9 @@ private struct CoachmarkHost: ViewModifier {
                 }
                 .ignoresSafeArea()
                 .allowsHitTesting(active)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .coachmarksReset)) { _ in
+                active = false; index = 0; appeared = false
             }
             .onAppear {
                 // Slight delay so the page has laid out and anchors are reported before we draw.
@@ -211,7 +221,8 @@ private struct CoachmarkOverlay: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { onNext() }   // tap anywhere to advance
+        .onTapGesture { onNext() }
+        .accessibilityAddTraits(.isButton)   // tap anywhere to advance
     }
 
     // Dimmed background with a rounded hole punched around the spotlight, with a soft gold
@@ -285,7 +296,7 @@ private struct CoachmarkOverlay: View {
                 Spacer()
                 Text("\(stepNumber) of \(stepCount)")
                     .scaledFont(11, weight: .semibold)
-                    .foregroundStyle((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.45))
+                    .foregroundStyle((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.7))
             }
             Text(step.body)
                 .scaledFont(14)
@@ -294,7 +305,7 @@ private struct CoachmarkOverlay: View {
             HStack {
                 Button("Skip") { onSkip() }
                     .scaledFont(13, weight: .medium)
-                    .foregroundStyle((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.5))
+                    .foregroundStyle((isDark ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.7))
                 Spacer()
                 Button(stepNumber == stepCount ? "Got it" : "Next") { onNext() }
                     .scaledFont(14, weight: .bold)

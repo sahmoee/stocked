@@ -80,14 +80,14 @@ struct QAUnlockGate<Content: View>: View {
                 Spacer().frame(height: 36)
                 Image(systemName: "lock.shield")
                     .scaledFont(48)
-                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                 Text(lockedTitle)
                     .scaledFont(22, weight: .bold)
                     .foregroundStyle(session.themeTextColor)
                     .padding(.top, 18)
                 Text("Stocked · \(appVersion) (\(buildNumber))")
                     .scaledFont(13)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .multilineTextAlignment(.center)
                 HStack(spacing: 16) {
                     ForEach(0..<4, id: \.self) { index in
@@ -101,7 +101,7 @@ struct QAUnlockGate<Content: View>: View {
                 .animation(shake ? .default.repeatCount(3, autoreverses: true).speed(4) : .default, value: shake)
                 Text("Enter your four-digit access code")
                     .scaledFont(11)
-                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.top, 8)
                 if wrong {
                     Text("That's not the code.")
@@ -111,7 +111,7 @@ struct QAUnlockGate<Content: View>: View {
                 keypad.padding(.top, 40)
                 Button("Cancel") { dismiss() }
                     .scaledFont(16)
-                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.top, 36)
             }
             .padding(20)

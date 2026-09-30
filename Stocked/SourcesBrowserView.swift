@@ -50,7 +50,7 @@ struct SourcesBrowserView: View {
                     VStack(spacing: 8) {
                         Image(systemName: "books.vertical")
                             .scaledFont(28)
-                            .foregroundStyle(session.themeSecondaryText.opacity(0.5))
+                            .foregroundStyle(session.themeSecondaryText.opacity(0.7))
                         Text(query.isEmpty ? "No qualified sources yet" : "No matching qualified sources")
                             .scaledFont(14, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
@@ -140,7 +140,7 @@ struct SourcesBrowserView: View {
                 }
                 Image(systemName: "chevron.right")
                     .scaledFont(12, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
             .background(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd)
@@ -182,7 +182,7 @@ struct SourceRecipesView: View {
                 VStack(spacing: 10) {
                     Image(systemName: "tray")
                         .scaledFont(34)
-                        .foregroundStyle(session.themeSecondaryText.opacity(0.5))
+                        .foregroundStyle(session.themeSecondaryText.opacity(0.7))
                     Text("Nothing from \(sourceName) yet")
                         .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)

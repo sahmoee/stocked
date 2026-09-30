@@ -1,0 +1,45 @@
+require "json"
+ROOT = File.expand_path("..", __dir__)
+opt_out_usage
+
+desc "Check the selected release Xcode and changed Swift sources"
+lane :verify do
+  sh("python3", File.join(ROOT, "scripts/release.py"), "check")
+end
+
+desc "Compile every declared scheme without signing or uploading"
+lane :build_all do
+  sh("python3", File.join(ROOT, "scripts/release.py"), "build")
+end
+
+desc "Create and validate a signed archive; scheme and archive_path are required"
+lane :archive_app do |options|
+  UI.user_error!("Provide scheme and archive_path") unless options[:scheme] && options[:archive_path]
+  sh("python3", File.join(ROOT, "scripts/release.py"), "archive", "--scheme", options[:scheme], "--archive", options[:archive_path])
+end
+
+desc "Compare presentation snapshots on an explicitly selected simulator or Mac destination"
+lane :presentation do |options|
+  UI.user_error!("Provide destination and SOWENS_BUILD_ROOT") unless options[:destination] && ENV["SOWENS_BUILD_ROOT"]
+  sh("python3", File.join(ROOT, "scripts/release.py"), "check-output")
+  config = JSON.parse(File.read(File.join(ROOT, "tooling.json")))
+  sh("xcodebuild", "-project", File.join(ROOT, config.fetch("project")), "-scheme", "Presentation",
+     "-destination", options[:destination], "-derivedDataPath", File.join(ENV.fetch("SOWENS_BUILD_ROOT"), File.basename(ROOT), "Presentation"),
+     "CODE_SIGNING_ALLOWED=NO", "test")
+end
+
+desc "Explicitly export a validated archive and upload it to TestFlight"
+lane :testflight do |options|
+  UI.user_error!("Provide archive_path and SOWENS_BUILD_ROOT") unless options[:archive_path] && ENV["SOWENS_BUILD_ROOT"]
+  archive = File.expand_path(options[:archive_path])
+  sh("python3", File.join(ROOT, "scripts/release.py"), "validate-archive", "--archive", archive)
+  sh("python3", File.join(ROOT, "scripts/release.py"), "check-output")
+  output = File.join(ENV.fetch("SOWENS_BUILD_ROOT"), File.basename(ROOT), "Exports", Time.now.utc.strftime("%Y%m%dT%H%M%S"))
+  artifact = build_app(skip_build_archive: true, archive_path: archive, export_method: "app-store",
+                       output_directory: output)
+  if File.extname(artifact) == ".pkg"
+    upload_to_testflight(pkg: artifact, skip_waiting_for_build_processing: true)
+  else
+    upload_to_testflight(ipa: artifact, skip_waiting_for_build_processing: true)
+  end
+end

@@ -7,15 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		10BA14B791272ABCB865909A /* SowensKit in Frameworks */ = {isa = PBXBuildFile; productRef = EEE2CE74D76E7DB21353C728 /* SowensKit */; };
 		7B5264682FD8B1A800ABE8B1 /* StockedShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7B52645E2FD8B1A700ABE8B1 /* StockedShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7B5266482FDB475300ABE8B1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B5266472FDB475200ABE8B1 /* WidgetKit.framework */; };
 		7B52664A2FDB475300ABE8B1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B5266492FDB475300ABE8B1 /* SwiftUI.framework */; };
 		7B5266572FDB475700ABE8B1 /* StockedWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7BA5021E3BD8B1A700ABE8B1 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7BA5021F3BD8B1A700ABE8B1 /* libsqlite3.tbd */; };
+		9FBF326DBC0E657AA0E107E5 /* SowensKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3929B92BB7AEDF86996266C2 /* SowensKit */; };
 		A017C0DE0000000000000001 /* StockedWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000002 /* StockedWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A017C0DE0000000000000012 /* Stocked/CookingTimerPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000013 /* Stocked/CookingTimerPolicy.swift */; };
 		A017C0DE0000000000000014 /* Stocked/UnitMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000015 /* Stocked/UnitMath.swift */; };
 		A017C0DE0000000000000016 /* Stocked/KitchenMathCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A017C0DE0000000000000017 /* Stocked/KitchenMathCore.swift */; };
+		ABBAFFF1FB8229F5239CDD2A /* SowensTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 533262B83A2BFB47398CAA2D /* SowensTestSupport */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -187,6 +190,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				10BA14B791272ABCB865909A /* SowensKit in Frameworks */,
+				ABBAFFF1FB8229F5239CDD2A /* SowensTestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +200,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7BA5021E3BD8B1A700ABE8B1 /* libsqlite3.tbd in Frameworks */,
+				9FBF326DBC0E657AA0E107E5 /* SowensKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,8 +283,6 @@
 				7B52645F2FD8B1A700ABE8B1 /* StockedShareExtension */,
 			);
 			name = StockedShareExtension;
-			packageProductDependencies = (
-			);
 			productName = StockedShareExtension;
 			productReference = 7B52645E2FD8B1A700ABE8B1 /* StockedShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -300,8 +304,6 @@
 				7B52664B2FDB475300ABE8B1 /* StockedWidgets */,
 			);
 			name = StockedWidgets;
-			packageProductDependencies = (
-			);
 			productName = StockedWidgetsExtension;
 			productReference = 7B5266452FDB475200ABE8B1 /* StockedWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -325,6 +327,8 @@
 			);
 			name = StockedTests;
 			packageProductDependencies = (
+				EEE2CE74D76E7DB21353C728 /* SowensKit */,
+				533262B83A2BFB47398CAA2D /* SowensTestSupport */,
 			);
 			productName = StockedTests;
 			productReference = 7BAA00022FE0000000000002 /* StockedTests.xctest */;
@@ -354,6 +358,7 @@
 			);
 			name = Stocked;
 			packageProductDependencies = (
+				3929B92BB7AEDF86996266C2 /* SowensKit */,
 			);
 			productName = Stocked;
 			productReference = 7BF4905A2FD3BD1A00F32BED /* Stocked.app */;
@@ -377,8 +382,6 @@
 				A017C0DE0000000000000004 /* StockedWatchShared */,
 			);
 			name = StockedWatch;
-			packageProductDependencies = (
-			);
 			productName = StockedWatch;
 			productReference = A017C0DE0000000000000002 /* StockedWatch.app */;
 			productType = "com.apple.product-type.application";
@@ -417,6 +420,9 @@
 			);
 			mainGroup = 7BF490512FD3BD1A00F32BED;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				66BF08742978B23ABD02A97C /* XCLocalSwiftPackageReference "Packages/SowensKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7BF4905B2FD3BD1A00F32BED /* Products */;
 			projectDirPath = "";
@@ -1111,6 +1117,31 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		66BF08742978B23ABD02A97C /* XCLocalSwiftPackageReference "Packages/SowensKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SowensKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3929B92BB7AEDF86996266C2 /* SowensKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 66BF08742978B23ABD02A97C /* XCLocalSwiftPackageReference "Packages/SowensKit" */;
+			productName = SowensKit;
+		};
+		533262B83A2BFB47398CAA2D /* SowensTestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 66BF08742978B23ABD02A97C /* XCLocalSwiftPackageReference "Packages/SowensKit" */;
+			productName = SowensTestSupport;
+		};
+		EEE2CE74D76E7DB21353C728 /* SowensKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 66BF08742978B23ABD02A97C /* XCLocalSwiftPackageReference "Packages/SowensKit" */;
+			productName = SowensKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7BF490522FD3BD1A00F32BED /* Project object */;
 }

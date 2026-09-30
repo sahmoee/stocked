@@ -112,7 +112,7 @@ struct StatsView: View {
         VStack(spacing: 4) {
             Text(value).scaledFont(24, weight: .heavy, design: .serif).foregroundStyle(tint)
             Text(label).scaledFont(10.5).multilineTextAlignment(.center)
-                .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                .foregroundStyle(Color.stockedWhite.opacity(0.7))
         }
         .frame(maxWidth: .infinity)
     }
@@ -154,7 +154,7 @@ struct StatsView: View {
                                 }
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Kitchen Health")
-                                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.7))
                                 Text(healthLabel)
                                     .scaledFont(18, weight: .semibold, design: .serif)
                                     .foregroundStyle(Color.stockedWhite.opacity(0.9))
@@ -203,7 +203,7 @@ struct StatsView: View {
                                 }
                                 Text("Weighted \(store.kitchenHealthComponents.map { "\($0.name) \($0.weight)%" }.joined(separator: " · "))")
                                     .scaledFont(10)
-                                    .foregroundStyle(Color.stockedWhite.opacity(0.4))
+                                    .foregroundStyle(Color.stockedWhite.opacity(0.7))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
@@ -262,7 +262,7 @@ struct StatsView: View {
                             }
                             Text("Next Grocery Run · \(store.groceryRunDateText)")
                                 .scaledFont(11.5)
-                                .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.7))
                         }
                     }
                     reportPanel("This Week Activity") {
@@ -284,7 +284,7 @@ struct StatsView: View {
                             }
                             Text(savedCoachingLine)
                                 .scaledFont(10.5)
-                                .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.7))
                         }
                     }
                     // #6 — spending: this week alongside the month, from receipt prices.
@@ -309,7 +309,7 @@ struct StatsView: View {
                                 }
                                 Text("From \(n.meals) cooked meal\(n.meals == 1 ? "" : "s") with nutrition data this week")
                                     .scaledFont(10.5)
-                                    .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                                    .foregroundStyle(Color.stockedWhite.opacity(0.7))
                             }
                         }
                     }
@@ -326,7 +326,7 @@ struct StatsView: View {
         VStack(spacing: 8) {
             Image(systemName: icon).scaledFont(24).foregroundStyle(tint)
             Text(value).scaledFont(32, weight: .bold, design: .serif).foregroundStyle(text)
-            Text(label).stocked(.caption).foregroundStyle(text.opacity(0.5)).multilineTextAlignment(.center)
+            Text(label).stocked(.caption).foregroundStyle(text.opacity(0.7)).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity).padding(18)
         .stockedPastelCard(radius: StockedUI.cornerRadiusMd)
@@ -399,13 +399,13 @@ struct StatsView: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(money(spendThisMonth)).scaledFont(28, weight: .bold, design: .serif).foregroundStyle(text)
                     Spacer()
-                    Text("\(money(spendAllTime)) all-time").stocked(.caption).foregroundStyle(text.opacity(0.4))
+                    Text("\(money(spendAllTime)) all-time").stocked(.caption).foregroundStyle(text.opacity(0.7))
                 }
                 // #6 — weekly spend at a glance, next to the monthly number.
                 Text("\(money(spendThisWeek)) in the last 7 days")
                     .stocked(.caption).foregroundStyle(Color.stockedAccentInk)
                 if spendByStore.isEmpty {
-                    Text("No purchases logged this month yet.").stocked(.caption).foregroundStyle(text.opacity(0.4))
+                    Text("No purchases logged this month yet.").stocked(.caption).foregroundStyle(text.opacity(0.7))
                 } else {
                     ForEach(spendByStore, id: \.0) { name, amt in
                         HStack {
@@ -431,11 +431,11 @@ struct StatsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if empty {
                         Text("Nothing wasted this month").stocked(.headline).foregroundStyle(text)
-                        Text("Items tossed past their expiry show up here.").stocked(.caption).foregroundStyle(text.opacity(0.4))
+                        Text("Items tossed past their expiry show up here.").stocked(.caption).foregroundStyle(text.opacity(0.7))
                     } else {
                         Text("\(wastedThisMonth.count) item\(wastedThisMonth.count == 1 ? "" : "s") wasted").stocked(.headline).foregroundStyle(text)
                         Text(wastedValueThisMonth > 0 ? "About \(money(wastedValueThisMonth)) this month" : "this month")
-                            .stocked(.caption).foregroundStyle(text.opacity(0.5))
+                            .stocked(.caption).foregroundStyle(text.opacity(0.7))
                     }
                 }
                 Spacer()
@@ -446,7 +446,7 @@ struct StatsView: View {
                     HStack {
                         Text(rec.itemName.capitalized).stocked(.body).foregroundStyle(text.opacity(0.8))
                         Spacer()
-                        Text(relativeDate(rec.depletedAt)).stocked(.caption).foregroundStyle(text.opacity(0.4))
+                        Text(relativeDate(rec.depletedAt)).stocked(.caption).foregroundStyle(text.opacity(0.7))
                     }
                 }
             }
@@ -456,7 +456,7 @@ struct StatsView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "lightbulb.fill").scaledFont(13).foregroundStyle(Color.stockedAccentInk)
                     Text("You've tossed \(name.capitalized) \(count)× — try buying a smaller amount, or freeze half when you get it home.")
-                        .stocked(.caption).foregroundStyle(text.opacity(0.65))
+                        .stocked(.caption).foregroundStyle(text.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -476,9 +476,9 @@ struct StatsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name).stocked(.body).foregroundStyle(text)
                             if let avg = store.averageDaysToDeplete(for: item.name) {
-                                Text("Usually lasts ~\(Int(avg.rounded())) days").stocked(.caption).foregroundStyle(text.opacity(0.4))
+                                Text("Usually lasts ~\(Int(avg.rounded())) days").stocked(.caption).foregroundStyle(text.opacity(0.7))
                             } else {
-                                Text("Running low").stocked(.caption).foregroundStyle(text.opacity(0.4))
+                                Text("Running low").stocked(.caption).foregroundStyle(text.opacity(0.7))
                             }
                         }
                         Spacer()

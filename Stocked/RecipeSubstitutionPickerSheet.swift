@@ -41,7 +41,7 @@ struct RecipeSubstitutionPickerSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Replace (ingredient.name.displayNormalized)")
+                            Text("Replace \(ingredient.name.displayNormalized)")
                                 .font(.stockedSerif(22, weight: .bold))
                                 .foregroundStyle(session.themeTextColor)
                             Text("Choose the exact substitution Stocked should use. Nothing changes until you confirm.")

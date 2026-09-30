@@ -88,7 +88,7 @@ struct RecipeTextSizeControl: View {
                     } label: {
                         Text(option.label)
                             .scaledFont(12, weight: .bold)
-                            .foregroundStyle(prefs.size == option ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(prefs.size == option ? Color.stockedWhite : session.themeTextColor.opacity(0.7))
                             .padding(.horizontal, 11).padding(.vertical, 7)
                             .frame(maxWidth: .infinity, minHeight: 44, maxHeight: .infinity)
                             .background(prefs.size == option ? Color.stockedGold : Color.clear)
@@ -102,7 +102,7 @@ struct RecipeTextSizeControl: View {
             // Live preview so the effect is obvious before leaving Settings.
             Text("Simmer for 10 minutes, stirring occasionally.")
                 .font(.stockedSystem(size: prefs.scaled(14)))
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

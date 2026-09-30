@@ -228,7 +228,7 @@ struct BarcodeScannerView: View {
                     Text("Camera Access Needed")
                         .scaledFont(16, weight: .semibold, design: .serif).foregroundStyle(Color.stockedWhite)
                     Text("To scan barcodes, allow camera access.")
-                        .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.7))
                         .multilineTextAlignment(.center).padding(.horizontal, 24)
                 }
             }
@@ -259,7 +259,7 @@ struct BarcodeScannerView: View {
                     Text("Camera Access Denied")
                         .scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
                     Text("Enable in Settings → Privacy → Camera")
-                        .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.7))
                 }
             }
             .padding(.horizontal, 20)
@@ -583,7 +583,7 @@ struct BarcodeConfirmSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.seal")
                                 .scaledFont(10)
-                                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                             Text(p.sourceName)
                                 .scaledFont(10.5, weight: .medium)
                                 .foregroundStyle(session.themeSecondaryText)
@@ -729,7 +729,7 @@ struct BarcodeConfirmSheet: View {
                              : "Expires \(Self.shortDate.string(from: scannedExpiry!))")
                     }
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(scannedExpiry == nil ? session.themeTextColor.opacity(0.6) : Color.stockedAccentInk)
+                    .foregroundStyle(scannedExpiry == nil ? session.themeTextColor.opacity(0.7) : Color.stockedAccentInk)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 24).padding(.bottom, 16)
@@ -804,7 +804,7 @@ struct BulkScanSummaryView: View {
                 VStack(spacing: 0) {
                     Text("\(items.count) items added to pantry")
                         .scaledFont(13)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.top, 8).padding(.bottom, 16)
 
                     List {

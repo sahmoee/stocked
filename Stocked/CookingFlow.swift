@@ -398,7 +398,7 @@ struct RecipeOverviewView: View {
                             }
                             Text("servings")
                                 .scaledFont(12)
-                                .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                                 .fixedSize()   // never wrap
                         }
@@ -495,7 +495,7 @@ struct RecipeOverviewView: View {
                 .padding(.horizontal, 24).padding(.bottom, 12)
 
                 Text("Ingredients will be deducted from inventory when you finish cooking.")
-                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.4))
+                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .multilineTextAlignment(.center).frame(maxWidth: .infinity)
                     .padding(.horizontal, 28).padding(.bottom, 8)
             }
@@ -730,7 +730,7 @@ struct RecipeOverviewView: View {
     private func metaBadge(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon).scaledFont(11).foregroundStyle(Color.stockedAccentInk)
-            Text(text).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.65))
+            Text(text).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true).fixedSize()
         }
     }
@@ -1037,10 +1037,10 @@ struct CookingFlashcardView: View {
                     Spacer()
                     Text("\(checkedIngredients.count)/\(ingredients.count) prepped")
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     if !forcedExpanded {
                         Image(systemName: checklistExpanded ? "chevron.up" : "chevron.down")
-                            .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
@@ -1146,7 +1146,7 @@ struct CookingFlashcardView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("How to Cook")
                                 .scaledFont(14, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                             Text(recipeTitle.recipeDisplayTitle)
                                 .scaledFont(20, weight: .bold, design: .serif)
@@ -1164,7 +1164,7 @@ struct CookingFlashcardView: View {
                         } label: {
                             Image(systemName: "arrow.up.left.and.arrow.down.right")
                                 .scaledFont(15)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .padding(8)
                                 .background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -1176,7 +1176,7 @@ struct CookingFlashcardView: View {
                         } label: {
                             Image(systemName: isSwipeMode ? "list.bullet" : "rectangle.stack.fill")
                                 .scaledFont(16)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .padding(8)
                                 .background(session.isDarkMode ? Color.white.opacity(0.12) : Color.stockedWhite.opacity(0.35))
                                 .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusSm))
@@ -1223,7 +1223,7 @@ struct CookingFlashcardView: View {
                                 HStack {
                                     Text("Step \(currentCard + 1) of \(steps.count)")
                                         .scaledFont(14, weight: .semibold, design: .serif)
-                                        .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
                                     Spacer()
                                     if completedSteps.contains(currentCard) {
                                         Image(systemName: "checkmark.circle.fill")
@@ -1287,7 +1287,7 @@ struct CookingFlashcardView: View {
                                 motion.animate(.selection, intent: .spatial) { if currentCard > 0 { currentCard -= 1 } }
                             } label: {
                                 Image(systemName: "chevron.left.circle.fill").scaledFont(32)
-                                    .foregroundStyle(currentCard == 0 ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
+                                    .foregroundStyle(currentCard == 0 ? Color.stockedCharcoal.opacity(0.7) : Color.stockedAccentInk)
                             }.disabled(currentCard == 0).buttonStyle(.plain)
                             .stockedIconButton("Previous step")
                             Spacer()
@@ -1298,7 +1298,7 @@ struct CookingFlashcardView: View {
                                 }
                             } label: {
                                 Image(systemName: "chevron.right.circle.fill").scaledFont(32)
-                                    .foregroundStyle(currentCard == steps.count - 1 ? Color.stockedAccentInk.opacity(0.4) : Color.stockedAccentInk)
+                                    .foregroundStyle(currentCard == steps.count - 1 ? Color.stockedAccentInk.opacity(0.7) : Color.stockedAccentInk)
                             }.disabled(currentCard == steps.count - 1 && allDone).buttonStyle(.plain)
                             .stockedIconButton("Mark step done and go to the next step")
                         }.padding(.horizontal, 40).padding(.top, 8).padding(.bottom, 16)
@@ -1346,7 +1346,7 @@ struct CookingFlashcardView: View {
                         if !allDone {
                             Text("\(steps.count - completedSteps.count) step(s) remaining")
                                 .scaledFont(12)
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                     }
                     .padding(.bottom, 12)
@@ -1529,7 +1529,7 @@ struct CookingFlashcardView: View {
 
                         Text(isExpanded ? "Step \(stepNumber)" : stepText)
                             .font(.stockedSystem(size: RecipeTextPrefs.shared.scaled(14), design: .serif))
-                            .foregroundStyle(isCompleted ? session.themeTextColor.opacity(0.4) : session.themeTextColor)
+                            .foregroundStyle(isCompleted ? session.themeTextColor.opacity(0.7) : session.themeTextColor)
                             .strikethrough(isCompleted)
 
                             .fixedSize(horizontal: false, vertical: false)
@@ -1547,7 +1547,7 @@ struct CookingFlashcardView: View {
                             .background(Color.stockedGold.opacity(0.12)).clipShape(Capsule())
                         }
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .padding(.horizontal, 14).padding(.vertical, 12)
                     .contentShape(Rectangle())
@@ -1594,7 +1594,7 @@ struct CookingFlashcardView: View {
                             Label(isCompleted ? "Mark Incomplete" : "Mark Complete",
                                   systemImage: isCompleted ? "arrow.uturn.backward.circle" : "checkmark.circle.fill")
                             .scaledFont(13, weight: .semibold)
-                            .foregroundStyle(isCompleted ? session.themeTextColor.opacity(0.45) : Color.stockedAccentInk)
+                            .foregroundStyle(isCompleted ? session.themeTextColor.opacity(0.7) : Color.stockedAccentInk)
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal, 14).padding(.bottom, 12)
@@ -1663,7 +1663,7 @@ struct CookingFlashcardView: View {
                                         .frame(maxWidth: .infinity).frame(height: 160)
                                     VStack(spacing: 10) {
                                         Image(systemName: "camera.fill").scaledFont(32).foregroundStyle(Color.stockedAccentInk)
-                                        Text("Add a plate photo (optional)").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                        Text("Add a plate photo (optional)").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }
                                 }
                                 .contentShape(RoundedRectangle(cornerRadius: 16))
@@ -1789,7 +1789,7 @@ struct CookingFlashcardView: View {
                             .foregroundStyle(session.themeTextColor)
                             .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 6)
                         Text("Tap the amount to adjust how much gets deducted — All, Half, or None.")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                             .padding(.horizontal, 24).padding(.bottom, 16)
 
                         ScrollView {
@@ -1798,15 +1798,16 @@ struct CookingFlashcardView: View {
                                     HStack(spacing: 12) {
                                         Image(systemName: portions[i] > 0 ? "checkmark.circle.fill" : "circle")
                                             .scaledFont(20)
-                                            .foregroundStyle(portions[i] > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.3))
+                                            .foregroundStyle(portions[i] > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                                             .onTapGesture {
                                                 motion.animate(.selection, intent: .spatial) {
                                                     portions[i] = portions[i] > 0 ? 0 : 1
                                                 }
                                             }
+                                            .accessibilityAddTraits(.isButton)
                                         Text(ingredients[i])
                                             .scaledFont(14)
-                                            .foregroundStyle(portions[i] > 0 ? session.themeTextColor : session.themeTextColor.opacity(0.4))
+                                            .foregroundStyle(portions[i] > 0 ? session.themeTextColor : session.themeTextColor.opacity(0.7))
                                             .strikethrough(portions[i] <= 0)
                                             .layoutPriority(1)
                                         Spacer(minLength: 8)
@@ -1820,7 +1821,7 @@ struct CookingFlashcardView: View {
                                         } label: {
                                             Text(portionLabel(portions[i]))
                                                 .scaledFont(11.5, weight: .bold)
-                                                .foregroundStyle(portions[i] > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.4))
+                                                .foregroundStyle(portions[i] > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                                                 .padding(.horizontal, 10)
                                                 .frame(minWidth: 44, minHeight: 44)
                                                 .background((portions[i] > 0 ? Color.stockedGold : session.themeTextColor).opacity(0.10))
@@ -1855,7 +1856,7 @@ struct CookingFlashcardView: View {
 
                             Button { onSkip(); dismiss() } label: {
                                 Text("Skip — don't deduct")
-                                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                    .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                             }.buttonStyle(.plain)
                         }
                         .padding(.horizontal, 24).padding(.vertical, 16)
@@ -1895,7 +1896,7 @@ struct CookingFlashcardView: View {
                     Text("How was it?")
                         .scaledFont(26, weight: .bold, design: .serif)
                         .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).padding(.bottom, 6)
-                    Text(recipeTitle.recipeDisplayTitle).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.5)).padding(.bottom, 20)
+                    Text(recipeTitle.recipeDisplayTitle).scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7)).padding(.bottom, 20)
 
                     HStack(spacing: 10) {
                         ForEach(1...5, id: \.self) { star in
@@ -1904,6 +1905,7 @@ struct CookingFlashcardView: View {
                                 .onTapGesture {
                                     motion.animate(.selection, intent: .spatial) { rating = star }
                                 }
+                                .accessibilityAddTraits(.isButton)
                         }
                     }.padding(.bottom, 20)
 
@@ -1913,8 +1915,8 @@ struct CookingFlashcardView: View {
                         } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: thumbUp == true ? "hand.thumbsup.fill" : "hand.thumbsup")
-                                    .scaledFont(36).foregroundStyle(thumbUp == true ? Color.stockedAccentInk : Color.stockedCharcoal.opacity(0.3))
-                                Text("Would make again").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .scaledFont(36).foregroundStyle(thumbUp == true ? Color.stockedAccentInk : Color.stockedCharcoal.opacity(0.7))
+                                Text("Would make again").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                         }.buttonStyle(.plain)
                         Button {
@@ -1923,7 +1925,7 @@ struct CookingFlashcardView: View {
                             VStack(spacing: 4) {
                                 Image(systemName: thumbUp == false ? "hand.thumbsdown.fill" : "hand.thumbsdown")
                                     .scaledFont(36).foregroundStyle(thumbUp == false ? .red.opacity(0.7) : session.themeTextColor.opacity(0.2))
-                                Text("Not for me").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
+                                Text("Not for me").scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                         }.buttonStyle(.plain)
                     }.padding(.bottom, 28)
@@ -1967,7 +1969,7 @@ struct CookingFlashcardView: View {
                                      ? "Storage guideline: freeze within 2 hours of cooking. Best quality within 2–3 months. Label with today's date."
                                      : "Storage guideline: refrigerate within 2 hours of cooking. Eat within 3–4 days. Reheat to 165°F.")
                                 .scaledFont(11)
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                             }
                             .padding(10)
@@ -2004,7 +2006,7 @@ struct CookingFlashcardView: View {
                         Circle().fill(selected ? color : color.opacity(0.12)).frame(width: 44, height: 44)
                         Image(systemName: icon).scaledFont(18).foregroundStyle(selected ? .white : color)
                     }
-                    Text(label).scaledFont(10, weight: .semibold).foregroundStyle(selected ? color : session.themeTextColor.opacity(0.6))
+                    Text(label).scaledFont(10, weight: .semibold).foregroundStyle(selected ? color : session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center)
                 }.frame(maxWidth: .infinity)
             }.buttonStyle(.plain)
@@ -2126,7 +2128,7 @@ struct CookingFlashcardView: View {
                                             if !sub.notes.isEmpty {
                                                 Text(sub.notes)
                                                     .scaledFont(12)
-                                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                                                     .lineSpacing(2)
                                             }
                                             // Live stock check — find any inventory item matching the substitute name
@@ -2157,7 +2159,7 @@ struct CookingFlashcardView: View {
                                             } else {
                                                 Label("Not in pantry", systemImage: "xmark.circle")
                                                     .scaledFont(11)
-                                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                                             }
                                         }
                                         Spacer()
@@ -2172,7 +2174,7 @@ struct CookingFlashcardView: View {
                     } else {
                         Text("No substitutions found for this ingredient.")
                             .scaledFont(14)
-                            .foregroundStyle(session.themeTextColor.opacity(0.45))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 28).padding(.top, 40)
                     }

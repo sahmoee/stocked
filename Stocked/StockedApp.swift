@@ -86,6 +86,7 @@ struct StockedApp: App {
             // available canvas.
             DeviceAdaptiveRoot {
                 RootView()
+                    .studioAgeGate()
                     .stockedAdaptiveInterface()
                     .stockedSizeAwareScrollBounce([.vertical, .horizontal])
                     .appWideExperience()
@@ -98,6 +99,7 @@ struct StockedApp: App {
             // Persist any pending debounced settings writes before we lose foreground.
             if phase != .active {
                 DebouncedDefaults.shared.flushAll()
+                SpoonacularCache.shared.flushPending()   // coalesced cache writes reach disk
                 session.guestStore.flushPendingSaves()   // #4 — force batched data saves to disk
                 StockedFeatureStores.flushAll()          // #6 — same for the feature stores
                 WidgetBridge.refresh(store: session.guestStore)   // keep widgets current

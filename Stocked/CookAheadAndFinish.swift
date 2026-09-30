@@ -63,7 +63,7 @@ struct CookAheadStatusView: View {
             .foregroundStyle(Color.stockedAccentInk)
             Text("Still planned for \(dayLabel(meal.dayIndex)) · \(meal.mealType). Cooking early only changes the cook time.")
                 .scaledFont(12.5)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, CookStyle.screenHPad).padding(.top, 4)
@@ -80,7 +80,7 @@ struct CookAheadStatusView: View {
                     }
                     Text(stage.label)
                         .font(.stockedSystem(size: 13.5, weight: reached ? .semibold : .regular))
-                        .foregroundStyle(reached ? session.themeTextColor : session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(reached ? session.themeTextColor : session.themeTextColor.opacity(0.7))
                     Spacer()
                 }
                 .padding(.vertical, 5)
@@ -208,7 +208,7 @@ struct FinishAndServeView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text("When you cook a planned meal early, it'll appear here with reheat and finishing steps.")
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
                     }
@@ -241,7 +241,7 @@ struct FinishAndServeView: View {
                         .foregroundStyle(session.themeTextColor)
                     Text("\(meal.cookAheadStatus.label) · for \(dayLabel(meal.dayIndex)) \(meal.mealType.lowercased())")
                         .scaledFont(12)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 Spacer()
                 Image(systemName: "chevron.right").scaledFont(12, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -268,7 +268,7 @@ struct CookEmptyStateInline: View {
         VStack {
             Text(text)
                 .scaledFont(14)
-                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
         }
         .frame(maxWidth: .infinity).padding(.vertical, 40)
         .padding(.horizontal, CookStyle.screenHPad)

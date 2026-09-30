@@ -128,6 +128,26 @@ final class TakeoutStore {
     var thisMonth: [TakeoutEntry] { TakeoutMath.inMonth(entries) }
 
     func add(_ e: TakeoutEntry) { entries.append(e) }
+
+    /// Logs a repeat order dated now, copying place, dish, cost, kind and rating.
+    /// A fresh id and cleared sync stamps make it a new household entry. Undoable.
+    func logAgain(_ e: TakeoutEntry) {
+        var copy = e
+        copy.id = UUID()
+        copy.date = Date()
+        copy.updatedAt = 0
+        copy.lastWriterID = ""
+        add(copy)
+        HapticManager.success()
+        ToastCenter.shared.undo("Logged \(e.place) again") { [weak self] in
+            self?.entries.removeAll { $0.id == copy.id }
+        }
+    }
+
+    /// The most recent visit to `place`, for one-tap reorders from the favourites list.
+    func latest(at place: String) -> TakeoutEntry? {
+        entries.filter { $0.place.caseInsensitiveCompare(place) == .orderedSame }.max { $0.date < $1.date }
+    }
     /// #5 — undoable.
     func remove(_ e: TakeoutEntry) {
         entries.removeAll { $0.id == e.id }
@@ -152,12 +172,12 @@ struct TakeoutLogView: View {
             if store.entries.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "bag").scaledFont(34)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("Nothing logged yet").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Log takeout and restaurant meals and your real food spend finally adds up — plus you build a list of what was worth reordering.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
+                        .foregroundStyle(session.themeTextColor.opacity(0.7)).padding(.horizontal, 36)
                     Button { showAdd = true } label: {
                         Text("Log a meal").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
@@ -209,6 +229,15 @@ struct TakeoutLogView: View {
                                     Text(String(repeating: "★", count: Int(f.rating.rounded())))
                                         .scaledFont(12).foregroundStyle(Color.stockedWarningInk)
                                     Text("×\(f.visits)").scaledFont(11).foregroundStyle(.secondary)
+                                    if let last = store.latest(at: f.place) {
+                                        Button { store.logAgain(last) } label: {
+                                            Image(systemName: "arrow.clockwise.circle.fill")
+                                                .scaledFont(20).foregroundStyle(session.accentColor)
+                                                .frame(minWidth: 44, minHeight: 44)
+                                        }
+                                        .buttonStyle(.borderless)
+                                        .accessibilityLabel("Log \(f.place) again")
+                                    }
                                 }
                             }
                         }
@@ -227,6 +256,11 @@ struct TakeoutLogView: View {
                                      + (e.dish.isEmpty ? "" : " · \(e.dish)"))
                                     .scaledFont(11).foregroundStyle(.secondary)
                             }
+                            .swipeActions(edge: .leading) {
+                                Button("Again", systemImage: "arrow.clockwise") { store.logAgain(e) }
+                                    .tint(session.accentColor)
+                            }
+                            .accessibilityAction(named: "Log again") { store.logAgain(e) }
                         }
                         .onDelete { idx in idx.map { store.recent[$0] }.forEach { store.remove($0) } }
                     }

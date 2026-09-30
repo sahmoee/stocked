@@ -115,7 +115,7 @@ struct LoginView: View {
                 // Legal links — shown at account creation (App Store guideline 5.1.1).
                 HStack(spacing: 6) {
                     Button("Privacy Policy") { if let u = URL(string: BuildConfig.privacyURL) { openURL(u) } }
-                    Text("·").foregroundStyle(session.themeTextColor.opacity(0.3))
+                    Text("·").foregroundStyle(session.themeTextColor.opacity(0.7))
                     Button("Terms") { if let u = URL(string: BuildConfig.termsURL) { openURL(u) } }
                 }
                 .scaledFont(11)

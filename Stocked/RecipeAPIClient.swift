@@ -1,3 +1,4 @@
+import SowensKit
 // RecipeAPIClient.swift — async/await network layer + 100-recipe offline cache
 // Code Professional #1, #9  |  App Better #13
 import Foundation
@@ -157,7 +158,7 @@ final class RecipeAPIClient {
     // App Better #2 — URL import
     func importFromURL(_ urlString: String) async throws -> CachedRecipe {
         guard let url = URL(string: urlString) else { throw StockedError.invalidURL(urlString) }
-        let (data, _) = try await session.data(from: url)
+        let (data, _) = try await session.sowensData(from: url)
         guard let html = String(data: data, encoding: .utf8) else { throw StockedError.decodingFailed("HTML") }
         if let r = parseJSONLD(html: html, sourceURL: urlString) { cache.save(r); return r }
         // Fallback: extract title from <title> tag or og:title meta
@@ -199,7 +200,7 @@ final class RecipeAPIClient {
         var lastError: Error = StockedError.networkUnavailable
         for attempt in 0..<attempts {
             do {
-                let (data, response) = try await session.data(from: url)
+                let (data, response) = try await session.sowensData(from: url)
                 if let http = response as? HTTPURLResponse {
                     switch http.statusCode {
                     case 200..<300: return data

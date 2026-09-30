@@ -335,6 +335,8 @@ struct InventoryView: View {
             refreshOrientation()
             // Keep expiry reminders in sync with current inventory (#9).
             DailyBriefNotificationManager.shared.rescheduleExpiryIfNeeded(store: session.guestStore)
+            // The morning brief carries counts too; refresh it with the current kitchen.
+            DailyBriefNotificationManager.shared.rescheduleIfNeeded(store: session.guestStore)
             // Keep the "use it up" cook suggestion in sync too (#13).
             DailyBriefNotificationManager.shared.scheduleCookSuggestionIfEnabled(store: session.guestStore)
         }
@@ -595,15 +597,15 @@ struct InventoryView: View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
-                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.5))
-                TextField("", text: $invSearch, prompt: Text("Search items").foregroundColor(Color.stockedWhite.opacity(0.4)))
+                    .scaledFont(12).foregroundStyle(Color.stockedWhite.opacity(0.7))
+                TextField("", text: $invSearch, prompt: Text("Search items").foregroundColor(Color.stockedWhite.opacity(0.7)))
                 .textFieldStyle(.plain)
                     .scaledFont(13).foregroundStyle(Color.stockedWhite)
                     .autocorrectionDisabled()
                 if !invSearch.isEmpty {
                     Button { invSearch = "" } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.4))
+                            .scaledFont(13).foregroundStyle(Color.stockedWhite.opacity(0.7))
                     }.buttonStyle(.plain)
                 }
             }
@@ -783,7 +785,7 @@ struct InventoryView: View {
                                 } label: {
                                     Text(preset.label)
                                         .scaledFont(12, weight: .semibold)
-                                        .foregroundStyle(splitPreset == preset ? Color.stockedAccentInk : session.themeTextColor.opacity(0.5))
+                                        .foregroundStyle(splitPreset == preset ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                                         .padding(.horizontal, 12).padding(.vertical, 6)
                                         .background(
                                             Capsule().fill(splitPreset == preset
@@ -797,7 +799,7 @@ struct InventoryView: View {
                             Button { withAnimation { detailItemID = nil } } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .scaledFont(22)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                             }.buttonStyle(.plain).padding(12)
                         }
                         .padding(.leading, 12)
@@ -807,7 +809,7 @@ struct InventoryView: View {
                 } else {
                     VStack(spacing: 12) {
                         Image(systemName: "hand.tap")
-                            .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .scaledFont(40).foregroundStyle(session.themeTextColor.opacity(0.7))
                         Text("Select an item to view details")
                             .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     }
@@ -1002,7 +1004,7 @@ struct SubcategoryDisclosure: View {
                         .clipShape(Capsule())
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .scaledFont(11, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.leading, 6)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
@@ -1027,7 +1029,7 @@ struct SubcategoryDisclosure: View {
                                 HStack(spacing: 10) {
                                     Image(systemName: sel.wrappedValue.contains(item.id) ? "checkmark.circle.fill" : "circle")
                                         .scaledFont(20)
-                                        .foregroundStyle(sel.wrappedValue.contains(item.id) ? Color.stockedAccentInk : session.themeTextColor.opacity(0.35))
+                                        .foregroundStyle(sel.wrappedValue.contains(item.id) ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                                         .padding(.leading, 12)
                                     InventoryItemRow(item: item)
                                         .allowsHitTesting(false)   // taps select, not open the row
@@ -1134,7 +1136,7 @@ private struct WeeklyPlanCell: View {
         VStack(spacing: 3) {
             Text(day.label)
                 .scaledFont(9, weight: .semibold)
-                .foregroundStyle(isTargeted ? session.accentColor : session.themeTextColor.opacity(0.5))
+                .foregroundStyle(isTargeted ? session.accentColor : session.themeTextColor.opacity(0.7))
                 .fixedSize(horizontal: false, vertical: true)
             ZStack {
                 Circle().fill(isTargeted ? session.accentColor : day.dotColor)
@@ -1144,7 +1146,7 @@ private struct WeeklyPlanCell: View {
             }
             Text(day.dayNum)
                 .scaledFont(11, weight: .semibold)
-                .foregroundStyle(isTargeted ? session.accentColor : session.themeTextColor.opacity(0.6))
+                .foregroundStyle(isTargeted ? session.accentColor : session.themeTextColor.opacity(0.7))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 7)
@@ -1157,6 +1159,7 @@ private struct WeeklyPlanCell: View {
             onDrop(name, day.id); return true
         } isTargeted: { isTargeted = $0 }
         .onTapGesture { onTap(day.id) }
+        .accessibilityAddTraits(.isButton)
     }
 }
 

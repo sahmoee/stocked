@@ -67,7 +67,7 @@ struct SubstitutionsToolView: View {
 
                 if searched && subs.isEmpty && !loading {
                     Text("No substitutes found for \"\(name)\". Try a common baking ingredient.")
-                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 ForEach(subs) { s in
                     SubstitutionRow(substitution: s)

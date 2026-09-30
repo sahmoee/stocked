@@ -41,7 +41,7 @@ struct MoneySavedView: View {
             if !hasData {
                 VStack(spacing: 12) {
                     Image(systemName: "banknote")
-                        .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("Nothing to total yet").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("As you cook, use things up, and log garden harvests, Stocked tracks the value you keep instead of throwing away — and shows it here.")

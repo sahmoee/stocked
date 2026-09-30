@@ -16,6 +16,8 @@ nonisolated struct AssistantAnswer: Identifiable, Sendable {
     let question: String
     let text: String
     let items: [String]        // supporting detail lines (may be empty)
+    /// Item names the answer suggests buying; the UI offers a one-tap grocery add.
+    var restockNames: [String] = []
 }
 
 /// `nonisolated` so App Intents (#17) can call it off the main actor while the app is closed.
@@ -38,6 +40,21 @@ nonisolated enum KitchenAssistantEngine {
                 question: raw,
                 text: soon.count == 1 ? "1 item needs using soon:" : "\(soon.count) items need using soon:",
                 items: soon.map { line($0) })
+        }
+
+        // — running low / restock —
+        if q.contains(" low") || q.hasPrefix("low") || q.contains("running out") || q.contains("run out")
+            || q.contains("need to buy") || q.contains("restock") || q.contains("shopping") {
+            let low = items.filter { KitchenAvailability.isRunningLow($0) }
+                .sorted { $0.effectiveLevel < $1.effectiveLevel }
+            if low.isEmpty {
+                return AssistantAnswer(question: raw, text: "Nothing is running low right now.", items: [])
+            }
+            return AssistantAnswer(
+                question: raw,
+                text: low.count == 1 ? "1 item is running low:" : "\(low.count) items are running low:",
+                items: low.prefix(25).map { line($0) },
+                restockNames: low.prefix(25).map(\.name))
         }
 
         // — what's in <zone> —
@@ -124,7 +141,9 @@ struct KitchenAssistantView: View {
     @State private var thread: [AssistantAnswer] = []
     @State private var unmatched = false
 
-    private let suggestions = ["What's expiring?", "What's in the freezer?", "Do I have butter?", "What should I use up?"]
+    private let suggestions = ["What's expiring?", "What's running low?", "What's in the freezer?", "Do I have butter?", "What should I use up?"]
+    /// Answers whose restock suggestions were already added, so the button can't double-add.
+    @State private var restocked: Set<UUID> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -135,13 +154,13 @@ struct KitchenAssistantView: View {
                             .scaledFont(20, weight: .bold, design: .serif)
                             .foregroundStyle(session.themeTextColor)
                         Text("Answers come straight from your inventory — instant, and always accurate.")
-                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     ForEach(thread) { a in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(a.question)
                                 .scaledFont(13, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                             Text(a.text)
                                 .scaledFont(15, weight: .medium)
                                 .foregroundStyle(session.themeTextColor)
@@ -151,6 +170,18 @@ struct KitchenAssistantView: View {
                                     Text(line).scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.85))
                                 }
                             }
+                            if !a.restockNames.isEmpty {
+                                Button { addToGrocery(a) } label: {
+                                    Label(restocked.contains(a.id) ? "Added to your grocery list"
+                                          : "Add \(a.restockNames.count == 1 ? "it" : "all \(a.restockNames.count)") to grocery list",
+                                          systemImage: restocked.contains(a.id) ? "checkmark.circle.fill" : "cart.badge.plus")
+                                        .scaledFont(13, weight: .semibold)
+                                        .foregroundStyle(session.accentColor)
+                                        .frame(minHeight: 44)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(restocked.contains(a.id))
+                            }
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -159,7 +190,7 @@ struct KitchenAssistantView: View {
                     }
                     if unmatched {
                         Text("I can answer questions about what you have, what's expiring, and what's in each zone.")
-                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
                 .padding(18)
@@ -204,6 +235,18 @@ struct KitchenAssistantView: View {
         .withInventoryIndex(session.guestStore)
         .navigationTitle("Kitchen Assistant")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Adds the answer's low items to the grocery list, skipping ones already on it.
+    private func addToGrocery(_ answer: AssistantAnswer) {
+        let store = session.guestStore
+        let onList = store.groceryItems.filter { !$0.isChecked }.map(\.name)
+        let fresh = answer.restockNames.filter { !GroceryDedup.isDuplicate($0, in: onList) }
+        fresh.forEach { store.addGroceryItem(name: $0) }
+        restocked.insert(answer.id)
+        HapticManager.success()
+        ToastCenter.shared.success(fresh.isEmpty ? "Already on your grocery list"
+            : "Added \(fresh.count) item\(fresh.count == 1 ? "" : "s") to your grocery list")
     }
 
     private func ask(_ text: String) {

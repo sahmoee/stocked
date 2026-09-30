@@ -7,10 +7,11 @@ import UIKit
 /// Only decorative navigation art is mapped here; publisher/product photos never enter this path.
 nonisolated enum KitchenArtworkCatalog {
     static let inventoryActions = ["inventory_expiring_reference", "inventory_low_reference", "inventory_add_reference"]
-    static func approvedAsset(for name: String, dark: Bool) -> String {
+    static func approvedAsset(for name: String, dark: Bool, lightTheme: StockedLightTheme = .pastel) -> String {
         let base = approvedAsset(for: name)
-        if dark && ["pastel_kitchen_hero", "pastel_ready_meal", "pastel_fresh_produce"].contains(base) {
-            return base + "_dark"
+        if ["pastel_kitchen_hero", "pastel_ready_meal", "pastel_fresh_produce"].contains(base) {
+            let themed = lightTheme == .tan ? base.replacingOccurrences(of: "pastel_", with: "tan_") : base
+            return dark ? themed + "_dark" : themed
         }
         return base
     }
@@ -37,7 +38,7 @@ struct StockedKitchenArtwork: View {
     @State private var image: UIImage?
     @State private var loadedAsset: String?
     @State private var failedAsset: String?
-    private var resolvedAsset: String { KitchenArtworkCatalog.approvedAsset(for: asset, dark: session.isDarkMode) }
+    private var resolvedAsset: String { KitchenArtworkCatalog.approvedAsset(for: asset, dark: session.isDarkMode, lightTheme: session.lightTheme) }
 
     var body: some View {
         Group {
@@ -50,7 +51,7 @@ struct StockedKitchenArtwork: View {
                 Color.clear
             }
         }
-        .saturation(resolvedAsset.hasPrefix("pastel_") ? 1 : 0.78)
+        .saturation(session.lightTheme == .tan || resolvedAsset.hasPrefix("pastel_") ? 1 : 0.78)
         .task(id: "\(resolvedAsset):\(scrollActivity.mayLoadVisibleImages)") {
             guard scrollActivity.mayLoadVisibleImages else { return }
             var completedRetries = 0

@@ -207,7 +207,7 @@ struct ReservationOverrideSheet: View {
                             Button { dismiss() } label: {
                                 Text("Choose Another Meal")
                                     .scaledFont(14)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     .frame(maxWidth: .infinity).padding(.vertical, 10)
                             }
                             .buttonStyle(.plain)

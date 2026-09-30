@@ -94,7 +94,7 @@ struct CookHubIllustratedButton: View {
     private var chevron: some View {
         Image(systemName: "chevron.right")
             .scaledFont(16, weight: .semibold)
-            .foregroundStyle(session.themeTextColor.opacity(0.32))
+            .foregroundStyle(session.themeTextColor.opacity(0.7))
             .accessibilityHidden(true)
     }
 }
@@ -201,7 +201,7 @@ struct CookHeroCard: View {
             }
             Spacer()
             Image(systemName: "chevron.right").scaledFont(14, weight: .bold)
-                .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.6) : session.themeTextColor.opacity(0.3))
+                .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.7) : session.themeTextColor.opacity(0.3))
         }
         .padding(CookStyle.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -307,7 +307,7 @@ struct CookActionCard: View {
             }
             Spacer()
             Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
-                .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.6) : session.themeTextColor.opacity(0.3))
+                .foregroundStyle(textOnDark ? Color.stockedWhite.opacity(0.7) : session.themeTextColor.opacity(0.3))
         }
         .padding(CookStyle.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -400,7 +400,7 @@ struct CookIllustratedRow: View {
             } else if showCartGlyph {
                 Image(systemName: "cart.badge.plus")
                     .scaledFont(13)
-                    .foregroundStyle(ink.opacity(0.35))
+                    .foregroundStyle(ink.opacity(0.7))
             }
             Image(systemName: "chevron.right")
                 .scaledFont(12, weight: .semibold)
@@ -548,7 +548,7 @@ struct CookCategoryCard: View {
             }
             Spacer()
             Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.3))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
         }
         .padding(.vertical, 14).padding(.horizontal, 16)
         .frame(maxWidth: .infinity, minHeight: cardHeight, alignment: .leading)
@@ -575,13 +575,13 @@ struct CookIntelligenceCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).scaledFont(14.5, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
-                Text(detail).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
+                Text(detail).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if action != nil {
                 Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
         }
         .padding(14)
@@ -691,7 +691,7 @@ struct CookPlannerCard: View {
                         .foregroundStyle(Color.stockedSuccessInk)
                 } else {
                     Image(systemName: "chevron.right").scaledFont(13, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
             .padding(.vertical, 12).padding(.horizontal, 14)
@@ -715,7 +715,7 @@ struct CookPrepTaskCard: View {
             HStack(spacing: 12) {
                 Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
                     .scaledFont(20)
-                    .foregroundStyle(isDone ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(isDone ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                 Text(title).scaledFont(15)
                     .foregroundStyle(session.themeTextColor)
                     .strikethrough(isDone, color: session.themeTextColor.opacity(0.4))
@@ -768,13 +768,13 @@ struct CookSearchBar: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").scaledFont(15)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
             TextField(placeholder, text: $text)
                 .scaledFont(15).foregroundStyle(session.themeTextColor)
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill").scaledFont(15)
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
             }
         }
@@ -826,7 +826,7 @@ struct CookEmptyState: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon).scaledFont(38)
-                .foregroundStyle(session.themeTextColor.opacity(0.3))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
             Text(title).scaledFont(18, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
             if !message.isEmpty {

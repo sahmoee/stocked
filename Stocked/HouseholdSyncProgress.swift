@@ -19,6 +19,7 @@ struct HouseholdSyncProgress: View {
             ZStack {
                 Color.black.opacity(0.45).ignoresSafeArea()
                     .onTapGesture { if stage.isTerminal { cloud.clearStage() } }
+                    .accessibilityAddTraits(.isButton)
                 VStack(spacing: 16) {
                     icon(for: stage)
                     Text(title(for: stage))
@@ -28,7 +29,7 @@ struct HouseholdSyncProgress: View {
                     if let sub = subtitle(for: stage) {
                         Text(sub)
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .multilineTextAlignment(.center)
                     }
                     if stage.isTerminal {

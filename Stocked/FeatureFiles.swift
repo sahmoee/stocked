@@ -37,7 +37,7 @@ struct RecipeURLImportView: View {
                     Spacer()
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill").scaledFont(26)
-                            .foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .frame(minWidth: 44, minHeight: 44)
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
@@ -54,7 +54,7 @@ struct RecipeURLImportView: View {
                     .padding(.horizontal, 24)
 
                     Text("Paste any recipe URL — we'll extract the title, ingredients and steps automatically.")
-                        .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center).padding(.horizontal, 32)
 
                     if loading { ProgressView("Fetching…").tint(Color.stockedGold) }
@@ -67,7 +67,7 @@ struct RecipeURLImportView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(r.title.recipeDisplayTitle).stocked(.callout).foregroundStyle(session.themeTextColor).fixedSize(horizontal: false, vertical: true)
                                 Text("\(r.ingredients.count) ingredients · \(r.source)")
-                                    .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                    .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                             Spacer()
                             Button {
@@ -186,13 +186,13 @@ struct OCRConfirmationView: View {
                     Spacer()
                     Button { dismiss() } label: {
                         Image(systemName: "xmark.circle.fill").scaledFont(26)
-                            .foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .frame(minWidth: 44, minHeight: 44)
                     }.buttonStyle(.plain)
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
                 Text("Toggle off any items you don't want. Edit names if the scanner misread them.")
-                    .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.5))
+                    .stocked(.caption).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.horizontal, 24).padding(.bottom, 14)
 
                 ScrollView(showsIndicators: false) {

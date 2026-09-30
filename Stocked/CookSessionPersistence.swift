@@ -99,6 +99,24 @@ nonisolated struct ActiveCookSessionSnapshot: Codable, Sendable, Identifiable {
         return "\(min(done, steps.count)) of \(steps.count) steps done"
     }
 
+    /// The most urgent step timer, for the resume card: a timer that finished while
+    /// the app was closed comes first, then the soonest running one, then a paused one.
+    func timerSummary(now: Date = Date()) -> (text: String, isDone: Bool)? {
+        let live = timers.filter { !$0.isFinished }
+        let expired = live.filter { ($0.endDate.map { $0 <= now } ?? false) }.min { $0.stepIndex < $1.stepIndex }
+        if let t = expired { return ("Step \(t.stepIndex + 1) timer finished", true) }
+        if let t = live.filter({ ($0.endDate.map { $0 > now } ?? false) })
+            .min(by: { ($0.endDate ?? .distantFuture) < ($1.endDate ?? .distantFuture) }),
+           let end = t.endDate {
+            let left = CookingTimerPolicy.remaining(until: end, now: now, total: t.totalSeconds)
+            return ("Step \(t.stepIndex + 1) timer · \(CookingTimerPolicy.display(left)) left", false)
+        }
+        if let t = live.first(where: { $0.endDate == nil && $0.pausedRemaining != nil }), let left = t.pausedRemaining {
+            return ("Step \(t.stepIndex + 1) timer paused · \(CookingTimerPolicy.display(left)) left", false)
+        }
+        return nil
+    }
+
     /// "Paused 12m ago" / "In progress" — for the paused-session card.
     var pausedAgoLabel: String {
         let reference = pausedAt ?? lastSavedAt
@@ -362,6 +380,19 @@ struct CookSessionResumeCard: View {
             Text("\(snapshot.stepProgressLabel) · serves \(snapshot.servings)")
                 .scaledFont(12)
                 .foregroundStyle(session.themeSecondaryText)
+            // Live countdown for a running step timer, so a pot left on the stove is
+            // visible from Home without opening the cook.
+            if !snapshot.timers.isEmpty {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    if let summary = snapshot.timerSummary(now: context.date) {
+                        Label(summary.text, systemImage: summary.isDone ? "bell.badge.fill" : "timer")
+                            .scaledFont(12, weight: .semibold)
+                            .monospacedDigit()
+                            .foregroundStyle(summary.isDone ? Color.stockedAccentInk : session.themeTextColor)
+                            .accessibilityAddTraits(.updatesFrequently)
+                    }
+                }
+            }
             (stacksControls ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
                             : AnyLayout(HStackLayout(spacing: 10))) {
                 Button(action: onResume) {

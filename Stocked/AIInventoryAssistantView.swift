@@ -51,14 +51,14 @@ struct AIInventoryAssistantView: View {
                         }
                         if noChanges {
                             Text("Couldn't find anything to change from that. Try naming an item you have.")
-                                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.55))
+                                .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         examplesBlock
                         askButton
                         scanSection   // #FB4 — whole-inventory AI scan
                         if !InventoryIntentParser.isAvailable {
                             Text("This needs an internet connection and the recipe service set up.")
-                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.45))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                     }
                     .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 40)
@@ -84,7 +84,7 @@ struct AIInventoryAssistantView: View {
     private var scanSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Or scan everything")
-                .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.7))
             Button {
                 Task { await runScan() }
             } label: {
@@ -104,13 +104,13 @@ struct AIInventoryAssistantView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text("Reviews every item and suggests cleaned-up names, the right storage spot, missing nutrition, and expiry estimates. You approve each change.")
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.top, 12)
                 }
                 .padding(12)
@@ -125,7 +125,7 @@ struct AIInventoryAssistantView: View {
             }
             if scanClean {
                 Text("Your inventory already looks tidy — nothing to suggest.")
-                    .scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.7))
             }
         }
     }
@@ -145,13 +145,13 @@ struct AIInventoryAssistantView: View {
                     .font(.stockedSerif(24, weight: .bold))
                     .foregroundStyle(session.themeTextColor)
                 Text("Tell me what changed, in plain words.")
-                    .scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.55))
+                    .scaledFont(12.5).foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             Spacer()
             Button { close() } label: {
                 Image(systemName: "xmark")
                     .scaledFont(13, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .frame(width: 44, height: 44)
                     .background((session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal).opacity(0.08))
                     .clipShape(Circle())
@@ -163,7 +163,7 @@ struct AIInventoryAssistantView: View {
     private var field: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("What changed?")
-                .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.7))
             TextField("e.g. I finished the eggs and used half the butter", text: $request, axis: .vertical)
                     .textFieldStyle(.plain)
                 .lineLimit(2...)
@@ -177,7 +177,7 @@ struct AIInventoryAssistantView: View {
     private var examplesBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Examples")
-                .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.5))
+                .scaledFont(12.5, weight: .semibold).foregroundStyle(session.themeTextColor.opacity(0.7))
             ForEach(examples, id: \.self) { ex in
                 Button { request = ex } label: {
                     HStack(spacing: 8) {

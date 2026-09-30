@@ -1,3 +1,4 @@
+import SowensKit
 // StockedWorkerClient.swift — typed, cached transport for the Stocked Cloudflare Worker.
 import Foundation
 import os
@@ -125,7 +126,7 @@ nonisolated enum StockedWorkerClient {
         request.timeoutInterval = timeout
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.sowensData(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw StockedServiceError.malformedResponse("The Worker returned no HTTP response.")
             }

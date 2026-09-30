@@ -63,6 +63,7 @@ struct DailyBriefOverlay: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color.black.opacity(0.4).ignoresSafeArea().onTapGesture { close() }
+            .accessibilityAddTraits(.isButton)
 
             mainCard
                 .padding(.horizontal, 16)
@@ -112,13 +113,13 @@ struct DailyBriefOverlay: View {
                         .fixedSize(horizontal: false, vertical: true)
                     Text("Here is where your kitchen stands today.")
                         .scaledFont(12.5)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
                 }
                 Spacer(minLength: 8)
                 Button { close() } label: {
                     Image(systemName: "xmark")
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
                         .frame(width: 28, height: 28)
                         .background(Color.stockedWhite.opacity(0.08))
                         .clipShape(Circle())
@@ -220,13 +221,13 @@ struct DailyBriefOverlay: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: icon)
                     .scaledFont(14)
-                    .foregroundStyle(ink.opacity(0.6))
+                    .foregroundStyle(ink.opacity(0.7))
                     .frame(width: 20)
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .scaledFont(12)
-                        .foregroundStyle(ink.opacity(0.55))
+                        .foregroundStyle(ink.opacity(0.7))
                     Text(value)
                         .scaledFont(15.5, weight: .bold)
                         .foregroundStyle(ink)
@@ -235,7 +236,7 @@ struct DailyBriefOverlay: View {
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .scaledFont(10, weight: .semibold)
-                    .foregroundStyle(ink.opacity(0.25))
+                    .foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
             }
             .padding(.vertical, 8)
@@ -278,11 +279,11 @@ struct DailyBriefOverlay: View {
                     .foregroundStyle(Color.stockedWhite)
                 Text(label)
                     .scaledFont(12.5)
-                    .foregroundStyle(Color.stockedWhite.opacity(0.6))
+                    .foregroundStyle(Color.stockedWhite.opacity(0.7))
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .scaledFont(9, weight: .semibold)
-                    .foregroundStyle(Color.stockedWhite.opacity(0.25))
+                    .foregroundStyle(Color.stockedWhite.opacity(0.7))
             }
             .contentShape(Rectangle())
         }
@@ -333,7 +334,7 @@ struct DailyBriefOverlay: View {
                         Spacer(minLength: 6)
                         Text(relative(a.date))
                             .scaledFont(11.5)
-                            .foregroundStyle(Color.stockedWhite.opacity(0.45))
+                            .foregroundStyle(Color.stockedWhite.opacity(0.7))
                     }
                 }
             } else {
@@ -341,7 +342,7 @@ struct DailyBriefOverlay: View {
                 if rows.isEmpty {
                     Text("No activity yet")
                         .scaledFont(12.5)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
                 } else {
                     ForEach(rows) { row in
                         HStack(spacing: 10) {
@@ -352,7 +353,7 @@ struct DailyBriefOverlay: View {
                             Spacer(minLength: 6)
                             Text(relative(row.when))
                                 .scaledFont(11.5)
-                                .foregroundStyle(Color.stockedWhite.opacity(0.45))
+                                .foregroundStyle(Color.stockedWhite.opacity(0.7))
                         }
                     }
                 }
@@ -377,7 +378,7 @@ struct DailyBriefOverlay: View {
                         .foregroundStyle(Color.stockedGoldDark)
                     Text("Haven't seen these in a while — still have them?")
                         .scaledFont(12)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
                     ForEach(items) { item in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(item.name.displayNormalized)
@@ -836,7 +837,7 @@ struct ExpiringItemsView: View {
                         .scaledFont(11).foregroundStyle(days <= 0 ? .red : tint)
                 } else {
                     Text(item.displayText).scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }
 

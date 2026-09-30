@@ -70,7 +70,7 @@ struct MealPrepView: View {
                         let active = (step == .select && i == 0) || (step == .review && i == 1) || (step == .plan && i == 2)
                         Text(labels[i])
                             .scaledFont(12, weight: .semibold)
-                            .foregroundStyle(active ? session.themeTextColor : session.themeTextColor.opacity(0.35))
+                            .foregroundStyle(active ? session.themeTextColor : session.themeTextColor.opacity(0.7))
                             .frame(maxWidth: .infinity).padding(.vertical, 8)
                             .background(active ? Color.stockedGold : Color.clear)
                     }
@@ -198,7 +198,7 @@ struct MealPrepView: View {
                         }
                         Text(meal.source).scaledFont(10, weight: .semibold)
                             .foregroundStyle(Color.stockedAccentInk)
-                    }.foregroundStyle(session.themeTextColor.opacity(0.45))
+                    }.foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 Spacer()
             }
@@ -230,7 +230,7 @@ struct MealPrepView: View {
                 HStack(spacing: 12) {
                     Image(systemName: inStock ? "checkmark.circle.fill" : "circle")
                         .scaledFont(18)
-                        .foregroundStyle(inStock ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(inStock ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                         .frame(width: 24)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ing.name).scaledFont(14).foregroundStyle(session.themeTextColor)
@@ -273,7 +273,7 @@ struct MealPrepView: View {
                     motion.animate(.standard, intent: .spatial) { step = .select }
                 } label: {
                     Text("← Edit Selection").scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
             }
             .padding(.horizontal, 24).padding(.top, 20)
@@ -320,7 +320,7 @@ struct MealPrepView: View {
                             if meal.estimatedCookMin > 0 {
                                 Text("Cook \(meal.estimatedCookMin)m").scaledFont(11)
                             }
-                        }.foregroundStyle(session.themeTextColor.opacity(0.45))
+                        }.foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     Spacer()
                     // Key ingredients preview
@@ -355,7 +355,7 @@ struct MealPrepView: View {
                     motion.animate(.standard, intent: .spatial) { step = .select }
                 } label: {
                     Text("Start Over").scaledFont(14)
-                        .foregroundStyle(session.themeTextColor.opacity(0.45))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.buttonStyle(.plain)
             }
             .padding(.horizontal, 24).padding(.top, 24)

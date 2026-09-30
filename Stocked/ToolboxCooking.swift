@@ -282,7 +282,7 @@ struct MultiTimerView: View {
                                 Button { cancel(timer) } label: {
                                     Image(systemName: left == 0 ? "checkmark.circle.fill" : "xmark.circle.fill")
                                         .scaledFont(22)
-                                        .foregroundStyle(left == 0 ? .green : session.themeSecondaryText.opacity(0.5))
+                                        .foregroundStyle(left == 0 ? .green : session.themeSecondaryText.opacity(0.7))
                                         .frame(minWidth: 44, minHeight: 44)
                                 }
                                 .buttonStyle(.plain)

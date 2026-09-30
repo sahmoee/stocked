@@ -46,7 +46,7 @@ struct InventorySpatialView: View {
                         HStack(spacing: 5) {
                             Text(zoneIcons[zone] ?? "📦").scaledFont(13)
                             Text(zone).font(.stockedSystem(size: 12, weight: currentZoneIndex == i ? .bold : .medium, design: .serif))
-                                .foregroundStyle(currentZoneIndex == i ? Color.stockedWhite : session.themeTextColor.opacity(0.55))
+                                .foregroundStyle(currentZoneIndex == i ? Color.stockedWhite : session.themeTextColor.opacity(0.7))
                         }
                         .padding(.horizontal, 12).padding(.vertical, 7)
                         .background(currentZoneIndex == i ? Color.stockedCharcoal : Color.stockedWhite.opacity(0.25))
@@ -102,7 +102,7 @@ struct InventorySpatialView: View {
                             .frame(width: 7, height: 7)
                         Text(isEmpty ? "Empty — sample items shown" : "\(pct)% Stocked · \(realItems.count) items")
                             .scaledFont(11, weight: .semibold)
-                            .foregroundStyle(isEmpty ? session.themeTextColor.opacity(0.4) : stockColor(pct))
+                            .foregroundStyle(isEmpty ? session.themeTextColor.opacity(0.7) : stockColor(pct))
                     }
                 }
                 Spacer()
@@ -132,7 +132,7 @@ struct InventorySpatialView: View {
                         }
                         Text(item.name)
                             .scaledFont(9, weight: .medium)
-                            .foregroundStyle(isEmpty ? session.themeTextColor.opacity(0.35) : session.themeTextColor)
+                            .foregroundStyle(isEmpty ? session.themeTextColor.opacity(0.7) : session.themeTextColor)
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: 60)
                     }
@@ -149,7 +149,7 @@ struct InventorySpatialView: View {
                                 .scaledFont(14, weight: .bold)
                                 .foregroundStyle(Color.stockedAccentInk)
                         }
-                        Text("more").scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.4))
+                        Text("more").scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
             }

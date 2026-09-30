@@ -46,6 +46,9 @@ final class DatabaseSyncBus {
     private let recipeMutationSubject = CurrentValueSubject<RecipeDatabaseChange?, Never>(nil)
     private var cancellables = Set<AnyCancellable>()
     private var latestRecipeRevision: UInt64 = 0
+    private var fullSyncTask: Task<Void, Never>?
+    private var fullSyncMerging = false
+    private var fullSyncFollowUp = false
 
     /// Publish an event from any database write
     func publish(_ event: DatabaseEvent) {
@@ -122,7 +125,22 @@ final class DatabaseSyncBus {
             await RecipeDatabase.shared.upsert(entry, origin: .offlineCache)
 
         case .fullSync:
-            Task { await RecipeDatabaseManager.shared.mergeAllSources() }
+            // A burst of fullSync events (import loops, foreground + manual refresh) collapses
+            // into one merge that starts after the burst settles. A merge already running is
+            // never cancelled; a request that arrives meanwhile schedules exactly one follow-up.
+            if fullSyncMerging { fullSyncFollowUp = true; break }
+            fullSyncTask?.cancel()
+            fullSyncTask = Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled, let self else { return }
+                repeat {
+                    self.fullSyncFollowUp = false
+                    self.fullSyncMerging = true
+                    await RecipeDatabaseManager.shared.mergeAllSources()
+                    self.fullSyncMerging = false
+                } while self.fullSyncFollowUp
+                self.fullSyncTask = nil
+            }
 
         case .recipeDatabaseMutation, .recipeDatabaseChanged:
             break // publication only; the actor has already committed these rows

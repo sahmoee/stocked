@@ -1,3 +1,6 @@
+<!-- PROJECT-KNOWLEDGE managed; do not edit this export -->
+> Maintained in ProjectKnowledge: `projects/stocked/documents/README.md`. This is a generated portable read-only export. Update the central source with `project-knowledge put`; use `project-knowledge publish` to refresh exports. Relative links and code paths below refer to this original project location.
+
 # Stocked
 
 Stocked is a native SwiftUI kitchen operating system for iPhone and iPad. It connects pantry inventory, shopping, recipes, meal planning, guided cooking, household collaboration, and food intelligence so a household can decide what to buy and cook from one source of truth.

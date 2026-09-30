@@ -73,9 +73,15 @@ nonisolated enum BuildConfig {
     static let company        = "Sowens Studios"
     static let websiteURL     = "https://sowensstudios.com"
     static let supportEmail   = "support@sowensstudios.com"
-    static let privacyURL     = "https://sahmoee.github.io/stocked/privacy.html"
-    static let termsURL       = "https://sahmoee.github.io/stocked/license.html"
-    static let supportPageURL = "https://sahmoee.github.io/stocked/support.html"
+    static let privacyURL     = "https://sowensstudios.com/privacy/"
+    static let termsURL       = "https://sowensstudios.com/terms/"
+    static let supportPageURL = "https://sowensstudios.com/support/"
+    static let refundURL      = "https://sowensstudios.com/refunds/"
+    static let cookiesURL     = "https://sowensstudios.com/cookies/"
+    static let deleteDataURL  = "https://sowensstudios.com/delete-data/"
+    static let aboutURL       = "https://sowensstudios.com/about/"
+    static let licensesURL    = "https://sowensstudios.com/licenses/"
+    static let accessibilityURL = "https://sowensstudios.com/accessibility/"
 
     // The former Namecheap/cPanel curated recipe feed was retired in build 89.
     // RemoteContentClient performs no network request, and current remote content is

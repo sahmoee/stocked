@@ -116,7 +116,7 @@ struct StockGoalsSetupView: View {
                 .foregroundStyle(primaryText)
             Text("Tap the ones you usually have on hand.")
                 .scaledFont(13)
-                .foregroundStyle(primaryText.opacity(0.55))
+                .foregroundStyle(primaryText.opacity(0.7))
             chipGrid(cat.defaults)
                 .padding(.top, 2)
         }
@@ -129,7 +129,7 @@ struct StockGoalsSetupView: View {
                 .foregroundStyle(primaryText)
             Text("Add your own staples, then you’re all set.")
                 .scaledFont(13)
-                .foregroundStyle(primaryText.opacity(0.55))
+                .foregroundStyle(primaryText.opacity(0.7))
             addOwnField
             if !extras.isEmpty {
                 Text("➕  Your additions")

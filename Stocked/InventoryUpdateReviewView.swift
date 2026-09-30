@@ -46,7 +46,7 @@ struct InventoryUpdateReviewView: View {
                     if changes.isEmpty {
                         Text("Nothing to update — you're all set.")
                             .scaledFont(13.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.5))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                             .frame(maxWidth: .infinity).padding(.vertical, 30)
                     } else {
                             LazyVStack(spacing: 8) {
@@ -73,7 +73,7 @@ struct InventoryUpdateReviewView: View {
                         Button { dismiss() } label: {
                             Text("Skip — keep inventory as is")
                                 .scaledFont(13.5, weight: .semibold)
-                                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         .buttonStyle(.plain)
                         .padding(.vertical, 4)
@@ -172,12 +172,18 @@ struct InventoryUpdateReviewView: View {
 
     /// One staged change → the same store mutations the rest of the app uses.
     private func perform(_ change: StagedInventoryChange) {
+        // Boundary- and synonym-aware match with the best score, so "salt" never
+        // updates "unsalted butter" and "egg" never updates "eggplant".
         func existing() -> LocalInventoryItem? {
-            let target = change.ingredientName.lowercased()
-            return store.inventoryItems.first {
-                let n = $0.name.lowercased()
-                return n.contains(target) || target.contains(n)
+            let target = change.ingredientName
+            var best: (item: LocalInventoryItem, score: Double)?
+            for item in store.inventoryItems {
+                let score = KitchenAvailability.matchScore(target, item.name)
+                guard score >= KitchenAvailability.confidenceThreshold else { continue }
+                if score > (best?.score ?? 0) { best = (item, score) }
+                if score >= 1 { break }
             }
+            return best?.item
         }
 
         switch change.kind {

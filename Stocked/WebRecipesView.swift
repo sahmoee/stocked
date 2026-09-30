@@ -187,7 +187,7 @@ struct WebRecipesView: View {
                         .scaledFont(12, weight: .medium)
                         .padding(.horizontal, 12).padding(.vertical, 7)
                         .background(selectedSource != nil ? Color.stockedGold : Color.stockedWhite.opacity(0.3))
-                        .foregroundStyle(selectedSource != nil ? session.themeTextColor : session.themeTextColor.opacity(0.6))
+                        .foregroundStyle(selectedSource != nil ? session.themeTextColor : session.themeTextColor.opacity(0.7))
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                     }
                     .buttonStyle(.plain)
@@ -499,7 +499,7 @@ struct FilterChip: View {
             }
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(isSelected ? Color.stockedGold : Color.stockedWhite.opacity(0.3))
-            .foregroundStyle(isSelected ? session.themeTextColor : session.themeTextColor.opacity(0.6))
+            .foregroundStyle(isSelected ? session.themeTextColor : session.themeTextColor.opacity(0.7))
             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
         }.buttonStyle(.plain)
     }
@@ -789,7 +789,7 @@ struct WebRecipeDetailView: View {
                                     VStack(spacing: 4) {
                                         Text(tab.rawValue)
                                             .font(.stockedSystem(size: 13, weight: activeTab == tab ? .semibold : .regular))
-                                            .foregroundStyle(activeTab == tab ? Color.stockedAccentInk : session.themeTextColor.opacity(0.5))
+                                            .foregroundStyle(activeTab == tab ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                                         Rectangle()
                                             .fill(activeTab == tab ? Color.stockedGold : Color.clear)
                                             .frame(height: 2)
@@ -859,16 +859,17 @@ struct WebRecipeDetailView: View {
                     .scaledFont(14).foregroundStyle(session.themeSecondaryText)
                     .padding(16).stockedPastelCard(radius: 14)
             } else {
-                let inventoryLower = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
+                // The app-wide matcher: "salt" no longer ticks "unsalted butter".
+                let stockedNames = KitchenAvailability.availableNames(in: session.guestStore.inventoryItems)
                 ForEach(Array(recipe.ingredients.enumerated()), id: \.offset) { _, ing in
-                    let haveIt = inventoryLower.contains { $0.contains(ing.lowercased()) || ing.lowercased().contains($0) }
+                    let haveIt = KitchenAvailability.isPresent(ing, inNames: stockedNames)
                     HStack(spacing: 12) {
                         Image(systemName: haveIt ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(haveIt ? Color.stockedSuccessInk : Color.stockedAccentInk.opacity(0.6))
+                            .foregroundStyle(haveIt ? Color.stockedSuccessInk : Color.stockedAccentInk.opacity(0.7))
                             .scaledFont(16)
                         Text(ing)
                             .scaledFont(14)
-                            .foregroundStyle(haveIt ? session.themeTextColor.opacity(0.5) : session.themeTextColor)
+                            .foregroundStyle(haveIt ? session.themeTextColor.opacity(0.7) : session.themeTextColor)
                         Spacer()
                     }
                     .padding(.vertical, 10).padding(.horizontal, 14)
@@ -909,12 +910,12 @@ struct WebRecipeDetailView: View {
 
     // MARK: Helpers
     private func autoFillIngredients() {
-        let stockedLower = Set(session.guestStore.inventoryItems.map { $0.name.lowercased() })
+        let stockedNames = KitchenAvailability.availableNames(in: session.guestStore.inventoryItems)
         for ing in recipe.ingredients {
-            let key = ing.lowercased()
-            let inStock = stockedLower.contains { $0.contains(key) || key.contains($0) }
+            let inStock = KitchenAvailability.isPresent(ing, inNames: stockedNames)
+            let food = KitchenAvailability.parsedName(ing)
             let inGrocery = session.guestStore.groceryItems.contains {
-                $0.name.lowercased().contains(key)
+                !$0.isChecked && KitchenAvailability.nameMatches(food, $0.name)
             }
             if !inStock && !inGrocery {
                 session.guestStore.addToGroceryIfMissing(ing, recommended: true, recipeSource: recipe.title)

@@ -9,14 +9,14 @@ import SwiftUI
 
 struct CrowdShareToggle: View {
     // Defaults to true (opt-out) to match CrowdDB.isEnabled.
-    @AppStorage("crowdShareEnabled") private var enabled: Bool = true
+    @AppStorage("crowdShareEnabled") private var enabled: Bool = false
 
     var body: some View {
         Section {
             Toggle("Improve Stocked for everyone", isOn: $enabled)
         } footer: {
             Text("Shares anonymized item facts (name, category, typical unit/container/quantity) "
-               + "so the app can suggest smarter defaults for all users. Never shares your name, "
+               + "so the app can suggest smarter defaults for all users. Off by default. Never shares your name, "
                + "account, or location. Turn off anytime — you still get everyone else's suggestions.")
         }
     }

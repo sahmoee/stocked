@@ -52,7 +52,7 @@ struct AppStatePanel: View {
                 )
             Text(state.title).scaledFont(18, weight: .bold, design: .serif)
             Text(detail).scaledFont(14).multilineTextAlignment(.center)
-                .foregroundStyle(session.themeTextColor.opacity(0.65))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(StockedPrimaryButtonStyle())

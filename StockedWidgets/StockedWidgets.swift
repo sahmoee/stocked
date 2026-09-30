@@ -88,10 +88,13 @@ private struct WidgetFittedValue: View {
 
 // MARK: - Brand colors (kept local to the widget target)
 private extension Color {
-    static let wGold     = Color(red: 0.573, green: 0.416, blue: 0.184) // Stocked pastel palette
-    static let wGreen    = Color(red: 0.337, green: 0.420, blue: 0.290) // Stocked pastel palette
-    static let wBg       = Color(red: 0.992, green: 0.969, blue: 0.937) // Stocked pastel palette
-    static let wCharcoal = Color(red: 0.263, green: 0.224, blue: 0.184) // Stocked pastel palette
+    static var usesTan: Bool {
+        UserDefaults(suiteName: "group.com.sowens.Stocked")?.string(forKey: "stocked.lightTheme") == "Tan"
+    }
+    static var wGold: Color { usesTan ? Color(red: 0.561, green: 0.392, blue: 0.075) : Color(red: 0.573, green: 0.416, blue: 0.184) }
+    static var wGreen: Color { usesTan ? Color(red: 0.086, green: 0.298, blue: 0.141) : Color(red: 0.337, green: 0.420, blue: 0.290) }
+    static var wBg: Color { usesTan ? Color(red: 0.780, green: 0.671, blue: 0.506) : Color(red: 0.992, green: 0.969, blue: 0.937) }
+    static var wCharcoal: Color { usesTan ? Color(red: 0.176, green: 0.173, blue: 0.165) : Color(red: 0.263, green: 0.224, blue: 0.184) }
 }
 
 private func stockTint(_ pct: Int) -> Color {

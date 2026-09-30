@@ -177,7 +177,7 @@ struct StarIngredientRecipesView: View {
                 }
                 Image(systemName: "chevron.right")
                     .scaledFont(11, weight: .semibold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(10)
             .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.45))

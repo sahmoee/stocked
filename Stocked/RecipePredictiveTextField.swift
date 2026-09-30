@@ -261,6 +261,7 @@ struct RecipeFormAutofillBanner: View {
                     .foregroundStyle(session.themeSecondaryText)
             }
             .buttonStyle(.plain)
+                .accessibilityLabel("Clear text")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

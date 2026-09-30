@@ -8,6 +8,9 @@ actor SmartResponseCache {
     private var storage: ResponseCacheStorage
     private var flights: [String: Flight] = [:]
     private var retryAfter: [String: TimeInterval] = [:]
+    /// Consecutive failures per key, so a persistently failing endpoint backs off 30s, 60s, 120s
+    /// ... up to five minutes instead of being retried every 30 seconds indefinitely.
+    private var failureStreak: [String: Int] = [:]
     private let uptime: @Sendable () -> TimeInterval
     private let freshFor: TimeInterval = 3600
     private let keepFor: TimeInterval = 14 * 24 * 3600
@@ -64,15 +67,19 @@ actor SmartResponseCache {
         if let data, !data.isEmpty {
             storage.store(data, for: key, ttl: keepFor, expectedGeneration: generation)
             retryAfter[key] = nil
+            failureStreak[key] = nil
             return data
         }
         if retryAfter.count >= 256, let oldest = retryAfter.min(by: { $0.value < $1.value })?.key { retryAfter[oldest] = nil }
-        retryAfter[key] = uptime() + 30
+        if failureStreak.count >= 256, let drop = failureStreak.keys.first { failureStreak[drop] = nil }
+        let streak = min((failureStreak[key] ?? 0) + 1, 6)
+        failureStreak[key] = streak
+        retryAfter[key] = uptime() + min(30 * pow(2, Double(streak - 1)), 300)
         return nil
     }
     func clear() {
         for flight in flights.values { flight.task.cancel() }
-        flights.removeAll(); retryAfter.removeAll(); storage.clear()
+        flights.removeAll(); retryAfter.removeAll(); failureStreak.removeAll(); storage.clear()
     }
     func sizeBytes() -> Int64 { storage.diskSizeBytes() }
     func entryCount() -> Int { storage.diskEntryCount() }

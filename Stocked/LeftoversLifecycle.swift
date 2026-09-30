@@ -145,12 +145,12 @@ struct LeftoversView: View {
             if store.entries.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "takeoutbag.and.cup.and.straw")
-                        .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("No leftovers tracked").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Save a portion after cooking and it'll show up here with its own clock, so it gets eaten instead of forgotten.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.horizontal, 40)
                     Button { showAdd = true } label: {
                         Text("Add leftovers").scaledFont(14, weight: .semibold)

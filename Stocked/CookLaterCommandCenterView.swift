@@ -1073,7 +1073,7 @@ struct CookLaterCommandCenterView: View {
               Spacer()
               readinessChevron
             }
-            .foregroundStyle(session.themeTextColor.opacity(0.48))
+            .foregroundStyle(session.themeTextColor.opacity(0.7))
           }
         } else {
           HStack(spacing: 16) {
@@ -1132,7 +1132,7 @@ struct CookLaterCommandCenterView: View {
   private var readinessChevron: some View {
     Image(systemName: "chevron.right")
       .scaledFont(12, weight: .bold)
-      .foregroundStyle(session.themeTextColor.opacity(0.3))
+      .foregroundStyle(session.themeTextColor.opacity(0.7))
   }
 
   private func readinessLine(_ text: String, tint: Color) -> some View {
@@ -1243,7 +1243,7 @@ struct CookLaterCommandCenterView: View {
             Text("Plan a meal").scaledFont(12.5, weight: .semibold)
             Spacer()
           }
-          .foregroundStyle(session.themeTextColor.opacity(0.45))
+          .foregroundStyle(session.themeTextColor.opacity(0.7))
           .padding(12).background(
             session.themeTextColor.opacity(0.04), in: RoundedRectangle(cornerRadius: 11))
         }
@@ -1259,6 +1259,7 @@ struct CookLaterCommandCenterView: View {
         day == selectedDay ? Color.stockedGold.opacity(0.32) : Color.clear, lineWidth: 1)
     )
     .onTapGesture { selectedDay = day }
+    .accessibilityAddTraits(.isButton)
   }
 
   private func mealPlanRow(_ meal: PlannedMeal) -> some View {
@@ -1603,7 +1604,7 @@ struct CookLaterCommandCenterView: View {
               ? "Planned meals do not over-allocate what is currently on hand."
               : "One or more ingredients are promised to multiple meals beyond the amount available."
           )
-          .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.48))
+          .scaledFont(11.5).foregroundStyle(session.themeTextColor.opacity(0.7))
           .fixedSize(horizontal: false, vertical: true)
         }
       }
@@ -2186,7 +2187,7 @@ private struct CookLaterAddMealSourceSheet: View {
                     }
                     Spacer()
                     Image(systemName: "chevron.right").scaledFont(10, weight: .bold)
-                      .foregroundStyle(session.themeTextColor.opacity(0.28))
+                      .foregroundStyle(session.themeTextColor.opacity(0.7))
                   }
                   .padding(12).background(
                     session.themeCardColor, in: RoundedRectangle(cornerRadius: 14))
@@ -2728,7 +2729,7 @@ private struct CookLaterMealDetailSheet: View {
           check.requestedDisplay.isEmpty
             ? check.state.title : "Need \(check.requestedDisplay) · have \(check.availableDisplay)"
         )
-        .scaledFont(10.5).foregroundStyle(session.themeTextColor.opacity(0.46))
+        .scaledFont(10.5).foregroundStyle(session.themeTextColor.opacity(0.7))
       }
       Spacer()
       Text(check.state.title).scaledFont(9.5, weight: .bold).foregroundStyle(tint)

@@ -35,6 +35,24 @@ struct StockedChangelog {
     //   • Settings collapsible dropdown
     //   • Expanded font picker with 14 named fonts + custom font import
     //   • iCloud data sync for Sign in with Apple users
+    //   • Sept 28 pass (unconfirmed on device):
+    //       – Grocery list: filter by recipe; Add Item from Bought now focuses the field
+    //       – Cooking resume card shows the live step timer
+    //       – Eating Out: log a favourite again in one tap / swipe
+    //       – Scan a Shelf: choose Fridge/Freezer/Pantry (or Auto); items you have start unticked
+    //       – Party planner: add a dish from My Recipes
+    //       – Kitchen Assistant: "What's running low?" with one-tap add to grocery list
+    //       – Search: recent searches; opening a result now counts toward popularity
+    //       – Settings › Help: Replay App Tips
+    //       – Prep First: progress, Mark all done, share the prep list
+    //       – Fixes: multi-page receipts keep page 1, one cook counted once, safer name
+    //         matching (review changes, web recipes), cuisine searches, prep wording,
+    //         household edit conflicts logged, Daily Brief counts refreshed per day,
+    //         garden harvests stored as one container with mixed-unit totals
+    //       – Sept 28 cache/load/sync pass (unconfirmed on device): cache disk touches and
+    //         directory scans reduced; Spoonacular cache writes coalesced; failing endpoints back
+    //         off; quiet households poll less often; Mac-harvest first page and Spotlight index
+    //         skipped when unchanged; fullSync bursts merged
     // ────────────────────────────────────────────────────────────────────────
 
     static let versions: [ChangelogVersion] = [
@@ -4369,14 +4387,14 @@ struct AppVersionView: View {
                             .foregroundStyle(session.themeTextColor)
                         Text(ver.buildDate)
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
 
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .scaledFont(11, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
@@ -4420,7 +4438,7 @@ struct AppVersionView: View {
                     .foregroundStyle(session.themeTextColor)
                 Text(entry.detail)
                     .scaledFont(13)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()

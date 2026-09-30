@@ -29,6 +29,7 @@ struct SplashView: View {
         // Tap anywhere to skip
         .contentShape(Rectangle())
         .onTapGesture { advance() }
+        .accessibilityAddTraits(.isButton)
         .onAppear {
             withAnimation(.easeOut(duration: 0.7)) {
                 opacity = 1

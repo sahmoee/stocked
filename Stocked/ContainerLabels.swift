@@ -145,12 +145,12 @@ struct ContainerLabelsView: View {
             if store.labels.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "qrcode").scaledFont(34)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("No labels yet").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("Make a label for a container, stick it on, and scanning it later tells you exactly what's inside and when it went in — no more mystery tubs.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
+                        .foregroundStyle(session.themeTextColor.opacity(0.7)).padding(.horizontal, 36)
                     Button { showAdd = true } label: {
                         Text("Make a label").scaledFont(14, weight: .semibold)
                             .padding(.horizontal, 20).padding(.vertical, 10)
@@ -169,6 +169,7 @@ struct ContainerLabelsView: View {
                                             .frame(width: 42, height: 42)
                                             .background(Color.white)
                                             .clipShape(RoundedRectangle(cornerRadius: 4))
+                                            .accessibilityLabel("Container label preview")
                                     }
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(label.contents).scaledFont(14, weight: .semibold)
@@ -215,6 +216,7 @@ struct ContainerLabelDetailView: View {
                         Image(uiImage: img)
                             .interpolation(.none).resizable()
                             .frame(width: 180, height: 180)
+                            .accessibilityLabel("Container label preview")
                     }
                     Text(label.contents)
                         .scaledFont(17, weight: .bold).foregroundStyle(.black)
@@ -226,7 +228,7 @@ struct ContainerLabelDetailView: View {
                         .scaledFont(12, weight: .semibold).foregroundStyle(.black.opacity(0.8))
                     Text(label.shortCode)
                         .scaledFont(11, weight: .bold, design: .monospaced)
-                        .foregroundStyle(.black.opacity(0.5))
+                        .foregroundStyle(.black.opacity(0.7))
                 }
                 .padding(18)
                 .frame(maxWidth: .infinity)

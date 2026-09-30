@@ -82,7 +82,7 @@ struct WeekMealPlannerView: View {
                 HStack(spacing: 10) {
                     Button { toggleCooked(meal) } label: {
                         Image(systemName: meal.isCooked ? "checkmark.circle.fill" : "circle")
-                            .scaledFont(18).foregroundStyle(meal.isCooked ? Color.stockedAccentInk : session.themeTextColor.opacity(0.3))
+                            .scaledFont(18).foregroundStyle(meal.isCooked ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                     }.buttonStyle(.plain)
                     .a11yButton(meal.isCooked ? "Mark \(meal.title) not cooked" : "Mark \(meal.title) cooked")
                     VStack(alignment: .leading, spacing: 1) {

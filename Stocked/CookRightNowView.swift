@@ -162,6 +162,7 @@ struct CookRightNowView: View {
                             .padding(.horizontal, 14).padding(.vertical, 6)
                             .background(Color.stockedGold).clipShape(Capsule())
                             .onTapGesture { openRecipe = recipe; goRecipe = true }
+                            .accessibilityAddTraits(.isButton)
                     }
                 }
                 .padding(14)

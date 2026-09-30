@@ -46,7 +46,7 @@ struct FullScreenCookView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Text("Step \(min(currentCard + 1, steps.count)) of \(steps.count)")
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     Spacer()
 
@@ -86,7 +86,7 @@ struct FullScreenCookView: View {
                 } else if voice.authDenied {
                     Text("Voice control needs mic + speech access — enable both in Settings → Stocked.")
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24).padding(.top, 8)
                 }
@@ -151,7 +151,7 @@ struct FullScreenCookView: View {
                     Button { motion.animate(.selection, intent: .spatial) { goBack() } } label: {
                         Image(systemName: "chevron.left")
                             .scaledFont(22, weight: .bold)
-                            .foregroundStyle(currentCard == 0 ? session.themeTextColor.opacity(0.25) : session.themeTextColor)
+                            .foregroundStyle(currentCard == 0 ? session.themeTextColor.opacity(0.7) : session.themeTextColor)
                             .frame(minWidth: 56, minHeight: 56)
                             .background(session.themeTextColor.opacity(0.10))
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))

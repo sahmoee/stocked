@@ -41,7 +41,7 @@ struct UserRecipeCard: View {
                         Text(recipe.cookTime).scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                     if !recipe.difficulty.isEmpty {
-                        Text("·").foregroundStyle(session.themeTextColor.opacity(0.3))
+                        Text("·").foregroundStyle(session.themeTextColor.opacity(0.7))
                         Text(recipe.difficulty).scaledFont(RecipeCardStyle.metadataSize).foregroundStyle(session.themeSecondaryText)
                     }
                 }
@@ -843,18 +843,8 @@ struct UserRecipeDetailView: View {
                             .background(Color.stockedCharcoal).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL))
                     }
                     .buttonStyle(.plain).padding(.horizontal, 24).padding(.bottom, 40)
-                    .simultaneousGesture(TapGesture().onEnded {
-                        // Log cook
-                        var updated = recipe
-                        updated.cookCount += 1
-                        updated.lastCooked = Date()
-                        session.guestStore.updateUserRecipe(updated)
-                        recipe = updated
-                        // Log past meal
-                        let df = DateFormatter(); df.dateStyle = .medium; df.timeStyle = .none
-                        let meal = LocalPastMeal(title: recipe.title, date: df.string(from: Date()), recipeId: recipe.id)
-                        session.guestStore.pastMeals.append(meal)
-                    })
+                    // Cook count, last-cooked date and the past-meal record are written once,
+                    // by CookingFlow.finishMeal(), when the cook is actually finished.
                 }
                 .padding(.top, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)

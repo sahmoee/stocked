@@ -255,7 +255,7 @@ struct RecipeNutritionSummary: View {
                             macroPill("\(Int(t.protein))g P", Color.stockedGreen)
                         }
                         Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                            .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .scaledFont(10).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .padding(.horizontal, 14).padding(.vertical, 11)
                     .contentShape(Rectangle())
@@ -275,7 +275,7 @@ struct RecipeNutritionSummary: View {
                     .padding(.horizontal, 8).padding(.vertical, 6)
 
                     Text("Estimates based on ~100g per ingredient · \(max(1, servings)) servings")
-                        .scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.35))
+                        .scaledFont(9).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .padding(.bottom, 8)
                 }
             }
@@ -302,7 +302,7 @@ struct RecipeNutritionSummary: View {
                 .scaledFont(14, weight: .bold, design: .rounded)
                 .foregroundStyle(highlighted ? Color.stockedAccentInk : session.themeTextColor)
             Text(label).scaledFont(9, weight: .semibold)
-                .foregroundStyle(session.themeTextColor.opacity(0.4))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
         }.frame(maxWidth: .infinity).padding(.vertical, 4)
     }
 }

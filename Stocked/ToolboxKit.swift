@@ -166,7 +166,7 @@ struct ToolboxEmptyState: View {
         VStack(spacing: 12) {
             Image(systemName: icon)
                 .scaledFont(40, weight: .light)
-                .foregroundStyle(session.themeSecondaryText.opacity(0.6))
+                .foregroundStyle(session.themeSecondaryText.opacity(0.7))
             Text(title)
                 .scaledFont(17, weight: .semibold)
                 .foregroundStyle(session.themeTextColor)

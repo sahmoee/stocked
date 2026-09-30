@@ -207,7 +207,7 @@ struct AchievementsView: View {
                         VStack(spacing: 8) {
                             Image(systemName: badge.icon)
                                 .scaledFont(24, weight: .medium)
-                                .foregroundStyle(badge.earned ? session.accentColor : session.themeSecondaryText.opacity(0.4))
+                                .foregroundStyle(badge.earned ? session.accentColor : session.themeSecondaryText.opacity(0.7))
                                 .frame(width: 46, height: 46)
                                 .background(Circle().fill(badge.earned
                                     ? session.accentColor.opacity(session.isDarkMode ? 0.18 : 0.12)

@@ -504,10 +504,10 @@ struct RecipeCSVRemovalSheet: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(m.row.title.recipeDisplayTitle)
                                     .scaledFont(14)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.55))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 Text("line \(m.row.lineNumber)")
                                     .scaledFont(11)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                         }
                     }
@@ -527,20 +527,20 @@ struct RecipeCSVRemovalSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: selected.contains(c.id) ? "checkmark.circle.fill" : "circle")
                     .scaledFont(19)
-                    .foregroundStyle(selected.contains(c.id) ? Color.stockedError : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(selected.contains(c.id) ? Color.stockedError : session.themeTextColor.opacity(0.7))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(c.title.recipeDisplayTitle)
                         .scaledFont(15, weight: .semibold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
                     Text(c.library == .saved ? "Saved recipe · \(c.detail)" : c.detail)
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 Spacer(minLength: 0)
                 if !matchedByID {
                     Image(systemName: "textformat.abc")
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                         .help("Matched by title, not ID")
                 }
             }
@@ -569,7 +569,7 @@ struct RecipeCSVRemovalSheet: View {
 
             Text("A copy of everything removed is saved first.")
                 .scaledFont(11)
-                .foregroundStyle(session.themeTextColor.opacity(0.45))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -590,7 +590,7 @@ struct RecipeCSVRemovalSheet: View {
                  : "That file didn't list any recipes.")
                 .scaledFont(13)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(session.themeTextColor.opacity(0.6))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .padding(.horizontal, 40)
         }
     }

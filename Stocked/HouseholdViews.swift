@@ -86,7 +86,7 @@ struct HouseholdHomeView: View {
                 valueRow("person.2", "Share & Collaborate", "Work together on lists and recipes")
                 valueRow("clock", "See Everyone's Activity", "Stay up to date in real time")
                 valueRow("slider.horizontal.3", "Personalized Preferences", "Customize what you see & how you're notified")
-                valueRow("lock.shield", "Safe & Secure", "Only people you invite can join")
+                valueRow("lock.shield", "Invite-Only", "Only people you invite can join")
             }
             .padding(.bottom, 36)
 
@@ -98,7 +98,7 @@ struct HouseholdHomeView: View {
             NavigationLink { HouseholdJoinView() } label: {
                 Text("I have an invite code")
                     .scaledFont(14, weight: .medium)
-                    .foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(.bottom, 24)
         }
@@ -352,7 +352,7 @@ struct HouseholdMembersView: View {
                 if let p = presenceLabel(m.name) {
                     HStack(spacing: 4) {
                         Circle().fill(p.1).frame(width: 6, height: 6)
-                        Text(p.0).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
+                        Text(p.0).scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
             }
@@ -407,7 +407,7 @@ struct HouseholdActivityView: View {
                 ForEach(HouseholdActivity.Category.allCases, id: \.self) { cat in
                     Button { filter = cat } label: {
                         Text(cat.label).scaledFont(13, weight: .medium)
-                            .foregroundStyle(filter == cat ? Color.stockedWhite : session.themeTextColor.opacity(0.6))
+                            .foregroundStyle(filter == cat ? Color.stockedWhite : session.themeTextColor.opacity(0.7))
                             .padding(.horizontal, 14).padding(.vertical, 7)
                             .background(filter == cat ? Color.stockedCharcoal : session.themeCardColor, in: Capsule())
                     }.buttonStyle(.plain)
@@ -536,7 +536,7 @@ struct HouseholdMemberProfileView: View {
                     .disabled(saving)
 
                     if let saveMessage {
-                        Text(saveMessage).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        Text(saveMessage).scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
                 .padding(14)
@@ -703,7 +703,7 @@ struct HouseholdShareCodeView: View {
             .padding(.bottom, 24)
             if household.state != .owner {
                 Text("Only the household owner can regenerate the code.")
-                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .scaledFont(11).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.bottom, 12)
             }
         }
@@ -796,10 +796,10 @@ struct HouseholdSettingsView: View {
                     Spacer()
                 }
                 Text("Last synced: \(lastSyncedText)")
-                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                 if household.pendingOps.count > 0 {
                     Text("Pending changes: \(household.pendingOps.count)")
-                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 if let err = household.syncStatus.lastError, !err.isEmpty {
                     Text(err).scaledFont(12).foregroundStyle(Color.stockedError.opacity(0.8))
@@ -840,7 +840,7 @@ struct HouseholdSettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Review Household Changes").scaledFont(14, weight: .semibold).foregroundStyle(session.themeTextColor)
                             Text("\(household.pendingConflicts.count) change\(household.pendingConflicts.count == 1 ? "" : "s") need your review")
-                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.5))
+                                .scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                         Spacer()
                         Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
@@ -907,7 +907,7 @@ struct HouseholdConflictReviewView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill").scaledFont(34).foregroundStyle(Color.stockedAccentInk)
                     Text("All caught up").scaledFont(18, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
-                    Text("There are no changes to review.").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    Text("There are no changes to review.").scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                 }.padding(.vertical, 24)
             } else {
                 Text("Two people changed the same thing while offline. Choose which version to keep for each one.")
@@ -927,7 +927,7 @@ struct HouseholdConflictReviewView: View {
                             household.resolveConflict(c, keepMine: false, store: session.guestStore)
                         }
                         Button { household.dismissConflict(c) } label: {
-                            Text("Skip for now").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.5))
+                            Text("Skip for now").scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                     }
                     .padding(14)

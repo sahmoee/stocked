@@ -209,12 +209,12 @@ struct EditItemSheet: View {
                             Spacer()
                             Text(par > 0 ? "\(par) in stock" : "Off")
                                 .scaledFont(12, weight: .bold)
-                                .foregroundStyle(par > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.4))
+                                .foregroundStyle(par > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                         }
                         HStack(spacing: 16) {
                             Button { if par > 0 { motion.animate(.selection, intent: .spatial) { par -= 1 } } } label: {
                                 Image(systemName: "minus.circle.fill").scaledFont(26)
-                                    .foregroundStyle(par > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.25))
+                                    .foregroundStyle(par > 0 ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                             }.buttonStyle(.plain).disabled(par == 0)
                             .stockedIconButton("Lower minimum stock")
                             Text(par > 0 ? "\(par)" : "—")
@@ -291,10 +291,10 @@ struct EditItemSheet: View {
                         VStack(spacing: 6) {
                             Image(systemName: "camera.fill")
                                 .scaledFont(22)
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                             Text("Add Photo")
                                 .scaledFont(12)
-                                .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                .foregroundStyle(session.themeTextColor.opacity(0.7))
                         }
                     }
                 }
@@ -572,7 +572,7 @@ struct AddItemSheet: View {
                     Image(systemName: "lock.fill").scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.4))
                     Text("View only").scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Text("Your household access level doesn't allow adding items. Ask the household owner if you need to add things.")
-                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.6))
+                        .scaledFont(14).foregroundStyle(session.themeTextColor.opacity(0.7))
                         .multilineTextAlignment(.center).padding(.horizontal, 40)
                     Button { close() } label: {
                         Text("Close").scaledFont(15, weight: .semibold).foregroundStyle(Color.stockedWhite)
@@ -853,11 +853,11 @@ struct AddItemSheet: View {
                     HStack {
                         Text(containerType.isEmpty ? "Select container type" : containerType)
                             .scaledFont(15)
-                            .foregroundStyle(containerType.isEmpty ? session.themeTextColor.opacity(0.35) : session.themeTextColor)
+                            .foregroundStyle(containerType.isEmpty ? session.themeTextColor.opacity(0.7) : session.themeTextColor)
                         Spacer()
                         Image(systemName: "chevron.down")
                             .scaledFont(12)
-                            .foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .padding(14)
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
@@ -1003,11 +1003,11 @@ struct AddItemSheet: View {
                                 HStack {
                                     Text(sizeUnit.isEmpty ? "Select unit" : sizeUnit)
                                         .scaledFont(15)
-                                        .foregroundStyle(sizeUnit.isEmpty ? session.themeTextColor.opacity(0.35) : session.themeTextColor)
+                                        .foregroundStyle(sizeUnit.isEmpty ? session.themeTextColor.opacity(0.7) : session.themeTextColor)
                                     Spacer()
                                     Image(systemName: "chevron.down")
                                         .scaledFont(12)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.35))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                 }
                                 .padding(14)
                                 .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.5))
@@ -1147,7 +1147,7 @@ struct AddItemSheet: View {
         Button(action: action) {
             Text("Add to \(zone)")
                 .scaledFont(16, weight: .bold, design: .serif)
-                .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.5))
+                .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.7))
                 .frame(maxWidth: .infinity).padding(.vertical, 16)
                 .background(
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
@@ -1211,7 +1211,7 @@ struct AddItemSheet: View {
         Button(action: action) {
             Text("Continue")
                 .scaledFont(16, weight: .semibold, design: .serif)
-                .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.4))
+                .foregroundStyle(enabled ? Color.stockedWhite : Color.stockedWhite.opacity(0.7))
                 .frame(maxWidth: .infinity).padding(.vertical, 16)
                 .background(
                     RoundedRectangle(cornerRadius: StockedUI.cornerRadiusXL)
@@ -1494,12 +1494,12 @@ struct ExpiryDateRow: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .scaledFont(15)
-                            .foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }.buttonStyle(.plain)
                 } else {
                     Text("Optional")
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 DatePicker("", selection: $expiryDate, in: Date()..., displayedComponents: .date)
                     .datePickerStyle(.compact)
@@ -1670,7 +1670,7 @@ struct ItemDetailPopup: View {
                             .foregroundStyle(session.themeTextColor)
                         Image(systemName: "chevron.up.chevron.down")
                             .scaledFont(11)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                     .padding(.horizontal, 16).padding(.vertical, 12)
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
@@ -1696,7 +1696,7 @@ struct ItemDetailPopup: View {
                     Spacer()
                     Image(systemName: showSizeDetails ? "chevron.up" : "chevron.down")
                         .scaledFont(11)
-                        .foregroundStyle(session.themeTextColor.opacity(0.3))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
             }.buttonStyle(.plain)
 
@@ -1733,7 +1733,7 @@ struct ItemDetailPopup: View {
                                     .foregroundStyle(session.themeTextColor)
                                 Image(systemName: "chevron.up.chevron.down")
                                     .scaledFont(10)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                             .padding(10)
                             .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
@@ -1833,7 +1833,7 @@ struct IngredientPairingsSheet: View {
                                 HStack(spacing: 14) {
                                     Image(systemName: pair.inStock ? "checkmark.circle.fill" : "circle.dashed")
                                         .scaledFont(20)
-                                        .foregroundStyle(pair.inStock ? Color.stockedAccentInk : session.themeTextColor.opacity(0.3))
+                                        .foregroundStyle(pair.inStock ? Color.stockedAccentInk : session.themeTextColor.opacity(0.7))
                                     Text(pair.name)
                                         .scaledFont(15, design: .serif)
                                         .foregroundStyle(session.themeTextColor)

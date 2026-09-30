@@ -114,7 +114,7 @@ struct EditProfileView: View {
                             .foregroundStyle(session.themeTextColor)
                         Image(systemName: "pencil")
                             .scaledFont(13)
-                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }.buttonStyle(.plain)
             }

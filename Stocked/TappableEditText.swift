@@ -44,10 +44,10 @@ struct TappableEditText: View {
         HStack(spacing: 4) {
             Text(text.isEmpty ? placeholder : text)
                 .font(font)
-                .foregroundStyle(text.isEmpty ? displayColor.opacity(0.35) : displayColor)
+                .foregroundStyle(text.isEmpty ? displayColor.opacity(0.7) : displayColor)
             Image(systemName: "pencil")
                 .scaledFont(9)
-                .foregroundStyle(displayColor.opacity(0.25))
+                .foregroundStyle(displayColor.opacity(0.7))
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -57,6 +57,7 @@ struct TappableEditText: View {
                 focused = true
             }
         }
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Edit mode

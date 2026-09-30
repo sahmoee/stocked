@@ -138,12 +138,12 @@ struct PreservationPlannerView: View {
             if atRisk.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "archivebox").scaledFont(34)
-                        .foregroundStyle(session.themeTextColor.opacity(0.25))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                     Text("Nothing at risk").scaledFont(16, weight: .semibold)
                         .foregroundStyle(session.themeTextColor)
                     Text("When something is about to turn, it shows up here with the specific way to save it — freeze, blanch, pickle, dry — and how much time that buys.")
                         .scaledFont(13).multilineTextAlignment(.center)
-                        .foregroundStyle(session.themeTextColor.opacity(0.55)).padding(.horizontal, 36)
+                        .foregroundStyle(session.themeTextColor.opacity(0.7)).padding(.horizontal, 36)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {

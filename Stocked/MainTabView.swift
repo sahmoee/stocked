@@ -647,6 +647,7 @@ struct MainTabView: View {
                         isPresented.wrappedValue = false
                     }
                 }
+                .accessibilityAddTraits(.isButton)
 
             // Sheet content — stops above tab bar.
             // compositingGroup() flattens the content (including any inner
@@ -809,6 +810,7 @@ struct DrawerDragLayer: View {
                     .ignoresSafeArea()
                     .allowsHitTesting(showDrawer && !isDragging)
                     .onTapGesture { motion.animate(.navigation, intent: .spatial) { showDrawer = false } }
+                    .accessibilityAddTraits(.isButton)
                     .zIndex(1100)
             }
 
@@ -833,6 +835,7 @@ struct DrawerDragLayer: View {
                             HapticManager.select()
                             motion.animate(.navigation, intent: .spatial) { showDrawer = true }
                         }
+                        .accessibilityAddTraits(.isButton)
                         .gesture(edgeDragGesture)
                 }
                 .frame(width: 28)
@@ -963,7 +966,7 @@ private struct InProgressCookPill: View {
                             .stockedAdaptiveLabel(maxLines: 2, alignment: .leading, minimumScale: 0.82)
                         Image(systemName: "chevron.up")
                             .scaledFont(11, weight: .bold)
-                            .foregroundStyle(Color.stockedWhite.opacity(0.5))
+                            .foregroundStyle(Color.stockedWhite.opacity(0.7))
                     }
                     .padding(.horizontal, 16).padding(.vertical, 11)
                     .background(Color.stockedCharcoal.opacity(0.95))

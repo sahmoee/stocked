@@ -163,7 +163,7 @@ struct BeforeYouStartView: View {
             HStack(spacing: 10) {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .scaledFont(17)
-                    .foregroundStyle(done ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(done ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                 Text(name.displayNormalized)
                     .scaledFont(14, weight: .semibold)
                     .foregroundStyle(session.themeTextColor)
@@ -185,7 +185,7 @@ struct BeforeYouStartView: View {
                     } else {
                         Text("not logged")
                             .scaledFont(10.5)
-                            .foregroundStyle(session.themeTextColor.opacity(0.35))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                     }
                 }
             }
@@ -234,7 +234,7 @@ struct BeforeYouStartView: View {
             HStack(spacing: 10) {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
                     .scaledFont(17)
-                    .foregroundStyle(done ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(done ? Color.stockedSuccessInk : session.themeTextColor.opacity(0.7))
                 Text(task)
                     .scaledFont(13.5)
                     .foregroundStyle(session.themeTextColor)

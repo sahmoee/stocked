@@ -109,12 +109,12 @@ struct MultiRecipeTimelineView: View {
                 ScrollView {
                     VStack(spacing: 10) {
                         Image(systemName: "timeline.selection")
-                            .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.25))
+                            .scaledFont(34).foregroundStyle(session.themeTextColor.opacity(0.7))
                         Text("Cook several dishes at once")
                             .scaledFont(16, weight: .semibold).foregroundStyle(session.themeTextColor)
                         Text("Add two or more dishes and Stocked works backward from when you want to eat, so everything lands at the same time.")
                             .scaledFont(13).multilineTextAlignment(.center)
-                            .foregroundStyle(session.themeTextColor.opacity(0.55))
+                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                         Button { showAdd = true } label: {
                             Text("Add a dish")
                         }.stockedPrimary(accent: session.themeButtonColor).padding(.top, 4)
@@ -143,13 +143,13 @@ struct MultiRecipeTimelineView: View {
                                         .foregroundStyle(session.accentColor)
                                     if s.isPassive {
                                         Image(systemName: "hourglass").scaledFont(9)
-                                            .foregroundStyle(session.themeTextColor.opacity(0.4))
+                                            .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     }
                                 }
                                 .frame(minWidth: layoutMetrics.isAccessibilityText ? nil : 58, alignment: .leading)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(s.recipe).scaledFont(11, weight: .bold)
-                                        .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                                     Text(s.text).scaledFont(13)
                                         .foregroundStyle(session.themeTextColor)
                                 }

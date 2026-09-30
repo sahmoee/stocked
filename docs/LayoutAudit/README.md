@@ -1,3 +1,6 @@
+<!-- PROJECT-KNOWLEDGE managed; do not edit this export -->
+> Maintained in ProjectKnowledge: `projects/stocked/documents/docs/LayoutAudit/README.md`. This is a generated portable read-only export. Update the central source with `project-knowledge put`; use `project-knowledge publish` to refresh exports. Relative links and code paths below refer to this original project location.
+
 # Stocked layout audit — September 9, 2026
 
 The reported Cook ingredient grid used independently sized cards with centered row alignment. Shared lazy equal-height rows now measure each column at its available width and align peer card surfaces. Multi-column ingredient summaries reserve three lines; accessibility layouts use a single column with full names.

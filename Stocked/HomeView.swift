@@ -972,6 +972,7 @@ struct HomeView: View {
                     }
             )
             .onTapGesture { cycleWidgetFootprint(widget) }
+            .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Resize \(widget.title) widget")
             .accessibilityHint(widget.resizeAccessibilityHint)
             .accessibilityAdjustableAction { direction in
@@ -1232,7 +1233,7 @@ struct HomeView: View {
             HStack(spacing: 10) {
                 Image(systemName: "plus.circle.fill")
                     .scaledFont(20, weight: .semibold)
-                    .foregroundStyle(removedWidgets.isEmpty ? session.themeTextColor.opacity(0.3) : Color.stockedAccentInk)
+                    .foregroundStyle(removedWidgets.isEmpty ? session.themeTextColor.opacity(0.7) : Color.stockedAccentInk)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(removedWidgets.isEmpty ? "All widgets added" : "Add widgets")
                         .scaledFont(15, weight: .bold, design: .serif)
@@ -1249,7 +1250,7 @@ struct HomeView: View {
             .background(
                 RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg)
                     .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-                    .foregroundStyle(session.themeTextColor.opacity(0.25))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             )
         }
         .buttonStyle(.plain)
@@ -1342,7 +1343,7 @@ struct HomeView: View {
         VStack(spacing: 10) {
             Image(systemName: "square.grid.2x2")
                 .scaledFont(30)
-                .foregroundStyle(session.themeTextColor.opacity(0.3))
+                .foregroundStyle(session.themeTextColor.opacity(0.7))
             Text("Your Home is empty")
                 .scaledFont(17, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
@@ -2120,7 +2121,7 @@ struct HomeView: View {
                                     .fill(dark ? Color.darkSurface : Color.stockedWhite.opacity(0.45))
                                     .frame(width: 30, height: 30)
                                 Image(systemName: row.icon).scaledFont(13)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.65))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                             Text(row.text).scaledFont(14)
                                 .foregroundStyle(session.themeTextColor.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
@@ -2140,7 +2141,7 @@ struct HomeView: View {
                     Spacer()
                     Image(systemName: "chevron.right")
                         .scaledFont(12, weight: .semibold)
-                        .foregroundStyle(session.themeTextColor.opacity(0.4))
+                        .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
                 .padding(.horizontal, 16).padding(.vertical, 13)
                 .background(dark ? Color.darkSurface : Color.stockedCharcoal.opacity(0.10))

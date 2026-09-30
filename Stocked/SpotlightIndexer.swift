@@ -13,7 +13,20 @@ enum SpotlightIndexer {
     static let inventoryDomain = "com.sowens.Stocked.inventory"
 
     /// Rebuild the index from the current store. Safe to call repeatedly.
+    /// Fingerprint of what was last indexed. A launch with unchanged recipes/inventory skips the
+    /// delete-then-reindex cycle entirely, which otherwise rewrites the system index every launch.
+    private static let fingerprintKey = "spotlightIndexFingerprint_v1"
+    private static func fingerprint(store: GuestDataStore) -> String {
+        var parts: [String] = []
+        parts.reserveCapacity(store.userRecipes.prefix(300).count * 2 + store.inventoryItems.prefix(400).count * 2)
+        for r in store.userRecipes.prefix(300) { parts.append(r.id.uuidString); parts.append(r.title + "|" + r.cuisine) }
+        for it in store.inventoryItems.prefix(400) { parts.append(it.id.uuidString); parts.append(it.name + "|" + it.zone + "|" + (it.brand ?? "")) }
+        return ResponseCacheKey.make(parts)
+    }
+
     static func reindex(store: GuestDataStore) {
+        let currentFingerprint = fingerprint(store: store)
+        if UserDefaults.standard.string(forKey: fingerprintKey) == currentFingerprint { return }
         var items: [CSSearchableItem] = []
 
         for r in store.userRecipes.prefix(300) {
@@ -36,10 +49,18 @@ enum SpotlightIndexer {
         }
 
         let index = CSSearchableIndex.default()
+        let indexedItems = items
+        let defaultsKey = fingerprintKey
         // Replace whole domains so deletions drop out, then add the current set.
         index.deleteSearchableItems(withDomainIdentifiers: [recipeDomain, inventoryDomain]) { _ in
-            guard !items.isEmpty else { return }
-            index.indexSearchableItems(items) { _ in }
+            guard !indexedItems.isEmpty else {
+                UserDefaults.standard.set(currentFingerprint, forKey: defaultsKey)
+                return
+            }
+            index.indexSearchableItems(indexedItems) { error in
+                // Only a successful index is remembered, so a failure retries next launch.
+                if error == nil { UserDefaults.standard.set(currentFingerprint, forKey: defaultsKey) }
+            }
         }
     }
 

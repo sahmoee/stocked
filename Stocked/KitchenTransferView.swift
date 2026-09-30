@@ -248,7 +248,7 @@ struct KitchenTransferView: View {
                         .foregroundStyle(Color.stockedWhite)
                     Text("Last backup: \(manager.lastBackupDate)")
                         .scaledFont(12)
-                        .foregroundStyle(Color.stockedWhite.opacity(0.55))
+                        .foregroundStyle(Color.stockedWhite.opacity(0.7))
                 }
                 Spacer()
                 Image(systemName: "refrigerator.fill")
@@ -270,7 +270,7 @@ struct KitchenTransferView: View {
     private func summaryPill(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
             Text(value).scaledFont(18, weight: .bold, design: .serif).foregroundStyle(Color.stockedAccentInk)
-            Text(label).scaledFont(11).foregroundStyle(Color.stockedWhite.opacity(0.55))
+            Text(label).scaledFont(11).foregroundStyle(Color.stockedWhite.opacity(0.7))
         }
         .frame(maxWidth: .infinity)
     }
@@ -481,7 +481,7 @@ struct KitchenTransferView: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .scaledFont(13, weight: .bold)
-                    .foregroundStyle(session.themeTextColor.opacity(0.45))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                 Text(title.uppercased())
                     .scaledFont(11, weight: .bold)
                     .foregroundStyle(session.themeSecondaryText)
@@ -526,7 +526,7 @@ struct KitchenTransferView: View {
                 Spacer()
                 Image(systemName: "chevron.right")
                     .scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(.horizontal, 16).padding(.vertical, 14)
         }
@@ -582,13 +582,14 @@ struct QRTransferSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusLg))
                         .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
                         .padding(.bottom, 20)
+                        .accessibilityLabel("Kitchen transfer QR code")
 
                     // Kitchen summary under QR
                     HStack(spacing: 20) {
                         Label("\(store.inventoryItems.count) items", systemImage: "tray.fill")
                         Label("\(store.stockPercent)% stocked", systemImage: "chart.bar.fill")
                     }
-                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.6))
+                    .scaledFont(13).foregroundStyle(session.themeTextColor.opacity(0.7))
                     .padding(.bottom, 20)
 
                     // Save QR image button
@@ -614,7 +615,7 @@ struct QRTransferSheet: View {
                             VStack(spacing: 14) {
                                 ProgressView().tint(Color.stockedCharcoal).scaleEffect(1.4)
                                 Text("Generating…").scaledFont(14)
-                                    .foregroundStyle(session.themeTextColor.opacity(0.5))
+                                    .foregroundStyle(session.themeTextColor.opacity(0.7))
                             }
                         }
                     }
@@ -827,7 +828,7 @@ struct ImportModeSheet: View {
                 }
                 Spacer()
                 Image(systemName: "chevron.right").scaledFont(12)
-                    .foregroundStyle(session.themeTextColor.opacity(0.3))
+                    .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
             .padding(14).background(session.isDarkMode ? Color.white.opacity(0.08) : Color.stockedWhite.opacity(0.3)).clipShape(RoundedRectangle(cornerRadius: 14))
         }

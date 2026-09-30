@@ -237,6 +237,7 @@ struct HelpSectionView: View {
     var onPrivacyPolicy: () -> Void = {}
     var onTermsOfService: () -> Void = {}
     var onWebsite: () -> Void = {}
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         let dark = session.isDarkMode
@@ -244,8 +245,32 @@ struct HelpSectionView: View {
             settingsGroup(dark: dark, title: "Help & Support", detail: "Find guides, contact support, and review Stocked policies.") {
                 actionRow(dark: dark, icon: "questionmark.circle", title: "Help Center", detail: "Guides for every part of Stocked", action: onHelpCenter)
                 actionRow(dark: dark, icon: "envelope.fill", title: "Contact Support", detail: BuildConfig.supportEmail, action: onContactSupport)
+                actionRow(dark: dark, icon: "sparkles", title: "Replay App Tips",
+                          detail: "Show the first-visit tips again on each tab") {
+                    CoachmarkStore.resetAll()
+                    HapticManager.success()
+                    ToastCenter.shared.success("Tips will show again as you visit each tab")
+                }
                 actionRow(dark: dark, icon: "lock.shield.fill", title: "Privacy Policy", detail: "How your data is handled", action: onPrivacyPolicy)
                 actionRow(dark: dark, icon: "doc.text.fill", title: "Terms of Service", detail: "The rules for using Stocked", action: onTermsOfService)
+                actionRow(dark: dark, icon: "creditcard", title: "Refund Policy", detail: "Purchases are handled by Apple") {
+                    if let u = URL(string: BuildConfig.refundURL) { openURL(u) }
+                }
+                actionRow(dark: dark, icon: "shield.lefthalf.filled", title: "Cookies & Tracking", detail: "None: no ad or tracking SDKs") {
+                    if let u = URL(string: BuildConfig.cookiesURL) { openURL(u) }
+                }
+                actionRow(dark: dark, icon: "person.crop.circle.badge.minus", title: "Request Data Deletion", detail: "Delete what we hold on our servers") {
+                    if let u = URL(string: BuildConfig.deleteDataURL) { openURL(u) }
+                }
+                actionRow(dark: dark, icon: "building.2", title: "About & Business Details", detail: "Sowens Studios · \(BuildConfig.supportEmail)") {
+                    if let u = URL(string: BuildConfig.aboutURL) { openURL(u) }
+                }
+                actionRow(dark: dark, icon: "text.book.closed", title: "Open-Source Licenses", detail: "Libraries, fonts and image credits") {
+                    if let u = URL(string: BuildConfig.licensesURL) { openURL(u) }
+                }
+                actionRow(dark: dark, icon: "figure.stand", title: "Accessibility Statement", detail: "Report a barrier or read our commitments") {
+                    if let u = URL(string: BuildConfig.accessibilityURL) { openURL(u) }
+                }
                 actionRow(dark: dark, icon: "globe", title: "Website", detail: "sowensstudios.com", action: onWebsite)
                 NavigationLink {
                     OpenKitchenCreditsView()

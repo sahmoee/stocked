@@ -42,6 +42,13 @@ nonisolated struct ResponseCacheStorage {
     private var memory: [String: Memory] = [:]
     private var memoryBytes = 0
     private var access: UInt64 = 0
+    // Cache-speed additions: access-time touches are throttled per key, and disk usage is tallied
+    // incrementally so a store only enumerates the directory when a budget may have been crossed.
+    private var lastTouch: (digest: String, at: Date)?
+    private var diskTally: (bytes: Int64, count: Int)?
+    private var lastPruneAt: Date?
+    private static var touchInterval: TimeInterval { 60 }
+    private static var maintenanceInterval: TimeInterval { 6 * 60 * 60 }
     private(set) var generation = UUID()
 
     init(directory: URL, limits: Limits = Limits(), now: @escaping @Sendable () -> Date = { Date() },
@@ -63,7 +70,7 @@ nonisolated struct ResponseCacheStorage {
         if var cached = memory[digest] {
             guard valid(cached.entry, digest: digest, at: current) else { removeDigest(digest); return nil }
             access &+= 1; cached.access = access; memory[digest] = cached
-            touch(file(digest), at: current)
+            touchIfStale(digest, at: current)
             return Hit(data: cached.entry.data, age: max(0, current.timeIntervalSince(cached.entry.storedAt)))
         }
         let url = file(digest)
@@ -101,7 +108,8 @@ nonisolated struct ResponseCacheStorage {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try encoded.write(to: file(digest), options: .atomic)
             touch(file(digest), at: current)
-            prune()
+            lastTouch = (digest, current)
+            pruneIfNeeded(added: encoded.count, at: current)
         } catch { /* A cache write is best effort; the caller still has the response. */ }
         return true
     }
@@ -109,6 +117,7 @@ nonisolated struct ResponseCacheStorage {
     mutating func remove(_ key: String) { removeDigest(ResponseCacheKey.make([key])) }
     mutating func clear() {
         generation = UUID(); memory.removeAll(); memoryBytes = 0
+        lastTouch = nil; diskTally = (0, 0); lastPruneAt = nil
         for row in files() { try? FileManager.default.removeItem(at: row.url) }
     }
     var retainedCount: Int { memory.count }
@@ -130,8 +139,28 @@ nonisolated struct ResponseCacheStorage {
                 removeMemory(digest)
             } catch { continue } // Only successful removal reduces the remaining budget.
         }
+        diskTally = (max(0, bytes), max(0, count))
+        lastPruneAt = current
     }
 
+    /// Exact directory maintenance still runs on the first write of a session, every six hours,
+    /// and whenever the incremental tally says a byte or entry budget may have been crossed.
+    private mutating func pruneIfNeeded(added: Int, at current: Date) {
+        guard var tally = diskTally, let last = lastPruneAt,
+              current.timeIntervalSince(last) < Self.maintenanceInterval,
+              current.timeIntervalSince(last) >= 0 else { prune(); return }
+        tally.bytes += Int64(added); tally.count += 1
+        diskTally = tally
+        if tally.bytes > Int64(limits.diskBytes) || tally.count > limits.entries { prune() }
+    }
+    /// Skips the filesystem call only when this key is already the most recently touched one, so
+    /// repeated hits on a hot entry are free while relative LRU order between entries is exact.
+    private mutating func touchIfStale(_ digest: String, at date: Date) {
+        if let last = lastTouch, last.digest == digest,
+           date.timeIntervalSince(last.at) >= 0, date.timeIntervalSince(last.at) < Self.touchInterval { return }
+        lastTouch = (digest, date)
+        touch(file(digest), at: date)
+    }
     private func valid(_ entry: Entry, digest: String, at date: Date) -> Bool {
         let age = date.timeIntervalSince(entry.storedAt)
         let lifetime = entry.expiresAt.timeIntervalSince(entry.storedAt)

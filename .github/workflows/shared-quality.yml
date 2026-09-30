@@ -1,0 +1,21 @@
+name: Shared quality
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  swift-quality:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: brew install swiftlint swiftformat
+      - name: Check changed Swift files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/quality.py --base "${BASE_SHA:-HEAD~1}"
+      - run: python3 scripts/test_release.py
+      - name: Native shared logic and cache tests
+        run: swift test --package-path Packages/SowensKit --skip PresentationSnapshotTests
