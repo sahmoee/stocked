@@ -44,10 +44,16 @@ scripts/__pycache__/
 # Local development guidance
 /AGENTS.md
 /CLAUDE.md
+/README_FIRST.md
+/CROSS_PROJECT_SYNC.md
+/PROJECT_GUIDE_ADDITIONS.md
+/docs/LayoutAudit/README.md
 
 # Local editor and source backups
 *.b*-backup
 Promo/FeaturePromo2026/Stocked-Promo-Features-1080x1920.mp4
+Promo/FeaturePromo2026/make_feature_promo
+Promo/FeaturePromo2026/verify_feature_promo
 
 # Shared quality/release tooling local output
 .bundle/

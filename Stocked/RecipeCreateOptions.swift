@@ -1,23 +1,11 @@
-// RecipeCreateOptions.swift
-// ─────────────────────────────────────────────────────────────────────────────
-// The "+" / Create Recipe entry now opens a 4-option menu:
-//   1. Create recipe      → blank CreateRecipeView (from scratch)
-//   2. Import from URL     → paste a link → fetch + parse → prefilled CreateRecipeView
-//   3. Import from screenshot → pick a photo → Vision OCR → parse → prefilled form
-//   4. Text manually       → paste a block of recipe text → parse → prefilled form
-//
-// Options 2–4 all funnel into the SAME CreateRecipeView (via its `prefill:`), so the user
-// always lands in the familiar editable form to review before saving — nothing is saved
-// silently. Screenshot + manual share one RecipeTextParser; URL reuses the existing
-// WebRecipeDatabase.importFromURL.
-// ─────────────────────────────────────────────────────────────────────────────
+// Recipe intake routes share an editable review form before saving.
 
 import SwiftUI
 @preconcurrency import PhotosUI
 @preconcurrency import Vision
 import UIKit
 
-// MARK: - Which create flow is active
+// MARK: - Intake routes
 
 enum RecipeCreateRoute: Identifiable, Equatable {
     case scratch
@@ -38,7 +26,7 @@ enum RecipeCreateRoute: Identifiable, Equatable {
     static func == (l: RecipeCreateRoute, r: RecipeCreateRoute) -> Bool { l.id == r.id }
 }
 
-// MARK: - The 4-option chooser
+// MARK: - Intake chooser
 
 struct RecipeCreateOptionsSheet: View {
     @Environment(AppSession.self) var session
@@ -60,13 +48,9 @@ struct RecipeCreateOptionsSheet: View {
                                title: "Create Recipe",
                                subtitle: "Start from a blank form") { choose(.scratch) }
 
-                    optionCard(icon: "sparkles", tint: session.accentColor,
-                               title: "Create with AI",
-                               subtitle: "Coming Soon") { }.disabled(true)
-
                     optionCard(icon: "safari", tint: session.themeContrastAccent,
                                title: "Browse recipe websites",
-                               subtitle: "View a recipe, then import it into STOCKED") { choose(.browser) }
+                               subtitle: "Open a recipe website and review an import") { choose(.browser) }
 
                     optionCard(icon: "link", tint: Color.stockedInfo,
                                title: "Import from URL",
@@ -77,12 +61,12 @@ struct RecipeCreateOptionsSheet: View {
                                subtitle: "Read a recipe from a saved image") { choose(.screenshot) }
 
                     optionCard(icon: "text.alignleft", tint: session.themeContrastAccent,
-                               title: "Text Manually",
-                               subtitle: "Paste recipe text and we'll structure it") { choose(.manual) }
+                               title: "Paste recipe text",
+                               subtitle: "Turn copied ingredients and steps into an editable recipe") { choose(.manual) }
 
                     optionCard(icon: "doc.badge.arrow.up", tint: Color.stockedInfo,
                                title: "Import or export recipe files",
-                               subtitle: "Cooklang, recipe JSON, HTML and text · no AI needed") { showRecipeFiles = true }
+                               subtitle: "Cooklang, recipe JSON, HTML and text") { showRecipeFiles = true }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 24)
             }
@@ -477,7 +461,7 @@ nonisolated enum RecipeTextParser {
             let lower = line.lowercased()
             if line == form.title { continue }
             if isIngredientsHeader(lower) { bucket = .ingredients; continue }
-            if isStepsHeader(lower)       { bucket = .steps; continue }
+            if isStepsHeader(lower) { bucket = .steps; continue }
 
             switch bucket {
             case .ingredients:
@@ -487,7 +471,7 @@ nonisolated enum RecipeTextParser {
             case .none:
                 // No headers seen yet — guess by shape.
                 if looksLikeIngredient(line) { ingredients.append(stripBullet(line)) }
-                else if looksLikeStep(line)  { steps.append(stripStepNumber(line)) }
+                else if looksLikeStep(line) { steps.append(stripStepNumber(line)) }
             }
         }
 

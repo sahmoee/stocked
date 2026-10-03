@@ -3,28 +3,25 @@
 
 # Contributing
 
-Thank you for improving this project.
+## Before changing code
 
-## Before starting
-
-1. Read `README.md` and the relevant product documentation.
-2. Run `python3 "../Reports/sync_qa_reports.py"` when working in the Sowens Studios multi-project workspace.
-3. Review unresolved tickets for this application, prioritizing blockers.
-4. Check the current branch and working tree. Do not overwrite unrelated local changes.
+Read the README and inspect the current branch, working tree and remote updates. Preserve unrelated changes. Identify the owning implementation and affected app, extension, Watch or Worker consumers before editing.
 
 ## Development standards
 
-- Keep changes focused and backward compatible.
-- Never commit credentials, user data, QA screenshots, local configuration, build output, or DerivedData.
-- Add or update regression coverage for behavior changes.
-- Use a generic physical-device destination for iOS verification; simulator use is optional.
-- Update the changelog and cross-project contract notes when applicable.
-- A fixed QA ticket must include a concise “What was fixed” resolution. Only a tester should mark it Verified on device.
+- Keep changes focused and compatible with existing stored data and network contracts.
+- Keep credentials, private records, QA captures, local configuration and build output out of Git.
+- Add meaningful regression coverage for behavior changes.
+- Check changed-file formatting and compile through the shared Stocked scheme.
+- Test rendered layouts and relevant empty, loading, offline, cancellation and error states on an available test destination.
+- Update user-facing release notes when behavior changes.
+
+Internal QA tickets need a concise description of the fix and actual validation. Device verification is a separate acceptance step.
 
 ## Pull requests
 
-Describe the problem, implementation, validation performed, affected tickets, app/Worker contract impact, and any follow-up device verification. Keep generated files and unrelated formatting out of the change.
+Describe the problem, resulting behavior, tests performed, affected consumers and any remaining device checks. Include migration or rollout requirements when a stored-data or service contract changes. Keep generated output and unrelated formatting out of the diff.
 
-## Security
+## Security reports
 
-Do not open public issues containing secrets, private user content, screenshots with personal information, or exploitable vulnerability details. Follow `SECURITY.md`.
+Do not publish secrets, private screenshots, user records or vulnerability details in an issue. Follow [SECURITY.md](SECURITY.md).

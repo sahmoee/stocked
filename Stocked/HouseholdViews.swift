@@ -1,16 +1,9 @@
-// HouseholdViews.swift — the household experience UI (mockup-styled).
-//
-// 12 screens from the mockup, wired to HouseholdSync (Worker-backed; replaces CloudKit CKShare)
-// and the new HouseholdModels (activity, members, invites, notification prefs). New screens use
-// the mockup's clean cream/serif styling; where the app already has components/flows
-// (the actual shared grocery list lives in GroceryListView), these screens link to them.
-//
-// Entry point: HouseholdHomeView() — the intro screen that routes to everything else.
+// Household membership, sharing and settings backed by HouseholdSync.
 
 import SwiftUI
 import UIKit
 
-// MARK: - Shared style helpers (mockup look)
+// MARK: - Shared presentation
 
 private enum HHStyle {
     static let corner: CGFloat = 16
@@ -18,7 +11,7 @@ private enum HHStyle {
 }
 
 private extension View {
-    /// Charcoal pill primary button (mockup's "Create Your Household", "Join Household", etc.)
+    /// Primary household action using the shared color and typography roles.
     func hhPrimaryButton() -> some View {
         self.scaledFont(16, weight: .semibold)
             .foregroundStyle(Color.stockedWhite)
@@ -84,7 +77,7 @@ struct HouseholdHomeView: View {
 
             VStack(spacing: 20) {
                 valueRow("person.2", "Share & Collaborate", "Work together on lists and recipes")
-                valueRow("clock", "See Everyone's Activity", "Stay up to date in real time")
+                valueRow("clock", "Household Activity", "Review recent changes to your kitchen")
                 valueRow("slider.horizontal.3", "Personalized Preferences", "Customize what you see & how you're notified")
                 valueRow("lock.shield", "Invite-Only", "Only people you invite can join")
             }
@@ -646,7 +639,6 @@ struct HouseholdMemberProfileView: View {
                 Text(value).scaledFont(12).foregroundStyle(session.themeSecondaryText)
             }
             Spacer()
-            Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
         }.padding(.vertical, 12)
     }
 }
@@ -1060,10 +1052,9 @@ struct HouseholdWhatsNewView: View {
     var body: some View {
         HHScreen("What's New in Household") {
             VStack(spacing: 20) {
-                feature("clock", "Activity Feed", "See what everyone is doing")
-                feature("person.2", "Member Profiles", "Customize preferences for better suggestions")
-                feature("checklist", "Smarter Lists", "Collaborate in real time")
-                feature("sparkles", "More Coming Soon", "We're always improving")
+                feature("clock", "Activity Feed", "Review changes to your shared kitchen")
+                feature("person.2", "Member Profiles", "Keep each person's food preferences in one place")
+                feature("checklist", "Shared Lists", "Coordinate groceries with household members")
             }.padding(.top, 20).padding(.bottom, 28)
             Button { dismiss() } label: { Text("Got It").hhPrimaryButton() }.padding(.bottom, 24)
         }
@@ -1084,24 +1075,39 @@ struct HouseholdWhatsNewView: View {
 
 struct HouseholdHelpView: View {
     @Environment(AppSession.self) private var session
-    private let faqs = [
-        "How do I invite someone?",
-        "Can I change the invite code?",
-        "How do notifications work?",
-        "How do I leave a household?"
+    private let faqs: [(question: String, answer: String)] = [
+        ("How do I invite someone?",
+         "Open Household Settings, then Invite Code. Share the code or copy it. The other person can open Household, choose 'I have an invite code', and enter it. Invite codes expire after 7 days."),
+        ("Can I change the invite code?",
+         "The household owner can open Invite Code and choose Regenerate Code. Share the new code with anyone who still needs to join."),
+        ("How do notifications work?",
+         "Open Household Settings, then Notifications to choose which updates you want. Check Stocked's notification permission in the iPhone or iPad Settings app if alerts aren't appearing."),
+        ("How do I leave a household?",
+         "Open Household Settings, choose Leave Household, and confirm. You'll need a new invite code to rejoin.")
     ]
     var body: some View {
         HHScreen("Need Help?") {
             HStack { Text("Common Questions").scaledFont(12, weight: .medium).foregroundStyle(session.themeSecondaryText); Spacer() }
                 .padding(.top, 8).padding(.bottom, 10)
             VStack(spacing: 0) {
-                ForEach(faqs, id: \.self) { q in
-                    HStack {
-                        Text(q).scaledFont(14).foregroundStyle(session.themeTextColor)
-                        Spacer()
-                        Image(systemName: "chevron.right").scaledFont(12).foregroundStyle(session.themeTextColor.opacity(0.3))
-                    }.padding(.vertical, 13)
-                    if q != faqs.last { Divider() }
+                ForEach(faqs.indices, id: \.self) { index in
+                    DisclosureGroup {
+                        Text(faqs[index].answer)
+                            .scaledFont(13)
+                            .foregroundStyle(session.themeSecondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 6)
+                    } label: {
+                        Text(faqs[index].question)
+                            .scaledFont(14, weight: .medium)
+                            .foregroundStyle(session.themeTextColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(minHeight: 44, alignment: .leading)
+                    }
+                    .tint(session.themeContrastAccent)
+                    .padding(.vertical, 6)
+                    if index != faqs.indices.last { Divider() }
                 }
             }
             .padding(.horizontal, 14)

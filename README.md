@@ -3,162 +3,100 @@
 
 # Stocked
 
-Stocked is a native SwiftUI kitchen operating system for iPhone and iPad. It connects pantry inventory, shopping, recipes, meal planning, guided cooking, household collaboration, and food intelligence so a household can decide what to buy and cook from one source of truth.
+Stocked is a native kitchen app for iPhone, iPad and Apple Watch. Track food, manage groceries, save recipes, plan meals and cook with the ingredients you already have.
 
-Current app version: **5**. The project targets **iOS/iPadOS 26** and includes the main app, a share extension, widgets, and Live Activities.
+## Features
 
-## Product capabilities
+- **Inventory:** storage zones, quantities, expiration dates, low-stock reminders and reviewed receipt, barcode and camera imports.
+- **Groceries:** shared lists, store grouping, purchase review and price comparisons.
+- **Recipes:** personal collections, website and screenshot imports, recipe files, discovery and ingredient matching.
+- **Cooking:** meal planning, ingredient reservations, guided steps, timers, leftovers and meal history.
+- **Households:** invite codes, member roles, food preferences, activity and shared kitchen data.
+- **Apple integrations:** widgets, Live Activities, share extension, Spotlight, notifications and a Watch companion.
 
-### Inventory and shopping
+Local records remain available offline. Optional network services support household synchronization, public recipe discovery and food intelligence. Results that need a connection retain their error and freshness state.
 
-- Pantry, refrigerator, freezer, and custom storage zones
-- Quantity, freshness, expiration, low-stock, confidence, and “use first” tracking
-- Receipt capture, barcode scanning, shelf scanning, camera/Live Text intake, and review-before-save
-- Grocery lists, multi-store organization, purchase deduplication, price intelligence, inventory reconciliation, and a local retailer/private-label catalog with receipt aliases and learned store layouts
-- Household-aware merge and conflict handling, activity history, kitchen transfer, export, and restore tools
+## Design
 
-### Recipes and meal planning
-
-- Local recipes, bundled starter meals, remote catalogs, web/share-sheet importing, and structured recipe cleanup
-- Browse, search, filters, dietary profiles, source management, classification, caching, and image fallback
-- Cook Now matching based on available ingredients, substitutions, exclusions, and household preferences
-- Cook Later planning, ingredient reservations, grocery generation, thaw/prep planning, leftovers, and compounding prep
-- Serving-size adjustment, “before you start” checks, guided steps, timers, Live Activities, and meal history
-
-### Intelligence and system integration
-
-- Optional Worker-backed receipt parsing, food normalization, recipe enrichment, recommendations, and daily briefs
-- Spotlight indexing, notifications, widgets, deep links, share extension, network monitoring, and offline-friendly local state
-- Five adaptive widgets for kitchen status, expiring food, groceries, today's meal, and recipes, plus a cooking timer Live Activity
-- Sign in with Apple, CloudKit backup/sync, guest mode, household membership, and storage diagnostics
-- Internal feature flags, diagnostics, health views, synchronized QA tickets, screenshots, verification, and refiling
-
-## User experience
-
-The main application uses an adaptive iPhone/iPad shell. Core areas expose the kitchen overview, inventory, grocery work, recipe discovery, cooking, and planning. A global drawer provides quick capture, search, activity, statistics, database/source management, account, household, notifications, storage, and kitchen-transfer tools.
-
-The app is designed to remain useful when optional providers are unavailable. Network-backed results should fail gracefully, preserve local work, and clearly identify stale or pending data.
-
-Stocked's shared GlassUI components use native iOS 26 Liquid Glass for navigation and selected controls. Warm tan and charcoal reading surfaces, watercolor artwork, adaptive text, and consistent form controls preserve the kitchen's visual identity. Reduce Transparency and Increase Contrast replace custom glass with opaque themed surfaces; Reduce Motion suppresses shared control scaling. See [UI polish and release checks](docs/GLASS-UI-POLISH.md).
-
-## Architecture
-
-| Area | Key implementation |
-| --- | --- |
-| App lifecycle and navigation | [`Stocked/StockedApp.swift`](Stocked/StockedApp.swift), [`Stocked/MainTabView.swift`](Stocked/MainTabView.swift) |
-| Theme and controls | [`Stocked/DesignTokens.swift`](Stocked/DesignTokens.swift), [`Stocked/DesignSystem.swift`](Stocked/DesignSystem.swift), [`Stocked/GlassUI.swift`](Stocked/GlassUI.swift) |
-| Domain state and persistence | [`Stocked/Models.swift`](Stocked/Models.swift), [`Stocked/AppSession.swift`](Stocked/AppSession.swift), store and CloudKit services under [`Stocked/`](Stocked/) |
-| Inventory and groceries | [`Stocked/InventoryHubView.swift`](Stocked/InventoryHubView.swift), [`Stocked/InventoryView.swift`](Stocked/InventoryView.swift), [`Stocked/GroceryListView.swift`](Stocked/GroceryListView.swift) |
-| Recipes and importing | [`Stocked/RecipeSupport.swift`](Stocked/RecipeSupport.swift), [`Stocked/RecipeCatalogImportView.swift`](Stocked/RecipeCatalogImportView.swift), [`StockedShareExtension/`](StockedShareExtension/) |
-| Cooking and planning | [`Stocked/CookHubView.swift`](Stocked/CookHubView.swift), [`Stocked/CookLaterWorkspaceView.swift`](Stocked/CookLaterWorkspaceView.swift), [`Stocked/ReservationEngine.swift`](Stocked/ReservationEngine.swift) |
-| Remote services | [`Stocked/StockedWorkerClient.swift`](Stocked/StockedWorkerClient.swift), [`Stocked/RemoteContentClient.swift`](Stocked/RemoteContentClient.swift), [Unified Worker](https://github.com/sahmoee/UnifiedWorker) |
-| Extensions | [`StockedWidgets/`](StockedWidgets/), [`StockedShareExtension/`](StockedShareExtension/) |
-| Tests | [`StockedTests/`](StockedTests/) |
-
-User data is local-first. CloudKit and the Unified Worker add cross-device, household, AI, catalog, and reporting functions; they are not substitutes for local persistence.
+Pastel and Tan palettes each support light and dark appearance. Tan retains the original charcoal, tan and gold colors. Shared typography, cards, search fields and navigation controls support Dynamic Type. Reduce Motion, Reduce Transparency and Increase Contrast use the corresponding accessibility fallbacks.
 
 ## Requirements
 
-- macOS with [Xcode](https://developer.apple.com/xcode/) and the iOS 26 SDK
-- An Apple development team and matching capabilities for installation on a physical device
-- Optional provider accounts for recipe/food data
-- Optional access to the [Unified Worker](https://github.com/sahmoee/UnifiedWorker)
+- macOS with Xcode and the iOS 26 SDK
+- An Apple development team with the capabilities needed for physical-device installation
+- Optional recipe provider configuration and access to the [Unified Worker](https://github.com/sahmoee/UnifiedWorker)
 
-Simulator use is not required. The standard command-line verification path targets a generic physical iOS device and avoids creating simulator data on the development Mac.
+## Get started
 
-## Setup
-
-```bash
+```sh
 git clone https://github.com/sahmoee/stocked.git
 cd stocked
 cp Secrets.example.xcconfig Secrets.xcconfig
 open Stocked.xcodeproj
 ```
 
-In Xcode:
+Select the **Stocked** shared scheme. Set your development team for the app, share extension, widgets and Watch targets. Configure your own bundle identifiers, App Groups, iCloud containers, Sign in with Apple and associated domains before installing on a device. Keep the related target identifiers and capabilities consistent.
 
-1. Select the **Stocked** scheme.
-2. Assign the correct development team to the app, widget, and share-extension targets.
-3. Confirm required iCloud, Sign in with Apple, App Groups, notifications, and associated capabilities for the selected bundle identifiers.
-4. Choose a connected iPhone or iPad and run.
+`Secrets.example.xcconfig` lists optional recipe-provider and development-server settings. Leave unused providers unconfigured. Store real values in ignored local configuration; never commit them. Hosted intelligence requests use the Worker, whose provider credentials belong in the server's secret store.
 
-### Configuration
+## Build and validate
 
-[`Secrets.example.xcconfig`](Secrets.example.xcconfig) documents the supported local values:
+Compile the app and embedded targets without device signing:
 
-| Setting | Purpose | Required? |
-| --- | --- | --- |
-| `SPOONACULAR_API_KEY` | Optional recipe provider | No |
-| `EDAMAM_APP_ID`, `EDAMAM_APP_KEY` | Optional recipe provider | No |
-| `USDA_API_KEY` | Optional nutrition/food lookup | No |
-| `MEALDB_BASE_URL` | MealDB endpoint | Has a safe default |
-| `NETWORK_TIMEOUT_REQUEST` | Request timeout | Has a default |
-| `STOCKED_ENV` | Runtime environment label | Has a default |
-| `HOMEBASE_URL`, `HOMEBASE_API_KEY` | Optional private development server | No |
-
-The app’s AI traffic is routed through the Worker; provider secrets must not ship in the application. Keep `Secrets.xcconfig` ignored and use Cloudflare secrets for server-side credentials. See the Worker’s [`SECRETS.md`](https://github.com/sahmoee/UnifiedWorker/blob/main/SECRETS.md).
-
-## Build and test
-
-Generic device build:
-
-```bash
+```sh
 xcodebuild \
   -project Stocked.xcodeproj \
   -scheme Stocked \
   -destination 'generic/platform=iOS' \
   -skipPackagePluginValidation \
   CODE_SIGNING_ALLOWED=NO \
-  clean build
+  build
 ```
 
-Unit tests live in [`StockedTests/`](StockedTests/) and cover core logic including household merging, reservations, receipt processing, adaptive cooking, feature behavior, Codable compatibility, and sync conflicts. Run tests from Xcode on a suitable device/simulator or in hosted CI. [`swift6_concurrency_guard.sh`](swift6_concurrency_guard.sh) performs the repository’s concurrency guard.
+Use `-derivedDataPath /path/to/build-cache` when build output should live on another disk. The shared scheme reserves the build number; do not build individual targets or manually increment it in wrappers.
 
-Run `python3 scripts/test-theme-contrast.py` to check semantic text colors against the actual light/dark surface tokens without launching the app. This does not replace on-device glass, layout, or accessibility testing.
+Useful local checks:
 
-## Backend and data flows
+```sh
+python3 scripts/check-household-features.py /path/to/check-output
+python3 scripts/quality.py
+```
 
-Production requests are served by `https://api.sowensstudios.com` through the [Unified Worker](https://github.com/sahmoee/UnifiedWorker). Stocked uses it for selected AI/normalization operations, household collaboration, product/crowd data, remote content, daily briefs, rate limiting, and QA synchronization.
+The formatting check requires the tools listed in `Brewfile`. Unit tests are in `StockedTests`; select an available test destination in Xcode. Compilation, logic checks and source-level contrast checks do not replace testing rendered screens, VoiceOver, sync, notifications or migrations on a device.
 
-When changing an endpoint:
+## Code map
 
-1. Keep existing request/response fields backward compatible.
-2. Update the Worker and app consumers together.
-3. Add regression coverage for decoding defaults and offline/error behavior.
-4. Record cross-project implications in [`CROSS-PROJECT-SYNC.md`](CROSS-PROJECT-SYNC.md).
+| Area | Location |
+| --- | --- |
+| App and navigation | `Stocked/StockedApp.swift`, `Stocked/MainTabView.swift` |
+| Theme and controls | `Stocked/DesignTokens.swift`, `Stocked/PastelDesign.swift`, `Stocked/DesignSystem.swift`, `Stocked/GlassUI.swift` |
+| State and persistence | `Stocked/Models.swift`, `Stocked/AppSession.swift`, `Stocked/GuestDataStore.swift` |
+| Household sharing | `Stocked/HouseholdSync.swift`, `Stocked/HouseholdViews.swift` |
+| Recipe intake | `Stocked/RecipeCreateOptions.swift`, `Stocked/RecipeCatalogImportView.swift` |
+| Cooking and planning | `Stocked/CookHubView.swift`, `Stocked/CookLaterWorkspaceView.swift`, `Stocked/ReservationEngine.swift` |
+| Network services | `Stocked/StockedWorkerClient.swift`, `Stocked/RemoteContentClient.swift` |
+| Extensions | `StockedShareExtension/`, `StockedWidgets/`, `StockedWatch/` |
+| Tests and release tools | `StockedTests/`, `scripts/`, `fastlane/` |
 
-## QA and diagnostics
+## Making changes
 
-Internal builds expose **Settings → QA**. Tickets include screen/navigation context, runtime failures, environment details, optional screenshots, local-first persistence, and automatic retry. The lifecycle is **Open → Investigating → Fixed → Verified**, with a required “What was fixed” explanation and a history-preserving **Refile** action.
+Check the working tree and remote branches before editing. Keep changes focused, preserve existing local work and add meaningful regression coverage for behavior changes. Stored records, household JSON, URLs and extension payloads are compatibility surfaces; migrations must preserve existing data and be safe to retry.
 
-Report synchronization is an internal development operation and is intentionally not documented in the public repository.
+For an API change, update its owning Worker and affected consumers together. Keep older clients working, test offline and failure paths, and review deployment order. The [Unified Worker](https://github.com/sahmoee/UnifiedWorker) owns hosted service contracts.
 
-## Release process
+## Release checks
 
-- Update [`CHANGELOG.md`](CHANGELOG.md) and user-facing [`Stocked/AppChangelog.swift`](Stocked/AppChangelog.swift).
-- Confirm version/build numbers for the app and extensions.
-- Run unit checks and a generic device build; then test on a real iPhone/iPad.
-- Validate widgets, share intake, notifications, CloudKit/sign-in, offline behavior, and migrations.
-- Review [`APP_STORE_METADATA.md`](APP_STORE_METADATA.md), [`PRIVACY.md`](PRIVACY.md), privacy manifests, and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-- Archive and distribute through Xcode/TestFlight. TestFlight is a distribution channel; Xcode’s generic-device build is the local CI-style compile check.
+Before archiving, review the app and extension versions, tests, device behavior and `Stocked/AppChangelog.swift`. Verify widgets, share intake, notifications, sign-in, household synchronization, offline use and data migrations. Review [store metadata](APP_STORE_METADATA.md), [compliance](APP_STORE_COMPLIANCE.md), [privacy](PRIVACY.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+Archive and upload through Xcode or the repository's release tooling. A successful compile is not evidence of a completed TestFlight upload or device acceptance.
 
 ## Troubleshooting
 
-- **Missing `Secrets.xcconfig`:** copy the example file; placeholder values are sufficient for compile-only builds.
-- **Signing/capability errors:** verify the team, bundle identifiers, App Group, iCloud container, and extension profiles.
-- **Provider requests fail:** confirm the provider is configured, inspect network diagnostics, and verify Worker health at [`/_unified/health`](https://api.sowensstudios.com/_unified/health).
-- **Data is not syncing:** check authentication, CloudKit availability, household membership, network state, conflict logs, and storage health before deleting local data.
-- **QA reports are absent locally:** run the shared Reports sync and verify the Worker QA key; do not manually copy screenshots into Git.
+- **Build configuration:** copy the example configuration and verify the selected team, target identifiers and capabilities.
+- **Provider failures:** confirm the optional provider is configured and inspect the relevant diagnostic error.
+- **Sync failures:** check household membership, authentication, connectivity and storage health before changing local data.
+- **Asset errors:** fully download the checkout before building if it is stored in iCloud Drive or another file-provider folder.
 
-## Security, privacy, and legal
+## Security and support
 
-Never commit credentials, private exports, receipt images, household data, or QA screenshots. Use Keychain/xcconfig for client configuration and the provider’s secret store for server credentials. Review [`SECURITY.md`](SECURITY.md), [`PRIVACY.md`](PRIVACY.md), [`SUPPORT.md`](SUPPORT.md), and Apple’s [privacy guidance](https://developer.apple.com/app-store/user-privacy-and-data-use/).
-
-## Contributing and project resources
-
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution process
-- [`CHANGELOG.md`](CHANGELOG.md) — release history
-- [`APP_STORE_METADATA.md`](APP_STORE_METADATA.md) — store-facing copy
-- [`LICENSE.md`](LICENSE.md) — license
-
-Preserve backward-compatible persisted data and network contracts, add tests for behavioral changes, and document any migration or cross-project dependency.
+Keep credentials, receipt images, household records, private exports and QA captures out of Git. Report vulnerabilities privately using [SECURITY.md](SECURITY.md). See [support](SUPPORT.md), [contribution guidance](CONTRIBUTING.md) and [license](LICENSE.md).
