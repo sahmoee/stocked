@@ -57,26 +57,24 @@ import Foundation
 import CryptoKit
 import SwiftUI
 import UIKit
+import Security
 
 // MARK: - cPanel settings
 
 /// Configuration for the optional cPanel receiver.
 ///
-/// `nonisolated` and UserDefaults-backed because `QATicket.destinationLine` —
-/// itself nonisolated, on a Sendable struct — asks whether this destination is
-/// configured in order to decide whether to mention it at all. UserDefaults is
-/// safe to read from any thread.
-///
-/// THE TOKEN IS NOT A SECRET IN THE APP'S SENSE. It is a shared word between
-/// this build and a PHP script the user installed on their own host, entered by
-/// hand on the device, and it grants nothing but "may drop a file in a QA
-/// folder". It is stored in UserDefaults, not the keychain, on purpose: it must
-/// be readable without a prompt from a background sync, and putting it in the
-/// keychain would imply a level of protection that would then be misleading.
-/// No *vendor* key is ever stored on device — that rule is unchanged.
+/// Background sync reads the shared receiver token from an after-first-unlock
+/// Keychain item. Earlier UserDefaults values migrate on first access and are
+/// removed only after a successful Keychain write.
 nonisolated enum QACPanelSettings {
     static let urlKey   = "qa.cpanel.url"
     static let tokenKey = "qa.cpanel.token"
+    private static let tokenService = "com.sowens.Stocked.qa.cpanel"
+    private static var tokenQuery: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: tokenService,
+         kSecAttrAccount as String: tokenKey]
+    }
 
     static var endpoint: String {
         get { UserDefaults.standard.string(forKey: urlKey) ?? "" }
@@ -85,9 +83,41 @@ nonisolated enum QACPanelSettings {
     }
 
     static var token: String {
-        get { UserDefaults.standard.string(forKey: tokenKey) ?? "" }
-        set { UserDefaults.standard.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines),
-                                        forKey: tokenKey) }
+        get {
+            var query = tokenQuery
+            query[kSecReturnData as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitOne
+            var item: CFTypeRef?
+            if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+               let data = item as? Data, let value = String(data: data, encoding: .utf8) {
+                UserDefaults.standard.removeObject(forKey: tokenKey)
+                return value
+            }
+            let legacy = UserDefaults.standard.string(forKey: tokenKey) ?? ""
+            if !legacy.isEmpty { _ = saveToken(legacy) }
+            return legacy
+        }
+        set { _ = saveToken(newValue) }
+    }
+
+    @discardableResult static func saveToken(_ rawValue: String) -> Bool {
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty {
+            let status = SecItemDelete(tokenQuery as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else { return false }
+            UserDefaults.standard.removeObject(forKey: tokenKey)
+            return true
+        }
+        var item = tokenQuery
+        item[kSecValueData as String] = Data(value.utf8)
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(item as CFDictionary, nil)
+        guard status == errSecSuccess ||
+                (status == errSecDuplicateItem && SecItemUpdate(tokenQuery as CFDictionary,
+                    [kSecValueData as String: Data(value.utf8)] as CFDictionary) == errSecSuccess)
+        else { return false }
+        UserDefaults.standard.removeObject(forKey: tokenKey)
+        return true
     }
 
     /// True only when both halves are present *and* the URL parses. A half
@@ -915,8 +945,10 @@ struct QASyncSettingsView: View {
                     .autocorrectionDisabled()
                 Button {
                     QACPanelSettings.endpoint = endpoint
-                    QACPanelSettings.token = token
-                    note = QACPanelSettings.isConfigured
+                    let tokenSaved = QACPanelSettings.saveToken(token)
+                    note = !tokenSaved
+                        ? "The token could not be saved securely. Try again after unlocking this device."
+                        : QACPanelSettings.isConfigured
                         ? "cPanel destination saved."
                         : "Both a full https URL and a token are needed before cPanel is used."
                 } label: {
