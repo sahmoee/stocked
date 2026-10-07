@@ -331,4 +331,64 @@ final class HouseholdDurabilityTests: XCTestCase {
                        Set(KitchenRestoreSection.allCases))
         XCTAssertFalse(KitchenRestoreSelection.all.merge)
     }
+
+    /// A delete made on this device has not reached the server yet, so the pulled snapshot
+    /// still contains the row. The pull must not restore it.
+    @MainActor
+    func testPendingRecipeAndMealDeletionsDoNotResurrectOnPull() async throws {
+        let store = GuestDataStore()
+        let deadline = Date().addingTimeInterval(10)
+        while !store.hasCompletedInitialHydration && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertTrue(store.hasCompletedInitialHydration, "Fixture setup requires completed local hydration")
+        guard store.hasCompletedInitialHydration else { return }
+        let sync = HouseholdSync.shared
+        let previous = (store.userRecipes, store.savedGeneratedRecipes, store.plannedMeals,
+                        store.pendingUserRecipeTombstones, store.pendingGenRecipeTombstones,
+                        store.pendingMealTombstones, sync.syncRecipes, sync.syncMealPlans)
+        defer {
+            store.isApplyingHouseholdRemote = true
+            store.userRecipes = previous.0
+            store.savedGeneratedRecipes = previous.1
+            store.plannedMeals = previous.2
+            store.pendingUserRecipeTombstones = previous.3
+            store.pendingGenRecipeTombstones = previous.4
+            store.pendingMealTombstones = previous.5
+            store.flushPendingSaves()
+            store.isApplyingHouseholdRemote = false
+            sync.syncRecipes = previous.6
+            sync.syncMealPlans = previous.7
+        }
+
+        let recipe = UserRecipe(title: "Deleted Soup")
+        let generated = GeneratedRecipe(title: "Deleted Toast", cookTime: "5 min", servings: 1,
+                                        difficulty: "Easy", ingredients: [], steps: ["Toast."], tips: "")
+        let meal = PlannedMeal(dayIndex: 0, title: "Deleted Dinner", servings: 2,
+                               ingredients: [], mealType: "Dinner")
+        store.isApplyingHouseholdRemote = true
+        store.userRecipes = []
+        store.savedGeneratedRecipes = []
+        store.plannedMeals = []
+        store.isApplyingHouseholdRemote = false
+        store.pendingUserRecipeTombstones = [recipe.id.uuidString]
+        store.pendingGenRecipeTombstones = [generated.id.uuidString]
+        store.pendingMealTombstones = [meal.id.uuidString]
+        sync.syncRecipes = true
+        sync.syncMealPlans = true
+
+        func dictionary<T: Encodable>(_ value: T) throws -> [String: Any] {
+            try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
+        }
+        let pulled: [String: Any] = [
+            "userRecipes": [try dictionary(recipe)],
+            "genRecipes": [try dictionary(generated)],
+            "plannedMeals": [try dictionary(meal)]
+        ]
+        _ = await sync.applyHousehold(pulled, into: store)
+
+        XCTAssertFalse(store.userRecipes.contains { $0.id == recipe.id }, "Deleted recipe resurrected")
+        XCTAssertFalse(store.savedGeneratedRecipes.contains { $0.id == generated.id }, "Deleted saved recipe resurrected")
+        XCTAssertFalse(store.plannedMeals.contains { $0.id == meal.id }, "Deleted planned meal resurrected")
+    }
 }

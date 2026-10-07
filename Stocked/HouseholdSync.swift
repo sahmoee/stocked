@@ -1561,7 +1561,7 @@ final class HouseholdSync {
     /// Merge a household document's grocery (and inventory for members) into the local store.
     /// Returns how many items were added so the sync prompt can report progress.
     @discardableResult
-    private func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) async -> (inv: Int, gro: Int) {
+    func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) async -> (inv: Int, gro: Int) {
         if let members = members(from: hh) { refreshMyAccessRole(from: members); rememberMembers(members) }
         if let raw = hh["activity"] as? [[String: Any]] {
             cachedActivity = raw.compactMap { parseActivity($0) }
@@ -1714,6 +1714,7 @@ final class HouseholdSync {
         // (assigning always would still be safe because the remote-apply guard blocks a push loop,
         // but this avoids needless local saves).
         let userRecipeTombstones = Set((hh["userRecipeDeleted"] as? [String]) ?? [])
+            .union(store.pendingUserRecipeTombstones)
         if syncRecipes, let raw = hh["userRecipes"] as? [[String: Any]] {
             for dictionary in raw {
                 if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
@@ -1745,6 +1746,7 @@ final class HouseholdSync {
             }
         }
         let genRecipeTombstones = Set((hh["genRecipeDeleted"] as? [String]) ?? [])
+            .union(store.pendingGenRecipeTombstones)
         if syncRecipes, let raw = hh["genRecipes"] as? [[String: Any]] {
             for dictionary in raw {
                 if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
@@ -1772,6 +1774,7 @@ final class HouseholdSync {
         }
         // #13 Planned meals: LWW merge honoring tombstones, same pattern as recipes.
         let mealTombstones = Set((hh["mealDeleted"] as? [String]) ?? [])
+            .union(store.pendingMealTombstones)
         if syncMealPlans, let raw = hh["plannedMeals"] as? [[String: Any]] {
             for dictionary in raw {
                 if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
