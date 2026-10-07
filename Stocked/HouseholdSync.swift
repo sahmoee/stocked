@@ -12,6 +12,7 @@
 
 import Foundation
 import Observation
+import Security
 import os
 import UIKit
 
@@ -26,6 +27,11 @@ nonisolated private struct HouseholdJSONBox: @unchecked Sendable {
 final class HouseholdSync {
     static let shared = HouseholdSync()
     private static let accessSnapshotKey = "hh_member_access_v1"
+    @ObservationIgnored private(set) var scopeEpoch: UInt64 = 0
+
+    func isCurrentScope(_ epoch: UInt64, code: String?) -> Bool {
+        scopeEpoch == epoch && joinCode == code
+    }
     private init() {
         switch UserDefaults.standard.string(forKey: "hh_role") {
         case "owner":  state = .owner
@@ -110,7 +116,6 @@ final class HouseholdSync {
     private(set) var pendingConflicts: [HouseholdConflict] = []
     // Set true only while applying a PULL (not a push response), so applyHousehold knows to
     // divert clobbering overwrites of locally-edited entities into pendingConflicts.
-    private var detectConflictsOnApply = false
     // #1 changed-since: the newest household updatedAt we've applied, sent on each pull so the
     // server can answer "unchanged" cheaply. Lets us poll fast for near-instant sync.
     private var lastAppliedUpdatedAt: Double = 0
@@ -381,6 +386,40 @@ final class HouseholdSync {
     /// Stable per-install identity. Two devices (or two guests) could share the same display
     /// name — "You", "Chef", or two people both called Jess — so the server must dedupe members
     /// by THIS id, not the name. Generated once per install and persisted; never changes.
+    /// This install's household credential: 256 random bits, kept only in the device Keychain
+    /// and sent only in request headers. The Worker stores its hash and authenticates every
+    /// household action with it; the member id alone proves nothing.
+    var householdCredential: String {
+        let account = "household.credential"
+        let stored = HouseholdDeliveryKeychain.readResult(account)
+        if stored.status == errSecSuccess {
+            guard let existing = stored.value, (43...128).contains(existing.count) else { return "" }
+            return existing
+        }
+        // Locked, inaccessible or damaged records must never be overwritten by a new identity.
+        guard stored.status == errSecItemNotFound else { return "" }
+        var generator = SystemRandomNumberGenerator()
+        let bytes = (0..<32).map { _ in UInt8.random(in: .min ... .max, using: &generator) }
+        let fresh = Data(bytes).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        guard HouseholdDeliveryKeychain.write(fresh, account: account) else { return "" }
+        return fresh
+    }
+
+    /// Every household request (sync, delivery, realtime, daily brief) carries membership here.
+    @discardableResult
+    func authorizeHouseholdRequest(_ request: inout URLRequest) -> Bool {
+        let credential = householdCredential
+        guard !credential.isEmpty else {
+            fail("Your secure household key is unavailable. Unlock your device and try again.")
+            return false
+        }
+        request.setValue(memberId, forHTTPHeaderField: "X-Household-Member")
+        request.setValue(credential, forHTTPHeaderField: "X-Household-Credential")
+        return true
+    }
+
     var memberId: String {
         if let existing = UserDefaults.standard.string(forKey: "hh_member_id"), !existing.isEmpty {
             return existing
@@ -496,6 +535,12 @@ final class HouseholdSync {
     /// Create a new household on the Worker. Returns true on success; joinCode is then set.
     @discardableResult
     func createHousehold() async -> Bool {
+        guard joinCode == nil else {
+            fail("Leave your current household before creating another one. Your local kitchen stays on this device.")
+            return false
+        }
+        scopeEpoch &+= 1
+        let epoch = scopeEpoch
         syncStage = .creating
         state = .creating
         // Use the profile name the app already set (via updateDisplayName / the household views).
@@ -509,7 +554,9 @@ final class HouseholdSync {
             "syncProtocolVersion": 2,
             "capabilities": HouseholdPermission.allCases.map(\.rawValue),
         ]
-        guard let resp = await post("/household/create", body) else {
+        let response = await post("/household/create", body)
+        guard scopeEpoch == epoch else { return false }
+        guard let resp = response else {
             fail("Couldn't create a household. Check your connection and try again.")
             return false
         }
@@ -557,23 +604,50 @@ final class HouseholdSync {
         return true
     }
 
-    /// Join an existing household by code. Pulls its current snapshot into the local store.
+    /// Mint a single-use invite link (owner or member manager). The code alone no longer
+    /// admits anyone; the secret travels in the link fragment.
+    func makeInviteLink() async -> String? {
+        guard let code = joinCode else { return nil }
+        guard let resp = await post("/household/invite", ["code": code]), let link = resp["link"] as? String else {
+            fail(lastPostFailure?.errorDescription ?? "Couldn't create an invite. Check your connection and try again.")
+            return nil
+        }
+        return link
+    }
+
+    /// Join an existing household from an invite link (or "CODE" + invite secret).
+    /// Pulls its current snapshot into the local store.
     @discardableResult
     func joinByCode(_ rawCode: String, into store: GuestDataStore) async -> Bool {
-        let code = HouseholdSync.normalize(rawCode)
+        let parsed = HouseholdInviteLink.parse(rawCode)
+        let code = parsed.code
         guard code.count == 8 else {
             fail("That doesn't look like a valid 8 character code.")
             return false
         }
+        guard joinCode == nil || joinCode == code else {
+            fail("Leave your current household before joining another one. Your local kitchen stays on this device.")
+            return false
+        }
+        guard let invite = parsed.invite else {
+            fail("Paste the invite link your household member shared. A code alone can't join.")
+            return false
+        }
+        scopeEpoch &+= 1
+        let epoch = scopeEpoch
         syncStage = .joining
         myDisplayName = resolvedName()   // never join as "You"
         let body: [String: Any] = [
-            "code": code, "memberName": myDisplayName, "memberId": memberId,
+            "code": code, "memberName": myDisplayName, "memberId": memberId, "invite": invite,
             "syncProtocolVersion": 2,
             "capabilities": HouseholdPermission.allCases.map(\.rawValue),
         ]
-        guard let resp = await post("/household/join", body) else {
-            fail("Couldn't find a household with that code.")
+        let response = await post("/household/join", body)
+        guard scopeEpoch == epoch else { return false }
+        guard let resp = response else {
+            // Server messages explain used/expired invites and households that must be set up again.
+            if case .httpStatus(_, let detail?) = lastPostFailure { fail(detail) }
+            else { fail("Couldn't join with that invite link. Check your connection and try again.") }
             return false
         }
         guard (resp["ok"] as? Bool) == true, let hh = resp["household"] as? [String: Any] else {
@@ -588,6 +662,7 @@ final class HouseholdSync {
         persistCurrentAccess()
         persist()
         let counts = await applyHousehold(hh, into: store)
+        guard isCurrentScope(epoch, code: code) else { return false }
         syncStage = .done(invAdded: counts.inv, groAdded: counts.gro)
         lastError = nil
         startAutoSync(store: store)   // begin automatic incoming sync
@@ -604,6 +679,7 @@ final class HouseholdSync {
     /// auto-sync poller and on foreground so changes made elsewhere appear on their own.
     func pullNow(into store: GuestDataStore) async {
         guard let code = joinCode, state == .owner || state == .member else { return }
+        let epoch = scopeEpoch
         // #1 changed-since: send the last updatedAt we applied; the server returns a tiny
         // "unchanged" reply when nothing is new, so frequent polling stays cheap.
         // The route marker is transient. Persisting the whole operation queue plus status on every
@@ -616,7 +692,9 @@ final class HouseholdSync {
             "syncProtocolVersion": 2,
             "checkpoint": checkpointDict(syncStatus.checkpoint),
         ]
-        guard let resp = await post("/household/pull", pullBody) else {
+        let response = await post("/household/pull", pullBody)
+        guard isCurrentScope(epoch, code: code) else { return }
+        guard let resp = response else {
             syncStatus.lastError = lastPostFailure?.localizedDescription ?? "Household pull failed."
             syncStatus.consecutiveFailureCount += 1
             syncStatus.activeRoute = nil
@@ -636,9 +714,8 @@ final class HouseholdSync {
             persistQueue()
             return
         }
-        detectConflictsOnApply = true          // pull path: guard local unsynced edits
-        _ = await applyHousehold(hh, into: store)
-        detectConflictsOnApply = false
+        _ = await applyHousehold(hh, into: store, detectConflicts: true)
+        guard isCurrentScope(epoch, code: code) else { return }
         if let u = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = u }
         advanceCheckpoint(response: resp, household: hh)
         markPullSucceeded(route: .workerPull)
@@ -746,6 +823,7 @@ final class HouseholdSync {
     /// that were not present in the request body.
     func syncNow(store: GuestDataStore) async {
         guard let code = joinCode, state == .owner || state == .member else { return }
+        let epoch = scopeEpoch
         if syncInFlight {
             syncRequestedWhileInFlight = true
             return
@@ -760,7 +838,7 @@ final class HouseholdSync {
             // This prevents failure/partial receipts from self-spawning an unbounded retry loop.
             let shouldContinue = syncRequestedWhileInFlight
             syncRequestedWhileInFlight = false
-            if shouldContinue && !Task.isCancelled {
+            if shouldContinue && !Task.isCancelled && isCurrentScope(epoch, code: code) {
                 let remainingDelay = max(0, nextRetryAllowedAt.timeIntervalSinceNow)
                 deferredSyncTask?.cancel()
                 deferredSyncTask = Task { @MainActor [weak self, weak store] in
@@ -849,6 +927,7 @@ final class HouseholdSync {
         // The Mac shed pictures to stay under; the phone did not, so a phone that had
         // collected a dozen photographed recipes could stop syncing groceries.
         body = await HouseholdSync.trimmedForPush(body)
+        guard isCurrentScope(epoch, code: code) else { return }
 
         guard let encodedBody = try? JSONSerialization.data(withJSONObject: body), encodedBody.count <= 2 * 1024 * 1024 else {
             let message = "This kitchen is too large to sync in one update. Your changes are still saved on this device; reduce shared content or photos and retry."
@@ -857,7 +936,9 @@ final class HouseholdSync {
             return
         }
 
-        guard let resp = await post("/household/push", body),
+        let response = await post("/household/push", body)
+        guard isCurrentScope(epoch, code: code) else { return }
+        guard let resp = response,
               let hh = resp["household"] as? [String: Any] else {
             let message = lastPostFailure?.localizedDescription
                 ?? "Sync didn't finish. Check your connection and try again."
@@ -906,6 +987,7 @@ final class HouseholdSync {
         }
         markQueueCompleted(operationIDs: completedIDs, route: .workerPush, receipt: receipt)
         let counts = await applyHousehold(hh, into: store)
+        guard isCurrentScope(epoch, code: code) else { return }
         if let updated = hh["updatedAt"] as? Double { lastAppliedUpdatedAt = updated }
         advanceCheckpoint(response: resp, household: hh)
         markPullSucceeded(route: .workerPush)
@@ -949,7 +1031,9 @@ final class HouseholdSync {
         return true
     }
 
-    private func resetLocal() {
+    private func resetLocal(persistReset: Bool = true) {
+        scopeEpoch &+= 1
+        DailyBriefContextUploader.cancelPendingUpload()
         stopAutoSync()          // #18 cancel the polling task so it can't run after leaving
         state = .idle
         joinCode = nil
@@ -957,12 +1041,21 @@ final class HouseholdSync {
         UserDefaults.standard.removeObject(forKey: "hh_role")
         UserDefaults.standard.removeObject(forKey: "hh_code")
         UserDefaults.standard.removeObject(forKey: Self.accessSnapshotKey)
+        // Journal deltas and server revisions belong to the departed household. The local
+        // collections remain authoritative and will be shared as a fresh snapshot if rejoined.
+        pendingOps.removeAll()
+        pendingConflicts.removeAll()
+        syncStatus = HouseholdSyncStatus()
+        lastAppliedUpdatedAt = 0
+        nextRetryAllowedAt = .distantPast
+        backoffIsServerImposed = false
+        if persistReset { persistQueue() }
     }
 
     /// Local erase is not a remote leave or webhook disable. Stop transport before cleared
     /// stores can be repopulated; a later share requires an explicit create/join action.
     func resetForLocalErase() {
-        resetLocal()
+        resetLocal(persistReset: false)
         pendingOps.removeAll()
         pendingConflicts.removeAll()
         syncStatus = HouseholdSyncStatus()
@@ -1200,6 +1293,7 @@ final class HouseholdSync {
     @ObservationIgnored private var lastPostFailure: StockedServiceError? = nil
 
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
+        let epoch = scopeEpoch
         lastPostFailure = nil
         guard !Task.isCancelled else { lastPostFailure = .cancelled; return nil }
         guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else {
@@ -1210,6 +1304,7 @@ final class HouseholdSync {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         BuildConfig.authorizeWorkerRequest(&request)
+        guard authorizeHouseholdRequest(&request) else { return nil }
         request.timeoutInterval = 12
         let boxedBody = HouseholdJSONBox(value: body)
         guard let encoded = await Task.detached(priority: .utility, operation: {
@@ -1218,6 +1313,7 @@ final class HouseholdSync {
             lastPostFailure = .invalidRequest("Household sync couldn't encode the local snapshot.")
             return nil
         }
+        guard scopeEpoch == epoch else { return nil }
         request.httpBody = encoded
         let repairDelays: [Duration] = [.milliseconds(500), .seconds(1), .seconds(2)]
         defer { isRepairingHouseholdStorage = false }
@@ -1235,6 +1331,7 @@ final class HouseholdSync {
                 return HouseholdJSONBox(value: object)
             }.value
             try Task.checkCancellation()
+            guard scopeEpoch == epoch else { return nil }
             let object = responseBox?.value
             guard (200...299).contains(http.statusCode) else {
                 let detail = object?["error"] as? String
@@ -1561,7 +1658,11 @@ final class HouseholdSync {
     /// Merge a household document's grocery (and inventory for members) into the local store.
     /// Returns how many items were added so the sync prompt can report progress.
     @discardableResult
-    private func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?) async -> (inv: Int, gro: Int) {
+    func applyHousehold(_ hh: [String: Any], into store: GuestDataStore?, detectConflicts: Bool = false,
+                        mirrorRecipes: (@MainActor ([UserRecipe]) async -> Void)? = nil) async -> (inv: Int, gro: Int) {
+        let epoch = scopeEpoch
+        let appliedCode = joinCode
+        var recipesToMirror: [UserRecipe]?
         if let members = members(from: hh) { refreshMyAccessRole(from: members); rememberMembers(members) }
         if let raw = hh["activity"] as? [[String: Any]] {
             cachedActivity = raw.compactMap { parseActivity($0) }
@@ -1588,7 +1689,7 @@ final class HouseholdSync {
         // Ids with an unsynced local edit queued. On a pull, an incoming DIFFERENT version of one
         // of these is a conflict (your edit vs someone else's), diverted for review rather than
         // silently overwritten. Empty on the push path, so pushes always apply straight through.
-        let lockedIDs: Set<UUID> = detectConflictsOnApply ? Set(pendingOps.map { $0.entityID }) : []
+        let lockedIDs: Set<UUID> = detectConflicts ? Set(pendingOps.map { $0.entityID }) : []
 
         // #3 — adopt the household's shared name when the server has one and we haven't set our own.
         if let remoteName = (hh["name"] as? String)?.trimmingCharacters(in: .whitespaces),
@@ -1667,7 +1768,7 @@ final class HouseholdSync {
                 if lockedIDs.contains(id), let mine = byID[id] {
                     recordInventoryDeleteConflict(mine: mine)
                 } else {
-                    if detectConflictsOnApply, let gone = byID[id] { remotelyRemoved.append(gone) }
+                    if detectConflicts, let gone = byID[id] { remotelyRemoved.append(gone) }
                     byID[id] = nil
                 }
             }
@@ -1714,6 +1815,7 @@ final class HouseholdSync {
         // (assigning always would still be safe because the remote-apply guard blocks a push loop,
         // but this avoids needless local saves).
         let userRecipeTombstones = Set((hh["userRecipeDeleted"] as? [String]) ?? [])
+            .union(store.pendingUserRecipeTombstones)
         if syncRecipes, let raw = hh["userRecipes"] as? [[String: Any]] {
             for dictionary in raw {
                 if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
@@ -1741,10 +1843,11 @@ final class HouseholdSync {
             for id in byID.keys where userRecipeTombstones.contains(id.uuidString) { byID[id] = nil; touched = true }
             if touched {
                 store.userRecipes = Array(byID.values)
-                await RecipeDatabaseManager.shared.syncHouseholdRecipes(remote)
+                recipesToMirror = remote
             }
         }
         let genRecipeTombstones = Set((hh["genRecipeDeleted"] as? [String]) ?? [])
+            .union(store.pendingGenRecipeTombstones)
         if syncRecipes, let raw = hh["genRecipes"] as? [[String: Any]] {
             for dictionary in raw {
                 if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
@@ -1772,6 +1875,7 @@ final class HouseholdSync {
         }
         // #13 Planned meals: LWW merge honoring tombstones, same pattern as recipes.
         let mealTombstones = Set((hh["mealDeleted"] as? [String]) ?? [])
+            .union(store.pendingMealTombstones)
         if syncMealPlans, let raw = hh["plannedMeals"] as? [[String: Any]] {
             for dictionary in raw {
                 if let rawID = dictionary["id"] as? String, let id = UUID(uuidString: rawID) {
@@ -1806,6 +1910,14 @@ final class HouseholdSync {
 
         FeatureSync.shared.apply(hh, included: FeatureSync.collections(inventory: syncInventory,
             mealPlans: syncMealPlans, recipes: syncRecipes))
+        // All collection merges above are synchronous. Release remote suppression before
+        // indexing awaits so UI edits retain their timestamps, tombstones and queue entries.
+        store.isApplyingHouseholdRemote = false
+        if let recipesToMirror {
+            if let mirrorRecipes { await mirrorRecipes(recipesToMirror) }
+            else { await RecipeDatabaseManager.shared.syncHouseholdRecipes(recipesToMirror) }
+            guard isCurrentScope(epoch, code: appliedCode) else { return (0, 0) }
+        }
         return (invAdded, groAdded)
     }
 
@@ -1947,9 +2059,32 @@ final class HouseholdSync {
 
     // MARK: - Code normalization (shared with the join field)
 
-    static func normalize(_ raw: String) -> String {
+    nonisolated static func normalize(_ raw: String) -> String {
         let allowed = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
         return String(raw.uppercased().filter { allowed.contains($0) })
+    }
+}
+
+/// Reads `https://sowensstudios.com/join/<CODE>#invite=<secret>` (or pasted text containing it).
+nonisolated enum HouseholdInviteLink {
+    static func parse(_ text: String) -> (code: String, invite: String?) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var invite: String?
+        if let range = trimmed.range(of: "invite=") {
+            let candidate = trimmed[range.upperBound...].prefix { !$0.isWhitespace && $0 != "&" }
+            let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+            if (43...128).contains(candidate.count), candidate.unicodeScalars.allSatisfy({ allowed.contains($0) }) {
+                invite = String(candidate)
+            }
+        }
+        var codeSource = trimmed
+        if let join = trimmed.range(of: "/join/") {
+            codeSource = String(trimmed[join.upperBound...].prefix { $0 != "#" && $0 != "?" && $0 != "/" })
+        } else if let hash = trimmed.firstIndex(of: "#") {
+            codeSource = String(trimmed[..<hash])
+        }
+        let code = HouseholdSync.normalize(codeSource)
+        return (code.count == 8 ? code : "", invite)
     }
 }
 

@@ -145,6 +145,7 @@ final class HouseholdCloudKit {
     /// stays until the owner explicitly tears it down — but this device stops
     /// presenting itself as a member/owner.)
     func leaveHousehold() {
+        scopeEpoch &+= 1
         state = .idle
         ownerZoneID = nil
         joinCode = nil
@@ -155,6 +156,7 @@ final class HouseholdCloudKit {
 
     // The household's custom zone (owner side). Members operate on the shared DB.
     @ObservationIgnored private var ownerZoneID: CKRecordZone.ID?
+    @ObservationIgnored private var scopeEpoch: UInt64 = 0
 
     // MARK: - Account check
 
@@ -528,7 +530,7 @@ final class HouseholdCloudKit {
         r[HouseholdSchema.Inv.quantity] = item.quantity as CKRecordValue
         r[HouseholdSchema.Inv.containerType] = item.containerType as CKRecordValue
         if let s = item.sizeAmount { r[HouseholdSchema.Inv.sizeAmount] = s as CKRecordValue }
-        if let u = item.sizeUnit  { r[HouseholdSchema.Inv.sizeUnit] = u as CKRecordValue }
+        if let u = item.sizeUnit { r[HouseholdSchema.Inv.sizeUnit] = u as CKRecordValue }
         r[HouseholdSchema.Inv.zone] = item.zone as CKRecordValue
         if let e = item.expirationDate { r[HouseholdSchema.Inv.expiration] = e as CKRecordValue }
         if let b = item.brand { r[HouseholdSchema.Inv.brand] = b as CKRecordValue }
@@ -704,14 +706,19 @@ final class HouseholdCloudKit {
     /// recordName field to be marked queryable in the CloudKit schema (which is what caused
     /// "Field 'recordName' is not marked queryable"). Also yields a change token for delta sync.
     func pull(into store: GuestDataStore) async {
-        guard let (zoneID, db) = await activeZoneAndDB() else { return }
+        let epoch = scopeEpoch
+        guard let (zoneID, db) = await activeZoneAndDB(), scopeEpoch == epoch else { return }
         var inv: [LocalInventoryItem] = []
         var gro: [LocalGroceryItem] = []
         var deletedInventory = Set<UUID>()
         var deletedGrocery = Set<UUID>()
 
         // Resume from a saved change token if we have one (delta sync; nil = full fetch).
-        let tokenKey = "householdZoneToken_\(zoneID.zoneName)"
+        // Owner identity is part of the checkpoint scope; legacy zone-only tokens cannot
+        // be reused after an account/owner change. A fresh scoped key safely replays once.
+        let tokenScope = Data((zoneID.ownerName + "\u{0}" + zoneID.zoneName).utf8).base64EncodedString()
+        let tokenKey = "householdZoneToken_v2_" + tokenScope
+        var stagedToken: Data?
         var savedToken: CKServerChangeToken?
         if let data = UserDefaults.standard.data(forKey: tokenKey) {
             savedToken = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: data)
@@ -741,13 +748,13 @@ final class HouseholdCloudKit {
                 }
                 op.recordZoneChangeTokensUpdatedBlock = { _, token, _ in
                     if let token, let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
-                        UserDefaults.standard.set(data, forKey: tokenKey)
+                        stagedToken = data
                     }
                 }
                 op.recordZoneFetchResultBlock = { _, result in
                     if case .success(let (token, _, _)) = result,
                        let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
-                        UserDefaults.standard.set(data, forKey: tokenKey)
+                        stagedToken = data
                     }
                 }
                 op.fetchRecordZoneChangesResultBlock = { [op] result in
@@ -759,12 +766,22 @@ final class HouseholdCloudKit {
                 }
                 db.add(op)
             }
-            mergeInventory(remote: inv, deleted: deletedInventory, into: store)
-            mergeGrocery(remote: gro, deleted: deletedGrocery, into: store)
+            guard scopeEpoch == epoch else { return }
+            // Remote rows must bypass local mutation permission/restamping/queue hooks.
+            // Keep this suppression strictly synchronous; user actions never run under it.
+            Self.applyRemoteChanges(to: store) {
+                mergeInventory(remote: inv, deleted: deletedInventory, into: store)
+                mergeGrocery(remote: gro, deleted: deletedGrocery, into: store)
+            }
+            // Do not checkpoint an in-memory/coalesced merge. If either durable write fails,
+            // leave the previous token intact so the idempotent merge replays on retry.
+            try LocalDatabase.shared.saveDataDurably(JSONEncoder().encode(store.inventoryItems), key: DBKey.inventoryItems.rawValue)
+            try LocalDatabase.shared.saveDataDurably(JSONEncoder().encode(store.groceryItems), key: DBKey.groceryItems.rawValue)
+            if let stagedToken { UserDefaults.standard.set(stagedToken, forKey: tokenKey) }
             Log.transfer.notice("Pulled household: \(inv.count, privacy: .public) inv, \(gro.count, privacy: .public) gro")
         } catch {
             // If our saved change token went stale, clear it and do a full re-fetch once.
-            if let ck = error as? CKError, ck.code == .changeTokenExpired {
+            if let ck = error as? CKError, ck.code == .changeTokenExpired, savedToken != nil {
                 UserDefaults.standard.removeObject(forKey: tokenKey)
                 Log.transfer.notice("Change token expired; retrying full pull")
                 if savedToken != nil { await pull(into: store) }
@@ -773,6 +790,13 @@ final class HouseholdCloudKit {
                 syncStage = .failed("Sync failed: \(error.localizedDescription)")
             }
         }
+    }
+
+    static func applyRemoteChanges(to store: GuestDataStore, _ changes: () -> Void) {
+        let wasApplyingRemote = store.isApplyingHouseholdRemote
+        store.isApplyingHouseholdRemote = true
+        defer { store.isApplyingHouseholdRemote = wasApplyingRemote }
+        changes()
     }
 
     // TOMBSTONE-AWARE (July 2026) — same fix as SharedPantrySync.mergeGrocery, and

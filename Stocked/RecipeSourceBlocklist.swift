@@ -115,9 +115,9 @@ nonisolated struct RecipePurgeReport: Sendable {
         guard !isEmpty else { return "Nothing to remove." }
         var parts: [String] = []
         if databaseEntries > 0 { parts.append("\(databaseEntries) from the recipe database") }
-        if userRecipes > 0     { parts.append("\(userRecipes) from your recipes") }
-        if savedRecipes > 0    { parts.append("\(savedRecipes) saved") }
-        if cachesCleared > 0   { parts.append("\(cachesCleared) cached file\(cachesCleared == 1 ? "" : "s") cleared") }
+        if userRecipes > 0 { parts.append("\(userRecipes) from your recipes") }
+        if savedRecipes > 0 { parts.append("\(savedRecipes) saved") }
+        if cachesCleared > 0 { parts.append("\(cachesCleared) cached file\(cachesCleared == 1 ? "" : "s") cleared") }
         return parts.joined(separator: ", ") + "."
     }
 }
@@ -147,20 +147,16 @@ enum RecipePurge {
         // 2. The user's own recipes. Filter first, compare, assign once — and only if the
         //    count actually moved, because an unchanged assignment still fires `didSet`
         //    and would push an empty household batch on every single launch.
-        let keptUser = store.userRecipes.filter {
-            !RecipeSourceBlocklist.isBlocked($0)
-                && RecipeQuality.hasMeaningfulTitle($0.title)
-        }
+        //    Only retired provenance is removed. Public catalogue title quality never
+        //    applies here: a private recipe the user called "Dinner" is theirs and stays.
+        let keptUser = store.userRecipes.filter { !RecipeSourceBlocklist.isBlocked($0) }
         if keptUser.count != store.userRecipes.count {
             report.userRecipes = store.userRecipes.count - keptUser.count
             store.userRecipes = keptUser
         }
 
         // 3. Saved generated recipes, same rule.
-        let keptSaved = store.savedGeneratedRecipes.filter {
-            !RecipeSourceBlocklist.isBlocked($0)
-                && RecipeQuality.hasMeaningfulTitle($0.title)
-        }
+        let keptSaved = store.savedGeneratedRecipes.filter { !RecipeSourceBlocklist.isBlocked($0) }
         if keptSaved.count != store.savedGeneratedRecipes.count {
             report.savedRecipes = store.savedGeneratedRecipes.count - keptSaved.count
             store.savedGeneratedRecipes = keptSaved

@@ -2,6 +2,9 @@
 """Reproducible local release gates. Never uploads, bumps versions, or installs an app."""
 import argparse, json, os, pathlib, plistlib, re, subprocess, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+VERSION = re.compile(r"[0-9]+(\.[0-9]+){0,2}")
+# Main-app platform -> platforms its embedded bundles may target.
+PLATFORMS = {"iphoneos": {"iphoneos", "watchos"}, "macosx": {"macosx"}}
 
 def validate_archive(path, approved):
     path = pathlib.Path(path)
@@ -12,15 +15,27 @@ def validate_archive(path, approved):
         if not info.exists(): info = bundle / "Contents/Info.plist"
         return plistlib.loads(info.read_bytes())
     main = metadata(apps[0])
-    if not main.get("CFBundleVersion") or not main.get("CFBundleShortVersionString"):
-        raise ValueError("Missing app versions")
+    for key in ("CFBundleVersion", "CFBundleShortVersionString"):
+        if not main.get(key): raise ValueError("Missing app versions")
+        # App Store versions are one to three period-separated integers; this also
+        # rejects unresolved build-setting references such as $(MARKETING_VERSION).
+        if not VERSION.fullmatch(str(main[key])): raise ValueError("Invalid " + key)
+    main_id = main.get("CFBundleIdentifier")
+    allowed = PLATFORMS.get(main.get("DTPlatformName"), set())
     for bundle in [apps[0]] + list(apps[0].rglob("*.appex")) + list(apps[0].rglob("*.app")):
         info = metadata(bundle)
         if info.get("CFBundleVersion") != main.get("CFBundleVersion"): raise ValueError("Embedded build numbers disagree")
         if info.get("CFBundleShortVersionString") != main.get("CFBundleShortVersionString"): raise ValueError("Embedded marketing versions disagree")
         if info.get("DTXcodeBuild") not in approved: raise ValueError("Archive used an unapproved Xcode build")
-        if "simulator" in info.get("DTPlatformName", ""): raise ValueError("Simulator archive cannot be released")
-        if not info.get("CFBundleIdentifier"): raise ValueError("Missing bundle identifier")
+        platform = info.get("DTPlatformName", "")
+        if "simulator" in platform: raise ValueError("Simulator archive cannot be released")
+        if platform not in allowed: raise ValueError("Unexpected platform for " + bundle.name)
+        if not re.fullmatch(re.escape(platform) + r"\d+(\.\d+)*", info.get("DTSDKName", "")):
+            raise ValueError("Missing or mismatched SDK for " + bundle.name)
+        identifier = info.get("CFBundleIdentifier")
+        if not identifier: raise ValueError("Missing bundle identifier")
+        if bundle != apps[0] and not identifier.startswith(main_id + "."):
+            raise ValueError("Embedded bundle identifier is not under the app identifier")
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(apps[0])], check=True)
     return main
 

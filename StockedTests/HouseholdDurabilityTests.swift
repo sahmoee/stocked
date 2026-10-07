@@ -331,4 +331,112 @@ final class HouseholdDurabilityTests: XCTestCase {
                        Set(KitchenRestoreSection.allCases))
         XCTAssertFalse(KitchenRestoreSelection.all.merge)
     }
+
+    /// A delete made on this device has not reached the server yet, so the pulled snapshot
+    /// still contains the row. The pull must not restore it.
+    @MainActor
+    func testPendingRecipeAndMealDeletionsDoNotResurrectOnPull() async throws {
+        let store = GuestDataStore()
+        let deadline = Date().addingTimeInterval(10)
+        while !store.hasCompletedInitialHydration && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertTrue(store.hasCompletedInitialHydration, "Fixture setup requires completed local hydration")
+        guard store.hasCompletedInitialHydration else { return }
+        let sync = HouseholdSync.shared
+        let previous = (store.userRecipes, store.savedGeneratedRecipes, store.plannedMeals,
+                        store.pendingUserRecipeTombstones, store.pendingGenRecipeTombstones,
+                        store.pendingMealTombstones, sync.syncRecipes, sync.syncMealPlans)
+        defer {
+            store.isApplyingHouseholdRemote = true
+            store.userRecipes = previous.0
+            store.savedGeneratedRecipes = previous.1
+            store.plannedMeals = previous.2
+            store.pendingUserRecipeTombstones = previous.3
+            store.pendingGenRecipeTombstones = previous.4
+            store.pendingMealTombstones = previous.5
+            store.flushPendingSaves()
+            store.isApplyingHouseholdRemote = false
+            sync.syncRecipes = previous.6
+            sync.syncMealPlans = previous.7
+        }
+
+        let recipe = UserRecipe(title: "Deleted Soup")
+        let generated = GeneratedRecipe(title: "Deleted Toast", cookTime: "5 min", servings: 1,
+                                        difficulty: "Easy", ingredients: [], steps: ["Toast."], tips: "")
+        let meal = PlannedMeal(dayIndex: 0, title: "Deleted Dinner", servings: 2,
+                               ingredients: [], mealType: "Dinner")
+        store.isApplyingHouseholdRemote = true
+        store.userRecipes = []
+        store.savedGeneratedRecipes = []
+        store.plannedMeals = []
+        store.isApplyingHouseholdRemote = false
+        store.pendingUserRecipeTombstones = [recipe.id.uuidString]
+        store.pendingGenRecipeTombstones = [generated.id.uuidString]
+        store.pendingMealTombstones = [meal.id.uuidString]
+        sync.syncRecipes = true
+        sync.syncMealPlans = true
+
+        func dictionary<T: Encodable>(_ value: T) throws -> [String: Any] {
+            try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
+        }
+        let pulled: [String: Any] = [
+            "userRecipes": [try dictionary(recipe)],
+            "genRecipes": [try dictionary(generated)],
+            "plannedMeals": [try dictionary(meal)]
+        ]
+        _ = await sync.applyHousehold(pulled, into: store)
+
+        XCTAssertFalse(store.userRecipes.contains { $0.id == recipe.id }, "Deleted recipe resurrected")
+        XCTAssertFalse(store.savedGeneratedRecipes.contains { $0.id == generated.id }, "Deleted saved recipe resurrected")
+        XCTAssertFalse(store.plannedMeals.contains { $0.id == meal.id }, "Deleted planned meal resurrected")
+    }
+
+    /// Undo, backup restore and replayed commands put a deleted record back with its original
+    /// id. That id is no longer a pending delete, so a later pull must keep it.
+    @MainActor
+    func testReaddedRecordClearsPendingTombstone() async throws {
+        let store = GuestDataStore()
+        let deadline = Date().addingTimeInterval(10)
+        while !store.hasCompletedInitialHydration && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        guard store.hasCompletedInitialHydration else { return XCTFail("Fixture setup requires completed local hydration") }
+        let sync = HouseholdSync.shared
+        guard sync.state == .idle else { throw XCTSkip("Use a simulator without a linked household.") }
+        let previous = (store.userRecipes, store.inventoryItems, store.pendingUserRecipeTombstones,
+                        store.pendingInvTombstones, sync.syncRecipes)
+        defer {
+            store.isApplyingHouseholdRemote = true
+            store.userRecipes = previous.0
+            store.inventoryItems = previous.1
+            store.pendingUserRecipeTombstones = previous.2
+            store.pendingInvTombstones = previous.3
+            store.flushPendingSaves()
+            store.isApplyingHouseholdRemote = false
+            sync.syncRecipes = previous.4
+        }
+        let recipe = UserRecipe(title: "Restored Soup")
+        let item = LocalInventoryItem(name: "Restored Rice", level: 1)
+        store.isApplyingHouseholdRemote = true
+        store.userRecipes = [recipe]
+        store.inventoryItems = [item]
+        store.isApplyingHouseholdRemote = false
+
+        store.userRecipes = []          // local delete → pending tombstone
+        store.inventoryItems = []
+        XCTAssertTrue(store.pendingUserRecipeTombstones.contains(recipe.id.uuidString))
+        store.userRecipes = [recipe]    // restore / re-save with the same id
+        store.inventoryItems = [item]   // undo toast restores the same id
+
+        XCTAssertFalse(store.pendingUserRecipeTombstones.contains(recipe.id.uuidString))
+        XCTAssertFalse(store.pendingInvTombstones.contains(item.id.uuidString))
+        XCTAssertFalse(store.householdTombstoneSnapshot().deletedAt.keys.contains(recipe.id.uuidString))
+
+        sync.syncRecipes = true
+        let pulled: [String: Any] = ["userRecipes": [try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(recipe)) as? [String: Any])]]
+        _ = await sync.applyHousehold(pulled, into: store)
+        XCTAssertTrue(store.userRecipes.contains { $0.id == recipe.id }, "Re-added recipe removed by a pull")
+    }
 }

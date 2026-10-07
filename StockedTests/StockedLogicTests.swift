@@ -151,7 +151,7 @@ final class StockedLogicTests: XCTestCase {
     }
 
     @MainActor
-    func testFontSizeDoesNotChangeControlPlacementPolicy() {
+    func testAccessibilityTextKeepsControlsAndWidensCards() {
         let standard = StockedLayoutMetrics(
             width: 393,
             height: 852,
@@ -175,7 +175,8 @@ final class StockedLogicTests: XCTestCase {
         let enlargedControlHeight = enlarged.minimumControlHeight
 
         XCTAssertEqual(standardPrefersVertical, enlargedPrefersVertical)
-        XCTAssertEqual(standardColumnCount, enlargedColumnCount)
+        XCTAssertGreaterThan(standardColumnCount, 1)
+        XCTAssertEqual(enlargedColumnCount, 1)
         XCTAssertGreaterThan(enlargedControlHeight, standardControlHeight)
     }
 

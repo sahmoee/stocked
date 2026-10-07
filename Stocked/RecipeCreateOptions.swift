@@ -428,16 +428,29 @@ enum RecipeOCR {
 // Heuristic, on-device. Splits a free-text recipe into title / ingredients / steps.
 // Deliberately conservative: when unsure it leaves text for the user to fix in the form.
 nonisolated enum RecipeTextParser {
+    /// Joins screenshot pages, removing only what screenshots duplicate: a sticky header
+    /// repeated at the top of each page and the overlap where one page ends and the next
+    /// begins. Repetition inside the recipe (the same ingredient in cake and topping, a
+    /// repeated step) is content and stays.
     static func mergeOCRPages(_ pages: [String]) -> String {
-        var seen = Set<String>()
-        return pages.flatMap { $0.components(separatedBy: .newlines) }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { line in
-                guard !line.isEmpty else { return false }
-                let key = line.lowercased().filter { $0.isLetter || $0.isNumber }
-                guard key.count > 2, seen.insert(key).inserted else { return false }
-                return true
-            }.joined(separator: "\n")
+        func key(_ line: String) -> String { line.lowercased().filter { $0.isLetter || $0.isNumber } }
+        let pageLines = pages.map { page in
+            page.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { key($0).count > 2 }
+        }
+        guard var merged = pageLines.first else { return "" }
+        let header = merged.map(key)
+        for page in pageLines.dropFirst() {
+            var lines = page
+            lines.removeFirst(zip(lines.map(key), header).prefix { $0 == $1 }.count)
+            let mergedKeys = merged.map(key), keys = lines.map(key)
+            let overlap = (0...min(mergedKeys.count, keys.count)).last {
+                mergedKeys.suffix($0).elementsEqual(keys.prefix($0))
+            } ?? 0
+            merged += lines.dropFirst(overlap)
+        }
+        return merged.joined(separator: "\n")
     }
     static func parse(_ raw: String) -> AddRecipeForm {
         var form = AddRecipeForm()
@@ -469,8 +482,10 @@ nonisolated enum RecipeTextParser {
             case .steps:
                 if !isSectionHeader(line) { steps.append(stripStepNumber(line)) }
             case .none:
-                // No headers seen yet — guess by shape.
-                if looksLikeIngredient(line) { ingredients.append(stripBullet(line)) }
+                // No headers seen yet — guess by shape. "1. Mix flour." starts with a digit
+                // too, so the numbered-step shape must win before the ingredient check.
+                if isNumberedStep(line) { steps.append(stripStepNumber(line)) }
+                else if looksLikeIngredient(line) { ingredients.append(stripBullet(line)) }
                 else if looksLikeStep(line) { steps.append(stripStepNumber(line)) }
             }
         }
@@ -502,8 +517,11 @@ nonisolated enum RecipeTextParser {
 
     private static func looksLikeStep(_ line: String) -> Bool {
         // Numbered ("1.", "2)") or a reasonably long sentence.
-        let numbered = line.range(of: #"^\d+[.)]\s"#, options: .regularExpression) != nil
-        return numbered || line.count >= 40
+        isNumberedStep(line) || line.count >= 40
+    }
+
+    private static func isNumberedStep(_ line: String) -> Bool {
+        line.range(of: #"^\d+[.)]\s"#, options: .regularExpression) != nil
     }
 
     private static func isSectionHeader(_ line: String) -> Bool {

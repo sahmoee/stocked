@@ -22,13 +22,17 @@ nonisolated struct HouseholdDeliveryStatus: Decodable, Sendable {
 /// Device-only capabilities are deliberately excluded from defaults, household snapshots and backups.
 @MainActor enum HouseholdDeliveryKeychain {
     private static let service = "com.sowens.Stocked.household.delivery"
-    static func read(_ account: String) -> String? {
+    static func readResult(_ account: String) -> (value: String?, status: OSStatus) {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service, kSecAttrAccount as String: account,
             kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
         var value: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &value) == errSecSuccess, let data = value as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &value)
+        guard status == errSecSuccess, let data = value as? Data else { return (nil, status) }
+        return (String(data: data, encoding: .utf8), status)
+    }
+    static func read(_ account: String) -> String? {
+        readResult(account).value
     }
     @discardableResult static func write(_ value: String, account: String) -> Bool {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
@@ -127,6 +131,7 @@ nonisolated struct HouseholdDeliveryStatus: Decodable, Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         BuildConfig.authorizeWorkerRequest(&request)
+        guard HouseholdSync.shared.authorizeHouseholdRequest(&request) else { throw DeliveryFailure.unavailable }
         request.httpBody = try JSONSerialization.data(withJSONObject: payload(code: code).merging(extra) { _, new in new })
         let (bytes, response) = try await network.bytes(for: request)
         guard let http = response as? HTTPURLResponse else { throw DeliveryFailure.unavailable }
@@ -245,7 +250,7 @@ nonisolated struct HouseholdDeliveryStatus: Decodable, Sendable {
                 var request = URLRequest(url: url, timeoutInterval: 15)
                 BuildConfig.authorizeWorkerRequest(&request)
                 request.setValue(code, forHTTPHeaderField: "X-Household-Code")
-                request.setValue(HouseholdSync.shared.memberId, forHTTPHeaderField: "X-Household-Member")
+                guard HouseholdSync.shared.authorizeHouseholdRequest(&request) else { return }
                 let socket = self.network.webSocketTask(with: request)
                 socket.maximumMessageSize = 2048
                 self.socket = socket; socket.resume()

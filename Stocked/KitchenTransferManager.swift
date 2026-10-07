@@ -396,13 +396,17 @@ nonisolated enum KitchenBackupCodec {
             ciphertextChecksum: "", sections: sections, media: media)
     }
 
-    private static func featureCount(_ value: KitchenFeatureSnapshot?) -> Int {
+    static func featureCount(_ value: KitchenFeatureSnapshot?) -> Int {
         guard let value else { return 0 }
-        return value.leftovers.count + value.familyProfiles.count + value.events.count
-            + value.sharedExpenses.count + value.splitPeople.count + value.storeLayouts.count
-            + value.gardenHarvests.count + value.containerLabels.count + value.takeoutLog.count
-            + (value.scheduledMeals?.count ?? 0) + (value.mealPlanRules?.count ?? 0)
-            + (value.mealPlanTemplates?.count ?? 0) + (value.smartCookbooks?.count ?? 0)
+        // An array sum keeps this within the Swift 6.2 type-checker's expression limits.
+        let counts: [Int] = [
+            value.leftovers.count, value.familyProfiles.count, value.events.count,
+            value.sharedExpenses.count, value.splitPeople.count, value.storeLayouts.count,
+            value.gardenHarvests.count, value.containerLabels.count, value.takeoutLog.count,
+            value.scheduledMeals?.count ?? 0, value.mealPlanRules?.count ?? 0,
+            value.mealPlanTemplates?.count ?? 0, value.smartCookbooks?.count ?? 0
+        ]
+        return counts.reduce(0, +)
     }
 }
 
@@ -1111,14 +1115,7 @@ class KitchenTransferManager {
     }
 
     private nonisolated static func counts(in snapshot: KitchenSnapshot) -> [KitchenRestoreSection: Int] {
-        let features = snapshot.features
-        let featureCount = (features?.leftovers.count ?? 0) + (features?.familyProfiles.count ?? 0)
-            + (features?.events.count ?? 0) + (features?.sharedExpenses.count ?? 0)
-            + (features?.splitPeople.count ?? 0) + (features?.storeLayouts.count ?? 0)
-            + (features?.gardenHarvests.count ?? 0) + (features?.containerLabels.count ?? 0)
-            + (features?.takeoutLog.count ?? 0)
-            + (features?.scheduledMeals?.count ?? 0) + (features?.mealPlanRules?.count ?? 0)
-            + (features?.mealPlanTemplates?.count ?? 0) + (features?.smartCookbooks?.count ?? 0)
+        let featureCount = KitchenBackupCodec.featureCount(snapshot.features)
         return [
             .profile: 1,
             .inventory: snapshot.inventoryItems.count,

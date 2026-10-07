@@ -33,6 +33,8 @@ class AppSession {
     var pendingSharedRecipe: Bool = false
     /// A stocked://import link waiting for the user to confirm (never imported silently).
     var pendingImportURL: URL?
+    /// Invite secrets stay in memory until the user explicitly confirms joining.
+    var pendingHouseholdInvite: URL?
 
     // Set by the drawer's "Import Recipe" button; consumed once by RecipeVaultView
     // when the Recipes tab appears, to open the URL import sheet. Uses the same

@@ -99,20 +99,13 @@ enum DBMigrations {
 
     /// Recipe migrations. v1: baseline stamp (#8 coverage extension). Add transforms as
     /// `if from < N { … }` steps when UserRecipe's shape changes.
+    /// Saved/private recipes may contain publisher links without artwork. Hydration must
+    /// preserve them; image eligibility belongs to public catalogue ingestion, not this store.
     static func migrateRecipes(_ items: [UserRecipe]) -> [UserRecipe] {
-        let imageComplete = items.filter { recipe in
-            guard recipe.sourceURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
-                return true
-            }
-            if let data = recipe.imageData, !data.isEmpty { return true }
-            guard let raw = recipe.imageURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  let url = URL(string: raw) else { return false }
-            return url.scheme == "https" && url.host != nil
-        }
         let from = DBSchema.storedVersion("recipes")
-        guard from < DBSchema.recipeVersion else { return imageComplete }
+        guard from < DBSchema.recipeVersion else { return items }
         DBSchema.setVersion(DBSchema.recipeVersion, "recipes")
-        return imageComplete
+        return items
     }
 
     /// Past-meal migrations. v1: baseline stamp (#8 coverage extension).

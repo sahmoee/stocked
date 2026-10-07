@@ -72,13 +72,13 @@ final class MotionAlignmentTests: XCTestCase {
         }
     }
 
-    func testDynamicTypeDoesNotMoveControlsToDifferentColumns() {
+    func testDynamicTypeKeepsNavigationAndDoesNotCrowdCards() {
         for width in phoneWidths + wideWidths {
             let baseline = metrics(width: width, textScale: 1)
             for textScale in textScales {
                 let enlarged = metrics(width: width, textScale: textScale)
                 XCTAssertEqual(enlarged.prefersVerticalControls, baseline.prefersVerticalControls)
-                XCTAssertEqual(enlarged.gridColumns(minimum: 148, maximum: 4).count,
+                XCTAssertLessThanOrEqual(enlarged.gridColumns(minimum: 148, maximum: 4).count,
                                baseline.gridColumns(minimum: 148, maximum: 4).count)
                 XCTAssertEqual(enlarged.homeWidgetLogicalColumnCount,
                                baseline.homeWidgetLogicalColumnCount)

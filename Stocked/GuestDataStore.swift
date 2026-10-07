@@ -154,6 +154,19 @@ class GuestDataStore {
         for id in ids { householdTombstoneDeletedAt[id.uuidString] = now }
     }
 
+    /// Undo, backup restore and replayed commands put a record back with its original id.
+    /// That id is no longer a pending delete; leaving it would let the next pull or push
+    /// delete the record again.
+    private func clearPendingTombstones(_ readded: Set<UUID>,
+                                        _ pending: ReferenceWritableKeyPath<GuestDataStore, Set<String>>) {
+        let ids = readded.map(\.uuidString).filter { self[keyPath: pending].contains($0) }
+        guard !ids.isEmpty else { return }
+        self[keyPath: pending].subtract(ids)
+        for id in ids { householdTombstoneDeletedAt[id] = nil }
+        householdTombstoneRevision &+= 1
+        persistHouseholdTombstones()
+    }
+
     func acknowledgeHouseholdTombstones(_ captured: HouseholdTombstoneState) {
         pendingInvTombstones.subtract(captured.inventory)
         pendingGroTombstones.subtract(captured.grocery)
@@ -217,6 +230,7 @@ class GuestDataStore {
                 let oldIDs = mutation.oldIDs
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingInvTombstones.insert(id.uuidString) }
+                clearPendingTombstones(Set(inventoryItems.map(\.id)).subtracting(mutation.oldIDs), \.pendingInvTombstones)
                 recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)
@@ -411,6 +425,7 @@ class GuestDataStore {
             let oldIDs = mutation.oldIDs
             let goneIDs = mutation.removedIDs
             for id in goneIDs { pendingGroTombstones.insert(id.uuidString) }
+            clearPendingTombstones(Set(groceryItems.map(\.id)).subtracting(mutation.oldIDs), \.pendingGroTombstones)
             recordHouseholdTombstones(goneIDs)
             if !goneIDs.isEmpty { persistHouseholdTombstones() }
             HouseholdSync.shared.enqueueBatch(mutation.operations)
@@ -451,6 +466,7 @@ class GuestDataStore {
                 }
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingMealTombstones.insert(id.uuidString) }
+                clearPendingTombstones(Set(plannedMeals.map(\.id)).subtracting(mutation.oldIDs), \.pendingMealTombstones)
                 recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)
@@ -480,6 +496,7 @@ class GuestDataStore {
                 let oldIDs = mutation.oldIDs
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingGenRecipeTombstones.insert(id.uuidString) }
+                clearPendingTombstones(Set(savedGeneratedRecipes.map(\.id)).subtracting(mutation.oldIDs), \.pendingGenRecipeTombstones)
                 recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)
@@ -787,6 +804,10 @@ class GuestDataStore {
     @discardableResult func clearAll() -> Bool {
         do { try StockedPhoneWatchBridge.shared.invalidateKitchen() }
         catch { ToastCenter.shared.warning(error.localizedDescription, duration: 6); return false }
+        mutationScheduler.cancelAll()
+        WidgetBridge.invalidateForErase()
+        HouseholdSync.shared.resetForLocalErase()
+        HouseholdCloudKit.shared.leaveHousehold()
         // ── 0. Stop any in-flight debounced save FIRST ───────────────
         // A save queued moments before this call (e.g. from a recent edit) would otherwise
         // fire its flush AFTER we wipe disk below and write the old data straight back — a
@@ -1920,6 +1941,28 @@ class GuestDataStore {
                                              isRecommended: recommended, recipeSource: recipeSource))
     }
 
+    /// Meal-plan shortage repair: "buy the missing amount". A counted shortfall sets the
+    /// row quantity; a measured one ("500 g") is recorded as the row's size. An existing
+    /// unchecked row for the same ingredient is raised to cover it rather than duplicated;
+    /// a row that already carries a different size is left for the user to adjust.
+    func addShortageToGrocery(_ conflict: MealConflict) {
+        let name = conflict.ingredient.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        let measured = !conflict.unit.isEmpty && conflict.missingAmount > 0
+        let count = !measured && conflict.missingAmount > 0 ? Int(conflict.missingAmount.rounded(.up)) : 1
+        let size = measured ? "\(conflict.missingAmount.rounded(toPlaces: 2).clean) \(conflict.unit)" : ""
+        if let index = groceryItems.firstIndex(where: { GroceryDedup.isDuplicate(name, in: [$0.name]) }) {
+            guard !groceryItems[index].isChecked else { return }
+            var row = groceryItems[index]
+            row.quantity = max(row.quantity, count)
+            if row.sizeText.isEmpty { row.sizeText = size }
+            if row != groceryItems[index] { groceryItems[index] = row }
+            return
+        }
+        groceryItems.append(LocalGroceryItem(quantity: count, name: name, isChecked: false, isRecommended: true,
+                                             recipeSource: conflict.mealTitle, sizeText: size))
+    }
+
     /// #3 — build the grocery list from the week's planned meals: gather every planned
     /// ingredient, skip anything already in stock, add the rest (tagged by recipe).
     /// Returns the number of items added.
@@ -2197,6 +2240,7 @@ class GuestDataStore {
                 let oldIDs = mutation.oldIDs
                 let goneIDs = mutation.removedIDs
                 for id in goneIDs { pendingUserRecipeTombstones.insert(id.uuidString) }
+                clearPendingTombstones(Set(userRecipes.map(\.id)).subtracting(mutation.oldIDs), \.pendingUserRecipeTombstones)
                 recordHouseholdTombstones(goneIDs)
                 if !goneIDs.isEmpty { persistHouseholdTombstones() }
                 HouseholdSync.shared.enqueueBatch(mutation.operations)

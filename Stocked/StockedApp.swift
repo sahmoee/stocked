@@ -353,6 +353,11 @@ struct RootView: View {
         .onChange(of: session.isDarkMode) { _, dark in
             StockedApp.applyTextFieldAppearance(isDark: dark)
         }
+        .sheet(isPresented: Binding(get: { session.pendingHouseholdInvite != nil },
+                                    set: { if !$0 { session.pendingHouseholdInvite = nil } })) {
+            HouseholdJoinView(inviteLink: session.pendingHouseholdInvite?.absoluteString ?? "")
+                .environment(session)
+        }
         .onOpenURL { url in
             Log.app.log("onOpenURL: scheme=\(url.scheme ?? "nil", privacy: .public) host=\(url.host ?? "nil", privacy: .public)")
             // Handle Share Link deep links (stocked://import?data=…) and .stocked file opens.
@@ -386,9 +391,14 @@ struct RootView: View {
         // web-browsing user activity, not via onOpenURL. Route them to the same surfaces.
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             guard let web = activity.webpageURL,
-                  web.host?.contains("sowensstudios.com") == true else { return }
+                  ["sowensstudios.com", "www.sowensstudios.com"].contains(web.host?.lowercased() ?? ""),
+                  web.scheme == "https" else { return }
             let parts = web.pathComponents.filter { $0 != "/" }
             switch parts.first {
+            case "join":
+                let invite = HouseholdInviteLink.parse(web.absoluteString)
+                guard invite.code.count == 8, invite.invite != nil else { return }
+                session.pendingHouseholdInvite = web
             case "l":                                       // container label
                 NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.inventory)
             case "grocery":

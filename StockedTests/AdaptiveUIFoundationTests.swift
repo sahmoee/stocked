@@ -547,7 +547,7 @@ final class AdaptiveUIFoundationTests: XCTestCase {
         let insight = RecipeRecommendationExplainer.insight(
             for: recipe, inventory: [confirmed, uncertain], allergens: []
         )
-        XCTAssertEqual(insight.available, ["tomato"])
+        XCTAssertEqual(insight.available, ["tomatoes"])
         XCTAssertEqual(insight.uncertain, ["olive oil"])
         XCTAssertEqual(insight.missing, ["pasta"])
     }

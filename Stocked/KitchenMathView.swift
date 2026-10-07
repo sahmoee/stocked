@@ -228,7 +228,9 @@ struct KitchenMathCalculatorView: View {
             return "\(field.title): \(draft.inputs[field.id] ?? "") \(unit)"
         }
         let shapes = tool == .pans ? ["Original pan: \(draft.originalRound ? "round" : "rectangular")", "New pan: \(draft.replacementRound ? "round" : "rectangular")"] : []
-        return (["Stocked · \(tool.title)"] + shapes + amounts + ["", result.summary] + result.outputs.map { "\($0.label): \(display($0))" } + ["", result.formula, tool.guidance]).joined(separator: "\n")
+        let outputs: [String] = result.outputs.map { "\($0.label): \(display($0))" }
+        let lines: [String] = ["Stocked · \(tool.title)"] + shapes + amounts
+        return (lines + ["", result.summary] + outputs + ["", result.formula, tool.guidance]).joined(separator: "\n")
     }
     private func focusNext() {
         guard let index = fields.firstIndex(where: { $0.id == focused }), index + 1 < fields.count else { focused = nil; return }

@@ -50,7 +50,7 @@ struct CalendarDayCell: View {
                                          isPast  ? Color.stockedCharcoal.opacity(0.3)
                                                  : Color.stockedCharcoal)
                     HStack(spacing: 2) {
-                        if hasMeal    { Circle().fill(Color.stockedGold ).frame(width: 5, height: 5) }
+                        if hasMeal { Circle().fill(Color.stockedGold ).frame(width: 5, height: 5) }
                         if pastMeal != nil { Circle().fill(Color.stockedGreen).frame(width: 5, height: 5) }
                     }
                     .frame(height: 6)
@@ -342,9 +342,7 @@ struct MealPlannerView: View {
 
     /// Repair: buy the missing amount (consolidated — dedup lives in the store).
     func repairAddToGrocery(_ conflict: MealConflict) {
-        session.guestStore.addToGroceryIfMissing(conflict.ingredient,
-                                                 recommended: true,
-                                                 recipeSource: conflict.mealTitle)
+        session.guestStore.addShortageToGrocery(conflict)
         HapticManager.success()
     }
 
