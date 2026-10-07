@@ -59,6 +59,13 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
     private var pendingWrites: [String: Any] = [:]
     private var writeWorkItem: DispatchWorkItem?
     private var writeGeneration: UInt64 = 0
+    // A failed write is put back only if nothing replaced or deleted that key meanwhile.
+    // Every save/delete stamps the key; deleteAll advances the epoch for all keys.
+    private var keyStamps: [String: UInt64] = [:]
+    private var stampCounter: UInt64 = 0
+    private var deleteEpoch: UInt64 = 0
+    // ponytail: one shared backoff for all keys (1 s doubling to 30 s); per-key timers if needed.
+    private var retryDelay: TimeInterval = 0
 
     private init() { queue.setSpecific(key: queueIdentity, value: 1) }
 
@@ -133,6 +140,7 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
     func save<T: Encodable>(_ value: T, key: String) {
         withStateLock {
             pendingWrites[key] = value
+            stampLocked(key)
             scheduleFlushLocked()
         }
     }
@@ -140,15 +148,25 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
     func saveData(_ data: Data, key: String) {
         withStateLock {
             pendingWrites[key] = PreEncoded(data: data)
+            stampLocked(key)
             scheduleFlushLocked()
         }
+    }
+
+    /// Must be called while `stateLock` is held.
+    private func stampLocked(_ key: String) {
+        stampCounter &+= 1
+        keyStamps[key] = stampCounter
     }
 
     /// Commit an already-encoded value before returning. Transaction coordinators use this for
     /// recovery journals that must reach disk before the first in-memory mutation is applied.
     /// Ordinary model writes should continue using the coalesced `save` / `saveData` APIs.
     func saveDataDurably(_ data: Data, key: String) throws {
-        _ = withStateLock { pendingWrites.removeValue(forKey: key) }
+        withStateLock {
+            pendingWrites.removeValue(forKey: key)
+            stampLocked(key)
+        }
         var writeError: Error?
         syncOnWriteQueue {
             let url = DBFile.url(for: key)
@@ -165,28 +183,71 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
     }
 
     /// Must be called while `stateLock` is held.
-    private func scheduleFlushLocked() {
+    private func scheduleFlushLocked(after delay: TimeInterval = 0.15) {
         writeWorkItem?.cancel()
         writeGeneration &+= 1
         let generation = writeGeneration
         let item = DispatchWorkItem { [weak self] in self?.flushPendingWrites(generation: generation) }
         writeWorkItem = item
-        queue.asyncAfter(deadline: .now() + 0.15, execute: item)
+        queue.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     private func flushPendingWrites(generation: UInt64) {
-        let snapshot: [String: Any]? = withStateLock {
+        let captured: CapturedWrites? = withStateLock {
             guard generation == writeGeneration else { return nil }
-            let snapshot = pendingWrites
-            pendingWrites.removeAll()
             writeWorkItem = nil
-            return snapshot
+            return captureLocked()
         }
-        guard let snapshot, !snapshot.isEmpty else { return }
-        for (key, value) in snapshot { write(value, key: key) }
+        guard let captured, !captured.values.isEmpty else { return }
+        writeCaptured(captured)
     }
 
-    private func write(_ value: Any, key: String) {
+    private struct CapturedWrites {
+        let values: [String: Any]
+        let stamps: [String: UInt64]
+        let epoch: UInt64
+    }
+
+    /// Must be called while `stateLock` is held.
+    private func captureLocked() -> CapturedWrites {
+        let captured = CapturedWrites(values: pendingWrites,
+                                      stamps: keyStamps.filter { pendingWrites[$0.key] != nil },
+                                      epoch: deleteEpoch)
+        pendingWrites.removeAll()
+        return captured
+    }
+
+    /// Runs on `queue`. Returns the keys whose write failed; those values stay pending
+    /// (unless replaced or deleted meanwhile) and are retried with backoff.
+    @discardableResult
+    private func writeCaptured(_ captured: CapturedWrites) -> Set<String> {
+        var failed: [String: Any] = [:]
+        for (key, value) in captured.values where !write(value, key: key) { failed[key] = value }
+        withStateLock {
+            for key in captured.values.keys where failed[key] == nil
+                && pendingWrites[key] == nil && keyStamps[key] == captured.stamps[key] {
+                keyStamps[key] = nil   // committed and untouched since; keeps the map bounded
+            }
+            var retained = false
+            for (key, value) in failed
+            where pendingWrites[key] == nil && keyStamps[key] == captured.stamps[key]
+                && deleteEpoch == captured.epoch {
+                pendingWrites[key] = value
+                retained = true
+            }
+            if retained {
+                retryDelay = min(30, max(1, retryDelay * 2))
+                // A newer save already scheduled the normal coalesced flush; it carries the
+                // retained value too, so never push that flush back by the retry delay.
+                if writeWorkItem == nil { scheduleFlushLocked(after: retryDelay) }
+            } else if failed.isEmpty {
+                retryDelay = 0
+            }
+        }
+        return Set(failed.keys)
+    }
+
+    private func write(_ value: Any, key: String) -> Bool {
         let url = DBFile.url(for: key)
         if let existing = try? Data(contentsOf: url), !existing.isEmpty {
             do { try existing.write(to: DBFile.backupURL(for: key), options: .atomic) }
@@ -200,40 +261,44 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
                 try data.write(to: url, options: .atomic)
             }
             Task { @MainActor in PersistenceLifecycle.shared.recordWrite(succeeded: true) }
+            return true
         } catch {
             Log.data.error("Disk write failed for key \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
             // Surface repeated failures (usually a full disk) instead of losing data silently.
             Task { @MainActor in PersistenceLifecycle.shared.recordWrite(succeeded: false) }
+            return false
         }
     }
 
     /// Persists every write pending when this call reaches the serialized database queue.
     /// This is intended for lifecycle boundaries, tests, and explicit durability points; normal
-    /// model writes should continue using the coalesced `save` path.
-    func flush() async {
+    /// model writes should continue using the coalesced `save` path. Returns the keys that
+    /// failed to reach disk; their values remain pending for a later retry.
+    @discardableResult
+    func flush() async -> Set<String> {
         await withCheckedContinuation { continuation in
             queue.async { [weak self] in
                 guard let self else {
-                    continuation.resume()
+                    continuation.resume(returning: [])
                     return
                 }
-                let snapshot: [String: Any] = self.withStateLock {
+                let captured: CapturedWrites = self.withStateLock {
                     self.writeGeneration &+= 1
                     self.writeWorkItem?.cancel()
                     self.writeWorkItem = nil
-                    let snapshot = self.pendingWrites
-                    self.pendingWrites.removeAll()
-                    return snapshot
+                    return self.captureLocked()
                 }
-                for (key, value) in snapshot { self.write(value, key: key) }
-                continuation.resume()
+                continuation.resume(returning: self.writeCaptured(captured))
             }
         }
     }
 
     // MARK: Delete
     func delete(key: String) {
-        _ = withStateLock { pendingWrites.removeValue(forKey: key) }
+        withStateLock {
+            pendingWrites.removeValue(forKey: key)
+            stampLocked(key)
+        }
         queue.async {
             try? FileManager.default.removeItem(at: DBFile.url(for: key))
             try? FileManager.default.removeItem(at: DBFile.backupURL(for: key))
@@ -243,6 +308,7 @@ nonisolated final class LocalDatabase: @unchecked Sendable {
     func deleteAll() {
         withStateLock {
             pendingWrites.removeAll()
+            deleteEpoch &+= 1
             writeGeneration &+= 1
             writeWorkItem?.cancel()
             writeWorkItem = nil
