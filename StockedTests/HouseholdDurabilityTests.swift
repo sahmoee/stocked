@@ -391,4 +391,52 @@ final class HouseholdDurabilityTests: XCTestCase {
         XCTAssertFalse(store.savedGeneratedRecipes.contains { $0.id == generated.id }, "Deleted saved recipe resurrected")
         XCTAssertFalse(store.plannedMeals.contains { $0.id == meal.id }, "Deleted planned meal resurrected")
     }
+
+    /// Undo, backup restore and replayed commands put a deleted record back with its original
+    /// id. That id is no longer a pending delete, so a later pull must keep it.
+    @MainActor
+    func testReaddedRecordClearsPendingTombstone() async throws {
+        let store = GuestDataStore()
+        let deadline = Date().addingTimeInterval(10)
+        while !store.hasCompletedInitialHydration && Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        guard store.hasCompletedInitialHydration else { return XCTFail("Fixture setup requires completed local hydration") }
+        let sync = HouseholdSync.shared
+        guard sync.state == .idle else { throw XCTSkip("Use a simulator without a linked household.") }
+        let previous = (store.userRecipes, store.inventoryItems, store.pendingUserRecipeTombstones,
+                        store.pendingInvTombstones, sync.syncRecipes)
+        defer {
+            store.isApplyingHouseholdRemote = true
+            store.userRecipes = previous.0
+            store.inventoryItems = previous.1
+            store.pendingUserRecipeTombstones = previous.2
+            store.pendingInvTombstones = previous.3
+            store.flushPendingSaves()
+            store.isApplyingHouseholdRemote = false
+            sync.syncRecipes = previous.4
+        }
+        let recipe = UserRecipe(title: "Restored Soup")
+        let item = LocalInventoryItem(name: "Restored Rice", level: 1)
+        store.isApplyingHouseholdRemote = true
+        store.userRecipes = [recipe]
+        store.inventoryItems = [item]
+        store.isApplyingHouseholdRemote = false
+
+        store.userRecipes = []          // local delete → pending tombstone
+        store.inventoryItems = []
+        XCTAssertTrue(store.pendingUserRecipeTombstones.contains(recipe.id.uuidString))
+        store.userRecipes = [recipe]    // restore / re-save with the same id
+        store.inventoryItems = [item]   // undo toast restores the same id
+
+        XCTAssertFalse(store.pendingUserRecipeTombstones.contains(recipe.id.uuidString))
+        XCTAssertFalse(store.pendingInvTombstones.contains(item.id.uuidString))
+        XCTAssertFalse(store.householdTombstoneSnapshot().deletedAt.keys.contains(recipe.id.uuidString))
+
+        sync.syncRecipes = true
+        let pulled: [String: Any] = ["userRecipes": [try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(recipe)) as? [String: Any])]]
+        _ = await sync.applyHousehold(pulled, into: store)
+        XCTAssertTrue(store.userRecipes.contains { $0.id == recipe.id }, "Re-added recipe removed by a pull")
+    }
 }

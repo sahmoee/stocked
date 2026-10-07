@@ -39,13 +39,21 @@ final class SavedRecipePreservationTests: XCTestCase {
         }
         XCTAssertTrue(store.hasCompletedInitialHydration, "Fixture setup requires completed local hydration")
         guard store.hasCompletedInitialHydration else { return }
+        // The purge assigns through the normal mutation path; outside a household that
+        // records only local tombstones, which the defer restores.
+        guard HouseholdSync.shared.state == .idle else {
+            throw XCTSkip("Use a simulator without a linked household.")
+        }
         let previousUser = store.userRecipes
         let previousGenerated = store.savedGeneratedRecipes
+        let previousTombstones = (store.pendingUserRecipeTombstones, store.pendingGenRecipeTombstones)
         let previousRemote = store.isApplyingHouseholdRemote
         defer {
             store.isApplyingHouseholdRemote = true
             store.userRecipes = previousUser
             store.savedGeneratedRecipes = previousGenerated
+            store.pendingUserRecipeTombstones = previousTombstones.0
+            store.pendingGenRecipeTombstones = previousTombstones.1
             store.flushPendingSaves()
             store.isApplyingHouseholdRemote = previousRemote
         }
