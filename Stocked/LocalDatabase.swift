@@ -402,7 +402,6 @@ nonisolated enum DBKey: String, CaseIterable, Sendable {
     case priceHistory          = "price_history_v1"
 }
 
-
 // MARK: - AppDataCache
 // General-purpose cache for any fetched data (recipe lookups, ingredient info, etc).
 // Persists to disk — only cleared manually. Never expires automatically.
@@ -486,9 +485,7 @@ nonisolated extension LocalDatabase {
             files.filter(isCacheFile).forEach { try? FileManager.default.removeItem(at: $0) }
         }
     }
-
 }
-
 
 nonisolated private extension String {
     var stableCacheKey: String {

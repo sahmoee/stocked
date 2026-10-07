@@ -50,7 +50,7 @@ struct CalendarDayCell: View {
                                          isPast  ? Color.stockedCharcoal.opacity(0.3)
                                                  : Color.stockedCharcoal)
                     HStack(spacing: 2) {
-                        if hasMeal    { Circle().fill(Color.stockedGold ).frame(width: 5, height: 5) }
+                        if hasMeal { Circle().fill(Color.stockedGold ).frame(width: 5, height: 5) }
                         if pastMeal != nil { Circle().fill(Color.stockedGreen).frame(width: 5, height: 5) }
                     }
                     .frame(height: 6)

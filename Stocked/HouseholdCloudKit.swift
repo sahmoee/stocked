@@ -530,7 +530,7 @@ final class HouseholdCloudKit {
         r[HouseholdSchema.Inv.quantity] = item.quantity as CKRecordValue
         r[HouseholdSchema.Inv.containerType] = item.containerType as CKRecordValue
         if let s = item.sizeAmount { r[HouseholdSchema.Inv.sizeAmount] = s as CKRecordValue }
-        if let u = item.sizeUnit  { r[HouseholdSchema.Inv.sizeUnit] = u as CKRecordValue }
+        if let u = item.sizeUnit { r[HouseholdSchema.Inv.sizeUnit] = u as CKRecordValue }
         r[HouseholdSchema.Inv.zone] = item.zone as CKRecordValue
         if let e = item.expirationDate { r[HouseholdSchema.Inv.expiration] = e as CKRecordValue }
         if let b = item.brand { r[HouseholdSchema.Inv.brand] = b as CKRecordValue }

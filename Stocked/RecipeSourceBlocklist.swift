@@ -115,9 +115,9 @@ nonisolated struct RecipePurgeReport: Sendable {
         guard !isEmpty else { return "Nothing to remove." }
         var parts: [String] = []
         if databaseEntries > 0 { parts.append("\(databaseEntries) from the recipe database") }
-        if userRecipes > 0     { parts.append("\(userRecipes) from your recipes") }
-        if savedRecipes > 0    { parts.append("\(savedRecipes) saved") }
-        if cachesCleared > 0   { parts.append("\(cachesCleared) cached file\(cachesCleared == 1 ? "" : "s") cleared") }
+        if userRecipes > 0 { parts.append("\(userRecipes) from your recipes") }
+        if savedRecipes > 0 { parts.append("\(savedRecipes) saved") }
+        if cachesCleared > 0 { parts.append("\(cachesCleared) cached file\(cachesCleared == 1 ? "" : "s") cleared") }
         return parts.joined(separator: ", ") + "."
     }
 }
