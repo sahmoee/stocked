@@ -804,6 +804,10 @@ class GuestDataStore {
     @discardableResult func clearAll() -> Bool {
         do { try StockedPhoneWatchBridge.shared.invalidateKitchen() }
         catch { ToastCenter.shared.warning(error.localizedDescription, duration: 6); return false }
+        mutationScheduler.cancelAll()
+        WidgetBridge.invalidateForErase()
+        HouseholdSync.shared.resetForLocalErase()
+        HouseholdCloudKit.shared.leaveHousehold()
         // ── 0. Stop any in-flight debounced save FIRST ───────────────
         // A save queued moments before this call (e.g. from a recent edit) would otherwise
         // fire its flush AFTER we wipe disk below and write the old data straight back — a

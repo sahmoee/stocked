@@ -89,7 +89,7 @@ struct HouseholdHomeView: View {
             .padding(.bottom, 14)
 
             NavigationLink { HouseholdJoinView() } label: {
-                Text("I have an invite code")
+                Text("I have an invite link")
                     .scaledFont(14, weight: .medium)
                     .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
@@ -134,7 +134,7 @@ struct HouseholdCreateView: View {
                     Text("Create your household")
                         .scaledFont(20, weight: .bold, design: .serif)
                         .foregroundStyle(session.themeTextColor)
-                    Text("You'll get an invite code to share with family. They join, and your pantry and grocery list sync together.")
+                    Text("You'll get an invite link to share with family. They join, and your pantry and grocery list sync together.")
                         .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         .multilineTextAlignment(.center).padding(.horizontal, 16)
                     Button {
@@ -172,13 +172,17 @@ struct HouseholdCreateView: View {
                     .scaledFont(30, weight: .bold, design: .monospaced)
                     .foregroundStyle(session.themeTextColor)
                     .tracking(2)
-                Text("Code expires in 7 days")
+                Text("Each invite link works once and expires in 24 hours")
                     .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                 Button {
-                    shareItems = ["Join my Stocked. kitchen with code \(household.joinCode ?? "")" as Any?]
-                    showShare = !shareItems.isEmpty
+                    Task {
+                        // Each share mints a single-use invite; the code alone can't join.
+                        guard let link = await household.makeInviteLink() else { return }
+                        shareItems = ["Join my Stocked. kitchen: \(link)" as Any?]
+                        showShare = true
+                    }
                 } label: {
-                    Label("Share Code", systemImage: "square.and.arrow.up")
+                    Label("Share Invite Link", systemImage: "square.and.arrow.up")
                         .scaledFont(15, weight: .semibold)
                         .foregroundStyle(Color.stockedWhite)
                         .frame(maxWidth: .infinity).padding(.vertical, 13)
@@ -209,31 +213,27 @@ struct HouseholdJoinView: View {
     @State private var joining = false
     @State private var message: String?
 
+    init(inviteLink: String = "") { _code = State(initialValue: inviteLink) }
+
     var body: some View {
         HHScreen("Join Household") {
-            Text("Enter the invite code shared by your household member.")
+            Text("Paste the invite link shared by your household member.")
                 .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center).padding(.top, 16).padding(.bottom, 24)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Enter 8-character code")
+                Text("Invite link")
                     .scaledFont(11).foregroundStyle(session.themeSecondaryText)
-                TextField("ABCD2345", text: $code)
-                    .scaledFont(22, weight: .semibold, design: .monospaced)
-                    .textInputAutocapitalization(.characters)
+                // Links are case-sensitive (the invite secret), so no character filtering here.
+                TextField("https://sowensstudios.com/join/…", text: $code)
+                    .scaledFont(15, design: .monospaced)
+                    .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .keyboardType(.asciiCapable)
+                    .keyboardType(.URL)
                     .foregroundStyle(session.themeTextColor)
-                    .tracking(2)
                     .padding(.vertical, 14).padding(.horizontal, 16)
                     .stockedPastelCard(radius: 12)
-                    .onChange(of: code) { _, newValue in
-                        // Strip anything that isn't a code character (A to Z, 2 to 9) as the user
-                        // types, so iOS smart quotes / autocorrect can't wrap or alter the code.
-                        let allowed = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-                        let cleaned = String(newValue.uppercased().filter { allowed.contains($0) }.prefix(8))
-                        if cleaned != newValue { code = cleaned }
-                    }
+                    .accessibilityLabel("Invite link")
             }
             .padding(.bottom, 18)
 
@@ -242,7 +242,7 @@ struct HouseholdJoinView: View {
                     joining = true
                     let ok = await household.joinByCode(code, into: session.guestStore)
                     joining = false
-                    message = ok ? nil : "Couldn't find a household with that code."
+                    message = ok ? nil : (household.lastError ?? "Couldn't join with that invite link.")
                     if ok { dismiss() }
                 }
             } label: {
@@ -655,7 +655,7 @@ struct HouseholdShareCodeView: View {
     private var code: String { household.joinCode ?? "—" }
 
     var body: some View {
-        HHScreen("Share Code") {
+        HHScreen("Invite Household Member") {
             Text("Invite someone to your household")
                 .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                 .padding(.top, 14).padding(.bottom, 18)
@@ -665,7 +665,7 @@ struct HouseholdShareCodeView: View {
                 .foregroundStyle(session.themeTextColor)
                 .frame(maxWidth: .infinity).padding(.vertical, 20)
                 .stockedPastelCard(radius: 12)
-            Text("Code expires in 7 days").scaledFont(11).foregroundStyle(session.themeSecondaryText)
+            Text("Each invite link works once and expires in 24 hours").scaledFont(11).foregroundStyle(session.themeSecondaryText)
                 .padding(.top, 6).padding(.bottom, 18)
 
             VStack(spacing: 0) {
@@ -675,7 +675,7 @@ struct HouseholdShareCodeView: View {
                 Divider().padding(.leading, 52)
                 shareOption("envelope.fill", "Email", Color.stockedInfo)
                 Divider().padding(.leading, 52)
-                shareOption("doc.on.doc.fill", "Copy Code", session.themeTextColor.opacity(0.6))
+                shareOption("doc.on.doc.fill", "Copy Invite Link", session.themeTextColor.opacity(0.6))
             }
             .padding(.horizontal, 14)
             .stockedPastelCard(radius: HHStyle.cardCorner)
@@ -703,10 +703,14 @@ struct HouseholdShareCodeView: View {
     }
     private func shareOption(_ icon: String, _ title: String, _ color: Color) -> some View {
         Button {
-            if title == "Copy Code" {
-                UIPasteboard.general.string = code
-            } else {
-                shareItems = ["Join my Stocked. kitchen with code \(code)" as Any?]; showShare = true
+            Task {
+                guard let link = await household.makeInviteLink() else { return }
+                if title == "Copy Invite Link" {
+                    UIPasteboard.general.string = link
+                } else {
+                    shareItems = ["Join my Stocked. kitchen: \(link)" as Any?]
+                    showShare = true
+                }
             }
         } label: {
             HStack(spacing: 14) {
@@ -854,7 +858,7 @@ struct HouseholdSettingsView: View {
         .alert("Leave this household?", isPresented: $confirmLeave) {
             Button("Leave", role: .destructive) { household.leaveHousehold() }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("You'll stop seeing the shared pantry and grocery list. You can rejoin with a new invite code.") }
+        } message: { Text("You'll stop seeing the shared pantry and grocery list. You can rejoin with a new invite link.") }
     }
     private func settingsRow(_ title: String, _ value: String, subtitle: String? = nil) -> some View {
         HStack {
@@ -1077,7 +1081,7 @@ struct HouseholdHelpView: View {
     @Environment(AppSession.self) private var session
     private let faqs: [(question: String, answer: String)] = [
         ("How do I invite someone?",
-         "Open Household Settings, then Invite Code. Share the code or copy it. The other person can open Household, choose 'I have an invite code', and enter it. Invite codes expire after 7 days."),
+         "Open Household Settings, then Invite Code. Share or copy an invite link. The other person can open Household, choose 'I have an invite link', and paste it. Each link works once and expires after 24 hours."),
         ("Can I change the invite code?",
          "The household owner can open Invite Code and choose Regenerate Code. Share the new code with anyone who still needs to join."),
         ("How do notifications work?",

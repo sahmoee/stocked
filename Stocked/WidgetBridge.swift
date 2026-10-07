@@ -7,6 +7,26 @@ import WidgetKit
 
 @MainActor
 enum WidgetBridge {
+    private(set) static var refreshRevision: UInt64 = 0
+    private static var refreshTask: Task<Void, Never>?
+
+    static func invalidateForErase() {
+        refreshRevision &+= 1
+        refreshTask?.cancel()
+        refreshTask = nil
+        WidgetStore.save(.empty)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    @discardableResult
+    static func commitPrepared(_ snapshot: StockedWidgetSnapshot, revision: UInt64) -> Bool {
+        guard revision == refreshRevision else { return false }
+        // The small App Group snapshot commits on its owning actor; no await can let erase
+        // or a newer refresh interleave between the revision check and the write.
+        WidgetStore.save(snapshot)
+        WidgetCenter.shared.reloadAllTimelines()
+        return true
+    }
     private nonisolated struct Input: Sendable {
         var inventory: [LocalInventoryItem]
         var groceries: [LocalGroceryItem]
@@ -16,6 +36,9 @@ enum WidgetBridge {
     }
 
     static func refresh(store: GuestDataStore) {
+        refreshRevision &+= 1
+        let revision = refreshRevision
+        refreshTask?.cancel()
         let input = Input(
             inventory: store.inventoryItems,
             groceries: store.groceryItems,
@@ -23,10 +46,10 @@ enum WidgetBridge {
             recipes: store.userRecipes,
             stockPercent: store.stockPercent
         )
-        Task {
+        refreshTask = Task {
             let snap = await Task.detached(priority: .utility) { prepare(input) }.value
-            await Task.detached(priority: .utility) { WidgetStore.save(snap) }.value
-            WidgetCenter.shared.reloadAllTimelines()
+            guard !Task.isCancelled else { return }
+            commitPrepared(snap, revision: revision)
         }
     }
 
