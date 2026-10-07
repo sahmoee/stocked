@@ -342,9 +342,7 @@ struct MealPlannerView: View {
 
     /// Repair: buy the missing amount (consolidated — dedup lives in the store).
     func repairAddToGrocery(_ conflict: MealConflict) {
-        session.guestStore.addToGroceryIfMissing(conflict.ingredient,
-                                                 recommended: true,
-                                                 recipeSource: conflict.mealTitle)
+        session.guestStore.addShortageToGrocery(conflict)
         HapticManager.success()
     }
 

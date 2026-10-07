@@ -1920,6 +1920,28 @@ class GuestDataStore {
                                              isRecommended: recommended, recipeSource: recipeSource))
     }
 
+    /// Meal-plan shortage repair: "buy the missing amount". A counted shortfall sets the
+    /// row quantity; a measured one ("500 g") is recorded as the row's size. An existing
+    /// unchecked row for the same ingredient is raised to cover it rather than duplicated;
+    /// a row that already carries a different size is left for the user to adjust.
+    func addShortageToGrocery(_ conflict: MealConflict) {
+        let name = conflict.ingredient.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        let measured = !conflict.unit.isEmpty && conflict.missingAmount > 0
+        let count = !measured && conflict.missingAmount > 0 ? Int(conflict.missingAmount.rounded(.up)) : 1
+        let size = measured ? "\(conflict.missingAmount.rounded(toPlaces: 2).clean) \(conflict.unit)" : ""
+        if let index = groceryItems.firstIndex(where: { GroceryDedup.isDuplicate(name, in: [$0.name]) }) {
+            guard !groceryItems[index].isChecked else { return }
+            var row = groceryItems[index]
+            row.quantity = max(row.quantity, count)
+            if row.sizeText.isEmpty { row.sizeText = size }
+            if row != groceryItems[index] { groceryItems[index] = row }
+            return
+        }
+        groceryItems.append(LocalGroceryItem(quantity: count, name: name, isChecked: false, isRecommended: true,
+                                             recipeSource: conflict.mealTitle, sizeText: size))
+    }
+
     /// #3 — build the grocery list from the week's planned meals: gather every planned
     /// ingredient, skip anything already in stock, add the rest (tagged by recipe).
     /// Returns the number of items added.
