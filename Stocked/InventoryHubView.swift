@@ -552,7 +552,7 @@ struct InventoryHubView: View {
                 editorialSectionTitle("Your Kitchen")
                 Spacer()
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showSearchField.toggle() }
+                    withAnimation(StockedMotion.ui(.standard)) { showSearchField.toggle() }
                 } label: {
                     Label("Search", systemImage: "magnifyingglass")
                         .font(.stocked(.subheadline).weight(.semibold))

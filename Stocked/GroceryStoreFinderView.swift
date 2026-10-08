@@ -381,7 +381,7 @@ struct GroceryStoreFinderView: View {
             if embedded && finder.stores.count > 5 {
                 Divider().padding(.horizontal, 24)
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showAllStores.toggle() }
+                    withAnimation(StockedMotion.ui(.standard)) { showAllStores.toggle() }
                 } label: {
                     HStack {
                         Text(showAllStores ? "Show fewer stores" : "Show all \(finder.stores.count) stores")

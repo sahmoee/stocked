@@ -152,7 +152,7 @@ struct QAHUDBar: View {
         // Nearly invisible while everything is fine; it should not compete with
         // the app for attention until it has something to say.
         .opacity(alarmed ? 0.95 : 0.55)
-        .animation(.easeInOut(duration: 0.25), value: alarmed)
+        .animation(StockedMotion.ui(.standard, intent: .opacity), value: alarmed)
     }
 
     private var alarmed: Bool {

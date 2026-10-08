@@ -164,7 +164,7 @@ struct InventoryView: View {
     private func refreshOrientation() {
         let landscape = StockedScreen.isLandscape
         if landscape != isLandscape {
-            withAnimation(.easeInOut(duration: 0.25)) { isLandscape = landscape }
+            withAnimation(StockedMotion.ui(.standard)) { isLandscape = landscape }
         }
     }
 
@@ -290,7 +290,7 @@ struct InventoryView: View {
                 inventoryListScroll
             }
             .frame(maxWidth: showDetailPane ? splitListWidth : .infinity)
-            .animation(.easeInOut(duration: 0.25), value: splitListWidth)
+            .animation(StockedMotion.ui(.standard), value: splitListWidth)
 
             detailPane
             }
@@ -744,7 +744,7 @@ struct InventoryView: View {
                            contentInsets: .init(top: 4, leading: 24, bottom: 12, trailing: 24),
                            onVerticalCollapseChange: { collapsed in
                                guard listHasScrolled != collapsed else { return }
-                               withAnimation(.easeInOut(duration: 0.22)) {
+                               withAnimation(StockedMotion.ui(.standard)) {
                                    listHasScrolled = collapsed
                                }
                            }) { item in
@@ -779,7 +779,7 @@ struct InventoryView: View {
                             // Split-view size presets — how the list/editor space is divided.
                             ForEach(SplitPreset.allCases, id: \.self) { preset in
                                 Button {
-                                    withAnimation(.easeInOut(duration: 0.25)) { splitPreset = preset }
+                                    withAnimation(StockedMotion.ui(.selection)) { splitPreset = preset }
                                     splitPreset.save()
                                     HapticManager.light()
                                 } label: {
@@ -1020,7 +1020,7 @@ struct SubcategoryDisclosure: View {
                         if editMode, let sel = selectedIDs {
                             // Edit mode: show a checkbox and toggle selection on tap.
                             Button {
-                                withAnimation(.easeInOut(duration: 0.12)) {
+                                withAnimation(StockedMotion.ui(.press)) {
                                     if sel.wrappedValue.contains(item.id) { sel.wrappedValue.remove(item.id) }
                                     else { sel.wrappedValue.insert(item.id) }
                                 }

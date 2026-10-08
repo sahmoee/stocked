@@ -51,7 +51,7 @@ struct TappableEditText: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation(.easeIn(duration: 0.15)) { isEditing = true }
+            withAnimation(StockedMotion.ui(.selection)) { isEditing = true }
             Task {
                 try? await Task.sleep(nanoseconds: 50000000)
                 focused = true

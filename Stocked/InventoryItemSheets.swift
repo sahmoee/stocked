@@ -68,7 +68,7 @@ struct EditItemSheet: View {
         } else {
             editedName = trimmed
         }
-        withAnimation(.easeInOut(duration: 0.15)) { isEditingName = false }
+        withAnimation(StockedMotion.ui(.selection)) { isEditingName = false }
         nameFieldFocused = false
         HapticManager.select()
     }
@@ -107,7 +107,7 @@ struct EditItemSheet: View {
                                 .scaledFont(22, weight: .bold, design: .serif)
                                 .foregroundStyle(session.themeTextColor)
                             Button {
-                                withAnimation(.easeInOut(duration: 0.15)) { isEditingName = true }
+                                withAnimation(StockedMotion.ui(.selection)) { isEditingName = true }
                             } label: {
                                 Image(systemName: "square.and.pencil")
                                     .scaledFont(16, weight: .semibold)
@@ -699,7 +699,7 @@ struct AddItemSheet: View {
                 .environment(session)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: step)
+        .animation(StockedMotion.ui(.navigation), value: step)
         // Overlay tap/swipe must not silently throw away a half-filled item.
         .onChange(of: name.isEmpty, initial: true) { _, empty in
             OverlayDismissGuard.shared.interceptor = empty ? nil : { [confirm = $confirmDiscard] in
@@ -772,7 +772,7 @@ struct AddItemSheet: View {
                     .accessibilityElement(children: .combine)
                 }
             }.padding(.horizontal, 20)
-            .animation(.easeInOut(duration: 0.2), value: showNameError)
+            .animation(StockedMotion.ui(.standard, intent: .opacity), value: showNameError)
 
             // Zone tabs
             VStack(alignment: .leading, spacing: 8) {
@@ -1586,7 +1586,7 @@ struct ItemDetailPopup: View {
                             Spacer()
                         }
                         .padding(.horizontal, 20)
-                        .animation(.easeInOut(duration: 0.15), value: previewText)
+                        .animation(StockedMotion.ui(.selection, intent: .opacity), value: previewText)
 
                         Divider().padding(.horizontal, 20)
 

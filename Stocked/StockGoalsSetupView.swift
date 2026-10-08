@@ -74,7 +74,7 @@ struct StockGoalsSetupView: View {
                     .frame(height: 4)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: step)
+        .animation(StockedMotion.ui(.navigation), value: step)
         .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 2)
     }
 
@@ -148,7 +148,7 @@ struct StockGoalsSetupView: View {
     private var navBar: some View {
         HStack(spacing: 12) {
             if step > 0 {
-                Button { withAnimation(.easeInOut(duration: 0.2)) { step -= 1 } } label: {
+                Button { withAnimation(StockedMotion.ui(.navigation)) { step -= 1 } } label: {
                     Text("Back")
                         .scaledFont(15, weight: .semibold)
                         .foregroundStyle(primaryText)
@@ -159,7 +159,7 @@ struct StockGoalsSetupView: View {
             }
             Spacer()
             if step < lastStep {
-                Button { withAnimation(.easeInOut(duration: 0.2)) { step += 1 } } label: {
+                Button { withAnimation(StockedMotion.ui(.navigation)) { step += 1 } } label: {
                     Text(step == 0 ? "Start" : "Next")
                         .scaledFont(15, weight: .semibold)
                         .foregroundStyle(.white)

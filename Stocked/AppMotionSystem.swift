@@ -36,13 +36,13 @@ enum StockedMotion {
             }
         }
 
+        /// Critically damped (1.0) unless a gesture carried momentum into the motion: overshoot
+        /// on a toggle or a sheet that simply appears reads as wobble, while a flicked drawer or
+        /// row should land with a little give (Apple's fluid-interface drawer value, 0.8).
         var dampingFraction: Double {
             switch self {
-            case .press:      return 0.78
-            case .selection:  return 0.82
-            case .standard:   return 0.82
-            case .navigation: return 0.85
-            case .settle:     return 0.88
+            case .press, .selection, .standard, .navigation: return 1.0
+            case .settle:                                    return 0.8
             }
         }
 
@@ -103,6 +103,22 @@ struct StockedMotionPolicy: Equatable, Sendable {
         }
     }
 
+    /// A spring that starts at the finger's release velocity, so there is no seam between
+    /// dragging and settling. `velocity` is points per second along the axis; `distance` is the
+    /// remaining travel to the target (SwiftUI's initial velocity is relative to it).
+    func release(
+        _ token: StockedMotion.Spring = .settle,
+        velocity: CGFloat,
+        distance: CGFloat
+    ) -> Animation? {
+        guard !reduceMotion else { return nil }
+        let relative = abs(distance) < 1 ? 0 : Double(velocity / distance)
+        return .interpolatingSpring(
+            Spring(response: token.response, dampingRatio: token.dampingFraction),
+            initialVelocity: max(-40, min(40, relative))
+        )
+    }
+
     /// Runs state changes with the same Reduce Motion behavior as ``animation(_:intent:)``.
     @MainActor
     @discardableResult
@@ -112,6 +128,23 @@ struct StockedMotionPolicy: Equatable, Sendable {
         _ changes: () throws -> Result
     ) rethrows -> Result {
         try withAnimation(animation(token, intent: intent), changes)
+    }
+}
+
+extension StockedMotion {
+    /// For call sites outside a view body (or without the environment): the same token,
+    /// honoring the live Reduce Motion setting. Spatial intent falls back to no animation.
+    @MainActor
+    static func ui(_ token: Spring = .standard, intent: Intent = .spatial) -> Animation? {
+        StockedMotionPolicy(reduceMotion: UIAccessibility.isReduceMotionEnabled)
+            .animation(token, intent: intent)
+    }
+
+    /// Progressive resistance past a drag limit instead of a hard stop. `overshoot` is how far
+    /// past the bound the finger is; `dimension` is the draggable extent.
+    static func rubberband(_ overshoot: CGFloat, dimension: CGFloat, constant: CGFloat = 0.55) -> CGFloat {
+        guard dimension > 0 else { return 0 }
+        return (overshoot * dimension * constant) / (dimension + constant * abs(overshoot))
     }
 }
 
