@@ -34,7 +34,7 @@ fun RecipeImportDialog(initialText: String = "", commit: (List<Recipe>) -> Unit,
             notice?.let { Text(it,style=MaterialTheme.typography.bodySmall) }
             if(busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-            preview.forEach { recipe -> Card { Column(Modifier.padding(12.dp)) {
+            preview.forEach { recipe -> StockedCard { Column(Modifier.padding(12.dp)) {
                 Row { Checkbox(selected[recipe.id]==true,{ selected[recipe.id]=it }); Text(recipe.title,style=MaterialTheme.typography.titleMedium) }
                 Text("${recipe.servings} servings · ${recipe.ingredients.size} ingredients · ${recipe.instructions.size} steps")
                 if (recipe.ingredients.size > 12 || recipe.instructions.size > 8) Text("Preview shows the first 12 ingredients and 8 steps; all entries are saved and editable in the recipe.")

@@ -2,6 +2,10 @@
 
 Native Kotlin/Compose edition for Android 8.0 (API 26) and newer. Includes offline inventory, groceries, recipes and meal plans, reviewed backup imports, recipe file/web imports, food/receipt image recognition and household sync. This edition is still being validated and does not yet match every iOS feature.
 
+## Appearance
+
+Android follows Stocked iOS: Home, Cook, Kitchen, Recipes and Grocery bottom tabs, a separate Settings button, warm Pastel colors, serif headings and the original kitchen illustrations. Pastel light is the default; Dark can be selected in Settings. The Deck uses this same app navigation without a desktop side rail.
+
 ## Install
 
 Use a signed release APK supplied by the project owner. Open it on Android and permit installation from that file manager when prompted. Updates require the same application ID and signing key; export a backup before replacing a differently signed build. No paid app store account is needed for direct APK distribution.

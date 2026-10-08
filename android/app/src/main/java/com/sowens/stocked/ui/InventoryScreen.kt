@@ -15,18 +15,21 @@ import com.sowens.stocked.data.*
 import java.time.LocalDate
 
 @Composable
-fun InventoryScreen(state: KitchenState, save: (InventoryItem) -> Unit, delete: (String) -> Unit, consume: (String, Int) -> Unit) {
-    var query by remember { mutableStateOf("") }
+fun InventoryScreen(state: KitchenState, save: (InventoryItem) -> Unit, delete: (String) -> Unit, consume: (String, Int) -> Unit, initialQuery: String = "") {
+    var zone by remember { mutableStateOf("All") }
+    var query by remember(initialQuery) { mutableStateOf(initialQuery) }
     var editing by remember { mutableStateOf<InventoryItem?>(null) }
     var deleting by remember { mutableStateOf<InventoryItem?>(null) }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EditorialHero("Your kitchen, at a glance", "Good food, all in reach.", "Browse, stay organized, and know what you have.", produceArtwork())
+        FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp)) { listOf("All","Fridge","Freezer","Pantry","Staples").forEach { value -> FilterChip(selected=zone==value,onClick={ zone=value },label={ Text(value) }) } }
         Field("Search inventory", query, { query = it })
         Button(onClick = { editing = InventoryItem(name = "") }) { Text("Add item") }
-        val filtered = state.inventory.filter { it.name.contains(query, true) }.sortedBy { it.expirationDate ?: "9999" }
+        val filtered = state.inventory.filter { it.name.contains(query, true) && (zone=="All" || it.storageCategory==zone) }.sortedBy { it.expirationDate ?: "9999" }
         if (filtered.isEmpty()) EmptyState("Your pantry starts here", "Add food, its storage zone and expiry date. Search results appear here too.")
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
             items(filtered, key = { it.id }) { item ->
-                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                StockedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(item.name, style = MaterialTheme.typography.titleMedium)
                     Text("${item.quantity} ${item.containerType} · ${item.storageCategory}")
                     item.expirationDate?.let { Text("Expires $it", color = if (runCatching { LocalDate.parse(it).isBefore(LocalDate.now()) }.getOrDefault(false)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) }

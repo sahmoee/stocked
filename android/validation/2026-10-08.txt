@@ -8,3 +8,5 @@ Physical interactive acceptance awaits Android debugging trust.
 Worker229tests/typecheck/dryrun pass; live create/pull/leave200, forged pull401.
 No full iOS parity, GooglePlay listing or cross-platform device acceptance claimed.
 Signing keys remain private; application files retained internally and backed up to SSD.
+
+iOS visual adaptation: actual iOS TabBarView/PastelDesign/DesignTokens/StockedShell used; original six illustrations and launcher icon reused. Default light Pastel, saved Dark option, mobile bottom tabs at Deck width. New build39tests0failures,lint0errors,signedAPK/AAB verified; Deck Home screenshot confirms render. Interactive narrow/large-font and device flow checks still await trust approval.

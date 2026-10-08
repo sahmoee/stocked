@@ -12,18 +12,22 @@ import androidx.compose.ui.unit.dp
 import com.sowens.stocked.data.*
 
 @Composable
-fun GroceryScreen(state: KitchenState, save: (GroceryItem) -> Unit, delete: (String) -> Unit, toggle: (String) -> Unit) {
+fun GroceryScreen(state: KitchenState, save: (GroceryItem) -> Unit, delete: (String) -> Unit, toggle: (String) -> Unit, initialQuery: String = "") {
     var editing by remember { mutableStateOf<GroceryItem?>(null) }
-    var query by remember { mutableStateOf("") }
+    var bought by remember { mutableStateOf(false) }
+    var query by remember(initialQuery) { mutableStateOf(initialQuery) }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val left=state.grocery.count { !it.isChecked }
+        EditorialHero("Your next grocery trip", if(left==0) "Nothing to buy yet." else "$left things for a well-stocked week.", "Organized for an easier shop.", produceArtwork())
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { FilterChip(selected=!bought,onClick={ bought=false },label={ Text("To Buy · $left") }); FilterChip(selected=bought,onClick={ bought=true },label={ Text("Bought · ${state.grocery.count { it.isChecked }}") }) }
         Field("Search groceries", query, { query = it })
         Button(onClick = { editing = GroceryItem(name = "") }) { Text("Add grocery") }
         Text("${state.grocery.count { !it.isChecked }} items left to buy")
         if (state.grocery.isEmpty()) EmptyState("Ready for your next shop", "Add groceries here or send recipe ingredients to this list. Matching unchecked entries are combined.")
         if (state.grocery.isNotEmpty() && state.grocery.none { it.name.contains(query, true) }) EmptyState("No matching groceries", "Try a different name or add the item.")
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(state.grocery.filter { it.name.contains(query, true) }.sortedBy { it.isChecked }, key = { it.id }) { item ->
-                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Column(Modifier.padding(12.dp)) {
+            items(state.grocery.filter { it.name.contains(query, true) && it.isChecked==bought }.sortedBy { it.isChecked }, key = { it.id }) { item ->
+                StockedCard(Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Column(Modifier.padding(12.dp)) {
                     Row { Checkbox(checked = item.isChecked, onCheckedChange = { toggle(item.id) }, modifier = Modifier.semantics { contentDescription = "${item.name}: purchased" }); Column(Modifier.weight(1f)) { Text(item.name, style = MaterialTheme.typography.titleMedium); Text("${item.quantity} · ${item.sizeText}"); if (item.recipeSource.isNotBlank()) Text("For ${item.recipeSource}") } }
                     Row { TextButton(onClick = { editing = item }) { Text("Edit") }; TextButton(onClick = { delete(item.id) }) { Text("Delete") } }
                 } }

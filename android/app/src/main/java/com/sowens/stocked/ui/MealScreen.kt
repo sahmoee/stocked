@@ -13,15 +13,16 @@ import com.sowens.stocked.data.*
 import java.time.LocalDate
 
 @Composable
-fun MealScreen(state: KitchenState, pending: Recipe?, clearPending: () -> Unit, save: (PlannedMeal) -> Unit, delete: (String) -> Unit, groceries: (String) -> Unit, cooked: (String) -> Unit) {
+fun MealScreen(state: KitchenState, pending: Recipe?, clearPending: () -> Unit, save: (PlannedMeal) -> Unit, delete: (String) -> Unit, groceries: (String) -> Unit, cooked: (String) -> Unit, browseRecipes: () -> Unit = {}) {
     var editing by remember { mutableStateOf<PlannedMeal?>(null) }
     LaunchedEffect(pending?.id) { pending?.let { editing = PlannedMeal(title = it.title, servings = it.servings, ingredients = it.ingredients.map { ingredient -> "${ingredient.amount} ${ingredient.name}".trim() }, date = LocalDate.now().toString()); clearPending() } }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { editing = PlannedMeal(title = "", date = LocalDate.now().toString()) }) { Text("Plan meal") }
+        EditorialHero("Make something good", "What’s on the menu?", "Good food starts with what you have. Cook something now, or plan the week ahead.", mealArtwork())
+        FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick=browseRecipes) { Text("My recipes & timers") }; Button(onClick = { editing = PlannedMeal(title = "", date = LocalDate.now().toString()) }) { Text("Plan meal") } }
         if (state.planned.isEmpty()) EmptyState("Make room for dinner", "Choose a date and meal, or plan a saved recipe from its detail screen.")
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             items(state.planned.sortedBy { it.date ?: "9999" }, key = { it.id }) { meal ->
-                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Column(Modifier.padding(16.dp)) {
+                StockedCard(Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Column(Modifier.padding(16.dp)) {
                     Text(meal.title, style = MaterialTheme.typography.titleLarge)
                     Text("${meal.date ?: LocalDate.now().plusDays(meal.dayIndex.toLong()).toString()} · ${meal.mealType} · ${meal.servings} servings")
                     if (meal.isCooked) Text("Cooked")

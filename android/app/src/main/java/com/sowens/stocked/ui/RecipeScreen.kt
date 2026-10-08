@@ -28,20 +28,21 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @Composable
-fun RecipeScreen(state: KitchenState, save: (Recipe) -> Unit, delete: (String) -> Unit, groceries: (String) -> Unit, consume: (String, Int) -> Unit, plan: (Recipe) -> Unit, imports: () -> Unit) {
-    var query by remember { mutableStateOf("") }
+fun RecipeScreen(state: KitchenState, save: (Recipe) -> Unit, delete: (String) -> Unit, groceries: (String) -> Unit, consume: (String, Int) -> Unit, plan: (Recipe) -> Unit, imports: () -> Unit, initialQuery: String = "") {
+    var query by remember(initialQuery) { mutableStateOf(initialQuery) }
     var editing by remember { mutableStateOf<Recipe?>(null) }
     var selected by remember { mutableStateOf<String?>(null) }
     val recipe = state.userRecipes.firstOrNull { it.id == selected }
     if (recipe != null) {
         RecipeDetail(recipe, state.inventory, { selected = null }, { editing = recipe }, { delete(recipe.id); selected = null }, { groceries(recipe.id) }, consume, { plan(recipe) })
     } else Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EditorialHero("Your recipe book", "Something delicious awaits.", "Recipes you love, meals you remember, and fresh ideas for tonight.", mealArtwork())
         Field("Search recipes or ingredients", query, { query = it })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { editing = Recipe(title = "") }) { Text("Create recipe") }; OutlinedButton(onClick = imports) { Text("Import") } }
         val results = state.userRecipes.filter { it.title.contains(query, true) || it.ingredients.any { ingredient -> ingredient.name.contains(query, true) } }
         if (results.isEmpty()) EmptyState("Your own recipe collection", "Save a family favourite or import a Stocked backup. Recipes stay available offline.")
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(results, key = { it.id }) { item -> Card(onClick = { selected = item.id }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            items(results, key = { it.id }) { item -> StockedCard(onClick = { selected = item.id }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Column(Modifier.padding(16.dp)) { Text(item.title, style = MaterialTheme.typography.titleLarge); Text("${item.servings} servings · ${item.ingredients.size} ingredients"); Text(item.description, maxLines = 2) }
             } }
         }
@@ -104,7 +105,7 @@ private fun CookingTimer(id: String, title: String) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { runCatching { CookingTimerStore.restore(context) }.onFailure { timerError = it.message } }
     LaunchedEffect(id) { runCatching { CookingTimerStore.restore(context) }.onFailure { timerError = it.message } }
     LaunchedEffect(deadline) { val end = deadline ?: return@LaunchedEffect; do { remaining = ((end - System.currentTimeMillis() + 999) / 1000).coerceAtLeast(0); delay(250) } while (remaining > 0) }
-    Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    StockedCard { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Cooking timer", style = MaterialTheme.typography.titleMedium)
         Field("Minutes", minutes, { minutes = it }, true)
         if (deadline != null) Text(if (remaining == 0L) "Timer finished" else "${remaining / 60}:${(remaining % 60).toString().padStart(2, '0')}", style = MaterialTheme.typography.headlineMedium)

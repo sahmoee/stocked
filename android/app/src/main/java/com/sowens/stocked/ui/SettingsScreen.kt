@@ -22,6 +22,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsScreen(repository: KitchenRepository, state: KitchenState, report: (String) -> Unit) {
     val context = LocalContext.current
+    val dark = LocalStockedDark.current
+    val setDark = LocalSetStockedDark.current
     val scope = rememberCoroutineScope()
     var preview by remember { mutableStateOf<ImportPreview?>(null) }
     var replace by remember { mutableStateOf(false) }
@@ -40,7 +42,8 @@ fun SettingsScreen(repository: KitchenRepository, state: KitchenState, report: (
         try { val text = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(it)?.use { input -> val output = java.io.ByteArrayOutputStream(); val buffer = ByteArray(8192); var total = 0; while (true) { val count = input.read(buffer); if (count < 0) break; total += count; require(total <= 20 * 1024 * 1024) { "Backup exceeds 20 MB" }; output.write(buffer, 0, count) }; output.toString("UTF-8") } ?: error("Unable to open selected file") }; preview = repository.previewBackup(text); replace = false } catch (error: Exception) { report(error.message ?: "Backup import failed") } finally { busy = false }
     } } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Your kitchen, on your device", style = MaterialTheme.typography.headlineSmall)
+        EditorialHero("Make it yours", "Settings", "Your kitchen, on your device.")
+        Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) { Text("Dark appearance",Modifier.weight(1f)); Switch(checked=dark,onCheckedChange=setDark) }
         Button(onClick = { scan = true }) { Text("Scan food or receipt") }
         OutlinedButton(onClick = { household = true }) { Text("Household sync") }
         Text("${state.inventory.size} inventory entries · ${state.grocery.size} groceries · ${state.userRecipes.size} recipes · ${state.planned.size} meals")
