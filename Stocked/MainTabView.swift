@@ -758,7 +758,10 @@ struct DrawerDragLayer: View {
     // the resting position below so the drawer tracks the finger 1:1, then springs to a final
     // open/closed state on release.
     // Reset even if QA or a system gesture cancels before onEnded.
-    @GestureState private var dragOffset: CGFloat = 0
+    // The reset animates with the settle spring, so release starts from where the finger left
+    // the panel (its presentation value) instead of jumping back to the resting edge first.
+    @GestureState(resetTransaction: Transaction(animation: StockedMotion.Spring.settle.animation))
+    private var dragOffset: CGFloat = 0
     private var isDragging: Bool { dragOffset != 0 }
 
     // Resting position: open (0) or closed (-drawerWidth).
@@ -767,14 +770,17 @@ struct DrawerDragLayer: View {
     // Resting position plus the in-flight drag, clamped so the panel can't be pulled past
     // fully-open or pushed past fully-closed.
     private var drawerOffsetX: CGFloat {
-        min(0, max(-drawerWidth, restOffsetX + dragOffset))
+        let raw = restOffsetX + dragOffset
+        // Past fully open, resist progressively instead of stopping dead.
+        if raw > 0 { return StockedMotion.rubberband(raw, dimension: drawerWidth) }
+        return max(-drawerWidth, raw)
     }
 
     // How far open the drawer is right now, 0 (closed) ... 1 (open). Drives the dim overlay
     // and pull-tab position so they move smoothly with the drag, not just on the final toggle.
     private var openFraction: CGFloat {
         guard drawerWidth > 0 else { return showDrawer ? 1 : 0 }
-        return (drawerOffsetX + drawerWidth) / drawerWidth
+        return min(1, (drawerOffsetX + drawerWidth) / drawerWidth)
     }
 
     // Minimum horizontal travel before we treat a drag as a drawer drag (lets vertical
@@ -783,7 +789,7 @@ struct DrawerDragLayer: View {
 
     // Decide the resting state on release from BOTH position and throw velocity, so a quick
     // flick opens/closes even if the finger did not travel past the halfway point.
-    private func settle(predictedTranslation: CGFloat) {
+    private func settle(predictedTranslation: CGFloat, velocity: CGFloat = 0) {
         let projected = restOffsetX + predictedTranslation
         let projectedOpenOffset = projected + drawerWidth
         let target = StockedVelocitySnapPolicy(distanceThreshold: 0.5).targetIndex(
@@ -795,7 +801,10 @@ struct DrawerDragLayer: View {
         )
         let shouldOpen = target == 1
         let changed = shouldOpen != showDrawer
-        motion.animate(.navigation, intent: .spatial) {
+        // Hand the throw's speed to the spring so drag and settle read as one motion.
+        let current = drawerOffsetX
+        let destination: CGFloat = shouldOpen ? 0 : -drawerWidth
+        withAnimation(motion.release(.settle, velocity: velocity, distance: destination - current)) {
             showDrawer = shouldOpen
         }
         if changed { HapticManager.select() }
@@ -880,11 +889,12 @@ struct DrawerDragLayer: View {
                 guard abs(value.translation.width) >= abs(value.translation.height) || isDragging else { return }
                 guard value.translation.width > 0 || isDragging else { return }
                 transaction.animation = nil
-                offset = max(0, value.translation.width)
+                offset = value.translation.width
             }
             .onEnded { value in
                 guard abs(value.translation.width) >= abs(value.translation.height) else { return }
-                settle(predictedTranslation: value.predictedEndTranslation.width)
+                settle(predictedTranslation: value.predictedEndTranslation.width,
+                       velocity: value.velocity.width)
             }
     }
 
@@ -900,7 +910,8 @@ struct DrawerDragLayer: View {
             }
             .onEnded { value in
                 guard abs(value.translation.width) >= abs(value.translation.height) else { return }
-                settle(predictedTranslation: value.predictedEndTranslation.width)
+                settle(predictedTranslation: value.predictedEndTranslation.width,
+                       velocity: value.velocity.width)
             }
     }
 

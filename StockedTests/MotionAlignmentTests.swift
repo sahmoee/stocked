@@ -332,8 +332,14 @@ final class MotionAlignmentTests: XCTestCase {
                           StockedMotion.Spring.standard.response)
         XCTAssertLessThan(StockedMotion.Spring.standard.response,
                           StockedMotion.Spring.settle.response)
-        XCTAssertGreaterThan(StockedMotion.Spring.settle.dampingFraction,
-                             StockedMotion.Spring.press.dampingFraction)
+        // Only momentum-driven settling may overshoot; everything else is critically damped.
+        XCTAssertLessThan(StockedMotion.Spring.settle.dampingFraction, 1)
+        for token in StockedMotion.Spring.allCases where token != .settle {
+            XCTAssertEqual(token.dampingFraction, 1, "\(token)")
+        }
+        XCTAssertEqual(StockedMotion.rubberband(0, dimension: 100), 0)
+        XCTAssertLessThan(StockedMotion.rubberband(200, dimension: 100), 100)
+        XCTAssertLessThan(StockedMotion.rubberband(-50, dimension: 100), 0)
     }
 
     func testSharedPolicyDisablesSpatialAndDecorativeMotionUnderReduceMotion() {

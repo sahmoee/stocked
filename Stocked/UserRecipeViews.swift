@@ -624,7 +624,7 @@ struct UserRecipeDetailView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) { ingredientsExpanded.toggle() }
+                                    withAnimation(StockedMotion.ui(.standard)) { ingredientsExpanded.toggle() }
                                 } label: {
                                     Label("Ingredients", systemImage: ingredientsExpanded ? "chevron.down" : "chevron.right")
                                         .scaledFont(16, weight: .bold, design: .serif)
@@ -714,7 +714,7 @@ struct UserRecipeDetailView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) { instructionsExpanded.toggle() }
+                                    withAnimation(StockedMotion.ui(.standard)) { instructionsExpanded.toggle() }
                                 } label: {
                                     Label("Instructions", systemImage: instructionsExpanded ? "chevron.down" : "chevron.right")
                                         .scaledFont(16, weight: .bold, design: .serif)
@@ -981,7 +981,7 @@ struct RecipeSubstitutionsSection: View {
                                 ? Color.stockedGold.opacity(0.1)
                                 : Color.stockedGold.opacity(0.04))
                             .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                            .animation(.easeInOut(duration: 0.3), value: isHighlighted)
+                            .animation(StockedMotion.ui(.standard, intent: .opacity), value: isHighlighted)
 
                             if item.name != entries.last?.name {
                                 Divider().padding(.horizontal, 8)

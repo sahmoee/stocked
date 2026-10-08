@@ -85,7 +85,7 @@ struct PendingSyncBadge: View {
                 .accessibilityAddTraits(.isButton)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: shouldShow)
+        .animation(StockedMotion.ui(.standard, intent: .opacity), value: shouldShow)
         // Re-check the age threshold shortly after work queues, so a badge that *should*
         // appear (ops still pending after a poll cycle) does — op age isn't observable.
         .task(id: pendingCount) {

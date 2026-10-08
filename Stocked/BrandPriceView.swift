@@ -51,7 +51,7 @@ struct BrandPriceView: View {
             guard !didLoad else { return }
             didLoad = true
             let match = await GroceryProductClient.shared.bestMatch(for: itemName, store: store)
-            withAnimation(.easeInOut(duration: 0.2)) { product = match }
+            withAnimation(StockedMotion.ui(.standard, intent: .opacity)) { product = match }
         }
     }
 

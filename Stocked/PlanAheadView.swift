@@ -228,7 +228,7 @@ struct PlanAheadView: View {
 
     private func shift(_ days: Int) {
         guard let date = Calendar.current.date(byAdding: .day, value: days, to: firstDay) else { return }
-        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) { firstDay = date }
+        withAnimation(StockedMotion.ui(.standard)) { firstDay = date }
     }
     private func dateLabel(_ key: String) -> String {
         guard let date = try? PlanAheadCore.parseDate(key, timeZoneID: TimeZone.current.identifier) else { return key }

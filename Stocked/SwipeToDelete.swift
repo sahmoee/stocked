@@ -62,7 +62,10 @@ struct SwipeToDeleteModifier: ViewModifier {
                             // scrolling and the calendar drag stay responsive.
                             guard value.translation.width < 0,
                                   abs(value.translation.width) > abs(value.translation.height) else { return }
-                            offsetX = max(value.translation.width, -actionWidth - 40)
+                            // 1:1 up to the action, then rubber-band instead of a hard stop.
+                            let past = value.translation.width + actionWidth
+                            offsetX = past >= 0 ? value.translation.width
+                                : -actionWidth + StockedMotion.rubberband(past, dimension: actionWidth)
                         }
                         .onEnded { value in
                             let projected = min(0, value.predictedEndTranslation.width)
@@ -74,7 +77,9 @@ struct SwipeToDeleteModifier: ViewModifier {
                                     increment: actionWidth,
                                     bounds: -actionWidth...0
                                 )
-                                motion.animate(.settle, intent: .spatial) { offsetX = target }
+                                // Land from the finger's own speed — no seam between drag and settle.
+                                withAnimation(motion.release(.settle, velocity: value.velocity.width,
+                                                             distance: target - offsetX)) { offsetX = target }
                             }
                         }
                 )
