@@ -1,0 +1,12 @@
+Android preview validation — 2026-10-08
+Native API26+ Kotlin/Compose target. SDK36, JDK17, Gradle8.11.1 checksum-pinned.
+Integrated build:31 unit tests pass and lint no errors.
+Wire/receipt fixes:37 unit tests pass; signed APK/AAB build succeeds.
+Final check:39 unit tests passed, lint no errors, signed APK/AAB built; apksigner verification and16KiB ZIP alignment passed.
+Waydroid Android13 Vanilla on SteamOS3.8.28 runs Stocked Pantry UI.
+Physical interactive acceptance awaits Android debugging trust.
+Worker229tests/typecheck/dryrun pass; live create/pull/leave200, forged pull401.
+No full iOS parity, GooglePlay listing or cross-platform device acceptance claimed.
+Signing keys remain private; application files retained internally and backed up to SSD.
+
+iOS visual adaptation: actual iOS TabBarView/PastelDesign/DesignTokens/StockedShell used; original six illustrations and launcher icon reused. Default light Pastel, saved Dark option, mobile bottom tabs at Deck width. New build39tests0failures,lint0errors,signedAPK/AAB verified; Deck Home screenshot confirms render. Interactive narrow/large-font and device flow checks still await trust approval.
