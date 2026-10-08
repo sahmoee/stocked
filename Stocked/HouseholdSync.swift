@@ -621,16 +621,12 @@ final class HouseholdSync {
     func joinByCode(_ rawCode: String, into store: GuestDataStore) async -> Bool {
         let parsed = HouseholdInviteLink.parse(rawCode)
         let code = parsed.code
-        guard code.count == 8 else {
-            fail("That doesn't look like a valid 8 character code.")
+        guard !code.isEmpty else {
+            fail("Enter your household code or paste an invite link.")
             return false
         }
         guard joinCode == nil || joinCode == code else {
             fail("Leave your current household before joining another one. Your local kitchen stays on this device.")
-            return false
-        }
-        guard let invite = parsed.invite else {
-            fail("Paste the invite link your household member shared. A code alone can't join.")
             return false
         }
         scopeEpoch &+= 1
@@ -638,7 +634,7 @@ final class HouseholdSync {
         syncStage = .joining
         myDisplayName = resolvedName()   // never join as "You"
         let body: [String: Any] = [
-            "code": code, "memberName": myDisplayName, "memberId": memberId, "invite": invite,
+            "code": code, "memberName": myDisplayName, "memberId": memberId, "invite": parsed.invite ?? "",
             "syncProtocolVersion": 2,
             "capabilities": HouseholdPermission.allCases.map(\.rawValue),
         ]
@@ -1292,9 +1288,18 @@ final class HouseholdSync {
 
     @ObservationIgnored private var lastPostFailure: StockedServiceError? = nil
 
+    /// After the Worker rejects membership (401/403), polling the same request every few
+    /// seconds only burns battery and memory; pause routine traffic until this time.
+    @ObservationIgnored private var authPausedUntil: Date = .distantPast
+
     private func post(_ path: String, _ body: [String: Any]) async -> [String: Any]? {
         let epoch = scopeEpoch
         lastPostFailure = nil
+        let enrollment = path == "/household/create" || path == "/household/join"
+        if !enrollment, Date() < authPausedUntil {
+            lastPostFailure = .httpStatus(401, "Household access was refused. Sync will retry shortly.")
+            return nil
+        }
         guard !Task.isCancelled else { lastPostFailure = .cancelled; return nil }
         guard let url = URL(string: BuildConfig.receiptWorkerURL + path) else {
             lastPostFailure = .notConfigured("Household sync")
@@ -1351,6 +1356,9 @@ final class HouseholdSync {
                     lastPostFailure = .rateLimited(retryAfter: retry)
                 } else {
                     lastPostFailure = .httpStatus(http.statusCode, detail)
+                    if http.statusCode == 401 || http.statusCode == 403 {
+                        authPausedUntil = Date().addingTimeInterval(300)
+                    }
                 }
                 Log.transfer.error("Household \(path, privacy: .public) HTTP \(http.statusCode)")
                 return nil
@@ -1360,6 +1368,7 @@ final class HouseholdSync {
                 return nil
             }
             lastError = nil
+            authPausedUntil = .distantPast
             return object
         } catch is CancellationError {
             lastPostFailure = .cancelled
@@ -2084,7 +2093,7 @@ nonisolated enum HouseholdInviteLink {
             codeSource = String(trimmed[..<hash])
         }
         let code = HouseholdSync.normalize(codeSource)
-        return (code.count == 8 ? code : "", invite)
+        return ((6...16).contains(code.count) ? code : "", invite)
     }
 }
 

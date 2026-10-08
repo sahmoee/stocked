@@ -21,7 +21,7 @@ final class HouseholdCredentialTests: XCTestCase {
         XCTAssertNil(HouseholdInviteLink.parse("ABCD2345#invite=\(secret)!").invite)
         XCTAssertNil(HouseholdInviteLink.parse("ABCD2345#invite=" + String(repeating: "a", count: 129)).invite)
         XCTAssertNil(HouseholdInviteLink.parse("ABCD2345#invite=" + String(repeating: "é", count: 43)).invite)
-        XCTAssertEqual(HouseholdInviteLink.parse("ABCD23456#invite=\(secret)").code, "")
+        XCTAssertEqual(HouseholdInviteLink.parse("ABCD2345ABCD23456#invite=\(secret)").code, "")
     }
 
     @MainActor

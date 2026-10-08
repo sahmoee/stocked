@@ -89,7 +89,7 @@ struct HouseholdHomeView: View {
             .padding(.bottom, 14)
 
             NavigationLink { HouseholdJoinView() } label: {
-                Text("I have an invite link")
+                Text("I have a code or invite link")
                     .scaledFont(14, weight: .medium)
                     .foregroundStyle(session.themeTextColor.opacity(0.7))
             }
@@ -217,15 +217,15 @@ struct HouseholdJoinView: View {
 
     var body: some View {
         HHScreen("Join Household") {
-            Text("Paste the invite link shared by your household member.")
+            Text("Enter your household code or paste an invite link.")
                 .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                 .multilineTextAlignment(.center).padding(.top, 16).padding(.bottom, 24)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Invite link")
+                Text("Code or invite link")
                     .scaledFont(11).foregroundStyle(session.themeSecondaryText)
                 // Links are case-sensitive (the invite secret), so no character filtering here.
-                TextField("https://sowensstudios.com/join/…", text: $code)
+                TextField("Code or https://sowensstudios.com/join/…", text: $code)
                     .scaledFont(15, design: .monospaced)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -233,7 +233,7 @@ struct HouseholdJoinView: View {
                     .foregroundStyle(session.themeTextColor)
                     .padding(.vertical, 14).padding(.horizontal, 16)
                     .stockedPastelCard(radius: 12)
-                    .accessibilityLabel("Invite link")
+                    .accessibilityLabel("Household code or invite link")
             }
             .padding(.bottom, 18)
 
@@ -242,7 +242,7 @@ struct HouseholdJoinView: View {
                     joining = true
                     let ok = await household.joinByCode(code, into: session.guestStore)
                     joining = false
-                    message = ok ? nil : (household.lastError ?? "Couldn't join with that invite link.")
+                    message = ok ? nil : (household.lastError ?? "Couldn't join. Check the code or link.")
                     if ok { dismiss() }
                 }
             } label: {

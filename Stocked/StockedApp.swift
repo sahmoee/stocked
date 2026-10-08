@@ -397,7 +397,7 @@ struct RootView: View {
             switch parts.first {
             case "join":
                 let invite = HouseholdInviteLink.parse(web.absoluteString)
-                guard invite.code.count == 8, invite.invite != nil else { return }
+                guard !invite.code.isEmpty else { return }
                 session.pendingHouseholdInvite = web
             case "l":                                       // container label
                 NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.inventory)
