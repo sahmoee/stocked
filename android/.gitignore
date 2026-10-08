@@ -4,3 +4,5 @@
 *.jks
 *.keystore
 /signing.properties
+
+/.kotlin/
