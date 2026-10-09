@@ -271,8 +271,20 @@ struct SmartRecommendationView: View {
             }.buttonStyle(.plain)
         }
         .foregroundStyle(Color.stockedAccentInk)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Serves \(cookSession?.servings ?? 1). Adjustable for this session.")
+        // Combining the row swallowed both buttons, so VoiceOver users could hear the count
+        // but never change it (and heard "Serves 1" while the screen showed the household
+        // size). Expose it as one adjustable control: swipe up/down to change servings.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Servings")
+        .accessibilityValue("\(cookSession?.servings ?? max(1, store.cookingProfile.householdSize))")
+        .accessibilityHint("Adjustable for this session.")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: adjustServings(+1)
+            case .decrement: adjustServings(-1)
+            @unknown default: break
+            }
+        }
     }
 
     private func adjustServings(_ delta: Int) {

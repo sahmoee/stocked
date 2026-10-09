@@ -64,8 +64,28 @@ enum SharedRecipeImporter {
         defaults.removeObject(forKey: "pendingSharedRecipe")
         defaults.synchronize()
 
+        // Take the shared screenshot into memory and delete it from the App Group straight
+        // away: it is user content and used to linger in the shared container indefinitely.
+        // The file is always resolved inside OUR container — the stored path is only a flag.
+        var sharedImageData: Data?
+        if payload["imagePath"] != nil,
+           let fileURL = SharedRecipePayloadPolicy.sharedImageURL(
+                in: FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)) {
+            sharedImageData = try? Data(contentsOf: fileURL)
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+        // Only real web links reach the network importers (the old `hasPrefix("http")` check
+        // let "httpx:" / credential-bearing links through). A text-only share that is just a
+        // caption plus a link (how TikTok/Instagram often share) is routed as that link.
+        let sharedText = payload["text"] as? String
+        let sharedLink = SharedRecipePayloadPolicy.webURL(payload["url"] as? String)
+            ?? SharedRecipePayloadPolicy.linkFromShortText(sharedText)
+        // Text that is nothing but the link itself is not a fallback recipe source.
+        let hasFallbackText = SharedRecipePayloadPolicy.hasTextBeyondLink(sharedText)
+
         // 1) A shared link → structured web import (best quality).
-        if let urlStr = payload["url"] as? String, urlStr.hasPrefix("http") {
+        if let urlStr = sharedLink {
             // RL-009: social links (TikTok / Instagram / YouTube / Pinterest) never carry
             // Schema.org Recipe JSON-LD, so the web scrape below is doomed for them. Branch
             // to the social fetcher: public og:title/og:description (the caption, where
@@ -95,7 +115,7 @@ enum SharedRecipeImporter {
                     case .insufficientContent, .transport:
                         // Fall through to shared text (a share often includes the caption)
                         // or the generic failure below.
-                        if (payload["text"] as? String)?.isEmpty == false {
+                        if hasFallbackText || sharedImageData != nil {
                             Log.app.log("ShareImport: social fetch thin — falling back to shared text")
                         } else {
                             return .scrapeFailed(platform.displayName)
@@ -105,13 +125,14 @@ enum SharedRecipeImporter {
                     return .scrapeFailed(platform.displayName)
                 }
             } else {
-            Log.app.log("ShareImport: got URL, scraping \(urlStr, privacy: .public)")
+            // Shared links can carry personal tokens; log only the host publicly.
+            Log.app.log("ShareImport: got URL, scraping host \(hostName(urlStr), privacy: .public)")
             if let result = try? await RecipeImportCoordinator.importURL(urlStr, progress: { _ in }), !Task.isCancelled {
                 return .success(Result(form: result.form, source: result.source))
             }
             // Fall through to text if present.
-            if (payload["text"] as? String)?.isEmpty == false {
-                Log.app.log("ShareImport: falling back to shared text")
+            if hasFallbackText || sharedImageData != nil {
+                Log.app.log("ShareImport: falling back to shared text/screenshot")
             } else {
                 // The shared pipeline already attempted both formats from one response.
                 return .scrapeFailed(hostName(urlStr))
@@ -120,7 +141,7 @@ enum SharedRecipeImporter {
         }
 
         // 2) Shared text (e.g. a pasted recipe, or a caption) → heuristic parser.
-        if let text = payload["text"] as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let text = sharedText, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Log.app.log("ShareImport: parsing shared text (\(text.count) chars)")
             var form = RecipeTextParser.parse(text)
             form.originalText = text
@@ -131,9 +152,7 @@ enum SharedRecipeImporter {
         }
 
         // 3) Shared image (screenshot) → OCR → parser.
-        if let path = payload["imagePath"] as? String,
-           let data = FileManager.default.contents(atPath: path),
-           let image = UIImage(data: data) {
+        if let data = sharedImageData, let image = UIImage(data: data) {
             Log.app.log("ShareImport: running OCR on shared image")
             let text = await RecipeOCR.recognizeText(in: image)
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -217,5 +236,54 @@ enum SharedRecipeImporter {
         let separator = inner.range(of: #"\s+[|–—]\s+"#, options: .regularExpression)
         let t = separator.map { String(inner[..<$0.lowerBound]) } ?? inner
         return t.isEmpty ? nil : t
+    }
+}
+
+/// Pure validation for the Share Extension hand-off (unit-tested; no I/O).
+nonisolated enum SharedRecipePayloadPolicy {
+    /// Must match `SharePayloadReader.imageFileName` in the Share Extension target.
+    static let imageFileName = "shared_recipe_image.jpg"
+    /// A share with more surrounding text than this is treated as recipe text, not a link.
+    static let maximumCaptionCharactersAroundLink = 280
+
+    /// Returns the link only when it is an absolute http(s) URL with a host and no embedded
+    /// credentials; everything else (file:, javascript:, data:, "httpfoo:", user:pass@) is nil.
+    static func webURL(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 8_192,
+              let comps = URLComponents(string: trimmed),
+              let scheme = comps.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = comps.host, !host.isEmpty,
+              comps.user == nil, comps.password == nil,
+              let url = comps.url else { return nil }
+        return url.absoluteString
+    }
+
+    /// For a text-only share: the first web link, when the text is essentially "caption + link".
+    static func linkFromShortText(_ text: String?) -> String? {
+        guard let text, text.count <= 8_192,
+              let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        for match in detector.matches(in: text, range: range) {
+            guard let found = match.url, let link = webURL(found.absoluteString),
+                  let r = Range(match.range, in: text) else { continue }
+            var remainder = text
+            remainder.removeSubrange(r)
+            let rest = remainder.trimmingCharacters(in: .whitespacesAndNewlines)
+            return rest.count <= maximumCaptionCharactersAroundLink ? link : nil
+        }
+        return nil
+    }
+
+    /// True when the shared text has content worth parsing beyond a bare link.
+    static func hasTextBeyondLink(_ text: String?) -> Bool {
+        guard let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return false }
+        return webURL(trimmed) == nil
+    }
+
+    /// The shared screenshot always lives at a fixed name inside our own App Group container.
+    static func sharedImageURL(in container: URL?) -> URL? {
+        container?.appendingPathComponent(imageFileName, isDirectory: false)
     }
 }

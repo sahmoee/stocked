@@ -225,6 +225,7 @@ private struct UserSubstitutionRow: View {
             } label: {
                 Image(systemName: "trash").scaledFont(13).foregroundStyle(.red.opacity(0.6))
             }.buttonStyle(.plain)
+            .stockedIconButton("Delete substitution")
         }
         .padding(.horizontal, 20).padding(.vertical, 14)
     }

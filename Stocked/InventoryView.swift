@@ -381,7 +381,7 @@ struct InventoryView: View {
     private static func writeInventoryCSV(_ csv: String) -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("Stocked-Inventory.csv")
         do {
-            if let data = csv.data(using: .utf8) { try data.write(to: url) }
+            if let data = csv.data(using: .utf8) { try data.write(to: url, options: .atomic) }
         } catch {
             Log.app.error("CSV export: write failed: \(error.localizedDescription, privacy: .public)")
         }

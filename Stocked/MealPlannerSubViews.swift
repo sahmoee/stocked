@@ -609,6 +609,7 @@ struct RecipePickerSheet: View {
                     Text("Pick \(mealType)").scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
+                        .accessibilityLabel("Close")
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
                 ScrollView(showsIndicators: false) {
@@ -624,6 +625,7 @@ struct RecipePickerSheet: View {
                             } label: {
                                 Image(systemName: "plus.circle.fill").scaledFont(26).foregroundStyle(custom.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
                             }.disabled(custom.isEmpty)
+                            .accessibilityLabel("Add custom meal")
                         }
                         .padding(12).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 20).padding(.bottom, 14)

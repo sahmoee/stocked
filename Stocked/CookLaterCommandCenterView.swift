@@ -2961,6 +2961,7 @@ private struct CookLaterMonthCalendarSheet: View {
               } label: {
                 Image(systemName: "chevron.left")
               }
+              .stockedIconButton("Previous month")
               Spacer()
               Text(monthTitle).scaledFont(18, weight: .bold, design: .serif)
                 .foregroundStyle(session.themeTextColor)
@@ -2970,6 +2971,7 @@ private struct CookLaterMonthCalendarSheet: View {
               } label: {
                 Image(systemName: "chevron.right")
               }
+              .stockedIconButton("Next month")
             }
             .scaledFont(13, weight: .bold).foregroundStyle(session.themeTextColor)
 

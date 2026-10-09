@@ -107,7 +107,15 @@ enum DataExport {
     static func decodeBackup(_ data: Data) throws -> StockedBackup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        guard let backup = try? decoder.decode(StockedBackup.self, from: data) else {
+        let backup: StockedBackup
+        if let strict = try? decoder.decode(StockedBackup.self, from: data) {
+            backup = strict
+        } else if let lenient = try? decoder.decode(LenientBackup.self, from: data) {
+            // One malformed record (hand-edited file, a field from a future build with an
+            // incompatible type) used to reject the WHOLE backup. Skip just that record.
+            exportLog.notice("Backup decoded leniently; malformed records were skipped.")
+            backup = lenient.backup
+        } else {
             throw RestoreError.unreadable
         }
         if backup.schemaVersion > StockedSchema.version {
@@ -132,12 +140,9 @@ enum DataExport {
             case .replace:
                 assign(incoming)
             case .merge:
-                // Build by id defensively (existing data could theoretically contain dupes;
-                // uniqueKeysWithValues would trap). Last-wins for current, then backup wins.
-                var byID: [T.ID: T] = [:]
-                for item in current { byID[item.id] = item }
-                for item in incoming { byID[item.id] = item }   // backup wins on conflict
-                assign(Array(byID.values))
+                // Dictionary iteration order is random, so rebuilding from `byID.values`
+                // shuffled every list (grocery order, meal history, plans) on each restore.
+                assign(mergedPreservingOrder(current: current, incoming: incoming))
             }
         }
 
@@ -150,14 +155,78 @@ enum DataExport {
         apply(backup.prices,      session.priceHistory)        { session.priceHistory = $0 }
         apply(backup.consumption, session.consumptionLog)      { session.consumptionLog = $0 }
         apply(backup.subs,        session.userSubstitutions)   { session.userSubstitutions = $0 }
-        if let staples = backup.staples { session.stockStaples = staples }
+        if let staples = backup.staples {
+            switch mode {
+            case .replace: session.stockStaples = staples
+            case .merge:
+                // Merge means "keep existing": union instead of replacing the staples list.
+                var seen = Set(session.stockStaples)
+                session.stockStaples += staples.filter { seen.insert($0).inserted }
+            }
+        }
+        // Commit now: a restore is a deliberate durability point, and the debounced writes
+        // would otherwise be lost if the app is suspended/killed right after "Backup restored."
+        session.flushPendingSaves()
 
         exportLog.info("Restore complete (mode: \(String(describing: mode))).")
+    }
+
+    /// Merge by id keeping the existing order: existing items stay where they are (replaced in
+    /// place when the backup has a newer copy), new backup items are appended in backup order,
+    /// and duplicate ids collapse to one entry (the backup's copy wins).
+    static func mergedPreservingOrder<T: Identifiable>(current: [T], incoming: [T]) -> [T] where T.ID: Hashable {
+        var incomingByID: [T.ID: T] = [:]
+        for item in incoming { incomingByID[item.id] = item }   // last duplicate in backup wins
+        var result: [T] = []
+        result.reserveCapacity(current.count + incoming.count)
+        var emitted = Set<T.ID>()
+        for item in current where emitted.insert(item.id).inserted {
+            result.append(incomingByID[item.id] ?? item)
+        }
+        for item in incoming where emitted.insert(item.id).inserted {
+            result.append(incomingByID[item.id] ?? item)
+        }
+        return result
     }
 
     /// Convenience: decode + restore from raw file Data.
     static func restore(from data: Data, into session: GuestDataStore, mode: RestoreMode = .merge) throws {
         let backup = try decodeBackup(data)
         restore(backup, into: session, mode: mode)
+    }
+}
+
+/// Per-record tolerant twin of `StockedBackup`, used only when the strict decode fails.
+private struct LenientBackup: Decodable {
+    var schemaVersion: Int?
+    var exportedAt: Date?
+    var appBuild: String?
+    var inventory:  [FailableDecodable<LocalInventoryItem>]?
+    var grocery:    [FailableDecodable<LocalGroceryItem>]?
+    var userRecipes:[FailableDecodable<UserRecipe>]?
+    var generated:  [FailableDecodable<GeneratedRecipe>]?
+    var pastMeals:  [FailableDecodable<LocalPastMeal>]?
+    var planned:    [FailableDecodable<PlannedMeal>]?
+    var prices:     [FailableDecodable<PriceRecord>]?
+    var consumption:[FailableDecodable<ConsumptionRecord>]?
+    var subs:       [FailableDecodable<UserSubstitutionEntry>]?
+    var staples:    [FailableDecodable<String>]?
+
+    var backup: StockedBackup {
+        StockedBackup(
+            schemaVersion: schemaVersion ?? StockedSchema.version,
+            exportedAt: exportedAt ?? .now,
+            appBuild: appBuild,
+            inventory:   inventory?.compactMap(\.value),
+            grocery:     grocery?.compactMap(\.value),
+            userRecipes: userRecipes?.compactMap(\.value),
+            generated:   generated?.compactMap(\.value),
+            pastMeals:   pastMeals?.compactMap(\.value),
+            planned:     planned?.compactMap(\.value),
+            prices:      prices?.compactMap(\.value),
+            consumption: consumption?.compactMap(\.value),
+            subs:        subs?.compactMap(\.value),
+            staples:     staples?.compactMap(\.value)
+        )
     }
 }

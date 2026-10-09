@@ -334,6 +334,7 @@ struct CreateRecipeView: View {
                                         Image(systemName: "xmark.circle.fill").foregroundStyle(.red.opacity(0.5))
                                     }
                                     .buttonStyle(.plain).padding(.top, 12)
+                                    .accessibilityLabel("Remove step \(idx + 1)")
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 4)
                                 formDivider
