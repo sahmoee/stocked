@@ -25,6 +25,7 @@ import UIKit
 import Social
 import UniformTypeIdentifiers
 import MobileCoreServices
+import ImageIO
 
 final class ShareViewController: UIViewController {
 
@@ -64,8 +65,9 @@ final class ShareViewController: UIViewController {
             if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { data, _ in
-                    if let url = data as? URL {
-                        payload.lock.withLock { payload.url = url.absoluteString }
+                    // Hosts hand URLs over as URL, String or raw Data depending on the app.
+                    if let url = SharePayloadReader.urlString(from: data) {
+                        payload.lock.withLock { if payload.url == nil { payload.url = url } }
                     }
                     group.leave()
                 }
@@ -74,8 +76,10 @@ final class ShareViewController: UIViewController {
             else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { data, _ in
-                    if let s = data as? String {
-                        payload.lock.withLock { payload.text = s }
+                    // Notes and some social apps deliver attributed text or UTF-8 Data, which the
+                    // old String-only cast silently dropped ("Couldn't find the shared item").
+                    if let s = SharePayloadReader.text(from: data) {
+                        payload.lock.withLock { if payload.text == nil { payload.text = s } }
                     }
                     group.leave()
                 }
@@ -84,11 +88,10 @@ final class ShareViewController: UIViewController {
             else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                 group.enter()
                 provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { data, _ in
-                    var loaded: Data?
-                    if let url = data as? URL, let d = try? Data(contentsOf: url) { loaded = d }
-                    else if let img = data as? UIImage { loaded = img.jpegData(compressionQuality: 0.85) }
-                    if let loaded {
-                        payload.lock.withLock { payload.image = loaded }
+                    // Downsampled through ImageIO so a 48 MP photo never gets fully decoded inside
+                    // the extension's small memory budget (which terminated the share).
+                    if let loaded = SharePayloadReader.imageJPEG(from: data) {
+                        payload.lock.withLock { if payload.image == nil { payload.image = loaded } }
                     }
                     group.leave()
                 }
@@ -123,14 +126,22 @@ final class ShareViewController: UIViewController {
 
         // Write the payload into the shared container under a known key.
         var payload: [String: Any] = ["receivedAt": Date().timeIntervalSince1970]
-        if let url  { payload["url"]  = url }
+        if let url { payload["url"]  = url }
         if let text { payload["text"] = text }
-        if let image {
-            // Store the image as a file in the group container; keep the path in defaults.
-            if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
-                let fileURL = container.appendingPathComponent("shared_recipe_image.jpg")
-                try? image.write(to: fileURL)
-                payload["imagePath"] = fileURL.path
+        if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
+            let fileURL = container.appendingPathComponent(SharePayloadReader.imageFileName)
+            if let image {
+                // Atomic write, and only advertise the file when it actually landed — a failed
+                // write used to leave imagePath pointing at a missing or half-written file.
+                do {
+                    try image.write(to: fileURL, options: .atomic)
+                    payload["imagePath"] = fileURL.path
+                } catch {
+                    // Fall through: URL/text (if any) still hand off.
+                }
+            } else {
+                // Don't leave an older screenshot sitting in the shared container.
+                try? FileManager.default.removeItem(at: fileURL)
             }
         }
         defaults.set(payload, forKey: "pendingSharedRecipe")
@@ -183,5 +194,69 @@ final class ShareViewController: UIViewController {
         guard !didComplete else { return }   // guard against double-complete from the safety net
         didComplete = true
         extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+    }
+}
+
+// MARK: - Payload coercion (nonisolated; runs on item-provider callback queues)
+
+/// Normalises whatever an item provider hands back into the plain values the main app reads.
+/// Bounded so a pathological share can't exhaust the extension's memory budget.
+enum SharePayloadReader {
+    /// Fixed file name inside the App Group container; the main app resolves it itself.
+    static let imageFileName = "shared_recipe_image.jpg"
+    /// Recipes are a few KB; anything far larger is not a recipe and would only slow parsing.
+    static let maximumTextCharacters = 100_000
+    /// Long edge for the handed-off screenshot — plenty for OCR, a fraction of the memory.
+    static let maximumImagePixels = 2_048
+
+    static func urlString(from item: NSSecureCoding?) -> String? {
+        if let url = item as? URL { return url.absoluteString }
+        if let s = item as? String { return trimmedURLText(s) }
+        if let data = item as? Data {
+            if let url = URL(dataRepresentation: data, relativeTo: nil) { return url.absoluteString }
+            if let s = String(data: data, encoding: .utf8) { return trimmedURLText(s) }
+        }
+        return nil
+    }
+
+    static func text(from item: NSSecureCoding?) -> String? {
+        var raw: String?
+        if let s = item as? String { raw = s }
+        else if let attributed = item as? NSAttributedString { raw = attributed.string }
+        else if let data = item as? Data { raw = String(data: data, encoding: .utf8) }
+        else if let url = item as? URL, url.isFileURL,
+                let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                let size = attrs[.size] as? NSNumber, size.intValue <= maximumTextCharacters * 4 {
+            raw = try? String(contentsOf: url, encoding: .utf8)
+        }
+        guard let raw, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return raw.count > maximumTextCharacters ? String(raw.prefix(maximumTextCharacters)) : raw
+    }
+
+    static func imageJPEG(from item: NSSecureCoding?) -> Data? {
+        let source: CGImageSource?
+        if let url = item as? URL {
+            source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary)
+        } else if let data = item as? Data {
+            source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
+        } else if let image = item as? UIImage, let data = image.jpegData(compressionQuality: 0.9) {
+            source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
+        } else {
+            source = nil
+        }
+        guard let source else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,   // honour EXIF orientation for OCR
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maximumImagePixels,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: cg).jpegData(compressionQuality: 0.85)
+    }
+
+    private static func trimmedURLText(_ s: String) -> String? {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
     }
 }

@@ -42,6 +42,11 @@ nonisolated struct StockedWidgetSnapshot: Codable, Sendable {
     }
 
     var isStale: Bool { Date().timeIntervalSince(updatedAt) > 6 * 60 * 60 }
+
+    /// Percent for display and gauges, clamped to 0...100 (fill levels above 1.0 or a snapshot
+    /// from another build must never render "130%" or overflow a 0...100 gauge). Computed, so
+    /// the encoded App Group contract is unchanged.
+    var displayStockPercent: Int { min(max(stockPercent, 0), 100) }
 }
 
 /// Read/write the snapshot via the shared App Group. Same group the Share Extension uses.

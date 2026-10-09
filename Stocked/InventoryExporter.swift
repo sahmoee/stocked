@@ -35,11 +35,8 @@ enum InventoryExporter {
     // MARK: CSV builders
 
     private static func csvField(_ s: String) -> String {
-        // Quote if the field contains comma, quote, or newline; double internal quotes.
-        if s.contains(",") || s.contains("\"") || s.contains("\n") {
-            return "\"\(s.replacingOccurrences(of: "\"", with: "\"\""))\""
-        }
-        return s
+        // Quote CR/LF/comma/quote fields and neutralise spreadsheet formula leads.
+        CSVInterchange.escape(s)
     }
 
     /// Inventory as CSV. Columns: Name, Quantity, Container, Zone, Expires.

@@ -433,7 +433,6 @@ extension MealPlannerView {
         missingForPending = []
         selectedMissing   = []
     }
-
 } // extension MealPlannerView
 
 // MARK: - Day Plan Card
@@ -569,7 +568,7 @@ struct RecipePickerSheet: View {
     @State private var custom = ""
     @State private var dynamicOptions: [(String,[String])] = []   // loaded fresh from the recipe DB
 
-    private var readyRecipes: [UserRecipe]  { session.guestStore.userRecipes }
+    private var readyRecipes: [UserRecipe] { session.guestStore.userRecipes }
 
     // Static starters used only as a fallback when the recipe database is empty.
     private var starterOptions: [(String,[String])] { [
@@ -609,6 +608,7 @@ struct RecipePickerSheet: View {
                     Text("Pick \(mealType)").scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
+                        .accessibilityLabel("Close")
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 
                 ScrollView(showsIndicators: false) {
@@ -624,6 +624,7 @@ struct RecipePickerSheet: View {
                             } label: {
                                 Image(systemName: "plus.circle.fill").scaledFont(26).foregroundStyle(custom.isEmpty ? Color.stockedCharcoal.opacity(0.3) : Color.stockedAccentInk)
                             }.disabled(custom.isEmpty)
+                            .accessibilityLabel("Add custom meal")
                         }
                         .padding(12).background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                         .padding(.horizontal, 20).padding(.bottom, 14)
@@ -927,7 +928,7 @@ struct MissingIngredientsSheet: View {
                             let isSelected = selectedItems.contains(item)
                             Button {
                                 if isSelected { selectedItems.remove(item) }
-                                else          { selectedItems.insert(item) }
+                                else { selectedItems.insert(item) }
                             } label: {
                                 HStack(spacing: 14) {
                                     ZStack {

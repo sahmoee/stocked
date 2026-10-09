@@ -95,6 +95,7 @@ struct FontPickerSheet: View {
                     Text("Select Font").scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Spacer()
                     Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
+                        .accessibilityLabel("Close font picker")
                 }.padding(.horizontal, 24).padding(.vertical, 14)
                 StockedEqualHeightGrid(items: AppFont.allCases, id: \.self, columns: 4, spacing: 8) { f in
                         Button { motion.animate(.selection, intent: .spatial) { selectedFont = f } } label: {

@@ -68,7 +68,7 @@ struct RecipeCSVPlan: Sendable {
     var hadRemoveColumn: Bool = false
     var parseError: String?
 
-    var clean: [RecipeCSVMatch]     { matches.filter(\.isClean) }
+    var clean: [RecipeCSVMatch] { matches.filter(\.isClean) }
     var ambiguous: [RecipeCSVMatch] { matches.filter(\.isAmbiguous) }
     var unmatched: [RecipeCSVMatch] { matches.filter(\.isUnmatched) }
 }
@@ -78,14 +78,13 @@ struct RecipeCSVPlan: Sendable {
 enum RecipeCSV {
 
     // MARK: Shared text helpers
-    // Kept identical to KitchenTransferManager's private versions and to MacRecipeCSV's copy.
+    // Delegates to CSVInterchange (shared with KitchenTransferManager). The StockedMac twin
+    // (MacRecipeCSV, separate repo) should adopt the same formula guard / CRLF handling.
 
     /// Quote fields containing comma, quote, or newline; double internal quotes.
+    /// Also neutralises spreadsheet formula leads (see CSVInterchange).
     static func csvEscape(_ s: String) -> String {
-        if s.contains(",") || s.contains("\"") || s.contains("\n") {
-            return "\"\(s.replacingOccurrences(of: "\"", with: "\"\""))\""
-        }
-        return s
+        CSVInterchange.escape(s)
     }
 
     /// Trims, lowercases, and collapses internal whitespace so "Chicken Pot Pie",
@@ -94,38 +93,10 @@ enum RecipeCSV {
         s.lowercased().split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
-    /// Minimal RFC-4180-ish CSV parser (handles quoted fields, embedded commas/newlines).
+    /// Minimal RFC-4180-ish CSV parser (handles quoted fields, embedded commas/newlines,
+    /// CRLF row endings and a UTF-8 BOM). Shared with KitchenTransferManager.
     static func parseCSVRows(_ text: String) -> [[String]] {
-        var rows: [[String]] = []; var field = ""; var row: [String] = []
-        var inQuotes = false
-        let chars = Array(text)
-        var i = 0
-        while i < chars.count {
-            let c = chars[i]
-            if inQuotes {
-                if c == "\"" {
-                    if i + 1 < chars.count && chars[i + 1] == "\"" { field.append("\""); i += 1 }
-                    else { inQuotes = false }
-                } else { field.append(c) }
-            } else {
-                switch c {
-                case "\"": inQuotes = true
-                case ",": row.append(field); field = ""
-                case "\n", "\r":
-                    if c == "\r" && i + 1 < chars.count && chars[i + 1] == "\n" { i += 1 }
-                    row.append(field); field = ""
-                    if row.contains(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
-                        rows.append(row)
-                    }
-                    row = []
-                default: field.append(c)
-                }
-            }
-            i += 1
-        }
-        row.append(field)
-        if row.contains(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) { rows.append(row) }
-        return rows
+        CSVInterchange.parseRows(text)
     }
 
     private static let truthy: Set<String> = ["yes", "y", "true", "1", "x", "✓", "remove", "delete"]
@@ -220,7 +191,7 @@ enum RecipeCSV {
         for (offset, r) in raw.dropFirst().enumerated() {
             func cell(_ i: Int?) -> String {
                 guard let i, i < r.count else { return "" }
-                return r[i].trimmingCharacters(in: .whitespaces)
+                return CSVInterchange.unguard(r[i].trimmingCharacters(in: .whitespaces))
             }
             let title = cell(titleIdx)
             if title.isEmpty { continue }
@@ -319,7 +290,7 @@ enum RecipeCSV {
             let key = normKey(row.title)
             var cands: [RecipeCSVCandidate] = []
             if row.library != .saved { cands += (mineByTitle[key] ?? []).map(candidate) }
-            if row.library != .mine  { cands += (savedByTitle[key] ?? []).map(candidate) }
+            if row.library != .mine { cands += (savedByTitle[key] ?? []).map(candidate) }
 
             if cands.count == 1, !seen.insert(cands[0].id).inserted { continue }
             out.append(RecipeCSVMatch(row: row, candidates: cands, matchedByID: false))

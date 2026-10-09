@@ -54,14 +54,26 @@ nonisolated enum SocialImportDetector {
         case "pin.it":                                    return .pinterest
         default: break
         }
-        if matches(host, domain: "tiktok.com")    { return .tiktok }
+        if matches(host, domain: "tiktok.com") { return .tiktok }
         if matches(host, domain: "instagram.com") { return .instagram }
-        if matches(host, domain: "youtube.com")   { return .youtube }
+        if matches(host, domain: "youtube.com") { return .youtube }
         if matches(host, domain: "pinterest.com") { return .pinterest }
         // Pinterest country TLDs (pinterest.co.uk, pinterest.de, pinterest.com.au …).
-        if host == "pinterest" || host.hasPrefix("pinterest.")
-            || host.contains(".pinterest.") { return .pinterest }
+        if isPinterestCountryHost(host) { return .pinterest }
         return nil
+    }
+
+    /// `[sub.]pinterest.<tld>[.<cc>]` only. The old prefix/contains test also matched hosts
+    /// like "pinterest.recipes-blog.com" or "www.pinterest.example.org", which sent ordinary
+    /// recipe sites down the social path and lost their structured JSON-LD import.
+    static func isPinterestCountryHost(_ host: String) -> Bool {
+        let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard let index = labels.lastIndex(of: "pinterest") else { return false }
+        let suffix = labels[(index + 1)...]
+        guard (1...2).contains(suffix.count) else { return false }
+        return suffix.allSatisfy { label in
+            (2...3).contains(label.count) && label.allSatisfy { $0.isASCII && $0.isLetter }
+        }
     }
 
     static func isSocialURL(_ urlString: String) -> Bool { platform(for: urlString) != nil }

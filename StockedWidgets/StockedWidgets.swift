@@ -150,7 +150,7 @@ struct StockedWidgetView: View {
                 if s.isStale { Label("Open to refresh", systemImage: "arrow.clockwise").widgetScaledFont(11).foregroundStyle(.secondary) }
             }
             HStack(spacing: 12) {
-                metric("\(s.stockPercent)%", "stocked", "chart.bar.fill", stockTint(s.stockPercent))
+                metric("\(s.displayStockPercent)%", "stocked", "chart.bar.fill", stockTint(s.displayStockPercent))
                 metric("\(s.expiringCount)", "use soon", "clock.badge.exclamationmark", .orange)
                 metric("\(s.groceryCount)", "to buy", "cart.fill", .wGold)
             }
@@ -189,9 +189,13 @@ struct StockedWidgetView: View {
                 Text("Stocked.").widgetScaledFont(14, weight: .bold, design: .serif).foregroundStyle(.primary)
             }
             Spacer(minLength: 0)
-            WidgetFittedValue(value: "\(s.stockPercent)%", preferredSize: 40)
-                .foregroundStyle(stockTint(s.stockPercent))
-            Text("stocked").widgetScaledFont(12).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                WidgetFittedValue(value: "\(s.displayStockPercent)%", preferredSize: 40)
+                    .foregroundStyle(stockTint(s.displayStockPercent))
+                Text("stocked").widgetScaledFont(12).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(s.displayStockPercent) percent stocked")
             Spacer(minLength: 0)
             if s.expiringCount > 0 {
                 Label("\(s.expiringCount) expiring", systemImage: "clock.badge.exclamationmark")
@@ -221,14 +225,16 @@ struct StockedWidgetView: View {
     private func mediumContent(tileWidth: CGFloat, spacing: CGFloat) -> some View {
         HStack(spacing: spacing) {
             VStack(spacing: 2) {
-                WidgetFittedValue(value: "\(s.stockPercent)%", preferredSize: 38)
-                    .foregroundStyle(stockTint(s.stockPercent))
+                WidgetFittedValue(value: "\(s.displayStockPercent)%", preferredSize: 38)
+                    .foregroundStyle(stockTint(s.displayStockPercent))
                 Text("stocked").widgetScaledFont(11).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(width: tileWidth)
             .padding(.vertical, 10)
-            .background(stockTint(s.stockPercent).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+            .background(stockTint(s.displayStockPercent).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(s.displayStockPercent) percent stocked")
 
             VStack(alignment: .leading, spacing: 6) {
                 if let meal = s.todayMeal, !meal.isEmpty {
@@ -264,16 +270,22 @@ struct StockedWidgetView: View {
             }
             Spacer(minLength: 0)
         }
+        // One VoiceOver stop per row ("3 expiring, Spinach, Yogurt") with the icon hidden.
+        .accessibilityElement(children: .combine)
     }
 
     // Lock Screen — circular: stock gauge.
     private var circular: some View {
-        Gauge(value: Double(s.stockPercent), in: 0...100) {
+        Gauge(value: Double(s.displayStockPercent), in: 0...100) {
             Image(systemName: "refrigerator.fill")
         } currentValueLabel: {
-            Text("\(s.stockPercent)")
+            Text("\(s.displayStockPercent)")
         }
         .gaugeStyle(.accessoryCircular)
+        // VoiceOver read the raw symbol and a bare number ("refrigerator, 72").
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Kitchen stocked")
+        .accessibilityValue("\(s.displayStockPercent) percent")
         .widgetURL(URL(string: "stocked://inventory"))   // #13 tap → Inventory
     }
 
@@ -283,7 +295,7 @@ struct StockedWidgetView: View {
             if s.expiringCount > 0 {
                 Label("\(s.expiringCount) expiring soon", systemImage: "clock.badge.exclamationmark")
             } else {
-                Label("\(s.stockPercent)% stocked", systemImage: "refrigerator.fill")
+                Label("\(s.displayStockPercent)% stocked", systemImage: "refrigerator.fill")
             }
         }
         .widgetURL(URL(string: "stocked://inventory"))   // #13 tap → Inventory
@@ -292,7 +304,7 @@ struct StockedWidgetView: View {
     // Lock Screen — rectangular: stock + next concern.
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(s.stockPercent)% stocked").widgetScaledFont(15, weight: .bold)
+            Text("\(s.displayStockPercent)% stocked").widgetScaledFont(15, weight: .bold)
             if s.expiringCount > 0 {
                 Text("\(s.expiringCount) expiring soon").widgetScaledFont(12)
             } else if let meal = s.todayMeal, !meal.isEmpty {
@@ -334,6 +346,9 @@ struct ExpiringSoonWidgetView: View {
                 Image(systemName: "clock")
             } currentValueLabel: { Text("\(s.expiringCount)").fontWeight(.bold) }
             .gaugeStyle(.accessoryCircular)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Use soon")
+            .accessibilityValue("\(s.expiringCount) expiring")
             .widgetURL(URL(string: "stocked://inventory"))
         } else if family == .accessoryInline {
             Label(s.expiringCount == 0 ? "Nothing expiring" : "\(s.expiringCount) to use soon", systemImage: "clock.badge.checkmark")
