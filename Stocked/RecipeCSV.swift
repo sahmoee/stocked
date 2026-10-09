@@ -68,7 +68,7 @@ struct RecipeCSVPlan: Sendable {
     var hadRemoveColumn: Bool = false
     var parseError: String?
 
-    var clean: [RecipeCSVMatch]     { matches.filter(\.isClean) }
+    var clean: [RecipeCSVMatch] { matches.filter(\.isClean) }
     var ambiguous: [RecipeCSVMatch] { matches.filter(\.isAmbiguous) }
     var unmatched: [RecipeCSVMatch] { matches.filter(\.isUnmatched) }
 }
@@ -290,7 +290,7 @@ enum RecipeCSV {
             let key = normKey(row.title)
             var cands: [RecipeCSVCandidate] = []
             if row.library != .saved { cands += (mineByTitle[key] ?? []).map(candidate) }
-            if row.library != .mine  { cands += (savedByTitle[key] ?? []).map(candidate) }
+            if row.library != .mine { cands += (savedByTitle[key] ?? []).map(candidate) }
 
             if cands.count == 1, !seen.insert(cands[0].id).inserted { continue }
             out.append(RecipeCSVMatch(row: row, candidates: cands, matchedByID: false))

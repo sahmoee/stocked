@@ -54,9 +54,9 @@ nonisolated enum SocialImportDetector {
         case "pin.it":                                    return .pinterest
         default: break
         }
-        if matches(host, domain: "tiktok.com")    { return .tiktok }
+        if matches(host, domain: "tiktok.com") { return .tiktok }
         if matches(host, domain: "instagram.com") { return .instagram }
-        if matches(host, domain: "youtube.com")   { return .youtube }
+        if matches(host, domain: "youtube.com") { return .youtube }
         if matches(host, domain: "pinterest.com") { return .pinterest }
         // Pinterest country TLDs (pinterest.co.uk, pinterest.de, pinterest.com.au …).
         if isPinterestCountryHost(host) { return .pinterest }

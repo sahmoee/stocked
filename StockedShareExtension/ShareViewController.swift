@@ -126,7 +126,7 @@ final class ShareViewController: UIViewController {
 
         // Write the payload into the shared container under a known key.
         var payload: [String: Any] = ["receivedAt": Date().timeIntervalSince1970]
-        if let url  { payload["url"]  = url }
+        if let url { payload["url"]  = url }
         if let text { payload["text"] = text }
         if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
             let fileURL = container.appendingPathComponent(SharePayloadReader.imageFileName)

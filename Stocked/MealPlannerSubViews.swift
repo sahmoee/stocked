@@ -433,7 +433,6 @@ extension MealPlannerView {
         missingForPending = []
         selectedMissing   = []
     }
-
 } // extension MealPlannerView
 
 // MARK: - Day Plan Card
@@ -569,7 +568,7 @@ struct RecipePickerSheet: View {
     @State private var custom = ""
     @State private var dynamicOptions: [(String,[String])] = []   // loaded fresh from the recipe DB
 
-    private var readyRecipes: [UserRecipe]  { session.guestStore.userRecipes }
+    private var readyRecipes: [UserRecipe] { session.guestStore.userRecipes }
 
     // Static starters used only as a fallback when the recipe database is empty.
     private var starterOptions: [(String,[String])] { [
@@ -929,7 +928,7 @@ struct MissingIngredientsSheet: View {
                             let isSelected = selectedItems.contains(item)
                             Button {
                                 if isSelected { selectedItems.remove(item) }
-                                else          { selectedItems.insert(item) }
+                                else { selectedItems.insert(item) }
                             } label: {
                                 HStack(spacing: 14) {
                                     ZStack {

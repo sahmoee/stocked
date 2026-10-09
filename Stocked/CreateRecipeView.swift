@@ -357,7 +357,6 @@ struct CreateRecipeView: View {
                         }
 
                         Color.clear.frame(height: StockedUI.scrollBottomPad)
-
                     } // VStack
                 } // ScrollView
             } // ZStack
@@ -466,12 +465,12 @@ struct CreateRecipeView: View {
     // MARK: - Apply an AI-structured recipe (authoritative on import)
     private func applyAIRecipe(_ ai: AIRecipe, source: String) {
         withAnimation {
-            if !ai.title.isEmpty       { title       = ai.title }
+            if !ai.title.isEmpty { title       = ai.title }
             if !ai.description.isEmpty { description = ai.description }
-            if !ai.cuisine.isEmpty     { cuisine     = ai.cuisine }
-            if !ai.prepTime.isEmpty    { prepTime    = ai.prepTime }
+            if !ai.cuisine.isEmpty { cuisine     = ai.cuisine }
+            if !ai.prepTime.isEmpty { prepTime    = ai.prepTime }
             let cook = ai.cookTime.isEmpty ? ai.totalTime : ai.cookTime
-            if !cook.isEmpty           { cookTime    = cook }
+            if !cook.isEmpty { cookTime    = cook }
             if let s = Int(ai.servings) { servings = s }
             if !ai.ingredients.isEmpty {
                 var seen = Set<String>()
@@ -513,8 +512,8 @@ struct CreateRecipeView: View {
         withAnimation {
             // Only overwrite fields that are still empty
             if description.isEmpty { description = form.description }
-            if cuisine.isEmpty     { cuisine     = form.cuisine }
-            if prepTime.isEmpty    { prepTime    = StockedFormatters.prettyDuration(form.prepTime) }
+            if cuisine.isEmpty { cuisine     = form.cuisine }
+            if prepTime.isEmpty { prepTime    = StockedFormatters.prettyDuration(form.prepTime) }
             if cookTime.isEmpty {
                 // Total time is not cook time (it can include prep/resting). Do not
                 // silently double-count prep in later kitchen/time filters.

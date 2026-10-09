@@ -396,8 +396,7 @@ nonisolated enum CookLaterCrossCheckEngine {
   }
 
   static func substitutions(for ingredientName: String, inventory: [LocalInventoryItem])
-    -> [CookLaterSubstitutionAvailability]
-  {
+    -> [CookLaterSubstitutionAvailability] {
     let normalized = FoodNameMatcher.normalized(ingredientName)
     let key = substitutions.keys
       .sorted { $0.count > $1.count }
@@ -435,8 +434,7 @@ nonisolated enum CookLaterCrossCheckEngine {
   }
 
   static func prepActions(meals: [PlannedMeal], inventory: [LocalInventoryItem])
-    -> [CookLaterPrepAction]
-  {
+    -> [CookLaterPrepAction] {
     var actions: [CookLaterPrepAction] = []
     for meal in meals where !meal.isCooked && !meal.isBuilding {
       let parsed = meal.ingredients.map(parse)
@@ -459,12 +457,10 @@ nonisolated enum CookLaterCrossCheckEngine {
 
       let title = meal.title.lowercased()
       let protein = parsed.first { ingredient in
-        ["chicken", "beef", "pork", "steak", "fish", "salmon", "shrimp", "turkey", "tofu"].contains
-        { FoodNameMatcher.containsPhrase($0, in: ingredient.name) }
+        ["chicken", "beef", "pork", "steak", "fish", "salmon", "shrimp", "turkey", "tofu"].contains { FoodNameMatcher.containsPhrase($0, in: ingredient.name) }
       }
       if let protein,
-        title.contains("jerk") || title.contains("marinat") || meal.ingredients.count >= 6
-      {
+        title.contains("jerk") || title.contains("marinat") || meal.ingredients.count >= 6 {
         actions.append(
           .init(
             id: "marinate-\(meal.id.uuidString)",
@@ -516,16 +512,14 @@ nonisolated enum CookLaterCrossCheckEngine {
   }
 
   private static func matchingInventory(for name: String, inventory: [LocalInventoryItem])
-    -> [LocalInventoryItem]
-  {
+    -> [LocalInventoryItem] {
     inventory.filter {
       $0.effectiveLevel > 0 && FoodNameMatcher.matches(name, $0.name).score >= 0.72
     }
   }
 
   private static func compatible(_ lhs: CookLaterParsedIngredient, _ rhs: CookLaterParsedIngredient)
-    -> Bool
-  {
+    -> Bool {
     lhs.family == rhs.family || lhs.unit.isEmpty || rhs.unit.isEmpty
   }
 
@@ -537,8 +531,7 @@ nonisolated enum CookLaterCrossCheckEngine {
       if let amount = item.sizeAmount, let unit = item.sizeUnit,
         let descriptor = unitAliases[
           unit.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)],
-        descriptor.family == parsed.family
-      {
+        descriptor.family == parsed.family {
         return partial + Double(max(1, item.quantity)) * amount * descriptor.factor * level
       }
       if parsed.family == "count" {
@@ -947,8 +940,7 @@ struct CookLaterCommandCenterView: View {
           if let focus = context.focusMealTitle,
             let meal = activeMeals.first(where: {
               FoodNameMatcher.matches($0.title, focus).score >= 0.80
-            })
-          {
+            }) {
             activeSheet = .mealDetail(meal.id)
           } else {
             activeSheet = .editor(
@@ -1027,8 +1019,7 @@ struct CookLaterCommandCenterView: View {
   }
 
   private func contextQuickButton(_ title: String, icon: String, action: @escaping () -> Void)
-    -> some View
-  {
+    -> some View {
     Button(action: action) {
       VStack(spacing: 5) {
         Image(systemName: icon).scaledFont(13, weight: .semibold)
@@ -1103,7 +1094,6 @@ struct CookLaterCommandCenterView: View {
       Text("\(readinessPercent)%")
         .font(.stockedSerif(17, weight: .bold, relativeTo: .headline))
         .foregroundStyle(session.themeTextColor)
-
     }
     .frame(width: 72, height: 72)
     .accessibilityHidden(true)
@@ -1179,8 +1169,7 @@ struct CookLaterCommandCenterView: View {
   }
 
   private func smartAction(_ title: String, icon: String, tint: Color, action: @escaping () -> Void)
-    -> some View
-  {
+    -> some View {
     Button(action: action) {
       VStack(alignment: .leading, spacing: 10) {
         ZStack {
@@ -1639,8 +1628,7 @@ struct CookLaterCommandCenterView: View {
           activeSheet = .addMeal(day: selectedDay, mealType: "Dinner")
         }
       } else {
-        ForEach(Array(Dictionary(grouping: prepActions, by: \.dayIndex).keys.sorted()), id: \.self)
-        { day in
+        ForEach(Array(Dictionary(grouping: prepActions, by: \.dayIndex).keys.sorted()), id: \.self) { day in
           VStack(alignment: .leading, spacing: 9) {
             sectionHeader(
               CookLaterPlanningEngine.dayLabel(day),
@@ -1785,8 +1773,7 @@ struct CookLaterCommandCenterView: View {
     guard let context else { return }
     if let focus = context.focusMealTitle,
       let meal = activeMeals.first(where: { FoodNameMatcher.matches($0.title, focus).score >= 0.80 }
-      )
-    {
+      ) {
       selectedDay = meal.dayIndex
     }
     if context.source == .grocery { selectedMode = .shop }
@@ -1811,8 +1798,7 @@ struct CookLaterCommandCenterView: View {
   }
 
   private func draft(for recipe: UserRecipe, day: Int, mealType: String = "Dinner")
-    -> CookLaterPlanDraft
-  {
+    -> CookLaterPlanDraft {
     CookLaterPlanDraft(
       dayIndex: day,
       title: recipe.title,
@@ -1843,8 +1829,7 @@ struct CookLaterCommandCenterView: View {
       lastWriterID: ""
     )
     if let id = draft.replacingMealID,
-      let index = store.plannedMeals.firstIndex(where: { $0.id == id })
-    {
+      let index = store.plannedMeals.firstIndex(where: { $0.id == id }) {
       meal.isCooked = store.plannedMeals[index].isCooked
       store.plannedMeals[index] = meal
       showToast("Updated \(title)")
@@ -2358,7 +2343,6 @@ private struct CookLaterCommandRecipePicker: View {
   private var rankingRevision: String {
     rankFromInventory ? "\(session.guestStore.inventoryRevision)|\(session.guestStore.recipeRevision)" : "fixed"
   }
-
 
   private var filtered: [UserRecipe] {
     let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2995,8 +2979,7 @@ private struct CookLaterMonthCalendarSheet: View {
             .frame(maxWidth: .infinity)
 
             if let selectedDate = calendar.date(
-              byAdding: .day, value: selectedDay, to: calendar.startOfDay(for: Date()))
-            {
+              byAdding: .day, value: selectedDay, to: calendar.startOfDay(for: Date())) {
               let mealsForDay = meals.filter { $0.dayIndex == selectedDay }
               VStack(alignment: .leading, spacing: 9) {
                 Text(selectedDate.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))

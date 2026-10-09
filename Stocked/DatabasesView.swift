@@ -602,7 +602,6 @@ struct AddAbbreviationSheet: View {
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
                     .padding(.horizontal, 20)
-
                 }
                 .padding(.bottom, 20)
                 }
@@ -836,7 +835,7 @@ struct TipsDatabaseTab: View {
                         TipDBRow(tip: tip, isExpanded: expandedIDs.contains(tip.id)) {
                             motion.animate(.selection, intent: .spatial) {
                                 if expandedIDs.contains(tip.id) { expandedIDs.remove(tip.id) }
-                                else                             { expandedIDs = [tip.id] }
+                                else { expandedIDs = [tip.id] }
                             }
                         }
                         Divider().padding(.leading, 20)

@@ -1360,7 +1360,6 @@ struct InventoryItemRow: View {
     }
 }
 
-
 /// Reference-typed memo for InventoryView.items (mutated during body without invalidating it).
 final class InventoryListCache {
     struct Key: Equatable {

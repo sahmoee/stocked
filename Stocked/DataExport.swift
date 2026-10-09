@@ -146,15 +146,15 @@ enum DataExport {
             }
         }
 
-        apply(backup.inventory,   session.inventoryItems)      { session.inventoryItems = $0 }
-        apply(backup.grocery,     session.groceryItems)        { session.groceryItems = $0 }
-        apply(backup.userRecipes, session.userRecipes)         { session.userRecipes = $0 }
+        apply(backup.inventory,   session.inventoryItems) { session.inventoryItems = $0 }
+        apply(backup.grocery,     session.groceryItems) { session.groceryItems = $0 }
+        apply(backup.userRecipes, session.userRecipes) { session.userRecipes = $0 }
         apply(backup.generated,   session.savedGeneratedRecipes) { session.savedGeneratedRecipes = $0 }
-        apply(backup.pastMeals,   session.pastMeals)           { session.pastMeals = $0 }
-        apply(backup.planned,     session.plannedMeals)        { session.plannedMeals = $0 }
-        apply(backup.prices,      session.priceHistory)        { session.priceHistory = $0 }
-        apply(backup.consumption, session.consumptionLog)      { session.consumptionLog = $0 }
-        apply(backup.subs,        session.userSubstitutions)   { session.userSubstitutions = $0 }
+        apply(backup.pastMeals,   session.pastMeals) { session.pastMeals = $0 }
+        apply(backup.planned,     session.plannedMeals) { session.plannedMeals = $0 }
+        apply(backup.prices,      session.priceHistory) { session.priceHistory = $0 }
+        apply(backup.consumption, session.consumptionLog) { session.consumptionLog = $0 }
+        apply(backup.subs,        session.userSubstitutions) { session.userSubstitutions = $0 }
         if let staples = backup.staples {
             switch mode {
             case .replace: session.stockStaples = staples
