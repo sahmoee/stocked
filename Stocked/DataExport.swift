@@ -169,13 +169,15 @@ enum DataExport {
     /// place when the backup has a newer copy), new backup items are appended in backup order,
     /// and duplicate ids collapse to one entry (the backup's copy wins).
     static func mergedPreservingOrder<T: Identifiable>(current: [T], incoming: [T]) -> [T] where T.ID: Hashable {
+        var currentByID: [T.ID: T] = [:]
+        for item in current { currentByID[item.id] = item }
         var incomingByID: [T.ID: T] = [:]
         for item in incoming { incomingByID[item.id] = item }   // last duplicate in backup wins
         var result: [T] = []
         result.reserveCapacity(current.count + incoming.count)
         var emitted = Set<T.ID>()
         for item in current where emitted.insert(item.id).inserted {
-            result.append(incomingByID[item.id] ?? item)
+            result.append(incomingByID[item.id] ?? currentByID[item.id] ?? item)
         }
         for item in incoming where emitted.insert(item.id).inserted {
             result.append(incomingByID[item.id] ?? item)

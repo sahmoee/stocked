@@ -179,8 +179,10 @@ final class ImportExportHardeningTests: XCTestCase {
     let d = LocalGroceryItem(name: "D")
     let merged = DataExport.mergedPreservingOrder(current: [a, b, c], incoming: [d, bNewer])
     XCTAssertEqual(merged.map(\.name), ["A", "B2", "C", "D"])
-    let deduped = DataExport.mergedPreservingOrder(current: [a, a], incoming: [d, d])
-    XCTAssertEqual(deduped.map(\.name), ["A", "D"])
+    var aNewer = a
+    aNewer.name = "A2"
+    let deduped = DataExport.mergedPreservingOrder(current: [a, aNewer], incoming: [d, d])
+    XCTAssertEqual(deduped.map(\.name), ["A2", "D"])
   }
 
   @MainActor
