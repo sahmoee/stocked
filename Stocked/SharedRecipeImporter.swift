@@ -60,19 +60,32 @@ enum SharedRecipeImporter {
         }
         Log.app.log("ShareImport: payload keys = \(payload.keys.joined(separator: ","), privacy: .public)")
 
-        // Clear immediately so we don't re-import on the next launch.
-        defaults.removeObject(forKey: "pendingSharedRecipe")
-        defaults.synchronize()
+        // A failed/offline import remains available for retry. Only acknowledge the captured
+        // payload after producing an editable recipe, and never erase a newer share arriving
+        // while a network import is suspended.
+        func finished(_ outcome: Outcome) -> Outcome {
+            guard !Task.isCancelled else { return .nothingExtracted }
+            if case .success = outcome,
+               let current = defaults.dictionary(forKey: "pendingSharedRecipe"),
+               SharedRecipePayloadPolicy.shouldAcknowledge(captured: payload, current: current) {
+                defaults.removeObject(forKey: "pendingSharedRecipe")
+                defaults.synchronize()
+                if payload["imagePath"] != nil,
+                   let imageURL = SharedRecipePayloadPolicy.sharedImageURL(
+                       in: FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)) {
+                    try? FileManager.default.removeItem(at: imageURL)
+                }
+            }
+            return outcome
+        }
 
-        // Take the shared screenshot into memory and delete it from the App Group straight
-        // away: it is user content and used to linger in the shared container indefinitely.
-        // The file is always resolved inside OUR container — the stored path is only a flag.
+        // Resolve the screenshot inside our own App Group. Retain it until a successful
+        // import so cancellation, an offline fetch or failed OCR cannot discard the share.
         var sharedImageData: Data?
         if payload["imagePath"] != nil,
            let fileURL = SharedRecipePayloadPolicy.sharedImageURL(
                 in: FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)) {
             sharedImageData = try? Data(contentsOf: fileURL)
-            try? FileManager.default.removeItem(at: fileURL)
         }
 
         // Only real web links reach the network importers (the old `hasPrefix("http")` check
@@ -105,7 +118,7 @@ enum SharedRecipeImporter {
                     // Verbatim caption + a Source line, so "Show original text" preserves
                     // the link even though the create form doesn't carry notes through.
                     form.originalText = content.combinedText + "\n\nSource: \(content.sourceURL)"
-                    return .success(Result(form: form, source: platform.displayName))
+                    return finished(.success(Result(form: form, source: platform.displayName)))
                 } catch let error as SocialImportError {
                     switch error {
                     case .privateOrDeleted:
@@ -128,7 +141,7 @@ enum SharedRecipeImporter {
             // Shared links can carry personal tokens; log only the host publicly.
             Log.app.log("ShareImport: got URL, scraping host \(hostName(urlStr), privacy: .public)")
             if let result = try? await RecipeImportCoordinator.importURL(urlStr, progress: { _ in }), !Task.isCancelled {
-                return .success(Result(form: result.form, source: result.source))
+                return finished(.success(Result(form: result.form, source: result.source)))
             }
             // Fall through to text if present.
             if hasFallbackText || sharedImageData != nil {
@@ -146,7 +159,7 @@ enum SharedRecipeImporter {
             var form = RecipeTextParser.parse(text)
             form.originalText = text
             if !form.ingredients.isEmpty || !form.steps.isEmpty || !form.title.isEmpty {
-                return .success(Result(form: form, source: "Shared Text"))
+                return finished(.success(Result(form: form, source: "Shared Text")))
             }
             Log.app.error("ShareImport: text parser found no recipe")
         }
@@ -159,7 +172,7 @@ enum SharedRecipeImporter {
                 var form = RecipeTextParser.parse(text)
                 form.originalText = text
                 if !form.ingredients.isEmpty || !form.steps.isEmpty || !form.title.isEmpty {
-                    return .success(Result(form: form, source: "Shared Screenshot"))
+                    return finished(.success(Result(form: form, source: "Shared Screenshot")))
                 }
             }
             Log.app.error("ShareImport: OCR/parse found no recipe in image")
@@ -241,6 +254,11 @@ enum SharedRecipeImporter {
 
 /// Pure validation for the Share Extension hand-off (unit-tested; no I/O).
 nonisolated enum SharedRecipePayloadPolicy {
+    /// Compare the captured handoff with the current one before clearing shared state.
+    static func shouldAcknowledge(captured: [String: Any], current: [String: Any]) -> Bool {
+        NSDictionary(dictionary: current).isEqual(to: captured)
+    }
+
     /// Must match `SharePayloadReader.imageFileName` in the Share Extension target.
     static let imageFileName = "shared_recipe_image.jpg"
     /// A share with more surrounding text than this is treated as recipe text, not a link.

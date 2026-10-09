@@ -2,31 +2,31 @@
   "project": "Stocked (iOS app, Share Extension, Widgets)",
   "implemented_improvements": 25,
   "items": [
-    "CSV export formula-injection guard (=,+,-,@,TAB,CR leads prefixed with ') plus CR/CRLF-aware quoting, shared by all four exporters — Stocked/CSVInterchange.swift, RecipeCSV.swift, KitchenTransferManager.swift, GuestDataStore.swift, InventoryExporter.swift",
-    "CSV import parsed CRLF (Excel/Windows) files as a single row because Swift folds \\r\\n into one Character; shared parser now splits LF/CR/CRLF — Stocked/CSVInterchange.swift (used by RecipeCSV.swift and KitchenTransferManager.swift)",
-    "CSV import strips a UTF-8 BOM so the Section header still matches (grocery rows were imported as pantry items) and content sniffing works — Stocked/CSVInterchange.swift, Stocked/KitchenTransferManager.swift",
-    "Plain-text list import and CSV sniffing now detect CR/CRLF line breaks (Windows-saved lists were one unparseable line) — Stocked/KitchenTransferManager.swift",
-    "CSV import quantities accept decimals and clamp to 1...100000 (negatives/garbage no longer produce negative stock); expiry accepts yyyy-MM-dd at local noon instead of being dropped — Stocked/CSVInterchange.swift, Stocked/KitchenTransferManager.swift",
-    "Formula guard is reversed on import so Stocked's own CSVs still round-trip (recipe-removal CSV title matching, kitchen CSV) — Stocked/RecipeCSV.swift, Stocked/KitchenTransferManager.swift",
-    "Share Extension accepts URLs delivered as String/Data and text delivered as NSAttributedString/Data/file URL (previously dropped, producing 'Couldn't find the shared item'); text capped at 100k chars — StockedShareExtension/ShareViewController.swift",
-    "Share Extension downsamples shared images through ImageIO (2048px, EXIF orientation) instead of fully decoding large photos inside the extension memory budget — StockedShareExtension/ShareViewController.swift",
-    "Share Extension writes the screenshot atomically, advertises imagePath only on success, and removes a stale screenshot when a new share has none — StockedShareExtension/ShareViewController.swift",
-    "Main app accepts only credential-free absolute http(s) links from the share payload (replaces hasPrefix(\"http\")) — Stocked/SharedRecipeImporter.swift (SharedRecipePayloadPolicy.webURL)",
-    "Text-only 'caption + link' shares (TikTok/Instagram style) are routed to the link importer; a bare link is no longer parsed as recipe text; failed scrapes fall back to a shared screenshot — Stocked/SharedRecipeImporter.swift",
-    "Shared screenshot is resolved inside the app's own App Group container (stored path ignored), read once and deleted; full shared URLs are no longer logged with public privacy (host only) — Stocked/SharedRecipeImporter.swift",
-    "Social og: meta extraction is quote-aware (captions were truncated at the first apostrophe, e.g. \"Mom's pasta\") — Stocked/SocialImportFetcher.swift",
-    "Social HTML entity decoding is a single linear pass (no double-decoding of &amp;lt;, no O(n^2) rescans; NUL/surrogates become spaces) — Stocked/SocialImportFetcher.swift",
-    "og:image is entity-decoded, resolved against the page and kept only as https (javascript:/data:/file:/credentialed URLs dropped) — Stocked/SocialImportFetcher.swift",
-    "Social fetch refuses non-http(s) schemes and responses above the 3 MB HTML bound before regex work — Stocked/SocialImportFetcher.swift",
-    "Pinterest country-host detection no longer matches arbitrary hosts like pinterest.recipes-blog.com (which lost their JSON-LD import) — Stocked/SocialImportDetector.swift",
-    "Household last-write-wins treats NaN/inf/negative timestamps as 0 so a corrupt stamp can't pin a record forever or beat every future edit — Stocked/HouseholdMergePolicy.swift",
-    "Backup merge-restore preserves list order (Dictionary.values shuffled grocery/meal lists on every restore) and unions staples instead of replacing them — Stocked/DataExport.swift",
-    "Backup decode skips only malformed records (lenient per-record fallback) instead of rejecting the whole backup — Stocked/DataExport.swift",
-    "Backup restore flushes pending saves immediately so a restore survives an app kill right after 'Backup restored' — Stocked/DataExport.swift",
-    "stocked://import share-link payload is size-bounded (2 MB) and scheme/host compared case-insensitively before base64/JSON work on the main actor — Stocked/KitchenTransferManager.swift",
-    "Widget VoiceOver: stock and expiring gauges get real labels/values, small/medium stock tiles and detail rows read as single elements; displayed percent clamped to 0...100 via a computed (non-encoded) property — StockedWidgets/StockedWidgets.swift, Stocked/WidgetShared.swift",
-    "VoiceOver labels and 44pt targets for unlabeled icon-only controls: month navigation, remove-step, delete-substitution, capacity steppers, font/meal picker close, add custom meal, apply quantity — CookLaterCommandCenterView.swift, CreateRecipeView.swift, DatabasesView.swift, InventoryItemSheets.swift, QuickAccessMenu.swift, MealPlannerSubViews.swift, QuantityInputView.swift",
-    "Servings control in Smart Recommendation is a VoiceOver adjustable element (the combined row hid both buttons and announced 'Serves 1' instead of the shown household size) — Stocked/SmartRecommendationView.swift"
+    "CSV export formula-injection guard (=,+,-,@,TAB,CR leads prefixed with ') plus CR/CRLF-aware quoting, shared by all four exporters \u2014 Stocked/CSVInterchange.swift, RecipeCSV.swift, KitchenTransferManager.swift, GuestDataStore.swift, InventoryExporter.swift",
+    "CSV import parsed CRLF (Excel/Windows) files as a single row because Swift folds \\r\\n into one Character; shared parser now splits LF/CR/CRLF \u2014 Stocked/CSVInterchange.swift (used by RecipeCSV.swift and KitchenTransferManager.swift)",
+    "CSV import strips a UTF-8 BOM so the Section header still matches (grocery rows were imported as pantry items) and content sniffing works \u2014 Stocked/CSVInterchange.swift, Stocked/KitchenTransferManager.swift",
+    "Plain-text list import and CSV sniffing now detect CR/CRLF line breaks (Windows-saved lists were one unparseable line) \u2014 Stocked/KitchenTransferManager.swift",
+    "CSV import quantities accept decimals and clamp to 1...100000 (negatives/garbage no longer produce negative stock); expiry accepts yyyy-MM-dd at local noon instead of being dropped \u2014 Stocked/CSVInterchange.swift, Stocked/KitchenTransferManager.swift",
+    "Formula guard is reversed on import so Stocked's own CSVs still round-trip (recipe-removal CSV title matching, kitchen CSV) \u2014 Stocked/RecipeCSV.swift, Stocked/KitchenTransferManager.swift",
+    "Share Extension accepts URLs delivered as String/Data and text delivered as NSAttributedString/Data/file URL (previously dropped, producing 'Couldn't find the shared item'); text capped at 100k chars \u2014 StockedShareExtension/ShareViewController.swift",
+    "Share Extension downsamples shared images through ImageIO (2048px, EXIF orientation) instead of fully decoding large photos inside the extension memory budget \u2014 StockedShareExtension/ShareViewController.swift",
+    "Share Extension writes the screenshot atomically, advertises imagePath only on success, and removes a stale screenshot when a new share has none \u2014 StockedShareExtension/ShareViewController.swift",
+    "Main app accepts only credential-free absolute http(s) links from the share payload (replaces hasPrefix(\"http\")) \u2014 Stocked/SharedRecipeImporter.swift (SharedRecipePayloadPolicy.webURL)",
+    "Text-only 'caption + link' shares (TikTok/Instagram style) are routed to the link importer; a bare link is no longer parsed as recipe text; failed scrapes fall back to a shared screenshot \u2014 Stocked/SharedRecipeImporter.swift",
+    "Shared screenshot is resolved inside the app's own App Group container (stored path ignored), read once and deleted; full shared URLs are no longer logged with public privacy (host only) \u2014 Stocked/SharedRecipeImporter.swift",
+    "Social og: meta extraction is quote-aware (captions were truncated at the first apostrophe, e.g. \"Mom's pasta\") \u2014 Stocked/SocialImportFetcher.swift",
+    "Social HTML entity decoding is a single linear pass (no double-decoding of &amp;lt;, no O(n^2) rescans; NUL/surrogates become spaces) \u2014 Stocked/SocialImportFetcher.swift",
+    "og:image is entity-decoded, resolved against the page and kept only as https (javascript:/data:/file:/credentialed URLs dropped) \u2014 Stocked/SocialImportFetcher.swift",
+    "Social fetch refuses non-http(s) schemes and responses above the 3 MB HTML bound before regex work \u2014 Stocked/SocialImportFetcher.swift",
+    "Pinterest country-host detection no longer matches arbitrary hosts like pinterest.recipes-blog.com (which lost their JSON-LD import) \u2014 Stocked/SocialImportDetector.swift",
+    "Household last-write-wins treats NaN/inf/negative timestamps as 0 so a corrupt stamp can't pin a record forever or beat every future edit \u2014 Stocked/HouseholdMergePolicy.swift",
+    "Backup merge-restore preserves list order (Dictionary.values shuffled grocery/meal lists on every restore) and unions staples instead of replacing them \u2014 Stocked/DataExport.swift",
+    "Backup decode skips only malformed records (lenient per-record fallback) instead of rejecting the whole backup \u2014 Stocked/DataExport.swift",
+    "Backup restore flushes pending saves immediately so a restore survives an app kill right after 'Backup restored' \u2014 Stocked/DataExport.swift",
+    "stocked://import share-link payload is size-bounded (2 MB) and scheme/host compared case-insensitively before base64/JSON work on the main actor \u2014 Stocked/KitchenTransferManager.swift",
+    "Widget VoiceOver: stock and expiring gauges get real labels/values, small/medium stock tiles and detail rows read as single elements; displayed percent clamped to 0...100 via a computed (non-encoded) property \u2014 StockedWidgets/StockedWidgets.swift, Stocked/WidgetShared.swift",
+    "VoiceOver labels and 44pt targets for unlabeled icon-only controls: month navigation, remove-step, delete-substitution, capacity steppers, font/meal picker close, add custom meal, apply quantity \u2014 CookLaterCommandCenterView.swift, CreateRecipeView.swift, DatabasesView.swift, InventoryItemSheets.swift, QuickAccessMenu.swift, MealPlannerSubViews.swift, QuantityInputView.swift",
+    "Servings control in Smart Recommendation is a VoiceOver adjustable element (the combined row hid both buttons and announced 'Serves 1' instead of the shown household size) \u2014 Stocked/SmartRecommendationView.swift"
   ],
   "validation": "No Swift toolchain or Xcode in this Linux container: nothing was compiled and no XCTest was executed. Changes were re-read by hand for Swift 6 syntax/isolation (pure helpers are nonisolated; @MainActor tests where the type is main-actor isolated). New XCTest suite StockedTests/ImportExportHardeningTests.swift (22 tests) covers the pure logic but has NOT been run. The og: meta regexes were sanity-checked in Python. Ran: node scripts/RecipeBrowserScriptChecks.mjs (15 PASS), swift6_concurrency_guard.sh (passed), python3 -m py_compile worker-build/worker.py (ok), scripts/test-finder-refresh-contract.py, test_qa_build_number.py, test_release.py, test-theme-contrast.py (OK). xcrun-dependent scripts could not run.",
   "remaining": [
@@ -36,5 +36,23 @@
     "Open an exported CSV in Numbers/Excel to confirm the apostrophe guard renders as text, and re-import an Excel 'CSV UTF-8' (BOM + CRLF) file",
     "Android and StockedMac CSV exporters/importers should adopt the same formula guard/unguard for full cross-platform parity",
     "Stocked/ShareViewController.swift is a legacy duplicate of the extension controller compiled into the app target; consider removing it in Xcode"
-  ]
+  ],
+  "codex_review": {
+    "changes": [
+      "Preserve failed/cancelled shared payloads for retry; acknowledge only the captured payload after success",
+      "Reject malformed backup records before restore rather than silently discarding rows",
+      "Preserve literal leading apostrophes across CSV round trips",
+      "Capture CI xcresults/snapshot candidates and serialize stateful simulator tests; avoid duplicate push/PR CI"
+    ],
+    "validation": [
+      "12 compiled CSV round trips and CRLF/BOM/quantity/date checks passed",
+      "5 compiled share acknowledgement/URL policy checks passed",
+      "Final SwiftFormat and strict SwiftLint passed across23 changedSwiftfiles",
+      "Genericphysicaldevicebuildpassed on priorb2361ad CI; fullunitrunfailed6 tests andisnotclaimedpassing"
+    ],
+    "remaining": [
+      "Full iPhone/iPad unit test results including snapshot candidates",
+      "Physical device/lifecycle/household acceptance"
+    ]
+  }
 }

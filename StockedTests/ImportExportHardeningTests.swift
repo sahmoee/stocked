@@ -25,7 +25,7 @@ final class ImportExportHardeningTests: XCTestCase {
     XCTAssertEqual(CSVInterchange.unguard("'=SUM(A1)"), "=SUM(A1)")
     XCTAssertEqual(CSVInterchange.unguard("'Nduja"), "'Nduja")
     XCTAssertEqual(CSVInterchange.unguard("Milk"), "Milk")
-    for name in ["=cmd", "-5 eggs", "@home", "plain"] {
+    for name in ["=cmd", "-5 eggs", "@home", "plain", "'Nduja", "'=literal", "''already quoted"] {
       let row = CSVInterchange.parseRows(CSVInterchange.escape(name)).first ?? []
       XCTAssertEqual(row.first.map(CSVInterchange.unguard), name)
     }
@@ -96,6 +96,13 @@ final class ImportExportHardeningTests: XCTestCase {
     XCTAssertFalse(SharedRecipePayloadPolicy.hasTextBeyondLink(" https://example.com/x \n"))
     XCTAssertFalse(SharedRecipePayloadPolicy.hasTextBeyondLink("   "))
     XCTAssertTrue(SharedRecipePayloadPolicy.hasTextBeyondLink("1 cup rice\nBoil"))
+  }
+
+  func testShareAcknowledgementPreservesNewerPayload() {
+    let original: [String: Any] = ["text": "Soup", "receivedAt": 1.0]
+    XCTAssertTrue(SharedRecipePayloadPolicy.shouldAcknowledge(captured: original, current: original))
+    XCTAssertFalse(SharedRecipePayloadPolicy.shouldAcknowledge(
+      captured: original, current: ["text": "Soup", "receivedAt": 2.0]))
   }
 
   func testSharedImageResolvesInsideContainerOnly() {
@@ -177,16 +184,13 @@ final class ImportExportHardeningTests: XCTestCase {
   }
 
   @MainActor
-  func testBackupDecodeSkipsOnlyTheMalformedRecord() throws {
+  func testBackupDecodeRejectsMalformedRecordsBeforeRestore() {
     let json = """
       {"schemaVersion":1,"exportedAt":"2026-01-01T00:00:00Z",
        "grocery":[{"name":"Milk"},{"name":"Eggs","quantity":"lots"}],
        "staples":["Rice"]}
       """
-    let backup = try DataExport.decodeBackup(Data(json.utf8))
-    XCTAssertEqual(backup.grocery?.map(\.name), ["Milk"])
-    XCTAssertEqual(backup.staples, ["Rice"])
-    XCTAssertNil(backup.inventory)
+    XCTAssertThrowsError(try DataExport.decodeBackup(Data(json.utf8)))
   }
 
   @MainActor

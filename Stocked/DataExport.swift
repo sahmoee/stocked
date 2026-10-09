@@ -107,15 +107,9 @@ enum DataExport {
     static func decodeBackup(_ data: Data) throws -> StockedBackup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let backup: StockedBackup
-        if let strict = try? decoder.decode(StockedBackup.self, from: data) {
-            backup = strict
-        } else if let lenient = try? decoder.decode(LenientBackup.self, from: data) {
-            // One malformed record (hand-edited file, a field from a future build with an
-            // incompatible type) used to reject the WHOLE backup. Skip just that record.
-            exportLog.notice("Backup decoded leniently; malformed records were skipped.")
-            backup = lenient.backup
-        } else {
+        // A backup is a recovery boundary: silently dropping malformed records can erase
+        // valid local data when Replace is selected. Reject before touching any collection.
+        guard let backup = try? decoder.decode(StockedBackup.self, from: data) else {
             throw RestoreError.unreadable
         }
         if backup.schemaVersion > StockedSchema.version {
@@ -193,40 +187,5 @@ enum DataExport {
     static func restore(from data: Data, into session: GuestDataStore, mode: RestoreMode = .merge) throws {
         let backup = try decodeBackup(data)
         restore(backup, into: session, mode: mode)
-    }
-}
-
-/// Per-record tolerant twin of `StockedBackup`, used only when the strict decode fails.
-private struct LenientBackup: Decodable {
-    var schemaVersion: Int?
-    var exportedAt: Date?
-    var appBuild: String?
-    var inventory:  [FailableDecodable<LocalInventoryItem>]?
-    var grocery:    [FailableDecodable<LocalGroceryItem>]?
-    var userRecipes:[FailableDecodable<UserRecipe>]?
-    var generated:  [FailableDecodable<GeneratedRecipe>]?
-    var pastMeals:  [FailableDecodable<LocalPastMeal>]?
-    var planned:    [FailableDecodable<PlannedMeal>]?
-    var prices:     [FailableDecodable<PriceRecord>]?
-    var consumption:[FailableDecodable<ConsumptionRecord>]?
-    var subs:       [FailableDecodable<UserSubstitutionEntry>]?
-    var staples:    [FailableDecodable<String>]?
-
-    var backup: StockedBackup {
-        StockedBackup(
-            schemaVersion: schemaVersion ?? StockedSchema.version,
-            exportedAt: exportedAt ?? .now,
-            appBuild: appBuild,
-            inventory:   inventory?.compactMap(\.value),
-            grocery:     grocery?.compactMap(\.value),
-            userRecipes: userRecipes?.compactMap(\.value),
-            generated:   generated?.compactMap(\.value),
-            pastMeals:   pastMeals?.compactMap(\.value),
-            planned:     planned?.compactMap(\.value),
-            prices:      prices?.compactMap(\.value),
-            consumption: consumption?.compactMap(\.value),
-            subs:        subs?.compactMap(\.value),
-            staples:     staples?.compactMap(\.value)
-        )
     }
 }

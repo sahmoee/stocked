@@ -25,7 +25,7 @@ nonisolated enum CSVInterchange {
     /// contains a comma, quote, CR or LF (internal quotes doubled).
     static func escape(_ raw: String) -> String {
         var s = raw
-        if let first = s.unicodeScalars.first, formulaLeads.contains(first) { s = "'" + s }
+        if let first = s.unicodeScalars.first, (formulaLeads.contains(first) || first == "'") { s = "'" + s }
         if s.unicodeScalars.contains(where: { needsQuoting.contains($0) }) {
             return "\"\(s.replacingOccurrences(of: "\"", with: "\"\""))\""
         }
@@ -33,10 +33,11 @@ nonisolated enum CSVInterchange {
     }
 
     /// Reverses the formula guard added by `escape` (only when the apostrophe is followed by a
-    /// formula lead, so a genuine leading apostrophe such as "'Nduja" is left untouched).
+    /// formula lead or another apostrophe). Export doubles a literal leading apostrophe
+    /// so names such as "'=literal" round-trip without losing user text.
     static func unguard(_ cell: String) -> String {
         let scalars = cell.unicodeScalars
-        guard scalars.first == "'", let next = scalars.dropFirst().first, formulaLeads.contains(next) else {
+        guard scalars.first == "'", let next = scalars.dropFirst().first, (formulaLeads.contains(next) || next == "'") else {
             return cell
         }
         return String(cell.dropFirst())
