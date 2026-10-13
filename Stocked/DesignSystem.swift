@@ -177,16 +177,15 @@ struct InventoryStoragePicker: View {
 // Use these instead of .system(size: N) for Dynamic Type compatibility
 extension Font {
     // Serif display
-    static var stockedDisplay: Font  { .stockedSerif(28, weight: .bold, relativeTo: .title) }
-    static var stockedTitle: Font    { .stockedSerif(22, weight: .bold, relativeTo: .title2) }
+    static var stockedDisplay: Font { .stockedSerif(28, weight: .bold, relativeTo: .title) }
+    static var stockedTitle: Font { .stockedSerif(22, weight: .bold, relativeTo: .title2) }
     static var stockedHeadline: Font { .stockedSerif(18, weight: .semibold, relativeTo: .headline) }
     // Sans body
-    static var stockedBody: Font     { .stockedSans(15, relativeTo: .body) }
+    static var stockedBody: Font { .stockedSans(15, relativeTo: .body) }
     static var stockedBodyBold: Font { .stockedSans(15, weight: .semibold, relativeTo: .body) }
-    static var stockedCaption: Font  { .stockedSans(12, relativeTo: .caption) }
-    static var stockedLabel: Font    { .stockedSans(11, weight: .semibold, relativeTo: .caption2) }
+    static var stockedCaption: Font { .stockedSans(12, relativeTo: .caption) }
+    static var stockedLabel: Font { .stockedSans(11, weight: .semibold, relativeTo: .caption2) }
 }
-
 
 // MARK: - Theme text color environment key
 // #5: stockedTextColor is deprecated — use @Environment(AppSession.self) then session.themeTextColor.
@@ -527,12 +526,12 @@ struct StockedActionRow: View {
 
 // MARK: - Haptics (UI #15)
 struct HapticManager {
-    static func light()   { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-    static func medium()  { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+    static func light() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    static func medium() { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
     static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
     static func warning() { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
-    static func error()   { UINotificationFeedbackGenerator().notificationOccurred(.error) }
-    static func select()  { UISelectionFeedbackGenerator().selectionChanged() }
+    static func error() { UINotificationFeedbackGenerator().notificationOccurred(.error) }
+    static func select() { UISelectionFeedbackGenerator().selectionChanged() }
 }
 
 // MARK: - Skeleton loading (UI #1)
@@ -723,7 +722,7 @@ struct Triangle: Shape {
 extension Color {
     static func expiryColor(daysLeft: Int?) -> Color {
         guard let d = daysLeft else { return .stockedGreen }
-        if d < 0  { return .red }
+        if d < 0 { return .red }
         if d <= 1 { return .red }
         if d <= 3 { return .orange }
         if d <= 7 { return Color(red: 0.85, green: 0.65, blue: 0.1) }
@@ -920,8 +919,6 @@ struct SectionHeader: View {
                              : EdgeInsets())
     }
 }
-
-
 
 // MARK: - Global keyboard dismissal
 // Use .dismissKeyboardOnTap() on any container to let tapping outside dismiss the keyboard.
