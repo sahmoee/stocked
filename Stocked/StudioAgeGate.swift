@@ -19,6 +19,7 @@ extension View {
 }
 
 struct StudioAgeGate: ViewModifier {
+    @Environment(AppSession.self) private var session
     @AppStorage("studio.age.confirmed.v1") private var confirmedAge = 0
     @AppStorage("studio.age.blocked.v1") private var blocked = false
 
@@ -55,19 +56,20 @@ struct StudioAgeGate: ViewModifier {
                 VStack(spacing: 12) {
                     Button { confirmedAge = n; blocked = false } label: {
                         Text("I am \(n) or older").frame(maxWidth: .infinity, minHeight: 44)
-                    }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                    }.stockedPrimary().keyboardShortcut(.defaultAction)
                     Button { blocked = true } label: {
                         Text("I am under \(n)").frame(maxWidth: .infinity, minHeight: 44)
-                    }.buttonStyle(.bordered)
+                    }.stockedSecondary()
                 }
                 Text("By continuing you agree to the [Terms](\(StudioAgeGateProfile.termsURL)) and acknowledge the [Privacy Policy](\(StudioAgeGateProfile.privacyURL)).")
-                    .font(.footnote).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                    .font(.footnote).multilineTextAlignment(.center).foregroundStyle(session.themeSecondaryText)
             }
             Spacer(minLength: 0)
         }
         .padding(28)
         .frame(maxWidth: 520)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
+        .foregroundStyle(session.themeTextColor)
+        .background(session.themeBgColor)
     }
 }
