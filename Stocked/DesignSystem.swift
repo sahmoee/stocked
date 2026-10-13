@@ -257,7 +257,7 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
                         lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
             .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.5)
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.97 : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 struct StockedSecondaryButtonStyle: ButtonStyle {
@@ -277,7 +277,7 @@ struct StockedSecondaryButtonStyle: ButtonStyle {
             .stockedGlassSurface(.control, cornerRadius: layoutMetrics.controlCornerRadius)
             .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.5)
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.97 : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 
@@ -296,7 +296,7 @@ struct StockedWidgetButtonStyle: ButtonStyle {
                     .allowsHitTesting(false)
             }
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.985 : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 
@@ -724,7 +724,7 @@ struct PressableStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.88 : 1)
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? scale : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 extension View {
@@ -740,10 +740,10 @@ struct SpringInModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 12)
-            .scaleEffect(appeared ? 1 : 0.97)
+            .offset(y: appeared || !motion.permitsDecorativeMotion ? 0 : 12)
+            .scaleEffect(appeared || !motion.permitsDecorativeMotion ? 1 : 0.97)
             .onAppear {
-                let animation = motion.animation(.settle, intent: .decorative).map { $0.delay(delay) }
+                let animation = motion.animation(.standard, intent: .decorative).map { $0.delay(delay) }
                 withAnimation(animation) {
                     appeared = true
                 }
@@ -1111,17 +1111,19 @@ struct StockedTopShell<Content: View>: View {
                         Image(systemName: "chevron.left")
                             .scaledFont(20, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
-                    }.buttonStyle(.plain)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }.pressable()
                         .accessibilityLabel("Back")
                 } else {
-                    Color.clear.frame(width: 24)
+                    Color.clear.frame(width: 44)
                 }
                 Spacer()
                 Text("Stocked.")
                     .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
-                Color.clear.frame(width: 24)
+                Color.clear.frame(width: 44)
             }
             .padding(.horizontal, 20)
             .padding(.top, showHandle ? 2 : 12)
