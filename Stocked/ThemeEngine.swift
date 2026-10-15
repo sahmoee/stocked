@@ -1,15 +1,15 @@
 // ThemeEngine.swift — Computed color properties for AppSession.
-// Custom 6-channel theming has been removed: the app now supports ONLY the standard
-// Pastel/Tan light palettes and dark appearance. These vars keep their original names (775+ call sites use
-// them) but resolve from the light/dark design tokens, so every surface follows the
-// system-style light/dark palette and the user's isDarkMode choice.
+// The Current design keeps Pastel/Tan and the user's dark preference. Optional
+// Journal, Standard and Evening variants resolve through the same semantic tokens.
+// Existing call sites retain their names; arbitrary custom color channels stay removed.
 import SwiftUI
 
-// MARK: - Computed theme colors (light/dark only)
+// MARK: - Semantic theme colors
 extension AppSession {
     var accentColor:      Color { Color.appAccent(isDarkMode) }
     var themeBgColor:     Color { Color.appBg(isDarkMode) }
-    var themeButtonColor: Color { Color.appButton(isDarkMode) }
+    /// Variants use their action fill (paired with ivory labels at existing call sites).
+    var themeButtonColor: Color { variantPalette?.color(.fill) ?? Color.appButton(isDarkMode) }
     var themeTextColor:   Color { Color.appText(isDarkMode) }
     var themeSecondaryText: Color { Color.appSecondary(isDarkMode) }
     var themeCardColor:   Color { Color.appSurface(isDarkMode) }

@@ -18,6 +18,9 @@ nonisolated struct KitchenPreferences: Codable, Sendable {
     var appFont: String           = ""
     var isDarkMode: Bool          = false
     var lightTheme: String?       = nil // Additive; older backups retain the current selection.
+    /// Additive optional design variant identifier (`current`, `pantryJournal`, …).
+    /// Older backups omit it; older clients ignore it; unknown values restore as `current`.
+    var designVariant: String?    = nil
     // Behavior / shopping
     var preferredStore: String    = ""
     var autoAddMissingToGrocery: Bool = true

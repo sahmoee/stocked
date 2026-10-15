@@ -22,15 +22,29 @@ struct PreferencesSectionView: View {
         let dark = session.isDarkMode
         VStack(alignment: .leading, spacing: StockedSpacing.md) {
             settingsGroup(dark: dark, title: "Appearance", detail: "Choose how Stocked looks while you plan, shop, and cook.") {
-                toggleRow(dark: dark, icon: "moon.fill", title: "Dark Mode", isOn: Binding(
+                StockedDesignVariantPicker()
+
+                // Evening Table is always dark; the stored Dark Mode choice is kept for other designs.
+                toggleRow(dark: dark, icon: "moon.fill", title: "Dark Mode",
+                          detail: session.designVariant.forcesDarkAppearance ? "Evening Table is always dark. Your choice returns with other designs." : nil,
+                          isOn: Binding(
                     get: { session.isDarkMode },
                     set: { session.isDarkMode = $0 }
                 ))
+                .disabled(session.designVariant.forcesDarkAppearance)
 
+                // Pastel/Tan belong to the Current design and are restored when it is selected again.
                 segmentedRow(dark: dark, icon: "paintpalette", title: "Light Theme", selection: Binding(
                     get: { session.lightTheme },
                     set: { session.lightTheme = $0 }
                 ), options: StockedLightTheme.allCases) { $0.rawValue }
+                .disabled(!session.designVariant.usesLegacyLightTheme)
+                if !session.designVariant.usesLegacyLightTheme {
+                    Text("Light Theme applies to the Current design.")
+                        .font(.stockedSans(12, relativeTo: .caption))
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 segmentedRow(dark: dark, icon: "textformat", title: "App Font", selection: Binding(
                     get: { session.appFont },
