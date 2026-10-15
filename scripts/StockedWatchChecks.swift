@@ -15,6 +15,22 @@ import Foundation
                   grocery: [.init(id: id, name: "Apples", quantity: 4, checked: false, size: "bag", revision: 123)],
                   inventory: [], recipes: [], meals: [], detail: nil, permissions: ["view", "groceryEdit"], totals: [1,0,0,0])
         }
+        var appearance = snapshot()
+        check(appearance.variantAccentHex == nil && appearance.variantCornerRadius == nil, "Old Watch snapshot retains Current")
+        for (name, color, radius) in [("pantryJournal", UInt32(0xA9C79F), 16.0), ("kitchenStandard", UInt32(0x79C6A9), 8.0), ("eveningTable", UInt32(0xD9B990), 12.0)] {
+            appearance.designVariant = name
+            check(appearance.variantAccentHex == color && appearance.variantCornerRadius == radius, "Watch variant maps colors and geometry")
+            let decoded = try JSONDecoder().decode(KitchenWatch.Snapshot.self, from: JSONEncoder().encode(appearance))
+            check(decoded.designVariant == name, "Watch appearance roundtrips")
+        }
+        appearance.designVariant = "futureDesign"
+        check(appearance.variantAccentHex == nil && appearance.variantCornerRadius == nil, "Unknown Watch variant uses Current")
+        var oldJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(appearance)) as! [String: Any]
+        oldJSON.removeValue(forKey: "designVariant")
+        let oldSnapshot = try JSONDecoder().decode(KitchenWatch.Snapshot.self, from: JSONSerialization.data(withJSONObject: oldJSON))
+        check(oldSnapshot.designVariant == nil, "Pre-variant snapshots still decode")
+        appearance.designVariant = String(repeating: "x", count: 65)
+        check(!appearance.isValid, "Watch appearance identifier is bounded")
         let first = command()
         check(first.validation(now: now) == nil, "Valid grocery addition")
         var bad = first; bad.name = " \n "; check(bad.validation(now: now) != nil, "Whitespace name rejected")

@@ -4,19 +4,23 @@ import SwiftUI
 /// Pastel is the default; Tan preserves the warm original-color variant.
 /// Decorative fills never double as small-text colors.
 enum StockedPastel {
-    static let honey = Color.stockedPalette(pastel: UIColor(red: 0.824, green: 0.686, blue: 0.416, alpha: 1), tan: UIColor(red: 0.870, green: 0.680, blue: 0.290, alpha: 1))
-    static let sage = Color.stockedPalette(pastel: UIColor(red: 0.565, green: 0.635, blue: 0.502, alpha: 1), tan: UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1))
+    static let honey = Color.stockedPalette(pastel: UIColor(red: 0.824, green: 0.686, blue: 0.416, alpha: 1), tan: UIColor(red: 0.870, green: 0.680, blue: 0.290, alpha: 1), role: .fill)
+    static let sage = Color.stockedPalette(pastel: UIColor(red: 0.565, green: 0.635, blue: 0.502, alpha: 1), tan: UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1), role: .success)
     static func oat(_ dark: Bool) -> Color {
-        dark ? Color.stockedPalette(pastel: UIColor(red: 0.24, green: 0.21, blue: 0.17, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.945, green: 0.894, blue: 0.812, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
+        variant(.soft, dark ? Color.stockedPalette(pastel: UIColor(red: 0.24, green: 0.21, blue: 0.17, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.945, green: 0.894, blue: 0.812, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1)))
     }
     static func garden(_ dark: Bool) -> Color {
-        dark ? Color.stockedPalette(pastel: UIColor(red: 0.18, green: 0.22, blue: 0.16, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.914, green: 0.925, blue: 0.863, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
+        variant(.soft, dark ? Color.stockedPalette(pastel: UIColor(red: 0.18, green: 0.22, blue: 0.16, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.914, green: 0.925, blue: 0.863, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1)))
     }
     static func peach(_ dark: Bool) -> Color {
-        dark ? Color.stockedPalette(pastel: UIColor(red: 0.26, green: 0.20, blue: 0.16, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.980, green: 0.918, blue: 0.839, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
+        variant(.softWarm, dark ? Color.stockedPalette(pastel: UIColor(red: 0.26, green: 0.20, blue: 0.16, alpha: 1), tan: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) : Color.stockedPalette(pastel: UIColor(red: 0.980, green: 0.918, blue: 0.839, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1)))
     }
     static func border(_ dark: Bool) -> Color {
-        dark ? Color(red: 0.35, green: 0.32, blue: 0.27) : Color.stockedPalette(pastel: UIColor(red: 0.866, green: 0.827, blue: 0.765, alpha: 1), tan: UIColor(red: 0.651, green: 0.545, blue: 0.392, alpha: 1))
+        variant(.line, dark ? Color(red: 0.35, green: 0.32, blue: 0.27) : Color.stockedPalette(pastel: UIColor(red: 0.866, green: 0.827, blue: 0.765, alpha: 1), tan: UIColor(red: 0.651, green: 0.545, blue: 0.392, alpha: 1)))
+    }
+    /// Variant designs re-map these decorative fills to their own soft/line roles.
+    private static func variant(_ role: StockedColorRole, _ legacy: Color) -> Color {
+        Color.stockedVariantAware(role, legacy: UIColor(legacy))
     }
 }
 
@@ -27,11 +31,14 @@ private struct StockedPastelCardModifier: ViewModifier {
     var radius: CGFloat
 
     func body(content: Content) -> some View {
+        // Design variants share one component radius and quiet hairline borders without shadow.
+        let geometry = session.variantGeometry
         content
             .sowensSurface(fill: fill ?? session.themeCardColor,
                            border: contrast == .increased ? session.themeSecondaryText : StockedPastel.border(session.isDarkMode),
-                           radius: radius, lineWidth: contrast == .increased ? 1.5 : 0.65, clipsContent: true)
-            .shadow(color: Color.stockedCharcoal.opacity(session.isDarkMode ? 0.14 : 0.035), radius: 3, y: 2)
+                           radius: geometry?.component ?? radius,
+                           lineWidth: contrast == .increased ? 1.5 : (geometry == nil ? 0.65 : 1), clipsContent: true)
+            .shadow(color: Color.stockedCharcoal.opacity(geometry != nil ? 0 : (session.isDarkMode ? 0.14 : 0.035)), radius: 3, y: 2)
     }
 }
 
@@ -56,9 +63,13 @@ struct StockedEditorialHero: View {
             : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
         arrangement {
             VStack(alignment: .leading, spacing: 8) {
-                Text(eyebrow)
-                    .font(.stockedSans(12, weight: .medium))
-                    .foregroundStyle(session.accentColor)
+                if session.designVariant == .current {
+                    Text(eyebrow)
+                        .font(.stockedSans(12, weight: .medium))
+                        .foregroundStyle(session.accentColor)
+                } else {
+                    StockedVariantEyebrow(text: eyebrow)
+                }
                 Text(title)
                     .font(.stockedSerif(30, weight: .bold, relativeTo: .largeTitle))
                     .tracking(-0.6)
@@ -71,12 +82,28 @@ struct StockedEditorialHero: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
-            StockedKitchenArtwork(asset: artwork)
-                .saturation(session.lightTheme == .tan ? 1 : 0.72)
-                .frame(width: layout.isAccessibilityText ? 100 : min(150, layout.contentWidth * 0.32), height: 138)
-                .accessibilityHidden(true)
+            if let geometry = session.variantGeometry {
+                // Variants keep the hero short so the screen's content appears sooner.
+                if geometry.showsHeroArtwork && !layout.isAccessibilityText {
+                    StockedKitchenArtwork(asset: artwork)
+                        .frame(width: min(116, layout.contentWidth * 0.26), height: geometry.heroArtworkHeight)
+                        .accessibilityHidden(true)
+                }
+            } else {
+                StockedKitchenArtwork(asset: artwork)
+                    .saturation(session.lightTheme == .tan ? 1 : 0.72)
+                    .frame(width: layout.isAccessibilityText ? 100 : min(150, layout.contentWidth * 0.32), height: 138)
+                    .accessibilityHidden(true)
+            }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, session.variantGeometry == nil ? 12 : 8)
+        .padding(.leading, session.designVariant == .kitchenStandard ? 14 : 0)
+        .overlay(alignment: .leading) {
+            // Kitchen Standard marks page titles with a precise accent rule instead of artwork.
+            if session.designVariant == .kitchenStandard {
+                Rectangle().fill(session.accentColor).frame(width: 3).accessibilityHidden(true)
+            }
+        }
     }
 }
 

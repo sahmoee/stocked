@@ -80,10 +80,28 @@ class AppSession {
             WidgetCenter.shared.reloadAllTimelines()
         }
     }
-    var isDarkMode: Bool {
+    /// Optional whole-app design. `current` (the default for new and existing users) is the
+    /// shipped Pastel/Tan design; other variants never rewrite lightTheme, darkModePreference
+    /// or appFont, so switching back restores those choices exactly.
+    var designVariant: StockedDesignVariant {
         didSet {
-            UserDefaults.standard.set(isDarkMode, forKey: DBKey.darkMode.rawValue)
+            // An explicit Current choice also replaces an unknown/missing persisted value.
+            guard designVariant != oldValue || UserDefaults.standard.string(forKey: StockedDesignVariant.defaultsKey) != designVariant.rawValue else { return }
+            designVariant.persist()
+            WidgetCenter.shared.reloadAllTimelines()
         }
+    }
+    /// The user's stored Dark Mode choice (unchanged key and semantics).
+    var darkModePreference: Bool {
+        didSet {
+            UserDefaults.standard.set(darkModePreference, forKey: DBKey.darkMode.rawValue)
+        }
+    }
+    /// Effective appearance. Evening Table is a dark design; every other design follows
+    /// the stored preference. Assigning updates the stored preference.
+    var isDarkMode: Bool {
+        get { designVariant.forcesDarkAppearance || darkModePreference }
+        set { darkModePreference = newValue }
     }
     var cookButtonShape: CookButtonShape {
         didSet { UserDefaults.standard.set(cookButtonShape.rawValue, forKey: DBKey.cookButtonShape.rawValue) }
@@ -262,8 +280,9 @@ class AppSession {
         KitchenPreferences(
             appTheme: appTheme.rawValue,
             appFont: appFont.rawValue,
-            isDarkMode: isDarkMode,
+            isDarkMode: darkModePreference,
             lightTheme: lightTheme.rawValue,
+            designVariant: designVariant.rawValue,
             preferredStore: preferredStore,
             autoAddMissingToGrocery: autoAddMissingToGrocery,
             notificationsEnabled: notificationsEnabled,
@@ -282,6 +301,8 @@ class AppSession {
         if let f = AppFont(rawValue: p.appFont) { appFont = f }
         isDarkMode = p.isDarkMode
         if let saved = p.lightTheme { lightTheme = StockedLightTheme(rawValue: saved) ?? .pastel }
+        // Older backups have no design; keep the current selection. Unknown values fall back.
+        if let saved = p.designVariant { designVariant = StockedDesignVariant(storedValue: saved) }
         if !p.preferredStore.isEmpty { preferredStore = p.preferredStore }
         autoAddMissingToGrocery = p.autoAddMissingToGrocery
         notificationsEnabled = p.notificationsEnabled
@@ -363,7 +384,17 @@ class AppSession {
 
         let ud = UserDefaults.standard
         self.lightTheme = StockedLightTheme(rawValue: ud.string(forKey: StockedLightTheme.defaultsKey) ?? "") ?? .pastel
-        self.isDarkMode           = ud.bool(forKey: DBKey.darkMode.rawValue)
+        self.darkModePreference   = ud.bool(forKey: DBKey.darkMode.rawValue)
+        let storedVariant         = ud.string(forKey: StockedDesignVariant.defaultsKey)
+        self.designVariant        = StockedDesignVariant(storedValue: storedVariant)
+        // Mirror the effective default/unknown selection to widgets without rewriting
+        // the app's stored value. Widget consumers already fall back for unknown strings.
+        if let group = UserDefaults(suiteName: StockedDesignVariant.appGroupSuite) {
+            let widgetValue = storedVariant ?? StockedDesignVariant.current.rawValue
+            if group.string(forKey: StockedDesignVariant.defaultsKey) != widgetValue {
+                group.set(widgetValue, forKey: StockedDesignVariant.defaultsKey)
+            }
+        }
         let savedFontV            = ud.object(forKey: DBKey.fontVerticalOffset.rawValue)
         self.fontVerticalOffset   = savedFontV != nil ? ud.double(forKey: DBKey.fontVerticalOffset.rawValue) : 0
         let savedFontH            = ud.object(forKey: DBKey.fontHorizontalOffset.rawValue)
@@ -555,6 +586,7 @@ class AppSession {
             // Reset all AppSession preferences to factory defaults
             isDarkMode           = false
             lightTheme           = .pastel
+            designVariant        = .current
             preferredStore       = "Kroger"
             appleUserID          = ""
             cookStreak           = 0

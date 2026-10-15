@@ -91,8 +91,35 @@ private extension Color {
     static var usesTan: Bool {
         UserDefaults(suiteName: "group.com.sowens.Stocked")?.string(forKey: "stocked.lightTheme") == "Tan"
     }
-    static var wGold: Color { usesTan ? Color(red: 0.561, green: 0.392, blue: 0.075) : Color(red: 0.573, green: 0.416, blue: 0.184) }
-    static var wGreen: Color { usesTan ? Color(red: 0.086, green: 0.298, blue: 0.141) : Color(red: 0.337, green: 0.420, blue: 0.290) }
+    /// Optional app design variant ("stocked.designVariant"). Missing/unknown values and
+    /// "current" keep the Pastel/Tan colors, so older app builds are unaffected.
+    static var designVariant: String? {
+        UserDefaults(suiteName: "group.com.sowens.Stocked")?.string(forKey: "stocked.designVariant")
+    }
+    /// Widgets sit on the system background, so variant accents adapt light/dark.
+    static func variantAccent(light: UInt32, dark: UInt32) -> Color {
+        func ui(_ hex: UInt32) -> UIColor {
+            UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                    blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+        }
+        return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? ui(dark) : ui(light) })
+    }
+    static var wGold: Color {
+        switch designVariant {
+        case "pantryJournal": return variantAccent(light: 0x36533C, dark: 0xA9C79F)
+        case "kitchenStandard": return variantAccent(light: 0x195A47, dark: 0x79C6A9)
+        case "eveningTable": return variantAccent(light: 0x7F6139, dark: 0xD9B990)
+        default: return usesTan ? Color(red: 0.561, green: 0.392, blue: 0.075) : Color(red: 0.573, green: 0.416, blue: 0.184)
+        }
+    }
+    static var wGreen: Color {
+        switch designVariant {
+        case "pantryJournal": return variantAccent(light: 0x3D6B47, dark: 0x9FD0A0)
+        case "kitchenStandard": return variantAccent(light: 0x2E7D4F, dark: 0x8FD3A8)
+        case "eveningTable": return variantAccent(light: 0x3D6B47, dark: 0xA9D3AE)
+        default: return usesTan ? Color(red: 0.086, green: 0.298, blue: 0.141) : Color(red: 0.337, green: 0.420, blue: 0.290)
+        }
+    }
     static var wBg: Color { usesTan ? Color(red: 0.780, green: 0.671, blue: 0.506) : Color(red: 0.992, green: 0.969, blue: 0.937) }
     static var wCharcoal: Color { usesTan ? Color(red: 0.176, green: 0.173, blue: 0.165) : Color(red: 0.263, green: 0.224, blue: 0.184) }
 }

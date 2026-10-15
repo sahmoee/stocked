@@ -53,52 +53,56 @@ extension EnvironmentValues {
 
 nonisolated extension Color {
     /// UIKit trait bridging updates legacy colors, SwiftUI surfaces and presented controls together.
-    static func stockedPalette(pastel: UIColor, tan: UIColor) -> Color {
-        Color(uiColor: UIColor { traits in
+    /// Optional `role` lets a selected design variant (DesignVariant.swift) re-map the token;
+    /// the Current design always resolves the Pastel/Tan values unchanged.
+    static func stockedPalette(pastel: UIColor, tan: UIColor, role: StockedColorRole? = nil) -> Color {
+        let legacy = UIColor { traits in
             traits[StockedLightThemeTrait.self] == .tan
                 ? tan.resolvedColor(with: traits) : pastel.resolvedColor(with: traits)
-        })
+        }
+        guard let role else { return Color(uiColor: legacy) }
+        return Color(uiColor: UIColor.stockedVariantAware(role, legacy: legacy))
     }
 }
 
 // MARK: - Brand Colors
 nonisolated extension Color {
     // Core backgrounds
-    static let stockedBg        = stockedPalette(pastel: UIColor(red: 0.992, green: 0.969, blue: 0.937, alpha: 1), tan: UIColor(red: 0.780, green: 0.671, blue: 0.506, alpha: 1))
-    static let stockedDarkBg    = Color(red: 0.086, green: 0.078, blue: 0.063) // #161410 OLED dark
+    static let stockedBg        = stockedPalette(pastel: UIColor(red: 0.992, green: 0.969, blue: 0.937, alpha: 1), tan: UIColor(red: 0.780, green: 0.671, blue: 0.506, alpha: 1), role: .bg)
+    static let stockedDarkBg    = stockedVariantAware(.bg, legacy: UIColor(red: 0.086, green: 0.078, blue: 0.063, alpha: 1)) // #161410 OLED dark
 
     // Charcoal — buttons, tab bar, cards on tan
-    static let stockedCharcoal  = stockedPalette(pastel: UIColor(red: 0.263, green: 0.224, blue: 0.184, alpha: 1), tan: UIColor(red: 0.176, green: 0.173, blue: 0.165, alpha: 1))
+    static let stockedCharcoal  = stockedPalette(pastel: UIColor(red: 0.263, green: 0.224, blue: 0.184, alpha: 1), tan: UIColor(red: 0.176, green: 0.173, blue: 0.165, alpha: 1), role: .button)
 
     // Gold — accent, active states, Find in Store, bolt
-    static let stockedGold      = stockedPalette(pastel: UIColor(red: 0.573, green: 0.416, blue: 0.184, alpha: 1), tan: UIColor(red: 0.561, green: 0.392, blue: 0.075, alpha: 1))
-    static let stockedGoldDark  = stockedPalette(pastel: UIColor(red: 0.835, green: 0.702, blue: 0.420, alpha: 1), tan: UIColor(red: 0.870, green: 0.680, blue: 0.290, alpha: 1))
+    static let stockedGold      = stockedPalette(pastel: UIColor(red: 0.573, green: 0.416, blue: 0.184, alpha: 1), tan: UIColor(red: 0.561, green: 0.392, blue: 0.075, alpha: 1), role: .fill)
+    static let stockedGoldDark  = stockedPalette(pastel: UIColor(red: 0.835, green: 0.702, blue: 0.420, alpha: 1), tan: UIColor(red: 0.870, green: 0.680, blue: 0.290, alpha: 1), role: .accent)
     // Decorative gold is too faint for small labels on tan. Text/actions use a
     // deeper warm-gold shade; artwork, borders and brand illustrations keep their gold.
-    static let textAccentLight  = stockedPalette(pastel: UIColor(red: 0.502, green: 0.373, blue: 0.192, alpha: 1), tan: UIColor(red: 0.263, green: 0.165, blue: 0.031, alpha: 1))
+    static let textAccentLight  = stockedPalette(pastel: UIColor(red: 0.502, green: 0.373, blue: 0.192, alpha: 1), tan: UIColor(red: 0.263, green: 0.165, blue: 0.031, alpha: 1), role: .accent)
     /// Foreground-only accent for legacy screens without an AppSession color role.
     /// Keep fixed brand fills separate so white-on-gold buttons retain their contrast.
-    static let stockedAccentInk = Color(uiColor: UIColor { traits in
+    static let stockedAccentInk = stockedVariantAware(.accent, legacy: UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.835, green: 0.702, blue: 0.420, alpha: 1)
             : (traits[StockedLightThemeTrait.self] == .tan ? UIColor(red: 0.263, green: 0.165, blue: 0.031, alpha: 1) : UIColor(red: 0.502, green: 0.373, blue: 0.192, alpha: 1))
     })
 
     // Success
-    static let stockedGreen     = stockedPalette(pastel: UIColor(red: 0.337, green: 0.420, blue: 0.290, alpha: 1), tan: UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1))
-    static let stockedSuccessInk = Color(uiColor: UIColor { traits in
+    static let stockedGreen     = stockedPalette(pastel: UIColor(red: 0.337, green: 0.420, blue: 0.290, alpha: 1), tan: UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1), role: .success)
+    static let stockedSuccessInk = stockedVariantAware(.success, legacy: UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.694, green: 0.784, blue: 0.627, alpha: 1)
             : (traits[StockedLightThemeTrait.self] == .tan ? UIColor(red: 0.086, green: 0.298, blue: 0.141, alpha: 1) : UIColor(red: 0.337, green: 0.420, blue: 0.290, alpha: 1))
     })
 
     // Text
-    static let stockedBlack     = stockedPalette(pastel: UIColor(red: 0.239, green: 0.196, blue: 0.157, alpha: 1), tan: UIColor(red: 0.102, green: 0.090, blue: 0.071, alpha: 1))
-    static let stockedWhite     = stockedPalette(pastel: UIColor(red: 1.000, green: 0.980, blue: 0.953, alpha: 1), tan: UIColor(red: 0.961, green: 0.949, blue: 0.922, alpha: 1))
+    static let stockedBlack     = stockedPalette(pastel: UIColor(red: 0.239, green: 0.196, blue: 0.157, alpha: 1), tan: UIColor(red: 0.102, green: 0.090, blue: 0.071, alpha: 1), role: .ink)
+    static let stockedWhite     = stockedPalette(pastel: UIColor(red: 1.000, green: 0.980, blue: 0.953, alpha: 1), tan: UIColor(red: 0.961, green: 0.949, blue: 0.922, alpha: 1), role: .ivory)
 
     // Dark mode surface
-    static let darkSurface      = Color(red: 0.129, green: 0.118, blue: 0.102) // #211E1A
-    static let darkLabel        = Color(red: 0.949, green: 0.929, blue: 0.898) // #F2EDE5
+    static let darkSurface      = stockedVariantAware(.surface, legacy: UIColor(red: 0.129, green: 0.118, blue: 0.102, alpha: 1)) // #211E1A
+    static let darkLabel        = stockedVariantAware(.ink, legacy: UIColor(red: 0.949, green: 0.929, blue: 0.898, alpha: 1)) // #F2EDE5
 
     // Semantic status colors — canonical accents for info / success / warning / error.
     // These replace ad-hoc one-off blues/greens/ambers/reds across functional UI so status
@@ -112,17 +116,19 @@ nonisolated extension Color {
     // Text-safe status inks (≥ 4.5:1 on the pastel canvas, the tan canvas and dark mode).
     // The fixed accents above stay for fills and icons; use these whenever the status
     // color IS the text, where the fixed accents measured 1.2–3.4:1.
-    static let stockedErrorInk   = stockedStatusInk(pastel: (0.631, 0.165, 0.122), tan: (0.478, 0.102, 0.071), dark: (0.941, 0.541, 0.494))
-    static let stockedWarningInk = stockedStatusInk(pastel: (0.541, 0.353, 0.043), tan: (0.369, 0.227, 0.016), dark: (0.949, 0.706, 0.369))
+    static let stockedErrorInk   = stockedStatusInk(pastel: (0.631, 0.165, 0.122), tan: (0.478, 0.102, 0.071), dark: (0.941, 0.541, 0.494), role: .danger)
+    static let stockedWarningInk = stockedStatusInk(pastel: (0.541, 0.353, 0.043), tan: (0.369, 0.227, 0.016), dark: (0.949, 0.706, 0.369), role: .warn)
     static let stockedInfoInk    = stockedStatusInk(pastel: (0.122, 0.373, 0.604), tan: (0.090, 0.247, 0.400), dark: (0.549, 0.722, 0.902))
 
     static func stockedStatusInk(pastel: (Double, Double, Double), tan: (Double, Double, Double),
-                                 dark: (Double, Double, Double)) -> Color {
-        Color(uiColor: UIColor { traits in
+                                 dark: (Double, Double, Double), role: StockedColorRole? = nil) -> Color {
+        let legacy = UIColor { traits in
             let c = traits.userInterfaceStyle == .dark ? dark
                 : (traits[StockedLightThemeTrait.self] == .tan ? tan : pastel)
             return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
-        })
+        }
+        guard let role else { return Color(uiColor: legacy) }
+        return stockedVariantAware(role, legacy: legacy)
     }
 
     // Adaptive helpers
@@ -131,16 +137,16 @@ nonisolated extension Color {
     // Secondary/supporting text. Solid (not opacity-based) so contrast is predictable.
     // Solid cocoa-gray supports readable body copy on every pastel surface.
     // Use session.themeSecondaryText instead of opacity-based body copy.
-    static let secondaryLight = stockedPalette(pastel: UIColor(red: 0.388, green: 0.361, blue: 0.329, alpha: 1), tan: UIColor(red: 0.200, green: 0.184, blue: 0.157, alpha: 1))
-    static let secondaryDark  = Color(red: 0.741, green: 0.722, blue: 0.690) // #BDB8B0
+    static let secondaryLight = stockedPalette(pastel: UIColor(red: 0.388, green: 0.361, blue: 0.329, alpha: 1), tan: UIColor(red: 0.200, green: 0.184, blue: 0.157, alpha: 1), role: .muted)
+    static let secondaryDark  = stockedVariantAware(.muted, legacy: UIColor(red: 0.741, green: 0.722, blue: 0.690, alpha: 1)) // #BDB8B0
     static func appSecondary(_ dark: Bool) -> Color { dark ? secondaryDark : secondaryLight }
     static func appAccent(_ dark: Bool) -> Color { dark ? stockedGoldDark : textAccentLight }
     static func appSubtext(_ dark: Bool) -> Color { appSecondary(dark) }
     static func appButton(_ dark: Bool)  -> Color { dark ? Color(white: 0.22) : stockedCharcoal }
     // Ivory reading cards on the warm cream canvas; dark mode retains warm depth.
     // Pastel accents are separate fills so small text remains readable.
-    static let lightSurface = stockedPalette(pastel: UIColor(red: 1.000, green: 0.984, blue: 0.965, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1))
-    static let darkElevatedSurface = Color(red: 0.176, green: 0.161, blue: 0.137) // #2D2923
+    static let lightSurface = stockedPalette(pastel: UIColor(red: 1.000, green: 0.984, blue: 0.965, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1), role: .surface)
+    static let darkElevatedSurface = stockedVariantAware(.surface, legacy: UIColor(red: 0.176, green: 0.161, blue: 0.137, alpha: 1)) // #2D2923
     static func appSurface(_ dark: Bool) -> Color { dark ? darkElevatedSurface : lightSurface }
 
     /// High-contrast reciprocal accent for selected navigation and small focus treatments.
@@ -154,11 +160,11 @@ nonisolated extension Color {
     // Home widgets use roles instead of literal colors so light/dark, increased
     // contrast, and Reduce Transparency remain one coherent theme contract.
     static func widgetSurface(_ dark: Bool, increasedContrast: Bool, reduceTransparency: Bool) -> Color {
-        if dark { return increasedContrast ? Color(red: 0.205, green: 0.188, blue: 0.158) : darkElevatedSurface }
-        if increasedContrast { return stockedPalette(pastel: UIColor(red: 0.965, green: 0.937, blue: 0.894, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1)) }
+        if dark { return increasedContrast ? stockedVariantAware(.surface, legacy: UIColor(red: 0.205, green: 0.188, blue: 0.158, alpha: 1)) : darkElevatedSurface }
+        if increasedContrast { return stockedPalette(pastel: UIColor(red: 0.965, green: 0.937, blue: 0.894, alpha: 1), tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 1), role: .surface) }
         return reduceTransparency ? lightSurface : stockedPalette(
             pastel: UIColor(red: 1.000, green: 0.980, blue: 0.953, alpha: 0.92),
-            tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 0.96))
+            tan: UIColor(red: 0.890, green: 0.820, blue: 0.710, alpha: 0.96), role: .surface)
     }
 
     static func widgetPrimaryText(_ dark: Bool) -> Color { appText(dark) }
@@ -312,8 +318,44 @@ enum StockedType {
         // The standard editorial theme pairs serif headings with clean sans body copy.
         // Explicit Rounded/Monospace/System preferences still apply throughout the app.
         let selection = appFontSelection()
+        // A design variant restyles only the default editorial pairing. Explicit App Font
+        // choices (Rounded, Monospace, System) keep applying everywhere.
+        if selection == .serif,
+           let face = StockedDesignVariant.active.typeface(for: design) {
+            return variantFont(face, size: scaled(size, relativeTo: style), weight: weight)
+        }
         return .system(size: scaled(size, relativeTo: style), weight: weight,
                        design: selection == .serif ? design : selection.design)
+    }
+
+    /// `size` is already Dynamic Type/app-text scaled, so custom faces use a fixed size.
+    static func variantFont(_ face: StockedVariantTypeface, size: CGFloat, weight: Font.Weight) -> Font {
+        switch face {
+        case .system(let design): return .system(size: size, weight: weight, design: design)
+        case .custom(let name):
+            if let face = weightedCustomFace(name, weight: weight) {
+                return .custom(face, fixedSize: size)
+            }
+            return .custom(name, fixedSize: size).weight(weight)
+        }
+    }
+
+    /// Use installed named faces rather than depending on synthetic custom-font weights.
+    static func weightedCustomFace(_ name: String, weight: Font.Weight) -> String? {
+        if name == "AvenirNext-Regular" {
+            switch weight {
+            case .ultraLight, .thin, .light: return "AvenirNext-UltraLight"
+            case .medium: return "AvenirNext-Medium"
+            case .semibold: return "AvenirNext-DemiBold"
+            case .bold: return "AvenirNext-Bold"
+            case .heavy, .black: return "AvenirNext-Heavy"
+            default: return "AvenirNext-Regular"
+            }
+        }
+        if name == "Georgia" {
+            return [.semibold, .bold, .heavy, .black].contains(weight) ? "Georgia-Bold" : "Georgia"
+        }
+        return nil
     }
 
     static func scaled(_ size: CGFloat, relativeTo style: Font.TextStyle? = nil) -> CGFloat {

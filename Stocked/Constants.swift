@@ -59,10 +59,12 @@ enum StockedAPI {
 }
 
 enum StockedUI {
-    static let cornerRadiusSm: CGFloat = 8    // badges, chips, thumbnails
-    static let cornerRadiusMd: CGFloat = 12   // cards, input fields, list rows
-    static let cornerRadiusLg: CGFloat = 20   // sheets, modals, large overlays
-    static let cornerRadiusXL: CGFloat = 30   // pills, primary buttons, capsules
+    // The Current design keeps these exact values; a selected design variant supplies its
+    // own component geometry (16/8/12-point families) through the same constants.
+    nonisolated static var cornerRadiusSm: CGFloat { StockedDesignVariant.active.geometry?.chip ?? 8 }       // badges, chips, thumbnails
+    nonisolated static var cornerRadiusMd: CGFloat { StockedDesignVariant.active.geometry?.component ?? 12 } // cards, input fields, list rows
+    nonisolated static var cornerRadiusLg: CGFloat { StockedDesignVariant.active.geometry?.sheet ?? 20 }     // sheets, modals, large overlays
+    nonisolated static var cornerRadiusXL: CGFloat { StockedDesignVariant.active.geometry?.component ?? 30 } // pills, primary buttons, capsules
     static let animationFast            = 0.18
     static let animationMd              = 0.28
     static let animationSlow            = 0.45
