@@ -2,6 +2,19 @@ import XCTest
 @testable import Stocked
 
 final class FoodIntelligenceTests: XCTestCase {
+    @MainActor
+    func testEquipmentServiceCanBeReleasedBetweenPresentations() {
+        weak var released: EquipmentAvailabilityService?
+        for _ in 0..<20 {
+            autoreleasepool {
+                let service = EquipmentAvailabilityService()
+                released = service
+                XCTAssertNotNil(released)
+            }
+            XCTAssertNil(released)
+        }
+    }
+
     func testZoneClassifierDoesNotTreatSnackNamesAsDairy() {
         XCTAssertEqual(ZoneClassifier.classify("Cheddar chips"), .pantry)
         XCTAssertEqual(ZoneClassifier.classify("Cheese crackers"), .pantry)
