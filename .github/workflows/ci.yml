@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: stocked-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ios-validation:
@@ -27,6 +32,7 @@ jobs:
             clean build
       - name: Run Stocked unit and performance tests on iPhone and iPad
         run: |
+          mkdir -p test-results
           PHONE_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')"
           IPAD_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPad/{print $2; exit}')"
           test -n "$PHONE_ID" && test -n "$IPAD_ID"
@@ -41,10 +47,24 @@ jobs:
             -scheme Stocked \
             -destination "platform=iOS Simulator,id=$PHONE_ID" \
             -skipPackagePluginValidation \
+            -parallel-testing-enabled NO \
+            -resultBundlePath test-results/iphone.xcresult \
             test-without-building
           xcodebuild \
             -project Stocked.xcodeproj \
             -scheme Stocked \
             -destination "platform=iOS Simulator,id=$IPAD_ID" \
             -skipPackagePluginValidation \
+            -parallel-testing-enabled NO \
+            -resultBundlePath test-results/ipad.xcresult \
             test-without-building
+      - name: Preserve test results and snapshot candidates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stocked-test-results
+          path: |
+            test-results/
+            StockedTests/__Snapshots__/**/*.png
+          if-no-files-found: ignore
+          retention-days: 7

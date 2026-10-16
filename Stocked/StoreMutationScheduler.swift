@@ -7,6 +7,10 @@ final class StoreMutationScheduler {
     nonisolated enum Key: Hashable, Sendable { case widgetRefresh, householdPush }
     private var tasks: [Key: Task<Void, Never>] = [:]
 
+    // Avoid the synthesized isolated-deinit runtime crash on iOS 26.2 and older.
+    // This deinitializer performs no actor-isolated work.
+    nonisolated deinit {}
+
     func schedule(_ key: Key, delay: Duration,
                   operation: @escaping @MainActor @Sendable () async -> Void) {
         tasks[key]?.cancel()

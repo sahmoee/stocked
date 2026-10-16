@@ -79,6 +79,8 @@ final class LayoutVisualAuditTests: XCTestCase {
                               scroll: true, view: AnyView(EditProfileView().stockedPresentationSurface()))
             try await capture("dietary-profile-sheet-\(label)", session: session, typeSize: typeSize,
                               scroll: true, view: AnyView(NavigationStack { DietaryProfileView() }.stockedPresentationSurface()))
+            try await capture("kitchen-transfer-\(label)", session: session, typeSize: typeSize,
+                              scroll: true, view: AnyView(NavigationStack { KitchenTransferView() }))
             try await capture("import-kitchen-sheet-\(label)", session: session, typeSize: typeSize,
                               view: AnyView(ImportModeSheet(onImportFile: {}, onMergeFile: {},
                                                            onICloud: {}, onMergeICloud: {}).stockedPresentationSurface()))

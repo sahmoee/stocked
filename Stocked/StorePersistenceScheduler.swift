@@ -4,6 +4,9 @@ import Foundation
 
 @MainActor
 final class StorePersistenceScheduler {
+    // Keep destruction off the synthesized isolated-deinit path on older iOS.
+    nonisolated deinit {}
+
     private var pending: [String: @MainActor () -> Void] = [:]
     private var flushTask: Task<Void, Never>?
 

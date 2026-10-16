@@ -91,8 +91,35 @@ private extension Color {
     static var usesTan: Bool {
         UserDefaults(suiteName: "group.com.sowens.Stocked")?.string(forKey: "stocked.lightTheme") == "Tan"
     }
-    static var wGold: Color { usesTan ? Color(red: 0.561, green: 0.392, blue: 0.075) : Color(red: 0.573, green: 0.416, blue: 0.184) }
-    static var wGreen: Color { usesTan ? Color(red: 0.086, green: 0.298, blue: 0.141) : Color(red: 0.337, green: 0.420, blue: 0.290) }
+    /// Optional app design variant ("stocked.designVariant"). Missing/unknown values and
+    /// "current" keep the Pastel/Tan colors, so older app builds are unaffected.
+    static var designVariant: String? {
+        UserDefaults(suiteName: "group.com.sowens.Stocked")?.string(forKey: "stocked.designVariant")
+    }
+    /// Widgets sit on the system background, so variant accents adapt light/dark.
+    static func variantAccent(light: UInt32, dark: UInt32) -> Color {
+        func ui(_ hex: UInt32) -> UIColor {
+            UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                    blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+        }
+        return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? ui(dark) : ui(light) })
+    }
+    static var wGold: Color {
+        switch designVariant {
+        case "pantryJournal": return variantAccent(light: 0x36533C, dark: 0xA9C79F)
+        case "kitchenStandard": return variantAccent(light: 0x195A47, dark: 0x79C6A9)
+        case "eveningTable": return variantAccent(light: 0x7F6139, dark: 0xD9B990)
+        default: return usesTan ? Color(red: 0.561, green: 0.392, blue: 0.075) : Color(red: 0.573, green: 0.416, blue: 0.184)
+        }
+    }
+    static var wGreen: Color {
+        switch designVariant {
+        case "pantryJournal": return variantAccent(light: 0x3D6B47, dark: 0x9FD0A0)
+        case "kitchenStandard": return variantAccent(light: 0x2E7D4F, dark: 0x8FD3A8)
+        case "eveningTable": return variantAccent(light: 0x3D6B47, dark: 0xA9D3AE)
+        default: return usesTan ? Color(red: 0.086, green: 0.298, blue: 0.141) : Color(red: 0.337, green: 0.420, blue: 0.290)
+        }
+    }
     static var wBg: Color { usesTan ? Color(red: 0.780, green: 0.671, blue: 0.506) : Color(red: 0.992, green: 0.969, blue: 0.937) }
     static var wCharcoal: Color { usesTan ? Color(red: 0.176, green: 0.173, blue: 0.165) : Color(red: 0.263, green: 0.224, blue: 0.184) }
 }
@@ -150,7 +177,7 @@ struct StockedWidgetView: View {
                 if s.isStale { Label("Open to refresh", systemImage: "arrow.clockwise").widgetScaledFont(11).foregroundStyle(.secondary) }
             }
             HStack(spacing: 12) {
-                metric("\(s.stockPercent)%", "stocked", "chart.bar.fill", stockTint(s.stockPercent))
+                metric("\(s.displayStockPercent)%", "stocked", "chart.bar.fill", stockTint(s.displayStockPercent))
                 metric("\(s.expiringCount)", "use soon", "clock.badge.exclamationmark", .orange)
                 metric("\(s.groceryCount)", "to buy", "cart.fill", .wGold)
             }
@@ -189,9 +216,13 @@ struct StockedWidgetView: View {
                 Text("Stocked.").widgetScaledFont(14, weight: .bold, design: .serif).foregroundStyle(.primary)
             }
             Spacer(minLength: 0)
-            WidgetFittedValue(value: "\(s.stockPercent)%", preferredSize: 40)
-                .foregroundStyle(stockTint(s.stockPercent))
-            Text("stocked").widgetScaledFont(12).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                WidgetFittedValue(value: "\(s.displayStockPercent)%", preferredSize: 40)
+                    .foregroundStyle(stockTint(s.displayStockPercent))
+                Text("stocked").widgetScaledFont(12).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(s.displayStockPercent) percent stocked")
             Spacer(minLength: 0)
             if s.expiringCount > 0 {
                 Label("\(s.expiringCount) expiring", systemImage: "clock.badge.exclamationmark")
@@ -221,14 +252,16 @@ struct StockedWidgetView: View {
     private func mediumContent(tileWidth: CGFloat, spacing: CGFloat) -> some View {
         HStack(spacing: spacing) {
             VStack(spacing: 2) {
-                WidgetFittedValue(value: "\(s.stockPercent)%", preferredSize: 38)
-                    .foregroundStyle(stockTint(s.stockPercent))
+                WidgetFittedValue(value: "\(s.displayStockPercent)%", preferredSize: 38)
+                    .foregroundStyle(stockTint(s.displayStockPercent))
                 Text("stocked").widgetScaledFont(11).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(width: tileWidth)
             .padding(.vertical, 10)
-            .background(stockTint(s.stockPercent).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+            .background(stockTint(s.displayStockPercent).opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(s.displayStockPercent) percent stocked")
 
             VStack(alignment: .leading, spacing: 6) {
                 if let meal = s.todayMeal, !meal.isEmpty {
@@ -264,16 +297,22 @@ struct StockedWidgetView: View {
             }
             Spacer(minLength: 0)
         }
+        // One VoiceOver stop per row ("3 expiring, Spinach, Yogurt") with the icon hidden.
+        .accessibilityElement(children: .combine)
     }
 
     // Lock Screen — circular: stock gauge.
     private var circular: some View {
-        Gauge(value: Double(s.stockPercent), in: 0...100) {
+        Gauge(value: Double(s.displayStockPercent), in: 0...100) {
             Image(systemName: "refrigerator.fill")
         } currentValueLabel: {
-            Text("\(s.stockPercent)")
+            Text("\(s.displayStockPercent)")
         }
         .gaugeStyle(.accessoryCircular)
+        // VoiceOver read the raw symbol and a bare number ("refrigerator, 72").
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Kitchen stocked")
+        .accessibilityValue("\(s.displayStockPercent) percent")
         .widgetURL(URL(string: "stocked://inventory"))   // #13 tap → Inventory
     }
 
@@ -283,7 +322,7 @@ struct StockedWidgetView: View {
             if s.expiringCount > 0 {
                 Label("\(s.expiringCount) expiring soon", systemImage: "clock.badge.exclamationmark")
             } else {
-                Label("\(s.stockPercent)% stocked", systemImage: "refrigerator.fill")
+                Label("\(s.displayStockPercent)% stocked", systemImage: "refrigerator.fill")
             }
         }
         .widgetURL(URL(string: "stocked://inventory"))   // #13 tap → Inventory
@@ -292,7 +331,7 @@ struct StockedWidgetView: View {
     // Lock Screen — rectangular: stock + next concern.
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("\(s.stockPercent)% stocked").widgetScaledFont(15, weight: .bold)
+            Text("\(s.displayStockPercent)% stocked").widgetScaledFont(15, weight: .bold)
             if s.expiringCount > 0 {
                 Text("\(s.expiringCount) expiring soon").widgetScaledFont(12)
             } else if let meal = s.todayMeal, !meal.isEmpty {
@@ -334,6 +373,9 @@ struct ExpiringSoonWidgetView: View {
                 Image(systemName: "clock")
             } currentValueLabel: { Text("\(s.expiringCount)").fontWeight(.bold) }
             .gaugeStyle(.accessoryCircular)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Use soon")
+            .accessibilityValue("\(s.expiringCount) expiring")
             .widgetURL(URL(string: "stocked://inventory"))
         } else if family == .accessoryInline {
             Label(s.expiringCount == 0 ? "Nothing expiring" : "\(s.expiringCount) to use soon", systemImage: "clock.badge.checkmark")

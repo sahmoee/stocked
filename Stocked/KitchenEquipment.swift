@@ -135,6 +135,10 @@ final class EquipmentAvailabilityService {
 
     init() { loadIfToday() }
 
+    // No actor-bound cleanup is needed. Explicit nonisolated destruction avoids
+    // the Swift 6.2 isolated-deinit runtime crash when a hosted view releases it.
+    nonisolated deinit {}
+
     /// Owned equipment, typed, from the profile labels.
     func owned(from profile: UserCookingProfile) -> [KitchenEquipment] {
         var out: [KitchenEquipment] = []

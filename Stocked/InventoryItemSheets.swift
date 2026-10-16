@@ -888,11 +888,13 @@ struct AddItemSheet: View {
                         Button { if totalUnits > 1 { totalUnits -= 1; currentUnits = min(currentUnits, totalUnits) } } label: {
                             Image(systemName: "minus.circle").scaledFont(18).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }.buttonStyle(.plain)
+                        .stockedIconButton("Decrease amount it holds")
                         Text("\(Int(totalUnits))")
                             .scaledFont(18, weight: .bold, design: .serif).foregroundStyle(Color.stockedAccentInk).frame(minWidth: 34)
                         Button { totalUnits += 1 } label: {
                             Image(systemName: "plus.circle").scaledFont(18).foregroundStyle(session.themeTextColor.opacity(0.6))
                         }.buttonStyle(.plain)
+                        .stockedIconButton("Increase amount it holds")
                         Text(containerType.isEmpty ? "total" : "per \(containerType)")
                             .scaledFont(13).foregroundStyle(session.themeSecondaryText)
                         Spacer()

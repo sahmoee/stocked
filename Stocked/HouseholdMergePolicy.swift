@@ -9,7 +9,12 @@ nonisolated enum HouseholdMergePolicy {
                            remoteWriterID: String,
                            localUpdatedAt: Double,
                            localWriterID: String) -> Bool {
-        if remoteUpdatedAt != localUpdatedAt { return remoteUpdatedAt > localUpdatedAt }
+        // A NaN/±inf stamp (corrupt row or a buggy peer) compares false against everything,
+        // which pinned the record forever (or let +inf beat every future edit). Non-finite
+        // stamps rank as "unknown/oldest" so any real edit wins and sync converges.
+        let remote = sanitizedTimestamp(remoteUpdatedAt)
+        let local = sanitizedTimestamp(localUpdatedAt)
+        if remote != local { return remote > local }
         guard remoteWriterID != localWriterID else { return false }
         return remoteWriterID > localWriterID
     }
@@ -17,4 +22,9 @@ nonisolated enum HouseholdMergePolicy {
     /// Returns the larger server revision. Revisions are advisory ordering metadata; entity-level
     /// timestamps still decide individual records.
     static func advancedRevision(local: Int, remote: Int) -> Int { max(local, remote) }
+
+    /// Finite, non-negative milliseconds; anything else is treated as 0 (never edited).
+    static func sanitizedTimestamp(_ value: Double) -> Double {
+        value.isFinite && value > 0 ? value : 0
+    }
 }

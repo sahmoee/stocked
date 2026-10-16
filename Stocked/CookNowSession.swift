@@ -103,6 +103,8 @@ nonisolated struct CookNowSessionSnapshot: Codable, Sendable {
 @Observable
 @MainActor
 final class CookNowSession {
+    // Empty explicit destruction avoids swiftlang/swift#88036 on older iOS runtimes.
+    nonisolated deinit {}
 
     // MARK: Persistence configuration
     private static let storageKey = "cookNowSession_v1"

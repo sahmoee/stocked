@@ -45,11 +45,14 @@ private struct StockedGlassSurface: ViewModifier {
                                        lineWidth: contrast == .increased ? 1.5 : 0.65)
                         .allowsHitTesting(false)
                 }
-        } else if reduceTransparency || contrast == .increased {
+        } else if reduceTransparency || contrast == .increased || session.designVariant != .current {
+            // Design variants use quiet opaque surfaces with hairline borders instead of glass.
             content
                 .background(StockedGlassKit.opaqueSurface(for: role, dark: session.isDarkMode), in: shape)
                 .overlay {
-                    shape.strokeBorder(session.themeSecondaryText.opacity(contrast == .increased ? 0.8 : 0.35),
+                    shape.strokeBorder(contrast == .increased ? session.themeSecondaryText.opacity(0.8)
+                                       : (session.designVariant != .current ? StockedPastel.border(session.isDarkMode)
+                                          : session.themeSecondaryText.opacity(0.35)),
                                        lineWidth: contrast == .increased ? 1.5 : 1)
                         .allowsHitTesting(false)
                 }
