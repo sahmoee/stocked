@@ -1377,6 +1377,9 @@ struct InventoryItemRow: View {
 
 /// Reference-typed memo for InventoryView.items (mutated during body without invalidating it).
 final class InventoryListCache {
+    // Explicit nonisolated destruction avoids the older isolated-deinit runtime bug.
+    nonisolated deinit {}
+
     struct Key: Equatable {
         let revision: Int
         let zone: String

@@ -46,6 +46,10 @@ nonisolated private struct GuestDataDiskSnapshot: @unchecked Sendable {
 @Observable
 @MainActor
 class GuestDataStore {
+    // Synchronous XCTest/SwiftUI destruction can hit the older isolated-deinit
+    // runtime bug. No actor-isolated cleanup is performed here.
+    nonisolated deinit {}
+
     private let ud = UserDefaults.standard
 
     @ObservationIgnored private var isSyncingLowStock = false   // re-entrancy guard (#1) — internal, not observed

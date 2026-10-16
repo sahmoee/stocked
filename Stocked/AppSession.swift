@@ -9,6 +9,9 @@ import os
 // MARK: - AppSession
 @Observable @MainActor
 class AppSession {
+    // Empty explicit destruction avoids swiftlang/swift#88036 on older iOS runtimes.
+    nonisolated deinit {}
+
     var isLoggedIn:  Bool        = false
     var accountType: AccountType = .guest {
         didSet {
