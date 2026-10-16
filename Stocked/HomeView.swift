@@ -131,7 +131,8 @@ struct HomeView: View {
                 if session.designVariant == .current {
                     StockedPastelHome(metrics: kitchenMetrics,
                         onExpiring: { goExpiringList = true },
-                        onRecipes: { goReadyToCook = true })
+                        onRecipes: { goReadyToCook = true },
+                        onLowStock: { goLowStock = true })
                         .padding(.bottom, 20)
                 } else {
                     // Optional design variants: short hero, grouped sections, one primary action.
@@ -340,13 +341,11 @@ struct HomeView: View {
                         .font(.stockedSystem(size: isWideHomeCanvas ? 16 : 12.5, weight: .semibold))
                         .foregroundStyle(session.themeTextColor)
 
-
                     Text(lowStockCount == 0 ? "Nothing running low right now. Keep cooking."
                                             : "\(lowStockCount) item\(lowStockCount == 1 ? "" : "s") could use attention.")
                         .font(.stockedSystem(size: isWideHomeCanvas ? 14 : 11.5))
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -367,7 +366,6 @@ struct HomeView: View {
                           ? .stockedSerif(13, weight: .bold, relativeTo: .headline)
                           : .stockedSerif(22, weight: .bold, relativeTo: .title2))
                     .foregroundStyle(session.themeTextColor)
-
 
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
@@ -523,7 +521,6 @@ struct HomeView: View {
                         .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8.5 : 12))
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
@@ -582,7 +579,6 @@ struct HomeView: View {
                                   ? .stockedSerif(14.25, weight: .bold, relativeTo: .headline)
                                   : .stockedSerif(17, weight: .bold, relativeTo: .headline))
                             .foregroundStyle(session.themeTextColor)
-
 
                             .allowsTightening(true)
                             .fixedSize(horizontal: false, vertical: true)

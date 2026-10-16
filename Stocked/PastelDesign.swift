@@ -114,6 +114,7 @@ struct StockedPastelHome: View {
     var metrics: KitchenMetrics
     var onExpiring: () -> Void
     var onRecipes: () -> Void
+    var onLowStock: () -> Void
     @State private var counts: [MockCategory: Int] = [:]
 
     private var dark: Bool { session.isDarkMode }
@@ -145,6 +146,7 @@ struct StockedPastelHome: View {
                 }
                 .buttonStyle(StockedWidgetButtonStyle())
             }
+            kitchenActions
             Button(action: onRecipes) {
                 HStack(spacing: 12) {
                     Image(systemName: "lightbulb")
@@ -176,6 +178,46 @@ struct StockedPastelHome: View {
             for item in session.guestStore.inventoryItems { result[MockCategory.classify(item), default: 0] += 1 }
             counts = result
         }
+    }
+
+    // A compact bento row: live figures double as shortcuts, using the existing
+    // metrics snapshot rather than scanning the kitchen again while rendering.
+    private var kitchenActions: some View {
+        let arrangement = layout.isAccessibilityText || layout.contentWidth < 360
+            ? AnyLayout(VStackLayout(spacing: 8))
+            : AnyLayout(StockedEqualHeightRow(spacing: 8))
+        return arrangement {
+            NavigationLink { GroceryListView() } label: {
+                metricTile(value: metrics.groceryToBuy, title: "To buy",
+                           detail: "Open grocery list", icon: "basket", fill: StockedPastel.oat(dark))
+            }
+            .buttonStyle(StockedWidgetButtonStyle())
+            Button(action: onLowStock) {
+                metricTile(value: metrics.lowStockCount, title: "Running low",
+                           detail: "Review your supplies", icon: "cabinet", fill: StockedPastel.garden(dark))
+            }
+            .buttonStyle(StockedWidgetButtonStyle())
+        }
+    }
+
+    private func metricTile(value: Int, title: String, detail: String, icon: String, fill: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(value.formatted()).font(.stockedSerif(28, weight: .bold, relativeTo: .title))
+                Spacer(minLength: 8)
+                Image(systemName: icon).font(.stockedSystem(size: 18)).accessibilityHidden(true)
+            }
+            Text(title).font(.stockedSans(15, weight: .semibold))
+            Text(detail).font(.stockedSans(12)).foregroundStyle(session.themeSecondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(session.themeTextColor)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .stockedPastelCard(fill: fill, radius: 18)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(value)")
+        .accessibilityHint(detail)
     }
 
     private var hero: some View {

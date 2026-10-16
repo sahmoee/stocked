@@ -179,7 +179,10 @@ struct SettingsPageView: View {
 
     private var profileCard: some View {
         Button { activeSheet = .editProfile } label: {
-            HStack(alignment: .center, spacing: 14) {
+            let arrangement = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+                : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+            arrangement {
                 ProfileAvatarView(size: 52)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(session.userName.isEmpty ? "Your kitchen" : session.userName)
@@ -215,7 +218,7 @@ struct SettingsPageView: View {
     }
 
     private var accountSubtitle: String {
-        session.accountType == .guest ? "Guest · \(session.userName)" : "Member · \(session.userName)"
+        session.accountType == .guest ? "Guest kitchen" : "Stocked member"
     }
 
     // MARK: - Accordion card
@@ -384,5 +387,4 @@ struct SettingsPageView: View {
                             URLQueryItem(name: "body", value: body)]
         return comps.url
     }
-
 }

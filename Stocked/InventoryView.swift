@@ -59,6 +59,7 @@ struct InventoryView: View {
     @Environment(AppSession.self) var session
     @Environment(\.stockedDevice) private var device
     @Environment(\.stockedMotion) private var motion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var inventorySearchFocused: Bool
     @State private var selectedZone   = "Fridge"
     @State private var expandedSubs:   Set<String> = []
@@ -222,7 +223,19 @@ struct InventoryView: View {
                 }
                 .padding(.horizontal, 24).padding(.bottom, 16)
 
-                // Zone tabs remain scrollable so long localized labels retain their size.
+                // Compact segmented-style filters give way to a native menu when
+                // accessibility text needs the full width for the chosen zone.
+                if dynamicTypeSize.isAccessibilitySize {
+                    Picker("Storage zone", selection: $selectedZone) {
+                        ForEach(zones, id: \.self) { zone in
+                            Label(zone, systemImage: zoneIcon(zone)).tag(zone)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(session.themeContrastAccent)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.horizontal, 24).padding(.bottom, 14)
+                } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(zones, id: \.self) { z in
@@ -247,7 +260,9 @@ struct InventoryView: View {
                     }
                     .stockedScrollTargetLayout().padding(.horizontal, 24)
                 }
-                .stockedHorizontalSnap().padding(.bottom, 14)
+                .stockedHorizontalSnap()
+                    .padding(.bottom, 14)
+                }
 
                 // ── Zone title + Sort pill (#245 exact) ──────────────────
                 HStack(alignment: .bottom) {
