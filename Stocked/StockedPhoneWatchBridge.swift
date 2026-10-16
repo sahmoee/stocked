@@ -33,7 +33,7 @@ import Observation
             _ = store.hasCompletedInitialHydration
             _ = [store.inventoryRevision, store.groceryRevision, store.recipeRevision, store.planRevision]
             _ = HouseholdSync.shared.joinCode; _ = HouseholdSync.shared.myPermissions
-            _ = appSession?.isLoggedIn; _ = appSession?.forceLogin; _ = appSession?.appleUserID; _ = appSession?.preferredStore
+            _ = appSession?.isLoggedIn; _ = appSession?.forceLogin; _ = appSession?.appleUserID; _ = appSession?.preferredStore; _ = appSession?.designVariant
         } onChange: { [weak self] in
             Task { @MainActor in self?.schedule(); self?.observe() }
         }
@@ -185,6 +185,7 @@ import Observation
             try ensureScope(); journal.revision &+= 1
             try KitchenWatchDisk.save(journal, name: "phone-journal")
             var snapshot = snapshot(store); snapshot.handshake = replyNonce
+            snapshot.designVariant = appSession?.designVariant.rawValue
             transport.context(try KitchenWatch.bounded(snapshot))
             replyNonce = nil
             lastSync = snapshot.date

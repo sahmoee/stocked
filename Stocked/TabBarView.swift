@@ -110,7 +110,9 @@ struct StockedTabBar: View {
             .padding(.top, layoutMetrics.tabBarTopPadding)
             .padding(.bottom, layoutMetrics.tabBarBottomPadding)
         }
-        .background(session.themeBgColor.ignoresSafeArea(edges: .bottom))
+        // Variants sit the bar on their surface color so the selected pill reads clearly.
+        .background((session.designVariant == .current ? session.themeBgColor : session.themeCardColor)
+            .ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) {
             Rectangle().fill(StockedPastel.border(session.isDarkMode)).frame(height: 0.6)
         }
@@ -145,8 +147,9 @@ struct StockedTabBar: View {
                                                        lineCap: .round, lineJoin: .round))
                             .frame(width: layoutMetrics.tabBarIconSize,
                                    height: layoutMetrics.tabBarIconSize)
-                    } else if tab == .home {
-                        // Home uses the filled house when active, outline when not.
+                    } else if tab == .home || (isActive && session.designVariant != .current) {
+                        // Home uses the filled house when active, outline when not; variants
+                        // fill every selected symbol.
                         Image(systemName: isActive ? tab.iconFilled : tab.icon)
                             .font(.stockedSystem(size: layoutMetrics.tabBarIconSize,
                                           weight: isActive ? .semibold : .regular))
@@ -172,6 +175,14 @@ struct StockedTabBar: View {
             .padding(.horizontal, 3)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, minHeight: layoutMetrics.tabBarItemMinimumHeight)
+            .background {
+                // Design variants: an explicit filled selection, not color alone.
+                if isActive, let palette = session.variantPalette {
+                    RoundedRectangle(cornerRadius: layoutMetrics.tabBarCornerRadius, style: .continuous)
+                        .fill(palette.color(.soft))
+                        .padding(.horizontal, 2)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -128,13 +128,25 @@ struct HomeView: View {
                     gettingStartedCard
                         .padding(.bottom, 20)
                 }
-                StockedPastelHome(metrics: kitchenMetrics,
-                    onExpiring: { goExpiringList = true },
-                    onRecipes: { goReadyToCook = true })
-                    .padding(.bottom, 20)
+                if session.designVariant == .current {
+                    StockedPastelHome(metrics: kitchenMetrics,
+                        onExpiring: { goExpiringList = true },
+                        onRecipes: { goReadyToCook = true })
+                        .padding(.bottom, 20)
+                } else {
+                    // Optional design variants: short hero, grouped sections, one primary action.
+                    StockedVariantHome(metrics: kitchenMetrics,
+                        readyPicks: readyToCookPicks,
+                        onExpiring: { goExpiringList = true },
+                        onLowStock: { goLowStock = true },
+                        onRecipes: { goReadyToCook = true },
+                        onAdd: { activeActionMenu = .add })
+                        .padding(.bottom, 24)
+                }
                 HStack {
                     Text("Your shortcuts")
                         .font(.stockedSerif(22, weight: .semibold))
+                        .accessibilityAddTraits(.isHeader)
                     Spacer()
                     Button { activeHomeSheet = .widgetGallery } label: {
                         Image(systemName: "plus").frame(width: 44, height: 44)

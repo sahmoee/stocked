@@ -141,9 +141,10 @@ final class QAReporterPresenter {
         let host = UIHostingController(rootView: QAReportComposer(
             draft: draft,
             onClose: { [weak self] in self?.dismiss() }))
-        let dark = UserDefaults.standard.bool(forKey: DBKey.darkMode.rawValue)
+        let variant = StockedDesignVariant.active
+        let dark = variant.forcesDarkAppearance || UserDefaults.standard.bool(forKey: DBKey.darkMode.rawValue)
         host.overrideUserInterfaceStyle = dark ? .dark : .light
-        host.view.backgroundColor = UIColor(Color.appBg(dark))
+        host.view.backgroundColor = variant.palette(dark: dark)?.uiColor(.bg) ?? UIColor(Color.appBg(dark))
         host.modalPresentationStyle = .pageSheet
         // Configured here rather than with `.presentationDetents` in the SwiftUI
         // body: those modifiers describe a sheet SwiftUI is presenting, and this
@@ -433,7 +434,10 @@ enum QAScreenshot {
 /// that was attached for you. Deliberately short: a form long enough to be a
 /// chore is a form people stop filling in by the third bug.
 struct QAReportComposer: View {
-    @AppStorage(DBKey.darkMode.rawValue) private var dark = false
+    @AppStorage(DBKey.darkMode.rawValue) private var darkPreference = false
+    @AppStorage(StockedDesignVariant.defaultsKey) private var designRaw = StockedDesignVariant.current.rawValue
+    private var design: StockedDesignVariant { StockedDesignVariant(storedValue: designRaw) }
+    private var dark: Bool { darkPreference || design.forcesDarkAppearance }
     let draft: QAReportDraft
     /// Explicit rather than `@Environment(\.dismiss)`. This view is the root of a
     /// `UIHostingController` that UIKit presented, and the environment's dismiss
@@ -482,6 +486,7 @@ struct QAReportComposer: View {
             }
         }
         .environment(\.stockedLightTheme, StockedLightTheme(rawValue: UserDefaults.standard.string(forKey: StockedLightTheme.defaultsKey) ?? "") ?? .pastel)
+        .environment(\.stockedDesignVariant, design)
         .preferredColorScheme(dark ? .dark : .light)
         .tint(Color.appAccent(dark))
         // Detents and the grabber are set on the UIKit sheet presentation

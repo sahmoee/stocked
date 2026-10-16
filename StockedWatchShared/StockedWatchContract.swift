@@ -36,10 +36,30 @@ nonisolated enum KitchenWatch {
         var offsets: [String: Int] = [:]; var queries: [String: String] = [:]
         var handshake: UUID? = nil
         var preferredStore: String = ""
+        /// Additive paired-phone appearance. Old snapshots omit it; unknown values use Current.
+        var designVariant: String? = nil
+        var variantAccentHex: UInt32? {
+            switch designVariant {
+            case "pantryJournal": return 0xA9C79F
+            case "kitchenStandard": return 0x79C6A9
+            case "eveningTable": return 0xD9B990
+            default: return nil
+            }
+        }
+        var variantCornerRadius: Double? {
+            switch designVariant {
+            case "pantryJournal": return 16
+            case "kitchenStandard": return 8
+            case "eveningTable": return 12
+            default: return nil
+            }
+        }
+        var usesEditorialHeadings: Bool { designVariant == "pantryJournal" || designVariant == "eveningTable" }
+
         var isValid: Bool {
             Self.validDate(date) && grocery.count <= 160 && inventory.count <= 120
                 && recipes.count <= 40 && meals.count <= 40 && permissions.count <= 12 && totals.count == 4
-                && totals.allSatisfy { $0 >= 0 } && preferredStore.count <= 80 && notice.count <= 300
+                && (designVariant?.count ?? 0) <= 64 && totals.allSatisfy { $0 >= 0 } && preferredStore.count <= 80 && notice.count <= 300
                 && offsets.count <= 4 && offsets.allSatisfy { ["grocery", "inventory", "recipes", "meals"].contains($0.key) && (0...(Int.max - 160)).contains($0.value) }
                 && queries.count <= 4 && queries.allSatisfy { ["grocery", "inventory", "recipes", "meals"].contains($0.key) && $0.value.count <= 80 }
                 && grocery.allSatisfy { $0.revision.isFinite && $0.revision >= 0 && $0.quantity >= 0 && $0.name.count <= 160 && $0.size.count <= 80 }
