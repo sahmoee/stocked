@@ -25,7 +25,9 @@ import Foundation
         }
         appearance.designVariant = "futureDesign"
         check(appearance.variantAccentHex == nil && appearance.variantCornerRadius == nil, "Unknown Watch variant uses Current")
-        var oldJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(appearance)) as! [String: Any]
+        guard var oldJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(appearance)) as? [String: Any] else {
+            fatalError("Expected a Watch snapshot JSON object")
+        }
         oldJSON.removeValue(forKey: "designVariant")
         let oldSnapshot = try JSONDecoder().decode(KitchenWatch.Snapshot.self, from: JSONSerialization.data(withJSONObject: oldJSON))
         check(oldSnapshot.designVariant == nil, "Pre-variant snapshots still decode")

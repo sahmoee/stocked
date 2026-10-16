@@ -18,8 +18,8 @@ enum StockedDevice {
 
     static func current(width: CGFloat, hSize: UserInterfaceSizeClass?) -> StockedDevice {
         if hSize == .regular { return .tablet }
-        if width <= 375      { return .small }
-        if width <= 413      { return .regular }
+        if width <= 375 { return .small }
+        if width <= 413 { return .regular }
         return .large
     }
 
@@ -317,7 +317,7 @@ enum StockedScreen {
     static let cookButtonSizeRegular: Double = 260
     static let cookButtonSizeLarge:   Double = 280
     static func defaultCookButtonSize(forWidth w: CGFloat) -> Double {
-        if w <= cookButtonSmallMaxWidth   { return cookButtonSizeSmall }
+        if w <= cookButtonSmallMaxWidth { return cookButtonSizeSmall }
         if w <= cookButtonRegularMaxWidth { return cookButtonSizeRegular }
         return cookButtonSizeLarge
     }

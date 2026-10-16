@@ -143,7 +143,6 @@ struct SettingsContent: View {
         }
     }
 
-
     // MARK: - Helpers
     // Header label for an expandable preferences field (DisclosureGroup). Mirrors the
     // settingsRow icon-tile styling so the four fields read consistently.
@@ -250,10 +249,10 @@ struct SidebarContent: View {
 
             Section {
                 sidebarButton("Scan Receipt",      icon: "camera.viewfinder") { showReceipt   = true }
-                sidebarButton("Add Items",          icon: "plus.circle")       { showAddItems  = true }
-                sidebarButton("Global Search",      icon: "magnifyingglass")   { showSearch    = true }
-                sidebarButton("Stats",              icon: "chart.bar")         { showStats     = true }
-                sidebarButton("Databases",          icon: "cylinder.split.1x2"){ showDatabases = true }
+                sidebarButton("Add Items",          icon: "plus.circle") { showAddItems  = true }
+                sidebarButton("Global Search",      icon: "magnifyingglass") { showSearch    = true }
+                sidebarButton("Stats",              icon: "chart.bar") { showStats     = true }
+                sidebarButton("Databases",          icon: "cylinder.split.1x2") { showDatabases = true }
             } header: { sidebarHeader("Quick Actions") }
 
             Section {
@@ -268,7 +267,6 @@ struct SidebarContent: View {
                 BuildInfoFooter()
             }
             .listRowBackground(Color.clear)
-
         }
         .listStyle(.sidebar)
         .navigationTitle("Stocked.")
@@ -433,9 +431,6 @@ struct DrawerContent: View {
                         orderStore.move(in: .insights, from: source, to: destination)
                     }
                 } header: { drawerHeader("Insights") }
-
-
-
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
@@ -649,7 +644,6 @@ struct BuildInfoFooter: View {
         }
     }
 }
-
 
 // MARK: - Household Sync Sheet
 struct HouseholdSyncSheet: View {
@@ -956,7 +950,6 @@ struct PreferredStorePopout: View {
         .stockedPresentationSurface()
     }
 }
-
 
 // MARK: - #245 — Help Center (mockup Settings row)
 struct HelpCenterSheet: View {
