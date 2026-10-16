@@ -1,9 +1,4 @@
-// DesignVariant.swift — Optional whole-app design variants layered over the existing theme.
-//
-// `current` is the shipped Pastel/Tan design and is always the default. The other variants
-// (Pantry Journal, Kitchen Standard, Evening Table) re-map the existing semantic color
-// tokens, typography roles and component geometry; they never rewrite the stored Light
-// Theme, Dark Mode or App Font preferences, so returning to `current` restores them exactly.
+// Legacy design compatibility. Only the standard Stocked design remains selectable.
 import SwiftUI
 import UIKit
 
@@ -15,16 +10,19 @@ nonisolated enum StockedDesignVariant: String, CaseIterable, Codable, Sendable, 
     case kitchenStandard
     case eveningTable
 
+    // Retired cases remain decodable for compatibility with older backups and extensions.
+    // Only the standard design is available; stored selections migrate through init(storedValue:).
+    static let allCases: [StockedDesignVariant] = [.current]
+
     /// Same key in the app's standard defaults and the shared App Group (widgets).
     static let defaultsKey = "stocked.designVariant"
     static let appGroupSuite = "group.com.sowens.Stocked"
 
     var id: String { rawValue }
 
-    /// Missing, empty, or unknown values (for example from a newer build or a corrupt
-    /// backup) always fall back to the shipped design rather than failing.
+    /// Removed, missing and unknown selections all resolve to the standard design.
     init(storedValue: String?) {
-        self = storedValue.flatMap(Self.init(rawValue:)) ?? .current
+        self = .current
     }
 
     /// The persisted selection. Typography and geometry helpers that have no environment
@@ -94,8 +92,8 @@ nonisolated enum StockedDesignVariant: String, CaseIterable, Codable, Sendable, 
     /// Persist to both the app and the App Group so widgets/extensions can follow along.
     func persist(to standard: UserDefaults = .standard,
                  group: UserDefaults? = UserDefaults(suiteName: StockedDesignVariant.appGroupSuite)) {
-        standard.set(rawValue, forKey: Self.defaultsKey)
-        group?.set(rawValue, forKey: Self.defaultsKey)
+        standard.set(Self.current.rawValue, forKey: Self.defaultsKey)
+        group?.set(Self.current.rawValue, forKey: Self.defaultsKey)
     }
 }
 

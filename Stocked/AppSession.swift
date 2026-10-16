@@ -80,11 +80,12 @@ class AppSession {
             WidgetCenter.shared.reloadAllTimelines()
         }
     }
-    /// Optional whole-app design. `current` (the default for new and existing users) is the
-    /// shipped Pastel/Tan design; other variants never rewrite lightTheme, darkModePreference
-    /// or appFont, so switching back restores those choices exactly.
+    /// The standard Stocked design. Legacy selections are normalized for old callers
+    /// and backups without changing independent palette, dark-mode or font preferences.
     var designVariant: StockedDesignVariant {
         didSet {
+            // Retired selections cannot be reactivated by an older caller or backup.
+            if designVariant != .current { designVariant = .current }
             // An explicit Current choice also replaces an unknown/missing persisted value.
             guard designVariant != oldValue || UserDefaults.standard.string(forKey: StockedDesignVariant.defaultsKey) != designVariant.rawValue else { return }
             designVariant.persist()
@@ -387,14 +388,9 @@ class AppSession {
         self.darkModePreference   = ud.bool(forKey: DBKey.darkMode.rawValue)
         let storedVariant         = ud.string(forKey: StockedDesignVariant.defaultsKey)
         self.designVariant        = StockedDesignVariant(storedValue: storedVariant)
-        // Mirror the effective default/unknown selection to widgets without rewriting
-        // the app's stored value. Widget consumers already fall back for unknown strings.
-        if let group = UserDefaults(suiteName: StockedDesignVariant.appGroupSuite) {
-            let widgetValue = storedVariant ?? StockedDesignVariant.current.rawValue
-            if group.string(forKey: StockedDesignVariant.defaultsKey) != widgetValue {
-                group.set(widgetValue, forKey: StockedDesignVariant.defaultsKey)
-            }
-        }
+        // Retired designs return to the standard theme while keeping the user's
+        // independent light palette, dark-mode and font preferences intact.
+        StockedDesignVariant.current.persist()
         let savedFontV            = ud.object(forKey: DBKey.fontVerticalOffset.rawValue)
         self.fontVerticalOffset   = savedFontV != nil ? ud.double(forKey: DBKey.fontVerticalOffset.rawValue) : 0
         let savedFontH            = ud.object(forKey: DBKey.fontHorizontalOffset.rawValue)

@@ -9,6 +9,7 @@ import SwiftUI
 /// on which screen you opened.
 struct PreferencesSectionView: View {
     @Environment(AppSession.self) private var session
+    @State private var showsTextOptions = false
     @AppStorage("stocked.appTextSize") private var appTextSize = AppTextSize.standard.rawValue
 
     var onPreferredStore: () -> Void = {}
@@ -16,108 +17,113 @@ struct PreferencesSectionView: View {
     var onAppIcon: () -> Void = {}
     var onDietaryProfile: (() -> Void)? = nil
 
+    enum Category { case all, appearance, cooking, kitchen, interaction }
+    var category: Category = .all
+
     private let dietaryStyles = ["Omnivore", "Vegetarian", "Vegan", "Pescatarian"]
 
     var body: some View {
         let dark = session.isDarkMode
         VStack(alignment: .leading, spacing: StockedSpacing.md) {
-            settingsGroup(dark: dark, title: "Appearance", detail: "Choose how Stocked looks while you plan, shop, and cook.") {
-                StockedDesignVariantPicker()
+            if category == .all || category == .appearance {
+                settingsGroup(dark: dark, title: "Appearance", detail: "Choose how Stocked looks while you plan, shop, and cook.", showsHeading: category == .all) {
+                    toggleRow(dark: dark, icon: "moon.fill", title: "Dark Mode", isOn: Binding(
+                        get: { session.isDarkMode },
+                        set: { session.isDarkMode = $0 }
+                    ))
 
-                // Evening Table is always dark; the stored Dark Mode choice is kept for other designs.
-                toggleRow(dark: dark, icon: "moon.fill", title: "Dark Mode",
-                          detail: session.designVariant.forcesDarkAppearance ? "Evening Table is always dark. Your choice returns with other designs." : nil,
-                          isOn: Binding(
-                    get: { session.isDarkMode },
-                    set: { session.isDarkMode = $0 }
-                ))
-                .disabled(session.designVariant.forcesDarkAppearance)
+                    segmentedRow(dark: dark, icon: "paintpalette", title: "Theme", selection: Binding(
+                        get: { session.lightTheme },
+                        set: { session.lightTheme = $0 }
+                    ), options: StockedLightTheme.allCases) { $0.rawValue }
 
-                // Pastel/Tan belong to the Current design and are restored when it is selected again.
-                segmentedRow(dark: dark, icon: "paintpalette", title: "Light Theme", selection: Binding(
-                    get: { session.lightTheme },
-                    set: { session.lightTheme = $0 }
-                ), options: StockedLightTheme.allCases) { $0.rawValue }
-                .disabled(!session.designVariant.usesLegacyLightTheme)
-                if !session.designVariant.usesLegacyLightTheme {
-                    Text("Light Theme applies to the Current design.")
+                    actionRow(dark: dark, icon: "app.badge", title: "App Icon", detail: "Choose a Home Screen icon", action: onAppIcon)
+
+                    Text("Layouts adjust to your window and device text size automatically.")
                         .font(.stockedSans(12, relativeTo: .caption))
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-                }
 
-                segmentedRow(dark: dark, icon: "textformat", title: "App Font", selection: Binding(
-                    get: { session.appFont },
-                    set: { session.appFont = $0 }
-                ), options: AppFont.allCases) { $0.rawValue }
+                    DisclosureGroup("Text & Typography", isExpanded: $showsTextOptions) {
+                        segmentedRow(dark: dark, icon: "textformat", title: "App Font", selection: Binding(
+                            get: { session.appFont },
+                            set: { session.appFont = $0 }
+                        ), options: AppFont.allCases) { $0.rawValue }
 
-                appTextSizeControl(dark: dark, selection: $appTextSize)
+                        appTextSizeControl(dark: dark, selection: $appTextSize)
 
-                RecipeTextSizeControl()
-            }
-
-            settingsGroup(dark: dark, title: "Cooking", detail: "Tune recipes and suggestions around the way your kitchen cooks.") {
-                segmentedRow(dark: dark, icon: "ruler", title: "Measurements", selection: Binding(
-                    get: { session.unitSystem },
-                    set: { session.unitSystem = $0 }
-                ), options: UnitSystem.allCases) { $0.label }
-
-                stepperRow(dark: dark, icon: "person.2.fill", title: "Default Servings", value: Binding(
-                    get: { max(1, session.guestStore.cookingProfile.householdSize) },
-                    set: { newValue in
-                        updateProfile { profile in
-                            profile.householdSize = max(1, min(12, newValue))
-                        }
+                        RecipeTextSizeControl()
                     }
-                ), range: 1...12)
-
-                segmentedStringRow(dark: dark, icon: "fork.knife", title: "Diet", selection: Binding(
-                    get: { session.guestStore.cookingProfile.dietaryStyle.isEmpty ? "Omnivore" : session.guestStore.cookingProfile.dietaryStyle },
-                    set: { selected in updateProfile { $0.dietaryStyle = selected == "Omnivore" ? "" : selected } }
-                ), options: dietaryStyles)
-
-                if let onDietaryProfile {
-                    actionRow(dark: dark, icon: "person.text.rectangle", title: "Dietary & Brand Profile",
-                              detail: "Allergens, favorite brands, and brands to avoid",
-                              action: onDietaryProfile)
+                    .tint(session.themeContrastAccent)
                 }
-
-                Text("Cuisines stay in Recipes where changes are immediately useful.")
-                    .scaledFont(12)
-                    .foregroundStyle(session.themeSecondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            settingsGroup(dark: dark, title: "Kitchen", detail: "Keep shopping and pantry defaults close to the tools that use them.") {
-                actionRow(dark: dark, icon: "storefront", title: "Preferred Store", detail: session.preferredStore, action: onPreferredStore)
+            if category == .all || category == .cooking {
+                settingsGroup(dark: dark, title: "Cooking", detail: "Tune recipes and suggestions around the way your kitchen cooks.") {
+                    segmentedRow(dark: dark, icon: "ruler", title: "Measurements", selection: Binding(
+                        get: { session.unitSystem },
+                        set: { session.unitSystem = $0 }
+                    ), options: UnitSystem.allCases) { $0.label }
 
-                toggleRow(dark: dark, icon: "cart.badge.plus", title: "Auto-Add Missing to Grocery", isOn: Binding(
-                    get: { session.autoAddMissingToGrocery },
-                    set: { session.autoAddMissingToGrocery = $0 }
-                ))
+                    stepperRow(dark: dark, icon: "person.2.fill", title: "Default Servings", value: Binding(
+                        get: { max(1, session.guestStore.cookingProfile.householdSize) },
+                        set: { newValue in
+                            updateProfile { profile in
+                                profile.householdSize = max(1, min(12, newValue))
+                            }
+                        }
+                    ), range: 1...12)
 
-                toggleRow(dark: dark, icon: "person.3.fill", title: "Improve Stocked for Everyone", detail: "Share anonymous item facts only.", isOn: Binding(
-                    get: { UserDefaults.standard.bool(forKey: "crowdShareEnabled") },
-                    set: { UserDefaults.standard.set($0, forKey: "crowdShareEnabled") }
-                ))
+                    segmentedStringRow(dark: dark, icon: "fork.knife", title: "Diet", selection: Binding(
+                        get: { session.guestStore.cookingProfile.dietaryStyle.isEmpty ? "Omnivore" : session.guestStore.cookingProfile.dietaryStyle },
+                        set: { selected in updateProfile { $0.dietaryStyle = selected == "Omnivore" ? "" : selected } }
+                    ), options: dietaryStyles)
 
-                actionRow(dark: dark, icon: "globe", title: "Recipe Sources", detail: "Add websites or manage sources", action: onRecipeSources)
+                    if let onDietaryProfile {
+                        actionRow(dark: dark, icon: "person.text.rectangle", title: "Dietary & Brand Profile",
+                                  detail: "Allergens, favorite brands, and brands to avoid",
+                                  action: onDietaryProfile)
+                    }
 
-                actionRow(dark: dark, icon: "app.badge", title: "App Icon", detail: "Choose a Home Screen icon", action: onAppIcon)
+                    if HealthKitManager.shared.isAvailable {
+                        toggleRow(dark: dark, icon: "heart.fill", title: "Apple Health", detail: "Log cooked-meal nutrition to Health.", isOn: Binding(
+                            get: { HealthKitManager.shared.isEnabled },
+                            set: { HealthKitManager.shared.isEnabled = $0 }
+                        ))
+                    }
 
-                if HealthKitManager.shared.isAvailable {
-                    toggleRow(dark: dark, icon: "heart.fill", title: "Apple Health", detail: "Log cooked-meal nutrition to Health.", isOn: Binding(
-                        get: { HealthKitManager.shared.isEnabled },
-                        set: { HealthKitManager.shared.isEnabled = $0 }
+                    Text("Cuisines stay in Recipes where changes are immediately useful.")
+                        .scaledFont(12)
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if category == .all || category == .kitchen {
+                settingsGroup(dark: dark, title: "Kitchen", detail: "Keep shopping and pantry defaults close to the tools that use them.") {
+                    actionRow(dark: dark, icon: "storefront", title: "Preferred Store", detail: session.preferredStore, action: onPreferredStore)
+
+                    toggleRow(dark: dark, icon: "cart.badge.plus", title: "Auto-Add Missing to Grocery", isOn: Binding(
+                        get: { session.autoAddMissingToGrocery },
+                        set: { session.autoAddMissingToGrocery = $0 }
                     ))
+
+                    toggleRow(dark: dark, icon: "person.3.fill", title: "Improve Stocked for Everyone", detail: "Share anonymous item facts only.", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "crowdShareEnabled") },
+                        set: { UserDefaults.standard.set($0, forKey: "crowdShareEnabled") }
+                    ))
+
+                    actionRow(dark: dark, icon: "globe", title: "Recipe Sources", detail: "Add websites or manage sources", action: onRecipeSources)
                 }
             }
 
-            settingsGroup(dark: dark, title: "Interaction", detail: "Choose the feedback you use most often.") {
-                segmentedRow(dark: dark, icon: "hand.tap.fill", title: "Haptics", selection: Binding(
-                    get: { session.hapticIntensity },
-                    set: { session.hapticIntensity = $0 }
-                ), options: HapticIntensity.allCases) { $0.rawValue }
+            if category == .all || category == .interaction {
+                settingsGroup(dark: dark, title: "Interaction", detail: "Choose the feedback you use most often.") {
+                    segmentedRow(dark: dark, icon: "hand.tap.fill", title: "Haptics", selection: Binding(
+                        get: { session.hapticIntensity },
+                        set: { session.hapticIntensity = $0 }
+                    ), options: HapticIntensity.allCases) { $0.rawValue }
+                }
             }
         }
     }
@@ -304,18 +310,22 @@ private extension AppBackground {
 }
 
 @ViewBuilder
-private func settingsGroup<Content: View>(dark: Bool, title: String, detail: String, @ViewBuilder content: () -> Content) -> some View {
+private func settingsGroup<Content: View>(dark: Bool, title: String, detail: String, showsHeading: Bool = true, @ViewBuilder content: () -> Content) -> some View {
     VStack(alignment: .leading, spacing: StockedSpacing.xs) {
-        Text(title.uppercased())
-            .font(.stockedSans(10, weight: .bold))
-            .foregroundStyle(Color.appSecondary(dark))
-            .textCase(.uppercase)
+        if showsHeading {
+            Text(title.uppercased())
+                .font(.stockedSans(10, weight: .bold))
+                .foregroundStyle(Color.appSecondary(dark))
+                .textCase(.uppercase)
+        }
 
         VStack(alignment: .leading, spacing: StockedSpacing.sm) {
-            Text(detail)
-                .font(.stockedSans(12))
-                .foregroundStyle(Color.appSecondary(dark))
-                .fixedSize(horizontal: false, vertical: true)
+            if showsHeading {
+                Text(detail)
+                    .font(.stockedSans(12))
+                    .foregroundStyle(Color.appSecondary(dark))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             content()
         }
         .padding(StockedSpacing.sm)
@@ -380,26 +390,8 @@ private func segmentedStringRow(dark: Bool, icon: String, title: String, selecti
 private func appTextSizeControl(dark: Bool, selection: Binding<String>) -> some View {
     VStack(alignment: .leading, spacing: StockedSpacing.xs) {
         rowTitle(dark: dark, icon: "textformat.size", title: "App Text Size", active: true)
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 6)], spacing: 6) {
-            ForEach(AppTextSize.allCases) { option in
-                let selected = selection.wrappedValue == option.rawValue
-                Button {
-                    selection.wrappedValue = option.rawValue
-                    HapticManager.select()
-                } label: {
-                    Text(option.rawValue)
-                        .font(.stockedSans(12, weight: .bold))
-                        .foregroundStyle(selected ? Color.selectedTabForeground(dark) : Color.appText(dark))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .padding(.horizontal, 8)
-                        .background(selected ? Color.selectedTabBackground : Color.appSurface(dark))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
+        AdaptiveSettingsPicker(title: "App Text Size", selection: selection,
+                               options: AppTextSize.allCases.map(\.rawValue), label: { $0 })
         Text("Adjusts text throughout pages, sheets, buttons, widgets, and cooking flows. Your system text size still applies.")
             .font(.stockedSans(11, relativeTo: .caption))
             .foregroundStyle(Color.appSecondary(dark))
@@ -416,21 +408,29 @@ private func segmentedRow<Option: Hashable>(dark: Bool, icon: String, title: Str
 }
 
 private struct AdaptiveSettingsPicker<Option: Hashable>: View {
-    @Environment(\.stockedLayout) private var layoutMetrics
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     @Binding var selection: Option
     let options: [Option]
     let label: (Option) -> String
 
     var body: some View {
-        if layoutMetrics.width < 360 {
-            Picker(title, selection: $selection) { pickerOptions }
-                .pickerStyle(.menu)
-                .frame(maxWidth: .infinity, minHeight: layoutMetrics.minimumControlHeight, alignment: .leading)
+        if dynamicTypeSize.isAccessibilitySize {
+            menuPicker
         } else {
-            Picker(title, selection: $selection) { pickerOptions }
-                .pickerStyle(.segmented)
+            ViewThatFits(in: .horizontal) {
+                Picker(title, selection: $selection) { pickerOptions }
+                    .pickerStyle(.segmented)
+                    .fixedSize(horizontal: true, vertical: false)
+                menuPicker
+            }
         }
+    }
+
+    private var menuPicker: some View {
+        Picker(title, selection: $selection) { pickerOptions }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
     }
 
     @ViewBuilder private var pickerOptions: some View {
