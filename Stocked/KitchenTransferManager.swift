@@ -659,11 +659,8 @@ class KitchenTransferManager {
     }
 
     private func csvEscape(_ s: String) -> String {
-        // Quote fields containing comma, quote, or newline; double internal quotes.
-        if s.contains(",") || s.contains("\"") || s.contains("\n") {
-            return "\"\(s.replacingOccurrences(of: "\"", with: "\"\""))\""
-        }
-        return s
+        // Quote fields containing comma, quote, CR or LF, and neutralise formula leads.
+        CSVInterchange.escape(s)
     }
 
     func exportToCSV(store: GuestDataStore, completion: @escaping (URL?) -> Void) {
@@ -771,8 +768,13 @@ class KitchenTransferManager {
     func importFromData(_ data: Data, into store: GuestDataStore, merge: Bool = false) -> Bool {
         guard requirePermission(.backupRestore) else { return false }
         // CSV/plain-text first (content sniff), else JSON formats.
-        if let text = String(data: data, encoding: .utf8) {
+        if let decoded = String(data: data, encoding: .utf8) {
+            // Excel's "CSV UTF-8" starts with a BOM; strip it so header sniffing still works.
+            let text = CSVInterchange.stripBOM(decoded)
             let head = text.prefix(2000).lowercased()
+            // Scalar check: a CRLF pair is a single Swift Character, so Character-level
+            // `contains("\n")` can miss Windows/Excel line endings entirely.
+            let hasLineBreak = text.unicodeScalars.contains { $0 == "\n" || $0 == "\r" }
             let looksJSON = head.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{")
                          || head.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("[")
             if !looksJSON {
@@ -780,10 +782,10 @@ class KitchenTransferManager {
                 if head.contains("section,name") || head.hasPrefix("name,") || head.contains("\"name\"") {
                     return importCSV(text, into: store, merge: merge)
                 }
-                if text.contains(",") && text.contains("\n") {
+                if text.contains(",") && hasLineBreak {
                     return importCSV(text, into: store, merge: merge)   // best-effort generic CSV
                 }
-                if text.contains("\n") {
+                if hasLineBreak {
                     return importPlainText(text, into: store, merge: merge)
                 }
             }
@@ -821,26 +823,26 @@ class KitchenTransferManager {
 
         var inv: [LocalInventoryItem] = []
         var gro: [LocalGroceryItem] = []
-        let iso = ISO8601DateFormatter()
         for r in rows.dropFirst() {
-            func cell(_ i: Int?) -> String { guard let i, i < r.count else { return "" }; return r[i].trimmingCharacters(in: .whitespaces) }
+            func cell(_ i: Int?) -> String { guard let i, i < r.count else { return "" }; return CSVInterchange.unguard(r[i].trimmingCharacters(in: .whitespaces)) }
             let name = cell(nameIdx); if name.isEmpty { continue }
             let section = cell(secIdx).lowercased()
             if section == "grocery" {
                 var g = LocalGroceryItem(name: name, isChecked: ["yes","true","1","x"].contains(cell(checkIdx).lowercased()))
-                g.quantity = Int(cell(qtyIdx)) ?? 1
+                g.quantity = CSVInterchange.quantity(cell(qtyIdx))
                 gro.append(g)
             } else {
                 var item = LocalInventoryItem(
                     name: name,
                     zone: cell(zoneIdx).isEmpty ? "Pantry" : cell(zoneIdx),
-                    quantity: Int(cell(qtyIdx)) ?? 1,
+                    quantity: CSVInterchange.quantity(cell(qtyIdx)),
                     containerType: cell(contIdx).isEmpty ? "item" : cell(contIdx),
                     sizeAmount: Double(cell(sizeAIdx)),
                     sizeUnit: cell(sizeUIdx).isEmpty ? nil : cell(sizeUIdx)
                 )
                 let exp = cell(expIdx)
-                if !exp.isEmpty { item.expirationDate = iso.date(from: exp) }
+                // Full ISO timestamps (our export) or plain yyyy-MM-dd (spreadsheets).
+                if !exp.isEmpty { item.expirationDate = CSVInterchange.date(exp) }
                 let brand = cell(brandIdx); if !brand.isEmpty { item.brand = brand }
                 inv.append(item)
             }
@@ -862,41 +864,17 @@ class KitchenTransferManager {
         return true
     }
 
-    // Minimal RFC-4180-ish CSV parser (handles quoted fields, embedded commas/newlines).
+    // Minimal RFC-4180-ish CSV parser (quoted fields, embedded commas/newlines, CRLF, BOM).
     private func parseCSVRows(_ text: String) -> [[String]] {
-        var rows: [[String]] = []; var field = ""; var row: [String] = []
-        var inQuotes = false
-        let chars = Array(text)
-        var i = 0
-        while i < chars.count {
-            let c = chars[i]
-            if inQuotes {
-                if c == "\"" {
-                    if i + 1 < chars.count && chars[i+1] == "\"" { field.append("\""); i += 1 }
-                    else { inQuotes = false }
-                } else { field.append(c) }
-            } else {
-                switch c {
-                case "\"": inQuotes = true
-                case ",": row.append(field); field = ""
-                case "\n", "\r":
-                    if c == "\r" && i + 1 < chars.count && chars[i+1] == "\n" { i += 1 }
-                    row.append(field); field = ""
-                    if row.contains(where: { !$0.isEmpty }) { rows.append(row) }
-                    row = []
-                default: field.append(c)
-                }
-            }
-            i += 1
-        }
-        if !field.isEmpty || !row.isEmpty { row.append(field); if row.contains(where: { !$0.isEmpty }) { rows.append(row) } }
-        return rows
+        CSVInterchange.parseRows(text)
     }
 
     // MARK: Plain-text import (one item per line; checkbox + ×qty + [zone] tolerated)
     private func importPlainText(_ text: String, into store: GuestDataStore, merge: Bool) -> Bool {
         var inv: [LocalInventoryItem] = []
-        for raw in text.split(separator: "\n") {
+        // .newlines splits LF, CR and CRLF (a CRLF pair is one Character, so splitting on
+        // "\n" left Windows-saved lists as a single unparseable line).
+        for raw in text.components(separatedBy: .newlines) {
             var line = raw.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty else { continue }
             // Skip headers / section markers.
@@ -1275,13 +1253,20 @@ class KitchenTransferManager {
         }
     }
 
+    /// Upper bound for the base64url `data` parameter of a share link (~1.5 MB decoded).
+    static let maximumShareLinkPayloadBytes = 2_000_000
+
     // Import from a stocked://import?data=<base64url> deep link (Share Link feature).
     @discardableResult
     func importFromDeepLink(_ url: URL, into store: GuestDataStore, merge: Bool = false) -> Bool {
-        guard url.scheme == "stocked",
-              url.host == "import",
+        // Share links arrive from arbitrary web pages: compare scheme/host case-insensitively
+        // and refuse oversized payloads before base64-decoding and JSON-parsing them on the
+        // main actor (a multi-megabyte link could stall the UI and spike memory).
+        guard url.scheme?.lowercased() == "stocked",
+              url.host?.lowercased() == "import",
               let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let raw   = comps.queryItems?.first(where: { $0.name == "data" })?.value else {
+              let raw   = comps.queryItems?.first(where: { $0.name == "data" })?.value,
+              raw.utf8.count <= KitchenTransferManager.maximumShareLinkPayloadBytes else {
             errorMessage = "Invalid share link."; return false
         }
         // Reverse URL-safe base64 (base64url) and restore = padding.

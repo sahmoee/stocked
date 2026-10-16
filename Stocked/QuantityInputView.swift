@@ -35,6 +35,7 @@ struct QuantityInputView: View {
                 if !raw.isEmpty {
                     Button { apply(raw) } label: { Image(systemName: "arrow.right.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(.tint)
+                        .stockedIconButton("Apply quantity")
                 }
             }
 

@@ -2134,11 +2134,9 @@ class GuestDataStore {
     func inventoryCSV() -> String {
         var rows = ["Name,Quantity,Zone,SubZone,Category,Level%,Brand,Price,Expiry,PurchaseDate,AddedBy"]
         let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
-        func esc(_ s: String) -> String {
-            (s.contains(",") || s.contains("\""))
-                ? "\"" + s.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-                : s
-        }
+        // Quotes CR/LF too (a newline in a name used to split the row) and neutralises
+        // spreadsheet formula leads such as "=HYPERLINK(…)" in user-entered names.
+        func esc(_ s: String) -> String { CSVInterchange.escape(s) }
         for it in inventoryItems {
             let cols = [
                 esc(it.name),
