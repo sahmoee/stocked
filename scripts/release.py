@@ -12,6 +12,23 @@ CREDENTIAL_FIELDS = {
     "LogMealAPIToken", "RapidAPIKey", "SpoonacularAPIKey", "StockedWorkerKey",
     "SuggesticAPIToken", "USDAAPIKey",
 }
+CONFIG_CREDENTIALS = {
+    "API_NINJAS_KEY", "CHOMP_API_KEY", "EDAMAM_APP_KEY", "HOMEBASE_API_KEY",
+    "LOGMEAL_API_TOKEN", "RAPIDAPI_KEY", "SPOONACULAR_API_KEY",
+    "STOCKED_WORKER_KEY", "SUGGESTIC_API_TOKEN", "USDA_API_KEY",
+}
+
+def validate_local_credentials(path):
+    """Reject configured release credentials before a costly archive build.
+
+    The archive check remains authoritative because Xcode can resolve includes and
+    overrides that this quick local preflight does not see.
+    """
+    if not path.is_file(): return
+    for line in path.read_text().splitlines():
+        match = re.match(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$", line)
+        if match and match[1] in CONFIG_CREDENTIALS and match[2].strip():
+            raise ValueError("Nonempty release credential setting: " + match[1])
 
 def validate_payload(app, bundles):
     """Fail closed on known credential inputs and first-party privacy omissions.
@@ -122,6 +139,7 @@ def main():
     if not build or build[1] not in config["approved_xcode_builds"]:
         raise ValueError("Select an approved release Xcode using DEVELOPER_DIR; beta/unknown builds are blocked")
     subprocess.run(["git", "diff", "--check"], cwd=ROOT, check=True)
+    validate_local_credentials(ROOT / "Secrets.xcconfig")
     if args.action == "check":
         subprocess.run([sys.executable, str(ROOT / "scripts/quality.py")], check=True)
         return

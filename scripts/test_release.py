@@ -116,4 +116,19 @@ class ReleaseChecks(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "App Group defaults"):
             release.validate_archive(self.root, ["27A266a"])
 
+    def testLocalCredentialPreflightRejectsWithoutDisclosure(self):
+        config = self.root / "Secrets.xcconfig"
+        config.write_text("STOCKED_WORKER_KEY = fixture-sensitive-value\n")
+        with self.assertRaisesRegex(ValueError, "STOCKED_WORKER_KEY") as error:
+            release.validate_local_credentials(config)
+        self.assertNotIn("fixture-sensitive-value", str(error.exception))
+
+    def testLocalCredentialPreflightAllowsBlankAndComments(self):
+        config = self.root / "Secrets.xcconfig"
+        config.write_text("// STOCKED_WORKER_KEY = ignored\nSTOCKED_WORKER_KEY = \n")
+        release.validate_local_credentials(config)
+
+    def testCheckedInExampleHasNoReleaseCredentials(self):
+        release.validate_local_credentials(release.ROOT / "Secrets.example.xcconfig")
+
 if __name__ == "__main__": unittest.main()
