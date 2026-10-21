@@ -21,6 +21,11 @@ class ReleaseChecks(unittest.TestCase):
         path = path / ("Contents" if mac else "")
         path.mkdir(parents=True, exist_ok=True)
         (path / "Info.plist").write_bytes(plistlib.dumps(self.info | (changes or {})))
+        manifest_dir = path / "Resources" if mac else path
+        manifest_dir.mkdir(exist_ok=True)
+        (manifest_dir / "PrivacyInfo.xcprivacy").write_bytes(plistlib.dumps({
+            "NSPrivacyAccessedAPITypes": [{"NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+                                          "NSPrivacyAccessedAPITypeReasons": ["1C8F.1"]}]}))
     @patch.object(release.subprocess, "run")
     def testValidArchiveChecksSignature(self, run):
         release.validate_archive(self.root, ["27A266a"])
@@ -80,5 +85,35 @@ class ReleaseChecks(unittest.TestCase):
             with self.subTest(sdk=sdk):
                 self.write(self.app, {"DTSDKName": sdk})
                 with self.assertRaisesRegex(ValueError, "SDK"): release.validate_archive(self.root, ["27A266a"])
+
+    @patch.object(release.subprocess, "run")
+    def testCredentialValueRejectedWithoutDisclosure(self, run):
+        self.write(self.app, {"SpoonacularAPIKey": "fixture-sensitive-value"})
+        with self.assertRaisesRegex(ValueError, "Nonempty credential field") as error:
+            release.validate_archive(self.root, ["27A266a"])
+        self.assertNotIn("fixture-sensitive-value", str(error.exception))
+        run.assert_not_called()
+
+    @patch.object(release.subprocess, "run")
+    def testBlankCredentialAllowed(self, run):
+        self.write(self.app, {"SpoonacularAPIKey": ""})
+        release.validate_archive(self.root, ["27A266a"])
+
+    def testCredentialFileRejected(self):
+        (self.app / "Secrets.xcconfig").write_text("fixture only")
+        with self.assertRaisesRegex(ValueError, "Credential/configuration file"):
+            release.validate_archive(self.root, ["27A266a"])
+
+    def testMissingExtensionPrivacyRejected(self):
+        extension = self.app / "PlugIns/Widget.appex"
+        self.write(extension, {"CFBundleIdentifier": "fixture.app.widget"})
+        (extension / "PrivacyInfo.xcprivacy").unlink()
+        with self.assertRaisesRegex(ValueError, "Missing privacy manifest"):
+            release.validate_archive(self.root, ["27A266a"])
+
+    def testMissingAppGroupReasonRejected(self):
+        (self.app / "PrivacyInfo.xcprivacy").write_bytes(plistlib.dumps({"NSPrivacyAccessedAPITypes": []}))
+        with self.assertRaisesRegex(ValueError, "App Group defaults"):
+            release.validate_archive(self.root, ["27A266a"])
 
 if __name__ == "__main__": unittest.main()

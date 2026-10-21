@@ -77,6 +77,10 @@ final class HouseholdCloudKit {
         case "member": state = .member
         default:       state = .idle
         }
+        if let name = UserDefaults.standard.string(forKey: "householdMemberZoneName"),
+           let owner = UserDefaults.standard.string(forKey: "householdMemberZoneOwner") {
+            memberZoneID = CKRecordZone.ID(zoneName: name, ownerName: owner)
+        }
         // Restore the previously published join code so it stays visible across launches.
         joinCode = UserDefaults.standard.string(forKey: "householdJoinCode")
         // The owner's zone is deterministic; restore it on launch so sync/code paths don't fail
@@ -84,6 +88,15 @@ final class HouseholdCloudKit {
         if state == .owner {
             ownerZoneID = CKRecordZone.ID(zoneName: HouseholdSchema.zoneName,
                                           ownerName: CKCurrentUserDefaultName)
+        }
+        accountObserver = NotificationCenter.default.addObserver(
+            forName: .CKAccountChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.scopeEpoch &+= 1 // Invalidate callbacks before checking the new identity.
+                _ = await self.accountAvailable()
+            }
         }
     }
 
@@ -149,6 +162,11 @@ final class HouseholdCloudKit {
         state = .idle
         ownerZoneID = nil
         joinCode = nil
+        memberZoneID = nil
+        syncStage = nil
+        lastError = nil
+        UserDefaults.standard.removeObject(forKey: "householdMemberZoneName")
+        UserDefaults.standard.removeObject(forKey: "householdMemberZoneOwner")
         UserDefaults.standard.removeObject(forKey: "householdRole")
         UserDefaults.standard.removeObject(forKey: "householdJoinCode")
         Log.transfer.notice("Left household (local state reset)")
@@ -157,13 +175,56 @@ final class HouseholdCloudKit {
     // The household's custom zone (owner side). Members operate on the shared DB.
     @ObservationIgnored private var ownerZoneID: CKRecordZone.ID?
     @ObservationIgnored private var scopeEpoch: UInt64 = 0
+    @ObservationIgnored private var memberZoneID: CKRecordZone.ID?
+    @ObservationIgnored private var syncInFlight = false
+    @ObservationIgnored private var accountObserver: NSObjectProtocol?
+
+    private func isCurrent(_ epoch: UInt64) -> Bool {
+        epoch == scopeEpoch && !Task.isCancelled
+    }
+
+    private func rememberMemberZone(_ zone: CKRecordZone.ID) {
+        memberZoneID = zone
+        UserDefaults.standard.set(zone.zoneName, forKey: "householdMemberZoneName")
+        UserDefaults.standard.set(zone.ownerName, forKey: "householdMemberZoneOwner")
+    }
+
+    /// Legacy installs may adopt a single household zone, never an arbitrary first zone.
+    static func selectMemberZone(_ zones: [CKRecordZone.ID], expected: CKRecordZone.ID?) -> CKRecordZone.ID? {
+        if let expected { return zones.first { $0 == expected } }
+        let candidates = zones.filter { $0.zoneName == HouseholdSchema.zoneName }
+        return candidates.count == 1 ? candidates[0] : nil
+    }
+
+    /// Shared by manual sync and join migration. A failed pull must never upload stale data.
+    static func transfer(pull: () async -> Bool, push: () async -> Bool) async -> Bool {
+        guard await pull(), !Task.isCancelled else { return false }
+        return await push()
+    }
+
+    private func failSync(_ message: String) {
+        lastError = message
+        syncStage = .failed(message)
+    }
 
     // MARK: - Account check
 
     /// Confirm the user is signed into iCloud before any CloudKit work.
     func accountAvailable() async -> Bool {
-        do { return try await container.accountStatus() == .available }
-        catch { return false }
+        let epoch = scopeEpoch
+        do {
+            guard try await container.accountStatus() == .available, isCurrent(epoch) else { return false }
+            let identity = try await container.userRecordID().recordName
+            guard isCurrent(epoch) else { return false }
+            let previous = UserDefaults.standard.string(forKey: "householdCloudAccount")
+            if let previous, previous != identity {
+                leaveHousehold()
+                UserDefaults.standard.set(identity, forKey: "householdCloudAccount")
+                return false // An account switch requires an explicit new create/join action.
+            }
+            UserDefaults.standard.set(identity, forKey: "householdCloudAccount")
+            return true
+        } catch { return false }
     }
 
     // MARK: - Owner: create the shared household
@@ -172,12 +233,16 @@ final class HouseholdCloudKit {
     /// present UICloudSharingController (the Messages/Mail invite). Idempotent-ish: if a
     /// zone already exists it reuses it.
     func createHousehold() async -> CKShare? {
+        scopeEpoch &+= 1
+        let epoch = scopeEpoch
         syncStage = .checkingAccount
         guard await accountAvailable() else {
+            guard isCurrent(epoch) else { return nil }
             lastError = "Sign into iCloud to start a household."
             syncStage = .failed("Not signed into iCloud. Open Settings and sign in, then try again.")
             return nil
         }
+        guard isCurrent(epoch) else { return nil }
         state = .creating
         syncStage = .creating
         let zoneID = CKRecordZone.ID(zoneName: HouseholdSchema.zoneName, ownerName: CKCurrentUserDefaultName)
@@ -186,6 +251,7 @@ final class HouseholdCloudKit {
         do {
             // Create the zone (no-op if it already exists).
             _ = try await privateDB.modifyRecordZones(saving: [zone], deleting: [])
+            guard isCurrent(epoch) else { return nil }
             ownerZoneID = zoneID
 
             // A "household root" record that the share is attached to.
@@ -198,14 +264,21 @@ final class HouseholdCloudKit {
                 root["createdAt"] = Date() as CKRecordValue
             }
 
+            guard isCurrent(epoch) else { return nil }
             let share = CKShare(rootRecord: root)
             share[CKShare.SystemFieldKey.title] = "My Stocked. Kitchen" as CKRecordValue
             share.publicPermission = .none   // invite-only
 
             let saveResult = try await privateDB.modifyRecords(saving: [root, share], deleting: [])
+            guard isCurrent(epoch) else { return nil }
+            for record in [root, share] {
+                guard let outcome = saveResult.saveResults[record.recordID] else { throw CKError(.internalError) }
+                _ = try outcome.get()
+            }
             state = .owner
             persistRole()
             await registerSubscription(on: privateDB, id: "household-owner-sub")
+            guard isCurrent(epoch) else { return nil }
 
             // Publish a code → share-URL mapping so people can also join by typing a code
             // (not just tapping the link).
@@ -217,9 +290,11 @@ final class HouseholdCloudKit {
                 (saveResult.saveResults[share.recordID].flatMap { try? $0.get() } as? CKShare)?.url
             if shareURL == nil {
                 shareURL = await fetchOwnShareURL(shareID: share.recordID)
+                guard isCurrent(epoch) else { return nil }
             }
             if let url = shareURL {
                 await publishCodeMapping(shareURL: url)
+                guard isCurrent(epoch) else { return nil }
             } else {
                 Log.transfer.error("Share URL unavailable after create — join code not published")
                 lastError = "Household created, but the join code isn't ready yet. Tap Sync now to finish."
@@ -228,6 +303,7 @@ final class HouseholdCloudKit {
             syncStage = .done(invAdded: 0, groAdded: 0)
             return share
         } catch {
+            guard isCurrent(epoch) else { return nil }
             state = .idle
             lastError = "Couldn't create household: \(error.localizedDescription)"
             syncStage = .failed("Couldn't create household: \(error.localizedDescription)")
@@ -240,15 +316,22 @@ final class HouseholdCloudKit {
 
     /// Accept an incoming CKShare.Metadata (when the user taps a share link).
     func acceptShare(_ metadata: CKShare.Metadata) async -> Bool {
-        guard await accountAvailable() else { return false }
+        scopeEpoch &+= 1
+        let epoch = scopeEpoch
+        guard await accountAvailable(), isCurrent(epoch) else { return false }
         do {
             _ = try await container.accept(metadata)
+            guard isCurrent(epoch) else { return false }
+            ownerZoneID = nil
+            rememberMemberZone(metadata.share.recordID.zoneID)
             state = .member
             persistRole()
             await registerSubscription(on: sharedDB, id: "household-member-sub")
+            guard isCurrent(epoch) else { return false }
             Log.transfer.notice("Accepted household share")
             return true
         } catch {
+            guard isCurrent(epoch) else { return false }
             lastError = "Couldn't join household: \(error.localizedDescription)"
             return false
         }
@@ -259,51 +342,52 @@ final class HouseholdCloudKit {
     /// duplication because records are keyed by each item's stable UUID.
     /// User-initiated manual sync for an existing household member/owner. Shows progress.
     func syncNow(store: GuestDataStore) async {
-        guard state == .owner || state == .member else { return }
-        syncStage = .findingZone
-        guard await activeZoneAndDB() != nil else {
-            syncStage = .failed("Couldn't reach the shared kitchen. Check your connection and try again.")
-            return
-        }
-        // Self-heal: if we're the owner but never got a join code (e.g. the share URL wasn't
-        // ready at create time), republish it now.
-        if state == .owner, joinCode == nil {
-            await republishCodeIfNeeded()
-        }
-        let before = (store.inventoryItems.count, store.groceryItems.count)
-        syncStage = .downloading(0)
-        await pull(into: store)
-        let after = (store.inventoryItems.count, store.groceryItems.count)
-        syncStage = .uploading(store.inventoryItems.count)
-        await push(store: store)
-        if case .failed = syncStage { return }   // keep an error stage if pull set one
-        syncStage = .done(invAdded: after.0 - before.0, groAdded: after.1 - before.1)
+        await runTransfer(store: store, joining: false)
     }
 
     func migrateLocalIntoHousehold(store: GuestDataStore) async {
-        // First make sure the shared zone is actually reachable (it can lag after accept).
-        syncStage = .findingZone
-        guard await activeZoneAndDB() != nil else {
-            syncStage = .failed("Joined, but the shared kitchen isn't reachable yet. Wait a moment and tap \u{201C}Sync now\u{201D}.")
+        await runTransfer(store: store, joining: true)
+    }
+
+    private func runTransfer(store: GuestDataStore, joining: Bool) async {
+        guard state == .owner || state == .member, !syncInFlight else { return }
+        let epoch = scopeEpoch
+        syncInFlight = true
+        defer { syncInFlight = false }
+        lastError = nil
+        guard await accountAvailable(), isCurrent(epoch) else {
+            if isCurrent(epoch) {
+                failSync("Sign into iCloud to sync your household, then try again.")
+            }
             return
         }
-        syncStage = .downloading(0)
+        if state == .owner, joinCode == nil {
+            await republishCodeIfNeeded()
+            guard isCurrent(epoch) else { return }
+        }
         let before = (store.inventoryItems.count, store.groceryItems.count)
-        await pull(into: store)
-        let afterPull = (store.inventoryItems.count, store.groceryItems.count)
-        let pulledInv = afterPull.0 - before.0
-        let pulledGro = afterPull.1 - before.1
-        syncStage = .uploading(store.inventoryItems.count)
-        await push(store: store)
-        if case .failed = syncStage { return }
-        // If we joined a household but pulled nothing AND had nothing to contribute beyond
-        // our own, the share likely hasn't propagated the owner's records to us yet. Don't
-        // claim a successful transfer — tell the truth so the user knows to retry.
-        if pulledInv == 0 && pulledGro == 0 && before.0 == 0 && before.1 == 0 {
-            syncStage = .failed("Joined the household, but no items have come through yet. Make sure the owner has tapped \u{201C}Sync now\u{201D}, then try again in a moment.")
+        var after = before
+        let completed = await Self.transfer(pull: {
+            self.syncStage = .downloading(0)
+            guard await self.pull(into: store), self.isCurrent(epoch) else { return false }
+            after = (store.inventoryItems.count, store.groceryItems.count)
+            return true
+        }, push: {
+            guard self.isCurrent(epoch) else { return false }
+            self.syncStage = .uploading(store.inventoryItems.count)
+            return await self.push(store: store)
+        })
+        guard isCurrent(epoch) else { return }
+        guard completed else {
+            if case .failed = syncStage { return }
+            failSync("Couldn't finish syncing the shared kitchen. Check your connection and try again.")
             return
         }
-        syncStage = .done(invAdded: pulledInv, groAdded: pulledGro)
+        if joining, after.0 == 0, after.1 == 0, before.0 == 0, before.1 == 0 {
+            failSync("Joined the household, but no items have come through yet. Ask the owner to sync, then try again.")
+            return
+        }
+        syncStage = .done(invAdded: after.0 - before.0, groAdded: after.1 - before.1)
     }
 
     // MARK: - Code-based join (fallback for people who'd rather type a code than tap a link)
@@ -312,6 +396,7 @@ final class HouseholdCloudKit {
     /// existing share's URL and publish a code now. Reports each failure point (instead of
     /// silently returning) so a stuck "owner with no code" state is diagnosable on-device.
     private func republishCodeIfNeeded() async {
+        let epoch = scopeEpoch
         guard joinCode == nil else { return }
         let zoneID = ownerZoneID
             ?? CKRecordZone.ID(zoneName: HouseholdSchema.zoneName, ownerName: CKCurrentUserDefaultName)
@@ -321,10 +406,13 @@ final class HouseholdCloudKit {
         let root: CKRecord
         do {
             root = try await privateDB.record(for: rootID)
+            guard isCurrent(epoch) else { return }
         } catch {
+            guard isCurrent(epoch) else { return }
             // The root/share doesn't exist — the household was never fully created. Recreate it.
             Log.transfer.error("republishCode: root fetch failed: \(error.localizedDescription, privacy: .public)")
             await recreateShareAndCode(zoneID: zoneID)
+            guard isCurrent(epoch) else { return }
             return
         }
 
@@ -332,12 +420,16 @@ final class HouseholdCloudKit {
         guard let shareRef = root.share else {
             Log.transfer.notice("republishCode: root has no share; recreating share")
             await recreateShareAndCode(zoneID: zoneID, existingRoot: root)
+            guard isCurrent(epoch) else { return }
             return
         }
 
         // 3. Fetch the share's public URL (with retry) and publish the code.
-        if let url = await fetchOwnShareURL(shareID: shareRef.recordID) {
+        let shareURL = await fetchOwnShareURL(shareID: shareRef.recordID)
+        guard isCurrent(epoch) else { return }
+        if let url = shareURL {
             await publishCodeMapping(shareURL: url)
+            guard isCurrent(epoch) else { return }
             if joinCode == nil {
                 lastError = "Generated the share, but couldn't publish the join code. Check your connection and tap Sync now again."
             }
@@ -350,6 +442,7 @@ final class HouseholdCloudKit {
     /// Handles the case where the original create saved a zone/root but never persisted a usable
     /// share (which is why no code ever appeared).
     private func recreateShareAndCode(zoneID: CKRecordZone.ID, existingRoot: CKRecord? = nil) async {
+        let epoch = scopeEpoch
         do {
             let root: CKRecord
             if let existingRoot { root = existingRoot }
@@ -357,20 +450,26 @@ final class HouseholdCloudKit {
                 let rootID = CKRecord.ID(recordName: "HouseholdRoot", zoneID: zoneID)
                 root = (try? await privateDB.record(for: rootID))
                     ?? CKRecord(recordType: "Household", recordID: rootID)
+                guard isCurrent(epoch) else { return }
                 if root["createdAt"] == nil { root["createdAt"] = Date() as CKRecordValue }
             }
+            guard isCurrent(epoch) else { return }
             let share = CKShare(rootRecord: root)
             share[CKShare.SystemFieldKey.title] = "My Stocked. Kitchen" as CKRecordValue
             share.publicPermission = .none
             let result = try await privateDB.modifyRecords(saving: [root, share], deleting: [])
+            guard isCurrent(epoch) else { return }
             var url = (result.saveResults[share.recordID].flatMap { try? $0.get() } as? CKShare)?.url
             if url == nil { url = await fetchOwnShareURL(shareID: share.recordID) }
+            guard isCurrent(epoch) else { return }
             if let url {
                 await publishCodeMapping(shareURL: url)
+                guard isCurrent(epoch) else { return }
             } else {
                 lastError = "Created the household share, but the link isn't ready yet. Tap Sync now again in a few seconds."
             }
         } catch {
+            guard isCurrent(epoch) else { return }
             lastError = "Couldn't set up sharing: \(error.localizedDescription)"
             Log.transfer.error("recreateShareAndCode failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -380,11 +479,14 @@ final class HouseholdCloudKit {
     /// NOT available synchronously on the first save. CloudKit can take many seconds to
     /// provision the public share URL, so retry generously (up to ~30s total) before giving up.
     private func fetchOwnShareURL(shareID: CKRecord.ID) async -> URL? {
+        let epoch = scopeEpoch
         for attempt in 0..<12 {
             if let share = (try? await privateDB.record(for: shareID)) as? CKShare,
                let url = share.url {
+                guard isCurrent(epoch) else { return nil }
                 return url
             }
+            guard isCurrent(epoch) else { return nil }
             // Backoff capped at ~3s per try: 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.0, ... (~28s total)
             let secs = min(3.0, 0.5 * Double(attempt + 1))
             try? await Task.sleep(nanoseconds: UInt64(secs * 1_000_000_000))
@@ -397,6 +499,7 @@ final class HouseholdCloudKit {
     /// technically fetchable by anyone who knows/guesses the code — that's why it's 8 chars,
     /// not 6. The share itself is still invite-only; the code only yields the join URL.
     private func publishCodeMapping(shareURL: URL) async {
+        let epoch = scopeEpoch
         let code = Self.makeCode()
         let id = CKRecord.ID(recordName: "code_\(code)")
         let rec = CKRecord(recordType: codeMapType, recordID: id)
@@ -404,11 +507,13 @@ final class HouseholdCloudKit {
         rec["createdAt"] = Date() as CKRecordValue
         do {
             _ = try await publicDB.modifyRecords(saving: [rec], deleting: [])
+            guard isCurrent(epoch) else { return }
             joinCode = code
             UserDefaults.standard.set(code, forKey: "householdJoinCode")
             lastError = nil
             Log.transfer.notice("Published household join code")
         } catch {
+            guard isCurrent(epoch) else { return }
             lastError = "Couldn't publish the join code (public database). \(error.localizedDescription)"
             Log.transfer.error("Code publish failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -417,12 +522,15 @@ final class HouseholdCloudKit {
     /// Join a household by entering its code: look up the public mapping, fetch the share
     /// metadata from the URL, and accept it.
     func joinByCode(_ rawCode: String, into store: GuestDataStore) async -> Bool {
+        var epoch = scopeEpoch
         syncStage = .checkingAccount
         guard await accountAvailable() else {
+            guard isCurrent(epoch) else { return false }
             lastError = "Sign into iCloud to join a household."
             syncStage = .failed("Not signed into iCloud. Open Settings and sign in, then try again.")
             return false
         }
+        guard isCurrent(epoch) else { return false }
         // Normalize hard: uppercase, then keep ONLY the characters used in our code alphabet
         // (A to Z and 2 to 9). This strips smart quotes, spaces, dashes, and any stray punctuation
         // the keyboard may have inserted (e.g. iOS smart-quote substitution wrapping the code),
@@ -433,6 +541,7 @@ final class HouseholdCloudKit {
         syncStage = .joining
         do {
             let rec = try await publicDB.record(for: id)
+            guard isCurrent(epoch) else { return false }
             guard let urlStr = rec["shareURL"] as? String, let url = URL(string: urlStr) else {
                 lastError = "That code didn't match a household."
                 syncStage = .failed("That code didn't match a household.")
@@ -440,14 +549,19 @@ final class HouseholdCloudKit {
             }
             // Fetch the share metadata from the URL, then accept it.
             let metadata = try await fetchShareMetadata(from: url)
+            guard isCurrent(epoch) else { return false }
             let ok = await acceptShare(metadata)
+            guard ok else { return false }
+            epoch = scopeEpoch
             if ok {
                 await migrateLocalIntoHousehold(store: store)
+                guard isCurrent(epoch) else { return false }
             } else {
                 syncStage = .failed(lastError ?? "Couldn't accept the household invite.")
             }
             return ok
         } catch {
+            guard isCurrent(epoch) else { return false }
             lastError = "Couldn't find a household for that code."
             syncStage = .failed("Couldn't find a household for code \(code). \(error.localizedDescription)")
             Log.transfer.error("joinByCode failed: \(error.localizedDescription, privacy: .public)")
@@ -605,50 +719,34 @@ final class HouseholdCloudKit {
 
     /// Resolve the zone + database to operate on (owner uses private, member uses shared).
     private func activeZoneAndDB() async -> (CKRecordZone.ID, CKDatabase)? {
+        let epoch = scopeEpoch
+        guard state == .owner || state == .member else { return nil }
+        guard await accountAvailable(), isCurrent(epoch) else { return nil }
         if state == .owner {
-            // ownerZoneID is only set in-memory during createHousehold(); it is NOT restored on
-            // relaunch. But the owner's zone is deterministic, so reconstruct it rather than
-            // failing. (This was the bug behind "Couldn't reach the shared kitchen" + no join
-            // code: after any relaunch, ownerZoneID was nil and this returned nil.)
-            if let z = ownerZoneID { return (z, privateDB) }
-            let z = CKRecordZone.ID(zoneName: HouseholdSchema.zoneName, ownerName: CKCurrentUserDefaultName)
-            // Make sure the zone actually exists in the private DB before claiming it; create it
-            // if it's somehow missing (idempotent).
-            if (try? await privateDB.recordZone(for: z)) != nil {
-                ownerZoneID = z
-                return (z, privateDB)
-            }
-            if let saved = try? await privateDB.modifyRecordZones(saving: [CKRecordZone(zoneID: z)], deleting: []),
-               saved.saveResults[z] != nil {
-                ownerZoneID = z
-                return (z, privateDB)
-            }
-            return (z, privateDB)   // last resort: use the deterministic ID anyway
+            let zone = ownerZoneID ?? CKRecordZone.ID(zoneName: HouseholdSchema.zoneName,
+                                                      ownerName: CKCurrentUserDefaultName)
+            return (zone, privateDB)
         }
-        // Member: find the shared zone. Right after accepting a share, CloudKit may not have
-        // provisioned the shared zone into sharedDB yet, so poll a few times before giving up.
-        if state == .member {
-            for attempt in 0..<6 {
-                if let zones = try? await sharedDB.allRecordZones(), let z = zones.first {
-                    return (z.zoneID, sharedDB)
-                }
-                Log.transfer.notice("Shared zone not visible yet (attempt \(attempt + 1, privacy: .public)); waiting")
-                try? await Task.sleep(nanoseconds: 1_000_000_000)   // 1s between tries
+        for _ in 0..<6 {
+            let zones = try? await sharedDB.allRecordZones()
+            guard isCurrent(epoch), state == .member else { return nil }
+            if let zone = Self.selectMemberZone(zones?.map(\.zoneID) ?? [], expected: memberZoneID) {
+                rememberMemberZone(zone)
+                return (zone, sharedDB)
             }
-            return nil
+            // Multiple legacy memberships require selecting the intended invitation again.
+            if memberZoneID == nil, (zones?.count ?? 0) > 1 { return nil }
+            do { try await Task.sleep(nanoseconds: 1_000_000_000) }
+            catch { return nil }
         }
-        // Fallback: a one-shot check (e.g. role not yet settled).
-        if let zones = try? await sharedDB.allRecordZones(), let z = zones.first {
-            return (z.zoneID, sharedDB)
-        }
-        if let z = ownerZoneID { return (z, privateDB) }
         return nil
     }
 
     /// Push the full local pantry to the shared zone, with conflict handling.
-    func push(store: GuestDataStore) async {
-        guard let (zoneID, db) = await activeZoneAndDB() else { return }
-        state = .syncing
+    @discardableResult
+    func push(store: GuestDataStore) async -> Bool {
+        let epoch = scopeEpoch
+        guard let (zoneID, db) = await activeZoneAndDB(), isCurrent(epoch) else { return false }
         let records = store.inventoryItems.map { record(from: $0, zoneID: zoneID) }
                     + store.groceryItems.map { record(from: $0, zoneID: zoneID) }
         let capturedTombstones = store.householdTombstoneSnapshot()
@@ -662,9 +760,13 @@ final class HouseholdCloudKit {
         do {
             let result = try await db.modifyRecords(saving: records, deleting: deleteIDs,
                                                     savePolicy: .changedKeys)
+            guard isCurrent(epoch) else { return false }
             // Inspect for per-record conflicts (someone else changed the same record).
             var conflicts: [CKRecord] = []
-            for (_, saveResult) in result.saveResults {
+            for record in records {
+                guard let saveResult = result.saveResults[record.recordID] else {
+                    throw CKError(.internalError)
+                }
                 if case .failure(let error) = saveResult,
                    let ckErr = error as? CKError, ckErr.code == .serverRecordChanged,
                    let serverRecord = ckErr.serverRecord,
@@ -675,10 +777,19 @@ final class HouseholdCloudKit {
                         serverRecord[key] = clientRecord[key]
                     }
                     conflicts.append(serverRecord)
-                }
+                } else { _ = try saveResult.get() }
+            }
+            for id in deleteIDs {
+                guard let outcome = result.deleteResults[id] else { throw CKError(.internalError) }
+                _ = try outcome.get()
             }
             if !conflicts.isEmpty {
-                _ = try? await db.modifyRecords(saving: conflicts, deleting: [], savePolicy: .changedKeys)
+                let retried = try await db.modifyRecords(saving: conflicts, deleting: [], savePolicy: .changedKeys)
+                guard isCurrent(epoch) else { return false }
+                for record in conflicts {
+                    guard let outcome = retried.saveResults[record.recordID] else { throw CKError(.internalError) }
+                    _ = try outcome.get()
+                }
                 Log.transfer.notice("Resolved \(conflicts.count, privacy: .public) household conflicts")
             }
             let acknowledgedDeletes = Set(result.deleteResults.compactMap { id, outcome in
@@ -695,19 +806,22 @@ final class HouseholdCloudKit {
                     }))
             }
             Log.transfer.notice("Pushed \(records.count, privacy: .public) household records")
+            return true
         } catch {
-            lastError = "Sync push failed: \(error.localizedDescription)"
+            guard isCurrent(epoch) else { return false }
+            failSync("Sync push failed: \(error.localizedDescription)")
+            return false
         }
-        state = (state == .syncing) ? (ownerZoneID != nil ? .owner : .member) : state
     }
 
     /// Pull all records from the shared zone and merge into the local store.
     /// Uses CKFetchRecordZoneChangesOperation rather than CKQuery so it does NOT require the
     /// recordName field to be marked queryable in the CloudKit schema (which is what caused
     /// "Field 'recordName' is not marked queryable"). Also yields a change token for delta sync.
-    func pull(into store: GuestDataStore) async {
+    @discardableResult
+    func pull(into store: GuestDataStore) async -> Bool {
         let epoch = scopeEpoch
-        guard let (zoneID, db) = await activeZoneAndDB(), scopeEpoch == epoch else { return }
+        guard let (zoneID, db) = await activeZoneAndDB(), isCurrent(epoch) else { return false }
         var inv: [LocalInventoryItem] = []
         var gro: [LocalGroceryItem] = []
         var deletedInventory = Set<UUID>()
@@ -716,9 +830,11 @@ final class HouseholdCloudKit {
         // Resume from a saved change token if we have one (delta sync; nil = full fetch).
         // Owner identity is part of the checkpoint scope; legacy zone-only tokens cannot
         // be reused after an account/owner change. A fresh scoped key safely replays once.
-        let tokenScope = Data((zoneID.ownerName + "\u{0}" + zoneID.zoneName).utf8).base64EncodedString()
-        let tokenKey = "householdZoneToken_v2_" + tokenScope
+        guard let account = UserDefaults.standard.string(forKey: "householdCloudAccount") else { return false }
+        let tokenScope = Data((account + "\u{0}" + zoneID.ownerName + "\u{0}" + zoneID.zoneName).utf8).base64EncodedString()
+        let tokenKey = "householdZoneToken_v3_" + tokenScope
         var stagedToken: Data?
+        var recordFailure: Error?
         var savedToken: CKServerChangeToken?
         if let data = UserDefaults.standard.data(forKey: tokenKey) {
             savedToken = try? NSKeyedUnarchiver.unarchivedObject(ofClass: CKServerChangeToken.self, from: data)
@@ -733,11 +849,21 @@ final class HouseholdCloudKit {
                     configurationsByRecordZoneID: [zoneID: config]
                 )
                 op.recordWasChangedBlock = { _, result in
-                    guard case .success(let rec) = result else { return }
-                    if rec.recordType == HouseholdSchema.inventoryType, let i = self.inventoryItem(from: rec) { inv.append(i) }
-                    if rec.recordType == HouseholdSchema.groceryType, let g = self.groceryItem(from: rec) { gro.append(g) }
+                    guard case .success(let rec) = result else {
+                        if case .failure(let error) = result { recordFailure = error }
+                        return
+                    }
+                    if rec.recordType == HouseholdSchema.inventoryType {
+                        guard let item = self.inventoryItem(from: rec) else { recordFailure = CKError(.internalError); return }
+                        inv.append(item)
+                    }
+                    if rec.recordType == HouseholdSchema.groceryType {
+                        guard let item = self.groceryItem(from: rec) else { recordFailure = CKError(.internalError); return }
+                        gro.append(item)
+                    }
                     let total = inv.count + gro.count
                     Task { @MainActor in
+                        guard self.isCurrent(epoch) else { return }
                         if case .downloading = self.syncStage { self.syncStage = .downloading(total) }
                     }
                 }
@@ -752,6 +878,7 @@ final class HouseholdCloudKit {
                     }
                 }
                 op.recordZoneFetchResultBlock = { _, result in
+                    if case .failure(let error) = result { recordFailure = error }
                     if case .success(let (token, _, _)) = result,
                        let data = try? NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true) {
                         stagedToken = data
@@ -766,7 +893,8 @@ final class HouseholdCloudKit {
                 }
                 db.add(op)
             }
-            guard scopeEpoch == epoch else { return }
+            guard isCurrent(epoch) else { return false }
+            if let recordFailure { throw recordFailure }
             // Remote rows must bypass local mutation permission/restamping/queue hooks.
             // Keep this suppression strictly synchronous; user actions never run under it.
             Self.applyRemoteChanges(to: store) {
@@ -779,15 +907,18 @@ final class HouseholdCloudKit {
             try LocalDatabase.shared.saveDataDurably(JSONEncoder().encode(store.groceryItems), key: DBKey.groceryItems.rawValue)
             if let stagedToken { UserDefaults.standard.set(stagedToken, forKey: tokenKey) }
             Log.transfer.notice("Pulled household: \(inv.count, privacy: .public) inv, \(gro.count, privacy: .public) gro")
+            return true
         } catch {
+            guard isCurrent(epoch) else { return false }
             // If our saved change token went stale, clear it and do a full re-fetch once.
             if let ck = error as? CKError, ck.code == .changeTokenExpired, savedToken != nil {
                 UserDefaults.standard.removeObject(forKey: tokenKey)
                 Log.transfer.notice("Change token expired; retrying full pull")
-                if savedToken != nil { await pull(into: store) }
+                return await pull(into: store)
             } else {
                 lastError = "Sync pull failed: \(error.localizedDescription)"
                 syncStage = .failed("Sync failed: \(error.localizedDescription)")
+                return false
             }
         }
     }
@@ -858,7 +989,8 @@ extension HouseholdCloudKit {
     /// Best-effort: failures are logged, never thrown (activity is non-critical).
     func logActivity(_ kind: HouseholdActivity.Kind, itemName: String) async {
         guard state == .owner || state == .member else { return }
-        let zoneID = ownerZoneIDOrShared()
+        let epoch = scopeEpoch
+        guard let (zoneID, db) = await activeZoneAndDB(), isCurrent(epoch) else { return }
         let rec = CKRecord(recordType: HouseholdSchema.activityType,
                            recordID: CKRecord.ID(recordName: "act_\(UUID().uuidString)", zoneID: zoneID))
         rec[HouseholdSchema.Act.kind] = kind.rawValue as CKRecordValue
@@ -866,7 +998,6 @@ extension HouseholdCloudKit {
         rec[HouseholdSchema.Act.actorName] = myDisplayName as CKRecordValue
         rec[HouseholdSchema.Act.date] = Date() as CKRecordValue
         do {
-            let db = (state == .owner) ? privateDB : sharedDB
             _ = try await db.modifyRecords(saving: [rec], deleting: [])
         } catch {
             Log.transfer.error("logActivity failed: \(error.localizedDescription, privacy: .public)")
@@ -876,12 +1007,13 @@ extension HouseholdCloudKit {
     /// Fetch recent activity (newest first) for the feed screen.
     func fetchActivity(limit: Int = 50) async -> [HouseholdActivity] {
         guard state == .owner || state == .member else { return [] }
-        let zoneID = ownerZoneIDOrShared()
-        let db = (state == .owner) ? privateDB : sharedDB
+        let epoch = scopeEpoch
+        guard let (zoneID, db) = await activeZoneAndDB(), isCurrent(epoch) else { return [] }
         let q = CKQuery(recordType: HouseholdSchema.activityType, predicate: NSPredicate(value: true))
         q.sortDescriptors = [NSSortDescriptor(key: HouseholdSchema.Act.date, ascending: false)]
         do {
             let (matches, _) = try await db.records(matching: q, inZoneWith: zoneID, resultsLimit: limit)
+            guard isCurrent(epoch) else { return [] }
             var out: [HouseholdActivity] = []
             for (_, result) in matches {
                 guard let r = try? result.get(),
@@ -903,15 +1035,17 @@ extension HouseholdCloudKit {
     /// The household members, derived from the CKShare participants.
     func fetchMembers() async -> [HouseholdMember] {
         guard state == .owner || state == .member else { return [] }
+        let epoch = scopeEpoch
+        guard let (zoneID, db) = await activeZoneAndDB(), isCurrent(epoch) else { return [] }
         do {
-            let zoneID = ownerZoneIDOrShared()
             let rootID = CKRecord.ID(recordName: "HouseholdRoot", zoneID: zoneID)
-            let db = (state == .owner) ? privateDB : sharedDB
             guard let root = try? await db.record(for: rootID),
                   let shareRef = root.share else { return ownerOnlyMember() }
+            guard isCurrent(epoch) else { return [] }
             guard let share = try? await db.record(for: shareRef.recordID) as? CKShare else {
                 return ownerOnlyMember()
             }
+            guard isCurrent(epoch) else { return [] }
             var members: [HouseholdMember] = []
             for p in share.participants {
                 let name = p.userIdentity.nameComponents?.formatted() ?? "Member"
@@ -930,13 +1064,5 @@ extension HouseholdCloudKit {
 
     private func ownerOnlyMember() -> [HouseholdMember] {
         [HouseholdMember(id: "me", name: myDisplayName, role: state == .owner ? .owner : .member, joinedAt: nil, isMe: true)]
-    }
-
-    private func ownerZoneIDOrShared() -> CKRecordZone.ID {
-        if state == .owner {
-            return CKRecordZone.ID(zoneName: HouseholdSchema.zoneName, ownerName: CKCurrentUserDefaultName)
-        }
-        // Member: the shared zone id is discovered during join; fall back to the default shared zone.
-        return CKRecordZone.ID(zoneName: HouseholdSchema.zoneName, ownerName: CKCurrentUserDefaultName)
     }
 }

@@ -21,6 +21,8 @@ jobs:
             sudo xcode-select -s /Applications/Xcode_26.app
       - name: Create non-secret build configuration
         run: cp Secrets.example.xcconfig Secrets.xcconfig
+      - name: Test release package guards
+        run: python3 scripts/test_release.py
       - name: Build Stocked for a generic physical device
         run: |
           xcodebuild \

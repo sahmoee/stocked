@@ -1,6 +1,7 @@
 {
   "project": "Stocked.xcodeproj",
   "approved_xcode_builds": [
+    "17C529",
     "27A266a"
   ],
   "schemes": [

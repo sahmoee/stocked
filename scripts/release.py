@@ -6,6 +6,52 @@ VERSION = re.compile(r"[0-9]+(\.[0-9]+){0,2}")
 # Main-app platform -> platforms its embedded bundles may target.
 PLATFORMS = {"iphoneos": {"iphoneos", "watchos"}, "macosx": {"macosx"}}
 
+# These legacy substitutions must never carry provider/service secrets into a release.
+CREDENTIAL_FIELDS = {
+    "APINinjasKey", "ChompAPIKey", "EdamamAppKey", "HomeBaseAPIKey",
+    "LogMealAPIToken", "RapidAPIKey", "SpoonacularAPIKey", "StockedWorkerKey",
+    "SuggesticAPIToken", "USDAAPIKey",
+}
+
+def validate_payload(app, bundles):
+    """Fail closed on known credential inputs and first-party privacy omissions.
+
+    This is a packaging guard, not a substitute for reviewing source/binary secrets.
+    Never print field values or file contents when rejecting a bundle.
+    """
+    for path in app.rglob("*"):
+        if path.is_file() and (path.suffix.lower() in {".p12", ".p8", ".key", ".xcconfig"}
+                               or path.name == ".env" or path.name.startswith(".env.")):
+            raise ValueError("Credential/configuration file present in app: " + path.name)
+        if path.is_file() and path.suffix == ".plist":
+            data = plistlib.loads(path.read_bytes())
+            def inspect(value):
+                if isinstance(value, dict):
+                    for key, item in value.items():
+                        if key in CREDENTIAL_FIELDS and str(item or "").strip():
+                            raise ValueError("Nonempty credential field in packaged plist: " + key)
+                        inspect(item)
+                elif isinstance(value, list):
+                    for item in value: inspect(item)
+            inspect(data)
+    # The main app, widget and share extension directly access required-reason APIs.
+    # Watch currently has no direct required-reason API calls of its own.
+    for bundle in bundles:
+        if bundle != app and bundle.suffix != ".appex":
+            continue
+        manifest = bundle / "PrivacyInfo.xcprivacy"
+        if (bundle / "Contents").is_dir():
+            manifest = bundle / "Contents/Resources/PrivacyInfo.xcprivacy"
+        if not manifest.is_file():
+            raise ValueError("Missing privacy manifest for " + bundle.name)
+        privacy = plistlib.loads(manifest.read_bytes())
+        declarations = privacy.get("NSPrivacyAccessedAPITypes", [])
+        reasons = {entry.get("NSPrivacyAccessedAPIType"): entry.get("NSPrivacyAccessedAPITypeReasons", [])
+                   for entry in declarations}
+        if "1C8F.1" not in reasons.get("NSPrivacyAccessedAPICategoryUserDefaults", []):
+            raise ValueError("Missing App Group defaults privacy reason for " + bundle.name)
+
+
 def validate_archive(path, approved):
     path = pathlib.Path(path)
     apps = list((path / "Products/Applications").glob("*.app"))
@@ -22,7 +68,8 @@ def validate_archive(path, approved):
         if not VERSION.fullmatch(str(main[key])): raise ValueError("Invalid " + key)
     main_id = main.get("CFBundleIdentifier")
     allowed = PLATFORMS.get(main.get("DTPlatformName"), set())
-    for bundle in [apps[0]] + list(apps[0].rglob("*.appex")) + list(apps[0].rglob("*.app")):
+    bundles = [apps[0]] + list(apps[0].rglob("*.appex")) + list(apps[0].rglob("*.app"))
+    for bundle in bundles:
         info = metadata(bundle)
         if info.get("CFBundleVersion") != main.get("CFBundleVersion"): raise ValueError("Embedded build numbers disagree")
         if info.get("CFBundleShortVersionString") != main.get("CFBundleShortVersionString"): raise ValueError("Embedded marketing versions disagree")
@@ -36,6 +83,7 @@ def validate_archive(path, approved):
         if not identifier: raise ValueError("Missing bundle identifier")
         if bundle != apps[0] and not identifier.startswith(main_id + "."):
             raise ValueError("Embedded bundle identifier is not under the app identifier")
+    validate_payload(apps[0], bundles)
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(apps[0])], check=True)
     return main
 
