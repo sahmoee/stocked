@@ -12,6 +12,7 @@ import NaturalLanguage
 // actor. Isolation makes that cache access data-race-free.
 @MainActor
 final class IngredientCooccurrence {
+    nonisolated deinit {}
 
     static let shared = IngredientCooccurrence()
     private init() { buildIfNeeded() }

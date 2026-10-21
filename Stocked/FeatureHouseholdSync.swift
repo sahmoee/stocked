@@ -34,6 +34,7 @@ nonisolated protocol HouseholdSyncable: Codable, Identifiable, Sendable where ID
 @MainActor
 @Observable
 final class FeatureSync {
+    nonisolated deinit {}
     static let shared = FeatureSync()
     private init() { loadTombstones() }
 

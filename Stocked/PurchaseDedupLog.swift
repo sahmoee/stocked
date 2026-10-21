@@ -17,6 +17,7 @@ import Foundation
 
 @Observable
 final class PurchaseImportLog {
+    nonisolated deinit {}
     static let shared = PurchaseImportLog()
 
     // MARK: Tuning

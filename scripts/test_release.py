@@ -131,4 +131,10 @@ class ReleaseChecks(unittest.TestCase):
     def testCheckedInExampleHasNoReleaseCredentials(self):
         release.validate_local_credentials(release.ROOT / "Secrets.example.xcconfig")
 
+    @patch.object(release.subprocess, "check_output")
+    def testIsolatedDeinitsReportedExceptGeneratedAccessor(self, check_output):
+        check_output.side_effect = ["_$sA CfZ _$sB CfZ _other", "Stocked.(Box in _1A2B).__isolated_deallocating_deinit\n"
+                                    "Stocked.(ResourceBundleClass in _3C).__isolated_deallocating_deinit\n"]
+        self.assertEqual(release.isolated_deinits("Fixture"), ["Stocked.Box"])
+
 if __name__ == "__main__": unittest.main()

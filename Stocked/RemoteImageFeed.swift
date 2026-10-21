@@ -9,6 +9,7 @@ import Foundation
 
 @MainActor
 final class RemoteImageFeed {
+    nonisolated deinit {}
     static let shared = RemoteImageFeed()
     private init() {}
 

@@ -12,6 +12,7 @@ import NaturalLanguage
 @Observable
 @MainActor
 final class SurpriseRecipeEngine {
+    nonisolated deinit {}
     nonisolated init() {}
     var isGenerating = false
     var lastRecipe:   GeneratedRecipe?
@@ -279,12 +280,12 @@ struct OnDeviceRecipeGenerator {
         let hasGrains  = !parsed.grains.isEmpty
         let hasDairy   = !parsed.dairy.isEmpty
 
-        if hasProtein && hasGrains  { return .proteinGrainBowl }
+        if hasProtein && hasGrains { return .proteinGrainBowl }
         if hasProtein && hasProduce { return .stirFry }
-        if hasProtein               { return .simpleProtein }
-        if hasProduce && hasGrains  { return .pastaVeggie }
-        if hasDairy && hasGrains    { return .cheesyBake }
-        if hasProduce               { return .roastedVeggies }
+        if hasProtein { return .simpleProtein }
+        if hasProduce && hasGrains { return .pastaVeggie }
+        if hasDairy && hasGrains { return .cheesyBake }
+        if hasProduce { return .roastedVeggies }
         return .chefSurprise
     }
 
@@ -293,8 +294,8 @@ struct OnDeviceRecipeGenerator {
         let prefs = preferences.lowercased()
 
         if prefs.contains("italian") || prefs.contains("pasta") { return .pastaVeggie }
-        if prefs.contains("asian") || prefs.contains("quick")   { return .stirFry }
-        if prefs.contains("comfort")                            { return .cheesyBake }
+        if prefs.contains("asian") || prefs.contains("quick") { return .stirFry }
+        if prefs.contains("comfort") { return .cheesyBake }
         if prefs.contains("healthy") || prefs.contains("light") { return .roastedVeggies }
 
         return selectTemplate(for: parsed)
@@ -565,8 +566,8 @@ enum RecipeTemplate: CaseIterable, Hashable, Sendable {
     nonisolated private func proteinCookTime(_ protein: String) -> String {
         let lower = protein.lowercased()
         if lower.contains("shrimp") || lower.contains("scallop") { return "2 minutes per side" }
-        if lower.contains("fish") || lower.contains("salmon")    { return "3–4 minutes per side" }
-        if lower.contains("egg")                                  { return "3 minutes" }
+        if lower.contains("fish") || lower.contains("salmon") { return "3–4 minutes per side" }
+        if lower.contains("egg") { return "3 minutes" }
         return "4–5 minutes per side"
     }
 }
@@ -575,8 +576,8 @@ enum RecipeTemplate: CaseIterable, Hashable, Sendable {
 nonisolated private func proteinCookTime(_ protein: String) -> String {
     let lower = protein.lowercased()
     if lower.contains("shrimp") || lower.contains("scallop") { return "2 minutes per side" }
-    if lower.contains("fish") || lower.contains("salmon")    { return "3–4 minutes per side" }
-    if lower.contains("egg")                                  { return "3 minutes" }
+    if lower.contains("fish") || lower.contains("salmon") { return "3–4 minutes per side" }
+    if lower.contains("egg") { return "3 minutes" }
     return "4–5 minutes per side"
 }
 

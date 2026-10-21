@@ -8,6 +8,7 @@ import CoreSpotlight
 // MARK: - Location Manager
 @Observable
 class LocationManager: NSObject, CLLocationManagerDelegate {
+    nonisolated deinit {}
     static let shared = LocationManager()
     private let manager = CLLocationManager()
     var authStatus: CLAuthorizationStatus = .notDetermined

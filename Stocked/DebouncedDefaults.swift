@@ -9,6 +9,7 @@ import Foundation
 
 @MainActor
 final class DebouncedDefaults {
+    nonisolated deinit {}
     static let shared = DebouncedDefaults()
 
     private var pending: [String: Any] = [:]

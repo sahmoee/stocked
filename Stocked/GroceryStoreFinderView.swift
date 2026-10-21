@@ -17,6 +17,7 @@ struct NearbyGroceryStore: Identifiable {
 @MainActor
 @Observable
 class GroceryStoreFinder: NSObject, CLLocationManagerDelegate {
+    nonisolated deinit {}
     var stores:     [NearbyGroceryStore] = []
     var isSearching = false
     var error:      String?

@@ -51,6 +51,7 @@ private struct TapCountingView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        nonisolated deinit {}
         private weak var window: UIWindow?
         private var recognizer: UITapGestureRecognizer?
 
@@ -105,6 +106,7 @@ private struct TapCountingView: UIViewRepresentable {
 /// A zero-size, non-interactive view whose only job is to find the window and
 /// hand it to the coordinator.
 private final class WindowTapObserver: UIView {
+    nonisolated deinit {}
     weak var coordinator: TapCountingView.Coordinator?
 
     override func didMoveToWindow() {

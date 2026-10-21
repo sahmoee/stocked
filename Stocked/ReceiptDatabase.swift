@@ -33,6 +33,7 @@ nonisolated struct ReceiptRecord: Codable, Identifiable, Sendable {
 // in @MainActor view code, so this removes any cross-actor access risk without changing them.
 @MainActor
 final class ReceiptDatabase {
+    nonisolated deinit {}
     static let shared = ReceiptDatabase()
     private init() { load() }
 

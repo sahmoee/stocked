@@ -104,6 +104,23 @@ def validate_archive(path, approved):
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(apps[0])], check=True)
     return main
 
+# Swift 6.2 makes every implicit deinit isolated under default MainActor isolation; the
+# iOS 26.0-26.3 concurrency runtime can abort freeing its task-local marker during such
+# a deinit. Classes therefore declare `nonisolated deinit {}`. Xcode's generated resource
+# accessor class is never deallocated and cannot be edited.
+ALLOWED_ISOLATED_DEINITS = {"ResourceBundleClass"}
+
+def isolated_deinits(binary):
+    """Names of classes whose deinit hops executors, from an unstripped (Debug) binary."""
+    symbols = subprocess.check_output(["nm", "-j", str(binary)], text=True).split()
+    names = subprocess.check_output(["xcrun", "swift-demangle", "--simplified"],
+                                    input="\n".join(s for s in symbols if s.endswith("CfZ")), text=True)
+    found = set()
+    for line in names.splitlines():
+        name = re.sub(r"\((\w+) in [^)]*\)", r"\1", line.split(".__isolated_deallocating_deinit")[0])
+        if line.strip() and name.split(".")[-1] not in ALLOWED_ISOLATED_DEINITS: found.add(name)
+    return sorted(found)
+
 def validate_output(value):
     if not value or not pathlib.Path(value).is_absolute():
         raise ValueError("Set SOWENS_BUILD_ROOT to an absolute output directory")
@@ -121,13 +138,20 @@ def validate_output(value):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["check", "check-output", "build", "archive", "validate-archive"])
+    parser.add_argument("action", choices=["check", "check-deinits", "check-output", "build", "archive", "validate-archive"])
     parser.add_argument("--scheme")
     parser.add_argument("--archive")
+    parser.add_argument("--binary", action="append", help="Unstripped Debug binary for check-deinits")
     args = parser.parse_args()
     config = json.loads((ROOT / "tooling.json").read_text())
     if args.action == "check-output":
         validate_output(os.environ.get("SOWENS_BUILD_ROOT"))
+        return
+    if args.action == "check-deinits":
+        if not args.binary: parser.error("--binary is required")
+        found = [name for binary in args.binary for name in isolated_deinits(binary)]
+        if found: raise ValueError("Add `nonisolated deinit {}` to: " + ", ".join(found))
+        print("No isolated deinits")
         return
     if args.action == "validate-archive":
         if not args.archive: parser.error("--archive is required")

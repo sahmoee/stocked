@@ -3,6 +3,7 @@ import UIKit
 import Darwin
 
 @Observable @MainActor final class QAIdentityStore {
+    nonisolated deinit {}
     static let shared = QAIdentityStore()
     var tester: QATester {
         didSet { UserDefaults.standard.set(tester.rawValue, forKey: "qa.identity.tester.v1") }

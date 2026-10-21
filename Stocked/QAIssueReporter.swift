@@ -79,6 +79,7 @@ struct QAIssueReporter: View {
 /// two-finger short press while QA recording is active.
 @MainActor
 final class QAReporterGestureArbiter {
+    nonisolated deinit {}
     static let shared = QAReporterGestureArbiter()
 
     private var suppressedUntil = ContinuousClock.now
@@ -109,6 +110,7 @@ final class QAReporterGestureArbiter {
 /// gesture from stacking two composers.
 @MainActor
 final class QAReporterPresenter {
+    nonisolated deinit {}
     static let shared = QAReporterPresenter()
     private init() {}
 
@@ -184,6 +186,7 @@ final class QAReporterPresenter {
 
 /// Root of the reporter window: invisible, and transparent to touches.
 private final class QAPassthroughController: UIViewController, UIAdaptivePresentationControllerDelegate {
+    nonisolated deinit {}
     var onInteractiveDismiss: (() -> Void)?
 
     override func loadView() {
@@ -197,6 +200,7 @@ private final class QAPassthroughController: UIViewController, UIAdaptivePresent
 }
 
 private final class QAPassthroughView: UIView {
+    nonisolated deinit {}
     /// Returning nil for hits on itself makes the whole window transparent to
     /// touches; `super.hitTest` still returns real subviews if any are ever
     /// added, so this is a hole rather than a wall.
@@ -241,6 +245,7 @@ private struct LongPressCatcher: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        nonisolated deinit {}
         var onFire: (UIImage?, QATicketContext) -> Void
         private weak var window: UIWindow?
         private var recognizer: UILongPressGestureRecognizer?
@@ -327,6 +332,7 @@ private struct LongPressCatcher: UIViewRepresentable {
 }
 
 private final class WindowPressObserver: UIView {
+    nonisolated deinit {}
     weak var coordinator: LongPressCatcher.Coordinator?
     override func didMoveToWindow() {
         super.didMoveToWindow()

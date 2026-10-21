@@ -16,6 +16,7 @@ import os
 @Observable
 @MainActor
 final class HealthKitManager {
+    nonisolated deinit {}
     static let shared = HealthKitManager()
 
     private let store = HKHealthStore()

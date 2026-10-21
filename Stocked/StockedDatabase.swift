@@ -65,6 +65,7 @@ struct CookingTip: Identifiable {
 
 @Observable
 final class StockedDatabase {
+    nonisolated deinit {}
 
     static let shared = StockedDatabase()
 

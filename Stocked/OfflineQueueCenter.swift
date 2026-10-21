@@ -43,6 +43,7 @@ nonisolated struct OfflineWorkerMutation: Codable, Identifiable, Sendable {
 @MainActor
 @Observable
 final class OfflineQueueCenter {
+    nonisolated deinit {}
     static let shared = OfflineQueueCenter()
 
     // ── Observable pending-sync state (what PendingSyncBadge renders) ──────────

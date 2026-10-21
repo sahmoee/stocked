@@ -18,6 +18,7 @@ import Foundation
 
 @Observable
 final class MultiStoreAssignments {
+    nonisolated deinit {}
     static let shared = MultiStoreAssignments()
 
     private(set) var byItemID: [UUID: String] = [:]

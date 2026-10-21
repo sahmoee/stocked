@@ -1769,6 +1769,7 @@ struct ItemPhotoPicker: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 
     class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        nonisolated deinit {}
         let parent: ItemPhotoPicker
         init(_ parent: ItemPhotoPicker) { self.parent = parent }
 

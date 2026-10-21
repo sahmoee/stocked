@@ -75,6 +75,7 @@ nonisolated struct QAProcessRecord: Identifiable, Sendable {
 /// than logging the same process twice.
 @MainActor
 final class QAProcessHandle {
+    nonisolated deinit {}
     private let id: UUID?
     private var resolved = false
 
@@ -107,6 +108,7 @@ final class QAProcessHandle {
 @MainActor
 @Observable
 final class QAProcessTracker {
+    nonisolated deinit {}
     static let shared = QAProcessTracker()
     private init() {}
 

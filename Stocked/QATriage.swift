@@ -76,6 +76,7 @@ nonisolated struct QAFinding: Identifiable, Sendable {
 @MainActor
 @Observable
 final class QATriage {
+    nonisolated deinit {}
     static let shared = QATriage()
     private init() {}
 

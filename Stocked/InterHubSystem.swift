@@ -101,6 +101,7 @@ nonisolated struct InterHubIntent: Identifiable, Codable, Hashable, Sendable {
 /// Spotlight result, or share import cannot disappear before MainTabView is mounted.
 @Observable @MainActor
 final class InterHubIntentCenter {
+    nonisolated deinit {}
     static let shared = InterHubIntentCenter()
 
     private let queueKey = "interhub.intent.queue.v1"
@@ -209,6 +210,7 @@ final class InterHubIntentCenter {
 /// consumer; producers never need to know whether the UI currently exists.
 @Observable @MainActor
 final class InterHubCoordinator {
+    nonisolated deinit {}
     static let shared = InterHubCoordinator()
     private(set) var request: InterHubIntent?
     private(set) var revision = 0
@@ -262,6 +264,7 @@ nonisolated struct HubHandoffContext: Identifiable, Codable, Hashable, Sendable 
 
 @Observable @MainActor
 final class HubHandoffCenter {
+    nonisolated deinit {}
     static let shared = HubHandoffCenter()
     private(set) var current: HubHandoffContext?
     private var returnRoute: InterHubRoute?
@@ -504,6 +507,7 @@ nonisolated struct GroceryProvenanceRecord: Codable, Sendable, Equatable {
 }
 
 @Observable @MainActor final class GroceryProvenanceCenter {
+    nonisolated deinit {}
     static let shared = GroceryProvenanceCenter()
     private(set) var records: [UUID: GroceryProvenanceRecord]
     private let key = "grocery.provenance.v1"

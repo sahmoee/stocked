@@ -12,6 +12,7 @@ import AVFoundation
 @Observable
 @MainActor
 final class SpeechReader {
+    nonisolated deinit {}
     static let shared = SpeechReader()
     private let synth = AVSpeechSynthesizer()
     /// Which step is currently being spoken (nil = silent). Views observe this
@@ -1378,8 +1379,8 @@ struct CookingFlashcardView: View {
             }
         }
         // Write-through capture on every meaningful change + on backgrounding.
-        .onChange(of: completedSteps)     { _, _ in captureSessionSnapshot() }
-        .onChange(of: currentCard)        { _, _ in captureSessionSnapshot() }
+        .onChange(of: completedSteps) { _, _ in captureSessionSnapshot() }
+        .onChange(of: currentCard) { _, _ in captureSessionSnapshot() }
         .onChange(of: checkedIngredients) { _, _ in captureSessionSnapshot() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { captureSessionSnapshot() }
@@ -1421,7 +1422,7 @@ struct CookingFlashcardView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .stockedPopToRoot)) { _ in
                     finishCooking = false   // collapse cook flow on iPad
                 }
-                .onAppear  {
+                .onAppear {
                     UIApplication.shared.isIdleTimerDisabled = true
                     // #16 — give the timer engine the context the Live Activity needs.
                     timerEngine.recipeTitle = recipeTitle

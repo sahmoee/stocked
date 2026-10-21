@@ -11,6 +11,7 @@ import Foundation
 
 @MainActor
 final class RecipeNLGImporter {
+    nonisolated deinit {}
     static let shared = RecipeNLGImporter()
     private init() {}
 

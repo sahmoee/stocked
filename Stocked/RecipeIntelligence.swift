@@ -183,6 +183,7 @@ nonisolated enum OnlineRecipeFacts {
 // reflects this user, not a fixed category mix. Decays gently so old taste fades.
 @MainActor
 final class RecipeInterest {
+    nonisolated deinit {}
     static let shared = RecipeInterest()
 
     /// The existing app-wide privacy preference is the authority for whether taste signals may be

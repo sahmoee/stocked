@@ -30,6 +30,7 @@ nonisolated struct StoreScopedCorrection: Codable, Sendable, Hashable {
 @MainActor
 @Observable
 final class ReceiptLearningIndex {
+    nonisolated deinit {}
     static let shared = ReceiptLearningIndex()
     private init() {}
 

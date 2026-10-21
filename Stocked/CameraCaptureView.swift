@@ -29,6 +29,7 @@ struct CameraCaptureView: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        nonisolated deinit {}
         let parent: CameraCaptureView
         init(_ parent: CameraCaptureView) { self.parent = parent }
 

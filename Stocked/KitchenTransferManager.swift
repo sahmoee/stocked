@@ -526,6 +526,7 @@ nonisolated enum KitchenBackupKeyStore {
 @Observable
 @MainActor
 class KitchenTransferManager {
+    nonisolated deinit {}
     // Explicit container ID — must match the single entry in Stocked.entitlements
     private let cloudContainer = CKContainer(identifier: "iCloud.Stocked")
 

@@ -61,6 +61,7 @@ struct LiveScannerView: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(onScan: onScan) }
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        nonisolated deinit {}
         let onScan: @MainActor (String) -> Void
         // Debounce identical reads so a single item isn't reported repeatedly.
         private var lastValue = ""

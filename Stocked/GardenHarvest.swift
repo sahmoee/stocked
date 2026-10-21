@@ -117,6 +117,7 @@ nonisolated enum HarvestMath {
 @MainActor
 @Observable
 final class HarvestStore {
+    nonisolated deinit {}
     static let shared = HarvestStore()
     /// Improvement #6 — file-backed, debounced, and migrated automatically from the old
     /// UserDefaults blob on first load. See FeatureStore.swift for why.

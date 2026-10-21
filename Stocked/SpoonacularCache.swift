@@ -13,6 +13,7 @@ import Foundation
 /// Generic JSON-backed result cache keyed by a query signature, with a time-to-live.
 @MainActor
 final class SpoonacularCache {
+    nonisolated deinit {}
     static let shared = SpoonacularCache()
 
     /// How long a cached result stays fresh. Spoonacular recipe data changes slowly; a day

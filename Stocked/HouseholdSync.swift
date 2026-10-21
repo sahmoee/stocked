@@ -25,6 +25,7 @@ nonisolated private struct HouseholdJSONBox: @unchecked Sendable {
 @MainActor
 @Observable
 final class HouseholdSync {
+    nonisolated deinit {}
     static let shared = HouseholdSync()
     private static let accessSnapshotKey = "hh_member_access_v1"
     @ObservationIgnored private(set) var scopeEpoch: UInt64 = 0

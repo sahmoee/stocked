@@ -68,6 +68,7 @@ enum HouseholdSchema {
 @MainActor
 @Observable
 final class HouseholdCloudKit {
+    nonisolated deinit {}
     static let shared = HouseholdCloudKit()
     private init() {
         // Restore the persisted household role so launch-time subscription re-registration

@@ -49,6 +49,7 @@ struct KnowledgeIngredient: Identifiable, Codable, Hashable {
 @MainActor
 @Observable
 final class StockedKnowledgeBase {
+    nonisolated deinit {}
     static let shared = StockedKnowledgeBase()
 
     // MARK: State

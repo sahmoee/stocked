@@ -25,6 +25,7 @@ enum DrawerRowID: String, Codable, CaseIterable {
 @Observable
 @MainActor
 final class DrawerOrderStore {
+    nonisolated deinit {}
     static let shared = DrawerOrderStore()
 
     /// Which section a row belongs to. Reordering is constrained within a section.

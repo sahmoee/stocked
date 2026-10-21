@@ -60,6 +60,7 @@ struct CollectionGrid<Item: Hashable & Sendable, Cell: View>: UIViewRepresentabl
 
     @MainActor
     final class Coordinator: NSObject, UICollectionViewDelegate {
+        nonisolated deinit {}
         var cell: (Item) -> Cell
         var onSelect: (Item) -> Void
         var onVerticalCollapseChange: (Bool) -> Void

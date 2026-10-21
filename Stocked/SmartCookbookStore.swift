@@ -6,6 +6,7 @@ extension SmartCookbookRule: HouseholdSyncable {}
 /// Persists only bounded rules. Recipes remain owned by GuestDataStore.
 @MainActor @Observable
 final class SmartCookbookStore {
+    nonisolated deinit {}
     static let shared = SmartCookbookStore()
     private let persistence = FeatureStore<SmartCookbookRule>(key: FeatureStoreKeys.smartCookbooks)
     private var stamping = false

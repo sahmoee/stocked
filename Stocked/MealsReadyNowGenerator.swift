@@ -7,6 +7,7 @@ import Foundation
 
 @MainActor
 final class MealsReadyNowGenerator {
+    nonisolated deinit {}
     static let shared = MealsReadyNowGenerator()
 
     private var automaticTask: Task<Void, Never>?

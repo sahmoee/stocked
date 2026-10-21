@@ -3124,6 +3124,7 @@ private struct OneFingerWidgetLongPressCatcher: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(onFire: onFire) }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        nonisolated deinit {}
         var onFire: @MainActor () -> Void
         private weak var window: UIWindow?
         private var recognizer: UILongPressGestureRecognizer?
@@ -3162,6 +3163,7 @@ private struct OneFingerWidgetLongPressCatcher: UIViewRepresentable {
     }
 
     private final class WidgetPressObserver: UIView {
+        nonisolated deinit {}
         weak var coordinator: Coordinator?
         override func didMoveToWindow() {
             super.didMoveToWindow()

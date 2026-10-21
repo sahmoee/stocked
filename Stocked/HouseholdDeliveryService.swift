@@ -56,6 +56,7 @@ nonisolated struct HouseholdDeliveryStatus: Decodable, Sendable {
 }
 
 @MainActor @Observable final class HouseholdDeliveryService {
+    nonisolated deinit {}
     static let shared = HouseholdDeliveryService()
     private(set) var status: HouseholdDeliveryStatus?
     private(set) var connection = "Polling is available"

@@ -2,6 +2,7 @@ import Foundation
 import Observation
 
 @MainActor @Observable final class StockedPhoneWatchBridge {
+    nonisolated deinit {}
     static let shared = StockedPhoneWatchBridge()
     var enabled = UserDefaults.standard.object(forKey: "stockedWatchEnabled-v1") as? Bool ?? true
     private(set) var status = "Waiting for Apple Watch"

@@ -38,6 +38,7 @@ import os
 
 @MainActor
 final class BundleDataImporter {
+    nonisolated deinit {}
 
     static let shared = BundleDataImporter()
     private init() {}

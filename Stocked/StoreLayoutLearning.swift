@@ -191,6 +191,7 @@ nonisolated enum StoreRouting {
 @MainActor
 @Observable
 final class StoreLayoutStore {
+    nonisolated deinit {}
     static let shared = StoreLayoutStore()
     /// Improvement #6 — file-backed, debounced, and migrated automatically from the old
     /// UserDefaults blob on first load. See FeatureStore.swift for why.

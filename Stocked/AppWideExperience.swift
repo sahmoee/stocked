@@ -83,6 +83,7 @@ enum StockedDestination: String, CaseIterable, Codable, Identifiable {
 
 @Observable @MainActor
 final class AppRouteCoordinator {
+    nonisolated deinit {}
     static let shared = AppRouteCoordinator()
     private(set) var lastDestination: StockedDestination
     private let key = "app.last.destination.v1"
@@ -127,6 +128,7 @@ enum AppCommandCatalog {
 
 @Observable @MainActor
 final class AppUndoJournal {
+    nonisolated deinit {}
     static let shared = AppUndoJournal()
     struct Entry: Identifiable {
         let id = UUID()
@@ -154,6 +156,7 @@ enum BackgroundActivityKind: String, Codable, CaseIterable {
 
 @Observable @MainActor
 final class BackgroundActivityCenter {
+    nonisolated deinit {}
     static let shared = BackgroundActivityCenter()
     struct Item: Identifiable, Codable {
         let id: UUID
@@ -281,6 +284,7 @@ struct ContextualHelpTip: Identifiable, Hashable, Codable {
 
 @Observable @MainActor
 final class ContextualHelpCenter {
+    nonisolated deinit {}
     static let shared = ContextualHelpCenter()
     private(set) var dismissed: Set<String>
     private let key = "app.help.dismissed.v1"
@@ -321,6 +325,7 @@ struct AutosaveIndicator: View {
 
 @Observable @MainActor
 final class PrivacyControlCenter {
+    nonisolated deinit {}
     static let shared = PrivacyControlCenter()
     var allowOnDeviceAnalytics: Bool {
         didSet { AppAnalytics.shared.isEnabled = allowOnDeviceAnalytics }

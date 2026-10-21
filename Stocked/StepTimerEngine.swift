@@ -4,6 +4,7 @@ import SwiftUI
 
 /// Session-owned timer tasks, notifications and the soonest-running Live Activity.
 @MainActor @Observable final class StepTimerEngine {
+    nonisolated deinit {}
     private(set) var timers: [Int: StepTimer] = [:]
     var recipeTitle = ""
     var totalSteps = 0
