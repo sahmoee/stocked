@@ -35,8 +35,8 @@ jobs:
       - name: Run Stocked unit and performance tests on iPhone and iPad
         run: |
           mkdir -p test-results
-          PHONE_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')"
-          IPAD_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPad/{print $2; exit}')"
+          PHONE_ID="$(xcrun simctl list devices available | grep -m1 'iPhone' | grep -oE '[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}')"
+          IPAD_ID="$(xcrun simctl list devices available | grep -m1 'iPad' | grep -oE '[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}')"
           test -n "$PHONE_ID" && test -n "$IPAD_ID"
           xcodebuild \
             -project Stocked.xcodeproj \
