@@ -456,6 +456,7 @@ enum StockedQAChecklist {
 @MainActor
 @Observable
 final class StockedQAStore {
+    nonisolated deinit {}
     static let shared = StockedQAStore()
     private(set) var states: [String: QACheckItemState] = [:]   // keyed by ticket
 

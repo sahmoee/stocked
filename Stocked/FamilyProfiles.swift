@@ -41,6 +41,7 @@ nonisolated struct HouseholdFitResult: Sendable {
 @MainActor
 @Observable
 final class FamilyProfileStore {
+    nonisolated deinit {}
     static let shared = FamilyProfileStore()
     /// Improvement #6 — file-backed, debounced, and migrated automatically from the old
     /// UserDefaults blob on first load. See FeatureStore.swift for why.

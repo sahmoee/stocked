@@ -6,6 +6,7 @@ import UIKit
 
 @MainActor
 final class PersistenceLifecycle {
+    nonisolated deinit {}
     static let shared = PersistenceLifecycle()
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     private var lastFailureToast: Date = .distantPast
@@ -60,6 +61,7 @@ final class PersistenceLifecycle {
 @MainActor
 @Observable
 final class OverlayDismissGuard {
+    nonisolated deinit {}
     static let shared = OverlayDismissGuard()
     @ObservationIgnored var interceptor: (() -> Void)?
 

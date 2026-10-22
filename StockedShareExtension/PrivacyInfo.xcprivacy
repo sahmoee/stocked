@@ -6,8 +6,7 @@
   Apple requires a privacy manifest in EVERY target that calls a "required reason" API
   directly. ShareViewController.swift reads and writes UserDefaults(suiteName: the App Group
   group.com.sowens.Stocked) to hand shared content to the main app, so this target needs its
-  own manifest declaring the UserDefaults access with reason CA92.1 (access info from the app
-  itself, its app group, or the developer).
+  own manifest declaring the UserDefaults access with reasons CA92.1 (app-only defaults) and 1C8F.1 (shared App Group defaults).
 
   Add this file to the StockedShareExtension target only (Target Membership:
   StockedShareExtension). It declares no data collection of its own — the extension only
@@ -33,6 +32,7 @@
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
                 <string>CA92.1</string>
+                <string>1C8F.1</string>
             </array>
         </dict>
     </array>

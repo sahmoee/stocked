@@ -65,6 +65,7 @@ nonisolated enum ArtworkPreparationResult: @unchecked Sendable {
 }
 
 final class ImageCache: @unchecked Sendable {
+    nonisolated deinit {}
     static let shared = ImageCache()
     private init() {
         createCacheDir()

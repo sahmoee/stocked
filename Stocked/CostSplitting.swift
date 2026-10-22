@@ -112,6 +112,7 @@ nonisolated enum SplitMath {
 @MainActor
 @Observable
 final class SplitStore {
+    nonisolated deinit {}
     static let shared = SplitStore()
     /// Improvement #6 — the ledger is file-backed and debounced (it grows without bound, and a
     /// money record is the last thing that should live in a UserDefaults blob). The roster stays

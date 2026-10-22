@@ -14,6 +14,7 @@ import Observation
 
 @Observable
 final class UserCorrections {
+    nonisolated deinit {}
     static let shared = UserCorrections()
 
     /// The kinds of data a correction can apply to.

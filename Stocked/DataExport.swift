@@ -107,6 +107,8 @@ enum DataExport {
     static func decodeBackup(_ data: Data) throws -> StockedBackup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        // A backup is a recovery boundary: silently dropping malformed records can erase
+        // valid local data when Replace is selected. Reject before touching any collection.
         guard let backup = try? decoder.decode(StockedBackup.self, from: data) else {
             throw RestoreError.unreadable
         }
@@ -132,27 +134,55 @@ enum DataExport {
             case .replace:
                 assign(incoming)
             case .merge:
-                // Build by id defensively (existing data could theoretically contain dupes;
-                // uniqueKeysWithValues would trap). Last-wins for current, then backup wins.
-                var byID: [T.ID: T] = [:]
-                for item in current { byID[item.id] = item }
-                for item in incoming { byID[item.id] = item }   // backup wins on conflict
-                assign(Array(byID.values))
+                // Dictionary iteration order is random, so rebuilding from `byID.values`
+                // shuffled every list (grocery order, meal history, plans) on each restore.
+                assign(mergedPreservingOrder(current: current, incoming: incoming))
             }
         }
 
-        apply(backup.inventory,   session.inventoryItems)      { session.inventoryItems = $0 }
-        apply(backup.grocery,     session.groceryItems)        { session.groceryItems = $0 }
-        apply(backup.userRecipes, session.userRecipes)         { session.userRecipes = $0 }
+        apply(backup.inventory,   session.inventoryItems) { session.inventoryItems = $0 }
+        apply(backup.grocery,     session.groceryItems) { session.groceryItems = $0 }
+        apply(backup.userRecipes, session.userRecipes) { session.userRecipes = $0 }
         apply(backup.generated,   session.savedGeneratedRecipes) { session.savedGeneratedRecipes = $0 }
-        apply(backup.pastMeals,   session.pastMeals)           { session.pastMeals = $0 }
-        apply(backup.planned,     session.plannedMeals)        { session.plannedMeals = $0 }
-        apply(backup.prices,      session.priceHistory)        { session.priceHistory = $0 }
-        apply(backup.consumption, session.consumptionLog)      { session.consumptionLog = $0 }
-        apply(backup.subs,        session.userSubstitutions)   { session.userSubstitutions = $0 }
-        if let staples = backup.staples { session.stockStaples = staples }
+        apply(backup.pastMeals,   session.pastMeals) { session.pastMeals = $0 }
+        apply(backup.planned,     session.plannedMeals) { session.plannedMeals = $0 }
+        apply(backup.prices,      session.priceHistory) { session.priceHistory = $0 }
+        apply(backup.consumption, session.consumptionLog) { session.consumptionLog = $0 }
+        apply(backup.subs,        session.userSubstitutions) { session.userSubstitutions = $0 }
+        if let staples = backup.staples {
+            switch mode {
+            case .replace: session.stockStaples = staples
+            case .merge:
+                // Merge means "keep existing": union instead of replacing the staples list.
+                var seen = Set(session.stockStaples)
+                session.stockStaples += staples.filter { seen.insert($0).inserted }
+            }
+        }
+        // Commit now: a restore is a deliberate durability point, and the debounced writes
+        // would otherwise be lost if the app is suspended/killed right after "Backup restored."
+        session.flushPendingSaves()
 
         exportLog.info("Restore complete (mode: \(String(describing: mode))).")
+    }
+
+    /// Merge by id keeping the existing order: existing items stay where they are (replaced in
+    /// place when the backup has a newer copy), new backup items are appended in backup order,
+    /// and duplicate ids collapse to one entry (the backup's copy wins).
+    static func mergedPreservingOrder<T: Identifiable>(current: [T], incoming: [T]) -> [T] where T.ID: Hashable {
+        var currentByID: [T.ID: T] = [:]
+        for item in current { currentByID[item.id] = item }
+        var incomingByID: [T.ID: T] = [:]
+        for item in incoming { incomingByID[item.id] = item }   // last duplicate in backup wins
+        var result: [T] = []
+        result.reserveCapacity(current.count + incoming.count)
+        var emitted = Set<T.ID>()
+        for item in current where emitted.insert(item.id).inserted {
+            result.append(incomingByID[item.id] ?? currentByID[item.id] ?? item)
+        }
+        for item in incoming where emitted.insert(item.id).inserted {
+            result.append(incomingByID[item.id] ?? item)
+        }
+        return result
     }
 
     /// Convenience: decode + restore from raw file Data.

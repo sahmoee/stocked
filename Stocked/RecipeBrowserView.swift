@@ -3,6 +3,7 @@ import WebKit
 
 @Observable @MainActor
 final class RecipeBrowserController: NSObject, WKNavigationDelegate, WKUIDelegate {
+    nonisolated deinit {}
   var page = RecipeBrowserPageState()
   var address = ""
   var title = ""
@@ -228,8 +229,7 @@ final class RecipeBrowserController: NSObject, WKNavigationDelegate, WKUIDelegat
     if response.isForMainFrame {
       let status = (response.response as? HTTPURLResponse)?.statusCode ?? 200
       if let message = RecipePageResponsePolicy.failure(
-        status: status, mimeType: response.response.mimeType)
-      {
+        status: status, mimeType: response.response.mimeType) {
         stop(message)
         decisionHandler(.cancel)
         return
@@ -249,8 +249,7 @@ final class RecipeBrowserController: NSObject, WKNavigationDelegate, WKUIDelegat
 
 extension WKWebView {
   fileprivate func browserObserve<Value>(_ keyPath: KeyPath<WKWebView, Value>)
-    -> NSKeyValueObservation
-  {
+    -> NSKeyValueObservation {
     observe(keyPath, options: [.new]) { [weak self] _, _ in
       Task { @MainActor [weak self] in
         (self?.navigationDelegate as? RecipeBrowserController)?.syncPage()
@@ -627,8 +626,7 @@ struct RecipeBrowserView: View {
         let result: RecipeImportCoordinator.Result
         if let snapshot,
           let parsed = await RecipeImportCoordinator.parsePage(
-            html: snapshot.html, url: snapshot.url, allowTextFallback: false)
-        {
+            html: snapshot.html, url: snapshot.url, allowTextFallback: false) {
           result = parsed
         } else {
           guard ConnectivityMonitor.isOnlineFlag else {
@@ -655,8 +653,7 @@ struct RecipeBrowserView: View {
           separator: "\n")
         let value = Draft(form: form, source: result.source)
         if let existing = RecipeImportQuality.exactDuplicate(
-          form, in: session.guestStore.userRecipes)
-        {
+          form, in: session.guestStore.userRecipes) {
           duplicate = existing
           pendingDuplicate = value
           showDuplicate = true

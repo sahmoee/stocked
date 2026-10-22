@@ -31,6 +31,7 @@ import StoreKit
 @MainActor
 @Observable
 final class PremiumManager {
+    nonisolated deinit {}
     static let shared = PremiumManager()
 
     /// StoreKit product identifier — must match the product created in App Store Connect.

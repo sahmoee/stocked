@@ -4,6 +4,7 @@ import Foundation
 /// releases only its own request; the last reader cancels the underlying worker.
 @MainActor
 final class CookComputationPool<Value: Sendable> {
+    nonisolated deinit {}
     private struct Entry {
         let id: UUID
         let task: Task<Value?, Never>

@@ -25,6 +25,7 @@ enum VoiceCookCommand: String {
 @Observable
 @MainActor
 final class VoiceCookControl {
+    nonisolated deinit {}
     var isListening = false
     var lastHeard: String = ""
     var authDenied = false

@@ -6,6 +6,69 @@ VERSION = re.compile(r"[0-9]+(\.[0-9]+){0,2}")
 # Main-app platform -> platforms its embedded bundles may target.
 PLATFORMS = {"iphoneos": {"iphoneos", "watchos"}, "macosx": {"macosx"}}
 
+# These legacy substitutions must never carry provider/service secrets into a release.
+CREDENTIAL_FIELDS = {
+    "APINinjasKey", "ChompAPIKey", "EdamamAppKey", "HomeBaseAPIKey",
+    "LogMealAPIToken", "RapidAPIKey", "SpoonacularAPIKey", "StockedWorkerKey",
+    "SuggesticAPIToken", "USDAAPIKey",
+}
+CONFIG_CREDENTIALS = {
+    "API_NINJAS_KEY", "CHOMP_API_KEY", "EDAMAM_APP_KEY", "HOMEBASE_API_KEY",
+    "LOGMEAL_API_TOKEN", "RAPIDAPI_KEY", "SPOONACULAR_API_KEY",
+    "STOCKED_WORKER_KEY", "SUGGESTIC_API_TOKEN", "USDA_API_KEY",
+}
+
+def validate_local_credentials(path):
+    """Reject configured release credentials before a costly archive build.
+
+    The archive check remains authoritative because Xcode can resolve includes and
+    overrides that this quick local preflight does not see.
+    """
+    if not path.is_file(): return
+    for line in path.read_text().splitlines():
+        match = re.match(r"^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$", line)
+        if match and match[1] in CONFIG_CREDENTIALS and match[2].strip():
+            raise ValueError("Nonempty release credential setting: " + match[1])
+
+def validate_payload(app, bundles):
+    """Fail closed on known credential inputs and first-party privacy omissions.
+
+    This is a packaging guard, not a substitute for reviewing source/binary secrets.
+    Never print field values or file contents when rejecting a bundle.
+    """
+    for path in app.rglob("*"):
+        if path.is_file() and (path.suffix.lower() in {".p12", ".p8", ".key", ".xcconfig"}
+                               or path.name == ".env" or path.name.startswith(".env.")):
+            raise ValueError("Credential/configuration file present in app: " + path.name)
+        if path.is_file() and path.suffix == ".plist":
+            data = plistlib.loads(path.read_bytes())
+            def inspect(value):
+                if isinstance(value, dict):
+                    for key, item in value.items():
+                        if key in CREDENTIAL_FIELDS and str(item or "").strip():
+                            raise ValueError("Nonempty credential field in packaged plist: " + key)
+                        inspect(item)
+                elif isinstance(value, list):
+                    for item in value: inspect(item)
+            inspect(data)
+    # The main app, widget and share extension directly access required-reason APIs.
+    # Watch currently has no direct required-reason API calls of its own.
+    for bundle in bundles:
+        if bundle != app and bundle.suffix != ".appex":
+            continue
+        manifest = bundle / "PrivacyInfo.xcprivacy"
+        if (bundle / "Contents").is_dir():
+            manifest = bundle / "Contents/Resources/PrivacyInfo.xcprivacy"
+        if not manifest.is_file():
+            raise ValueError("Missing privacy manifest for " + bundle.name)
+        privacy = plistlib.loads(manifest.read_bytes())
+        declarations = privacy.get("NSPrivacyAccessedAPITypes", [])
+        reasons = {entry.get("NSPrivacyAccessedAPIType"): entry.get("NSPrivacyAccessedAPITypeReasons", [])
+                   for entry in declarations}
+        if "1C8F.1" not in reasons.get("NSPrivacyAccessedAPICategoryUserDefaults", []):
+            raise ValueError("Missing App Group defaults privacy reason for " + bundle.name)
+
+
 def validate_archive(path, approved):
     path = pathlib.Path(path)
     apps = list((path / "Products/Applications").glob("*.app"))
@@ -22,7 +85,8 @@ def validate_archive(path, approved):
         if not VERSION.fullmatch(str(main[key])): raise ValueError("Invalid " + key)
     main_id = main.get("CFBundleIdentifier")
     allowed = PLATFORMS.get(main.get("DTPlatformName"), set())
-    for bundle in [apps[0]] + list(apps[0].rglob("*.appex")) + list(apps[0].rglob("*.app")):
+    bundles = [apps[0]] + list(apps[0].rglob("*.appex")) + list(apps[0].rglob("*.app"))
+    for bundle in bundles:
         info = metadata(bundle)
         if info.get("CFBundleVersion") != main.get("CFBundleVersion"): raise ValueError("Embedded build numbers disagree")
         if info.get("CFBundleShortVersionString") != main.get("CFBundleShortVersionString"): raise ValueError("Embedded marketing versions disagree")
@@ -36,8 +100,26 @@ def validate_archive(path, approved):
         if not identifier: raise ValueError("Missing bundle identifier")
         if bundle != apps[0] and not identifier.startswith(main_id + "."):
             raise ValueError("Embedded bundle identifier is not under the app identifier")
+    validate_payload(apps[0], bundles)
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(apps[0])], check=True)
     return main
+
+# Swift 6.2 makes every implicit deinit isolated under default MainActor isolation; the
+# iOS 26.0-26.3 concurrency runtime can abort freeing its task-local marker during such
+# a deinit. Classes therefore declare `nonisolated deinit {}`. Xcode's generated resource
+# accessor class is never deallocated and cannot be edited.
+ALLOWED_ISOLATED_DEINITS = {"ResourceBundleClass"}
+
+def isolated_deinits(binary):
+    """Names of classes whose deinit hops executors, from an unstripped (Debug) binary."""
+    symbols = subprocess.check_output(["nm", "-j", str(binary)], text=True).split()
+    names = subprocess.check_output(["xcrun", "swift-demangle", "--simplified"],
+                                    input="\n".join(s for s in symbols if s.endswith("CfZ")), text=True)
+    found = set()
+    for line in names.splitlines():
+        name = re.sub(r"\((\w+) in [^)]*\)", r"\1", line.split(".__isolated_deallocating_deinit")[0])
+        if line.strip() and name.split(".")[-1] not in ALLOWED_ISOLATED_DEINITS: found.add(name)
+    return sorted(found)
 
 def validate_output(value):
     if not value or not pathlib.Path(value).is_absolute():
@@ -56,13 +138,20 @@ def validate_output(value):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["check", "check-output", "build", "archive", "validate-archive"])
+    parser.add_argument("action", choices=["check", "check-deinits", "check-output", "build", "archive", "validate-archive"])
     parser.add_argument("--scheme")
     parser.add_argument("--archive")
+    parser.add_argument("--binary", action="append", help="Unstripped Debug binary for check-deinits")
     args = parser.parse_args()
     config = json.loads((ROOT / "tooling.json").read_text())
     if args.action == "check-output":
         validate_output(os.environ.get("SOWENS_BUILD_ROOT"))
+        return
+    if args.action == "check-deinits":
+        if not args.binary: parser.error("--binary is required")
+        found = [name for binary in args.binary for name in isolated_deinits(binary)]
+        if found: raise ValueError("Add `nonisolated deinit {}` to: " + ", ".join(found))
+        print("No isolated deinits")
         return
     if args.action == "validate-archive":
         if not args.archive: parser.error("--archive is required")
@@ -74,6 +163,7 @@ def main():
     if not build or build[1] not in config["approved_xcode_builds"]:
         raise ValueError("Select an approved release Xcode using DEVELOPER_DIR; beta/unknown builds are blocked")
     subprocess.run(["git", "diff", "--check"], cwd=ROOT, check=True)
+    validate_local_credentials(ROOT / "Secrets.xcconfig")
     if args.action == "check":
         subprocess.run([sys.executable, str(ROOT / "scripts/quality.py")], check=True)
         return

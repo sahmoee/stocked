@@ -8,7 +8,7 @@
   also use UserDefaults directly, add a copy to those targets too.
 
   Notes:
-    • UserDefaults reason CA92.1 = "access info from the app itself, app group, or developer."
+    • UserDefaults reason CA92.1 covers app-only defaults; 1C8F.1 covers shared App Group defaults.
       Stocked uses UserDefaults + an App Group (group.com.sowens.Stocked) for settings, the
       Spoonacular budget ledger, sync timestamps, and the widget snapshot — all first-party.
     • No tracking, no advertising IDs, no data brokers.
@@ -92,6 +92,7 @@
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
                 <string>CA92.1</string>
+                <string>1C8F.1</string>
             </array>
         </dict>
         <!-- File timestamp APIs (e.g. saving/reading the local JSON store + photos). -->

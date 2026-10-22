@@ -51,6 +51,7 @@ enum RecipeTextSize: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class RecipeTextPrefs {
+    nonisolated deinit {}
     static let shared = RecipeTextPrefs()
     private static let storageKey = "stocked.recipeTextSize"
 

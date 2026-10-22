@@ -5,6 +5,7 @@ import Foundation
 
 @MainActor
 final class CookingTipsDatabase {
+    nonisolated deinit {}
     static let shared = CookingTipsDatabase()
     private init() {}
 

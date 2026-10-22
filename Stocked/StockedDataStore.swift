@@ -265,6 +265,7 @@ final class SDSubstitution {
 /// stores so it can be introduced and verified without touching current persistence.
 @MainActor
 final class StockedDataStore {
+    nonisolated deinit {}
     static let shared = StockedDataStore()
 
     /// The container, or nil if SwiftData failed to initialize entirely. When nil, the

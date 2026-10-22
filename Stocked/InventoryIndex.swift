@@ -17,6 +17,7 @@ import SwiftUI
 @MainActor
 @Observable
 final class InventoryIndex {
+    nonisolated deinit {}
     static let shared = InventoryIndex()
     private init() {}
 

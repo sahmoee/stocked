@@ -18,8 +18,8 @@ enum StockedDevice {
 
     static func current(width: CGFloat, hSize: UserInterfaceSizeClass?) -> StockedDevice {
         if hSize == .regular { return .tablet }
-        if width <= 375      { return .small }
-        if width <= 413      { return .regular }
+        if width <= 375 { return .small }
+        if width <= 413 { return .regular }
         return .large
     }
 
@@ -47,6 +47,8 @@ struct StockedLayoutMetrics: Equatable {
     /// instead of waiting until labels have already wrapped or escaped their shape.
     var textScale: CGFloat = 1
     var safeAreaInsets: EdgeInsets = EdgeInsets()
+    /// Selected whole-app design. `current` keeps every legacy geometry value below.
+    var designVariant: StockedDesignVariant = .current
 
     var contentWidth: CGFloat {
         max(1, width - safeAreaInsets.leading - safeAreaInsets.trailing)
@@ -65,13 +67,15 @@ struct StockedLayoutMetrics: Equatable {
     var minimumControlHeight: CGFloat { max(44, 48 * interfaceScale * min(textScale, 1.7)) }
     var controlHorizontalPadding: CGFloat { 12 * max(interfaceScale, min(textScale, 1.45)) }
     var controlVerticalPadding: CGFloat { 10 * max(1, min(textScale, 1.35)) }
-    var controlCornerRadius: CGFloat { min(24, 14 * max(interfaceScale, min(textScale, 1.35))) }
+    var controlCornerRadius: CGFloat {
+        designVariant.geometry?.component ?? min(24, 14 * max(interfaceScale, min(textScale, 1.35)))
+    }
     /// Shared presentation geometry. Width decides horizontal placement; Dynamic Type
     /// grows controls naturally and reduces columns when labels need more room.
     var presentationHorizontalPadding: CGFloat { horizontalPadding }
     var listRowMinimumHeight: CGFloat { minimumControlHeight }
     var surfaceContentPadding: CGFloat { contentWidth >= 700 ? 24 : (contentWidth < 350 ? 12 : 16) }
-    var surfaceCornerRadius: CGFloat { contentWidth >= 700 ? 20 : 16 }
+    var surfaceCornerRadius: CGFloat { designVariant.geometry?.component ?? (contentWidth >= 700 ? 20 : 16) }
     var textEditorMinimumHeight: CGFloat { max(96, minimumControlHeight * 2) }
     /// Placement responds to available width, never font size. Enlarged labels
     /// grow controls vertically instead of moving them to another row.
@@ -151,7 +155,9 @@ struct StockedLayoutMetrics: Equatable {
     var tabBarItemMinimumHeight: CGFloat {
         max(minimumControlHeight, isAccessibilityText ? 68 : 50 * interfaceScale)
     }
-    var tabBarCornerRadius: CGFloat { min(max(11 * interfaceScale, 11), 16) }
+    var tabBarCornerRadius: CGFloat {
+        designVariant.geometry.map { min($0.component, 10) } ?? min(max(11 * interfaceScale, 11), 16)
+    }
 
     /// Width for cards in horizontally scrolling rails. The approved 393-point phone
     /// composition remains the baseline while narrow windows shrink and iPad/landscape
@@ -238,7 +244,7 @@ struct StockedContainerLayout<Content: View>: View {
                 width: proxy.size.width, height: proxy.size.height,
                 isAccessibilityText: inherited.isAccessibilityText,
                 interfaceScale: inherited.interfaceScale, textScale: inherited.textScale,
-                safeAreaInsets: proxy.safeAreaInsets)
+                safeAreaInsets: proxy.safeAreaInsets, designVariant: inherited.designVariant)
             content
                 .environment(\.stockedLayout, metrics)
                 .environment(\.stockedDevice, StockedDevice.current(
@@ -311,7 +317,7 @@ enum StockedScreen {
     static let cookButtonSizeRegular: Double = 260
     static let cookButtonSizeLarge:   Double = 280
     static func defaultCookButtonSize(forWidth w: CGFloat) -> Double {
-        if w <= cookButtonSmallMaxWidth   { return cookButtonSizeSmall }
+        if w <= cookButtonSmallMaxWidth { return cookButtonSizeSmall }
         if w <= cookButtonRegularMaxWidth { return cookButtonSizeRegular }
         return cookButtonSizeLarge
     }
@@ -398,6 +404,7 @@ struct DeviceAdaptiveRoot<Content: View>: View {
     @Environment(\.horizontalSizeClass) var hSize
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage("stocked.appTextSize") private var appTextSizeRaw = AppTextSize.standard.rawValue
+    @AppStorage(StockedDesignVariant.defaultsKey) private var designVariantRaw = StockedDesignVariant.current.rawValue
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
 
@@ -414,7 +421,8 @@ struct DeviceAdaptiveRoot<Content: View>: View {
                 interfaceScale: InterfaceSize.standard.scale,
                 textScale: dynamicTypeSize.stockedLayoutScale *
                     (AppTextSize(rawValue: appTextSizeRaw)?.multiplier ?? 1),
-                safeAreaInsets: proxy.safeAreaInsets
+                safeAreaInsets: proxy.safeAreaInsets,
+                designVariant: StockedDesignVariant(storedValue: designVariantRaw)
             )
             content
                 .environment(\.stockedDevice, device)

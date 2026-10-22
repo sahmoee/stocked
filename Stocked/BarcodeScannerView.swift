@@ -163,7 +163,7 @@ struct BarcodeScannerView: View {
         }
         .alert("Scan Mode", isPresented: $showScanModeAlert) {
             Button("Single Item") { isBulkMode = false }
-            Button("Bulk Scan")   { isBulkMode = true  }
+            Button("Bulk Scan") { isBulkMode = true  }
         } message: {
             Text("Are you scanning one item, or multiple items in a row?\nBulk mode keeps the scanner open after each scan.")
         }
@@ -941,6 +941,7 @@ struct ExpiryDateScanner: View {
 
 // MARK: - Barcode lookup cache (#9)
 final class BarcodeCache {
+    nonisolated deinit {}
     static let shared = BarcodeCache()
     private let key = "barcodeCache_v1"
     private var map: [String: String]
@@ -975,7 +976,6 @@ final class BarcodeCache {
         }
     }
 }
-
 
 nonisolated private extension String {
     var nilIfBlank: String? {

@@ -52,6 +52,7 @@ struct StockedToast: Identifiable, Equatable {
 
 // Wrapper so we can keep a closure on an Equatable value type.
 fileprivate final class ActionBox {
+    nonisolated deinit {}
     let run: () -> Void
     init(_ run: @escaping () -> Void) { self.run = run }
 }
@@ -62,6 +63,7 @@ fileprivate final class ActionBox {
 
 @Observable
 final class ToastCenter {
+    nonisolated deinit {}
     static let shared = ToastCenter()
     private init() {}
 
@@ -178,7 +180,6 @@ extension View {
 // MARK: - Count-up number (#4)
 // Animates between integer values using SwiftUI's numeric content transition, with a
 // brief tint flash on change. Reduce-Motion safe.
-
 
 // MARK: - Pulse on change (#4)
 // A subtle scale bump whenever an Equatable value changes — good for chips/badges.

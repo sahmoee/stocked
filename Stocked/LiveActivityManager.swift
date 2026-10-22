@@ -9,6 +9,7 @@ import os
 @MainActor
 @Observable
 final class LiveActivityManager {
+    nonisolated deinit {}
     static let shared = LiveActivityManager()
     private init() {}
 

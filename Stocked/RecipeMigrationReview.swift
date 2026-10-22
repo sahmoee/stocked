@@ -98,6 +98,7 @@ nonisolated struct RecipeMigrationCandidate: Identifiable, Sendable {
 }
 
 @MainActor @Observable final class RecipeMigrationReview {
+    nonisolated deinit {}
     var candidates: [RecipeMigrationCandidate] = []
     var warnings: [String] = []
     var message = ""

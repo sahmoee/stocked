@@ -134,6 +134,7 @@ nonisolated enum OvenScale {
 @MainActor
 @Observable
 final class RegionPreference {
+    nonisolated deinit {}
     static let shared = RegionPreference()
     private let key = "foodRegion_v1"
 

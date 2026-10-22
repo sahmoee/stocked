@@ -50,6 +50,7 @@ nonisolated struct SourceHealthSnapshot: Codable, Equatable, Sendable {
 
 @MainActor
 final class SourceHealth {
+    nonisolated deinit {}
     static let shared = SourceHealth()
 
     private struct Stat: Codable {

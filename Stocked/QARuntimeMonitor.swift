@@ -93,6 +93,7 @@ nonisolated struct QANetworkStat: Identifiable, Sendable {
 @MainActor
 @Observable
 final class QARuntimeMonitor {
+    nonisolated deinit {}
     static let shared = QARuntimeMonitor()
 
     private init() {}
@@ -513,6 +514,7 @@ final class QARuntimeMonitor {
 /// is in QATapTracker: CADisplayLink added to `.main` only ever fires on the main
 /// run loop, so the isolation is real even though the signature cannot say so.
 private final class DisplayLinkTarget: NSObject {
+    nonisolated deinit {}
     @objc func tick(_ link: CADisplayLink) {
         MainActor.assumeIsolated {
             QARuntimeMonitor.shared.frame(at: link.timestamp)

@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 struct KitchenTransferView: View {
     @Environment(AppSession.self) var session
     @Environment(\.dismiss) var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var manager = KitchenTransferManager()
 
     @State private var activeSheet:   ActiveSheet?
@@ -255,7 +256,8 @@ struct KitchenTransferView: View {
                     .scaledFont(28).foregroundStyle(Color.stockedAccentInk)
             }
 
-            HStack(spacing: 0) {
+            let columns = dynamicTypeSize.isAccessibilitySize ? 1 : 2
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: columns), spacing: 16) {
                 summaryPill("\(store.inventoryItems.count)", "Items")
                 summaryPill("\(store.groceryItems.count)", "Grocery")
                 summaryPill("\(store.pastMeals.count)", "Meals")
@@ -361,13 +363,34 @@ struct KitchenTransferView: View {
     // MARK: - Import Section
     private var importSection: some View {
         actionSection(title: "Import Kitchen", icon: "square.and.arrow.down.fill") {
-            actionRow(
-                icon: "doc.badge.plus",
-                iconColor: Color.stockedSuccess,
-                title: "Import File",
-                subtitle: "Load a .stocked or .json kitchen file"
-            ) {
-                activeSheet = .importMode
+            Button { activeSheet = .importMode } label: {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Bring your kitchen along", systemImage: "doc.badge.arrow.up")
+                        .font(.stockedSerif(18, weight: .semibold))
+                    Text("Choose a Stocked backup, JSON file or CSV spreadsheet. Review merge and replace options before importing.")
+                        .font(.stockedSans(13))
+                        .foregroundStyle(session.themeSecondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Label("Choose a file", systemImage: "folder")
+                        .font(.stockedSans(14, weight: .semibold))
+                        .foregroundStyle(session.themeContrastAccent)
+                        .frame(minHeight: 44)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(session.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(session.accentColor.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+                .foregroundStyle(session.themeTextColor)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(manager.isImporting)
+            .accessibilityIdentifier("transfer.chooseFile")
+            if manager.isImporting {
+                ProgressView("Importing your kitchen…")
+                    .tint(session.themeContrastAccent)
+                    .accessibilityIdentifier("transfer.importProgress")
             }
 
             Divider().padding(.leading, 52)
@@ -633,7 +656,6 @@ struct QRTransferSheet: View {
                         .scaledFont(13).foregroundStyle(Color.stockedErrorInk)
                         .padding(.top, 8)
                 }
-
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
@@ -710,7 +732,6 @@ struct TransferOptionsSheet: View {
                     Text(manager.errorMessage)
                         .scaledFont(13).foregroundStyle(Color.stockedErrorInk).padding(.top, 8)
                 }
-
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
@@ -803,7 +824,6 @@ struct ImportModeSheet: View {
                         dismiss(); onMergeICloud()
                     }
                 }
-
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)

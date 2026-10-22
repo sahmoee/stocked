@@ -31,6 +31,7 @@ nonisolated struct EngagementSample: Codable, Sendable {
 @MainActor
 @Observable
 final class NotificationEngagement {
+    nonisolated deinit {}
     static let shared = NotificationEngagement()
 
     private let persistence = FeatureStore<EngagementSample>(key: FeatureStoreKeys.notifyEngagement)

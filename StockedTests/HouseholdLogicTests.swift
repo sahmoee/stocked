@@ -6,6 +6,19 @@ import XCTest
 // The internal merge functions are private; these cover the behavior users actually feel.
 
 final class HouseholdLogicTests: XCTestCase {
+    func testCacheReleaseInsideTaskLocalContextDoesNotCrash() {
+        weak var inventory: InventoryListCache?
+        weak var zones: HubZoneCountCache?
+        HostedDeinitTestContext.$marker.withValue(true) {
+            let first = InventoryListCache()
+            let second = HubZoneCountCache()
+            inventory = first
+            zones = second
+            withExtendedLifetime((first, second)) {}
+        }
+        XCTAssertNil(inventory)
+        XCTAssertNil(zones)
+    }
 
     // MARK: Permission overrides (#4)
 
@@ -59,4 +72,8 @@ final class HouseholdLogicTests: XCTestCase {
         let unknown = store.estimatedUseBy(forName: "Mystery Dish", zone: "Fridge", from: base)
         XCTAssertEqual(unknown, Calendar.current.date(byAdding: .day, value: 10, to: base))
     }
+}
+
+nonisolated private enum HostedDeinitTestContext {
+    @TaskLocal static var marker = false
 }

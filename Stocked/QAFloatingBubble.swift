@@ -78,6 +78,7 @@ nonisolated enum QAFloatingButtonSettings {
 
 @MainActor
 final class QAFloatingButtonWindow {
+    nonisolated deinit {}
     static let shared = QAFloatingButtonWindow()
     private init() {}
 
@@ -207,6 +208,7 @@ final class QAFloatingButtonWindow {
 /// recognize, a tap does not, so a still finger taps and a moving finger drags.
 @MainActor
 private final class QAFloatingPanHandler: NSObject, UIGestureRecognizerDelegate {
+    nonisolated deinit {}
     private weak var window: UIWindow?
     private let onSettled: () -> Void
     private var startOrigin: CGPoint = .zero
@@ -333,6 +335,7 @@ struct QAFloatingButtonFace: View {
 /// moment that sheet goes away.
 @MainActor
 final class QAFloatingMenuPresenter {
+    nonisolated deinit {}
     static let shared = QAFloatingMenuPresenter()
     private init() {}
 
@@ -398,6 +401,7 @@ final class QAFloatingMenuPresenter {
 @MainActor
 private final class QAMenuPassthroughController: UIViewController,
                                                  UIAdaptivePresentationControllerDelegate {
+    nonisolated deinit {}
     var onInteractiveDismiss: (() -> Void)?
 
     override func loadView() {
@@ -412,6 +416,7 @@ private final class QAMenuPassthroughController: UIViewController,
 }
 
 private final class QAMenuPassthroughView: UIView {
+    nonisolated deinit {}
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let hit = super.hitTest(point, with: event)
         return hit === self ? nil : hit

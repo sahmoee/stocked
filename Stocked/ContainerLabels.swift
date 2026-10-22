@@ -86,6 +86,7 @@ nonisolated enum ContainerCode {
 @MainActor
 @Observable
 final class ContainerLabelStore {
+    nonisolated deinit {}
     static let shared = ContainerLabelStore()
     /// Improvement #6 — file-backed, debounced, and migrated automatically from the old
     /// UserDefaults blob on first load. See FeatureStore.swift for why.

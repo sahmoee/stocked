@@ -53,6 +53,7 @@ nonisolated struct QASyncAttempt: Identifiable, Codable, Sendable {
 @MainActor
 @Observable
 final class QASyncQueue {
+    nonisolated deinit {}
     static let shared = QASyncQueue()
 
     private(set) var attempts: [QASyncAttempt] = []

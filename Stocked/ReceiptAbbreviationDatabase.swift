@@ -10,6 +10,7 @@ extension AbbreviationEntry {
 }
 
 final class ReceiptAbbreviationDatabase {
+    nonisolated deinit {}
     static let shared = ReceiptAbbreviationDatabase()
     private init() {}
 
@@ -35,8 +36,8 @@ final class ReceiptAbbreviationDatabase {
     func recordCorrection(raw: String, corrected: String) {
         StockedDatabase.shared.recordAbbreviationCorrection(raw: raw, corrected: corrected)
     }
-    var entries: [AbbreviationEntry]         { StockedDatabase.shared.abbreviationEntries }
-    var sortedEntries: [AbbreviationEntry]   { StockedDatabase.shared.sortedAbbreviationEntries }
-    var userEntries: [AbbreviationEntry]     { StockedDatabase.shared.userAbbreviationEntries }
-    var builtInEntries: [AbbreviationEntry]  { StockedDatabase.shared.builtInAbbreviationEntries }
+    var entries: [AbbreviationEntry] { StockedDatabase.shared.abbreviationEntries }
+    var sortedEntries: [AbbreviationEntry] { StockedDatabase.shared.sortedAbbreviationEntries }
+    var userEntries: [AbbreviationEntry] { StockedDatabase.shared.userAbbreviationEntries }
+    var builtInEntries: [AbbreviationEntry] { StockedDatabase.shared.builtInAbbreviationEntries }
 }

@@ -17,6 +17,7 @@ import Observation
 
 @Observable
 final class OnboardingTelemetry {
+    nonisolated deinit {}
     static let shared = OnboardingTelemetry()
 
     enum Event: String, CaseIterable, Codable {

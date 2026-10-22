@@ -11,6 +11,7 @@ import os
 @Observable
 @MainActor
 final class ConnectivityMonitor {
+    nonisolated deinit {}
     static let shared = ConnectivityMonitor()
 
     /// True when a usable network path is available. Starts optimistic (true) so we
@@ -49,4 +50,3 @@ final class ConnectivityMonitor {
         monitor.start(queue: queue)
     }
 }
-

@@ -25,6 +25,7 @@ import os
 
 @MainActor
 final class KaggleRecipeImporter {
+    nonisolated deinit {}
     static let shared = KaggleRecipeImporter()
     private init() {}
 

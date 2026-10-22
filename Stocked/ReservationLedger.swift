@@ -49,6 +49,7 @@ nonisolated struct ReservationOverrideRecord: Identifiable, Codable, Sendable, E
 @Observable
 @MainActor
 final class ReservationLedger {
+    nonisolated deinit {}
     static let shared = ReservationLedger()
 
     /// The current derived picture. Views read this in `body`; it is replaced
@@ -141,8 +142,8 @@ final class ReservationLedger {
     }
 
     func totalOwned(for item: LocalInventoryItem) -> Double? { breakdown(for: item)?.totalOwned }
-    func reserved(for item: LocalInventoryItem) -> Double?   { breakdown(for: item)?.reserved }
-    func available(for item: LocalInventoryItem) -> Double?  { breakdown(for: item)?.available }
+    func reserved(for item: LocalInventoryItem) -> Double? { breakdown(for: item)?.reserved }
+    func available(for item: LocalInventoryItem) -> Double? { breakdown(for: item)?.available }
 
     /// Ingredient-centric projected shortages, earliest/most urgent first.
     /// Auto-clears: a resolved shortage simply stops appearing on the next derive.

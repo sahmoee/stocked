@@ -91,6 +91,7 @@ nonisolated struct QATouchPoint: Identifiable, Sendable {
 @MainActor
 @Observable
 final class QATouchTrail {
+    nonisolated deinit {}
     static let shared = QATouchTrail()
     private init() {}
 
@@ -218,6 +219,7 @@ enum QATouchTrailRenderer {
 /// delivery — the recognizer exists only for the side effect in its overrides.
 @MainActor
 private final class QATouchObserverRecognizer: UIGestureRecognizer {
+    nonisolated deinit {}
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         record(touches, isDown: true)
         // Fail immediately. A recognizer in .failed is out of the running for
@@ -283,6 +285,7 @@ private struct TouchObservingView: UIViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        nonisolated deinit {}
         private weak var window: UIWindow?
         private var recognizer: UIGestureRecognizer?
 
@@ -321,6 +324,7 @@ private struct TouchObservingView: UIViewRepresentable {
 }
 
 private final class WindowTouchObserver: UIView {
+    nonisolated deinit {}
     weak var coordinator: TouchObservingView.Coordinator?
 
     override func didMoveToWindow() {
@@ -337,6 +341,7 @@ private final class WindowTouchObserver: UIView {
 /// and above the screenshot cut so it cannot appear twice in a picture.
 @MainActor
 final class QATouchOverlayWindow {
+    nonisolated deinit {}
     static let shared = QATouchOverlayWindow()
     private init() {}
 
@@ -381,6 +386,7 @@ final class QATouchOverlayWindow {
 /// hosted tree for every touch move; this redraws one transparent layer and
 /// stops entirely when there is nothing to show.
 private final class QATouchRingView: UIView {
+    nonisolated deinit {}
     private var link: CADisplayLink?
 
     func start() {

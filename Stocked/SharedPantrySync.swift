@@ -22,6 +22,7 @@ import Observation
 @Observable
 @MainActor
 final class SharedPantrySync {
+    nonisolated deinit {}
 
     static let shared = SharedPantrySync()
     private init() {

@@ -2,6 +2,7 @@
 // Handles all kitchen data export, import, backup, and transfer operations.
 import SwiftUI
 import Combine
+import CoreFoundation
 import CloudKit
 import CryptoKit
 import CoreImage.CIFilterBuiltins
@@ -18,6 +19,9 @@ nonisolated struct KitchenPreferences: Codable, Sendable {
     var appFont: String           = ""
     var isDarkMode: Bool          = false
     var lightTheme: String?       = nil // Additive; older backups retain the current selection.
+    /// Additive optional design variant identifier (`current`, `pantryJournal`, …).
+    /// Older backups omit it; older clients ignore it; unknown values restore as `current`.
+    var designVariant: String?    = nil
     // Behavior / shopping
     var preferredStore: String    = ""
     var autoAddMissingToGrocery: Bool = true
@@ -523,6 +527,7 @@ nonisolated enum KitchenBackupKeyStore {
 @Observable
 @MainActor
 class KitchenTransferManager {
+    nonisolated deinit {}
     // Explicit container ID — must match the single entry in Stocked.entitlements
     private let cloudContainer = CKContainer(identifier: "iCloud.Stocked")
 
@@ -659,11 +664,8 @@ class KitchenTransferManager {
     }
 
     private func csvEscape(_ s: String) -> String {
-        // Quote fields containing comma, quote, or newline; double internal quotes.
-        if s.contains(",") || s.contains("\"") || s.contains("\n") {
-            return "\"\(s.replacingOccurrences(of: "\"", with: "\"\""))\""
-        }
-        return s
+        // Quote fields containing comma, quote, CR or LF, and neutralise formula leads.
+        CSVInterchange.escape(s)
     }
 
     func exportToCSV(store: GuestDataStore, completion: @escaping (URL?) -> Void) {
@@ -771,8 +773,13 @@ class KitchenTransferManager {
     func importFromData(_ data: Data, into store: GuestDataStore, merge: Bool = false) -> Bool {
         guard requirePermission(.backupRestore) else { return false }
         // CSV/plain-text first (content sniff), else JSON formats.
-        if let text = String(data: data, encoding: .utf8) {
+        if let decoded = String(data: data, encoding: .utf8) {
+            // Excel's "CSV UTF-8" starts with a BOM; strip it so header sniffing still works.
+            let text = CSVInterchange.stripBOM(decoded)
             let head = text.prefix(2000).lowercased()
+            // Scalar check: a CRLF pair is a single Swift Character, so Character-level
+            // `contains("\n")` can miss Windows/Excel line endings entirely.
+            let hasLineBreak = text.unicodeScalars.contains { $0 == "\n" || $0 == "\r" }
             let looksJSON = head.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{")
                          || head.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("[")
             if !looksJSON {
@@ -780,10 +787,10 @@ class KitchenTransferManager {
                 if head.contains("section,name") || head.hasPrefix("name,") || head.contains("\"name\"") {
                     return importCSV(text, into: store, merge: merge)
                 }
-                if text.contains(",") && text.contains("\n") {
+                if text.contains(",") && hasLineBreak {
                     return importCSV(text, into: store, merge: merge)   // best-effort generic CSV
                 }
-                if text.contains("\n") {
+                if hasLineBreak {
                     return importPlainText(text, into: store, merge: merge)
                 }
             }
@@ -821,26 +828,26 @@ class KitchenTransferManager {
 
         var inv: [LocalInventoryItem] = []
         var gro: [LocalGroceryItem] = []
-        let iso = ISO8601DateFormatter()
         for r in rows.dropFirst() {
-            func cell(_ i: Int?) -> String { guard let i, i < r.count else { return "" }; return r[i].trimmingCharacters(in: .whitespaces) }
+            func cell(_ i: Int?) -> String { guard let i, i < r.count else { return "" }; return CSVInterchange.unguard(r[i].trimmingCharacters(in: .whitespaces)) }
             let name = cell(nameIdx); if name.isEmpty { continue }
             let section = cell(secIdx).lowercased()
             if section == "grocery" {
                 var g = LocalGroceryItem(name: name, isChecked: ["yes","true","1","x"].contains(cell(checkIdx).lowercased()))
-                g.quantity = Int(cell(qtyIdx)) ?? 1
+                g.quantity = CSVInterchange.quantity(cell(qtyIdx))
                 gro.append(g)
             } else {
                 var item = LocalInventoryItem(
                     name: name,
                     zone: cell(zoneIdx).isEmpty ? "Pantry" : cell(zoneIdx),
-                    quantity: Int(cell(qtyIdx)) ?? 1,
+                    quantity: CSVInterchange.quantity(cell(qtyIdx)),
                     containerType: cell(contIdx).isEmpty ? "item" : cell(contIdx),
                     sizeAmount: Double(cell(sizeAIdx)),
                     sizeUnit: cell(sizeUIdx).isEmpty ? nil : cell(sizeUIdx)
                 )
                 let exp = cell(expIdx)
-                if !exp.isEmpty { item.expirationDate = iso.date(from: exp) }
+                // Full ISO timestamps (our export) or plain yyyy-MM-dd (spreadsheets).
+                if !exp.isEmpty { item.expirationDate = CSVInterchange.date(exp) }
                 let brand = cell(brandIdx); if !brand.isEmpty { item.brand = brand }
                 inv.append(item)
             }
@@ -862,41 +869,17 @@ class KitchenTransferManager {
         return true
     }
 
-    // Minimal RFC-4180-ish CSV parser (handles quoted fields, embedded commas/newlines).
+    // Minimal RFC-4180-ish CSV parser (quoted fields, embedded commas/newlines, CRLF, BOM).
     private func parseCSVRows(_ text: String) -> [[String]] {
-        var rows: [[String]] = []; var field = ""; var row: [String] = []
-        var inQuotes = false
-        let chars = Array(text)
-        var i = 0
-        while i < chars.count {
-            let c = chars[i]
-            if inQuotes {
-                if c == "\"" {
-                    if i + 1 < chars.count && chars[i+1] == "\"" { field.append("\""); i += 1 }
-                    else { inQuotes = false }
-                } else { field.append(c) }
-            } else {
-                switch c {
-                case "\"": inQuotes = true
-                case ",": row.append(field); field = ""
-                case "\n", "\r":
-                    if c == "\r" && i + 1 < chars.count && chars[i+1] == "\n" { i += 1 }
-                    row.append(field); field = ""
-                    if row.contains(where: { !$0.isEmpty }) { rows.append(row) }
-                    row = []
-                default: field.append(c)
-                }
-            }
-            i += 1
-        }
-        if !field.isEmpty || !row.isEmpty { row.append(field); if row.contains(where: { !$0.isEmpty }) { rows.append(row) } }
-        return rows
+        CSVInterchange.parseRows(text)
     }
 
     // MARK: Plain-text import (one item per line; checkbox + ×qty + [zone] tolerated)
     private func importPlainText(_ text: String, into store: GuestDataStore, merge: Bool) -> Bool {
         var inv: [LocalInventoryItem] = []
-        for raw in text.split(separator: "\n") {
+        // .newlines splits LF, CR and CRLF (a CRLF pair is one Character, so splitting on
+        // "\n" left Windows-saved lists as a single unparseable line).
+        for raw in text.components(separatedBy: .newlines) {
             var line = raw.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty else { continue }
             // Skip headers / section markers.
@@ -1040,15 +1023,7 @@ class KitchenTransferManager {
             throw KitchenBackupError.malformedPackage
         }
 
-        let snapshot: KitchenSnapshot
-        if let strict = try? JSONDecoder().decode(KitchenSnapshot.self, from: data) {
-            snapshot = strict
-        } else if let lenient = Self.lenientSnapshot(from: data) {
-            Log.transfer.notice("Backup restored via lenient decoder (older format)")
-            snapshot = lenient
-        } else {
-            throw KitchenBackupError.malformedPackage
-        }
+        let snapshot = try Self.decodeReadableSnapshot(data)
         return (snapshot, Self.legacyManifest(snapshot: snapshot, data: data), false)
     }
 
@@ -1275,13 +1250,20 @@ class KitchenTransferManager {
         }
     }
 
+    /// Upper bound for the base64url `data` parameter of a share link (~1.5 MB decoded).
+    static let maximumShareLinkPayloadBytes = 2_000_000
+
     // Import from a stocked://import?data=<base64url> deep link (Share Link feature).
     @discardableResult
     func importFromDeepLink(_ url: URL, into store: GuestDataStore, merge: Bool = false) -> Bool {
-        guard url.scheme == "stocked",
-              url.host == "import",
+        // Share links arrive from arbitrary web pages: compare scheme/host case-insensitively
+        // and refuse oversized payloads before base64-decoding and JSON-parsing them on the
+        // main actor (a multi-megabyte link could stall the UI and spike memory).
+        guard url.scheme?.lowercased() == "stocked",
+              url.host?.lowercased() == "import",
               let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let raw   = comps.queryItems?.first(where: { $0.name == "data" })?.value else {
+              let raw   = comps.queryItems?.first(where: { $0.name == "data" })?.value,
+              raw.utf8.count <= KitchenTransferManager.maximumShareLinkPayloadBytes else {
             errorMessage = "Invalid share link."; return false
         }
         // Reverse URL-safe base64 (base64url) and restore = padding.
@@ -1718,8 +1700,119 @@ class KitchenTransferManager {
 // MARK: - Lenient backup decoding (backward compatibility)
 // Reconstructs a KitchenSnapshot from ANY older/partial backup JSON. Each field is read
 // with a safe default, and per-element decoding so one bad record can't fail the whole
-// restore. Used only when the strict Codable decode throws.
+// restore. Retained for explicit legacy recovery; Replace uses lossless row decoding
+// below and never falls back to these compactMap helpers.
 extension KitchenTransferManager {
+
+    /// Validate readable backups before any restore/rollback mutation. Unknown
+    /// roots and malformed rows must never fall through to an empty Replace.
+    nonisolated static func decodeReadableSnapshot(_ data: Data) throws -> KitchenSnapshot {
+        guard var root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              root["manifest"] == nil, root["sealedPayload"] == nil,
+              root["inventory"] == nil, root["grocery"] == nil, root["planned"] == nil else {
+            throw KitchenBackupError.invalidFormat
+        }
+        let arrays = ["inventoryItems", "groceryItems", "pastMeals", "savedRecipes",
+                      "userRecipes", "generatedRecipes", "plannedMeals"]
+        guard arrays.contains(where: { root[$0] != nil }) else { throw KitchenBackupError.invalidFormat }
+        for key in arrays where root[key] != nil {
+            guard root[key] is [[String: Any]] else { throw KitchenBackupError.malformedPackage }
+        }
+        if let version = root["schemaVersion"] {
+            guard let number = version as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  number.doubleValue == Double(number.intValue), (1...3).contains(number.intValue) else {
+                throw KitchenBackupError.invalidFormat
+            }
+        }
+        let decoder = JSONDecoder()
+        // Canonical Foundation dates are seconds since 2001; only Date fields
+        // accept the older ISO spelling. Sync updatedAt remains epoch metadata.
+        decoder.dateDecodingStrategy = .custom { value in
+            let c = try value.singleValueContainer()
+            if let seconds = try? c.decode(Double.self), seconds.isFinite {
+                return Date(timeIntervalSinceReferenceDate: seconds)
+            }
+            let text = try c.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            if let date = formatter.date(from: text) { return date }
+            formatter.formatOptions.insert(.withFractionalSeconds)
+            guard let date = formatter.date(from: text) else {
+                throw DecodingError.dataCorruptedError(in: c, debugDescription: "Invalid backup date")
+            }
+            return date
+        }
+        // Fill absent legacy fields from native defaults, then overlay EVERY
+        // supplied value. Invalid supplied IDs, dates, flags and nested shapes
+        // are never repaired or discarded; strict decoding below must reject.
+        func migrated<T: Encodable>(_ defaults: T, overlay: [String: Any]) throws -> [String: Any] {
+            let encoded = try JSONEncoder().encode(defaults)
+            guard let fields = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
+                throw KitchenBackupError.malformedPackage
+            }
+            return fields.merging(overlay) { _, supplied in supplied }
+        }
+        func requiredText(_ row: [String: Any], _ key: String) throws -> String {
+            guard let text = row[key] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw KitchenBackupError.malformedPackage
+            }
+            return text
+        }
+        for section in ["inventoryItems", "groceryItems", "pastMeals", "savedRecipes", "generatedRecipes"] {
+            for row in root[section] as? [[String: Any]] ?? [] {
+                _ = try requiredText(row, section == "inventoryItems" || section == "groceryItems" ? "name" : "title")
+            }
+        }
+        if var recipes = root["userRecipes"] as? [[String: Any]] {
+            for index in recipes.indices {
+                let original = recipes[index]
+                let title = try requiredText(original, "title")
+                // Missing original creation time becomes the native initializer's
+                // LOCAL ADOPTION time. It is not a historical source creation
+                // claim. Present dates, including null, override this default
+                // and must validate normally.
+                var recipe = try migrated(UserRecipe(title: title), overlay: original)
+                if let suppliedIngredients = original["ingredients"] {
+                    guard let ingredients = suppliedIngredients as? [Any] else {
+                        throw KitchenBackupError.malformedPackage
+                    }
+                    recipe["ingredients"] = try ingredients.map { value -> [String: Any] in
+                        if let name = value as? String {
+                            _ = try requiredText(["name": name], "name")
+                            // Released v1 backups stored whole ingredient lines.
+                            // Preserve each line verbatim rather than guessing quantities.
+                            return try migrated(RecipeIngredient(name: name, amount: ""), overlay: [:])
+                        }
+                        guard let row = value as? [String: Any] else { throw KitchenBackupError.malformedPackage }
+                        let name = try requiredText(row, "name")
+                        return try migrated(RecipeIngredient(name: name, amount: ""), overlay: row)
+                    }
+                }
+                recipes[index] = recipe
+            }
+            root["userRecipes"] = recipes
+        }
+        if var plans = root["plannedMeals"] as? [[String: Any]] {
+            for index in plans.indices {
+                let original = plans[index]
+                let title = try requiredText(original, "title")
+                guard let dayIndex = original["dayIndex"] as? Int,
+                      let servings = original["servings"] as? Int,
+                      let ingredients = original["ingredients"] as? [String] else {
+                    throw KitchenBackupError.malformedPackage
+                }
+                let mealType = try requiredText(original, "mealType")
+                let defaults = PlannedMeal(dayIndex: dayIndex, title: title, servings: servings,
+                                           ingredients: ingredients, mealType: mealType)
+                plans[index] = try migrated(defaults, overlay: original)
+            }
+            root["plannedMeals"] = plans
+        }
+        // Decode every row, including plans and recipes. A lossy compactMap
+        // fallback is unsafe for Replace, even when some other rows are valid.
+        let adapted = try JSONSerialization.data(withJSONObject: root)
+        return try decoder.decode(KitchenSnapshot.self, from: adapted)
+    }
 
     nonisolated static func lenientSnapshot(from data: Data) -> KitchenSnapshot? {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }

@@ -8,6 +8,7 @@ import CoreSpotlight
 // MARK: - Location Manager
 @Observable
 class LocationManager: NSObject, CLLocationManagerDelegate {
+    nonisolated deinit {}
     static let shared = LocationManager()
     private let manager = CLLocationManager()
     var authStatus: CLAuthorizationStatus = .notDetermined
@@ -284,6 +285,7 @@ struct RootView: View {
         // No .animation(value:) — causes CATransaction fence timeout on iPad
         // when splashDone + quizCompleted + isLoggedIn all change together.
         .environment(\.stockedLightTheme, session.lightTheme)
+        .environment(\.stockedDesignVariant, session.designVariant)
         .preferredColorScheme(session.isDarkMode ? .dark : .light)
         .task(id: session.guestStore.hasCompletedInitialHydration) {
             guard session.guestStore.hasCompletedInitialHydration else { return }

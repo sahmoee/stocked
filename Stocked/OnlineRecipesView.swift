@@ -63,6 +63,7 @@ private actor OnlineRecipesPersistentCache {
 @Observable
 @MainActor
 class OnlineRecipesLoader {
+    nonisolated deinit {}
     static let shared = OnlineRecipesLoader()
     var recipes:   [OnlineRecipe] = []
     var isLoading  = false
@@ -716,7 +717,6 @@ struct OnlineRecipesView: View {
     @State private var isSearching  = false
     @State private var liveResults: [OnlineRecipe] = []
     @State private var searchTask:  Task<Void, Never>? = nil
-
 
     private struct RecipeFilterKey: Hashable {
         let loaderRevision: Int

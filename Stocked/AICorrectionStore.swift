@@ -2,6 +2,7 @@ import Foundation
 
 /// Device-local correction evidence; only bounded item-name pairs enter inventory prompts.
 @MainActor final class AICorrectionStore {
+    nonisolated deinit {}
     static let shared = AICorrectionStore()
     typealias Kind = CorrectionCalibration.Kind
     typealias Outcome = CorrectionCalibration.Outcome

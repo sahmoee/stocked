@@ -9,6 +9,7 @@ import Foundation
 
 @MainActor
 final class DailyBriefNotificationManager {
+    nonisolated deinit {}
 
     static let shared = DailyBriefNotificationManager()
     private init() {}

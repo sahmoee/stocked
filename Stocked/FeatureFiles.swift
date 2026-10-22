@@ -115,6 +115,7 @@ struct RecipeURLImportView: View {
 
 // MARK: - App Better #5 — Calendar Sync
 class CalendarSyncManager {
+    nonisolated deinit {}
     static let shared = CalendarSyncManager()
     private let store = EKEventStore()
 
@@ -146,6 +147,7 @@ class CalendarSyncManager {
 
 // MARK: - App Better #6 — Smart Restocking
 class UsageTracker {
+    nonisolated deinit {}
     static let shared = UsageTracker()
     private(set) var usageMap: [String: Int] = [:]  // [weak self] pattern via value types
     private let key = StockedKeys.usageTracking

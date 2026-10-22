@@ -58,6 +58,7 @@ nonisolated struct RemoteAppConfig: Codable, Sendable, Equatable {
 @MainActor
 @Observable
 final class StockedRemoteConfig {
+    nonisolated deinit {}
     static let shared = StockedRemoteConfig()
 
     private(set) var config: RemoteAppConfig = .empty

@@ -5,11 +5,19 @@ import WatchConnectivity
     @State private var store = StockedWatchStore()
     @State private var timer = StockedWatchTimer()
     @Environment(\.scenePhase) private var phase
+    private var designAccent: Color {
+        guard let hex = store.snapshot?.variantAccentHex else {
+            return Color(red: 0.835, green: 0.702, blue: 0.420)
+        }
+        return Color(red: Double((hex >> 16) & 255) / 255,
+                     green: Double((hex >> 8) & 255) / 255, blue: Double(hex & 255) / 255)
+    }
     var body: some Scene {
         WindowGroup {
             NavigationStack { WatchKitchenHome() }
                 .environment(store).environment(timer)
-                .tint(Color(red: 0.835, green: 0.702, blue: 0.420))
+                .tint(designAccent)
+                .buttonBorderShape(store.snapshot?.variantCornerRadius.map { .roundedRectangle(radius: $0) } ?? .automatic)
                 .alert("Change needs attention", isPresented: Binding(get: { store.operationIssue != nil }, set: { if !$0 { store.operationIssue = nil } })) {
                     Button("OK", role: .cancel) { store.operationIssue = nil }
                 } message: { Text(store.operationIssue ?? "") }
@@ -29,6 +37,7 @@ struct WatchKitchenHome: View {
             Section {
                 if let snapshot = store.snapshot {
                     Label(snapshot.enabled ? "Your kitchen" : "Sharing paused", systemImage: snapshot.enabled ? "leaf.fill" : "pause.circle")
+                        .font(snapshot.usesEditorialHeadings ? .system(.headline, design: .serif) : nil)
                     Text("Updated \(snapshot.date, style: .relative) ago").font(.caption2).foregroundStyle(.secondary)
                 } else { Text("Open Stocked on your paired iPhone to bring your kitchen to Watch.").font(.footnote) }
             }

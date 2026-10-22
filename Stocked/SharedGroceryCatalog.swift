@@ -5,6 +5,7 @@ import Foundation
 /// bounded working set in memory and on disk; decode/encode work stays off the main actor.
 @MainActor
 final class SharedGroceryCatalog {
+    nonisolated deinit {}
     static let shared = SharedGroceryCatalog()
 
     nonisolated struct Record: Codable, Identifiable, Sendable {

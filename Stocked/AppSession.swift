@@ -9,6 +9,9 @@ import os
 // MARK: - AppSession
 @Observable @MainActor
 class AppSession {
+    // Empty explicit destruction avoids swiftlang/swift#88036 on older iOS runtimes.
+    nonisolated deinit {}
+
     var isLoggedIn:  Bool        = false
     var accountType: AccountType = .guest {
         didSet {
@@ -80,10 +83,29 @@ class AppSession {
             WidgetCenter.shared.reloadAllTimelines()
         }
     }
-    var isDarkMode: Bool {
+    /// The standard Stocked design. Legacy selections are normalized for old callers
+    /// and backups without changing independent palette, dark-mode or font preferences.
+    var designVariant: StockedDesignVariant {
         didSet {
-            UserDefaults.standard.set(isDarkMode, forKey: DBKey.darkMode.rawValue)
+            // Retired selections cannot be reactivated by an older caller or backup.
+            if designVariant != .current { designVariant = .current }
+            // An explicit Current choice also replaces an unknown/missing persisted value.
+            guard designVariant != oldValue || UserDefaults.standard.string(forKey: StockedDesignVariant.defaultsKey) != designVariant.rawValue else { return }
+            designVariant.persist()
+            WidgetCenter.shared.reloadAllTimelines()
         }
+    }
+    /// The user's stored Dark Mode choice (unchanged key and semantics).
+    var darkModePreference: Bool {
+        didSet {
+            UserDefaults.standard.set(darkModePreference, forKey: DBKey.darkMode.rawValue)
+        }
+    }
+    /// Effective appearance. Evening Table is a dark design; every other design follows
+    /// the stored preference. Assigning updates the stored preference.
+    var isDarkMode: Bool {
+        get { designVariant.forcesDarkAppearance || darkModePreference }
+        set { darkModePreference = newValue }
     }
     var cookButtonShape: CookButtonShape {
         didSet { UserDefaults.standard.set(cookButtonShape.rawValue, forKey: DBKey.cookButtonShape.rawValue) }
@@ -262,8 +284,9 @@ class AppSession {
         KitchenPreferences(
             appTheme: appTheme.rawValue,
             appFont: appFont.rawValue,
-            isDarkMode: isDarkMode,
+            isDarkMode: darkModePreference,
             lightTheme: lightTheme.rawValue,
+            designVariant: designVariant.rawValue,
             preferredStore: preferredStore,
             autoAddMissingToGrocery: autoAddMissingToGrocery,
             notificationsEnabled: notificationsEnabled,
@@ -282,6 +305,8 @@ class AppSession {
         if let f = AppFont(rawValue: p.appFont) { appFont = f }
         isDarkMode = p.isDarkMode
         if let saved = p.lightTheme { lightTheme = StockedLightTheme(rawValue: saved) ?? .pastel }
+        // Older backups have no design; keep the current selection. Unknown values fall back.
+        if let saved = p.designVariant { designVariant = StockedDesignVariant(storedValue: saved) }
         if !p.preferredStore.isEmpty { preferredStore = p.preferredStore }
         autoAddMissingToGrocery = p.autoAddMissingToGrocery
         notificationsEnabled = p.notificationsEnabled
@@ -363,7 +388,12 @@ class AppSession {
 
         let ud = UserDefaults.standard
         self.lightTheme = StockedLightTheme(rawValue: ud.string(forKey: StockedLightTheme.defaultsKey) ?? "") ?? .pastel
-        self.isDarkMode           = ud.bool(forKey: DBKey.darkMode.rawValue)
+        self.darkModePreference   = ud.bool(forKey: DBKey.darkMode.rawValue)
+        let storedVariant         = ud.string(forKey: StockedDesignVariant.defaultsKey)
+        self.designVariant        = StockedDesignVariant(storedValue: storedVariant)
+        // Retired designs return to the standard theme while keeping the user's
+        // independent light palette, dark-mode and font preferences intact.
+        StockedDesignVariant.current.persist()
         let savedFontV            = ud.object(forKey: DBKey.fontVerticalOffset.rawValue)
         self.fontVerticalOffset   = savedFontV != nil ? ud.double(forKey: DBKey.fontVerticalOffset.rawValue) : 0
         let savedFontH            = ud.object(forKey: DBKey.fontHorizontalOffset.rawValue)
@@ -555,6 +585,7 @@ class AppSession {
             // Reset all AppSession preferences to factory defaults
             isDarkMode           = false
             lightTheme           = .pastel
+            designVariant        = .current
             preferredStore       = "Kroger"
             appleUserID          = ""
             cookStreak           = 0

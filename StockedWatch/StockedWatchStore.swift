@@ -4,6 +4,7 @@ import WatchKit
 import WatchConnectivity
 
 @MainActor @Observable final class StockedWatchStore {
+    nonisolated deinit {}
     struct Saved: Codable {
         var version = 1
         var snapshot: KitchenWatch.Snapshot?
@@ -147,6 +148,7 @@ import WatchConnectivity
 }
 
 @MainActor @Observable final class StockedWatchTimer {
+    nonisolated deinit {}
     struct State: Codable { var id = UUID(); var title = "Kitchen timer"; var duration: Double = 300; var deadline: Date?; var paused: Double = 300 }
     private(set) var state = State()
     var notice: String?

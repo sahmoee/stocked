@@ -8,6 +8,7 @@ import os
 
 @MainActor
 final class GroceryUsuals {
+    nonisolated deinit {}
     static let shared = GroceryUsuals()
 
     private struct Entry: Codable {

@@ -19,6 +19,7 @@ import os
 // MARK: - App delegate for share acceptance
 
 final class HouseholdAppDelegate: NSObject, UIApplicationDelegate {
+    nonisolated deinit {}
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -153,6 +154,7 @@ extension HouseholdAppDelegate: UNUserNotificationCenterDelegate {
 // bridge is set once at launch so share-accept can merge into the right store.
 @MainActor
 final class HouseholdShareBridge {
+    nonisolated deinit {}
     static let shared = HouseholdShareBridge()
     private init() {}
     weak var store: GuestDataStore?
@@ -177,6 +179,7 @@ struct CloudSharingView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UICloudSharingController, context: Context) {}
 
     final class Coordinator: NSObject, UICloudSharingControllerDelegate {
+        nonisolated deinit {}
         func cloudSharingController(_ csc: UICloudSharingController,
                                     failedToSaveShareWithError error: Error) {
             Log.transfer.error("Share save failed: \(error.localizedDescription, privacy: .public)")
