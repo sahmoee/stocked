@@ -648,7 +648,7 @@ final class QASyncCoordinator {
         guard let bundle = await QATicketStore.shared.bundle(for: id) else { return false }
         let outcome = await QAFolderMirror.shared.write(bundle)
         folderLocation = await QAFolderMirror.shared.rootDescription()
-        if outcome.succeeded { QATicketStore.shared.stampMirrored(id) }
+        if outcome.succeeded { QATicketStore.shared.stampMirrored(id, expectedUpdatedAt: bundle.ticket.updatedAt) }
         let index = QATicketStore.shared.indexLines(forBuild: bundle.ticket.context.build)
         _ = await QAFolderMirror.shared.writeIndex(build: bundle.ticket.context.build,
                                                    lines: index.lines, summary: index.summary)
@@ -703,7 +703,7 @@ final class QASyncCoordinator {
         if folder.succeeded {
             anyLanded = true
             coreOk += 1
-            QATicketStore.shared.stampMirrored(id)
+            QATicketStore.shared.stampMirrored(id, expectedUpdatedAt: bundle.ticket.updatedAt)
         }
         folderLocation = await QAFolderMirror.shared.rootDescription()
 
@@ -725,7 +725,13 @@ final class QASyncCoordinator {
         if let shot = bundle.shot {
             let up = await QAShotUploader.upload(shot, number: bundle.number, kind: "screenshot")
             detail.append("screenshot: \(up.note)")
-            if up.succeeded { QATicketStore.shared.stampShotSynced(id) }
+            if up.succeeded { QATicketStore.shared.stampShotSynced(id, expectedUpdatedAt: bundle.ticket.updatedAt) }
+        } else if bundle.ticket.screenshotFile != nil && bundle.ticket.shotSyncedAt == nil {
+            // A retained reference still requires delivery even when Caches was
+            // reclaimed or reading the bytes failed. Keep the evidence reference
+            // and pending state, and make the missing destination explicit.
+            let missing = QASyncOutcome.failed("referenced screenshot bytes unavailable")
+            detail.append("screenshot: \(missing.note)")
         }
         if let mockup = bundle.mockup {
             let up = await QAShotUploader.upload(mockup, number: bundle.number, kind: "mockup")
@@ -740,7 +746,7 @@ final class QASyncCoordinator {
             if cp.succeeded {
                 anyLanded = true
                 coreOk += 1
-                QATicketStore.shared.stampCPanelSynced(id)
+                QATicketStore.shared.stampCPanelSynced(id, expectedUpdatedAt: bundle.ticket.updatedAt)
             }
         }
 
@@ -768,10 +774,16 @@ final class QASyncCoordinator {
             lastOutcome = "everything is already everywhere"
             return 0
         }
-        var done = 0
         for id in pending {
-            if await syncEverywhere(id) { done += 1 }
+            _ = await syncEverywhere(id)
         }
+        // Fan-out returns whether any copy landed. Completion instead requires
+        // every required destination on the current ticket. Re-read after all
+        // awaits so an edit during a later ticket's sync is not counted as done.
+        let attempted = Set(pending)
+        let done = QATicketStore.shared.tickets.filter {
+            attempted.contains($0.id) && $0.isFullySynced
+        }.count
         lastOutcome = "synced \(done) of \(pending.count)"
         return done
     }

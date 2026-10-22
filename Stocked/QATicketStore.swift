@@ -1443,20 +1443,23 @@ final class QATicketStore {
             .sorted { ($0.seenAgain ?? 0) > ($1.seenAgain ?? 0) }
     }
 
-    func stampMirrored(_ id: UUID) {
-        guard let i = tickets.firstIndex(where: { $0.id == id }) else { return }
+    func stampMirrored(_ id: UUID, expectedUpdatedAt: Date) {
+        guard let i = tickets.firstIndex(where: { $0.id == id }),
+              tickets[i].updatedAt == expectedUpdatedAt else { return }
         tickets[i].mirroredAt = Date()
         save()
     }
 
-    func stampShotSynced(_ id: UUID) {
-        guard let i = tickets.firstIndex(where: { $0.id == id }) else { return }
+    func stampShotSynced(_ id: UUID, expectedUpdatedAt: Date) {
+        guard let i = tickets.firstIndex(where: { $0.id == id }),
+              tickets[i].updatedAt == expectedUpdatedAt else { return }
         tickets[i].shotSyncedAt = Date()
         save()
     }
 
-    func stampCPanelSynced(_ id: UUID) {
-        guard let i = tickets.firstIndex(where: { $0.id == id }) else { return }
+    func stampCPanelSynced(_ id: UUID, expectedUpdatedAt: Date) {
+        guard let i = tickets.firstIndex(where: { $0.id == id }),
+              tickets[i].updatedAt == expectedUpdatedAt else { return }
         tickets[i].cpanelSyncedAt = Date()
         save()
     }
@@ -1490,8 +1493,12 @@ final class QATicketStore {
                     // to the folder mirror and cPanel would look unsynced to
                     // them again after pulling from another device, causing
                     // needless re-uploads and a wrong `destinationLine`.
-                    let localMirroredAt = tickets[index].mirroredAt
-                    let localCPanelSyncedAt = tickets[index].cpanelSyncedAt
+                    // Equal revisions keep their delivered copies. A newer
+                    // remote text revision must refresh folder/cPanel, while
+                    // unchanged retained local image evidence keeps its stamp.
+                    let newerRevision = updated > tickets[index].updatedAt
+                    let localMirroredAt = newerRevision ? nil : tickets[index].mirroredAt
+                    let localCPanelSyncedAt = newerRevision ? nil : tickets[index].cpanelSyncedAt
                     let localShotSyncedAt = tickets[index].shotSyncedAt
                     let localID = tickets[index].id
                     let capturedIdentity = tickets[index].context.identity
@@ -1581,11 +1588,12 @@ final class QATicketStore {
     /// alongside its own report, so a normal publish carries the tickets too.
     @discardableResult
     func publishUnsynced() async -> Bool {
-        guard !unsynced.isEmpty else { return true }
-        let pendingCount = unsynced.count
-        let landed = await QASyncCoordinator.shared.syncAllPending()
+        // Pull may import pending tickets even when the local queue is empty.
+        // Check current state after fan-out, including imports and edits made
+        // while destinations were awaiting, rather than comparing batch counts.
+        _ = await QASyncCoordinator.shared.syncAllPending()
         lastSyncOutcome = QASyncCoordinator.shared.lastOutcome
-        return landed == pendingCount
+        return unsynced.isEmpty
     }
 
     private func push(_ batch: [QATicket]) async -> Bool {
@@ -1622,8 +1630,15 @@ final class QATicketStore {
         do {
             let ok = try await QAReportTransport.post(payload)
             let stamp = Date()
+            var allCurrent = true
             for t in batch {
-                guard let i = tickets.firstIndex(where: { $0.id == t.id }) else { continue }
+                // The response belongs to the captured revision, not an edit
+                // made while thumbnails or transport were awaiting.
+                guard let i = tickets.firstIndex(where: { $0.id == t.id }),
+                      tickets[i].updatedAt == t.updatedAt else {
+                    allCurrent = false
+                    continue
+                }
                 if ok {
                     tickets[i].syncedAt = stamp
                     tickets[i].syncError = ""
@@ -1631,14 +1646,17 @@ final class QATicketStore {
                     tickets[i].syncError = "bridge rejected the ticket"
                 }
             }
-            lastSyncOutcome = ok
+            lastSyncOutcome = !allCurrent
+                ? "ticket changed during delivery — current revision still needs syncing"
+                : ok
                 ? "synced \(batch.count) ticket\(batch.count == 1 ? "" : "s") at \(stamp.formatted(date: .omitted, time: .shortened))"
                 : "bridge rejected the batch"
             save()
-            return ok
+            return ok && allCurrent
         } catch {
             for t in batch {
-                guard let i = tickets.firstIndex(where: { $0.id == t.id }) else { continue }
+                guard let i = tickets.firstIndex(where: { $0.id == t.id }),
+                      tickets[i].updatedAt == t.updatedAt else { continue }
                 tickets[i].syncError = error.localizedDescription
             }
             lastSyncOutcome = error.localizedDescription
