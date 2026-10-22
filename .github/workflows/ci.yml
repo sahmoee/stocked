@@ -23,6 +23,8 @@ jobs:
         run: cp Secrets.example.xcconfig Secrets.xcconfig
       - name: Test release package guards
         run: python3 scripts/test_release.py
+      - name: Check cross-platform backup interoperability
+        run: python3 scripts/test_backup_interop.py --swift-only
       - name: Build Stocked for a generic physical device
         run: |
           xcodebuild \

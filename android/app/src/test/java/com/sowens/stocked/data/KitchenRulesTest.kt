@@ -43,7 +43,7 @@ class KitchenRulesTest {
  @Test fun iosAliasesAndUnknownFieldsPreserved() {
   val text="""{"schemaVersion":3,"inventoryItems":[{"id":"00000000-0000-0000-0000-000000000001","name":"Milk","expirationDate":"2026-10-10T00:00:00Z","nutrition":{"calories":100}}],"features":{"saved":true}}"""
   val preview=BackupCodec.preview(text,KitchenState())
-  assertEquals("2026-10-10",preview.incoming.inventory.single().expirationDate)
+  assertEquals(java.time.Instant.parse("2026-10-10T00:00:00Z").atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString(),preview.incoming.inventory.single().expirationDate)
   val exported=BackupCodec.export(preview.incoming)
   assertTrue(exported.contains("nutrition")); assertTrue(exported.contains("features"))
  }
