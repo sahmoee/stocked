@@ -4,6 +4,7 @@ import com.sowens.stocked.data.*
 import kotlinx.serialization.json.*
 import java.util.UUID
 import java.time.Instant
+import java.math.RoundingMode
 
 /** Pure wire transforms. Local edits win on overlap; server tombstones never erase unsent edits. */
 object HouseholdWire {
@@ -13,10 +14,18 @@ object HouseholdWire {
  fun document(state:KitchenState):JsonObject {
   val root=BackupCodec.json.parseToJsonElement(BackupCodec.export(state)).jsonObject.toMutableMap()
   root.remove("_androidHousehold")
+  // Backup exports are canonical KitchenSnapshot sections. Household field
+  // names are a separate released contract used by the server and Apple clients.
+  root["inventory"] = root.remove("inventoryItems") ?: JsonArray(emptyList())
+  root["grocery"] = root.remove("groceryItems") ?: JsonArray(emptyList())
   // Household inventory uses the shipped iOS `zone` wire key. Backup JSON uses
   // `storageCategory`; neither contract may silently change the other.
   root["inventory"] = JsonArray((root["inventory"] as? JsonArray).orEmpty().map { value ->
-   val row=value.jsonObject
+   val row=value.jsonObject.toMutableMap()
+   // Keep the Android/server expiry extension as an ISO instant; Apple
+   // inventory parsers ignore it. Backup dates use Foundation reference
+   // seconds. Keep sync timestamps untouched.
+   row["expirationDate"]?.let { row["expirationDate"] = expirationInstant(it) }
    JsonObject(row.filterKeys { it!="storageCategory" } + ("zone" to (row["storageCategory"] ?: row["zone"] ?: JsonPrimitive("Pantry"))))
   })
   root["userRecipes"] = JsonArray((root["userRecipes"] as? JsonArray).orEmpty().map { value ->
@@ -33,16 +42,27 @@ object HouseholdWire {
    })
    JsonObject(row)
   })
-  root["plannedMeals"]=JsonArray(((root.remove("planned") ?: JsonArray(emptyList())) as JsonArray).map { value ->
+  root["plannedMeals"]=JsonArray((root["plannedMeals"] as? JsonArray).orEmpty().map { value ->
    val row=value.jsonObject.toMutableMap();row.putIfAbsent("isBuilding",JsonPrimitive(false));row.putIfAbsent("cookAheadStatus",JsonPrimitive("none"));JsonObject(row)
   })
   return JsonObject(root)
  }
+ private fun expirationInstant(value:JsonElement):JsonPrimitive {
+  val primitive=value.jsonPrimitive
+  if(primitive.isString) return JsonPrimitive(Instant.parse(primitive.content).toString())
+  // Decimal arithmetic preserves supplied subsecond precision while changing
+  // epoch/representation, rather than rounding through milliseconds or Double.
+  val epoch=primitive.content.toBigDecimal().add("978307200".toBigDecimal())
+  val seconds=epoch.setScale(0,RoundingMode.FLOOR)
+  val nanos=epoch.subtract(seconds).movePointRight(9).setScale(0,RoundingMode.HALF_UP)
+  return JsonPrimitive(Instant.ofEpochSecond(seconds.longValueExact(),nanos.longValueExact()).toString())
+ }
  fun kitchen(doc:JsonObject,local:KitchenState):KitchenState {
-  val data=mutableMapOf<String,JsonElement>("schemaVersion" to JsonPrimitive(1))
+  val data=mutableMapOf<String,JsonElement>("schemaVersion" to JsonPrimitive(3))
   collections.forEach{collection ->
    val value=doc[collection.key] ?: JsonArray(emptyList())
-   data[if(collection.key=="plannedMeals")"planned" else collection.key] = if(collection.key=="inventory") {
+   val backupKey=when(collection.key) { "inventory" -> "inventoryItems"; "grocery" -> "groceryItems"; else -> collection.key }
+   data[backupKey] = if(collection.key=="inventory") {
     JsonArray(value.jsonArray.map { item -> val row=item.jsonObject
      JsonObject(row + ("storageCategory" to (row["zone"] ?: row["storageCategory"] ?: JsonPrimitive("Pantry"))))
     })
