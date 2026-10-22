@@ -54,4 +54,47 @@ class HouseholdWireTest {
   assertEquals(1,HouseholdWire.rows(large,"userRecipes").size)
  }
 
+ @Test fun canonicalBackupFeedsAllReleasedHouseholdCollections() {
+  val text=javaClass.getResource("/backup/ios-canonical.json")!!.readText()
+  val state=com.sowens.stocked.data.BackupCodec.preview(text,com.sowens.stocked.data.KitchenState()).incoming
+  val wire=HouseholdWire.document(state)
+  val expected=listOf(state.inventory.single().id,state.grocery.single().id,state.userRecipes.single().id,state.planned.single().id)
+  HouseholdWire.collections.zip(expected).forEach { (collection,id) ->
+   assertEquals(id,wire.getValue(collection.key).jsonArray.single().jsonObject.getValue("id").jsonPrimitive.content)
+  }
+  assertFalse(wire.containsKey("inventoryItems"));assertFalse(wire.containsKey("groceryItems"));assertFalse(wire.containsKey("planned"))
+  val inventory=wire.getValue("inventory").jsonArray.single().jsonObject
+  assertEquals("Fridge",inventory.getValue("zone").jsonPrimitive.content)
+  assertEquals(3,inventory.getValue("quantity").jsonPrimitive.int)
+  assertEquals(java.time.Instant.ofEpochSecond(1778307200,125000000).toString(),inventory.getValue("expirationDate").jsonPrimitive.content)
+  assertEquals(1770000000123.0,inventory.getValue("updatedAt").jsonPrimitive.double,0.0)
+  val restored=HouseholdWire.kitchen(wire,state)
+  assertEquals(state.inventory.single().id,restored.inventory.single().id)
+  assertEquals(state.inventory.single().expirationDate,restored.inventory.single().expirationDate)
+  assertEquals(state.grocery.single().isChecked,restored.grocery.single().isChecked)
+  assertEquals(state.userRecipes.single().id,restored.userRecipes.single().id)
+  assertEquals(state.planned.single().isCooked,restored.planned.single().isCooked)
+  assertEquals(state.extra,restored.extra)
+ }
+ @Test fun nonemptyHouseholdRoundTripPreservesUnknownFieldsAndKnownDates() {
+  val inventory=com.sowens.stocked.data.InventoryItem(id="00000000-0000-0000-0000-000000000001",name="Milk",quantity=3,storageCategory="Fridge",expirationDate="2026-10-22",updatedAt=1770000000123.0,extra=buildJsonObject{put("nutrition",buildJsonObject{put("calories",100)})})
+  val grocery=com.sowens.stocked.data.GroceryItem(id="00000000-0000-0000-0000-000000000002",name="Rice",quantity=4,isChecked=true,extra=buildJsonObject{put("assignedTo","synthetic-member")})
+  val recipe=com.sowens.stocked.data.Recipe(id="00000000-0000-0000-0000-000000000003",title="Soup",isFavorited=true,ingredients=listOf(com.sowens.stocked.data.Ingredient(id="00000000-0000-0000-0000-000000000004",name="Milk",amount="1 cup",extra=buildJsonObject{put("isOptional",true);put("futureIngredient",42)})),extra=buildJsonObject{put("dateCreated",700000000.125);put("lastCooked",750000000.25);put("futureRecipe",true)})
+  val plan=com.sowens.stocked.data.PlannedMeal(id="00000000-0000-0000-0000-000000000005",title="Soup",servings=2,ingredients=listOf("Milk"),isCooked=true,extra=buildJsonObject{put("isBuilding",true);put("cookAheadStatus","stored");put("futurePlan","kept")})
+  val state=com.sowens.stocked.data.KitchenState(inventory=listOf(inventory),grocery=listOf(grocery),userRecipes=listOf(recipe),planned=listOf(plan),extra=buildJsonObject{put("localOnlySetting",true)})
+  val first=HouseholdWire.document(state)
+  val restored=HouseholdWire.kitchen(first,state)
+  val second=HouseholdWire.document(restored)
+  HouseholdWire.collections.forEach { collection ->
+   assertEquals(1,first.getValue(collection.key).jsonArray.size)
+   assertEquals(first.getValue(collection.key),second.getValue(collection.key))
+  }
+  assertEquals(3,restored.inventory.single().quantity);assertEquals("2026-10-22",restored.inventory.single().expirationDate)
+  assertEquals(4,restored.grocery.single().quantity);assertTrue(restored.grocery.single().isChecked)
+  assertTrue(restored.userRecipes.single().isFavorited);assertTrue(restored.planned.single().isCooked)
+  assertEquals(700000000.125,second.getValue("userRecipes").jsonArray.single().jsonObject.getValue("dateCreated").jsonPrimitive.double,0.0)
+  assertEquals(750000000.25,second.getValue("userRecipes").jsonArray.single().jsonObject.getValue("lastCooked").jsonPrimitive.double,0.0)
+  assertEquals(state.extra,restored.extra)
+ }
+
 }
