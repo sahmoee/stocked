@@ -98,6 +98,10 @@ enum QAInvariants {
                                discover: discover, inventory: inventory,
                                inStockNames: inStockNames, recipeIDs: recipeIDs)
         }
+        // Revision changes and cancellation can return from the probe loop before
+        // the await's cancellation handler is installed. Release the detached
+        // scan on every exit so an abandoned suite does not retain its catalog.
+        defer { catalogChecks.cancel() }
         await Task.yield()
 
         var out: [QAInvariantResult] = []
